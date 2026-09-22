@@ -288,7 +288,10 @@ func classifyProbeError(probeErr error, providerName string, masker credentialMa
 		// Gateway-authored text, so nothing to mask.
 		return answered(emptyErr.Error())
 	}
-	return classifyProbeFailure(providerName, errString(probeErr), clientGone, elapsed, stallTimeout, ttftTimeout, attempt)
+	// Fenced like the frame branch above: this text reaches the app log as the
+	// attempt's "error" attribute on both the failover and the hedged path, and
+	// a probe read error can carry an egress translator's error.
+	return classifyProbeFailure(providerName, fencedFrameMessage(fence, masker, errString(probeErr)), clientGone, elapsed, stallTimeout, ttftTimeout, attempt)
 }
 
 // classifyProbeFailure decides how a zero-token TTFT probe failure is recorded.

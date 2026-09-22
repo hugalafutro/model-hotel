@@ -1,6 +1,8 @@
 package proxy
 
 import (
+	"bufio"
+	"context"
 	"encoding/json"
 	"errors"
 	"io"
@@ -48,6 +50,36 @@ func modelTooLong(model string) bool {
 	return utf8.RuneCountInString(model) > maxModelNameRunes
 }
 
+// describeBodyReadFault names why a body could not be read, without quoting
+// it. It serves both directions. A chunked request's malformed trailer comes
+// back from a body read as a textproto.ProtocolError quoting the caller's line
+// verbatim, the leak describeMultipartFault closes on the multipart ingest; the
+// JSON routes read their bodies in streamingAwareTimeout today, so the
+// handler-level reads that log this only run for a route mounted without it,
+// and this keeps them from reopening the leak when one is. A response's
+// malformed trailer is already errMalformedTrailer by the time anything reads
+// it (trailerSafeTransport), and the TTFT probe's recovery lines name a failed
+// stream read by this class rather than by its text.
+func describeBodyReadFault(err error) string {
+	var tooLarge *http.MaxBytesError
+	var protocolErr textproto.ProtocolError
+	switch {
+	case errors.As(err, &tooLarge):
+		return "the body exceeded the size limit"
+	case errors.As(err, &protocolErr), errors.Is(err, errMalformedTrailer):
+		return "a trailer carried a malformed MIME header"
+	case errors.Is(err, bufio.ErrTooLong):
+		return "a line exceeded the reader's limit"
+	case errors.Is(err, context.Canceled):
+		return "the read was cancelled"
+	case errors.Is(err, context.DeadlineExceeded):
+		return "the read timed out"
+	case errors.Is(err, io.ErrUnexpectedEOF):
+		return "the body ended early"
+	}
+	return "the body could not be read"
+}
+
 // rejectOversizedModel is the one outcome every ingest path has for a model past
 // maxModelNameRunes: the pending row the caller already inserted is closed as a
 // validation failure carrying the excerpt rather than the field, subscribers see
@@ -61,28 +93,6 @@ func modelTooLong(model string) bool {
 // rejectIngest refuses a request at the ingest guards: the failure is stamped
 // on the log row with the validation kind and the same message goes back as the
 // OpenAI error envelope, so the row and the client agree on what was wrong.
-// describeBodyReadFault names why a request body could not be read, without
-// quoting it. net/http reads a chunked request's trailers when the body hits
-// EOF, and a malformed trailer comes back from the read as a
-// textproto.ProtocolError that quotes the caller's line verbatim, the leak
-// describeMultipartFault closes on the multipart ingest. The JSON routes read
-// their bodies in streamingAwareTimeout today, so the handler-level reads
-// that log this only run for a route mounted without it; this keeps them
-// from reopening the leak when one is.
-func describeBodyReadFault(err error) string {
-	var tooLarge *http.MaxBytesError
-	var protocolErr textproto.ProtocolError
-	switch {
-	case errors.As(err, &tooLarge):
-		return "the body exceeded the size limit"
-	case errors.As(err, &protocolErr):
-		return "a trailer carried a malformed MIME header"
-	case errors.Is(err, io.ErrUnexpectedEOF):
-		return "the body ended early"
-	}
-	return "the body could not be read"
-}
-
 func (h *Handler) rejectIngest(w http.ResponseWriter, logData *requestLogData, msg string, startTime time.Time, parseMs float64) {
 	h.failRequest(logData, http.StatusBadRequest, KindValidation, msg, 0, startTime, parseMs, resolveTimings{}, resolveCacheHits{}, 0)
 	writeOpenAIError(w, msg, http.StatusBadRequest)

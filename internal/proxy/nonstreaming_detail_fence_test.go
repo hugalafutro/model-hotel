@@ -1,8 +1,8 @@
 package proxy
 
 import (
+	"bufio"
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -238,35 +238,15 @@ func TestErrString_StripsAHeadPulledUnderTheCutByMasking(t *testing.T) {
 	}
 }
 
-// A 2xx body that will not decode is described by jsonfault: json's own type
-// error quotes the offending literal, and the literal is the completion's.
-// The gateway's own body-cap refusal keeps its text.
-func TestNonStreamingFailureDetail_DescribesADecodeErrorWithoutItsLiteral(t *testing.T) {
+// The gateway's own body-cap refusal keeps its text in the detail: it is this
+// gateway's prose, not the provider's, and it is what tells an operator why a
+// large answer was refused. (A decode failure is made content-free at its
+// source, readNonStreamingBody; see upstream_content_leak_test.go.)
+func TestNonStreamingFailureDetail_KeepsTheBodyCapRefusal(t *testing.T) {
 	t.Parallel()
 	resp := &http.Response{StatusCode: http.StatusOK, Header: http.Header{"Content-Type": {"application/json"}}}
-	// An overflow is the type error that quotes the literal ("cannot unmarshal
-	// number 24681357 into ... int8"); a number where a string is expected
-	// does not, and would make the assertion below vacuous. The precondition
-	// pins that the raw error really carries it.
-	body := []byte(`{"n":24681357}`)
-	var target struct {
-		N int8 `json:"n"`
-	}
-	decodeErr := json.Unmarshal(body, &target)
-	if decodeErr == nil || !strings.Contains(decodeErr.Error(), "24681357") {
-		t.Fatalf("the fixture must be a type error that quotes the literal, got %v", decodeErr)
-	}
-
-	_, detail, _, _ := nonStreamingFailureDetail(context.Background(), resp, body, nil, decodeErr, "m", nil, credentialMasker{})
-	if strings.Contains(detail, "24681357") {
-		t.Fatalf("the decode detail quoted the completion's literal: %s", detail)
-	}
-	if !strings.Contains(detail, "unexpected JSON value") {
-		t.Fatalf("the detail should still say what kind of fault it was: %s", detail)
-	}
-
 	capErr := fmt.Errorf("upstream response exceeds the cap: %w", httpx.ErrBodyTooLarge)
-	_, detail, _, _ = nonStreamingFailureDetail(context.Background(), resp, body, nil, capErr, "m", nil, credentialMasker{})
+	_, detail, _, _ := nonStreamingFailureDetail(context.Background(), resp, []byte("{"), nil, capErr, "m", nil, credentialMasker{})
 	if !strings.Contains(detail, "exceeds the cap") {
 		t.Fatalf("the gateway's own cap refusal lost its text: %s", detail)
 	}
@@ -284,6 +264,10 @@ func TestDescribeBodyReadFault_NamesTheClassNotTheBytes(t *testing.T) {
 		{&http.MaxBytesError{Limit: 1}, "the body exceeded the size limit"},
 		{textproto.ProtocolError("malformed MIME header: missing colon: " + sentinel), "a trailer carried a malformed MIME header"},
 		{fmt.Errorf("read: %w", io.ErrUnexpectedEOF), "the body ended early"},
+		{errMalformedTrailer, "a trailer carried a malformed MIME header"},
+		{bufio.ErrTooLong, "a line exceeded the reader's limit"},
+		{fmt.Errorf("read: %w", context.Canceled), "the read was cancelled"},
+		{fmt.Errorf("read: %w", context.DeadlineExceeded), "the read timed out"},
 		{errors.New(sentinel + " anything else"), "the body could not be read"},
 	} {
 		got := describeBodyReadFault(tc.err)

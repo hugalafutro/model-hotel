@@ -383,7 +383,8 @@ func deriveStreamError(st *streamState, scanErr error, opts streamOptions, logDa
 		// Classified first, then fenced: the classification stores nothing, so
 		// it reads the provider's words whether or not they may be kept. Every
 		// message derived below this point is the gateway's own and is never
-		// fenced.
+		// fenced, except the default scanner-error branch, which can carry a
+		// translator's error and is fenced where it is set.
 		errMsg = logData.fence().fenceUpstream(errMsg)
 	}
 	if errMsg == "" && scanErr != nil {
@@ -409,7 +410,14 @@ func deriveStreamError(st *streamState, scanErr error, opts streamOptions, logDa
 				logData.errorKind = cancelOriginToKind(opts.cancelOrigin)
 			}
 		default:
-			errMsg = scanErr.Error()
+			// Fenced: an egress translator's error reaches the stream as its
+			// read error, and a translator names one provider-chosen field (an
+			// error type) that can echo the request. The malformed-trailer
+			// error that used to quote the response is already replaced at
+			// the transport (trailerSafeTransport). A plain network error
+			// keeps its text: it echoes nothing and it is what an operator
+			// needs.
+			errMsg = logData.fence().fenceUpstream(errString(scanErr))
 			// The raw scanner error can embed the gateway's own address and the
 			// upstream's: keep it in the log, hand the client a coarse message.
 			st.clientErrMsg = "stream failed: upstream connection error"

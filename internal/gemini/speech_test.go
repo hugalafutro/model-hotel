@@ -167,6 +167,17 @@ func TestBuildSpeechResponse_NoAudio(t *testing.T) {
 			t.Errorf("finish said: err = %v, want the finish reason named", err)
 		}
 	}
+	// The block and finish reasons are named in their enum shape only: this
+	// error reaches the request log, and a relay is free to put prose in
+	// either field.
+	for name, body := range map[string]string{
+		"block reason":  `{"promptFeedback":{"blockReason":"user asked PIN 2468"}}`,
+		"finish reason": `{"candidates":[{"content":{"parts":[]},"finishReason":"user asked PIN 2468"}]}`,
+	} {
+		if _, _, _, err := BuildSpeechResponse([]byte(body), SpeechFormatWAV); err == nil || strings.Contains(err.Error(), "2468") {
+			t.Errorf("%s: prose reached the error: %v", name, err)
+		}
+	}
 	if _, _, _, err := BuildSpeechResponse([]byte(`not json`), SpeechFormatWAV); err == nil || errors.Is(err, ErrSpeechNoAudio) {
 		t.Errorf("undecodable body: err = %v, want a plain decode error", err)
 	}

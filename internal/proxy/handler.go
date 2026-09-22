@@ -3,8 +3,10 @@ package proxy
 import (
 	"context"
 	"errors"
+	"io"
 	"net"
 	"net/http"
+	"net/textproto"
 	"sync"
 	"time"
 
@@ -474,11 +476,63 @@ func (h *Handler) CapLedger() *provider.CapLedger {
 // http.DefaultTransport, which carries no DialContext and so no dial-time
 // guard. Callers that can be constructed without one check for it themselves.
 func (h *Handler) upstreamClient(ctx context.Context) *http.Client {
-	c := &http.Client{Transport: h.transportFor(ctx)}
+	// A nil transport is passed through as the typed nil it is, never left
+	// unset and never wrapped. An unset Transport IS http.DefaultTransport,
+	// which carries no DialContext, so the SafeDialer's guard against a
+	// provider URL resolving into the gateway's own network would be silently
+	// absent; the typed nil fails loudly inside RoundTrip instead (see
+	// model_probe.go, and the nil check every caller makes before using this).
+	t := h.transportFor(ctx)
+	var rt http.RoundTripper = t
+	if t != nil {
+		rt = trailerSafeTransport{t}
+	}
+	c := &http.Client{Transport: rt}
 	if h.safeDialer != nil {
 		c.CheckRedirect = h.safeDialer.CheckRedirect
 	}
 	return c
+}
+
+// trailerSafeTransport wraps every upstream response body so the one read
+// error that quotes the response itself cannot reach a log or a stored row.
+//
+// The upstream transport speaks HTTP/1.1 to every provider (it sets its own
+// DialContext and never enables HTTP/2), so a streaming answer is chunked, and
+// net/http reads a chunked body's trailers at EOF. A malformed trailer line
+// comes back from Read as a textproto.ProtocolError that quotes the line
+// verbatim ("malformed MIME header: missing colon: \"<the provider's line>\""),
+// and every reader of a response body (the stream scanner, the TTFT probe,
+// io.ReadAll on the non-streaming and passthrough paths) hands that error on
+// to error_message, the request.completed event and the app log. A provider
+// can put anything in that line, the request's own prompt included. Every
+// other chunked, gzip and flate error names a class and quotes nothing, so
+// this is the only carrier, and replacing it here covers every reader, present
+// and future, instead of each site that renders a read error.
+type trailerSafeTransport struct{ next http.RoundTripper }
+
+func (t trailerSafeTransport) RoundTrip(req *http.Request) (*http.Response, error) {
+	resp, err := t.next.RoundTrip(req)
+	if resp != nil && resp.Body != nil {
+		resp.Body = trailerSafeBody{resp.Body}
+	}
+	return resp, err
+}
+
+// errMalformedTrailer is what a malformed response trailer reads as. It is
+// still an error, so every classification that treats a failed body read as
+// the provider's fault is unchanged.
+var errMalformedTrailer = errors.New("upstream response carried a malformed trailer")
+
+type trailerSafeBody struct{ io.ReadCloser }
+
+func (b trailerSafeBody) Read(p []byte) (int, error) {
+	n, err := b.ReadCloser.Read(p)
+	var protocolErr textproto.ProtocolError
+	if err != nil && errors.As(err, &protocolErr) {
+		err = errMalformedTrailer
+	}
+	return n, err
 }
 
 // defaultUpstreamHeaderTimeout bounds the wait for a provider's response

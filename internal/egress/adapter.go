@@ -192,7 +192,11 @@ func (a *StreamAdapter) dispatchEvent() bool {
 	if err != nil {
 		// A malformed event or an upstream error event means the stream is
 		// dead; record it and stop translating so Read surfaces the failure.
-		debuglog.Warn(a.component+": stream event translate failed", "error", err)
+		// The error itself is not logged here: it names a provider-chosen
+		// field (an error type) that can echo the request, and this package
+		// has no content fence. It reaches the proxy as the stream's read
+		// error, where it is fenced before it is logged or stored.
+		debuglog.Warn(a.component + ": stream event translate failed")
 		a.transErr = err
 		return false
 	}

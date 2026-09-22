@@ -76,16 +76,10 @@ func nonStreamingFailureDetail(ctx context.Context, resp *http.Response, body []
 		// The content type is the upstream's own text on a detail that is stored
 		// (request_logs.error_message, the attempt trail), so it is bounded,
 		// sanitized and fenced like the body it describes.
-		// json's own error quotes the offending literal (a number from the
-		// completion), so a decode failure is described by jsonfault, the
-		// settled form on every other decode path. The body cap is this
-		// gateway's own refusal and keeps its text.
-		decodeDetail := jsonfault.Describe(decodeErr, len(body))
-		if errors.Is(decodeErr, httpx.ErrBodyTooLarge) {
-			decodeDetail = errString(decodeErr)
-		}
+		// decodeErr is already content-free: readNonStreamingBody describes a
+		// decode failure with jsonfault at its source.
 		detail = fmt.Sprintf("response decode error: %s (body_bytes=%d, content_type=%q)",
-			decodeDetail, len(body), fence.fenceUpstream(util.SanitizeLogBody(resp.Header.Get("Content-Type"), shortLogValueCap)))
+			errString(decodeErr), len(body), fence.fenceUpstream(util.SanitizeLogBody(resp.Header.Get("Content-Type"), shortLogValueCap)))
 		// The gateway's own cap is not the provider failing, so it is the one
 		// refusal here that leaves the circuit alone (translationIsProviderFault
 		// draws the same line for the paths that fail over).
@@ -545,7 +539,13 @@ func readNonStreamingBody(resp *http.Response, masker credentialMasker) nonStrea
 		// consulted alongside a decode failure, since a clean decode means the
 		// 2xx branch serves the answer without looking at it, so clearing it
 		// would claim a meaning it does not have.
-		ans.decodeErr = err
+		// Described by jsonfault rather than kept raw: json's own type error
+		// quotes the offending literal on an overflow ("cannot unmarshal
+		// number 24681357 into ... int8"), a number from the completion, and
+		// both consumers render this error (nonStreamingFailureDetail on the
+		// last candidate, rejectUntranslatableBody while a sibling remains).
+		// It stays an error, so translationIsProviderFault still charges it.
+		ans.decodeErr = errors.New(jsonfault.Describe(err, len(ans.body)))
 		if ans.readErr != nil {
 			ans.decodeErr = ans.readErr
 		}
