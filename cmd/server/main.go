@@ -61,6 +61,11 @@ func main() {
 	if err := config.LoadEnvFile(); err != nil {
 		log.Fatalf("Failed to load .env: %v", err)
 	}
+	// Every log line takes the credential mask: the held provider keys exactly,
+	// then any key-shaped token. Installed before Init so nothing is logged
+	// unmasked, and read per record, so keys held later (provider.HoldKeys at
+	// startup, a provider created at runtime) are masked from then on.
+	debuglog.SetMasker(func(s string) string { return util.MaskCredentials(nil, s) })
 	debuglog.Init()
 
 	cfg, err := config.Load()

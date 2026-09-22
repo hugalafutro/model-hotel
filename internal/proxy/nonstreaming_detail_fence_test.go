@@ -11,6 +11,7 @@ import (
 
 	"github.com/hugalafutro/model-hotel/internal/ctxkeys"
 	"github.com/hugalafutro/model-hotel/internal/provider"
+	"github.com/hugalafutro/model-hotel/internal/util"
 )
 
 // The decode-error detail is stored (request_logs.error_message, the attempt
@@ -144,5 +145,38 @@ func TestHedgeProbeLog_MasksTheProbeCandidatesCredential(t *testing.T) {
 	got := fencedFrameMessage(probe.fence(), probe.masks(), `Post "https://gw.example/v1?key=`+probeKey+`": malformed HTTP response`)
 	if strings.Contains(got, strings.Repeat("b", 40)) {
 		t.Fatalf("the probe candidate's key survived into the hedge log line: %s", got)
+	}
+}
+
+// errString cuts at 500 runes, and every later mask (the log handler, the row
+// choke point) sees only what survived the cut: a held key straddling rune 500
+// would reach them as a head no exact pass can match. It is masked before the
+// cut instead.
+func TestErrString_MasksAHeldKeyStraddlingTheCut(t *testing.T) {
+	t.Parallel()
+	key := "heldkeyerrstring-" + strings.Repeat("r", 24)
+	util.HoldSecret(key)
+	got := errString(errors.New(strings.Repeat("x", 495) + key))
+	if strings.Contains(got, key[:5]) {
+		t.Fatalf("the head of a held key survived errString's cut: %q", got[480:])
+	}
+}
+
+// The row's own counterpart of the log handler's masker: whatever built the
+// message, the terminal write masks it with the attempt's key before its own
+// cut. The key here is deliberately NOT held, so only the attempt's exact pass
+// can catch it, and it straddles the cut, so only masking before the cut can.
+func TestUpdateRequestLog_MasksTheRowBeforeTheCut(t *testing.T) {
+	t.Parallel()
+	key := "rowchokepointkey-" + strings.Repeat("s", 24)
+	entry := &requestLogData{
+		id:           "row-choke-point",
+		state:        "pending",
+		masker:       newCredentialMasker(key),
+		errorMessage: strings.Repeat("x", maxLogMessageRunes-5) + key + " tail",
+	}
+	(&Handler{}).updateRequestLog(entry)
+	if strings.Contains(entry.errorMessage, key[:5]) {
+		t.Fatalf("the head of the attempt's key survived the row's cut: %q", entry.errorMessage[len(entry.errorMessage)-40:])
 	}
 }

@@ -31,9 +31,16 @@ var uuidPattern = regexp.MustCompile(`(?i)[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0
 // function every path outside internal/proxy already reaches for before
 // writing an upstream body to a log or a column, and the one thing it did not
 // remove was the thing that matters most: an upstream that quotes the
-// operator's own key back in an auth failure. Callers that hold the decrypted
-// key should run MaskCredential over the result as well, which adds an exact
-// match for key shapes this list cannot anticipate.
+// operator's own key back in an auth failure.
+//
+// It runs the exact pass over the held set too (held_secrets.go), before the
+// cut. A shape-only scrub followed by the truncation leaves the head of a key
+// that is NOT key-shaped (plain hex, a custom gateway token) whenever it
+// straddles maxLen, and no later exact pass can match a head: the caller that
+// masks with the attempt's key afterwards is already too late. Every provider
+// key is held (provider.HoldKeys), so doing it here covers every caller at
+// once. A caller holding a key that is somehow not held should still use
+// MaskCredentialsBounded, which adds that key to the same pass.
 func SanitizeLogBody(body string, maxLen int) string {
 	// Scrub before truncating, but only over what can still reach the output.
 	//
@@ -49,7 +56,7 @@ func SanitizeLogBody(body string, maxLen int) string {
 		// the rune-safe truncation below, so the returned string is unaffected.
 		body = body[:maxLen+scrubMargin]
 	}
-	body = string(MaskKeyShapedTokens([]byte(body)))
+	body = string(MaskKeyShapedTokens([]byte(maskExact(nil, body))))
 	body = uuidPattern.ReplaceAllString(body, "[REDACTED]")
 	if len(body) > maxLen {
 		// Back up to the last valid UTF-8 rune boundary to avoid splitting multi-byte characters

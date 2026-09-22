@@ -33,6 +33,7 @@ import (
 	"github.com/hugalafutro/model-hotel/internal/httpx"
 	"github.com/hugalafutro/model-hotel/internal/otelexport"
 	"github.com/hugalafutro/model-hotel/internal/ratelimit"
+	"github.com/hugalafutro/model-hotel/internal/util"
 	"github.com/hugalafutro/model-hotel/internal/webauthn"
 )
 
@@ -45,6 +46,10 @@ var version = "dev"
 func main() {
 	// Init reads DEBUG_LOG (and DEBUG_LOG_SCOPES, LOG_FORMAT) from the
 	// environment itself, so Front Desk has no flag of its own to pass.
+	// Every log line takes the credential mask. Front Desk holds no provider
+	// keys, so this is the key-shape layer: a token or key some member or
+	// exporter quotes back is still caught.
+	debuglog.SetMasker(func(s string) string { return util.MaskCredentials(nil, s) })
 	debuglog.Init()
 
 	// Root context for process-lifetime background work and log-exporter shutdown.

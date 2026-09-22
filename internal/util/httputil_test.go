@@ -1158,3 +1158,23 @@ func TestStripProviderAuthHeaders(t *testing.T) {
 		})
 	}
 }
+
+// A held credential that is not key-shaped, straddling the cut, is masked
+// whole. Before the held-set exact pass ran inside SanitizeLogBody, the shape
+// pass left it alone, the truncation kept its head, and a caller masking with
+// the attempt's key afterwards could no longer match a head: every caller that
+// reached for SanitizeLogBody on a body longer than maxLen could leak one.
+func TestSanitizeLogBody_MasksAHeldSecretStraddlingTheCut(t *testing.T) {
+	secret := "heldsanitizesecret-" + strings.Repeat("q", 24)
+	HoldSecret(secret)
+	const maxLen = 50
+	body := strings.Repeat("x", 45) + secret + " and the rest of the error"
+
+	got := SanitizeLogBody(body, maxLen)
+	if strings.Contains(got, secret[:5]) {
+		t.Fatalf("the head of a held secret survived the cut: %q", got)
+	}
+	if !strings.HasPrefix(got, strings.Repeat("x", 45)) {
+		t.Fatalf("the text before the secret was lost: %q", got)
+	}
+}
