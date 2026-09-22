@@ -69,12 +69,12 @@ func (h *Handler) handleNativeNonStreaming(w http.ResponseWriter, r *http.Reques
 
 	body, err := httpx.ReadCappedBody(resp.Body, nonStreamingBodyCap)
 	if err != nil {
-		// Fenced here and not only in rejectUntranslatableBody below: this line is
-		// unconditional and fires first, so leaving it raw would publish the text
-		// the fenced line withholds.
-		debuglog.Warn("proxy: "+native.label()+" read failed",
-			"error", fencedFrameMessage(logData.fence(), logData.masks(), errString(err)),
-			"provider", logData.providerName)
+		// One fenced string, used for this warn line and for the row the
+		// last-candidate branch below stores. The warn is unconditional and fires
+		// first, and the row is what the dashboard shows, so a copy left raw in
+		// either place would publish exactly the text the other withholds.
+		fencedErr := fencedFrameMessage(logData.fence(), logData.masks(), errString(err))
+		debuglog.Warn("proxy: "+native.label()+" read failed", "error", fencedErr, "provider", logData.providerName)
 		// The same two gates the translated path applies, from the same two
 		// helpers: an abandoned attempt has nobody waiting for a second answer,
 		// and a body past this gateway's own cap is not something a sibling can
@@ -102,7 +102,7 @@ func (h *Handler) handleNativeNonStreaming(w http.ResponseWriter, r *http.Reques
 		logData.responseHeaderMs = responseHeaderMs
 		logData.failoverAttempt = attempt
 		logData.errorKind = kind
-		logData.errorMessage = "failed to read upstream response: " + err.Error()
+		logData.errorMessage = "failed to read upstream response: " + fencedErr
 		logData.state = "failed"
 		h.updateRequestLog(logData, updateLogOption{skipWaitForInsert: true})
 		native.writeError(w, "failed to read upstream response", http.StatusBadGateway)

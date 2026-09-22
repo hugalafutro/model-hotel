@@ -96,7 +96,8 @@ func (h *Handler) doUpstream(ctx context.Context, req *http.Request, st *request
 		// context is cancelled during the backoff and overwrites `err` below.
 		lastTransportErr = err
 		backoff := failoverBackoff(100*time.Millisecond, 500*time.Millisecond, try+1)
-		debuglog.Warn("proxy: transient upstream error, retrying same provider", "attempt", attempt+1, "try", try+1, "backoff", backoff, "request_written", wroteRequest.Load(), "provider", candidate.provider.Name, "provider_id", candidate.provider.ID, "error", err)
+		debuglog.Warn("proxy: transient upstream error, retrying same provider", "attempt", attempt+1, "try", try+1, "backoff", backoff, "request_written", wroteRequest.Load(), "provider", candidate.provider.Name, "provider_id", candidate.provider.ID,
+			"error", fencedFrameMessage(logData.fence(), logData.masks(), errString(err)))
 		select {
 		case <-time.After(backoff):
 		case <-dialCtx.Done():
@@ -130,7 +131,8 @@ func (h *Handler) doUpstream(ctx context.Context, req *http.Request, st *request
 				Provider:   candidate.provider.Name,
 				Underlying: errString(err),
 			})
-			debuglog.Warn("proxy: upstream sent no response headers before the header timeout", "attempt", attempt+1, "provider", candidate.provider.Name, "provider_id", candidate.provider.ID, "error", err)
+			debuglog.Warn("proxy: upstream sent no response headers before the header timeout", "attempt", attempt+1, "provider", candidate.provider.Name, "provider_id", candidate.provider.ID,
+				"error", fencedFrameMessage(logData.fence(), logData.masks(), errString(err)))
 		case isContextErr:
 			cancelOrigin := resolveCancelOrigin(dialCtx, err)
 			abandoned = requestAbandoned(dialCtx, err)
@@ -155,7 +157,8 @@ func (h *Handler) doUpstream(ctx context.Context, req *http.Request, st *request
 			})
 			// A transport error quotes what came back off the wire (net/http's
 			// "malformed HTTP status code %q" carries the upstream's own bytes), so
-			// it gets the pass the Underlying above already gets downstream.
+			// this line takes the same mask-then-fence pass setReqErr gives the
+			// Underlying above it.
 			debuglog.Warn("proxy: upstream request failed", "attempt", attempt+1, "provider", candidate.provider.Name, "provider_id", candidate.provider.ID,
 				"error", fencedFrameMessage(logData.fence(), logData.masks(), errString(err)))
 		}

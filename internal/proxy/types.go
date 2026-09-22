@@ -469,13 +469,16 @@ type requestState struct {
 // and classify.
 //
 // Underlying is the one field that can hold upstream text (an SSE error frame,
-// a provider's sentence), and the exhaustion path renders it into the row's
-// error_message, so it is fenced here, once, before anything reads it. Kind,
+// a provider's sentence, a transport error quoting what came off the wire), and
+// the exhaustion path renders it into the row's error_message, so it is masked
+// and then fenced here, once, before anything reads it. Masked first, the order
+// fencedFrameMessage uses: a provider is free to quote the operator's key back,
+// and the row reaches the dashboard. Kind,
 // Detail and Hint are written by this package and are never fenced, which is
 // what keeps a prompt quoting gateway wording from blanking the gateway's own
 // diagnosis of the failure.
 func (st *requestState) setReqErr(e reqError) {
-	e.Underlying = st.logData.fence().fenceUpstream(e.Underlying)
+	e.Underlying = st.logData.fence().fenceUpstream(string(st.logData.masks().mask([]byte(e.Underlying))))
 	st.lastReqErr = e
 	st.lastErr = e.render()
 }

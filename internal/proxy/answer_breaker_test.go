@@ -950,7 +950,7 @@ func TestNonStreamingFailureDetail_ClassifiesTheReadFailure(t *testing.T) {
 			if tc.want == KindProviderBadRequest {
 				decodeErr = fmt.Errorf("upstream response exceeds the cap: %w", httpx.ErrBodyTooLarge)
 			}
-			_, _, kind, _ := nonStreamingFailureDetail(context.Background(), resp, []byte("{"), tc.readErr, decodeErr, "m", nil)
+			_, _, kind, _ := nonStreamingFailureDetail(context.Background(), resp, []byte("{"), tc.readErr, decodeErr, "m", nil, credentialMasker{})
 			if kind != tc.want {
 				t.Errorf("kind = %q, want %q", kind, tc.want)
 			}

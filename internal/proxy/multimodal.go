@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"io"
 	"net/http"
 	"strconv"
@@ -524,8 +523,12 @@ func (h *Handler) serveStreamedPassthrough(w http.ResponseWriter, r *http.Reques
 		if !abandoned {
 			h.chargeBreaker(st, candidate, resp.StatusCode, "upstream body read failed")
 		}
-		debuglog.Warn("proxy: passthrough first-byte read failed", "endpoint", logData.endpointType, "model", logData.modelID, "provider", logData.providerName, "error", readErr)
-		h.finalizePassthroughLog(st, resp.StatusCode, attempt, responseHeaderMs, 0, 0, "failed", fmt.Sprintf("upstream body read error: %v", readErr))
+		// The buffered twin above takes the same pass for the same reason: the
+		// read error describes the upstream's body, so the warn line and the
+		// stored detail share one masked, fenced string.
+		fencedErr := fencedFrameMessage(logData.fence(), logData.masks(), errString(readErr))
+		debuglog.Warn("proxy: passthrough first-byte read failed", "endpoint", logData.endpointType, "model", logData.modelID, "provider", logData.providerName, "error", fencedErr)
+		h.finalizePassthroughLog(st, resp.StatusCode, attempt, responseHeaderMs, 0, 0, "failed", "upstream body read error: "+fencedErr)
 		writeOpenAIError(w, "upstream produced no response data", http.StatusBadGateway)
 		return outcomeFatal
 	}
@@ -601,13 +604,17 @@ func (h *Handler) serveStreamedPassthrough(w http.ResponseWriter, r *http.Reques
 	}
 
 	if copyErr != nil {
-		errMsg := fmt.Sprintf("response copy error: %v", copyErr)
+		// io.Copy reports the upstream body's read error, the class the
+		// first-byte path above fences, so the stored message and the warn line
+		// below take the same string. requestAbandoned still reads copyErr.
+		fencedCopyErr := fencedFrameMessage(logData.fence(), logData.masks(), errString(copyErr))
+		errMsg := "response copy error: " + fencedCopyErr
 		// r carries the attempt's context, so a bare cancel check would call
 		// this gateway's own per-attempt deadline a client leaving.
 		if requestAbandoned(r.Context(), copyErr) {
 			errMsg = "client disconnected during response"
 		}
-		debuglog.Warn("proxy: passthrough copy interrupted", "endpoint", logData.endpointType, "model", logData.modelID, "provider", logData.providerName, "bytes", written, "error", copyErr)
+		debuglog.Warn("proxy: passthrough copy interrupted", "endpoint", logData.endpointType, "model", logData.modelID, "provider", logData.providerName, "bytes", written, "error", fencedCopyErr)
 		// The provider billed whatever it produced, whether or not the client
 		// stayed to receive it. Bytes reached the client, so an absent usage
 		// report is estimated rather than treated as free. This is the path
