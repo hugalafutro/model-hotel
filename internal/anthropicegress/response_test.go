@@ -418,3 +418,16 @@ func TestBuildChatCompletion_NotAMessage(t *testing.T) {
 		})
 	}
 }
+
+// upstreamError names error.type and nothing else, and the egress adapter logs
+// the result raw. A relay that puts the prompt in the field gets "unknown"
+// into the log instead; a real Anthropic type reads unchanged.
+func TestUpstreamError_NamesOnlyAnEnumShapedType(t *testing.T) {
+	if got := upstreamError(&antRespError{Type: "overloaded_error"}).Error(); !strings.Contains(got, "overloaded_error") {
+		t.Fatalf("a real type was lost: %q", got)
+	}
+	got := upstreamError(&antRespError{Type: "the user said PIN 2468"}).Error()
+	if strings.Contains(got, "2468") || !strings.Contains(got, "unknown") {
+		t.Fatalf("prose in error.type reached the error: %q", got)
+	}
+}

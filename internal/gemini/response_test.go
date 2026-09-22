@@ -2,6 +2,7 @@ package gemini
 
 import (
 	"encoding/json"
+	"errors"
 	"strings"
 	"testing"
 )
@@ -240,5 +241,19 @@ func TestCompactJSON_EmptyAndInvalidBecomeAnEmptyObject(t *testing.T) {
 		if got != want {
 			t.Errorf("compactJSON(%q) = %q, want %q", raw, got, want)
 		}
+	}
+}
+
+// The block reason is the one field of a blocked prompt this error names, and
+// it is named only in its enum shape: a relay that puts prose in it gets
+// "unknown", while a real Gemini reason reads unchanged.
+func TestBuildChatCompletion_NamesOnlyAnEnumShapedBlockReason(t *testing.T) {
+	_, err := BuildChatCompletion([]byte(`{"promptFeedback": {"blockReason": "SAFETY"}}`), "id", "m", 0)
+	if err == nil || !strings.Contains(err.Error(), "SAFETY") || !errors.Is(err, ErrPromptBlocked) {
+		t.Fatalf("a real block reason was lost: %v", err)
+	}
+	_, err = BuildChatCompletion([]byte(`{"promptFeedback": {"blockReason": "user asked PIN 2468"}}`), "id", "m", 0)
+	if err == nil || strings.Contains(err.Error(), "2468") {
+		t.Fatalf("prose in blockReason reached the error: %v", err)
 	}
 }

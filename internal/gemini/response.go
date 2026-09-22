@@ -175,7 +175,7 @@ func BuildChatCompletion(body []byte, id, model string, created int64) ([]byte, 
 	}
 	if len(resp.Candidates) == 0 {
 		if resp.PromptFeedback != nil && resp.PromptFeedback.BlockReason != "" {
-			return nil, fmt.Errorf("gemini: prompt blocked: %s: %w", resp.PromptFeedback.BlockReason, ErrPromptBlocked)
+			return nil, fmt.Errorf("gemini: prompt blocked: %s: %w", util.EnumToken(resp.PromptFeedback.BlockReason), ErrPromptBlocked)
 		}
 		// No candidates and no stated reason: not Gemini declining to answer,
 		// but a body that carries none at all (an aggregator's error envelope,

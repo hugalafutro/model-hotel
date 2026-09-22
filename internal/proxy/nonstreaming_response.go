@@ -14,6 +14,7 @@ import (
 
 	"github.com/hugalafutro/model-hotel/internal/debuglog"
 	"github.com/hugalafutro/model-hotel/internal/httpx"
+	"github.com/hugalafutro/model-hotel/internal/jsonfault"
 	"github.com/hugalafutro/model-hotel/internal/util"
 )
 
@@ -75,8 +76,16 @@ func nonStreamingFailureDetail(ctx context.Context, resp *http.Response, body []
 		// The content type is the upstream's own text on a detail that is stored
 		// (request_logs.error_message, the attempt trail), so it is bounded,
 		// sanitized and fenced like the body it describes.
+		// json's own error quotes the offending literal (a number from the
+		// completion), so a decode failure is described by jsonfault, the
+		// settled form on every other decode path. The body cap is this
+		// gateway's own refusal and keeps its text.
+		decodeDetail := jsonfault.Describe(decodeErr, len(body))
+		if errors.Is(decodeErr, httpx.ErrBodyTooLarge) {
+			decodeDetail = errString(decodeErr)
+		}
 		detail = fmt.Sprintf("response decode error: %s (body_bytes=%d, content_type=%q)",
-			errString(decodeErr), len(body), fence.fenceUpstream(util.SanitizeLogBody(resp.Header.Get("Content-Type"), shortLogValueCap)))
+			decodeDetail, len(body), fence.fenceUpstream(util.SanitizeLogBody(resp.Header.Get("Content-Type"), shortLogValueCap)))
 		// The gateway's own cap is not the provider failing, so it is the one
 		// refusal here that leaves the circuit alone (translationIsProviderFault
 		// draws the same line for the paths that fail over).

@@ -195,8 +195,10 @@ func toolArguments(input json.RawMessage) string {
 // is named: error.message can echo request content.
 func upstreamError(e *antRespError) error {
 	kind := "unknown"
-	if e != nil && e.Type != "" {
-		kind = e.Type
+	if e != nil {
+		// Named only in its enum shape: this error is logged raw by the
+		// egress adapter, and a relay is free to put prose in the field.
+		kind = util.EnumToken(e.Type)
 	}
 	return fmt.Errorf("anthropicegress: upstream error: %s", kind)
 }

@@ -2,8 +2,10 @@ package proxy
 
 import (
 	"encoding/json"
+	"errors"
 	"io"
 	"net/http"
+	"net/textproto"
 	"strings"
 	"time"
 	"unicode/utf8"
@@ -59,6 +61,28 @@ func modelTooLong(model string) bool {
 // rejectIngest refuses a request at the ingest guards: the failure is stamped
 // on the log row with the validation kind and the same message goes back as the
 // OpenAI error envelope, so the row and the client agree on what was wrong.
+// describeBodyReadFault names why a request body could not be read, without
+// quoting it. net/http reads a chunked request's trailers when the body hits
+// EOF, and a malformed trailer comes back from the read as a
+// textproto.ProtocolError that quotes the caller's line verbatim, the leak
+// describeMultipartFault closes on the multipart ingest. The JSON routes read
+// their bodies in streamingAwareTimeout today, so the handler-level reads
+// that log this only run for a route mounted without it; this keeps them
+// from reopening the leak when one is.
+func describeBodyReadFault(err error) string {
+	var tooLarge *http.MaxBytesError
+	var protocolErr textproto.ProtocolError
+	switch {
+	case errors.As(err, &tooLarge):
+		return "the body exceeded the size limit"
+	case errors.As(err, &protocolErr):
+		return "a trailer carried a malformed MIME header"
+	case errors.Is(err, io.ErrUnexpectedEOF):
+		return "the body ended early"
+	}
+	return "the body could not be read"
+}
+
 func (h *Handler) rejectIngest(w http.ResponseWriter, logData *requestLogData, msg string, startTime time.Time, parseMs float64) {
 	h.failRequest(logData, http.StatusBadRequest, KindValidation, msg, 0, startTime, parseMs, resolveTimings{}, resolveCacheHits{}, 0)
 	writeOpenAIError(w, msg, http.StatusBadRequest)
@@ -118,7 +142,7 @@ func (h *Handler) ingestRequest(w http.ResponseWriter, r *http.Request, endpoint
 			var err error
 			bodyBytes, err = io.ReadAll(r.Body)
 			if err != nil {
-				debuglog.Warn("proxy: failed to read request body", "error", err)
+				debuglog.Warn("proxy: failed to read request body", "fault", describeBodyReadFault(err))
 				publishRequestStartedEvent(logData)
 				h.rejectIngest(w, logData, "failed to read request body", startTime, parseMs)
 				return nil, false

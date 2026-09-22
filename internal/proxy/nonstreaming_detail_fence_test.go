@@ -2,15 +2,19 @@ package proxy
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"net/http"
+	"net/textproto"
 	"strings"
 	"testing"
 	"time"
 	"unicode/utf8"
 
 	"github.com/hugalafutro/model-hotel/internal/ctxkeys"
+	"github.com/hugalafutro/model-hotel/internal/httpx"
 	"github.com/hugalafutro/model-hotel/internal/provider"
 	"github.com/hugalafutro/model-hotel/internal/util"
 )
@@ -231,5 +235,60 @@ func TestErrString_StripsAHeadPulledUnderTheCutByMasking(t *testing.T) {
 	got := errString(errors.New(strings.Repeat(key, 24)))
 	if strings.Contains(got, key[:16]) {
 		t.Fatalf("a held key's head survived errString: %q", got)
+	}
+}
+
+// A 2xx body that will not decode is described by jsonfault: json's own type
+// error quotes the offending literal, and the literal is the completion's.
+// The gateway's own body-cap refusal keeps its text.
+func TestNonStreamingFailureDetail_DescribesADecodeErrorWithoutItsLiteral(t *testing.T) {
+	t.Parallel()
+	resp := &http.Response{StatusCode: http.StatusOK, Header: http.Header{"Content-Type": {"application/json"}}}
+	// An overflow is the type error that quotes the literal ("cannot unmarshal
+	// number 24681357 into ... int8"); a number where a string is expected
+	// does not, and would make the assertion below vacuous. The precondition
+	// pins that the raw error really carries it.
+	body := []byte(`{"n":24681357}`)
+	var target struct {
+		N int8 `json:"n"`
+	}
+	decodeErr := json.Unmarshal(body, &target)
+	if decodeErr == nil || !strings.Contains(decodeErr.Error(), "24681357") {
+		t.Fatalf("the fixture must be a type error that quotes the literal, got %v", decodeErr)
+	}
+
+	_, detail, _, _ := nonStreamingFailureDetail(context.Background(), resp, body, nil, decodeErr, "m", nil, credentialMasker{})
+	if strings.Contains(detail, "24681357") {
+		t.Fatalf("the decode detail quoted the completion's literal: %s", detail)
+	}
+	if !strings.Contains(detail, "unexpected JSON value") {
+		t.Fatalf("the detail should still say what kind of fault it was: %s", detail)
+	}
+
+	capErr := fmt.Errorf("upstream response exceeds the cap: %w", httpx.ErrBodyTooLarge)
+	_, detail, _, _ = nonStreamingFailureDetail(context.Background(), resp, body, nil, capErr, "m", nil, credentialMasker{})
+	if !strings.Contains(detail, "exceeds the cap") {
+		t.Fatalf("the gateway's own cap refusal lost its text: %s", detail)
+	}
+}
+
+// Every class describeBodyReadFault names, none of them quoting the body: the
+// trailer case is the one that did, since textproto quotes the caller's line.
+func TestDescribeBodyReadFault_NamesTheClassNotTheBytes(t *testing.T) {
+	t.Parallel()
+	const sentinel = "ZZBODYSENTINELZZ"
+	for _, tc := range []struct {
+		err  error
+		want string
+	}{
+		{&http.MaxBytesError{Limit: 1}, "the body exceeded the size limit"},
+		{textproto.ProtocolError("malformed MIME header: missing colon: " + sentinel), "a trailer carried a malformed MIME header"},
+		{fmt.Errorf("read: %w", io.ErrUnexpectedEOF), "the body ended early"},
+		{errors.New(sentinel + " anything else"), "the body could not be read"},
+	} {
+		got := describeBodyReadFault(tc.err)
+		if got != tc.want || strings.Contains(got, sentinel) {
+			t.Errorf("describeBodyReadFault(%v) = %q, want %q", tc.err, got, tc.want)
+		}
 	}
 }
