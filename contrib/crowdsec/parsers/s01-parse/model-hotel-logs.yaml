@@ -36,10 +36,16 @@ pattern_syntax:
   # (auth lines), remote (access log), client_ip (proxy) and ip (the IP rate
   # limiter). This captures the whole token; the IP itself is validated after.
   #
-  # It reads mh_attrs, the attribute tail of the record, and only the part of
-  # it before the first quote, so a value can never supply an address. See the
+  # It reads mh_attrs, the attribute tail of the record, and skips over every
+  # complete quoted value on the way, so the token it finds is always real
+  # attribute text and never something a caller wrote inside a value. See the
   # mh_attrs captures below for how that tail is taken from each shape.
-  MH_ADDR: '^[^"]*(^| )(remote_addr|remote|client_ip|ip)=%{NOTSPACE:mh_rawaddr}( |$)'
+  #
+  # The skip has to step OVER quoted values rather than stop at the first one:
+  # a record may quote a value before it names the address ("oidc: callback
+  # failed reason=\"nonce mismatch\" remote_addr=..."), and stopping early
+  # would silently drop its source_ip.
+  MH_ADDR: '^(?:[^"]|"(?:[^"\\]|\\.)*")*?(?:^|[ ])(remote_addr|remote|client_ip|ip)=%{NOTSPACE:mh_rawaddr}(?: |$)'
 nodes:
   # ---- normalise ------------------------------------------------------------
 
@@ -65,9 +71,9 @@ nodes:
   # classification anchors at the start.
   #
   # mh_attrs is the whole line here: this shape writes its message unquoted, so
-  # the first quote on the line opens the first quoted VALUE, and everything
-  # the address rules need sits before it. The gateway's own messages are
-  # fixed strings, so nothing a caller writes reaches that part of the line.
+  # every quote on the line opens a quoted VALUE, which the address rules skip
+  # over. The gateway's own messages are fixed strings, so nothing a caller
+  # writes reaches the unquoted text those rules read.
   - grok:
       pattern: '^%{MH_TIME:mh_time} level=%{WORD:mh_level} %{GREEDYDATA:mh_body}$'
       apply_on: message
@@ -188,7 +194,7 @@ nodes:
       apply_on: message
 
   # Text: the first address-named token of the attribute tail, whatever it
-  # holds. Confined to the unquoted head of that tail by MH_ADDR, so a value
+  # holds. MH_ADDR skips over every quoted value in that tail, so a value
   # cannot supply one however it is ordered.
   - grok:
       pattern: '%{MH_ADDR}'
@@ -201,15 +207,14 @@ nodes:
   # without a source_ip, which keeps it out of every scenario (they all
   # require one).
   #
-  # Both halves are confined to the unquoted head of mh_attrs ([^"]*), so a
-  # forged address inside a quoted value does NOT trip this. That is the
-  # difference between a caller poisoning the record (impossible: an address
-  # token can only be read from unquoted attribute text, which no caller
-  # writes) and a caller suppressing it (which this must not allow, or
-  # appending "remote_addr=" to a request path would be a way to never get
-  # banned).
+  # Both halves skip over quoted values the same way MH_ADDR does, so a forged
+  # address inside a quoted value does NOT trip this. That is the difference
+  # between a caller poisoning the record (impossible: an address token is
+  # only ever read from real attribute text) and a caller suppressing it
+  # (which this must not allow, or appending "remote_addr=" to a request path
+  # would be a way to never get banned).
   - grok:
-      pattern: '^[^"]*(^| )(remote_addr|remote|client_ip|ip)=%{NOTSPACE} [^"]*[ ](remote_addr|remote|client_ip|ip)=%{NOTSPACE:mh_dupaddr}'
+      pattern: '^(?:[^"]|"(?:[^"\\]|\\.)*")*?(?:^|[ ])(remote_addr|remote|client_ip|ip)=%{NOTSPACE} (?:[^"]|"(?:[^"\\]|\\.)*")*?[ ](remote_addr|remote|client_ip|ip)=%{NOTSPACE:mh_dupaddr}'
       apply_on: mh_attrs
 
   # Both shapes end here. Only now is the candidate required to be an address,

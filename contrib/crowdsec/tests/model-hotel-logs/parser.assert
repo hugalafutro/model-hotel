@@ -1,8 +1,8 @@
 len(results) == 4
-len(results["s00-raw"]["crowdsecurity/syslog-logs"]) == 33
-len(results["s00-raw"]["crowdsecurity/non-syslog"]) == 33
-len(results["s01-parse"]["hugalafutro/model-hotel-logs"]) == 33
-len(results["s02-enrich"]["crowdsecurity/dateparse-enrich"]) == 29
+len(results["s00-raw"]["crowdsecurity/syslog-logs"]) == 35
+len(results["s00-raw"]["crowdsecurity/non-syslog"]) == 35
+len(results["s01-parse"]["hugalafutro/model-hotel-logs"]) == 35
+len(results["s02-enrich"]["crowdsecurity/dateparse-enrich"]) == 31
 len(results["success"][""]) == 0
 
 results["s01-parse"]["hugalafutro/model-hotel-logs"][0].Success == true

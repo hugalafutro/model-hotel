@@ -484,12 +484,13 @@ Three rules make that inert, and they are why the parser is written the way it i
    follows `level=<LEVEL> `, and every filter is anchored to the start of it with `startsWith`.
    A copy of a message that appears further along the line, inside an attribute value, matches
    nothing. This is also why you will not find `contains` anywhere in the classification.
-2. **The address is read from the attribute tail, before its first quote, and is validated only
-   after it is taken.** `mh_attrs` is the part of the record that holds its attributes: on a Front
-   Desk line, everything after the quoted `msg="…"`; on a gateway line, the line itself, whose
-   message is unquoted so the first quote opens the first quoted value. Only the part of that tail
-   before its first quote is searched, so an address token can come from nowhere but real,
-   unquoted attribute text.
+2. **The address is read from the attribute tail, skipping every quoted value, and is validated
+   only after it is taken.** `mh_attrs` is the part of the record that holds its attributes: on a
+   Front Desk line, everything after the quoted `msg="…"`; on a gateway line, the line itself,
+   whose message is unquoted. The search walks that tail over complete quoted spans rather than
+   stopping at the first one, so an address token can come from nowhere but real attribute text,
+   and a record that quotes a value *before* it names the address
+   (`oidc: callback failed reason="nonce mismatch" remote_addr=…`) still yields one.
 
    Cutting the Front Desk tail at the closing quote is load bearing, not tidiness. Front Desk
    interpolates caller-chosen text into a message: a fleet member's name reaches
@@ -507,7 +508,7 @@ Three rules make that inert, and they are why the parser is written the way it i
    pair came out of where an attribute belongs. Such an event is left with no `source_ip`, and
    every scenario requires one, so it cannot reach a bucket.
 
-   The confinement to unquoted text is deliberate. A forged `remote_addr=` inside a request path
+   Skipping quoted values rather than refusing on them is deliberate. A forged `remote_addr=` inside a request path
    must *not* refuse the line, or appending one to every request would be a way to keep your own
    authentication failures out of the buckets and never be banned. Rule 2 is what stops poisoning;
    suppression is what this rule must avoid enabling.
