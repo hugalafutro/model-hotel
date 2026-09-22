@@ -193,11 +193,9 @@ func maskAnyDepth(fn func(string) string, x any, depth int) (any, bool) {
 	}
 	// A struct, a pointer to one, an interface: rendered the way the text
 	// handler prints it, and replaced by the masked rendering only if that
-	// differs.
-	rendered, ok := safeText(func() string { return fmt.Sprintf("%+v", x) })
-	if !ok {
-		return nil, false
-	}
+	// differs. fmt recovers a panicking String, Error or Format method itself
+	// (it prints "%!v(PANIC=...)"), so no guard is needed here.
+	rendered := fmt.Sprintf("%+v", x)
 	if masked := fn(rendered); masked != rendered {
 		return masked, true
 	}

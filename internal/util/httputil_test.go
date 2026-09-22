@@ -1205,3 +1205,24 @@ func TestStripSecretTail_RedactsAHeldHeadAtTheEnd(t *testing.T) {
 		t.Fatalf("a head shorter than a credential was redacted: %q", got)
 	}
 }
+
+// MaskLogText is the form the request-content fence indexes: every rewrite a
+// fragment can take before it is fenced, and no truncation.
+func TestMaskLogText_AppliesEveryPreFenceRewrite(t *testing.T) {
+	secret := "masklogtextsecret-" + strings.Repeat("m", 20)
+	HoldSecret(secret)
+	got := MaskLogText("held " + secret + " uuid 793ac38b-0211-43e6-baa7-aa7054c39931 " + strings.Repeat("x", 20000))
+	if strings.Contains(got, secret) || strings.Contains(got, "793ac38b") {
+		t.Fatalf("a held secret or a UUID survived: %q", got[:120])
+	}
+	if !strings.HasSuffix(got, strings.Repeat("x", 100)) {
+		t.Fatal("MaskLogText truncated; the fence needs the whole text")
+	}
+}
+
+// A cut at or past the end splits nothing, and must not slice out of range.
+func TestRedactStraddling_IgnoresACutPastTheEnd(t *testing.T) {
+	if got := redactStraddling("short", 10, []string{"shortsecret"}); got != "short" {
+		t.Fatalf("got %q, want the body untouched", got)
+	}
+}

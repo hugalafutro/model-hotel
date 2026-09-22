@@ -69,11 +69,14 @@ func SanitizeLogBody(body string, maxLen int) string {
 // redactStraddling replaces the occurrence of any secret that starts before
 // cut and ends after it, the one a truncation at cut would split into an
 // unmatchable head. Occurrences wholly on either side are left alone.
+//
+// Every held secret is at least CredentialMinLen (HoldSecret refuses shorter
+// ones), so no length floor is checked here.
 func redactStraddling(body string, cut int, secrets []string) string {
+	if cut >= len(body) {
+		return body
+	}
 	for _, secret := range secrets {
-		if len(secret) < CredentialMinLen || cut >= len(body) {
-			continue
-		}
 		lo := max(0, cut-len(secret)+1)
 		hi := min(len(body), cut+len(secret)-1)
 		if i := strings.Index(body[lo:hi], secret); i >= 0 {

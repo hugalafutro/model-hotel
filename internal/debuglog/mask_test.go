@@ -341,3 +341,15 @@ func TestMaskAny_ReplacesASubtreeNestedPastTheBound(t *testing.T) {
 		t.Fatalf("a secret past the depth bound survived, or no marker replaced it: %s", got)
 	}
 }
+
+type nilFieldStringer struct{ inner *struct{ s string } }
+
+func (n nilFieldStringer) String() string { return n.inner.s }
+
+// A Stringer whose String panics on a nil field (a value receiver, so
+// isTypedNil cannot see it) is left for slog to render, not a crash.
+func TestMaskAny_SurvivesAPanickingStringer(t *testing.T) {
+	if _, changed := maskAny(func(s string) string { return s }, nilFieldStringer{}); changed {
+		t.Fatal("a Stringer that panicked was reported as masked")
+	}
+}
