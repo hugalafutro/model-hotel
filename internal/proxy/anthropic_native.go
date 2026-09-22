@@ -73,7 +73,7 @@ func (h *Handler) handleNativeNonStreaming(w http.ResponseWriter, r *http.Reques
 		// unconditional and fires first, so leaving it raw would publish the text
 		// the fenced line withholds.
 		debuglog.Warn("proxy: "+native.label()+" read failed",
-			"error", fencedFrameMessage(logData.fence(), logData.masker, errString(err)),
+			"error", fencedFrameMessage(logData.fence(), logData.masks(), errString(err)),
 			"provider", logData.providerName)
 		// The same two gates the translated path applies, from the same two
 		// helpers: an abandoned attempt has nobody waiting for a second answer,

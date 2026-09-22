@@ -143,7 +143,9 @@ func (h *Handler) doUpstream(ctx context.Context, req *http.Request, st *request
 				Provider:   candidate.provider.Name,
 				Underlying: errString(lastTransportErr),
 			})
-			debuglog.Info("proxy: context cancelled during request to provider", "provider", logData.providerName, "provider_id", candidate.provider.ID, "model", logData.modelID, "origin", cancelOrigin, "error", err, "underlying", errString(lastTransportErr))
+			debuglog.Info("proxy: context cancelled during request to provider", "provider", logData.providerName, "provider_id", candidate.provider.ID, "model", logData.modelID, "origin", cancelOrigin,
+				"error", fencedFrameMessage(logData.fence(), logData.masks(), errString(err)),
+				"underlying", fencedFrameMessage(logData.fence(), logData.masks(), errString(lastTransportErr)))
 		default:
 			st.setReqErr(reqError{
 				Kind:       KindProviderError,
@@ -151,7 +153,11 @@ func (h *Handler) doUpstream(ctx context.Context, req *http.Request, st *request
 				Provider:   candidate.provider.Name,
 				Underlying: errString(err),
 			})
-			debuglog.Warn("proxy: upstream request failed", "attempt", attempt+1, "provider", candidate.provider.Name, "provider_id", candidate.provider.ID, "error", err)
+			// A transport error quotes what came back off the wire (net/http's
+			// "malformed HTTP status code %q" carries the upstream's own bytes), so
+			// it gets the pass the Underlying above already gets downstream.
+			debuglog.Warn("proxy: upstream request failed", "attempt", attempt+1, "provider", candidate.provider.Name, "provider_id", candidate.provider.ID,
+				"error", fencedFrameMessage(logData.fence(), logData.masks(), errString(err)))
 		}
 		// An abandoned attempt (the client hung up, a hedge sibling won) says
 		// nothing about the provider, so the circuit breaker is not charged for

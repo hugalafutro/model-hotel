@@ -20,6 +20,15 @@ import (
 // This file is the non-streaming half of the proxy: reading an upstream answer
 // once, deciding whether it is a completion, and serving or failing it.
 
+// fencedReadErr prepares an upstream body-read error for a detail that is
+// stored (request_logs.error_message, the attempt trail) and logged. The error
+// describes the upstream's own body and can quote it, so it takes the same
+// bounded-sanitized-fenced pass this function already applies to the
+// Content-Type it reports beside it.
+func fencedReadErr(readErr error, fence *contentFence) string {
+	return fence.fenceUpstream(util.SanitizeLogBody(errString(readErr), shortLogValueCap))
+}
+
 // nonStreamingFailureDetail decides what a response that is not a 2xx
 // completion may say about itself: the message stored in the request log
 // (dashboard-visible), the detail handed to the classifier and the debug log,
@@ -60,12 +69,12 @@ func nonStreamingFailureDetail(ctx context.Context, resp *http.Response, body []
 				// and charges it (classifyProbeFailure), so this half does too,
 				// and the last candidate in a group records what a candidate with
 				// a sibling behind it would have.
-				detail = fmt.Sprintf("upstream stopped sending before the per-attempt deadline: %s (body_bytes=%d)", errString(readErr), len(body))
+				detail = fmt.Sprintf("upstream stopped sending before the per-attempt deadline: %s (body_bytes=%d)", fencedReadErr(readErr, fence), len(body))
 				return detail, detail, KindProviderTimeout, "the provider stopped sending its response"
 			}
 			// A body that died on the wire is the provider breaking after it
 			// committed the status, which is what the breaker exists to catch.
-			detail = fmt.Sprintf("upstream body read error: %s (body_bytes=%d)", errString(readErr), len(body))
+			detail = fmt.Sprintf("upstream body read error: %s (body_bytes=%d)", fencedReadErr(readErr, fence), len(body))
 			return detail, detail, KindProviderError, "the provider stopped sending its response"
 		}
 		// The content type is the upstream's own text on a detail that is stored

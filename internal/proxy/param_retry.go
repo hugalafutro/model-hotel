@@ -273,7 +273,10 @@ func (h *Handler) issueRetry(r *http.Request, st *requestState, candidate modelC
 	*dialMs += retryDial.take()
 	if doErr != nil {
 		rc() // no body to consume on retry error
-		debuglog.Warn(what, "attempt", attempt+1, "provider", candidate.provider.Name, "provider_id", candidate.provider.ID, "error", doErr)
+		// Same pass the main failover loop's transport error takes: the text can
+		// carry the upstream's own bytes.
+		debuglog.Warn(what, "attempt", attempt+1, "provider", candidate.provider.Name, "provider_id", candidate.provider.ID,
+			"error", fencedFrameMessage(st.logData.fence(), st.logData.masks(), errString(doErr)))
 		if errors.Is(doErr, context.Canceled) || errors.Is(doErr, context.DeadlineExceeded) {
 			origin := "retry_timeout"
 			if errors.Is(doErr, context.Canceled) {

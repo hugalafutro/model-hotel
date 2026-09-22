@@ -272,8 +272,11 @@ func (h *Handler) serveBufferedJSONPassthrough(w http.ResponseWriter, r *http.Re
 		if !abandoned {
 			h.chargeBreaker(st, candidate, resp.StatusCode, "upstream body read failed")
 		}
-		debuglog.Warn("proxy: passthrough body read failed", "endpoint", logData.endpointType, "model", logData.modelID, "provider", logData.providerName, "error", err)
-		h.finalizePassthroughLog(st, resp.StatusCode, attempt, responseHeaderMs, 0, 0, "failed", fmt.Sprintf("upstream body read error: %v", err))
+		// The read error describes the upstream's body, so both copies take the
+		// pass: the warn line and the detail stored on the row.
+		fenced := fencedFrameMessage(logData.fence(), logData.masks(), errString(err))
+		debuglog.Warn("proxy: passthrough body read failed", "endpoint", logData.endpointType, "model", logData.modelID, "provider", logData.providerName, "error", fenced)
+		h.finalizePassthroughLog(st, resp.StatusCode, attempt, responseHeaderMs, 0, 0, "failed", "upstream body read error: "+fenced)
 		writeOpenAIError(w, "failed to read upstream response", http.StatusBadGateway)
 		return outcomeFatal
 	}

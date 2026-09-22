@@ -79,6 +79,17 @@ func (l *requestLogData) fence() *contentFence {
 	return l.content
 }
 
+// masks is fence's counterpart for the credential pass. A zero masker still
+// runs maskKeyShapedTokens and the held-secret union, so a path that has no log
+// entry yet (a retry issued before the row exists) keeps the regex layer rather
+// than dereferencing nil.
+func (l *requestLogData) masks() credentialMasker {
+	if l == nil {
+		return credentialMasker{}
+	}
+	return l.masker
+}
+
 // attemptDetail reduces an upstream error text to what the trail may carry:
 // credential-masked, whitespace-collapsed and capped at maxAttemptDetailRunes
 // on a rune boundary. The input is expected to be already sanitized
