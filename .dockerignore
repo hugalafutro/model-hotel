@@ -8,10 +8,31 @@
 .git/
 bin/
 
-# Prevent host node_modules from copying into Docker (causes conflicts with pnpm install)
-web/node_modules/
-web/dist/
+# Host dependency trees and build output. Both images run their own
+# `pnpm install --frozen-lockfile` and build dist/ inside the frontend-builder
+# stage, so nothing here is ever read from the context; copying it in only
+# bloats the transfer and busts the COPY layer on every local install.
+# Globbed rather than listed per app: frontdesk/web/ is a second frontend and
+# the next one should not need an edit here to be excluded.
+**/node_modules/
+**/dist/
+**/.pnpm-store/
 web/package-lock.json
+
+# Test and tooling output. Written by local runs only, never by a build.
+# Spelled out per frontend instead of **/coverage/ because scripts/coverage/
+# is tracked Python that the context legitimately carries.
+web/coverage/
+frontdesk/web/coverage/
+.tokensave/
+
+# Gradle output for the Bellhop Android companion, which no image builds.
+# Listed per path rather than as **/build/ because Docker compiles that glob
+# so it also matches a top-level name merely ending in "build".
+android/build/
+android/app/build/
+android/.gradle/
+android/.kotlin/
 
 # Frontend assets are built by the frontend-builder stage and copied into cmd/server/static/.
 # Never copy the repo's version — it may contain stale files or just .gitkeep.
