@@ -44,10 +44,20 @@ The backend tests use their own Postgres, which is **not** the dev stack's:
 ```bash
 make test-db-up       # test Postgres on :5433 (docker-compose.test.yml)
 make test             # backend tests: go test ./...
-make test-parallel    # the same tests, sharded across processes; much faster
+make test-parallel    # ./internal/... only, sharded across processes; faster
 make lint             # golangci-lint
 make size-check       # file-size ratchet: 800 lines production, 2000 test
 ```
+
+`make test-parallel` is the one to reach for while iterating, but it shards
+`./internal/...` alone; `make test` is what covers `cmd/` and `tools/` as well,
+so run it before pushing.
+
+The size ratchet decides what counts as a test by path, not by filename: a Go
+`_test.go` file gets the 2000-line ceiling, and so does anything under a
+`__tests__/` directory or in `web/src/test/` or `frontdesk/web/src/test/`. A
+`.test.ts` or `.spec.ts` anywhere else is treated as production code and gets
+the 800-line ceiling, because a production file can be given that suffix too.
 
 `make docker-up` starts the dev stack for running the app. Its Postgres
 publishes no port, so it is not what the tests connect to; use `make test-db-up`
@@ -69,13 +79,18 @@ CI enforces a **90% coverage threshold** (backend, frontend, and Front Desk
 web), a separate **90% diff-coverage gate** on the lines your PR changes, the
 file-size ratchet above, and **locale parity** via `make i18n-check` (fully
 offline). If you add a user-facing string, add it to `en.json` and translate it
-into the other locales by hand (or add intentional English to
-`tools/i18n-translate/allow-english.json`) so the check passes.
+into the other locales by hand. Intentional English goes in the allowlist for
+that app: `tools/i18n-translate/allow-english.json` for the dashboard,
+`allow-english-fd.json` for Front Desk, `allow-english-android.json` for
+Bellhop.
 
-If your change touches `README.md`, mirror it in `DOCKERHUB.md`: the pre-push
-hook refuses the push otherwise, since the two describe the same project to
-different audiences. Set `DOCKERHUB_README_NOT_NEEDED=1` when the change
-genuinely does not belong on the Docker Hub page.
+If your change touches `README.md`, mirror it in `DOCKERHUB.md`, since the two
+describe the same project to different audiences. When the change genuinely
+does not belong on the Docker Hub page, note that clearing this takes two
+separate steps: `DOCKERHUB_README_NOT_NEEDED=1` lets the local pre-push hook
+through, while CI reads the `dockerhub-readme-not-needed` label on the PR. Skip
+the label and the `README/DOCKERHUB.md sync` check fails even though your push
+succeeded.
 
 The hooks under `scripts/` are a fast pre-flight, not a substitute for CI. On
 push they run golangci-lint, `pnpm lint`, `tsc -b`, the vitest tests related to
