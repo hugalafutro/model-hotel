@@ -51,6 +51,7 @@ jobs:
       deps: ${{ steps.filter.outputs.deps }}
       i18n: ${{ steps.filter.outputs.i18n }}
       sizegate: ${{ steps.filter.outputs.sizegate }}
+      crowdsec: ${{ steps.filter.outputs.crowdsec }}
       image: ${{ steps.filter.outputs.image }}
       measurable: ${{ steps.filter.outputs.measurable }}
       all_coverage: ${{ steps.filter.outputs.all_coverage }}
@@ -339,6 +340,83 @@ jobs:
         env:
           SIZE_GATE_BASE: ${{ steps.base.outputs.ref }}
         run: make size-check
+
+  # The only thing that runs contrib/crowdsec/tests. Nothing else reads a
+  # parser.assert, and before this job existed their length assertions had been
+  # stale for long enough that nobody noticed, while a parser change shipped a
+  # defect the fixtures would have caught (PR #1086).
+  #
+  # `cscli hubtest` needs a hub checkout, because the collection's config
+  # resolves its items by a path relative to the hub root. The hub is pinned to
+  # a commit: the fixtures assert counts produced by CrowdSec's OWN parsers
+  # (syslog-logs, dateparse-enrich), so tracking its master would let an
+  # upstream change turn this repository's master red. Bump the pin
+  # deliberately, and expect to re-record counts when you do.
+  crowdsec-hubtest:
+    name: CrowdSec Hubtest
+    needs: changes
+    if: >-
+      needs.changes.outputs.crowdsec != 'false' ||
+      needs.changes.outputs.workflows != 'false'
+    runs-on: ubuntu-latest
+    env:
+      # crowdsecurity/hub. See the note above before moving it.
+      HUB_REF: d5fb108d535c389beec4607a5e4e1ff55120801c
+      # Matches the engine the collection is developed against. A tag, not
+      # :latest, so the gate does not change under the repository.
+      CROWDSEC_IMAGE: crowdsecurity/crowdsec:v1.8.1
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: check out the pinned hub
+        run: |
+          mkdir hub && cd hub
+          git init --quiet
+          git remote add origin https://github.com/crowdsecurity/hub.git
+          git fetch --no-tags --depth=1 --quiet origin "$HUB_REF"
+          git checkout --quiet FETCH_HEAD
+
+      # The collection is already merged upstream, so these overwrite the hub's
+      # copies with the ones in this branch: the point is to test what this
+      # repository ships, not what the hub last published.
+      - name: stage this branch's collection into the hub
+        run: |
+          mkdir -p hub/parsers/s01-parse/hugalafutro hub/scenarios/hugalafutro \
+                   hub/collections/hugalafutro hub/.tests
+          cp contrib/crowdsec/parsers/s01-parse/*.yaml hub/parsers/s01-parse/hugalafutro/
+          cp contrib/crowdsec/scenarios/*.yaml         hub/scenarios/hugalafutro/
+          cp contrib/crowdsec/collections/*.yaml       hub/collections/hugalafutro/
+          rm -rf hub/.tests/model-hotel-*
+          cp -r contrib/crowdsec/tests/model-hotel-*   hub/.tests/
+
+      # Through the image's own entrypoint and then `docker exec`: it builds
+      # /etc/crowdsec on first boot, and `--entrypoint cscli` skips that and
+      # dies on a missing config.yaml.
+      - name: start the engine
+        run: |
+          mkdir -p csdata
+          docker run -d --name hubtest -e DISABLE_ONLINE_API=true \
+            -v "$PWD/hub":/hub -v "$PWD/csdata":/var/lib/crowdsec/data \
+            "$CROWDSEC_IMAGE"
+          for _ in $(seq 1 60); do
+            if docker exec hubtest cscli lapi status >/dev/null 2>&1; then
+              echo "engine up"; exit 0
+            fi
+            sleep 2
+          done
+          echo "the engine did not come up" >&2
+          docker logs hubtest >&2
+          exit 1
+
+      # `yes n |` answers the "remove the runtime folder?" prompt, which
+      # otherwise reads EOF and fails the run whatever the tests did. The exit
+      # status is cscli's, since it is the last command in the pipeline.
+      - name: run the fixtures
+        run: |
+          docker exec -w /hub hubtest sh -c 'yes n | cscli hubtest run \
+            model-hotel-logs model-hotel-access-logs model-hotel-vk-bf \
+            model-hotel-admin-bf model-hotel-throttled \
+            --hub . --report-success'
 
   workflow-lint:
     name: Workflow Lint

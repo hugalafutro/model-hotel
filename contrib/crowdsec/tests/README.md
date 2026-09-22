@@ -73,6 +73,10 @@ proves those three sub types share one bucket rather than filling three.
 
 ## Running them
 
+CI runs all five on every change under `contrib/crowdsec/` (the `CrowdSec Hubtest` job in
+`.github/workflows/ci.yml`), against a pinned hub commit and a pinned engine tag. Run them locally
+the same way before pushing a parser change.
+
 `cscli hubtest` needs a hub checkout, because `config.yaml` resolves the collection's own items by
 a path relative to the hub root.
 
@@ -91,6 +95,11 @@ cscli hubtest run model-hotel-logs model-hotel-vk-bf model-hotel-admin-bf model-
 
 Once the items are merged into the hub, `.tests/` is where they already live and only the last
 command is needed.
+
+Two things bite if you run it by hand. `cscli hubtest` asks whether to delete its runtime folder
+and dies on EOF, so pipe `yes n |` into it. And the `runtime/` and `results/` folders it leaves
+behind are owned by root when the engine ran in a container, so re-copying fixtures over them fails
+until they are removed from inside the container.
 
 A failing assert prints the expression and the value it actually saw. To rebuild an assert file
 from scratch after an intentional parser change, empty it and run the test again: `cscli hubtest`
