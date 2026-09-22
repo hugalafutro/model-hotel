@@ -102,4 +102,30 @@ func TestMaxRequestSizeMiddleware(t *testing.T) {
 	if readErr != nil {
 		t.Errorf("the restore upload was capped by the general limit: %v", readErr)
 	}
+
+	// The exemption is the one route, not a suffix. chi runs a subrouter's
+	// middleware on paths that match no route in it, so any unmatched path
+	// ending in /backups/restore still reaches the body-buffering
+	// streamingAwareTimeout middleware and must keep the general cap.
+	for _, path := range []string{
+		"/v1/models/backups/restore",
+		"/api/chat/x/backups/restore",
+		"/api/backups/restore/",
+	} {
+		rec = httptest.NewRecorder()
+		req = httptest.NewRequest(http.MethodPost, path, strings.NewReader("a body larger than eight bytes"))
+		mw(next).ServeHTTP(rec, req)
+		if readErr == nil {
+			t.Errorf("%s kept no size cap: only POST /api/backups/restore is exempt", path)
+		}
+	}
+
+	// The exemption is bound to the upload's method too, so a GET that happens
+	// to name the restore path cannot shed the cap.
+	rec = httptest.NewRecorder()
+	req = httptest.NewRequest(http.MethodGet, "/api/backups/restore", strings.NewReader("a body larger than eight bytes"))
+	mw(next).ServeHTTP(rec, req)
+	if readErr == nil {
+		t.Error("GET /api/backups/restore kept no size cap: only POST is exempt")
+	}
 }
