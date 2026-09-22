@@ -5,6 +5,9 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"unicode/utf8"
+
+	"github.com/hugalafutro/model-hotel/internal/util"
 )
 
 // ErrorKind classifies why a proxied request failed. It is the machine-readable
@@ -325,9 +328,16 @@ func errString(err error) string {
 		return ""
 	}
 	const maxLen = 500
+	// Masked BEFORE the cut. The log handler and the row both mask again later,
+	// but by then a key straddling rune 500 is only its head, which no exact
+	// pass can match. MaskCredentialsBounded masks the held set over a bounded
+	// window (a wrapped error can carry a whole upstream body) and strips a
+	// held key's head left at the end once masking has shrunk the text. Nothing
+	// decides on this text, so masking it cannot change a verdict.
+	//
 	// Truncate on rune boundaries, not bytes, so a multi-byte rune straddling
 	// the cap is never split into invalid UTF-8 in the stored error_message.
-	r := []rune(err.Error())
+	r := []rune(util.MaskCredentialsBounded(nil, err.Error(), maxLen*utf8.UTFMax))
 	if len(r) > maxLen {
 		return string(r[:maxLen]) + "…"
 	}

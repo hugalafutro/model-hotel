@@ -59,8 +59,19 @@ func main() {
 	// DEBUG_LOG (and DEBUG_LOG_SCOPES, LOG_FORMAT) from the environment, so
 	// the .env file has to be in the environment first.
 	if err := config.LoadEnvFile(); err != nil {
-		log.Fatalf("Failed to load .env: %v", err)
+		// Not err: the dotenv parser quotes the rest of the file in its error
+		// ("unexpected character ... near <everything after it>"), so one bad
+		// line would print MASTER_KEY, ADMIN_TOKEN and the database password to
+		// the container log. This runs before the log masker is installed, and
+		// the masker could not catch them anyway: they are neither held nor
+		// key-shaped.
+		log.Fatal("Failed to load .env: the file could not be parsed (its contents are not printed because it holds secrets; check it by hand)")
 	}
+	// Every log line takes the credential mask: the held provider keys exactly,
+	// then any key-shaped token. Installed before Init so nothing is logged
+	// unmasked, and read per record, so keys held later (provider.HoldKeys at
+	// startup, a provider created at runtime) are masked from then on.
+	debuglog.SetMasker(func(s string) string { return util.MaskCredentials(nil, s) })
 	debuglog.Init()
 
 	cfg, err := config.Load()

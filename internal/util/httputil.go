@@ -20,6 +20,16 @@ import (
 // one, and redacted, rather than leaving a head fragment behind.
 const scrubMargin = 4096
 
+// MaskLogText applies every rewrite a fragment can go through before it is
+// fenced for request content: the held secrets exactly, key-shaped tokens and
+// UUIDs, with no truncation. The request-content fence indexes this form of
+// the request as well, so an echo whose credential or UUID was masked first
+// still matches: masking a 16-rune window away must not let the rest of a
+// short prompt through.
+func MaskLogText(s string) string {
+	return uuidPattern.ReplaceAllString(string(MaskKeyShapedTokens([]byte(maskExact(nil, s)))), "[REDACTED]")
+}
+
 // uuidPattern matches standard UUIDs (e.g., 793ac38b-0211-43e6-baa7-aa7054c39931)
 // which upstream providers often include in error messages (team IDs, project IDs, etc.).
 var uuidPattern = regexp.MustCompile(`(?i)[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}`)
@@ -34,7 +44,54 @@ var uuidPattern = regexp.MustCompile(`(?i)[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0
 // operator's own key back in an auth failure. Callers that hold the decrypted
 // key should run MaskCredential over the result as well, which adds an exact
 // match for key shapes this list cannot anticipate.
+//
+// It does NOT exact-mask a held key that sits whole inside the output. Its
+// output is classified (retirement detection, rate-limit saturation) and
+// fenced for request content, and both read the provider's own words: an
+// exact pass would rewrite a held placeholder ("not-needed") out of a model id
+// or a matched phrase, and missing a higher-precedence verdict hands the body
+// to a lower one, which changes the verdict rather than only dropping it.
+// Whole keys are masked where the text is written instead, by the log
+// handler's masker and at the request-log row.
+//
+// What masking at the write cannot fix is the cut: a key straddling it
+// reaches the writer as a head no exact pass can match. So the one held key
+// that spans maxLen is redacted before the cut, and a held key's head left at
+// the very end (split by the scan window, then pulled under maxLen when the
+// shape pass shrank the text) is stripped after it. Neither touches text the
+// cut keeps whole.
 func SanitizeLogBody(body string, maxLen int) string {
+	return stripSecretTail(sanitizeShape(body, maxLen, func(b string) string {
+		return redactStraddling(b, maxLen, withHeld(nil))
+	}), nil, maxLen)
+}
+
+// redactStraddling replaces the occurrence of any secret that starts before
+// cut and ends after it, the one a truncation at cut would split into an
+// unmatchable head. Occurrences wholly on either side are left alone.
+//
+// Every held secret is at least CredentialMinLen (HoldSecret refuses shorter
+// ones), so no length floor is checked here.
+func redactStraddling(body string, cut int, secrets []string) string {
+	if cut >= len(body) {
+		return body
+	}
+	for _, secret := range secrets {
+		lo := max(0, cut-len(secret)+1)
+		hi := min(len(body), cut+len(secret)-1)
+		if i := strings.Index(body[lo:hi], secret); i >= 0 {
+			j := lo + i
+			body = body[:j] + "[redacted]" + body[j+len(secret):]
+		}
+	}
+	return body
+}
+
+// sanitizeShape is the bounded window, the key-shape scrub, the UUID
+// redaction and the rune-safe cut. beforeCut, when set, runs on the scrubbed
+// text just before the cut. MaskCredentialsBounded runs its exact pass first
+// and then this; SanitizeLogBody hands in its straddle redaction.
+func sanitizeShape(body string, maxLen int, beforeCut func(string) string) string {
 	// Scrub before truncating, but only over what can still reach the output.
 	//
 	// The order matters: a credential straddling the cut would otherwise leave
@@ -51,6 +108,9 @@ func SanitizeLogBody(body string, maxLen int) string {
 	}
 	body = string(MaskKeyShapedTokens([]byte(body)))
 	body = uuidPattern.ReplaceAllString(body, "[REDACTED]")
+	if beforeCut != nil && len(body) > maxLen {
+		body = beforeCut(body)
+	}
 	if len(body) > maxLen {
 		// Back up to the last valid UTF-8 rune boundary to avoid splitting multi-byte characters
 		for len(body) > maxLen {

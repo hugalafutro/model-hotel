@@ -1158,3 +1158,71 @@ func TestStripProviderAuthHeaders(t *testing.T) {
 		})
 	}
 }
+
+// A held credential that is not key-shaped, straddling the cut, is masked
+// whole. Before the held-set exact pass ran inside SanitizeLogBody, the shape
+// pass left it alone, the truncation kept its head, and a caller masking with
+// the attempt's key afterwards could no longer match a head: every caller that
+// reached for SanitizeLogBody on a body longer than maxLen could leak one.
+func TestSanitizeLogBody_MasksAHeldSecretStraddlingTheCut(t *testing.T) {
+	secret := "heldsanitizesecret-" + strings.Repeat("q", 24)
+	HoldSecret(secret)
+	const maxLen = 50
+	body := strings.Repeat("x", 45) + secret + " and the rest of the error"
+
+	got := SanitizeLogBody(body, maxLen)
+	if strings.Contains(got, secret[:5]) {
+		t.Fatalf("the head of a held secret survived the cut: %q", got)
+	}
+	if !strings.HasPrefix(got, strings.Repeat("x", 45)) {
+		t.Fatalf("the text before the secret was lost: %q", got)
+	}
+}
+
+// SanitizeLogBody's output is classified and fenced, so it must not rewrite a
+// held secret that sits whole inside it: a held placeholder inside a model id
+// or a matched phrase would change the verdict. Only a secret the cut would
+// split is redacted; a whole one is left for the writer's masker.
+func TestSanitizeLogBody_LeavesAWholeHeldSecretForTheWriter(t *testing.T) {
+	secret := "wholeheldsecret-" + strings.Repeat("w", 20)
+	HoldSecret(secret)
+	body := "model " + secret + " was retired"
+	if got := SanitizeLogBody(body, 500); got != body {
+		t.Fatalf("a held secret wholly inside the kept text was rewritten: %q", got)
+	}
+}
+
+// stripSecretTail redacts the head of a held secret left at the very end of
+// the text, the one a scan-window cut leaves behind, and nothing shorter than
+// a credential.
+func TestStripSecretTail_RedactsAHeldHeadAtTheEnd(t *testing.T) {
+	secret := "tailstripsecret-" + strings.Repeat("s", 30)
+	HoldSecret(secret)
+	if got := stripSecretTail("prefix "+secret[:20]+"…", nil, 100); strings.Contains(got, secret[:8]) || !strings.HasSuffix(got, "…") {
+		t.Fatalf("a held head at the end survived, or the marker was lost: %q", got)
+	}
+	if got := stripSecretTail("prefix "+secret[:5], nil, 100); got != "prefix "+secret[:5] {
+		t.Fatalf("a head shorter than a credential was redacted: %q", got)
+	}
+}
+
+// MaskLogText is the form the request-content fence indexes: every rewrite a
+// fragment can take before it is fenced, and no truncation.
+func TestMaskLogText_AppliesEveryPreFenceRewrite(t *testing.T) {
+	secret := "masklogtextsecret-" + strings.Repeat("m", 20)
+	HoldSecret(secret)
+	got := MaskLogText("held " + secret + " uuid 793ac38b-0211-43e6-baa7-aa7054c39931 " + strings.Repeat("x", 20000))
+	if strings.Contains(got, secret) || strings.Contains(got, "793ac38b") {
+		t.Fatalf("a held secret or a UUID survived: %q", got[:120])
+	}
+	if !strings.HasSuffix(got, strings.Repeat("x", 100)) {
+		t.Fatal("MaskLogText truncated; the fence needs the whole text")
+	}
+}
+
+// A cut at or past the end splits nothing, and must not slice out of range.
+func TestRedactStraddling_IgnoresACutPastTheEnd(t *testing.T) {
+	if got := redactStraddling("short", 10, []string{"shortsecret"}); got != "short" {
+		t.Fatalf("got %q, want the body untouched", got)
+	}
+}

@@ -354,12 +354,21 @@ func (h *Handler) updateRequestLog(logEntry *requestLogData, opts ...updateLogOp
 		return
 	}
 
-	// Bound the message here, at the one place every terminal write and the
-	// request.completed event pass through. failRequest is not that place: four
-	// paths assign errorMessage directly and call this function themselves (the
-	// native Anthropic and non-streaming readers, the stream finaliser, the
-	// multimodal passthrough), so a clamp there would only cover some callers.
-	logEntry.errorMessage = util.TruncateRunes(logEntry.errorMessage, maxLogMessageRunes)
+	// Mask and bound the message here, at the one place every terminal write
+	// and the request.completed event pass through. failRequest is not that
+	// place: four paths assign errorMessage directly and call this function
+	// themselves (the native Anthropic and non-streaming readers, the stream
+	// finaliser, the multimodal passthrough), so doing it there would only
+	// cover some callers.
+	//
+	// The credential mask runs here for the same reason: this is the row's
+	// counterpart of the log handler's masker, and it catches a key that any
+	// upstream fragment carried in, whether or not the call site that built
+	// the message remembered to mask it. The attempt's own key is in the pass
+	// as well as the held set. It runs BEFORE the truncation, since a key that
+	// straddles the cut would otherwise leave a head the exact pass cannot
+	// match.
+	logEntry.errorMessage = util.TruncateRunes(string(logEntry.masks().mask([]byte(logEntry.errorMessage))), maxLogMessageRunes)
 
 	// Skip DB operations when no pool is configured.
 	if h.dbPool == nil {

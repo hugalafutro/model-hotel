@@ -24,8 +24,17 @@ import (
 // no provider quotes another provider's key inside an answer, and a
 // placeholder key an operator typed for a keyless local server ("not-needed")
 // is a plain word that must not be rewritten out of every answer the gateway
-// serves. The length floor here is the only filter, for the same reason: a
-// placeholder masked out of an error message costs nothing.
+// serves. The length floor here is the only filter.
+//
+// Text that is classified or fenced is not exact-masked with this set.
+// SanitizeLogBody feeds retirement detection and rate-limit saturation, and a
+// held placeholder rewritten out of a model id or a matched phrase would not
+// only miss a verdict: losing a higher-precedence match hands the body to a
+// lower one, which changes the verdict. So SanitizeLogBody redacts only a held
+// secret its own cut would split, and whole secrets are masked where the text
+// is written (the log handler's masker, the request-log row). The request
+// content fence indexes the masked form of each request string, so a fragment
+// masked before it is fenced is still recognised as an echo.
 //
 // Registration is by value and never expires within a process: a rotated key
 // stays held until the next restart, after which the set is seeded from the
@@ -72,6 +81,14 @@ func HeldSecrets() []string {
 // relies on ("Bearer X" before "X"), since the superset is the longer.
 func withHeld(secrets []string) []string {
 	held := HeldSecrets()
+	// No caller-named secrets is the common case since the log handler masks
+	// every string attribute of every record with the held set alone. held is
+	// already unique and longest first, which is exactly what the merge below
+	// would produce, so it is returned as is rather than rebuilt: no map, no
+	// slice, no sort per call. Callers only iterate it.
+	if len(secrets) == 0 {
+		return held
+	}
 	if len(held) == 0 && len(secrets) <= 1 {
 		return secrets
 	}

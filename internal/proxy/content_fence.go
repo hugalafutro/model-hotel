@@ -149,12 +149,29 @@ func (f *contentFence) strings() [][]rune {
 // body); whitespace-collapsed (a provider that reflowed it); JSON-escaped
 // (error_message stores a JSON body as sent); and collapsed after escaping (a
 // reflowed echo inside a JSON body). Each has its own index budget.
-var contentForms = []func(string) string{
-	func(s string) string { return s },
-	util.CollapseSpace,
-	escapeJSON,
-	func(s string) string { return util.CollapseSpace(escapeJSON(s)) },
-}
+//
+// Each of those again after util.MaskLogText, because fragments are masked
+// before they are fenced (fencedFrameMessage masks with the attempt's
+// credential and the held set, SanitizeLogBody redacts key shapes and UUIDs,
+// setReqErr masks Underlying). A held placeholder or a UUID inside a short
+// prompt is rewritten in the echo, every 16-rune window crossing it stops
+// matching, and when the pieces either side are shorter than a window the
+// rest of the prompt went through as not an echo. A masked form that equals
+// its plain one is dropped by parse's seen check, so this costs nothing for a
+// request with nothing to mask.
+var contentForms = func() []func(string) string {
+	plain := []func(string) string{
+		func(s string) string { return s },
+		util.CollapseSpace,
+		escapeJSON,
+		func(s string) string { return util.CollapseSpace(escapeJSON(s)) },
+	}
+	forms := slices.Clone(plain)
+	for _, form := range plain {
+		forms = append(forms, func(s string) string { return util.MaskLogText(form(s)) })
+	}
+	return forms
+}()
 
 func escapeJSON(s string) string {
 	esc, err := json.Marshal(s)

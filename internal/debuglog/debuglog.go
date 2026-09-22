@@ -60,7 +60,7 @@ func Init() {
 		currentLevel = slog.LevelInfo
 	}
 
-	slog.SetDefault(slog.New(maybeScopeFilter(StdoutHandler())))
+	slog.SetDefault(slog.New(maybeScopeFilter(withMasking(StdoutHandler()))))
 
 	// Confirm scoped debug at startup so the operator sees it took effect. Log
 	// the parsed/normalized scopes (not the raw env string) so a tainted value
@@ -182,9 +182,29 @@ func Level() slog.Level {
 // SetHandler replaces the default slog handler. Use this to route slog
 // output through a custom handler (e.g. one that writes to the app log
 // ring buffer and database). Call after api.InitAppLogBuffer.
+//
+// The handler is wrapped in the credential masker (see SetMasker), so every
+// sink a binary installs, a fan-out to an OTLP exporter included, receives
+// masked text.
+//
+// slog's own boot handler is the one exception, installed exactly as given.
+// It is the bridge that writes records through the standard log package, and
+// slog.SetDefault redirects the log package into slog whenever the handler it
+// receives is not that bridge. Wrapped (by the masker or by the scope filter),
+// the bridge writes each record through log, log routes it back into slog, and
+// the second pass through log.Logger.output blocks on the mutex the first
+// still holds. Callers do hand it back: test helpers save
+// slog.Default().Handler() and restore it here on cleanup.
 func SetHandler(h slog.Handler) {
-	slog.SetDefault(slog.New(maybeScopeFilter(h)))
+	if h == bootHandler {
+		slog.SetDefault(slog.New(h))
+		return
+	}
+	slog.SetDefault(slog.New(maybeScopeFilter(withMasking(h))))
 }
+
+// bootHandler is the handler slog starts with; see SetHandler.
+var bootHandler = slog.Default().Handler()
 
 // isDebugLogEnv returns true if the DEBUG_LOG env var is set to a truthy value.
 func isDebugLogEnv() bool {

@@ -8,9 +8,11 @@ import (
 	"strings"
 	"testing"
 	"time"
+	"unicode/utf8"
 
 	"github.com/hugalafutro/model-hotel/internal/ctxkeys"
 	"github.com/hugalafutro/model-hotel/internal/provider"
+	"github.com/hugalafutro/model-hotel/internal/util"
 )
 
 // The decode-error detail is stored (request_logs.error_message, the attempt
@@ -144,5 +146,90 @@ func TestHedgeProbeLog_MasksTheProbeCandidatesCredential(t *testing.T) {
 	got := fencedFrameMessage(probe.fence(), probe.masks(), `Post "https://gw.example/v1?key=`+probeKey+`": malformed HTTP response`)
 	if strings.Contains(got, strings.Repeat("b", 40)) {
 		t.Fatalf("the probe candidate's key survived into the hedge log line: %s", got)
+	}
+}
+
+// errString cuts at 500 runes, and every later mask (the log handler, the row
+// choke point) sees only what survived the cut: a held key straddling rune 500
+// would reach them as a head no exact pass can match. It is masked before the
+// cut instead.
+func TestErrString_MasksAHeldKeyStraddlingTheCut(t *testing.T) {
+	t.Parallel()
+	key := "heldkeyerrstring-" + strings.Repeat("r", 24)
+	util.HoldSecret(key)
+	got := errString(errors.New(strings.Repeat("x", 495) + key))
+	if strings.Contains(got, key[:5]) {
+		t.Fatalf("the head of a held key survived errString's cut: %q", got[480:])
+	}
+}
+
+// The row's own counterpart of the log handler's masker: whatever built the
+// message, the terminal write masks it with the attempt's key before its own
+// cut. The key here is deliberately NOT held, so only the attempt's exact pass
+// can catch it, and it straddles the cut, so only masking before the cut can.
+func TestUpdateRequestLog_MasksTheRowBeforeTheCut(t *testing.T) {
+	t.Parallel()
+	key := "rowchokepointkey-" + strings.Repeat("s", 24)
+	entry := &requestLogData{
+		id:           "row-choke-point",
+		state:        "pending",
+		masker:       newCredentialMasker(key),
+		errorMessage: strings.Repeat("x", maxLogMessageRunes-5) + key + " tail",
+	}
+	(&Handler{}).updateRequestLog(entry)
+	if strings.Contains(entry.errorMessage, key[:5]) {
+		t.Fatalf("the head of the attempt's key survived the row's cut: %q", entry.errorMessage[len(entry.errorMessage)-40:])
+	}
+}
+
+// A wrapped error can carry a whole upstream body. errString masks only the
+// window its cut can keep, plus slack for a key straddling the cut, so the
+// scan stays bounded however large the error is, and a held key at the front
+// is still masked.
+func TestErrString_MasksInABoundedWindowOfAHugeError(t *testing.T) {
+	t.Parallel()
+	key := "heldkeyhugeerror-" + strings.Repeat("t", 24)
+	util.HoldSecret(key)
+	got := errString(errors.New(key + " then " + strings.Repeat("x", 1<<20)))
+	if strings.Contains(got, key) {
+		t.Fatalf("a held key at the front of a huge error survived: %q", got[:60])
+	}
+	if n := utf8.RuneCountInString(got); n > 501 {
+		t.Fatalf("errString returned %d runes, want at most the 500-rune cut plus its marker", n)
+	}
+}
+
+// Codex's case. Fragments are masked before they are fenced, and a held
+// placeholder inside a short prompt is rewritten in the echo: every 16-rune
+// window crossing it stops matching, and with fewer than 16 runes either side
+// the rest of the prompt read as not an echo and went into the log. The fence
+// indexes the masked form of the request too, so the masked echo still
+// matches and is withheld.
+func TestFence_WithholdsAnEchoWhoseHeldPlaceholderWasMaskedFirst(t *testing.T) {
+	t.Parallel()
+	placeholder := "zzfenceplacehold"
+	util.HoldSecret(placeholder)
+	prompt := "PIN 2468 " + placeholder + " acct 1357"
+	fence := newContentFence(chatBody(prompt))
+
+	got := fencedFrameMessage(fence, credentialMasker{}, "upstream said: "+prompt)
+	if strings.Contains(got, "2468") || strings.Contains(got, "1357") {
+		t.Fatalf("the prompt got past the fence once its placeholder was masked: %q", got)
+	}
+	if got != contentWithheld {
+		t.Fatalf("want the fragment withheld, got %q", got)
+	}
+}
+
+// Codex's geometry for errString. The bounded window splits a held key, and
+// masking the whole ones before it shrinks the text enough to pull that head
+// under the 500-rune cut. MaskCredentialsBounded's tail strip removes it.
+func TestErrString_StripsAHeadPulledUnderTheCutByMasking(t *testing.T) {
+	t.Parallel()
+	key := "errgeometrykey-" + strings.Repeat("g", 241)
+	util.HoldSecret(key)
+	got := errString(errors.New(strings.Repeat(key, 24)))
+	if strings.Contains(got, key[:16]) {
+		t.Fatalf("a held key's head survived errString: %q", got)
 	}
 }
