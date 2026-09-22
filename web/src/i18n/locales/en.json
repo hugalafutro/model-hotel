@@ -2504,10 +2504,13 @@
 		},
 		"reasoningEffortSelect": {
 			"reasoningEffort": "Reasoning Effort",
-			"off": "off",
 			"low": "Low",
 			"medium": "Medium",
-			"high": "High"
+			"high": "High",
+			"default": "Default",
+			"none": "None",
+			"defaultHint": "Let the provider decide",
+			"noneHint": "Switch thinking off entirely"
 		},
 		"dataTable": {
 			"sortBy": "Sort by {{label}}",

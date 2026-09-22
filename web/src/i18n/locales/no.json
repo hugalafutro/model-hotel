@@ -2504,10 +2504,13 @@
 		},
 		"reasoningEffortSelect": {
 			"reasoningEffort": "Resonneringsinnsats",
-			"off": "av",
 			"low": "Lav",
 			"medium": "Middels",
-			"high": "Høy"
+			"high": "Høy",
+			"default": "Standard",
+			"none": "Ingen",
+			"defaultHint": "La leverandøren bestemme",
+			"noneHint": "Slå av tenking helt"
 		},
 		"dataTable": {
 			"sortBy": "Sorter etter {{label}}",

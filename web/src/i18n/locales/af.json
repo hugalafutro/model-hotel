@@ -2504,10 +2504,13 @@
 		},
 		"reasoningEffortSelect": {
 			"reasoningEffort": "Redeneringsinspanning",
-			"off": "af",
 			"low": "Laag",
 			"medium": "Middel",
-			"high": "Hoog"
+			"high": "Hoog",
+			"default": "Verstek",
+			"none": "Geen",
+			"defaultHint": "Laat die verskaffer besluit",
+			"noneHint": "Skakel denke heeltemal af"
 		},
 		"dataTable": {
 			"sortBy": "Sorteer volgens {{label}}",

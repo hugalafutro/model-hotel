@@ -2504,10 +2504,13 @@
 		},
 		"reasoningEffortSelect": {
 			"reasoningEffort": "Redeneerinspanning",
-			"off": "Uit",
 			"low": "laag",
 			"medium": "Middelgroot",
-			"high": "hoog"
+			"high": "hoog",
+			"default": "Standaard",
+			"none": "Geen",
+			"defaultHint": "Laat de provider beslissen",
+			"noneHint": "Schakel denken volledig uit"
 		},
 		"dataTable": {
 			"sortBy": "Sorteren op {{label}}",

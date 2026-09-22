@@ -2620,10 +2620,13 @@
 		},
 		"reasoningEffortSelect": {
 			"reasoningEffort": "Úsilie pri logickom uvažovaní",
-			"off": "vypnúť",
 			"low": "Nízka",
 			"medium": "Stredná",
-			"high": "Vysoká"
+			"high": "Vysoká",
+			"default": "Predvolené",
+			"none": "Žiadne",
+			"defaultHint": "Nechať rozhodnutie na poskytovateľovi",
+			"noneHint": "Úplne vypnúť uvažovanie"
 		},
 		"dataTable": {
 			"sortBy": "Zoradiť podľa {{label}}",

@@ -2620,10 +2620,13 @@
 		},
 		"reasoningEffortSelect": {
 			"reasoningEffort": "Рівень міркувань",
-			"off": "вимкнено",
 			"low": "Низька",
 			"medium": "Середня",
-			"high": "Високий"
+			"high": "Високий",
+			"default": "За умовчанням",
+			"none": "Немає",
+			"defaultHint": "Залишити рішення провайдеру",
+			"noneHint": "Повністю вимкнути міркування"
 		},
 		"dataTable": {
 			"sortBy": "Сортувати за {{label}}",

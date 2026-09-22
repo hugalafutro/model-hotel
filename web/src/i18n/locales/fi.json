@@ -2504,10 +2504,13 @@
 		},
 		"reasoningEffortSelect": {
 			"reasoningEffort": "Päättelyn taso",
-			"off": "pois",
 			"low": "Matala",
 			"medium": "Keskitaso",
-			"high": "Korkea"
+			"high": "Korkea",
+			"default": "Oletus",
+			"none": "Ei mitään",
+			"defaultHint": "Anna palveluntarjoajan päättää",
+			"noneHint": "Kytke ajattelu kokonaan pois"
 		},
 		"dataTable": {
 			"sortBy": "Järjestä {{label}} mukaan",

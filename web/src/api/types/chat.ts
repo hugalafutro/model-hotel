@@ -6,7 +6,11 @@ export interface GenerationParams {
 	top_k?: number;
 	frequency_penalty?: number;
 	presence_penalty?: number;
-	reasoning_effort?: string; // "low" | "medium" | "high" — OpenAI o1/o3 reasoning depth
+	// "none" | "minimal" | "low" | "medium" | "high" | "xhigh" | "max", read by
+	// the OpenAI, Anthropic and Gemini egress translators. Absent is distinct
+	// from "none": absent leaves the provider's own default in place, "none"
+	// asks for thinking to be switched off.
+	reasoning_effort?: string;
 }
 /** OpenAI-compatible multimodal content part types */
 export type TextContentPart = { type: "text"; text: string };

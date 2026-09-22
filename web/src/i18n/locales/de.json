@@ -2504,10 +2504,13 @@
 		},
 		"reasoningEffortSelect": {
 			"reasoningEffort": "Reasoning-Aufwand",
-			"off": "aus",
 			"low": "Niedrig",
 			"medium": "Mittel",
-			"high": "Hoch"
+			"high": "Hoch",
+			"default": "Standard",
+			"none": "Keine",
+			"defaultHint": "Den Anbieter entscheiden lassen",
+			"noneHint": "Denken vollständig abschalten"
 		},
 		"dataTable": {
 			"sortBy": "Nach {{label}} sortieren",

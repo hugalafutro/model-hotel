@@ -2562,10 +2562,13 @@
 		},
 		"reasoningEffortSelect": {
 			"reasoningEffort": "Esfuerzo de razonamiento",
-			"off": "apagado",
 			"low": "Baja",
 			"medium": "Medio",
-			"high": "Alta"
+			"high": "Alta",
+			"default": "Predeterminado",
+			"none": "Ninguno",
+			"defaultHint": "Deja que decida el proveedor",
+			"noneHint": "Desactiva el razonamiento por completo"
 		},
 		"dataTable": {
 			"sortBy": "Ordenar por {{label}}",

@@ -2562,10 +2562,13 @@
 		},
 		"reasoningEffortSelect": {
 			"reasoningEffort": "Efort de raționament",
-			"off": "dezactivat",
 			"low": "scazut",
 			"medium": "Medie",
-			"high": "Ridicat"
+			"high": "Ridicat",
+			"default": "Implicit",
+			"none": "Niciunul",
+			"defaultHint": "Lasă furnizorul să decidă",
+			"noneHint": "Dezactivează complet raționamentul"
 		},
 		"dataTable": {
 			"sortBy": "Sortează după {{label}}",

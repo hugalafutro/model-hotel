@@ -2562,10 +2562,13 @@
 		},
 		"reasoningEffortSelect": {
 			"reasoningEffort": "Effort de raisonnement",
-			"off": "désactivée",
 			"low": "Bas",
 			"medium": "Moyenne",
-			"high": "Élevé"
+			"high": "Élevé",
+			"default": "Par défaut",
+			"none": "Aucun",
+			"defaultHint": "Laisser le fournisseur décider",
+			"noneHint": "Désactiver entièrement le raisonnement"
 		},
 		"dataTable": {
 			"sortBy": "Trier par {{label}}",

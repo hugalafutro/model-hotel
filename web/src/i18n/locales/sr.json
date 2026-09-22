@@ -2562,10 +2562,13 @@
 		},
 		"reasoningEffortSelect": {
 			"reasoningEffort": "Напор у размишљању",
-			"off": "искључено",
 			"low": "Ниско",
 			"medium": "Средњи",
-			"high": "Високо"
+			"high": "Високо",
+			"default": "Подразумевано",
+			"none": "Ниједан",
+			"defaultHint": "Препустите одлуку провајдеру",
+			"noneHint": "Потпуно искључите размишљање"
 		},
 		"dataTable": {
 			"sortBy": "Сортирај по {{label}}",

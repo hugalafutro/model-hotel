@@ -2620,10 +2620,13 @@
 		},
 		"reasoningEffortSelect": {
 			"reasoningEffort": "Уровень рассуждений",
-			"off": "выкл",
 			"low": "Низкий",
 			"medium": "Средний",
-			"high": "Высокий"
+			"high": "Высокий",
+			"default": "По умолчанию",
+			"none": "Нет",
+			"defaultHint": "Оставить решение провайдеру",
+			"noneHint": "Полностью отключить рассуждение"
 		},
 		"dataTable": {
 			"sortBy": "Сортировать по {{label}}",

@@ -2562,10 +2562,13 @@
 		},
 		"reasoningEffortSelect": {
 			"reasoningEffort": "Esforç de raonament",
-			"off": "apagat",
 			"low": "Baix",
 			"medium": "Mitjà",
-			"high": "Alt"
+			"high": "Alt",
+			"default": "Per defecte",
+			"none": "Cap",
+			"defaultHint": "Deixa que decideixi el proveïdor",
+			"noneHint": "Desactiva el raonament del tot"
 		},
 		"dataTable": {
 			"sortBy": "Ordena per {{label}}",

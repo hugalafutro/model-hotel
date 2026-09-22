@@ -2562,10 +2562,13 @@
 		},
 		"reasoningEffortSelect": {
 			"reasoningEffort": "מאמץ חשיבתי",
-			"off": "כבוי",
 			"low": "נמוך",
 			"medium": "בינוני",
-			"high": "גבוה"
+			"high": "גבוה",
+			"default": "ברירת מחדל",
+			"none": "ללא",
+			"defaultHint": "תן לספק להחליט",
+			"noneHint": "כבה את החשיבה לחלוטין"
 		},
 		"dataTable": {
 			"sortBy": "מיין לפי {{label}}",

@@ -2736,10 +2736,13 @@
 		},
 		"reasoningEffortSelect": {
 			"reasoningEffort": "جهد الاستدلال",
-			"off": "متوقف",
 			"low": "منخفض",
 			"medium": "متوسط",
-			"high": "مرتفع"
+			"high": "مرتفع",
+			"default": "افتراضي",
+			"none": "لا شيء",
+			"defaultHint": "اترك القرار للمزوّد",
+			"noneHint": "إيقاف التفكير تمامًا"
 		},
 		"dataTable": {
 			"sortBy": "الترتيب حسب {{label}}",
