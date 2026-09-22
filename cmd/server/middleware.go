@@ -51,14 +51,38 @@ func corsMiddleware(cfg *config.Config) func(http.Handler) http.Handler {
 	}
 }
 
+// restoreUploadPath is the one route exempt from the general request-size cap.
+// It is matched in full, with its method, rather than by suffix: chi runs a
+// subrouter's middleware on paths that match no route in it, so a suffix test
+// also exempts every unmatched path ending the same way (/v1/models/backups/
+// restore, /api/chat/x/backups/restore), handing those to the body-buffering
+// streamingAwareTimeout middleware with no ceiling at all.
+const restoreUploadPath = "/api/backups/restore"
+
 // maxRequestSizeMiddleware caps every request body at maxBytes, except the
 // backup restore upload, which sets its own larger bound (saveUploadedDump):
 // wrapping that one here would cut a dump at the general ceiling before the
 // handler's limit was ever reached.
+//
+// The test reads the same string chi will route on, RawPath when the escaped
+// form differs from the decoded one and Path otherwise. Testing r.URL.Path
+// alone disagrees with the router on a percent-encoded target:
+// /api/backups%2Frestore decodes to the exempt path but routes as the literal
+// backups%2Frestore, so the cap would come off a request that then matches no
+// route at all.
+//
+// The exemption fails closed: anything that is not exactly POST
+// restoreUploadPath keeps the cap, so a trailing slash or an encoded separator
+// costs an upload the larger bound rather than costing the gateway its
+// ceiling.
 func maxRequestSizeMiddleware(maxBytes int64) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			if !strings.HasSuffix(r.URL.Path, "/backups/restore") {
+			routePath := r.URL.RawPath
+			if routePath == "" {
+				routePath = r.URL.Path
+			}
+			if r.Method != http.MethodPost || routePath != restoreUploadPath {
 				r.Body = http.MaxBytesReader(w, r.Body, maxBytes)
 			}
 			next.ServeHTTP(w, r)

@@ -383,3 +383,61 @@ func TestTranslateRequestToChat_NativeOnlyMembers(t *testing.T) {
 		t.Errorf("a plain request has no native-only member: %v %+v", err, plain.NativeOnly)
 	}
 }
+
+// A rejection names the field and never the content, the contract the
+// Responses handler documents and relies on: the native-only rejection is the
+// one that reaches request_logs.error_message and the request.completed
+// operator event, so a caller-supplied discriminator echoed into it would put
+// request-body text in the logs the gateway promises never to store.
+func TestTranslateRequestToChat_RejectionsCarryNoCallerValue(t *testing.T) {
+	const sentinel = "ZZSENTINELZZ"
+
+	nativeOnly := []struct{ name, body string }{
+		{"item type", `{"model":"m","input":[{"type":"ZZSENTINELZZ","call_id":"c"},{"role":"user","content":"hi"}]}`},
+		{"content part type", `{"model":"m","input":[{"role":"user","content":[{"type":"ZZSENTINELZZ"}]}]}`},
+		{"tool type", `{"model":"m","input":"x","tools":[{"type":"ZZSENTINELZZ","name":"t"}]}`},
+		{"namespaced tool type", `{"model":"m","input":"x","tools":[{"type":"namespace","name":"n","tools":[{"type":"ZZSENTINELZZ","name":"c"}]}]}`},
+		{"tool_choice type", `{"model":"m","input":"x","tool_choice":{"type":"ZZSENTINELZZ"}}`},
+	}
+	for _, tc := range nativeOnly {
+		t.Run(tc.name, func(t *testing.T) {
+			tr, err := TranslateRequestToChat([]byte(tc.body))
+			if err != nil {
+				t.Fatalf("a native-only member must not fail the translation: %v", err)
+			}
+			if tr.NativeOnly == nil {
+				t.Fatal("expected a native-only rejection")
+			}
+			if msg := tr.NativeOnly.Error(); strings.Contains(msg, sentinel) {
+				t.Errorf("the rejection echoes the caller's value into a logged message: %s", msg)
+			}
+			if tr.NativeOnly.Field == "" {
+				t.Error("the rejection must still name the field it refuses")
+			}
+		})
+	}
+
+	// The other direction, so a later tidy-up does not strip these too. A
+	// refusal the handler answers before the pending row exists is never
+	// stored, so it may quote the caller's own value back at them, and taking
+	// it away would cost diagnostics for no security gain.
+	refused := []struct{ name, body string }{
+		{"role", `{"model":"m","input":[{"role":"ZZSENTINELZZ","content":"hi"}]}`},
+		{"duplicate tool name", `{"model":"m","input":"x","tools":[{"type":"function","name":"ZZSENTINELZZ"},{"type":"function","name":"ZZSENTINELZZ"}]}`},
+	}
+	for _, tc := range refused {
+		t.Run(tc.name, func(t *testing.T) {
+			_, err := TranslateRequestToChat([]byte(tc.body))
+			if err == nil {
+				t.Fatal("expected the request to be refused")
+			}
+			var rejected *RejectedRequest
+			if !errors.As(err, &rejected) {
+				t.Fatalf("want a RejectedRequest, the shape the handler answers without logging: %v", err)
+			}
+			if !strings.Contains(err.Error(), sentinel) {
+				t.Errorf("a client-only refusal should still name the value the caller sent: %s", err)
+			}
+		})
+	}
+}

@@ -121,18 +121,23 @@ func TestAudioSpeech_GeminiPCM(t *testing.T) {
 
 // A format the model cannot produce, on a request no candidate can serve
 // otherwise, is the client's 400 before any upstream request: the message
-// names what the model does produce.
+// names what the model does produce, and never the value the caller sent.
+// refuseGeminiRequest hands this reason to failRequest, so it is stored in
+// request_logs.error_message and published on the request.completed event.
 func TestAudioSpeech_GeminiRefusesCompressedFormats(t *testing.T) {
 	up := &speechUpstream{answer: speechAudioAnswer([]byte{0, 0})}
 	env := newMultimodalEnvTyped(t, up, `["audio"]`, "google", "/v1beta/openai")
-	body := fmt.Sprintf(`{"model":"%s/%s","input":"hi","voice":"alloy","response_format":"mp3"}`, env.providerName, env.modelName)
+	body := fmt.Sprintf(`{"model":"%s/%s","input":"hi","voice":"alloy","response_format":"ZZSENTINELZZ"}`, env.providerName, env.modelName)
 	w := httptest.NewRecorder()
 	env.handler.AudioSpeech(w, env.request("/v1/audio/speech", "application/json", strings.NewReader(body)))
 	if w.Code != http.StatusBadRequest {
 		t.Fatalf("status = %d, want 400 (body: %s)", w.Code, w.Body.String())
 	}
-	if !strings.Contains(w.Body.String(), "wav or pcm") || !strings.Contains(w.Body.String(), "mp3") {
-		t.Errorf("body = %s, want the refusal naming mp3 and the formats the model produces", w.Body.String())
+	if !strings.Contains(w.Body.String(), "wav or pcm") {
+		t.Errorf("body = %s, want the refusal naming the formats the model produces", w.Body.String())
+	}
+	if strings.Contains(w.Body.String(), "ZZSENTINELZZ") {
+		t.Errorf("the refusal echoes the caller's response_format into a logged message: %s", w.Body.String())
 	}
 	up.mu.Lock()
 	defer up.mu.Unlock()

@@ -28,6 +28,12 @@ func (e *RejectedRequest) Error() string {
 	return fmt.Sprintf("%s: %s", e.Field, e.Reason)
 }
 
+// reject refuses the request outright. The handler answers a RejectedRequest
+// before the pending request-log row exists and logs nothing, so this reason
+// reaches the caller alone and may quote what they sent back at them.
+//
+// deferNative is the one that is stored: keep the distinction in mind before
+// wiring either of these into a log.
 func reject(field, reason string) error {
 	return &RejectedRequest{Field: field, Reason: reason}
 }
@@ -153,6 +159,13 @@ type translation struct {
 
 // deferNative records a member the chat translation cannot carry but OpenAI's
 // own endpoint can, and lets the translation go on without it.
+//
+// Unlike reject, this reason IS stored: the handler refuses the request once it
+// knows a candidate would be translated, and rejectIngest writes the message
+// into request_logs.error_message and publishes it on request.completed. It
+// therefore names the class of member and never the caller's own value, which
+// would put a fragment of the request body in logs that hold no request
+// content.
 func (t *translation) deferNative(field, reason string) {
 	if t.nativeOnly == nil {
 		t.nativeOnly = &RejectedRequest{Field: field, Reason: reason}
@@ -344,7 +357,7 @@ func (t *translation) translateInput(raw json.RawMessage) ([]chatOutMessage, err
 		default:
 			// A hosted tool's call or output from an earlier turn: only the
 			// endpoint that ran the tool can read it back.
-			t.deferNative(field, "item type "+kind+" is served by OpenAI's /v1/responses only")
+			t.deferNative(field, "this item type is served by OpenAI's /v1/responses only")
 		}
 	}
 	return out, nil
@@ -399,7 +412,7 @@ func (t *translation) translateInputMessage(it inputItem, field string) (*chatOu
 			}
 			out = append(out, chatOutPart{Type: "file", File: &chatOutFile{Filename: p.Filename, FileData: p.FileData}})
 		default:
-			t.deferNative(partField, "content part type "+p.Type+" is served by OpenAI's /v1/responses only")
+			t.deferNative(partField, "this content part type is served by OpenAI's /v1/responses only")
 		}
 	}
 	if len(out) == 0 {
@@ -516,7 +529,7 @@ func (t *translation) translateIngressTools(raw []json.RawMessage) (out []chatRe
 					return nil, nil, nil, fmt.Errorf("openairesponses: invalid %s: %s", innerField, jsonfault.Describe(err, len(ir)))
 				}
 				if inner.Type != "function" {
-					t.deferNative(innerField, "tool type "+inner.Type+" is served by OpenAI's /v1/responses only; other routes take function tools")
+					t.deferNative(innerField, "this tool type is served by OpenAI's /v1/responses only; other routes take function tools")
 					continue
 				}
 				nt := NamespacedTool{Namespace: tool.Name, Name: inner.Name}
@@ -529,7 +542,7 @@ func (t *translation) translateIngressTools(raw []json.RawMessage) (out []chatRe
 		case strings.HasPrefix(tool.Type, "web_search"):
 			// dropped
 		default:
-			t.deferNative(field, "tool type "+tool.Type+" is served by OpenAI's /v1/responses only; other routes take function tools")
+			t.deferNative(field, "this tool type is served by OpenAI's /v1/responses only; other routes take function tools")
 		}
 	}
 	if len(names) == 0 {
@@ -559,7 +572,7 @@ func (t *translation) translateIngressToolChoice(raw json.RawMessage, names Tool
 		return nil, fmt.Errorf("openairesponses: invalid tool_choice: %s", jsonfault.Describe(err, len(raw)))
 	}
 	if tc.Type != "function" || tc.Name == "" {
-		t.deferNative("tool_choice", "type "+tc.Type+" is served by OpenAI's /v1/responses only; other routes take a mode string or a named function")
+		t.deferNative("tool_choice", "this tool_choice type is served by OpenAI's /v1/responses only; other routes take a mode string or a named function")
 		return nil, nil
 	}
 	name := tc.Name

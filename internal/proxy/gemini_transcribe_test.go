@@ -118,15 +118,20 @@ func TestAudioTranscriptions_GeminiTextFormat(t *testing.T) {
 }
 
 // A format the adapter cannot produce, on a request no candidate can serve
-// otherwise, is the client's 400 before any upstream request.
+// otherwise, is the client's 400 before any upstream request. The refusal
+// names the formats and never the value the caller sent: refuseGeminiRequest
+// hands this reason to failRequest, which stores it in the request log.
 func TestAudioTranscriptions_GeminiRefusesTimestampedFormats(t *testing.T) {
 	up := &speechUpstream{answer: transcriptionAnswer("x")}
 	env := newMultimodalEnvTyped(t, up, `["text"]`, "google", "/v1beta/openai")
-	form, contentType := buildTranscriptionForm(t, env.providerName+"/"+env.modelName, map[string]string{"response_format": "srt"})
+	form, contentType := buildTranscriptionForm(t, env.providerName+"/"+env.modelName, map[string]string{"response_format": "ZZSENTINELZZ"})
 	w := httptest.NewRecorder()
 	env.handler.AudioTranscriptions(w, env.request("/v1/audio/transcriptions", contentType, form))
 	if w.Code != http.StatusBadRequest || !strings.Contains(w.Body.String(), "json or text") {
 		t.Fatalf("status %d body %s; want a 400 naming the formats the adapter produces", w.Code, w.Body.String())
+	}
+	if strings.Contains(w.Body.String(), "ZZSENTINELZZ") {
+		t.Errorf("the refusal echoes the caller's response_format into a logged message: %s", w.Body.String())
 	}
 	up.mu.Lock()
 	defer up.mu.Unlock()

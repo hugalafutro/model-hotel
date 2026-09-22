@@ -41,9 +41,16 @@ const (
 // The base covers every control-plane JSON body (1 MiB ceiling) and a plain
 // chat request with room to spare. The floor is a deliberately poor uplink
 // (128 KiB/s, about 1 Mbit/s): a 20 MiB vision request earns 160s on top of
-// the base, and the largest legitimate body, the 100 MiB backup restore, earns
-// 800s. The cap is the last line against a hostile Content-Length: whatever
-// is declared, the connection is released after fifteen minutes.
+// the base. The longest hold any body can buy is set by the listener's maxBody
+// rather than by its own size, because bodyBudgetFor clamps the length that
+// earns time: at the default 50 MiB MAX_REQUEST_SIZE that is 400s on top of
+// the base, and a 100 MiB backup restore earns the same 400s, not the 800s its
+// own size would suggest. The cap is the last line against a hostile
+// Content-Length: whatever is declared, the connection is released after
+// fifteen minutes.
+//
+// This budgets TIME, never bytes. Nothing here bounds how much a body may
+// carry; that is MAX_REQUEST_SIZE's job, applied by maxRequestSizeMiddleware.
 //
 // The length that earns time is the declared Content-Length clamped to the
 // largest body the listener accepts (NewServer's maxBody). A body that declares
