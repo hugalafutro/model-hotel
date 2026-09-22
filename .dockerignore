@@ -26,6 +26,14 @@ web/coverage/
 frontdesk/web/coverage/
 .tokensave/
 
+# Gradle output for the Bellhop Android companion, which no image builds.
+# Listed per path rather than as **/build/ because Docker compiles that glob
+# so it also matches a top-level name merely ending in "build".
+android/build/
+android/app/build/
+android/.gradle/
+android/.kotlin/
+
 # Frontend assets are built by the frontend-builder stage and copied into cmd/server/static/.
 # Never copy the repo's version — it may contain stale files or just .gitkeep.
 cmd/server/static/

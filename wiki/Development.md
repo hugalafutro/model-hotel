@@ -56,7 +56,7 @@ model-hotel/
 │   ├── vitest.config.ts           # Test + coverage configuration
 │   ├── biome.json                 # Biome formatter/linter config
 │   ├── eslint.config.js           # ESLint config
-│   ├── tailwind.config.js         # Tailwind CSS config
+│   ├── postcss.config.js          # PostCSS pipeline (Tailwind 4 + autoprefixer)
 │   └── package.json               # Dependencies + scripts
 ├── web-shared/                    # Frontend modules both SPAs import via @web-shared/*
 ├── frontdesk/web/                 # Front Desk SPA (its own locales and tests)
