@@ -2504,10 +2504,11 @@
 		},
 		"reasoningEffortSelect": {
 			"reasoningEffort": "Προσπάθεια συλλογισμού",
-			"off": "ανενεργό",
 			"low": "Χαμηλή",
 			"medium": "Μεσαίο",
-			"high": "Υψηλή"
+			"high": "Υψηλή",
+			"default": "Προεπιλογή",
+			"none": "Καμία"
 		},
 		"dataTable": {
 			"sortBy": "Ταξινόμηση κατά {{label}}",

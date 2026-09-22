@@ -2504,10 +2504,11 @@
 		},
 		"reasoningEffortSelect": {
 			"reasoningEffort": "Reasoning Effort",
-			"off": "off",
 			"low": "Low",
 			"medium": "Medium",
-			"high": "High"
+			"high": "High",
+			"default": "Default",
+			"none": "None"
 		},
 		"dataTable": {
 			"sortBy": "Sort by {{label}}",

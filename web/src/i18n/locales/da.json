@@ -2504,10 +2504,11 @@
 		},
 		"reasoningEffortSelect": {
 			"reasoningEffort": "Ræsonneringsindsats",
-			"off": "fra",
 			"low": "Lav",
 			"medium": "Mellem",
-			"high": "Høj"
+			"high": "Høj",
+			"default": "Standard",
+			"none": "Ingen"
 		},
 		"dataTable": {
 			"sortBy": "Sorter efter {{label}}",

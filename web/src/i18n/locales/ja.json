@@ -2504,10 +2504,11 @@
 		},
 		"reasoningEffortSelect": {
 			"reasoningEffort": "推論の強度",
-			"off": "オフ",
 			"low": "低い",
 			"medium": "ミディアム",
-			"high": "高い"
+			"high": "高い",
+			"default": "デフォルト",
+			"none": "なし"
 		},
 		"dataTable": {
 			"sortBy": "{{label}} でソート",

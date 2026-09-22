@@ -2504,10 +2504,11 @@
 		},
 		"reasoningEffortSelect": {
 			"reasoningEffort": "推理强度",
-			"off": "关闭",
 			"low": "低",
 			"medium": "中",
-			"high": "高"
+			"high": "高",
+			"default": "默认",
+			"none": "无"
 		},
 		"dataTable": {
 			"sortBy": "按 {{label}} 排序",

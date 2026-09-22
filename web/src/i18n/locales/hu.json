@@ -2504,10 +2504,11 @@
 		},
 		"reasoningEffortSelect": {
 			"reasoningEffort": "Gondolkodási erőfeszítés",
-			"off": "ki",
 			"low": "Alacsony",
 			"medium": "Közepes",
-			"high": "Magas"
+			"high": "Magas",
+			"default": "Alapértelmezett",
+			"none": "Nincs"
 		},
 		"dataTable": {
 			"sortBy": "Rendezés {{label}} szerint",

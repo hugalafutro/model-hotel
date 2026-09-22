@@ -2562,10 +2562,11 @@
 		},
 		"reasoningEffortSelect": {
 			"reasoningEffort": "Efort de raționament",
-			"off": "dezactivat",
 			"low": "scazut",
 			"medium": "Medie",
-			"high": "Ridicat"
+			"high": "Ridicat",
+			"default": "Implicit",
+			"none": "Niciunul"
 		},
 		"dataTable": {
 			"sortBy": "Sortează după {{label}}",

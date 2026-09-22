@@ -2504,10 +2504,11 @@
 		},
 		"reasoningEffortSelect": {
 			"reasoningEffort": "추론 강도",
-			"off": "끄기",
 			"low": "낮음",
 			"medium": "중간",
-			"high": "높음"
+			"high": "높음",
+			"default": "기본값",
+			"none": "없음"
 		},
 		"dataTable": {
 			"sortBy": "정렬 기준 {{label}}",

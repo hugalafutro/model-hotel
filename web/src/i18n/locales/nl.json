@@ -2504,10 +2504,11 @@
 		},
 		"reasoningEffortSelect": {
 			"reasoningEffort": "Redeneerinspanning",
-			"off": "Uit",
 			"low": "laag",
 			"medium": "Middelgroot",
-			"high": "hoog"
+			"high": "hoog",
+			"default": "Standaard",
+			"none": "Geen"
 		},
 		"dataTable": {
 			"sortBy": "Sorteren op {{label}}",

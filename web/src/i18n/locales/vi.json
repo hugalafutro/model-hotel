@@ -2504,10 +2504,11 @@
 		},
 		"reasoningEffortSelect": {
 			"reasoningEffort": "Nỗ lực suy luận",
-			"off": "tắt",
 			"low": "Thấp",
 			"medium": "Trung bình",
-			"high": "Cao"
+			"high": "Cao",
+			"default": "Mặc định",
+			"none": "Không có"
 		},
 		"dataTable": {
 			"sortBy": "Sắp xếp theo {{label}}",

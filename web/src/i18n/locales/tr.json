@@ -2504,10 +2504,11 @@
 		},
 		"reasoningEffortSelect": {
 			"reasoningEffort": "Akıl Yürütme Çabası",
-			"off": "kapalı",
 			"low": "Düşük",
 			"medium": "Orta",
-			"high": "Yüksek"
+			"high": "Yüksek",
+			"default": "Varsayılan",
+			"none": "Yok"
 		},
 		"dataTable": {
 			"sortBy": "Şu kriterlere göre sırala {{label}}",

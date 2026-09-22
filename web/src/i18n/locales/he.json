@@ -2562,10 +2562,11 @@
 		},
 		"reasoningEffortSelect": {
 			"reasoningEffort": "מאמץ חשיבתי",
-			"off": "כבוי",
 			"low": "נמוך",
 			"medium": "בינוני",
-			"high": "גבוה"
+			"high": "גבוה",
+			"default": "ברירת מחדל",
+			"none": "ללא"
 		},
 		"dataTable": {
 			"sortBy": "מיין לפי {{label}}",

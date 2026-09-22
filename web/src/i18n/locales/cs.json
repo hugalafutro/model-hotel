@@ -2620,10 +2620,11 @@
 		},
 		"reasoningEffortSelect": {
 			"reasoningEffort": "Úsilí při uvažování",
-			"off": "vypnuto",
 			"low": "Nízká",
 			"medium": "Střední",
-			"high": "Vysoká"
+			"high": "Vysoká",
+			"default": "Výchozí",
+			"none": "Žádné"
 		},
 		"dataTable": {
 			"sortBy": "Seřadit podle {{label}}",

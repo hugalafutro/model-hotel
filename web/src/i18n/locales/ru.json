@@ -2620,10 +2620,11 @@
 		},
 		"reasoningEffortSelect": {
 			"reasoningEffort": "Уровень рассуждений",
-			"off": "выкл",
 			"low": "Низкий",
 			"medium": "Средний",
-			"high": "Высокий"
+			"high": "Высокий",
+			"default": "По умолчанию",
+			"none": "Нет"
 		},
 		"dataTable": {
 			"sortBy": "Сортировать по {{label}}",

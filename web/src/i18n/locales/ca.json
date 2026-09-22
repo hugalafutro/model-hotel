@@ -2562,10 +2562,11 @@
 		},
 		"reasoningEffortSelect": {
 			"reasoningEffort": "Esforç de raonament",
-			"off": "apagat",
 			"low": "Baix",
 			"medium": "Mitjà",
-			"high": "Alt"
+			"high": "Alt",
+			"default": "Per defecte",
+			"none": "Cap"
 		},
 		"dataTable": {
 			"sortBy": "Ordena per {{label}}",

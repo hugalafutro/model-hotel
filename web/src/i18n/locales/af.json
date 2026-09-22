@@ -2504,10 +2504,11 @@
 		},
 		"reasoningEffortSelect": {
 			"reasoningEffort": "Redeneringsinspanning",
-			"off": "af",
 			"low": "Laag",
 			"medium": "Middel",
-			"high": "Hoog"
+			"high": "Hoog",
+			"default": "Verstek",
+			"none": "Geen"
 		},
 		"dataTable": {
 			"sortBy": "Sorteer volgens {{label}}",

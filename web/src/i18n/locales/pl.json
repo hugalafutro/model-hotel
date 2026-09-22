@@ -2620,10 +2620,11 @@
 		},
 		"reasoningEffortSelect": {
 			"reasoningEffort": "Nakład rozumowania",
-			"off": "wyłączony",
 			"low": "Niski",
 			"medium": "Średni",
-			"high": "Wysoka"
+			"high": "Wysoka",
+			"default": "Domyślny",
+			"none": "Brak"
 		},
 		"dataTable": {
 			"sortBy": "Sortuj według {{label}}",

@@ -10,25 +10,32 @@ describe("ReasoningEffortSelect", () => {
 		onChange: vi.fn(),
 	};
 
-	it("renders three buttons: Low, Medium, High", () => {
+	it("renders five buttons: Default, None, Low, Medium, High", () => {
 		renderWithProviders(<ReasoningEffortSelect {...defaultProps} />);
 
+		expect(
+			screen.getByRole("button", { name: /Default/i }),
+		).toBeInTheDocument();
+		expect(screen.getByRole("button", { name: /None/i })).toBeInTheDocument();
 		expect(screen.getByRole("button", { name: /Low/i })).toBeInTheDocument();
 		expect(screen.getByRole("button", { name: /Medium/i })).toBeInTheDocument();
 		expect(screen.getByRole("button", { name: /High/i })).toBeInTheDocument();
 	});
 
-	it("no button is selected when value is undefined", () => {
+	it("Default is the selected button when value is undefined", () => {
 		renderWithProviders(<ReasoningEffortSelect {...defaultProps} />);
 
-		const lowButton = screen.getByRole("button", { name: /Low/i });
-		const mediumButton = screen.getByRole("button", { name: /Medium/i });
-		const highButton = screen.getByRole("button", { name: /High/i });
-
-		// Unselected buttons have the secondary style
-		expect(lowButton).toHaveClass("text-(--text-secondary)");
-		expect(mediumButton).toHaveClass("text-(--text-secondary)");
-		expect(highButton).toHaveClass("text-(--text-secondary)");
+		// Undefined is a real, nameable choice now rather than the absence of
+		// one, so it has to read as selected instead of leaving the row blank.
+		expect(screen.getByRole("button", { name: /Default/i })).toHaveClass(
+			"bg-(--accent)",
+			"text-white",
+		);
+		for (const name of [/None/i, /Low/i, /Medium/i, /High/i]) {
+			expect(screen.getByRole("button", { name })).toHaveClass(
+				"text-(--text-secondary)",
+			);
+		}
 	});
 
 	it("the correct button is highlighted when value is set", () => {
@@ -36,38 +43,75 @@ describe("ReasoningEffortSelect", () => {
 			<ReasoningEffortSelect {...defaultProps} value="low" />,
 		);
 
-		const lowButton = screen.getByRole("button", { name: /Low/i });
-		const mediumButton = screen.getByRole("button", { name: /Medium/i });
-		const highButton = screen.getByRole("button", { name: /High/i });
-
-		// Selected button has accent style
-		expect(lowButton).toHaveClass("bg-(--accent)", "text-white");
-		expect(mediumButton).not.toHaveClass("bg-(--accent)");
-		expect(highButton).not.toHaveClass("bg-(--accent)");
-
-		// Rerender with medium value
-		rerender(<ReasoningEffortSelect {...defaultProps} value="medium" />);
-
-		expect(screen.getByRole("button", { name: /Low/i })).not.toHaveClass(
+		expect(screen.getByRole("button", { name: /Low/i })).toHaveClass(
+			"bg-(--accent)",
+			"text-white",
+		);
+		expect(screen.getByRole("button", { name: /Default/i })).not.toHaveClass(
 			"bg-(--accent)",
 		);
+
+		rerender(<ReasoningEffortSelect {...defaultProps} value="medium" />);
 		expect(screen.getByRole("button", { name: /Medium/i })).toHaveClass(
 			"bg-(--accent)",
 		);
-		expect(screen.getByRole("button", { name: /High/i })).not.toHaveClass(
+		expect(screen.getByRole("button", { name: /Low/i })).not.toHaveClass(
 			"bg-(--accent)",
 		);
 
-		// Rerender with high value
 		rerender(<ReasoningEffortSelect {...defaultProps} value="high" />);
-
-		expect(screen.getByRole("button", { name: /Low/i })).not.toHaveClass(
+		expect(screen.getByRole("button", { name: /High/i })).toHaveClass(
 			"bg-(--accent)",
 		);
 		expect(screen.getByRole("button", { name: /Medium/i })).not.toHaveClass(
 			"bg-(--accent)",
 		);
-		expect(screen.getByRole("button", { name: /High/i })).toHaveClass(
+	});
+
+	// The reason this component changed: "none" is a value that has to reach the
+	// provider, because the egress translators read it as an explicit off switch.
+	// Sending undefined instead omits reasoning_effort and lets a thinking model
+	// keep thinking, which is what the old single "off" control did.
+	it('None sends the string "none", not undefined', async () => {
+		const onChange = vi.fn();
+		renderWithProviders(
+			<ReasoningEffortSelect {...defaultProps} onChange={onChange} />,
+		);
+
+		await userEvent
+			.setup()
+			.click(screen.getByRole("button", { name: /None/i }));
+
+		expect(onChange).toHaveBeenCalledWith("none");
+		expect(onChange).not.toHaveBeenCalledWith(undefined);
+	});
+
+	it("Default sends undefined so the field is omitted", async () => {
+		const onChange = vi.fn();
+		renderWithProviders(
+			<ReasoningEffortSelect
+				{...defaultProps}
+				value="high"
+				onChange={onChange}
+			/>,
+		);
+
+		await userEvent
+			.setup()
+			.click(screen.getByRole("button", { name: /Default/i }));
+
+		expect(onChange).toHaveBeenCalledWith(undefined);
+	});
+
+	it('None is highlighted when value is "none"', () => {
+		renderWithProviders(
+			<ReasoningEffortSelect {...defaultProps} value="none" />,
+		);
+
+		expect(screen.getByRole("button", { name: /None/i })).toHaveClass(
+			"bg-(--accent)",
+		);
+		expect(screen.getByRole("button", { name: /Default/i })).not.toHaveClass(
 			"bg-(--accent)",
 		);
 	});
@@ -80,21 +124,20 @@ describe("ReasoningEffortSelect", () => {
 
 		const user = userEvent.setup();
 
-		await user.click(screen.getByRole("button", { name: /Low/i }));
-		expect(onChange).toHaveBeenCalledWith("low");
-
-		onChange.mockClear();
-		await user.click(screen.getByRole("button", { name: /Medium/i }));
-		expect(onChange).toHaveBeenCalledWith("medium");
-
-		onChange.mockClear();
-		await user.click(screen.getByRole("button", { name: /High/i }));
-		expect(onChange).toHaveBeenCalledWith("high");
+		for (const [name, expected] of [
+			[/Low/i, "low"],
+			[/Medium/i, "medium"],
+			[/High/i, "high"],
+		] as const) {
+			onChange.mockClear();
+			await user.click(screen.getByRole("button", { name }));
+			expect(onChange).toHaveBeenCalledWith(expected);
+		}
 	});
 
-	it("clicking the same button again calls onChange with undefined (deselect)", async () => {
+	it("clicking the selected button keeps that value instead of clearing it", async () => {
 		const onChange = vi.fn();
-		const { rerender } = renderWithProviders(
+		renderWithProviders(
 			<ReasoningEffortSelect
 				{...defaultProps}
 				value="low"
@@ -102,77 +145,11 @@ describe("ReasoningEffortSelect", () => {
 			/>,
 		);
 
-		const user = userEvent.setup();
+		// Deselect-on-reclick would silently mean Default, which is now its own
+		// button; re-picking the active level must not change what is sent.
+		await userEvent.setup().click(screen.getByRole("button", { name: /Low/i }));
 
-		// Click the already-selected Low button
-		await user.click(screen.getByRole("button", { name: /Low/i }));
-		expect(onChange).toHaveBeenCalledWith(undefined);
-
-		// Simulate parent state update - rerender with undefined
-		onChange.mockClear();
-		rerender(
-			<ReasoningEffortSelect
-				{...defaultProps}
-				value={undefined}
-				onChange={onChange}
-			/>,
-		);
-
-		// Click Medium (not selected), should set to medium
-		await user.click(screen.getByRole("button", { name: /Medium/i }));
-		expect(onChange).toHaveBeenCalledWith("medium");
-
-		// Simulate parent state update - rerender with medium
-		onChange.mockClear();
-		rerender(
-			<ReasoningEffortSelect
-				{...defaultProps}
-				value="medium"
-				onChange={onChange}
-			/>,
-		);
-
-		// Click Medium again (now selected), should deselect
-		await user.click(screen.getByRole("button", { name: /Medium/i }));
-		expect(onChange).toHaveBeenCalledWith(undefined);
-	});
-
-	it("the 'off' button appears when a value is set", () => {
-		const { rerender } = renderWithProviders(
-			<ReasoningEffortSelect {...defaultProps} value="low" />,
-		);
-
-		expect(screen.getByRole("button", { name: /off/i })).toBeInTheDocument();
-
-		// Rerender with undefined value - off button should disappear
-		rerender(<ReasoningEffortSelect {...defaultProps} value={undefined} />);
-
-		expect(
-			screen.queryByRole("button", { name: /off/i }),
-		).not.toBeInTheDocument();
-	});
-
-	it("clicking the 'off' button calls onChange with undefined", async () => {
-		const onChange = vi.fn();
-		renderWithProviders(
-			<ReasoningEffortSelect
-				{...defaultProps}
-				value="high"
-				onChange={onChange}
-			/>,
-		);
-
-		const user = userEvent.setup();
-
-		await user.click(screen.getByRole("button", { name: /off/i }));
-		expect(onChange).toHaveBeenCalledWith(undefined);
-	});
-
-	it("the 'off' button does NOT appear when value is undefined", () => {
-		renderWithProviders(<ReasoningEffortSelect {...defaultProps} />);
-
-		expect(
-			screen.queryByRole("button", { name: /off/i }),
-		).not.toBeInTheDocument();
+		expect(onChange).toHaveBeenCalledWith("low");
+		expect(onChange).not.toHaveBeenCalledWith(undefined);
 	});
 });
