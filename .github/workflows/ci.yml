@@ -362,9 +362,10 @@ jobs:
     env:
       # crowdsecurity/hub. See the note above before moving it.
       HUB_REF: d5fb108d535c389beec4607a5e4e1ff55120801c
-      # Matches the engine the collection is developed against. A tag, not
-      # :latest, so the gate does not change under the repository.
-      CROWDSEC_IMAGE: crowdsecurity/crowdsec:v1.8.1
+      # The engine the collection is developed against, pinned by digest: a tag
+      # can be retargeted, and then the same revision of this repository would
+      # test against different engine content. v1.8.1 at the time of pinning.
+      CROWDSEC_IMAGE: crowdsecurity/crowdsec@sha256:0f2523fa61ef507f15d953045cface490cc880670c62f2755ced17524107f71a
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
@@ -408,15 +409,27 @@ jobs:
           docker logs hubtest >&2
           exit 1
 
+      # The names come from the staged directories rather than a list kept
+      # here, so a fixture added to contrib/crowdsec/tests is run by the fact
+      # of existing. An empty set means the staging step silently copied
+      # nothing, which must fail rather than report a green run of nothing.
+      #
       # `yes n |` answers the "remove the runtime folder?" prompt, which
       # otherwise reads EOF and fails the run whatever the tests did. The exit
       # status is cscli's, since it is the last command in the pipeline.
       - name: run the fixtures
         run: |
-          docker exec -w /hub hubtest sh -c 'yes n | cscli hubtest run \
-            model-hotel-logs model-hotel-access-logs model-hotel-vk-bf \
-            model-hotel-admin-bf model-hotel-throttled \
-            --hub . --report-success'
+          names=$(find contrib/crowdsec/tests -mindepth 1 -maxdepth 1 \
+            -type d -name 'model-hotel-*' -printf '%f ')
+          if [ -z "$names" ]; then
+            echo "no fixtures found under contrib/crowdsec/tests" >&2
+            exit 1
+          fi
+          echo "running: $names"
+          # Unquoted on purpose: the container's shell has to see the names as
+          # separate arguments.
+          docker exec -w /hub hubtest sh -c \
+            "yes n | cscli hubtest run $names --hub . --report-success"
 
   workflow-lint:
     name: Workflow Lint
