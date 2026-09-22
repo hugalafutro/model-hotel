@@ -323,6 +323,8 @@ User preferences are stored in `localStorage` (client-side only, never sent to t
 | `persistChat` | Whether to persist chat state across sessions |
 | `persistConversation` | Whether to persist conversation state |
 | `persistArena` | Whether to persist arena state and history |
+| `arenaHistoryEnabled` | Whether to persist arena battle history across sessions |
+| `arenaHistoryLimit` | Maximum number of arena history entries to keep (default: 25) |
 | `sidebarChatSubMode` | chat/conversation |
 | `sidebarArenaSubMode` | competition/compare |
 | `sidebarLogsSubMode` | request/app |
@@ -501,7 +503,9 @@ The three UI styles applied to the dashboard (dark mode, each style's default ac
 
 ## Docker Compose Configuration
 
-The `docker-compose.yml` sets up the following services:
+The `docker-compose.yml` sets up the following services. For local development, run it with the
+`compose.dev.yml` overlay, which mounts the Docker socket and turns on `DEBUG_LOG` and
+`ALLOW_EMBED`: see [Development](Development#3-start-the-stack).
 
 ### Services
 
