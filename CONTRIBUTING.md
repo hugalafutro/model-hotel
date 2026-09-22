@@ -36,15 +36,36 @@ By submitting a pull request or otherwise contributing code, documentation, or o
 
 ## Building & Testing
 
-The backend tests need a Postgres instance, so start the dev stack first:
+Run `make setup` once after cloning. It points `core.hooksPath` at `scripts/`,
+which is what enables the hooks described below; without it they never run.
+
+The backend tests use their own Postgres, which is **not** the dev stack's:
 
 ```bash
-make docker-up        # start Postgres (+ the dev stack)
+make test-db-up       # test Postgres on :5433 (docker-compose.test.yml)
 make test             # backend tests: go test ./...
+make test-parallel    # ./internal/... only, sharded across processes; faster
 make lint             # golangci-lint
+make size-check       # file-size ratchet: 800 lines production, 2000 test
 ```
 
-The frontend (in `web/`) has its own suite, linter, and type-check:
+`make test-parallel` is the one to reach for while iterating, but it shards
+`./internal/...` alone; `make test` is what covers `cmd/` and `tools/` as well,
+so run it before pushing.
+
+The size ratchet decides what counts as a test by path, not by filename: a Go
+`_test.go` file gets the 2000-line ceiling, and so does anything under a
+`__tests__/` directory or in `web/src/test/` or `frontdesk/web/src/test/`. A
+`.test.ts` or `.spec.ts` anywhere else is treated as production code and gets
+the 800-line ceiling, because a production file can be given that suffix too.
+
+`make docker-up` starts the dev stack for running the app. Its Postgres
+publishes no port, so it is not what the tests connect to; use `make test-db-up`
+for those.
+
+The frontend (in `web/`) has its own suite, linter, and type-check. Front Desk
+(`frontdesk/web/`) is a second SPA with its own suite and locales, so run the
+same commands there when you touch it:
 
 ```bash
 cd web
@@ -54,15 +75,27 @@ pnpm run lint                # eslint
 pnpm exec tsc -b             # type-check (stricter than the editor; run it)
 ```
 
-CI additionally enforces an **80% coverage threshold** (backend and frontend)
-and **locale parity** via `make i18n-check` (fully offline). If you add a
-user-facing string, add it to `en.json` and translate it into the other locales
-by hand (or add intentional English to `tools/i18n-translate/allow-english.json`)
-so the check passes.
+CI enforces a **90% coverage threshold** (backend, frontend, and Front Desk
+web), a separate **90% diff-coverage gate** on the lines your PR changes, the
+file-size ratchet above, and **locale parity** via `make i18n-check` (fully
+offline). If you add a user-facing string, add it to `en.json` and translate it
+into the other locales by hand. Intentional English goes in the allowlist for
+that app: `tools/i18n-translate/allow-english.json` for the dashboard,
+`allow-english-fd.json` for Front Desk, `allow-english-android.json` for
+Bellhop.
 
-The repo ships git hooks under `scripts/` (enabled via `core.hooksPath`); on
-push they run go vet, the linters, and `tsc -b` as a fast pre-flight, but the
-authoritative gate is the full CI run on GitHub.
+If your change touches `README.md`, mirror it in `DOCKERHUB.md`, since the two
+describe the same project to different audiences. When the change genuinely
+does not belong on the Docker Hub page, note that clearing this takes two
+separate steps: `DOCKERHUB_README_NOT_NEEDED=1` lets the local pre-push hook
+through, while CI reads the `dockerhub-readme-not-needed` label on the PR. Skip
+the label and the `README/DOCKERHUB.md sync` check fails even though your push
+succeeded.
+
+The hooks under `scripts/` are a fast pre-flight, not a substitute for CI. On
+push they run golangci-lint, `pnpm lint`, `tsc -b`, the vitest tests related to
+your changes, and the diff-coverage gate; the authoritative gate is still the
+full CI run on GitHub.
 
 Some tests in `internal/util` expect a running Docker daemon (the project is
 designed for Docker-first deployment). They pass whether or not Docker is
