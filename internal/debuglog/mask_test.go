@@ -212,3 +212,22 @@ func TestMaskingHandler_MasksInsideSlicesAndMaps(t *testing.T) {
 		t.Fatalf("values with no secret in them were altered: %s", got[0])
 	}
 }
+
+// A logger derived with WithGroup stays behind the masker: if WithGroup
+// returned the inner handler, every record logged through the grouped logger
+// would skip the mask.
+func TestMaskingHandler_WithGroupStaysMasked(t *testing.T) {
+	const secret = "SECRETVALUE"
+	SetMasker(func(s string) string { return strings.ReplaceAll(s, secret, "[redacted]") })
+	t.Cleanup(func() { SetMasker(nil) })
+
+	rec, lines := newRecordingHandler()
+	grouped := slog.New(maskingHandler{rec}).WithGroup("req")
+	if _, ok := grouped.Handler().(maskingHandler); !ok {
+		t.Fatalf("WithGroup returned %T, not the masking wrapper", grouped.Handler())
+	}
+	grouped.Info("grouped "+secret, "field", "value "+secret)
+	if got := lines(); len(got) != 1 || strings.Contains(got[0], secret) {
+		t.Fatalf("a record through a grouped logger was not masked: %v", got)
+	}
+}
