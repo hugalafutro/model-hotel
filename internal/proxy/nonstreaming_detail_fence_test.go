@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/hugalafutro/model-hotel/internal/ctxkeys"
+	"github.com/hugalafutro/model-hotel/internal/provider"
 )
 
 // The decode-error detail is stored (request_logs.error_message, the attempt
@@ -125,5 +126,23 @@ func TestSetReqErr_MasksTheUnderlyingCredential(t *testing.T) {
 	}
 	if strings.Contains(st.lastErr, strings.Repeat("a", 40)) {
 		t.Fatalf("the credential survived into the rendered error: %s", st.lastErr)
+	}
+}
+
+// A hedged probe logs against its own throwaway entry, and that entry carries
+// the probe candidate's exact masker. The key here is never registered with
+// util.HoldSecret, so the held-set union cannot catch it: only the candidate's
+// own masker can, which is the case provider.HoldKeys leaves open when a key
+// fails to decrypt.
+func TestHedgeProbeLog_MasksTheProbeCandidatesCredential(t *testing.T) {
+	t.Parallel()
+	probeKey := "hk-" + strings.Repeat("b", 40)
+	entry := &requestLogData{modelID: "m", endpointType: "chat", masker: newCredentialMasker("some-other-candidates-key-xxxxxxxx")}
+	candidate := modelCandidate{provider: &provider.Provider{Name: "p"}, apiKey: probeKey}
+
+	probe := hedgeProbeLog(entry, candidate)
+	got := fencedFrameMessage(probe.fence(), probe.masks(), `Post "https://gw.example/v1?key=`+probeKey+`": malformed HTTP response`)
+	if strings.Contains(got, strings.Repeat("b", 40)) {
+		t.Fatalf("the probe candidate's key survived into the hedge log line: %s", got)
 	}
 }
