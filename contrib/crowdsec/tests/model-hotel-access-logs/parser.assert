@@ -7,7 +7,7 @@ results["s01-parse"]["hugalafutro/model-hotel-access-logs"][0].Evt.Meta["source_
 results["s01-parse"]["hugalafutro/model-hotel-access-logs"][0].Evt.Meta["http_verb"] == "GET"
 results["s01-parse"]["hugalafutro/model-hotel-access-logs"][0].Evt.Meta["http_status"] == "404"
 results["s01-parse"]["hugalafutro/model-hotel-access-logs"][0].Evt.Meta["target_fqdn"] == "mh.example.com"
-results["s01-parse"]["hugalafutro/model-hotel-access-logs"][0].Evt.Meta["http_path"] == "/api/zz\\x20auth:\\x20key\\x20not\\x20found\\x20remote=203.0.113.77"
+results["s01-parse"]["hugalafutro/model-hotel-access-logs"][0].Evt.Meta["http_path"] == "/api/zz auth: key not found remote=203.0.113.77"
 
 results["s01-parse"]["hugalafutro/model-hotel-access-logs"][1].Success == true
 results["s01-parse"]["hugalafutro/model-hotel-access-logs"][1].Evt.Meta["source_ip"] == "198.51.100.98"

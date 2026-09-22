@@ -45,24 +45,21 @@ type appSlogHandler struct {
 
 // quoteLogValue renders an attribute value for the flattened k=v text form.
 // A value holding a space, an '=', a quote, a backslash or a control character
-// is quoted, and the spaces inside it are escaped as well, so the result is a
-// single whitespace-delimited token no matter what the caller put in it.
+// is quoted with strconv.Quote; anything else stays bare. That is plain
+// logfmt, the shape every log reader already parses, and strconv.Unquote
+// reverses it.
 //
-// Escaping the spaces is the part that matters. Request paths and virtual key
-// names are caller-controlled and are logged as attributes, so a value like
-//
-//	pwn remote_addr=203.0.113.99 x
-//
-// would otherwise still contain a "key=value" token after quoting, and any
-// reader that splits on whitespace before it considers quotes (a CrowdSec
-// grok, a fail2ban regex, an awk one-liner) would read that token as the
-// gateway's own. strconv.Unquote reverses \x20, so the value round-trips.
-//
-// Values with nothing to escape stay bare, so ordinary lines read as before.
+// Request paths and virtual key names are caller-controlled, so a quoted value
+// can hold text shaped like a "key=value" token of the gateway's own. Keeping
+// a reader from acting on that is the reader's job, as it is for every service
+// whose logs carry a request path: the CrowdSec collection in contrib/crowdsec
+// classifies only on a position-anchored message capture, never on an
+// attribute value, and LOG_FORMAT=json gives that pipeline discrete fields
+// where the ambiguity cannot arise at all.
 func quoteLogValue(v any) string {
 	s := fmt.Sprintf("%v", v)
 	if s == "" || strings.ContainsAny(s, " =\"\\") || strings.ContainsFunc(s, unicode.IsControl) {
-		return strings.ReplaceAll(strconv.Quote(s), " ", `\x20`)
+		return strconv.Quote(s)
 	}
 	return s
 }
