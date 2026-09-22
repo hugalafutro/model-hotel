@@ -419,17 +419,23 @@ jobs:
       # status is cscli's, since it is the last command in the pipeline.
       - name: run the fixtures
         run: |
-          names=$(find contrib/crowdsec/tests -mindepth 1 -maxdepth 1 \
-            -type d -name 'model-hotel-*' -printf '%f ')
-          if [ -z "$names" ]; then
+          mapfile -d '' -t names < <(
+            find contrib/crowdsec/tests -mindepth 1 -maxdepth 1 \
+              -type d -name 'model-hotel-*' -printf '%f\0' | sort -z
+          )
+          if [ "${#names[@]}" -eq 0 ]; then
             echo "no fixtures found under contrib/crowdsec/tests" >&2
             exit 1
           fi
-          echo "running: $names"
-          # Unquoted on purpose: the container's shell has to see the names as
-          # separate arguments.
+          printf 'running: %s\n' "${names[*]}"
+          # The names are positional ARGUMENTS to the container's shell, never
+          # text inside the script it runs: a directory in this repository is
+          # attacker-supplied as far as a pull request is concerned, and a name
+          # holding a space or a ';' would otherwise split the argument list or
+          # run as a command of its own.
           docker exec -w /hub hubtest sh -c \
-            "yes n | cscli hubtest run $names --hub . --report-success"
+            'yes n | cscli hubtest run "$@" --hub . --report-success' \
+            hubtest "${names[@]}"
 
   workflow-lint:
     name: Workflow Lint
