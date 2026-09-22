@@ -2508,7 +2508,9 @@
 			"medium": "ミディアム",
 			"high": "高い",
 			"default": "デフォルト",
-			"none": "なし"
+			"none": "なし",
+			"defaultHint": "プロバイダーに任せる",
+			"noneHint": "思考を完全にオフにする"
 		},
 		"dataTable": {
 			"sortBy": "{{label}} でソート",

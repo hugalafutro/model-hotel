@@ -2508,7 +2508,9 @@
 			"medium": "Medium",
 			"high": "High",
 			"default": "Default",
-			"none": "None"
+			"none": "None",
+			"defaultHint": "Let the provider decide",
+			"noneHint": "Switch thinking off entirely"
 		},
 		"dataTable": {
 			"sortBy": "Sort by {{label}}",

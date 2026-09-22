@@ -2508,7 +2508,9 @@
 			"medium": "Middel",
 			"high": "Hoog",
 			"default": "Verstek",
-			"none": "Geen"
+			"none": "Geen",
+			"defaultHint": "Laat die verskaffer besluit",
+			"noneHint": "Skakel denke heeltemal af"
 		},
 		"dataTable": {
 			"sortBy": "Sorteer volgens {{label}}",

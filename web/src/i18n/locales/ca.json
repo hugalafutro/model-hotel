@@ -2566,7 +2566,9 @@
 			"medium": "Mitjà",
 			"high": "Alt",
 			"default": "Per defecte",
-			"none": "Cap"
+			"none": "Cap",
+			"defaultHint": "Deixa que decideixi el proveïdor",
+			"noneHint": "Desactiva el raonament del tot"
 		},
 		"dataTable": {
 			"sortBy": "Ordena per {{label}}",

@@ -2624,7 +2624,9 @@
 			"medium": "Stredná",
 			"high": "Vysoká",
 			"default": "Predvolené",
-			"none": "Žiadne"
+			"none": "Žiadne",
+			"defaultHint": "Nechať rozhodnutie na poskytovateľovi",
+			"noneHint": "Úplne vypnúť uvažovanie"
 		},
 		"dataTable": {
 			"sortBy": "Zoradiť podľa {{label}}",

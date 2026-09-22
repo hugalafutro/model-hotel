@@ -2508,7 +2508,9 @@
 			"medium": "中",
 			"high": "高",
 			"default": "默认",
-			"none": "无"
+			"none": "无",
+			"defaultHint": "由提供商决定",
+			"noneHint": "完全关闭思考"
 		},
 		"dataTable": {
 			"sortBy": "按 {{label}} 排序",

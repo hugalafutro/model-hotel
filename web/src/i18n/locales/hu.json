@@ -2508,7 +2508,9 @@
 			"medium": "Közepes",
 			"high": "Magas",
 			"default": "Alapértelmezett",
-			"none": "Nincs"
+			"none": "Nincs",
+			"defaultHint": "Hagyd a szolgáltatóra a döntést",
+			"noneHint": "Gondolkodás teljes kikapcsolása"
 		},
 		"dataTable": {
 			"sortBy": "Rendezés {{label}} szerint",

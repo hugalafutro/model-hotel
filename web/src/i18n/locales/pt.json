@@ -2566,7 +2566,9 @@
 			"medium": "Média",
 			"high": "alta",
 			"default": "Padrão",
-			"none": "Nenhum"
+			"none": "Nenhum",
+			"defaultHint": "Deixe o provedor decidir",
+			"noneHint": "Desativa o raciocínio por completo"
 		},
 		"dataTable": {
 			"sortBy": "Ordenar por {{label}}",

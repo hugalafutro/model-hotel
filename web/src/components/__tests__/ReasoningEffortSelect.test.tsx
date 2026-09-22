@@ -135,6 +135,39 @@ describe("ReasoningEffortSelect", () => {
 		}
 	});
 
+	it("marks the selected button pressed for assistive tech", () => {
+		// Selection is otherwise carried only by background colour, which a
+		// screen reader cannot see.
+		renderWithProviders(
+			<ReasoningEffortSelect {...defaultProps} value="none" />,
+		);
+
+		expect(screen.getByRole("button", { name: /None/i })).toHaveAttribute(
+			"aria-pressed",
+			"true",
+		);
+		expect(screen.getByRole("button", { name: /Default/i })).toHaveAttribute(
+			"aria-pressed",
+			"false",
+		);
+	});
+
+	it("Default and None carry a hint, the levels do not", () => {
+		renderWithProviders(<ReasoningEffortSelect {...defaultProps} />);
+
+		expect(screen.getByRole("button", { name: /Default/i })).toHaveAttribute(
+			"title",
+			"Let the provider decide",
+		);
+		expect(screen.getByRole("button", { name: /None/i })).toHaveAttribute(
+			"title",
+			"Switch thinking off entirely",
+		);
+		expect(screen.getByRole("button", { name: /Low/i })).not.toHaveAttribute(
+			"title",
+		);
+	});
+
 	it("clicking the selected button keeps that value instead of clearing it", async () => {
 		const onChange = vi.fn();
 		renderWithProviders(

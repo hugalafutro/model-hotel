@@ -2566,7 +2566,9 @@
 			"medium": "בינוני",
 			"high": "גבוה",
 			"default": "ברירת מחדל",
-			"none": "ללא"
+			"none": "ללא",
+			"defaultHint": "תן לספק להחליט",
+			"noneHint": "כבה את החשיבה לחלוטין"
 		},
 		"dataTable": {
 			"sortBy": "מיין לפי {{label}}",

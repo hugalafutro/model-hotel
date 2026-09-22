@@ -2508,7 +2508,9 @@
 			"medium": "Keskitaso",
 			"high": "Korkea",
 			"default": "Oletus",
-			"none": "Ei mitään"
+			"none": "Ei mitään",
+			"defaultHint": "Anna palveluntarjoajan päättää",
+			"noneHint": "Kytke ajattelu kokonaan pois"
 		},
 		"dataTable": {
 			"sortBy": "Järjestä {{label}} mukaan",

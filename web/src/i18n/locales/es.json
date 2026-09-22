@@ -2566,7 +2566,9 @@
 			"medium": "Medio",
 			"high": "Alta",
 			"default": "Predeterminado",
-			"none": "Ninguno"
+			"none": "Ninguno",
+			"defaultHint": "Deja que decida el proveedor",
+			"noneHint": "Desactiva el razonamiento por completo"
 		},
 		"dataTable": {
 			"sortBy": "Ordenar por {{label}}",

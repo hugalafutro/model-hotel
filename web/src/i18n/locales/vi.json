@@ -2508,7 +2508,9 @@
 			"medium": "Trung bình",
 			"high": "Cao",
 			"default": "Mặc định",
-			"none": "Không có"
+			"none": "Không có",
+			"defaultHint": "Để nhà cung cấp quyết định",
+			"noneHint": "Tắt hoàn toàn khả năng suy luận"
 		},
 		"dataTable": {
 			"sortBy": "Sắp xếp theo {{label}}",

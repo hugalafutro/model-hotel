@@ -2508,7 +2508,9 @@
 			"medium": "Middelgroot",
 			"high": "hoog",
 			"default": "Standaard",
-			"none": "Geen"
+			"none": "Geen",
+			"defaultHint": "Laat de provider beslissen",
+			"noneHint": "Schakel denken volledig uit"
 		},
 		"dataTable": {
 			"sortBy": "Sorteren op {{label}}",

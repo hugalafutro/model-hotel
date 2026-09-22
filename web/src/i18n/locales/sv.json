@@ -2508,7 +2508,9 @@
 			"medium": "Medel",
 			"high": "Hög",
 			"default": "Standard",
-			"none": "Ingen"
+			"none": "Ingen",
+			"defaultHint": "Låt leverantören bestämma",
+			"noneHint": "Stäng av tänkandet helt"
 		},
 		"dataTable": {
 			"sortBy": "Sortera efter {{label}}",

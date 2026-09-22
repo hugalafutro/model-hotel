@@ -2508,7 +2508,9 @@
 			"medium": "Mittel",
 			"high": "Hoch",
 			"default": "Standard",
-			"none": "Keine"
+			"none": "Keine",
+			"defaultHint": "Den Anbieter entscheiden lassen",
+			"noneHint": "Denken vollständig abschalten"
 		},
 		"dataTable": {
 			"sortBy": "Nach {{label}} sortieren",

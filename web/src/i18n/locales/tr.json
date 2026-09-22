@@ -2508,7 +2508,9 @@
 			"medium": "Orta",
 			"high": "Yüksek",
 			"default": "Varsayılan",
-			"none": "Yok"
+			"none": "Yok",
+			"defaultHint": "Kararı sağlayıcıya bırak",
+			"noneHint": "Düşünmeyi tamamen kapat"
 		},
 		"dataTable": {
 			"sortBy": "Şu kriterlere göre sırala {{label}}",

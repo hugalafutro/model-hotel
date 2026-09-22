@@ -2624,7 +2624,9 @@
 			"medium": "Średni",
 			"high": "Wysoka",
 			"default": "Domyślny",
-			"none": "Brak"
+			"none": "Brak",
+			"defaultHint": "Pozostaw decyzję dostawcy",
+			"noneHint": "Całkowicie wyłącz rozumowanie"
 		},
 		"dataTable": {
 			"sortBy": "Sortuj według {{label}}",
