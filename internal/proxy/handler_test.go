@@ -66,6 +66,11 @@ func newUnitHandler() *Handler {
 func stopUnitHandler(h *Handler) {
 	h.rateLimiter.Stop()
 	h.ipLimiter.Stop()
+	// The TPM limiter's cleanup goroutine ticks every five minutes and reads
+	// settings through newUnitHandler's nil-pool repository, so a limiter left
+	// running panics the whole package the first time a run passes five
+	// minutes (-race does).
+	h.tpmLimiter.Stop()
 	if h.upstreamTransport != nil {
 		h.upstreamTransport.CloseIdleConnections()
 	}
