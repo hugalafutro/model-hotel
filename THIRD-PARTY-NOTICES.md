@@ -6,7 +6,7 @@ Model Hotel is distributed under the MIT License (see [LICENSE](./LICENSE)).
 It bundles the third-party open-source components listed below; each is the
 property of its respective authors and is used under the terms reproduced here.
 
-_53 Go modules, 238 npm packages (regenerate with `make notices`)._
+_53 Go modules, 240 npm packages (regenerate with `make notices`)._
 
 ## Fonts
 
@@ -21,7 +21,7 @@ The web UI embeds the JetBrains Mono, Onest, and Schibsted Grotesk typefaces, an
 | [github.com/cenkalti/backoff/v5](https://github.com/cenkalti/backoff/v5) | v5.0.3 | Go | MIT |
 | [github.com/cespare/xxhash/v2](https://github.com/cespare/xxhash/v2) | v2.3.0 | Go | MIT |
 | [github.com/coreos/go-oidc/v3](https://github.com/coreos/go-oidc/v3) | v3.21.0 | Go | Apache-2.0 |
-| [github.com/fxamacker/cbor/v2](https://github.com/fxamacker/cbor/v2) | v2.9.3 | Go | MIT |
+| [github.com/fxamacker/cbor/v2](https://github.com/fxamacker/cbor/v2) | v2.9.4 | Go | MIT |
 | [github.com/go-chi/chi/v5](https://github.com/go-chi/chi/v5) | v5.3.2 | Go | MIT |
 | [github.com/go-jose/go-jose/v4](https://github.com/go-jose/go-jose/v4) | v4.1.5 | Go | Apache-2.0 |
 | [github.com/go-logr/logr](https://github.com/go-logr/logr) | v1.4.4 | Go | Apache-2.0 |
@@ -79,6 +79,7 @@ The web UI embeds the JetBrains Mono, Onest, and Schibsted Grotesk typefaces, an
 | [@fontsource-variable/schibsted-grotesk](https://fontsource.org/fonts/schibsted-grotesk) | 5.3.0 | npm | OFL-1.1 |
 | [@phosphor-icons/react](https://phosphoricons.com) | 2.1.10 | npm | MIT |
 | [@reduxjs/toolkit](https://redux-toolkit.js.org) | 2.12.0 | npm | MIT |
+| [@remix-run/route-pattern](https://github.com/remix-run/remix/tree/main/packages/route-pattern#readme) | 0.22.1 | npm | MIT |
 | [@shikijs/core](https://github.com/shikijs/shiki#readme) | 4.4.3 | npm | MIT |
 | [@shikijs/engine-javascript](https://github.com/shikijs/shiki#readme) | 4.4.3 | npm | MIT |
 | [@shikijs/engine-oniguruma](https://github.com/shikijs/shiki#readme) | 4.4.3 | npm | MIT |
@@ -90,10 +91,10 @@ The web UI embeds the JetBrains Mono, Onest, and Schibsted Grotesk typefaces, an
 | [@simplewebauthn/browser](https://github.com/MasterKale/SimpleWebAuthn/tree/master/packages/browser#readme) | 14.0.0 | npm | MIT |
 | [@standard-schema/spec](https://standardschema.dev) | 1.1.0 | npm | MIT |
 | [@standard-schema/utils](https://github.com/standard-schema/standard-schema#readme) | 0.3.0 | npm | MIT |
-| [@tanstack/query-core](https://tanstack.com/query) | 5.102.8 | npm | MIT |
-| [@tanstack/react-query](https://tanstack.com/query) | 5.102.8 | npm | MIT |
-| [@tanstack/react-virtual](https://tanstack.com/virtual) | 3.14.12 | npm | MIT |
-| [@tanstack/virtual-core](https://tanstack.com/virtual) | 3.17.10 | npm | MIT |
+| [@tanstack/query-core](https://tanstack.com/query) | 5.103.1 | npm | MIT |
+| [@tanstack/react-query](https://tanstack.com/query) | 5.103.1 | npm | MIT |
+| [@tanstack/react-virtual](https://tanstack.com/virtual) | 3.14.13 | npm | MIT |
+| [@tanstack/virtual-core](https://tanstack.com/virtual) | 3.17.11 | npm | MIT |
 | [@types/d3-array](https://github.com/DefinitelyTyped/DefinitelyTyped/tree/master/types/d3-array) | 3.2.2 | npm | MIT |
 | [@types/d3-color](https://github.com/DefinitelyTyped/DefinitelyTyped/tree/master/types/d3-color) | 3.1.3 | npm | MIT |
 | [@types/d3-ease](https://github.com/DefinitelyTyped/DefinitelyTyped/tree/master/types/d3-ease) | 3.0.2 | npm | MIT |
@@ -253,11 +254,11 @@ The web UI embeds the JetBrains Mono, Onest, and Schibsted Grotesk typefaces, an
 | [react](https://react.dev/) | 19.3.0 | npm | MIT |
 | [react-colorful](https://omgovich.github.io/react-colorful) | 5.8.1 | npm | MIT |
 | [react-dom](https://react.dev/) | 19.3.0 | npm | MIT |
-| [react-i18next](https://github.com/i18next/react-i18next) | 17.0.13 | npm | MIT |
+| [react-i18next](https://github.com/i18next/react-i18next) | 17.0.14 | npm | MIT |
 | [react-is](https://react.dev/) | 19.2.6 | npm | MIT |
 | [react-markdown](https://github.com/remarkjs/react-markdown#readme) | 10.1.0 | npm | MIT |
 | [react-redux](https://github.com/reduxjs/react-redux) | 9.3.0 | npm | MIT |
-| [react-router](https://github.com/remix-run/react-router#readme) | 8.3.1 | npm | MIT |
+| [react-router](https://github.com/remix-run/react-router#readme) | 8.4.0 | npm | MIT |
 | [recharts](https://github.com/recharts/recharts) | 3.10.1 | npm | MIT |
 | [redux](http://redux.js.org) | 5.0.1 | npm | MIT |
 | [redux-thunk](https://github.com/reduxjs/redux-thunk) | 3.1.0 | npm | MIT |
@@ -295,7 +296,8 @@ The web UI embeds the JetBrains Mono, Onest, and Schibsted Grotesk typefaces, an
 | [unist-util-stringify-position](https://github.com/syntax-tree/unist-util-stringify-position#readme) | 4.0.0 | npm | MIT |
 | [unist-util-visit](https://github.com/syntax-tree/unist-util-visit#readme) | 5.1.0 | npm | MIT |
 | [unist-util-visit-parents](https://github.com/syntax-tree/unist-util-visit-parents#readme) | 6.0.2 | npm | MIT |
-| [use-sync-external-store](https://github.com/facebook/react#readme) | 1.6.0 | npm | MIT |
+| [use-sync-external-store](https://github.com/react/react#readme) | 1.6.0 | npm | MIT |
+| [use-sync-external-store](https://github.com/react/react#readme) | 1.7.0 | npm | MIT |
 | [vfile](https://github.com/vfile/vfile#readme) | 6.0.3 | npm | MIT |
 | [vfile-location](https://github.com/vfile/vfile-location#readme) | 5.0.3 | npm | MIT |
 | [vfile-message](https://github.com/vfile/vfile-message#readme) | 4.0.3 | npm | MIT |
@@ -1005,7 +1007,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 Copyright (c) Meta Platforms, Inc. and affiliates.
 
-Applies to: `react@19.3.0`, `react-dom@19.3.0`, `react-is@19.2.6`, `scheduler@0.28.0`, `use-sync-external-store@1.6.0`
+Applies to: `react@19.3.0`, `react-dom@19.3.0`, `react-is@19.2.6`, `scheduler@0.28.0`, `use-sync-external-store@1.6.0`, `use-sync-external-store@1.7.0`
 
 ```
 MIT License
@@ -1065,7 +1067,7 @@ SOFTWARE.
 
 Copyright (c) 2021-present Tanner Linsley
 
-Applies to: `@tanstack/query-core@5.102.8`, `@tanstack/react-query@5.102.8`, `@tanstack/react-virtual@3.14.12`, `@tanstack/virtual-core@3.17.10`
+Applies to: `@tanstack/query-core@5.103.1`, `@tanstack/react-query@5.103.1`, `@tanstack/react-virtual@3.14.13`, `@tanstack/virtual-core@3.17.11`
 
 ```
 MIT License
@@ -1822,7 +1824,7 @@ This product includes software developed at CoreOS, Inc.
 
 Copyright (c) 2019-present Faye Amacker
 
-Applies to: `github.com/fxamacker/cbor/v2@v2.9.3`
+Applies to: `github.com/fxamacker/cbor/v2@v2.9.4`
 
 ```
 MIT License
@@ -4295,6 +4297,36 @@ SOFTWARE.
 
 ### MIT
 
+Copyright (c) 2025 Shopify Inc.
+
+Applies to: `@remix-run/route-pattern@0.22.1`
+
+```
+MIT License
+
+Copyright (c) 2025 Shopify Inc.
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+```
+
+### MIT
+
 Copyright (c) Microsoft Corporation
 
 Applies to: `@shikijs/vscode-textmate@10.0.2`
@@ -5590,7 +5622,7 @@ SOFTWARE.
 
 Copyright (c) 2015-present i18next
 
-Applies to: `react-i18next@17.0.13`
+Applies to: `react-i18next@17.0.14`
 
 ```
 The MIT License (MIT)
@@ -5650,7 +5682,7 @@ SOFTWARE.
 
 Copyright (c) React Training LLC 2015-2019
 
-Applies to: `react-router@8.3.1`
+Applies to: `react-router@8.4.0`
 
 ```
 MIT License
