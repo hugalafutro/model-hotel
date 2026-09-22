@@ -12,6 +12,8 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
+
+	"github.com/hugalafutro/model-hotel/internal/proxy"
 )
 
 func TestPurgeLogs(t *testing.T) {
@@ -240,6 +242,77 @@ func TestListLogs_WithEndpointTypeFilter(t *testing.T) {
 	json.NewDecoder(w3.Body).Decode(&response3)
 	if len(response3.Entries) != 2 {
 		t.Errorf("expected 2 entries with unknown endpoint_type filter (ignored), got %d", len(response3.Entries))
+	}
+}
+
+// TestListLogs_EveryEndpointTypeFilters covers the whole vocabulary rather than
+// one family at a time: an unrecognised endpoint_type is ignored instead of
+// rejected, so a family the proxy stamps but the filter does not know returns
+// every row while the UI claims it is filtered. That is what "responses" did
+// between shipping the /v1/responses ingress and this test. Driving the cases
+// off proxy.EndpointTypes means a family added there fails here until the
+// filter accepts it.
+func TestListLogs_EveryEndpointTypeFilters(t *testing.T) {
+	h, r := newTestHandlerWithRouter(t)
+
+	body := `{"name":"test-logs-provider-allep","base_url":"https://api.openai.com","api_key":"sk-test-allep"}`
+	reqCreate := httptest.NewRequest("POST", "/providers", strings.NewReader(body))
+	reqCreate.Header.Set("Authorization", "Bearer test-admin-token")
+	reqCreate.Header.Set("Content-Type", "application/json")
+	wCreate := httptest.NewRecorder()
+	r.ServeHTTP(wCreate, reqCreate)
+
+	var created map[string]any
+	if err := json.NewDecoder(wCreate.Body).Decode(&created); err != nil {
+		t.Fatalf("decode provider: %v", err)
+	}
+	providerID := created["id"].(string)
+
+	// One row per family, each with a model_id naming its family so a wrong
+	// match is identifiable rather than merely miscounted.
+	pool := h.Pool().Pool()
+	for _, et := range proxy.EndpointTypes {
+		_, err := pool.Exec(context.Background(), `
+			INSERT INTO request_logs (provider_id, model_id, status_code, duration_ms, endpoint_type, created_at)
+			VALUES ($1, $2, $3, $4, $5, $6)`,
+			uuid.MustParse(providerID), "model-"+et, 200, 10, et, time.Now())
+		if err != nil {
+			t.Fatalf("insert %s log: %v", et, err)
+		}
+	}
+
+	for _, et := range proxy.EndpointTypes {
+		t.Run(et, func(t *testing.T) {
+			req := httptest.NewRequest("GET", "/logs?endpoint_type="+et+"&provider_id="+providerID, http.NoBody)
+			req.Header.Set("Authorization", "Bearer test-admin-token")
+			w := httptest.NewRecorder()
+			r.ServeHTTP(w, req)
+
+			if w.Code != http.StatusOK {
+				t.Fatalf("expected 200 OK, got %d: %s", w.Code, w.Body.String())
+			}
+
+			var response struct {
+				Entries []struct {
+					ModelID      string `json:"model_id"`
+					EndpointType string `json:"endpoint_type"`
+				} `json:"entries"`
+			}
+			if err := json.NewDecoder(w.Body).Decode(&response); err != nil {
+				t.Fatalf("decode response: %v", err)
+			}
+			// The unfiltered set is len(proxy.EndpointTypes) rows, so an
+			// ignored filter shows up here as the full list.
+			if len(response.Entries) != 1 {
+				t.Fatalf("endpoint_type=%s returned %d entries, want 1 (filter not applied?)", et, len(response.Entries))
+			}
+			if response.Entries[0].EndpointType != et {
+				t.Errorf("endpoint_type = %q, want %q", response.Entries[0].EndpointType, et)
+			}
+			if response.Entries[0].ModelID != "model-"+et {
+				t.Errorf("model_id = %q, want %q", response.Entries[0].ModelID, "model-"+et)
+			}
+		})
 	}
 }
 
