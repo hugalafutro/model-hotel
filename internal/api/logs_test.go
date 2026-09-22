@@ -1506,8 +1506,12 @@ func TestAppendLogFilters_EndpointTypeInvalidIgnored(t *testing.T) {
 	}
 }
 
+// TestIsValidEndpointType spells the accepted families out by hand on purpose.
+// isValidEndpointType reads proxy.EndpointTypes, so a test that ranged over that
+// same slice would assert nothing; this literal is the independent expectation
+// that catches a family dropped from it.
 func TestIsValidEndpointType(t *testing.T) {
-	for _, v := range []string{"chat", "messages", "embeddings", "rerank", "image", "tts", "stt"} {
+	for _, v := range []string{"chat", "messages", "responses", "embeddings", "rerank", "image", "tts", "stt"} {
 		if !isValidEndpointType(v) {
 			t.Errorf("isValidEndpointType(%q) = false, want true", v)
 		}
