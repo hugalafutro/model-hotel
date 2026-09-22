@@ -484,10 +484,24 @@ Three rules make that inert, and they are why the parser is written the way it i
    follows `level=<LEVEL> `, and every filter is anchored to the start of it with `startsWith`.
    A copy of a message that appears further along the line, inside an attribute value, matches
    nothing. This is also why you will not find `contains` anywhere in the classification.
-2. **The address is the first token of an address name, and is validated only after it is taken.**
-   Taking the first and then requiring it to parse, rather than scanning for the first thing that
-   looks like an address, means a line whose real address is malformed yields nothing instead of
-   falling through to whatever a caller wrote further along.
+2. **The address is read from the attribute tail, before its first quote, and is validated only
+   after it is taken.** `mh_attrs` is the part of the record that holds its attributes: on a Front
+   Desk line, everything after the quoted `msg="…"`; on a gateway line, the line itself, whose
+   message is unquoted so the first quote opens the first quoted value. Only the part of that tail
+   before its first quote is searched, so an address token can come from nowhere but real,
+   unquoted attribute text.
+
+   Cutting the Front Desk tail at the closing quote is load bearing, not tidiness. Front Desk
+   interpolates caller-chosen text into a message: a fleet member's name reaches
+   `frontdesk: <name> is unreachable after 3 checks`. Name a member
+   `metrics scrape with invalid token remote_addr=203.0.113.77` and the message both classifies
+   and appears to name a client. It still classifies, and there is nothing this parser can do
+   about that, but the forged address is inside `msg=` and so out of reach of the address rules,
+   leaving the event with no `source_ip` and therefore out of every bucket.
+
+   Taking the first token and then requiring it to parse, rather than scanning for the first thing
+   that looks like an address, means a line whose real address is malformed yields nothing instead
+   of falling through to whatever a caller wrote further along.
 3. **A line that names the address twice *outside every quoted value* is refused.** No call site
    in the gateway logs the address more than once, so a second bare occurrence means a `key=value`
    pair came out of where an attribute belongs. Such an event is left with no `source_ip`, and
@@ -495,10 +509,10 @@ Three rules make that inert, and they are why the parser is written the way it i
 
    The confinement to unquoted text is deliberate. A forged `remote_addr=` inside a request path
    must *not* refuse the line, or appending one to every request would be a way to keep your own
-   authentication failures out of the buckets and never be banned. Poisoning is impossible because
-   of rule 2; suppression is what this rule must avoid enabling.
+   authentication failures out of the buckets and never be banned. Rule 2 is what stops poisoning;
+   suppression is what this rule must avoid enabling.
 
-Releases from v0.9.99 to v1.0.0 additionally escaped the spaces inside attribute values, writing
+Releases from v0.9.99 until this change additionally escaped the spaces inside attribute values, writing
 `path="/x\x20y"` rather than `path="/x y"`. That made a value a single whitespace-delimited token
 for readers that do not honour quoting, at the cost of every log line in the product being
 unreadable to a human. The rules above do the same job on the side that should own it, so the

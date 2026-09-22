@@ -334,9 +334,15 @@ func emitEvent(ctx context.Context, store *Store, bus *events.Bus, e Event) {
 // be matched to its row. Shared by Server.emit, Poller.recordEvent and
 // Server.closeSyncHold.
 // eventLogMessage flattens an event message for the log line. A message can
-// carry caller-chosen text (a paired device's label, an actor name), and the
-// log's msg field is the one the attribute escaping exempts, so a newline or
-// another control character in it would start a log line of its own.
+// carry caller-chosen text (a paired device's label, an actor name, a fleet
+// member's name), so a newline or another control character in it would start
+// a log line of its own.
+//
+// That caller text lands in the slog msg field, not in an attribute, so it is
+// not quoted apart from the message as a whole. It can therefore read like an
+// attribute of the record. The CrowdSec collection in contrib/crowdsec takes
+// the client address from the attribute tail that FOLLOWS the quoted message
+// for exactly this reason, so text placed here cannot name a client.
 func eventLogMessage(message string) string {
 	return strings.Map(func(r rune) rune {
 		// Every Unicode control (C0, DEL, C1 including NEL) and the two line

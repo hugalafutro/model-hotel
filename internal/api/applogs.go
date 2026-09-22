@@ -26,10 +26,11 @@ type AppLogEntry struct {
 	Source    string `json:"source"`               // "proxy", "auth", "discovery", etc. (without brackets)
 	Message   string `json:"message"`
 	// Escaped marks messages produced by the slog handler, whose attribute
-	// values went through quoteLogValue. Rows written before v1.0.0 escaped
-	// their spaces as \x20, and the dashboard decodes that only when this is
-	// set; raw io.Writer lines stay false and render verbatim (migration
-	// 075). Current rows carry no escaping, so the decode is a no-op on them.
+	// values went through quoteLogValue. Rows written before the escaping was
+	// removed carry their spaces as \x20, and the dashboard decodes that only
+	// when this is set; raw io.Writer lines stay false and render verbatim
+	// (migration 075). Rows written since carry no escaping, so the decode is
+	// a no-op on them.
 	Escaped bool `json:"escaped,omitempty"`
 	// AttrsAt is the offset in Message where the attribute suffix begins
 	// (everything before it is raw message text, everything from it on is
@@ -315,11 +316,11 @@ func appendAppLogFilters(conditions []string, args []any, argIdx int, level, sou
 		argIdx++
 	}
 	if search != "" {
-		// Rows written before v1.0.0 escaped the spaces inside attribute
-		// values as \x20, so a term with a space also has to match that form
-		// or a search for a provider name like "Ollama Cloud" misses the
-		// stored lines that still carry it. The pattern doubles the backslash
-		// because \ is the LIKE escape character.
+		// Rows written before the escaping was removed carry the spaces
+		// inside attribute values as \x20, so a term with a space also has to
+		// match that form or a search for a provider name like "Ollama Cloud"
+		// misses the stored lines that still carry it. The pattern doubles the
+		// backslash because \ is the LIKE escape character.
 		escaped := strings.ReplaceAll(search, " ", `\\x20`)
 		if escaped != search {
 			conditions = append(conditions, fmt.Sprintf("(message ILIKE $%d OR message ILIKE $%d)", argIdx, argIdx+1))

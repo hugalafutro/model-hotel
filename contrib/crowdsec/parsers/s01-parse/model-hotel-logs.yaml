@@ -35,7 +35,11 @@ pattern_syntax:
   # The client address lands under a different key per call site: remote_addr
   # (auth lines), remote (access log), client_ip (proxy) and ip (the IP rate
   # limiter). This captures the whole token; the IP itself is validated after.
-  MH_ADDR: '(^| )(remote_addr|remote|client_ip|ip)=%{NOTSPACE:mh_rawaddr}( |$)'
+  #
+  # It reads mh_attrs, the attribute tail of the record, and only the part of
+  # it before the first quote, so a value can never supply an address. See the
+  # mh_attrs captures below for how that tail is taken from each shape.
+  MH_ADDR: '^[^"]*(^| )(remote_addr|remote|client_ip|ip)=%{NOTSPACE:mh_rawaddr}( |$)'
 nodes:
   # ---- normalise ------------------------------------------------------------
 
@@ -59,10 +63,17 @@ nodes:
   # Model Hotel text: the message runs from just after "level=<LEVEL> " to the
   # end of the line. Attributes are in it, but only ever after the message, and
   # classification anchors at the start.
+  #
+  # mh_attrs is the whole line here: this shape writes its message unquoted, so
+  # the first quote on the line opens the first quoted VALUE, and everything
+  # the address rules need sits before it. The gateway's own messages are
+  # fixed strings, so nothing a caller writes reaches that part of the line.
   - grok:
       pattern: '^%{MH_TIME:mh_time} level=%{WORD:mh_level} %{GREEDYDATA:mh_body}$'
       apply_on: message
     statics:
+      - parsed: mh_attrs
+        expression: evt.Parsed.message
       - meta: log_format
         value: text
       # Local time with no zone, so dateparse-enrich reads it as UTC. On a
@@ -73,6 +84,15 @@ nodes:
 
   # Front Desk text (stdlib slog) quotes the whole "scope: message" into msg=,
   # so the message is already delimited for us.
+  #
+  # mh_attrs is what follows that quoted message, and taking it is load
+  # bearing rather than cosmetic. Front Desk interpolates caller-chosen text
+  # into a message (a fleet member's name reaches
+  # "frontdesk: <name> is unreachable ..."), so the message itself can hold a
+  # forged "remote_addr=" token. Cutting the attribute tail at the closing
+  # quote puts every such token out of reach of the address rules, and the
+  # (?:[^"\\]|\\.)* form walks the quoted message the way slog wrote it, so a
+  # quote inside the name cannot end it early and expose the rest.
   - grok:
       pattern: '^time=%{NOTSPACE:fd_time} level=%{WORD:mh_level} msg="%{DATA:mh_body}"'
       apply_on: message
@@ -162,10 +182,17 @@ nodes:
 
   # ---- address and context --------------------------------------------------
 
-  # Text: the first address-named token on the line, whatever it holds.
+  # Front Desk text: the attribute tail, everything after the quoted message.
+  - grok:
+      pattern: '^time=%{NOTSPACE} level=%{WORD} msg="(?:[^"\\]|\\.)*" %{GREEDYDATA:mh_attrs}$'
+      apply_on: message
+
+  # Text: the first address-named token of the attribute tail, whatever it
+  # holds. Confined to the unquoted head of that tail by MH_ADDR, so a value
+  # cannot supply one however it is ordered.
   - grok:
       pattern: '%{MH_ADDR}'
-      apply_on: message
+      apply_on: mh_attrs
 
   # A genuine record names the address exactly once; none of the call sites
   # that log one names it twice. A second occurrence outside every quoted
@@ -174,16 +201,16 @@ nodes:
   # without a source_ip, which keeps it out of every scenario (they all
   # require one).
   #
-  # Both halves are confined to the unquoted part of the line ([^"]*), so a
+  # Both halves are confined to the unquoted head of mh_attrs ([^"]*), so a
   # forged address inside a quoted value does NOT trip this. That is the
-  # difference between a caller poisoning the record (impossible: the first
-  # address token is the real one, since every classified call site logs the
-  # address before any caller-controlled value) and a caller suppressing it
-  # (which this must not allow, or appending "remote_addr=" to a request path
-  # would be a way to never get banned).
+  # difference between a caller poisoning the record (impossible: an address
+  # token can only be read from unquoted attribute text, which no caller
+  # writes) and a caller suppressing it (which this must not allow, or
+  # appending "remote_addr=" to a request path would be a way to never get
+  # banned).
   - grok:
       pattern: '^[^"]*(^| )(remote_addr|remote|client_ip|ip)=%{NOTSPACE} [^"]*[ ](remote_addr|remote|client_ip|ip)=%{NOTSPACE:mh_dupaddr}'
-      apply_on: message
+      apply_on: mh_attrs
 
   # Both shapes end here. Only now is the candidate required to be an address,
   # so a malformed one drops the event rather than promoting the next thing on

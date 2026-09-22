@@ -31,3 +31,5 @@ time=2026-08-18T04:15:31.123Z level=WARN msg="webauthn: passkey login failed" re
 time=2026-08-18T04:15:32.123Z level=WARN msg="auth: admin request with invalid token" remote_addr=203.0.113.27 path="/x remote_addr=203.0.113.77 y"
 time=2026-08-18T04:15:33.123Z level=WARN msg="auth: insufficient permissions" remote_addr=203.0.113.28 device=c1a1bb2c-9770-42da-967e-e75770bf5ab4 role=monitor required=operator path=/api/members/abc/state
 time=2026-08-18T04:15:34.123Z level=WARN msg="frontdesk: traefik config poll with invalid token" remote_addr=203.0.113.29
+time=2026-08-18T04:15:34.123Z level=WARN msg="auth: admin request with invalid token" remote_addr=203.0.113.30 path=/x remote_addr=203.0.113.77
+time=2026-08-18T04:15:35.123Z level=ERROR msg="frontdesk: metrics scrape with invalid token remote_addr=203.0.113.77 is unreachable after 3 checks" member=7f3a9c21

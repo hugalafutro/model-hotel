@@ -1,4 +1,5 @@
-/** Display-layer decoding for app-log lines stored before v1.0.0.
+/** Display-layer decoding for app-log lines stored before the backend stopped
+ * escaping spaces.
  *
  * Those releases escaped the spaces inside a quoted attribute value as `\x20`
  * so that readers which split on whitespace without honouring quotes could not
