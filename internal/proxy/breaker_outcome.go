@@ -309,7 +309,7 @@ func (h *Handler) rejectUntranslatableBody(st *requestState, candidate modelCand
 	// object's error.message through verbatim). Only the log string is fenced;
 	// abortKind and translationIsProviderFault below read the real error.
 	debuglog.Warn("proxy: upstream body translation failed", "adapter", adapter,
-		"error", logData.fence().fenceUpstream(util.SanitizeLogBody(errString(err), shortLogValueCap)),
+		"error", fencedFrameMessage(logData.fence(), logData.masker, errString(err)),
 		"model", logData.modelID, "provider", logData.providerName)
 	// The translators read the body under the attempt's context, so a request
 	// nobody is waiting for arrives here as a translation failure and is not the

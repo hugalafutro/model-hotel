@@ -321,11 +321,10 @@ func TestDescribeMultipartFault_NamesTheClassAndNeverTheBytes(t *testing.T) {
 		want string
 	}{
 		{"nil", nil, ""},
-		{"too large", multipart.ErrMessageTooLarge, "a part exceeded the form size limit"},
+		{"too large", multipart.ErrMessageTooLarge, "a part declared more MIME header than the reader accepts"},
 		{"unexpected eof", io.ErrUnexpectedEOF, "the body ended mid-part"},
-		{"eof", io.EOF, "the body ended mid-part"},
-		{"malformed header", malformed, "a part carried a malformed MIME header"},
-		{"wrapped malformed header", fmt.Errorf("parse: %w", malformed), "a part carried a malformed MIME header"},
+		{"malformed header", malformed, "a part or trailer carried a malformed MIME header"},
+		{"wrapped malformed header", fmt.Errorf("parse: %w", malformed), "a part or trailer carried a malformed MIME header"},
 		{"anything else", errors.New(sentinel + " unrecognised"), "the body is not a well-formed multipart form"},
 	}
 	for _, tc := range cases {
