@@ -97,7 +97,9 @@ func TranscriptionFormat(format string) (string, error) {
 	case TranscriptionFormatText:
 		return TranscriptionFormatText, nil
 	}
-	return "", fmt.Errorf("%w: %q; a Gemini transcription carries no timestamps, so response_format must be json or text", ErrTranscriptionFormat, format)
+	// The caller's value is not quoted back, for the reason SpeechFormat gives:
+	// this reason is stored in the request log.
+	return "", fmt.Errorf("%w: a Gemini transcription carries no timestamps, so response_format must be json or text", ErrTranscriptionFormat)
 }
 
 // AudioMimeType resolves the upload's mime type from its file name, falling

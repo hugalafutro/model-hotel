@@ -417,6 +417,10 @@ func TestTranslateRequestToChat_RejectionsCarryNoCallerValue(t *testing.T) {
 		})
 	}
 
+	// The other direction, so a later tidy-up does not strip these too. A
+	// refusal the handler answers before the pending row exists is never
+	// stored, so it may quote the caller's own value back at them, and taking
+	// it away would cost diagnostics for no security gain.
 	refused := []struct{ name, body string }{
 		{"role", `{"model":"m","input":[{"role":"ZZSENTINELZZ","content":"hi"}]}`},
 		{"duplicate tool name", `{"model":"m","input":"x","tools":[{"type":"function","name":"ZZSENTINELZZ"},{"type":"function","name":"ZZSENTINELZZ"}]}`},
@@ -427,8 +431,12 @@ func TestTranslateRequestToChat_RejectionsCarryNoCallerValue(t *testing.T) {
 			if err == nil {
 				t.Fatal("expected the request to be refused")
 			}
-			if strings.Contains(err.Error(), sentinel) {
-				t.Errorf("the rejection echoes the caller's value: %s", err)
+			var rejected *RejectedRequest
+			if !errors.As(err, &rejected) {
+				t.Fatalf("want a RejectedRequest, the shape the handler answers without logging: %v", err)
+			}
+			if !strings.Contains(err.Error(), sentinel) {
+				t.Errorf("a client-only refusal should still name the value the caller sent: %s", err)
 			}
 		})
 	}

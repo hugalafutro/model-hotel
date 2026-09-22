@@ -110,7 +110,10 @@ func SpeechFormat(format string) (string, error) {
 	case SpeechFormatPCM:
 		return SpeechFormatPCM, nil
 	}
-	return "", fmt.Errorf("%w: %q; a Gemini TTS model produces PCM audio, so response_format must be wav or pcm", ErrSpeechFormat, format)
+	// The caller's value is not quoted back: this reason reaches
+	// request_logs.error_message through failRequest, and the gateway logs no
+	// request content. The field name and the accepted values say enough.
+	return "", fmt.Errorf("%w: a Gemini TTS model produces PCM audio, so response_format must be wav or pcm", ErrSpeechFormat)
 }
 
 // TranslateSpeechRequest maps an OpenAI /v1/audio/speech body onto a

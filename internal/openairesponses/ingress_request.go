@@ -28,6 +28,12 @@ func (e *RejectedRequest) Error() string {
 	return fmt.Sprintf("%s: %s", e.Field, e.Reason)
 }
 
+// reject refuses the request outright. The handler answers a RejectedRequest
+// before the pending request-log row exists and logs nothing, so this reason
+// reaches the caller alone and may quote what they sent back at them.
+//
+// deferNative is the one that is stored: keep the distinction in mind before
+// wiring either of these into a log.
 func reject(field, reason string) error {
 	return &RejectedRequest{Field: field, Reason: reason}
 }
@@ -153,6 +159,13 @@ type translation struct {
 
 // deferNative records a member the chat translation cannot carry but OpenAI's
 // own endpoint can, and lets the translation go on without it.
+//
+// Unlike reject, this reason IS stored: the handler refuses the request once it
+// knows a candidate would be translated, and rejectIngest writes the message
+// into request_logs.error_message and publishes it on request.completed. It
+// therefore names the class of member and never the caller's own value, which
+// would put a fragment of the request body in logs that hold no request
+// content.
 func (t *translation) deferNative(field, reason string) {
 	if t.nativeOnly == nil {
 		t.nativeOnly = &RejectedRequest{Field: field, Reason: reason}
@@ -340,7 +353,7 @@ func (t *translation) translateInput(raw json.RawMessage) ([]chatOutMessage, err
 			// chat provider can replay. The model reasons fresh from the
 			// transcript, the same choice the egress direction makes.
 		case "item_reference", "compaction", "context_compaction":
-			return nil, reject(field, "refers to server-side state this gateway does not keep")
+			return nil, reject(field, kind+" refers to server-side state this gateway does not keep")
 		default:
 			// A hosted tool's call or output from an earlier turn: only the
 			// endpoint that ran the tool can read it back.
@@ -361,7 +374,7 @@ func (t *translation) translateInputMessage(it inputItem, field string) (*chatOu
 		role = "system"
 	case "user", "assistant", "system":
 	default:
-		return nil, reject(field, "not a message role: use user, assistant, system or developer")
+		return nil, reject(field, "role "+role+" is not a message role: use user, assistant, system or developer")
 	}
 	if role == "assistant" || role == "system" {
 		text := flattenItemText(it.Content)
@@ -490,7 +503,7 @@ func (t *translation) translateIngressTools(raw []json.RawMessage) (out []chatRe
 	seen := map[string]string{} // chat name -> the tools[...] field that claimed it
 	claim := func(field, name string) error {
 		if prev, dup := seen[name]; dup {
-			return reject(field, "tool name collides with "+prev+": every tool needs a distinct name, namespaces included")
+			return reject(field, "tool name "+name+" collides with "+prev+": every tool needs a distinct name, namespaces included")
 		}
 		seen[name] = field
 		return nil

@@ -107,10 +107,15 @@ func TestMaxRequestSizeMiddleware(t *testing.T) {
 	// middleware on paths that match no route in it, so any unmatched path
 	// ending in /backups/restore still reaches the body-buffering
 	// streamingAwareTimeout middleware and must keep the general cap.
+	// The encoded targets are the ones a Path-only test gets wrong: they decode
+	// to the exempt path but chi routes on the escaped form, so they match no
+	// route while the cap would already have come off.
 	for _, path := range []string{
 		"/v1/models/backups/restore",
 		"/api/chat/x/backups/restore",
 		"/api/backups/restore/",
+		"/api/backups%2Frestore",
+		"/%61pi/backups/restore",
 	} {
 		rec = httptest.NewRecorder()
 		req = httptest.NewRequest(http.MethodPost, path, strings.NewReader("a body larger than eight bytes"))

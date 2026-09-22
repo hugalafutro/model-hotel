@@ -64,14 +64,25 @@ const restoreUploadPath = "/api/backups/restore"
 // wrapping that one here would cut a dump at the general ceiling before the
 // handler's limit was ever reached.
 //
+// The test reads the same string chi will route on, RawPath when the escaped
+// form differs from the decoded one and Path otherwise. Testing r.URL.Path
+// alone disagrees with the router on a percent-encoded target:
+// /api/backups%2Frestore decodes to the exempt path but routes as the literal
+// backups%2Frestore, so the cap would come off a request that then matches no
+// route at all.
+//
 // The exemption fails closed: anything that is not exactly POST
-// restoreUploadPath keeps the cap, so a trailing slash or a doubled separator
+// restoreUploadPath keeps the cap, so a trailing slash or an encoded separator
 // costs an upload the larger bound rather than costing the gateway its
 // ceiling.
 func maxRequestSizeMiddleware(maxBytes int64) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			if r.Method != http.MethodPost || r.URL.Path != restoreUploadPath {
+			routePath := r.URL.RawPath
+			if routePath == "" {
+				routePath = r.URL.Path
+			}
+			if r.Method != http.MethodPost || routePath != restoreUploadPath {
 				r.Body = http.MaxBytesReader(w, r.Body, maxBytes)
 			}
 			next.ServeHTTP(w, r)
