@@ -35,19 +35,20 @@ carries them `http_path` and `target_user`, per line. Line 19, `auth: authentica
 `Success == false` in `s01-parse`: it reaches the parser and is dropped there, which is what keeps
 successful requests out of the buckets.
 
-Lines 20 to 25 are the log-injection regression, and they come in pairs: the escaped form a
-v0.9.99 instance emits, and the bare form an older build does. Two are access lines whose request
-path holds a complete copy of an authentication failure plus an attacker-chosen `remote_addr`, and
-neither may classify. Two are real auth failures whose path holds an injected address; the escaped
-one must still resolve to the real client, and the bare one must resolve to no address at all
-rather than the wrong one. The last two do the same through a virtual key name, which is
-caller-chosen and permits spaces, and which sits on the one classified line that logs another
-attribute beside the address.
+Lines 20 to 25 are the log-injection regression, and they come in pairs: the quoted form both
+binaries emit, and a bare form that a reader would see if a value ever escaped its quoting. Two
+are access lines whose request path holds a complete copy of an authentication failure plus an
+attacker-chosen `remote_addr`, and neither may classify. Two are real auth failures whose path
+holds an injected address; the quoted one must still resolve to the real client, and the bare one
+must resolve to no address at all rather than the wrong one. The last two do the same through a
+virtual key name, which is caller-chosen and permits spaces.
 
 Between them they pin all three defences. Rewrite a filter with `contains` and the access lines
 classify. Scan for the first thing that looks like an address instead of taking the first address
 token and the bare auth line picks the attacker's. Drop the duplicate-address check and the bare
-lines start naming strangers.
+lines start naming strangers. Remove the `[^"]*` confinement from that same check and the quoted
+lines lose their `source_ip` instead, which is the suppression side: appending `remote_addr=` to a
+request path would keep an attacker's own failures out of every bucket.
 
 Lines 26 to 33, the last eight, are Front Desk's own, in its slog framing: an access record, the two
 admin-gate rejections and the CSRF rejection its control plane emits, a rejected passkey assertion,
@@ -55,7 +56,7 @@ one admin rejection whose path carries an injected address, and the role refusal
 Traefik config poll described above. They pin that Front Desk reaches the same `admin_token`,
 `csrf`, `login` and `forbidden` buckets as the gateway with the same messages, that its access
 record is refused by the main parser (it belongs to the opt-in access parser instead), and that its
-escaped path still resolves to the real client.
+quoted path still resolves to the real client.
 
 `model-hotel-access-logs` covers the opt-in parser that is deliberately left out of the collection.
 It pins the mapping onto the generic `http_access-log` contract for all three shapes (Model Hotel

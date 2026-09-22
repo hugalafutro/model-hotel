@@ -1,13 +1,11 @@
-/** Display-layer decoding for app-log lines.
+/** Display-layer decoding for app-log lines stored before v1.0.0.
  *
- * The backend's flattened k=v log form quotes any attribute value that holds
- * a space, quote, backslash or control character (strconv.Quote) and then
- * escapes the spaces inside that quoted value as `\x20` (see
- * internal/api/applogs_slog.go quoteLogValue), so whitespace-splitting readers
- * (CrowdSec grok, fail2ban, awk) can never be fed a forged key=value token by
- * caller-controlled input. That protection is about the STORED text and line
- * parsers; the dashboard renders text nodes, so it can safely show the human
- * form.
+ * Those releases escaped the spaces inside a quoted attribute value as `\x20`
+ * so that readers which split on whitespace without honouring quotes could not
+ * be fed a forged key=value token. The gateway no longer does that (the
+ * CrowdSec collection reads the line as logfmt instead), but rows written by
+ * an older build survive in the DB until retention clears them, and this turns
+ * them back into their human form.
  *
  * Only the space escaping is reversed, and only where the encoder can have
  * produced it: inside a double-quoted token. A `\x20` outside quotes is raw

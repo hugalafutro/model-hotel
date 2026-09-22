@@ -304,15 +304,14 @@ func TestAppSlogHandlerEnabled(t *testing.T) {
 	}
 }
 
-// splitFlatAttrs splits the flattened "k=v k=v" tail of a text log line the
-// way the readers this format actually feeds do: on whitespace, with no idea
-// that quotes exist. A CrowdSec grok, a fail2ban regex and an awk one-liner
-// all work this way, so a value is only safe if it survives THIS split as a
-// single token. Deliberately not quote-aware: a quote-aware splitter would
-// pass even when the shipped parsers do not.
+// splitFlatAttrs splits the flattened "k=v k=v" tail of a text log line as
+// logfmt: on whitespace, except inside a quoted value. That is what the
+// shipped CrowdSec collection reads, and it is what makes the format
+// round-trip, so a value is only correct if it comes back out of THIS split
+// whole.
 func splitFlatAttrs(line string) map[string]string {
 	attrs := map[string]string{}
-	for _, tok := range strings.Fields(line) {
+	for _, tok := range splitOutsideQuotes(line) {
 		if k, v, ok := strings.Cut(tok, "="); ok {
 			if unq, err := strconv.Unquote(v); err == nil {
 				v = unq
@@ -323,10 +322,43 @@ func splitFlatAttrs(line string) map[string]string {
 	return attrs
 }
 
-// A request path is caller controlled and is logged as an attribute. It must
-// not be able to introduce a key=value token of its own, or anything acting on
-// these logs can be steered onto an attacker's chosen values. A CrowdSec or
-// fail2ban style reader taking remote_addr would ban a stranger.
+// splitOutsideQuotes splits line on the spaces that sit outside a double
+// quoted value, honouring the backslash escaping strconv.Quote emits.
+func splitOutsideQuotes(line string) []string {
+	var (
+		toks     []string
+		cur      strings.Builder
+		inQuotes bool
+		escaped  bool
+	)
+	for _, r := range line {
+		switch {
+		case escaped:
+			escaped = false
+		case r == '\\' && inQuotes:
+			escaped = true
+		case r == '"':
+			inQuotes = !inQuotes
+		case r == ' ' && !inQuotes:
+			if cur.Len() > 0 {
+				toks = append(toks, cur.String())
+				cur.Reset()
+			}
+			continue
+		}
+		cur.WriteRune(r)
+	}
+	if cur.Len() > 0 {
+		toks = append(toks, cur.String())
+	}
+	return toks
+}
+
+// A request path is caller controlled and is logged as an attribute. Its
+// content stays inside the quoted value, so a reader parsing the line as
+// logfmt never sees an attribute the gateway did not write, and the real
+// client is still the first address-named token. The path also goes last, so
+// an injected copy can only ever follow the address, never precede it.
 func TestAppSlogHandlerQuotesInjectedAttrValues(t *testing.T) {
 	savedBuf, savedWriter := appLogBuffer, dbWriter.Load()
 	appLogBuffer = nil
@@ -396,8 +428,12 @@ func TestAppSlogHandlerQuotesValuePrecedingTheAddress(t *testing.T) {
 	if got := splitFlatAttrs(line)["remote_addr"]; got != "198.51.100.5" {
 		t.Errorf("remote_addr = %q, want the real client 198.51.100.5\nline: %s", got, line)
 	}
-	if strings.Contains(line, " remote_addr=203.0.113.99") {
-		t.Errorf("injected value produced a bare remote_addr token\nline: %s", line)
+	// The injected copy exists only inside the quoted key value: no token of
+	// the line's own names it.
+	for _, tok := range splitOutsideQuotes(line) {
+		if tok == "remote_addr=203.0.113.99" {
+			t.Errorf("injected value produced a bare remote_addr token\nline: %s", line)
+		}
 	}
 }
 

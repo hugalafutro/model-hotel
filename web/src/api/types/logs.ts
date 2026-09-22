@@ -85,9 +85,9 @@ export interface AppLogEntry {
 	level: "info" | "warning" | "error";
 	source: string;
 	message: string;
-	/** True when the message's attribute values use the backend's flattened
-	 * encoding (spaces as \x20); gates display-side decoding. Absent or false
-	 * for rows that render verbatim, such as raw io.Writer lines. */
+	/** True when the message's attribute values came from the backend's
+	 * flattened encoder; gates the legacy \x20 decode for rows stored before
+	 * v1.0.0. Absent or false for rows that render verbatim. */
 	escaped?: boolean;
 	/** Byte offset where the encoded attribute suffix begins; decoding applies
 	 * only from here, so raw message text is never altered. */

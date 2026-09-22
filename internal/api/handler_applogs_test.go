@@ -1125,7 +1125,7 @@ func TestAppSlogHandler_MarksEntriesEscaped(t *testing.T) {
 		if e.AttrsAt < 0 || e.AttrsAt > len(e.Message) {
 			t.Fatalf("AttrsAt %d out of range for %q", e.AttrsAt, e.Message)
 		}
-		wantSuffix := " provider=\"Ollama\\x20Cloud\""
+		wantSuffix := " provider=\"Ollama Cloud\""
 		if got := e.Message[e.AttrsAt:]; got != wantSuffix {
 			t.Errorf("message %q: attrs suffix = %q, want %q", msg, got, wantSuffix)
 		}
@@ -1144,7 +1144,7 @@ func TestAppSlogHandler_MarksEntriesEscaped(t *testing.T) {
 		}
 		entries := rb.GetEntries()
 		e := entries[len(entries)-1]
-		wantSuffix := " provider=\"Ollama\\x20Cloud\""
+		wantSuffix := " provider=\"Ollama Cloud\""
 		prefix := strings.TrimSuffix(e.Message, wantSuffix)
 		if prefix == e.Message {
 			t.Fatalf("message %q does not end with the attrs suffix", e.Message)

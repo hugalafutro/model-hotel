@@ -73,10 +73,13 @@ nodes:
   - grok:
       pattern: '(^| )status=%{NUMBER:status}'
       apply_on: message
-  # As in the main parser: a second address token means one came out of a value,
-  # so the line is not trusted to name its client.
+  # As in the main parser: a second address token OUTSIDE every quoted value
+  # means one came out of where an attribute belongs, so the line is not
+  # trusted to name its client. A forged address inside the quoted request
+  # path does not trip this, or appending one would be a way to keep an access
+  # record out of the 404 bucket.
   - grok:
-      pattern: '(^| )remote=%{NOTSPACE} .*[ ]remote=%{NOTSPACE:mha_dupaddr}'
+      pattern: '^[^"]*(^| )remote=%{NOTSPACE} [^"]*[ ]remote=%{NOTSPACE:mha_dupaddr}'
       apply_on: message
 
   # Both shapes end here. Requiring the address only now means a malformed one

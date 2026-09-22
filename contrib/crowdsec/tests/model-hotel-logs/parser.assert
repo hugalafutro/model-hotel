@@ -241,7 +241,7 @@ results["s01-parse"]["hugalafutro/model-hotel-logs"][21].Success == true
 results["s01-parse"]["hugalafutro/model-hotel-logs"][21].Evt.Meta["log_type"] == "model-hotel_auth_fail"
 results["s01-parse"]["hugalafutro/model-hotel-logs"][21].Evt.Meta["sub_type"] == "admin_token"
 results["s01-parse"]["hugalafutro/model-hotel-logs"][21].Evt.Meta["source_ip"] == "198.51.100.32"
-results["s01-parse"]["hugalafutro/model-hotel-logs"][21].Evt.Meta["http_path"] == "/api/x\\x20remote_addr=203.0.113.77"
+results["s01-parse"]["hugalafutro/model-hotel-logs"][21].Evt.Meta["http_path"] == "/api/x remote_addr=203.0.113.77"
 results["s01-parse"]["hugalafutro/model-hotel-logs"][21].Evt.Whitelisted == false
 
 results["s01-parse"]["hugalafutro/model-hotel-logs"][22].Evt.Meta["log_type"] == "model-hotel_auth_fail"
@@ -286,7 +286,7 @@ results["s01-parse"]["hugalafutro/model-hotel-logs"][30].Success == true
 results["s01-parse"]["hugalafutro/model-hotel-logs"][30].Evt.Meta["log_type"] == "model-hotel_auth_fail"
 results["s01-parse"]["hugalafutro/model-hotel-logs"][30].Evt.Meta["sub_type"] == "admin_token"
 results["s01-parse"]["hugalafutro/model-hotel-logs"][30].Evt.Meta["source_ip"] == "203.0.113.27"
-results["s01-parse"]["hugalafutro/model-hotel-logs"][30].Evt.Meta["http_path"] == "/x\\\\x20remote_addr=203.0.113.77\\\\x20y"
+results["s01-parse"]["hugalafutro/model-hotel-logs"][30].Evt.Meta["http_path"] == "/x remote_addr=203.0.113.77 y"
 
 results["s01-parse"]["hugalafutro/model-hotel-logs"][31].Success == true
 results["s01-parse"]["hugalafutro/model-hotel-logs"][31].Evt.Parsed["message"] == "time=2026-08-18T04:15:33.123Z level=WARN msg=\"auth: insufficient permissions\" remote_addr=203.0.113.28 device=c1a1bb2c-9770-42da-967e-e75770bf5ab4 role=monitor required=operator path=/api/members/abc/state"

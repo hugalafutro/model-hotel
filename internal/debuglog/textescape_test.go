@@ -39,29 +39,11 @@ func captureStdout(t *testing.T, fn func()) string {
 	return out
 }
 
-// addressTokens returns the whitespace-delimited tokens of line that name a
-// client address, which is exactly what the CrowdSec grok reads: it takes the
-// FIRST such token on the line and validates it as an IP afterwards, and it
-// drops the address entirely when a second one is present.
-func addressTokens(line string) []string {
-	var found []string
-	for _, tok := range strings.Fields(line) {
-		for _, key := range []string{"remote_addr=", "remote=", "client_ip=", "ip="} {
-			if strings.HasPrefix(tok, key) {
-				found = append(found, tok)
-			}
-		}
-	}
-	return found
-}
-
-// A caller-controlled attribute value must never be able to present a second
-// "key=value" token to a log reader that splits on whitespace. The gateway's
-// own handler escapes the spaces inside such a value (quoteLogValue in
-// internal/api/applogs_slog.go); the stdout text handler that Front Desk runs
-// on has to carry the same guarantee, or a request path is all it takes to
-// name a stranger as the client of an authentication failure.
-func TestStdoutHandler_TextEscapesSpacesInAttributeValues(t *testing.T) {
+// A caller-controlled value keeps its spaces and is quoted: plain logfmt, the
+// shape every log reader parses and a human can read. The real client address
+// stays the FIRST address-named token on the line, which is what the CrowdSec
+// grok takes; a forged copy can only ever appear after it, inside quotes.
+func TestStdoutHandler_TextQuotesValuesWithSpaces(t *testing.T) {
 	t.Setenv("LOG_FORMAT", "")
 	t.Setenv("DEBUG_LOG", "")
 	Init()
@@ -79,13 +61,17 @@ func TestStdoutHandler_TextEscapesSpacesInAttributeValues(t *testing.T) {
 	if strings.Count(line, "\n") != 0 {
 		t.Fatalf("one record must be one line, got %q", out)
 	}
-
-	got := addressTokens(line)
-	if len(got) != 1 {
-		t.Fatalf("address tokens = %v (want exactly one, the real client), line: %s", got, line)
+	if !strings.Contains(line, ` remote=203.0.113.5 `) {
+		t.Errorf("real client address not emitted bare; line: %s", line)
 	}
-	if got[0] != "remote=203.0.113.5" {
-		t.Errorf("address token = %q, want %q; line: %s", got[0], "remote=203.0.113.5", line)
+	if !strings.Contains(line, `path="/x remote=198.51.100.9 y"`) {
+		t.Errorf("caller value not quoted with its spaces intact; line: %s", line)
+	}
+	if strings.Contains(line, `\x20`) {
+		t.Errorf("value was space-escaped; line: %s", line)
+	}
+	if i, j := strings.Index(line, "remote=203.0.113.5"), strings.Index(line, "remote=198.51.100.9"); i < 0 || j < i {
+		t.Errorf("real address is not the first address token; line: %s", line)
 	}
 }
 
@@ -122,9 +108,8 @@ func TestStdoutHandler_TextLeavesOrdinaryValuesBare(t *testing.T) {
 	}
 }
 
-// A group is a container, not a value: it keeps expanding into dotted keys and
-// the escaping applies to the values inside it, rather than the whole group
-// collapsing into one stringified attribute.
+// A group expands into dotted keys, and a value inside one is quoted like any
+// other rather than the whole group collapsing into one stringified attribute.
 func TestStdoutHandler_TextKeepsGroupsExpanded(t *testing.T) {
 	t.Setenv("LOG_FORMAT", "")
 	t.Setenv("DEBUG_LOG", "")
@@ -134,8 +119,8 @@ func TestStdoutHandler_TextKeepsGroupsExpanded(t *testing.T) {
 		slog.New(StdoutHandler()).Warn("access: request", slog.Group("req", "path", "/a b"))
 	})
 
-	if !strings.Contains(out, `req.path=/a\x20b`) {
-		t.Errorf("group not expanded with its values escaped; line: %s", out)
+	if !strings.Contains(out, `req.path="/a b"`) {
+		t.Errorf("group not expanded with its values quoted; line: %s", out)
 	}
 }
 
@@ -160,10 +145,9 @@ func TestStdoutHandler_TextLeavesTypedValuesAlone(t *testing.T) {
 	}
 }
 
-// A backslash already in the value must not be able to masquerade as the
-// escape this introduces, or a caller could write a literal "\x20" and have a
-// reader that unescapes the value put the space back.
-func TestStdoutHandler_TextEscapesBackslashesInEscapedValues(t *testing.T) {
+// A backslash in the value is escaped by the quoting itself, so a reader that
+// unquotes the value gets back exactly what the caller sent.
+func TestStdoutHandler_TextQuotesBackslashesInValues(t *testing.T) {
 	t.Setenv("LOG_FORMAT", "")
 	t.Setenv("DEBUG_LOG", "")
 	Init()
@@ -172,7 +156,7 @@ func TestStdoutHandler_TextEscapesBackslashesInEscapedValues(t *testing.T) {
 		slog.New(StdoutHandler()).Warn("access: request", "remote", "203.0.113.5", "path", `/a\x20b c`)
 	})
 
-	if !strings.Contains(out, `path=/a\\x20b\x20c`) {
-		t.Errorf("backslash not escaped ahead of the space escape; line: %s", out)
+	if !strings.Contains(out, `path="/a\\x20b c"`) {
+		t.Errorf("backslash not escaped by the quoting; line: %s", out)
 	}
 }

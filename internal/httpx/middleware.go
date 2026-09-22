@@ -41,11 +41,12 @@ func AccessLogger(isNoisy func(method, path string) bool) func(http.Handler) htt
 				return
 			}
 
-			// The path goes last in every branch. It is caller-controlled, so a
-			// reader scanning left to right meets every field the server
-			// vouches for before it reaches anything a visitor wrote, and the
-			// stdout text handler escapes the spaces inside it so it cannot
-			// present a "key=value" token of its own.
+			// The path goes last in every branch. It is caller-controlled, so
+			// a reader scanning left to right meets every field the server
+			// vouches for before it reaches anything a visitor wrote. The
+			// address in particular is always the first address-named token
+			// on the line, which is what the CrowdSec collection reads; a
+			// forged one in the path can only ever follow it, inside quotes.
 			args := []any{
 				"method", r.Method,
 				"host", r.Host,

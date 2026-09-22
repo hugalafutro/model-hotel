@@ -272,10 +272,12 @@ func captureStdoutLines(t *testing.T, fn func()) string {
 
 // End to end, through the handler Front Desk actually installs rather than a
 // bare text handler: a request path holding a complete forged authentication
-// record plus an attacker-chosen address must leave the line naming the real
-// client and nobody else. This is the byte-for-byte form the CrowdSec fixture
-// in contrib/crowdsec/tests carries, so the two cannot drift apart.
-func TestAccessLogger_EscapedPathCannotNameAStranger(t *testing.T) {
+// record plus an attacker-chosen address is quoted, and the real client is
+// still the first address-named token on the line. That ordering is what the
+// CrowdSec grok reads, and a reader that ignores the quoting meets the
+// parser's duplicate-address rule instead. This is the byte-for-byte form the
+// fixture in contrib/crowdsec/tests carries, so the two cannot drift apart.
+func TestAccessLogger_ForgedPathCannotNameAStranger(t *testing.T) {
 	t.Setenv("LOG_FORMAT", "")
 	t.Setenv("DEBUG_LOG", "")
 	debuglog.Init()
@@ -307,12 +309,12 @@ func TestAccessLogger_EscapedPathCannotNameAStranger(t *testing.T) {
 			}
 		}
 	}
-	if len(addrs) != 1 || addrs[0] != "remote=198.51.100.93" {
-		t.Fatalf("address tokens = %v, want exactly [remote=198.51.100.93]; line: %s", addrs, line)
+	if len(addrs) == 0 || addrs[0] != "remote=198.51.100.93" {
+		t.Fatalf("first address token = %v, want remote=198.51.100.93 ahead of any forged one; line: %s", addrs, line)
 	}
 
-	const wantPath = ` path="/api/zz\\x20auth:\\x20key\\x20not\\x20found\\x20remote=203.0.113.77"`
+	const wantPath = ` path="/api/zz auth: key not found remote=203.0.113.77"`
 	if !strings.HasSuffix(line, wantPath) {
-		t.Errorf("escaped path token is not the fixture's form\n got: %s\nwant suffix: %s", line, wantPath)
+		t.Errorf("path token is not the fixture's form\n got: %s\nwant suffix: %s", line, wantPath)
 	}
 }

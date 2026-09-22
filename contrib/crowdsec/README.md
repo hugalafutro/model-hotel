@@ -457,19 +457,18 @@ one an instance emits.
    time=2026-08-18T04:15:02.123Z level=WARN msg="frontdesk: metrics scrape with invalid token" remote_addr=203.0.113.7
    ```
 
-   Its attribute values escape their spaces the same way the gateway's do, so a value is always a
-   single whitespace-delimited token. The two differ only in how much quoting ends up around that
-   token, because Front Desk escapes first and slog then decides whether to quote the result:
+   Both binaries write plain logfmt: a value holding a space, an `=`, a quote or a control
+   character is quoted with Go's `strconv.Quote`, and anything else stays bare.
 
-   | value | gateway writes | Front Desk writes |
-   |---|---|---|
-   | `/x y` | `path="/x\x20y"` | `path=/x\x20y` |
-   | `/x y?a=b` | `path="/x\x20y?a=b"` | `path="/x\\x20y?a=b"` |
+   | value | both write |
+   |---|---|
+   | `/x` | `path=/x` |
+   | `/x y` | `path="/x y"` |
+   | `/x y?a=b` | `path="/x y?a=b"` |
 
-   The gateway always quotes a value it escaped. Front Desk leaves the escaped value bare unless it
-   also holds an `=`, a quote or a control character, and when slog does quote it, it escapes the
-   backslash of the escape a second time. Neither form can hold a literal space, so both are one
-   token and both carry the same address rules.
+   A value is therefore never a second attribute, provided the line is read as logfmt rather than
+   split blindly on whitespace. That is what the parser does, and it is the same contract nginx,
+   sshd and every other service whose logs carry a request path already rely on.
 
 ### Why a request path cannot ban a stranger
 
@@ -489,28 +488,31 @@ Three rules make that inert, and they are why the parser is written the way it i
    Taking the first and then requiring it to parse, rather than scanning for the first thing that
    looks like an address, means a line whose real address is malformed yields nothing instead of
    falling through to whatever a caller wrote further along.
-3. **A line that names the address twice is refused.** No call site in the gateway logs the
-   address more than once, so a second occurrence means a `key=value` pair came out of a value.
-   Such an event is left with no `source_ip`, and every scenario requires one, so it cannot reach
-   a bucket.
+3. **A line that names the address twice *outside every quoted value* is refused.** No call site
+   in the gateway logs the address more than once, so a second bare occurrence means a `key=value`
+   pair came out of where an attribute belongs. Such an event is left with no `source_ip`, and
+   every scenario requires one, so it cannot reach a bucket.
 
-From v0.9.99 the gateway also escapes attribute values, and the important half is that it escapes
-the spaces inside them: a quoted value that still contained ` remote_addr=203.0.113.9 ` would
-remain a `key=value` token to a reader that splits on whitespace before it considers quotes, which
-is what a grok, a fail2ban regex and an awk one-liner all do. Escaped, a value is one token and
-cannot present a pair at all. That protects everything else reading these logs, not just CrowdSec.
+   The confinement to unquoted text is deliberate. A forged `remote_addr=` inside a request path
+   must *not* refuse the line, or appending one to every request would be a way to keep your own
+   authentication failures out of the buckets and never be banned. Poisoning is impossible because
+   of rule 2; suppression is what this rule must avoid enabling.
 
-Rules 1 and 3 hold without the escaping, so the collection is safe to point at an older instance.
-One gap remains there and it is why v0.9.99 is listed as a requirement: on an older build, a value
-logged *before* the address on the same line can still supply the first address token. Rule 3
-catches every case where the real address is also present, which is all of them in current code,
-but a build old enough to log a caller-controlled value ahead of the address is relying on rule 3
-alone rather than on two independent defences.
+Releases from v0.9.99 to v1.0.0 additionally escaped the spaces inside attribute values, writing
+`path="/x\x20y"` rather than `path="/x y"`. That made a value a single whitespace-delimited token
+for readers that do not honour quoting, at the cost of every log line in the product being
+unreadable to a human. The rules above do the same job on the side that should own it, so the
+escaping is gone; the parser reads either form unchanged.
 
-`contrib/crowdsec/tests/model-hotel-logs` pins all of this. It feeds both the escaped and the bare
-form of an injected access line and asserts neither is classified; a real auth failure carrying an
-injected address in an escaped value and asserts the real client survives; and the same line in the
-bare form and asserts it resolves to no address at all rather than the wrong one.
+**If detection must not be fooled at all, run the instance with `LOG_FORMAT=json`.** The JSON
+branch reads discrete fields, so no value can be mistaken for an attribute under any reader, and
+the timestamp carries a real zone. Text parsing is best effort by comparison, which is the same
+trade nginx and Traefik make by shipping a JSON access-log format alongside the human one.
+
+`contrib/crowdsec/tests/model-hotel-logs` pins all of this. It feeds an injected access line and
+asserts it is not classified; a real auth failure carrying an injected address inside a quoted
+value and asserts the real client survives it; and a line naming the address twice in bare text
+and asserts it resolves to no address at all rather than the wrong one.
 
 ### The four names for the client address
 
