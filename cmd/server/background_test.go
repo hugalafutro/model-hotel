@@ -1407,7 +1407,8 @@ func TestBackgroundGroup_WaitJoinsAMemberThatIgnoresCancellation(t *testing.T) {
 //
 // The cancel stands in for the join budget expiring and fires in milliseconds,
 // so the ACCESS EXCLUSIVE lock is held for that long rather than for the length
-// of a real budget: the api suite shares this database and this table.
+// of a real budget. Nothing outside this package can contend for it: each
+// package's suite gets its own database (db.SetupTestDB).
 func TestLogRetentionPassEndsWhenTheDrainContextIsCancelled(t *testing.T) {
 	if cmdTestDB == nil {
 		t.Fatal("test DB unavailable")
