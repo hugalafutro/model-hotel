@@ -147,7 +147,7 @@ jobs:
         id: upload_app
         if: steps.scan_app.outcome == 'success'
         continue-on-error: true
-        uses: github/codeql-action/upload-sarif@b96794f015dfd88f77b49b1c93e0fa7110f94c63 # v4.38.0
+        uses: github/codeql-action/upload-sarif@1c5b675653bb5c22dbe9b12b556ec555138e09fd # v4.38.1
         with:
           sarif_file: trivy-image.sarif
           category: published-image
@@ -176,7 +176,7 @@ jobs:
         id: upload_frontdesk
         if: steps.scan_frontdesk.outcome == 'success'
         continue-on-error: true
-        uses: github/codeql-action/upload-sarif@b96794f015dfd88f77b49b1c93e0fa7110f94c63 # v4.38.0
+        uses: github/codeql-action/upload-sarif@1c5b675653bb5c22dbe9b12b556ec555138e09fd # v4.38.1
         with:
           sarif_file: trivy-frontdesk-image.sarif
           category: published-frontdesk-image
@@ -453,7 +453,7 @@ jobs:
 
       - name: Rebuild the image
         if: matrix.triggered == 'true'
-        uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a # v7
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7
         with:
           context: .
           file: ${{ matrix.dockerfile }}

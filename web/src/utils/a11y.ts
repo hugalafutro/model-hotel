@@ -39,6 +39,7 @@ export function moveOptionFocus(
 	const inText =
 		current instanceof HTMLInputElement ||
 		current instanceof HTMLTextAreaElement;
+	// biome-ignore lint/complexity/useIndexOf: current is Element | null, indexOf would need a cast
 	const idx = options.findIndex((o) => o === current);
 	let next: number;
 	switch (key) {
