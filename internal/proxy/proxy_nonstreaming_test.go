@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log/slog"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -531,6 +532,45 @@ func TestHandleNonStreamingResponse_Non2xxKeepsUpstreamErrorText(t *testing.T) {
 	}
 	if !strings.Contains(logData.errorMessage, upstreamText) {
 		t.Fatalf("upstream error text lost from the request log: %q", logData.errorMessage)
+	}
+}
+
+// The row and the Debug detail line both take the attempt's full credential
+// masker, not only the key-shape layer. The Content-Type is the one upstream
+// value on this path that reaches the detail without the exact pass (it is
+// bounded and fenced, and SanitizeLogBody runs the key-shape regex only), so a
+// credential that is not key-shaped survived into both copies before. The body
+// here is pre-masked by readNonStreamingBody, which is why a non-2xx body
+// cannot test this: only the header path reaches the new passes unmasked.
+func TestHandleNonStreamingResponse_MasksTheAttemptsCredentialInRowAndDebugLine(t *testing.T) {
+	h := newIntegrationHandler()
+	defer stopUnitHandlerIntegration(h)
+	logs := captureLogsAt(t, slog.LevelDebug)
+
+	key := "sk-" + strings.Repeat("c", 40)
+	resp := &http.Response{
+		StatusCode: http.StatusOK,
+		Body:       io.NopCloser(strings.NewReader("{")),
+		Header:     http.Header{"Content-Type": []string{"application/json; token=" + key}},
+	}
+	req := withAuthContext(httptest.NewRequest("POST", "/v1/chat/completions", http.NoBody))
+	logData := nonStreamingLogData()
+	logData.masker = newCredentialMasker(key)
+
+	h.handleNonStreamingResponse(httptest.NewRecorder(), req, logData, resp, readNonStreamingBody(resp, logData.masker), time.Now(), 0, 0, resolveTimings{}, 0, "", 1)
+
+	secret := strings.Repeat("c", 40)
+	if strings.Contains(logData.errorMessage, secret) {
+		t.Fatalf("the credential survived into the stored row: %q", logData.errorMessage)
+	}
+	lines := logs("proxy: non-streaming error details")
+	if len(lines) == 0 {
+		t.Fatal("the Debug detail line should be written when Debug is on")
+	}
+	for _, l := range lines {
+		if strings.Contains(l, secret) {
+			t.Fatalf("the credential survived into the Debug detail line: %s", l)
+		}
 	}
 }
 

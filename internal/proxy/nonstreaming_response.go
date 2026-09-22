@@ -310,7 +310,10 @@ func (h *Handler) handleNonStreamingResponse(w http.ResponseWriter, r *http.Requ
 		// Fire-and-forget: skip WaitForInsert so the error response is not
 		// blocked.
 		h.updateRequestLog(logData, updateLogOption{skipWaitForInsert: true})
-		if debuglog.Level() <= slog.LevelDebug {
+		// Asks the installed handler, as fencedDebugText does, rather than the
+		// level cached at Init: the gate exists to skip the mask when the line
+		// would not be written, and the handler is what decides that.
+		if slog.Default().Enabled(r.Context(), slog.LevelDebug) {
 			// detail left the fence above; masked here too, so the app log gets
 			// the same passes the row does.
 			debuglog.Debug("proxy: non-streaming error details", "status", resp.StatusCode, "error_kind", kind, "model", logData.modelID, "provider", logData.providerName, "error", string(logData.masks().mask([]byte(detail))), "duration_ms", totalDuration)
