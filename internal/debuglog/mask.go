@@ -117,6 +117,11 @@ func maskAttr(fn func(string) string, a slog.Attr) slog.Attr {
 // itself, and the walk must end whatever it is handed.
 const maskDepth = 8
 
+// depthMarker replaces a collection nested past maskDepth. Forwarding it
+// untouched would let a credential ride a ninth level of nesting past the
+// masker, and no real log line nests that deep.
+const depthMarker = "[omitted: nested past the log masker's depth]"
+
 // maskAny masks one KindAny value, reporting whether it changed anything the
 // handler renders. A nil or typed-nil value is left alone: calling Error or
 // String on one panics, where slog itself renders "<nil>", and this handler
@@ -124,9 +129,11 @@ const maskDepth = 8
 // from a background goroutine must not become a crash.
 //
 // Collections are walked by kind, not by exact type, so a map[string]string, a
-// []error, a [32]byte and a named slice or map type are masked as well as the
-// []any a call site might assemble: an exact-type match let every other
-// collection type carry a credential straight through.
+// []error, an array and a named slice or map type are masked as well as the
+// []any a call site might assemble. Anything else that carries text (a struct,
+// a named string type) is rendered as the handlers would render it and masked;
+// it keeps its own value unless the mask actually changed something, so a
+// struct without a credential in it is logged exactly as before.
 func maskAny(fn func(string) string, x any) (any, bool) {
 	return maskAnyDepth(fn, x, maskDepth)
 }
@@ -153,10 +160,20 @@ func maskAnyDepth(fn func(string) string, x any, depth int) (any, bool) {
 		}
 		return nil, false
 	}
-	if depth == 0 {
-		return nil, false
-	}
 	rv := reflect.ValueOf(x)
+	switch rv.Kind() {
+	case reflect.Bool, reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64,
+		reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64, reflect.Uintptr,
+		reflect.Float32, reflect.Float64, reflect.Complex64, reflect.Complex128,
+		reflect.Func, reflect.Chan, reflect.UnsafePointer:
+		return nil, false
+	case reflect.String:
+		// A named string type: the switch above matched only string itself.
+		return fn(rv.String()), true
+	}
+	if depth == 0 {
+		return depthMarker, true
+	}
 	switch rv.Kind() {
 	case reflect.Slice, reflect.Array:
 		out := make([]any, rv.Len())
@@ -165,16 +182,24 @@ func maskAnyDepth(fn func(string) string, x any, depth int) (any, bool) {
 		}
 		return out, true
 	case reflect.Map:
-		// Keys are left as they are: a key is a field name, and masking two
-		// keys to the same "[redacted]" would silently drop one entry.
-		if rv.Type().Key().Kind() != reflect.String {
-			return nil, false
-		}
+		// Keys are kept as field names, rendered to strings for a map with
+		// non-string keys; they are not masked, since two keys masked to the
+		// same "[redacted]" would silently drop an entry.
 		out := make(map[string]any, rv.Len())
 		for iter := rv.MapRange(); iter.Next(); {
-			out[iter.Key().String()] = maskElem(fn, iter.Value().Interface(), depth-1)
+			out[fmt.Sprint(iter.Key().Interface())] = maskElem(fn, iter.Value().Interface(), depth-1)
 		}
 		return out, true
+	}
+	// A struct, a pointer to one, an interface: rendered the way the text
+	// handler prints it, and replaced by the masked rendering only if that
+	// differs.
+	rendered, ok := safeText(func() string { return fmt.Sprintf("%+v", x) })
+	if !ok {
+		return nil, false
+	}
+	if masked := fn(rendered); masked != rendered {
+		return masked, true
 	}
 	return nil, false
 }

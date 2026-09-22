@@ -323,10 +323,6 @@ func (e reqError) terminalClientMessage(reqModel string, isFailover bool) string
 // returning "" for a nil error. Transport/context errors are short, but the cap
 // guards against an unexpectedly long provider error leaking unbounded text
 // into the request log.
-// errStringScrubSlack is how far past the last rune errString keeps that its
-// credential mask still reads, so a key straddling the cut is masked whole.
-const errStringScrubSlack = 4096
-
 func errString(err error) string {
 	if err == nil {
 		return ""
@@ -334,20 +330,14 @@ func errString(err error) string {
 	const maxLen = 500
 	// Masked BEFORE the cut. The log handler and the row both mask again later,
 	// but by then a key straddling rune 500 is only its head, which no exact
-	// pass can match. The held set covers every provider key; nothing decides
-	// on this text, so masking it cannot change a verdict.
+	// pass can match. MaskCredentialsBounded masks the held set over a bounded
+	// window (a wrapped error can carry a whole upstream body) and strips a
+	// held key's head left at the end once masking has shrunk the text. Nothing
+	// decides on this text, so masking it cannot change a verdict.
 	//
 	// Truncate on rune boundaries, not bytes, so a multi-byte rune straddling
 	// the cap is never split into invalid UTF-8 in the stored error_message.
-	// The scan is bounded the way SanitizeLogBody bounds its own: a wrapped
-	// error can carry a whole upstream body, and nothing past maxLen runes
-	// survives the cut, so the mask only needs those runes plus enough slack
-	// that a key straddling rune maxLen is seen whole.
-	s := err.Error()
-	if limit := maxLen*utf8.UTFMax + errStringScrubSlack; len(s) > limit {
-		s = s[:limit]
-	}
-	r := []rune(util.MaskCredentials(nil, s))
+	r := []rune(util.MaskCredentialsBounded(nil, err.Error(), maxLen*utf8.UTFMax))
 	if len(r) > maxLen {
 		return string(r[:maxLen]) + "…"
 	}

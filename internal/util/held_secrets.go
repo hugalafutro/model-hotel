@@ -26,16 +26,15 @@ import (
 // is a plain word that must not be rewritten out of every answer the gateway
 // serves. The length floor here is the only filter.
 //
-// Masking a placeholder out of error text is not quite free. SanitizeLogBody
-// runs this pass, and some of its callers classify on the result (retirement
-// detection in classifyUpstreamError, rate-limit saturation): a held
-// placeholder that happens to occur inside a model id or a matched phrase is
-// replaced, and that verdict is missed. The failure is one-sided and safe: a
-// replacement can only break a match, never create one ("[redacted]" carries
-// brackets no phrase or id contains), so a retirement or a saturation can go
-// undetected but can never be invented. That is accepted, because the
-// alternative is a non-key-shaped provider key surviving a truncation in text
-// that reaches a log or a stored row.
+// Text that is classified or fenced is not exact-masked with this set.
+// SanitizeLogBody feeds retirement detection and rate-limit saturation, and a
+// held placeholder rewritten out of a model id or a matched phrase would not
+// only miss a verdict: losing a higher-precedence match hands the body to a
+// lower one, which changes the verdict. So SanitizeLogBody redacts only a held
+// secret its own cut would split, and whole secrets are masked where the text
+// is written (the log handler's masker, the request-log row). The request
+// content fence indexes the masked form of each request string, so a fragment
+// masked before it is fenced is still recognised as an echo.
 //
 // Registration is by value and never expires within a process: a rotated key
 // stays held until the next restart, after which the set is seeded from the

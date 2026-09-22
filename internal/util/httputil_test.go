@@ -1179,31 +1179,29 @@ func TestSanitizeLogBody_MasksAHeldSecretStraddlingTheCut(t *testing.T) {
 	}
 }
 
-// The window pre-cut can split a held key, and masking earlier occurrences
-// SHRINKS the text ("[redacted]" is ten bytes, a key is longer), pulling the
-// split head back under maxLen where the final cut no longer removes it. The
-// geometry: eight held 523-byte keys fill the window up to the pre-cut exactly
-// (8 x 523 = 4184 = maxLen + scrubMargin - 12), so the head of a second held
-// secret sits across the cut with twelve bytes inside it; masking shrinks the
-// eight keys to 80 bytes and drags those twelve to bytes 80-91, under maxLen.
-// Only the tail strip SanitizeLogBody now shares with MaskCredentialsBounded
-// catches it.
-func TestSanitizeLogBody_RedactsAHeadPulledUnderMaxLenByMasking(t *testing.T) {
-	const maxLen = 100
-	filler := "tailstripfiller-" + strings.Repeat("f", 523-len("tailstripfiller-"))
-	secret := "tailstripsecret-" + strings.Repeat("s", 30)
-	HoldSecret(filler)
+// SanitizeLogBody's output is classified and fenced, so it must not rewrite a
+// held secret that sits whole inside it: a held placeholder inside a model id
+// or a matched phrase would change the verdict. Only a secret the cut would
+// split is redacted; a whole one is left for the writer's masker.
+func TestSanitizeLogBody_LeavesAWholeHeldSecretForTheWriter(t *testing.T) {
+	secret := "wholeheldsecret-" + strings.Repeat("w", 20)
 	HoldSecret(secret)
-	if 8*len(filler) != maxLen+scrubMargin-12 {
-		t.Fatalf("geometry drifted: 8 fillers = %d, want %d", 8*len(filler), maxLen+scrubMargin-12)
+	body := "model " + secret + " was retired"
+	if got := SanitizeLogBody(body, 500); got != body {
+		t.Fatalf("a held secret wholly inside the kept text was rewritten: %q", got)
 	}
-	body := strings.Repeat(filler, 8) + secret + " and the rest"
+}
 
-	got := SanitizeLogBody(body, maxLen)
-	if strings.Contains(got, secret[:8]) {
-		t.Fatalf("a held secret's head was pulled under maxLen and survived: %q", got)
+// stripSecretTail redacts the head of a held secret left at the very end of
+// the text, the one a scan-window cut leaves behind, and nothing shorter than
+// a credential.
+func TestStripSecretTail_RedactsAHeldHeadAtTheEnd(t *testing.T) {
+	secret := "tailstripsecret-" + strings.Repeat("s", 30)
+	HoldSecret(secret)
+	if got := stripSecretTail("prefix "+secret[:20]+"…", nil, 100); strings.Contains(got, secret[:8]) || !strings.HasSuffix(got, "…") {
+		t.Fatalf("a held head at the end survived, or the marker was lost: %q", got)
 	}
-	if len(got) > maxLen+len("…") {
-		t.Fatalf("output exceeds the bound: %d bytes", len(got))
+	if got := stripSecretTail("prefix "+secret[:5], nil, 100); got != "prefix "+secret[:5] {
+		t.Fatalf("a head shorter than a credential was redacted: %q", got)
 	}
 }

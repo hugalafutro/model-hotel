@@ -119,14 +119,18 @@ func MaskCredentialsBounded(secrets []string, body string, maxLen int) string {
 	if len(body) > maxLen+scrubMargin {
 		body = body[:maxLen+scrubMargin]
 	}
-	out := sanitizeShape(maskExact(secrets, body), maxLen)
-	// The window cut above can leave the head of a secret at its very end, and
-	// masking SHRINKS the text ("[redacted]" is shorter than a key), so enough
-	// earlier occurrences pull that cut head down below maxLen where the final
-	// truncation no longer removes it. Nothing before this point can know how
-	// far the text moved, so the tail is checked last: a proper prefix of any
-	// listed secret, of credential length, is redacted too. Only the tail can
-	// hold one, since a whole occurrence anywhere was already replaced.
+	return stripSecretTail(sanitizeShape(maskExact(secrets, body), maxLen, nil), secrets, maxLen)
+}
+
+// stripSecretTail redacts a proper prefix of any listed or held secret, of
+// credential length, left at the very end of out. The scan window cut can
+// leave the head of a secret at its very end, and masking SHRINKS the text
+// ("[redacted]" is shorter than a key), so enough earlier replacements pull
+// that cut head down below maxLen where the final truncation no longer
+// removes it. Nothing before this point can know how far the text moved, so
+// the tail is checked last. Only the tail can hold one, since a whole
+// occurrence anywhere was already replaced or left whole on purpose.
+func stripSecretTail(out string, secrets []string, maxLen int) string {
 	suffix := ""
 	if strings.HasSuffix(out, "…") {
 		out, suffix = strings.TrimSuffix(out, "…"), "…"

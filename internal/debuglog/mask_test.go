@@ -288,3 +288,56 @@ func TestMaskAny_EndsOnASelfContainingSlice(t *testing.T) {
 		t.Fatal("the walk did not end on a self-containing slice")
 	}
 }
+
+type namedString string
+
+type keyHolder struct{ Key string }
+
+// Codex's cases: a struct field, a named string type and a map with non-string
+// keys each carried the secret through, since none is a collection the walk
+// knew or a string the switch matched.
+func TestMaskingHandler_MasksStructsNamedStringsAndIntKeyedMaps(t *testing.T) {
+	const secret = "SECRETVALUE"
+	SetMasker(func(s string) string { return strings.ReplaceAll(s, secret, "[redacted]") })
+	t.Cleanup(func() { SetMasker(nil) })
+
+	for name, value := range map[string]any{
+		"struct":            keyHolder{Key: "k " + secret},
+		"pointer to struct": &keyHolder{Key: "p " + secret},
+		"named string":      namedString("n " + secret),
+		"map[int]string":    map[int]string{1: "i " + secret},
+	} {
+		t.Run(name, func(t *testing.T) {
+			rec, lines := newRecordingHandler()
+			slog.New(maskingHandler{rec}).Info("value", "v", value)
+			if got := lines(); len(got) != 1 || strings.Contains(got[0], secret) {
+				t.Fatalf("the secret survived a %s: %v", name, got)
+			}
+		})
+	}
+}
+
+// A struct with no credential in it keeps its own value, so the JSON handler
+// still renders it as an object rather than a string.
+func TestMaskAny_LeavesACleanStructAlone(t *testing.T) {
+	if _, changed := maskAny(func(s string) string { return strings.ReplaceAll(s, "SECRETVALUE", "x") }, keyHolder{Key: "clean"}); changed {
+		t.Fatal("a struct with nothing to mask was replaced")
+	}
+}
+
+// A collection nested past the bound is replaced by a marker, not forwarded
+// untouched: a credential nine levels down must not reach the sink.
+func TestMaskAny_ReplacesASubtreeNestedPastTheBound(t *testing.T) {
+	const secret = "SECRETVALUE"
+	var v any = []any{"deep " + secret}
+	for range maskDepth {
+		v = []any{v}
+	}
+	masked, changed := maskAny(func(s string) string { return strings.ReplaceAll(s, secret, "[redacted]") }, v)
+	if !changed {
+		t.Fatal("a nested collection was not walked")
+	}
+	if got := fmt.Sprint(masked); strings.Contains(got, secret) || !strings.Contains(got, depthMarker) {
+		t.Fatalf("a secret past the depth bound survived, or no marker replaced it: %s", got)
+	}
+}

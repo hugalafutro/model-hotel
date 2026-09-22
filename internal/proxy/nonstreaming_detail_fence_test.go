@@ -198,3 +198,38 @@ func TestErrString_MasksInABoundedWindowOfAHugeError(t *testing.T) {
 		t.Fatalf("errString returned %d runes, want at most the 500-rune cut plus its marker", n)
 	}
 }
+
+// Codex's case. Fragments are masked before they are fenced, and a held
+// placeholder inside a short prompt is rewritten in the echo: every 16-rune
+// window crossing it stops matching, and with fewer than 16 runes either side
+// the rest of the prompt read as not an echo and went into the log. The fence
+// indexes the masked form of the request too, so the masked echo still
+// matches and is withheld.
+func TestFence_WithholdsAnEchoWhoseHeldPlaceholderWasMaskedFirst(t *testing.T) {
+	t.Parallel()
+	placeholder := "zzfenceplacehold"
+	util.HoldSecret(placeholder)
+	prompt := "PIN 2468 " + placeholder + " acct 1357"
+	fence := newContentFence(chatBody(prompt))
+
+	got := fencedFrameMessage(fence, credentialMasker{}, "upstream said: "+prompt)
+	if strings.Contains(got, "2468") || strings.Contains(got, "1357") {
+		t.Fatalf("the prompt got past the fence once its placeholder was masked: %q", got)
+	}
+	if got != contentWithheld {
+		t.Fatalf("want the fragment withheld, got %q", got)
+	}
+}
+
+// Codex's geometry for errString. The bounded window splits a held key, and
+// masking the whole ones before it shrinks the text enough to pull that head
+// under the 500-rune cut. MaskCredentialsBounded's tail strip removes it.
+func TestErrString_StripsAHeadPulledUnderTheCutByMasking(t *testing.T) {
+	t.Parallel()
+	key := "errgeometrykey-" + strings.Repeat("g", 241)
+	util.HoldSecret(key)
+	got := errString(errors.New(strings.Repeat(key, 24)))
+	if strings.Contains(got, key[:16]) {
+		t.Fatalf("a held key's head survived errString: %q", got)
+	}
+}
