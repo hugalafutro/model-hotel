@@ -8,6 +8,7 @@ import (
 	"strings"
 	"sync"
 	"testing"
+	"time"
 )
 
 // recordingHandler keeps the rendered text of every record it receives, the
@@ -229,5 +230,61 @@ func TestMaskingHandler_WithGroupStaysMasked(t *testing.T) {
 	grouped.Info("grouped "+secret, "field", "value "+secret)
 	if got := lines(); len(got) != 1 || strings.Contains(got[0], secret) {
 		t.Fatalf("a record through a grouped logger was not masked: %v", got)
+	}
+}
+
+type namedStrings []string
+
+type namedMap map[string]any
+
+// Greptile's case: an exact-type match walked only []string, []any and
+// map[string]any, so every other collection a call site might log carried a
+// credential straight through. Each of these rendered the secret before.
+func TestMaskingHandler_MasksEveryCollectionKind(t *testing.T) {
+	const secret = "SECRETVALUE"
+	SetMasker(func(s string) string { return strings.ReplaceAll(s, secret, "[redacted]") })
+	t.Cleanup(func() { SetMasker(nil) })
+
+	for name, value := range map[string]any{
+		"map[string]string":     map[string]string{"k": "v " + secret},
+		"[]error":               []error{errors.New("e " + secret)},
+		"named []string":        namedStrings{"n " + secret},
+		"named map[string]any":  namedMap{"k": "m " + secret},
+		"[]byte":                []byte("b " + secret),
+		"array of strings":      [2]string{"a " + secret, "plain"},
+		"nested map in a slice": []map[string]string{{"k": "x " + secret}},
+	} {
+		t.Run(name, func(t *testing.T) {
+			rec, lines := newRecordingHandler()
+			slog.New(maskingHandler{rec}).Info("collection", "v", value)
+			got := lines()
+			if len(got) != 1 || strings.Contains(got[0], secret) {
+				t.Fatalf("the secret survived a %s: %v", name, got)
+			}
+			// []byte renders as decimal bytes, so check its decoded form too.
+			if b, ok := value.([]byte); ok && strings.Contains(string(b), secret) {
+				masked, _ := maskAny(func(s string) string { return strings.ReplaceAll(s, secret, "[redacted]") }, b)
+				if strings.Contains(string(masked.([]byte)), secret) {
+					t.Fatalf("the []byte still decodes to the secret")
+				}
+			}
+		})
+	}
+}
+
+// A collection that contains itself must not send the walk round forever: the
+// depth bound ends it.
+func TestMaskAny_EndsOnASelfContainingSlice(t *testing.T) {
+	self := make([]any, 1)
+	self[0] = self
+	done := make(chan struct{})
+	go func() {
+		maskAny(func(s string) string { return s }, self)
+		close(done)
+	}()
+	select {
+	case <-done:
+	case <-time.After(5 * time.Second):
+		t.Fatal("the walk did not end on a self-containing slice")
 	}
 }

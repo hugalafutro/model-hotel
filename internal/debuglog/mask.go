@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"reflect"
 	"sync/atomic"
 )
 
@@ -112,53 +113,76 @@ func maskAttr(fn func(string) string, a slog.Attr) slog.Attr {
 	return slog.Attr{Key: a.Key, Value: v}
 }
 
+// maskDepth bounds the walk into nested collections: a slice can contain
+// itself, and the walk must end whatever it is handed.
+const maskDepth = 8
+
 // maskAny masks one KindAny value, reporting whether it changed anything the
 // handler renders. A nil or typed-nil value is left alone: calling Error or
 // String on one panics, where slog itself renders "<nil>", and this handler
 // sits in front of every record in the binary, so a (*T)(nil) error logged
 // from a background goroutine must not become a crash.
+//
+// Collections are walked by kind, not by exact type, so a map[string]string, a
+// []error, a [32]byte and a named slice or map type are masked as well as the
+// []any a call site might assemble: an exact-type match let every other
+// collection type carry a credential straight through.
 func maskAny(fn func(string) string, x any) (any, bool) {
+	return maskAnyDepth(fn, x, maskDepth)
+}
+
+func maskAnyDepth(fn func(string) string, x any, depth int) (any, bool) {
 	if x == nil || isTypedNil(x) {
 		return nil, false
 	}
 	switch v := x.(type) {
+	case string:
+		return fn(v), true
+	case []byte:
+		// Masked as the text it holds, and kept a []byte so each handler
+		// renders it exactly as before.
+		return []byte(fn(string(v))), true
 	case error:
 		if s, ok := safeText(v.Error); ok {
 			return fn(s), true
 		}
+		return nil, false
 	case fmt.Stringer:
 		if s, ok := safeText(v.String); ok {
 			return fn(s), true
 		}
-	case []string:
-		out := make([]string, len(v))
-		for i, s := range v {
-			out[i] = fn(s)
+		return nil, false
+	}
+	if depth == 0 {
+		return nil, false
+	}
+	rv := reflect.ValueOf(x)
+	switch rv.Kind() {
+	case reflect.Slice, reflect.Array:
+		out := make([]any, rv.Len())
+		for i := range out {
+			out[i] = maskElem(fn, rv.Index(i).Interface(), depth-1)
 		}
 		return out, true
-	case []any:
-		out := make([]any, len(v))
-		for i, e := range v {
-			out[i] = maskElem(fn, e)
+	case reflect.Map:
+		// Keys are left as they are: a key is a field name, and masking two
+		// keys to the same "[redacted]" would silently drop one entry.
+		if rv.Type().Key().Kind() != reflect.String {
+			return nil, false
 		}
-		return out, true
-	case map[string]any:
-		out := make(map[string]any, len(v))
-		for k, e := range v {
-			out[k] = maskElem(fn, e)
+		out := make(map[string]any, rv.Len())
+		for iter := rv.MapRange(); iter.Next(); {
+			out[iter.Key().String()] = maskElem(fn, iter.Value().Interface(), depth-1)
 		}
 		return out, true
 	}
 	return nil, false
 }
 
-// maskElem masks one element of a slice or map, leaving it unchanged when it
+// maskElem masks one element of a collection, leaving it unchanged when it
 // carries no text.
-func maskElem(fn func(string) string, e any) any {
-	if s, ok := e.(string); ok {
-		return fn(s)
-	}
-	if masked, ok := maskAny(fn, e); ok {
+func maskElem(fn func(string) string, e any, depth int) any {
+	if masked, ok := maskAnyDepth(fn, e, depth); ok {
 		return masked
 	}
 	return e

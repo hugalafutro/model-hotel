@@ -505,6 +505,12 @@ func (s *Store) MemberToken(ctx context.Context, id string) (token string, ok bo
 	// A member admin token is hex, which no key-shape rule matches, so without
 	// this Front Desk's log masker had nothing to catch one with: its held set
 	// was empty. Held on every decrypt, since registration is idempotent.
+	//
+	// A rotated or deleted token stays held until the process restarts. That
+	// is the held set's policy for every secret (held_secrets.go), provider
+	// keys included: a value that stops being current is exactly the one a
+	// stale peer can still quote back, and the set grows only by distinct
+	// tokens this process ever decrypted, a handful per member lifetime.
 	util.HoldSecret(plain)
 	return plain, true, nil
 }
