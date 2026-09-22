@@ -8,6 +8,7 @@ import (
 	"strings"
 	"testing"
 	"time"
+	"unicode/utf8"
 
 	"github.com/hugalafutro/model-hotel/internal/ctxkeys"
 	"github.com/hugalafutro/model-hotel/internal/provider"
@@ -178,5 +179,22 @@ func TestUpdateRequestLog_MasksTheRowBeforeTheCut(t *testing.T) {
 	(&Handler{}).updateRequestLog(entry)
 	if strings.Contains(entry.errorMessage, key[:5]) {
 		t.Fatalf("the head of the attempt's key survived the row's cut: %q", entry.errorMessage[len(entry.errorMessage)-40:])
+	}
+}
+
+// A wrapped error can carry a whole upstream body. errString masks only the
+// window its cut can keep, plus slack for a key straddling the cut, so the
+// scan stays bounded however large the error is, and a held key at the front
+// is still masked.
+func TestErrString_MasksInABoundedWindowOfAHugeError(t *testing.T) {
+	t.Parallel()
+	key := "heldkeyhugeerror-" + strings.Repeat("t", 24)
+	util.HoldSecret(key)
+	got := errString(errors.New(key + " then " + strings.Repeat("x", 1<<20)))
+	if strings.Contains(got, key) {
+		t.Fatalf("a held key at the front of a huge error survived: %q", got[:60])
+	}
+	if n := utf8.RuneCountInString(got); n > 501 {
+		t.Fatalf("errString returned %d runes, want at most the 500-rune cut plus its marker", n)
 	}
 }

@@ -13,6 +13,7 @@ import (
 
 	"github.com/hugalafutro/model-hotel/internal/auth"
 	"github.com/hugalafutro/model-hotel/internal/debuglog"
+	"github.com/hugalafutro/model-hotel/internal/util"
 )
 
 // ---------------------------------------------------------------------------
@@ -501,6 +502,10 @@ func (s *Store) MemberToken(ctx context.Context, id string) (token string, ok bo
 	if err != nil {
 		return "", false, fmt.Errorf("frontdesk: decrypt member token: %w", err)
 	}
+	// A member admin token is hex, which no key-shape rule matches, so without
+	// this Front Desk's log masker had nothing to catch one with: its held set
+	// was empty. Held on every decrypt, since registration is idempotent.
+	util.HoldSecret(plain)
 	return plain, true, nil
 }
 

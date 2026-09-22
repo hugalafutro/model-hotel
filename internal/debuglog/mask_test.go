@@ -3,6 +3,7 @@ package debuglog
 import (
 	"context"
 	"errors"
+	"fmt"
 	"log/slog"
 	"strings"
 	"sync"
@@ -145,5 +146,69 @@ func TestWithMasking_DoesNotWrapTwice(t *testing.T) {
 	once := withMasking(rec)
 	if twice := withMasking(once); twice != once {
 		t.Fatalf("an already-masked handler was wrapped again: %#v", twice)
+	}
+}
+
+type nilPtrErr struct{ inner *struct{ msg string } }
+
+// Error dereferences a nil field on a non-nil receiver: isTypedNil cannot see
+// it, and only the recover in safeText keeps it from crashing the handler.
+func (e *nilPtrErr) Error() string { return e.inner.msg }
+
+type typedNilStringer struct{ s string }
+
+func (t *typedNilStringer) String() string { return t.s }
+
+// This handler sits in front of every record in the binary, so a value slog
+// itself renders safely must not panic here: a typed-nil error or Stringer,
+// and an error whose Error dereferences a nil field. Before the guard both
+// panicked, and a (*T)(nil) error logged from a background goroutine would
+// have taken the whole process down.
+func TestMaskingHandler_SurvivesValuesThatPanicWhenRendered(t *testing.T) {
+	SetMasker(func(s string) string { return strings.ReplaceAll(s, "SECRETVALUE", "[redacted]") })
+	t.Cleanup(func() { SetMasker(nil) })
+
+	var nilErr *nilPtrErr
+	var nilStringer *typedNilStringer
+	rec, lines := newRecordingHandler()
+	logger := slog.New(maskingHandler{rec})
+
+	func() {
+		defer func() {
+			if r := recover(); r != nil {
+				t.Fatalf("the masking handler panicked: %v", r)
+			}
+		}()
+		logger.Info("typed nils", "err", error(nilErr), "stringer", fmt.Stringer(nilStringer))
+		logger.Info("nil field", "err", error(&nilPtrErr{}))
+	}()
+	if got := lines(); len(got) != 2 {
+		t.Fatalf("records = %v, want both written", got)
+	}
+}
+
+// The slices and maps a call site assembles (a []string of error texts, the
+// Front Desk event metadata map) are walked, so a credential inside one is
+// masked like a plain string attribute.
+func TestMaskingHandler_MasksInsideSlicesAndMaps(t *testing.T) {
+	const secret = "SECRETVALUE"
+	SetMasker(func(s string) string { return strings.ReplaceAll(s, secret, "[redacted]") })
+	t.Cleanup(func() { SetMasker(nil) })
+
+	rec, lines := newRecordingHandler()
+	slog.New(maskingHandler{rec}).Info("collections",
+		"strs", []string{"a " + secret, "plain"},
+		"anys", []any{"b " + secret, 42, errors.New("c " + secret)},
+		"meta", map[string]any{"reason": "d " + secret, "nested": map[string]any{"e": "e " + secret}},
+	)
+	got := lines()
+	if len(got) != 1 {
+		t.Fatalf("records = %v, want one", got)
+	}
+	if strings.Contains(got[0], secret) {
+		t.Fatalf("a secret inside a slice or map survived: %s", got[0])
+	}
+	if !strings.Contains(got[0], "plain") || !strings.Contains(got[0], "42") {
+		t.Fatalf("values with no secret in them were altered: %s", got[0])
 	}
 }

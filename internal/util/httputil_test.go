@@ -1178,3 +1178,32 @@ func TestSanitizeLogBody_MasksAHeldSecretStraddlingTheCut(t *testing.T) {
 		t.Fatalf("the text before the secret was lost: %q", got)
 	}
 }
+
+// The window pre-cut can split a held key, and masking earlier occurrences
+// SHRINKS the text ("[redacted]" is ten bytes, a key is longer), pulling the
+// split head back under maxLen where the final cut no longer removes it. The
+// geometry: eight held 523-byte keys fill the window up to the pre-cut exactly
+// (8 x 523 = 4184 = maxLen + scrubMargin - 12), so the head of a second held
+// secret sits across the cut with twelve bytes inside it; masking shrinks the
+// eight keys to 80 bytes and drags those twelve to bytes 80-91, under maxLen.
+// Only the tail strip SanitizeLogBody now shares with MaskCredentialsBounded
+// catches it.
+func TestSanitizeLogBody_RedactsAHeadPulledUnderMaxLenByMasking(t *testing.T) {
+	const maxLen = 100
+	filler := "tailstripfiller-" + strings.Repeat("f", 523-len("tailstripfiller-"))
+	secret := "tailstripsecret-" + strings.Repeat("s", 30)
+	HoldSecret(filler)
+	HoldSecret(secret)
+	if 8*len(filler) != maxLen+scrubMargin-12 {
+		t.Fatalf("geometry drifted: 8 fillers = %d, want %d", 8*len(filler), maxLen+scrubMargin-12)
+	}
+	body := strings.Repeat(filler, 8) + secret + " and the rest"
+
+	got := SanitizeLogBody(body, maxLen)
+	if strings.Contains(got, secret[:8]) {
+		t.Fatalf("a held secret's head was pulled under maxLen and survived: %q", got)
+	}
+	if len(got) > maxLen+len("…") {
+		t.Fatalf("output exceeds the bound: %d bytes", len(got))
+	}
+}

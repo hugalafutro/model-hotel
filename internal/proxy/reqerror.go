@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"unicode/utf8"
 
 	"github.com/hugalafutro/model-hotel/internal/util"
 )
@@ -322,6 +323,10 @@ func (e reqError) terminalClientMessage(reqModel string, isFailover bool) string
 // returning "" for a nil error. Transport/context errors are short, but the cap
 // guards against an unexpectedly long provider error leaking unbounded text
 // into the request log.
+// errStringScrubSlack is how far past the last rune errString keeps that its
+// credential mask still reads, so a key straddling the cut is masked whole.
+const errStringScrubSlack = 4096
+
 func errString(err error) string {
 	if err == nil {
 		return ""
@@ -334,7 +339,15 @@ func errString(err error) string {
 	//
 	// Truncate on rune boundaries, not bytes, so a multi-byte rune straddling
 	// the cap is never split into invalid UTF-8 in the stored error_message.
-	r := []rune(util.MaskCredentials(nil, err.Error()))
+	// The scan is bounded the way SanitizeLogBody bounds its own: a wrapped
+	// error can carry a whole upstream body, and nothing past maxLen runes
+	// survives the cut, so the mask only needs those runes plus enough slack
+	// that a key straddling rune maxLen is seen whole.
+	s := err.Error()
+	if limit := maxLen*utf8.UTFMax + errStringScrubSlack; len(s) > limit {
+		s = s[:limit]
+	}
+	r := []rune(util.MaskCredentials(nil, s))
 	if len(r) > maxLen {
 		return string(r[:maxLen]) + "…"
 	}

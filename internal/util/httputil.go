@@ -24,8 +24,8 @@ const scrubMargin = 4096
 // which upstream providers often include in error messages (team IDs, project IDs, etc.).
 var uuidPattern = regexp.MustCompile(`(?i)[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}`)
 
-// SanitizeLogBody truncates a log body, redacts UUIDs, and scrubs key-shaped
-// tokens.
+// SanitizeLogBody truncates a log body, redacts UUIDs, and scrubs credentials:
+// every held provider key exactly (held_secrets.go), then any key-shaped token.
 //
 // The credential layer is here rather than at each caller because this is the
 // function every path outside internal/proxy already reaches for before
@@ -33,15 +33,23 @@ var uuidPattern = regexp.MustCompile(`(?i)[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0
 // remove was the thing that matters most: an upstream that quotes the
 // operator's own key back in an auth failure.
 //
-// It runs the exact pass over the held set too (held_secrets.go), before the
-// cut. A shape-only scrub followed by the truncation leaves the head of a key
-// that is NOT key-shaped (plain hex, a custom gateway token) whenever it
-// straddles maxLen, and no later exact pass can match a head: the caller that
-// masks with the attempt's key afterwards is already too late. Every provider
-// key is held (provider.HoldKeys), so doing it here covers every caller at
-// once. A caller holding a key that is somehow not held should still use
-// MaskCredentialsBounded, which adds that key to the same pass.
+// It is MaskCredentialsBounded with no caller-named secrets, so it gets that
+// function's ordering in full: the exact pass runs before the cut, and the tail
+// is checked for the head of a secret that the pre-cut window split and that
+// earlier masking then pulled back under maxLen ("[redacted]" is shorter than
+// a key, so masking shrinks the text). A shape-only scrub followed by the cut
+// leaves the head of a key that is not key-shaped (plain hex, a custom gateway
+// token) whenever it straddles the cut, and no later exact pass can match a
+// head. A caller holding a key that is somehow not held uses
+// MaskCredentialsBounded directly and names it.
 func SanitizeLogBody(body string, maxLen int) string {
+	return MaskCredentialsBounded(nil, body, maxLen)
+}
+
+// sanitizeShape is SanitizeLogBody without the exact pass: the bounded window,
+// the key-shape scrub, the UUID redaction and the rune-safe cut.
+// MaskCredentialsBounded runs the exact pass first and then this.
+func sanitizeShape(body string, maxLen int) string {
 	// Scrub before truncating, but only over what can still reach the output.
 	//
 	// The order matters: a credential straddling the cut would otherwise leave
@@ -56,7 +64,7 @@ func SanitizeLogBody(body string, maxLen int) string {
 		// the rune-safe truncation below, so the returned string is unaffected.
 		body = body[:maxLen+scrubMargin]
 	}
-	body = string(MaskKeyShapedTokens([]byte(maskExact(nil, body))))
+	body = string(MaskKeyShapedTokens([]byte(body)))
 	body = uuidPattern.ReplaceAllString(body, "[REDACTED]")
 	if len(body) > maxLen {
 		// Back up to the last valid UTF-8 rune boundary to avoid splitting multi-byte characters

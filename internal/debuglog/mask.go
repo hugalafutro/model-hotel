@@ -69,6 +69,9 @@ func (h maskingHandler) Handle(ctx context.Context, r slog.Record) error {
 
 // WithAttrs masks attributes as they are attached (logger.With), since they
 // are rendered on every later record without passing through Handle's attrs.
+// The mask is the one in force at attach time: a key held later is not
+// scrubbed from attributes attached before it. No production logger is built
+// with With, and keys are held at startup before any request is logged.
 func (h maskingHandler) WithAttrs(attrs []slog.Attr) slog.Handler {
 	if fn := masker.Load(); fn != nil {
 		masked := make([]slog.Attr, len(attrs))
@@ -84,10 +87,11 @@ func (h maskingHandler) WithGroup(name string) slog.Handler {
 	return maskingHandler{h.next.WithGroup(name)}
 }
 
-// maskAttr masks the text an attribute will render as. An error or a Stringer
-// is rendered through Error or String by both the text and the JSON handler,
-// so it is masked as that string; any other non-string value keeps its
-// structure, since there is no text in it to scrub.
+// maskAttr masks the text an attribute will render as. Strings, errors and
+// Stringers are masked as the string both the text and the JSON handler render
+// them to; the slices and maps a call site assembles are walked, so a
+// []string of error texts or a metadata map is masked element by element.
+// Anything else keeps its structure: there is no text in it to scrub.
 func maskAttr(fn func(string) string, a slog.Attr) slog.Attr {
 	v := a.Value.Resolve()
 	switch v.Kind() {
@@ -101,12 +105,74 @@ func maskAttr(fn func(string) string, a slog.Attr) slog.Attr {
 		}
 		return slog.Attr{Key: a.Key, Value: slog.GroupValue(masked...)}
 	case slog.KindAny:
-		switch x := v.Any().(type) {
-		case error:
-			return slog.String(a.Key, fn(x.Error()))
-		case fmt.Stringer:
-			return slog.String(a.Key, fn(x.String()))
+		if masked, ok := maskAny(fn, v.Any()); ok {
+			return slog.Any(a.Key, masked)
 		}
 	}
 	return slog.Attr{Key: a.Key, Value: v}
+}
+
+// maskAny masks one KindAny value, reporting whether it changed anything the
+// handler renders. A nil or typed-nil value is left alone: calling Error or
+// String on one panics, where slog itself renders "<nil>", and this handler
+// sits in front of every record in the binary, so a (*T)(nil) error logged
+// from a background goroutine must not become a crash.
+func maskAny(fn func(string) string, x any) (any, bool) {
+	if x == nil || isTypedNil(x) {
+		return nil, false
+	}
+	switch v := x.(type) {
+	case error:
+		if s, ok := safeText(v.Error); ok {
+			return fn(s), true
+		}
+	case fmt.Stringer:
+		if s, ok := safeText(v.String); ok {
+			return fn(s), true
+		}
+	case []string:
+		out := make([]string, len(v))
+		for i, s := range v {
+			out[i] = fn(s)
+		}
+		return out, true
+	case []any:
+		out := make([]any, len(v))
+		for i, e := range v {
+			out[i] = maskElem(fn, e)
+		}
+		return out, true
+	case map[string]any:
+		out := make(map[string]any, len(v))
+		for k, e := range v {
+			out[k] = maskElem(fn, e)
+		}
+		return out, true
+	}
+	return nil, false
+}
+
+// maskElem masks one element of a slice or map, leaving it unchanged when it
+// carries no text.
+func maskElem(fn func(string) string, e any) any {
+	if s, ok := e.(string); ok {
+		return fn(s)
+	}
+	if masked, ok := maskAny(fn, e); ok {
+		return masked
+	}
+	return e
+}
+
+// safeText calls an Error or String method, reporting false when it panics.
+// isTypedNil catches the common case, but an error whose Error dereferences a
+// nil field inside a non-nil value (a *url.Error with a nil Err) panics too,
+// and slog recovers exactly that for the handlers behind this one.
+func safeText(render func() string) (s string, ok bool) {
+	defer func() {
+		if recover() != nil {
+			s, ok = "", false
+		}
+	}()
+	return render(), true
 }

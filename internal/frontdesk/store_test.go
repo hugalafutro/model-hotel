@@ -9,6 +9,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/hugalafutro/model-hotel/internal/util"
 )
 
 const testMasterKey = "test-master-key-0123456789abcdef"
@@ -1108,5 +1110,24 @@ func TestStore_OneRowPerInstance(t *testing.T) {
 	}
 	if err := s.SetMemberInstanceID(ctx, other.ID, "inst-2"); err != nil {
 		t.Fatalf("backfill of a free identity: %v", err)
+	}
+}
+
+// A member admin token is hex, which no key-shape rule matches, so Front Desk's
+// log masker can only catch one it holds exactly. Decrypting a token registers
+// it, and the masker reads the held set per record.
+func TestMemberToken_HoldsTheDecryptedToken(t *testing.T) {
+	store := newTestStore(t)
+	token := "fdmembertoken" + strings.Repeat("a", 32)
+	m, err := store.CreateMember(t.Context(), "held", "http://member.test", token)
+	if err != nil {
+		t.Fatalf("create member: %v", err)
+	}
+	got, ok, err := store.MemberToken(t.Context(), m.ID)
+	if err != nil || !ok || got != token {
+		t.Fatalf("MemberToken = %q ok=%v err=%v, want the token back", got, ok, err)
+	}
+	if masked := util.MaskCredentials(nil, "member said "+token); strings.Contains(masked, token) {
+		t.Fatalf("a decrypted member token is not held, so the log masker cannot catch it: %q", masked)
 	}
 }

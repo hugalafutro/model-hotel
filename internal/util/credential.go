@@ -119,7 +119,7 @@ func MaskCredentialsBounded(secrets []string, body string, maxLen int) string {
 	if len(body) > maxLen+scrubMargin {
 		body = body[:maxLen+scrubMargin]
 	}
-	out := SanitizeLogBody(maskExact(secrets, body), maxLen)
+	out := sanitizeShape(maskExact(secrets, body), maxLen)
 	// The window cut above can leave the head of a secret at its very end, and
 	// masking SHRINKS the text ("[redacted]" is shorter than a key), so enough
 	// earlier occurrences pull that cut head down below maxLen where the final
