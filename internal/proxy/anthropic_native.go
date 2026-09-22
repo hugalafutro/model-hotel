@@ -69,7 +69,12 @@ func (h *Handler) handleNativeNonStreaming(w http.ResponseWriter, r *http.Reques
 
 	body, err := httpx.ReadCappedBody(resp.Body, nonStreamingBodyCap)
 	if err != nil {
-		debuglog.Warn("proxy: "+native.label()+" read failed", "error", err, "provider", logData.providerName)
+		// Fenced here and not only in rejectUntranslatableBody below: this line is
+		// unconditional and fires first, so leaving it raw would publish the text
+		// the fenced line withholds.
+		debuglog.Warn("proxy: "+native.label()+" read failed",
+			"error", fencedFrameMessage(logData.fence(), logData.masker, errString(err)),
+			"provider", logData.providerName)
 		// The same two gates the translated path applies, from the same two
 		// helpers: an abandoned attempt has nobody waiting for a second answer,
 		// and a body past this gateway's own cap is not something a sibling can

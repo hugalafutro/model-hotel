@@ -303,7 +303,14 @@ func (h *Handler) creditBreaker(st *requestState, candidate modelCandidate) {
 // status is the 2xx the upstream answered before its body failed translation;
 // logData has not been stamped with it at this point.
 func (h *Handler) rejectUntranslatableBody(st *requestState, candidate modelCandidate, logData *requestLogData, adapter string, status int, err error, attempt int, r *http.Request) candidateOutcome {
-	debuglog.Warn("proxy: upstream body translation failed", "adapter", adapter, "error", err, "model", logData.modelID, "provider", logData.providerName)
+	// The error is fenced before it is logged, never after: a translator reports
+	// what the upstream body said, and a provider's own error message can quote
+	// the prompt back (openairesponses/response.go carries a failed Responses
+	// object's error.message through verbatim). Only the log string is fenced;
+	// abortKind and translationIsProviderFault below read the real error.
+	debuglog.Warn("proxy: upstream body translation failed", "adapter", adapter,
+		"error", fencedFrameMessage(logData.fence(), logData.masker, errString(err)),
+		"model", logData.modelID, "provider", logData.providerName)
 	// The translators read the body under the attempt's context, so a request
 	// nobody is waiting for arrives here as a translation failure and is not the
 	// provider's doing. abortKind is the one place that says which interruptions

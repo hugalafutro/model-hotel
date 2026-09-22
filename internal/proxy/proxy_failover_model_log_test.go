@@ -3,11 +3,19 @@ package proxy
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
+	"io"
 	"log/slog"
+	"mime/multipart"
+	"net/http"
+	"net/http/httptest"
 	"strings"
 	"sync"
 	"testing"
+	"time"
+
+	"github.com/google/uuid"
 
 	"github.com/hugalafutro/model-hotel/internal/debuglog"
 	"github.com/hugalafutro/model-hotel/internal/model"
@@ -227,5 +235,107 @@ func TestBuildCandidateRequest_BoundsTheDroppedImageSize(t *testing.T) {
 	}
 	if len(got[0]) > 1024 {
 		t.Errorf("rewrite line is %d bytes, want the dropped size bounded", len(got[0]))
+	}
+}
+
+// A multipart body that will not parse must not put any of itself in the app
+// log. net/textproto quotes the offending header line straight into its error,
+// so logging that error verbatim let a caller write a chosen string into the
+// log of a gateway that stores no request content.
+func TestMultipartIngest_LogsTheFaultNotTheBody(t *testing.T) {
+	const sentinel = "ZZSENTINELZZ"
+	up := &speechUpstream{answer: transcriptionAnswer("x")}
+	env := newMultimodalEnvTyped(t, up, `["text"]`, "google", "/v1beta/openai")
+	logs := captureLogsAt(t, slog.LevelWarn)
+
+	body := "--B\r\nContent-Disposition: form-data; name=\"f\"\r\n" + sentinel + "-no-colon\r\n\r\nx\r\n--B--\r\n"
+	w := httptest.NewRecorder()
+	env.handler.AudioTranscriptions(w, env.request("/v1/audio/transcriptions", "multipart/form-data; boundary=B", strings.NewReader(body)))
+
+	if w.Code != http.StatusBadRequest {
+		t.Fatalf("status = %d, want 400 (body: %s)", w.Code, w.Body.String())
+	}
+	got := logs("proxy: failed to parse multipart form")
+	if len(got) == 0 {
+		t.Fatal("the parse failure must still be logged")
+	}
+	for _, line := range got {
+		if strings.Contains(line, sentinel) {
+			t.Errorf("the caller's header line reached the app log: %s", line)
+		}
+		if !strings.Contains(line, "malformed MIME header") {
+			t.Errorf("the line must still say which fault it was: %s", line)
+		}
+	}
+}
+
+// The translators report what the upstream body said, and a provider is free
+// to quote the request back inside its own error message, so the text is
+// fenced before it is logged.
+func TestRejectUntranslatableBody_FencesTheUpstreamError(t *testing.T) {
+	const prompt = "the quick brown fox jumps over the lazy dog"
+	h := newIntegrationHandler()
+	t.Cleanup(func() { stopUnitHandler(h) })
+	logs := captureLogsAt(t, slog.LevelWarn)
+
+	logData := &requestLogData{
+		modelID:      "m",
+		providerName: "p",
+		content:      newContentFence([]byte(`{"messages":[{"role":"user","content":"` + prompt + `"}]}`)),
+	}
+	st := &requestState{startTime: time.Now(), logData: logData}
+	candidate := modelCandidate{provider: &provider.Provider{ID: uuid.New(), Name: "p"}}
+	h.rejectUntranslatableBody(st, candidate, logData, "passthrough", 200,
+		errors.New("openairesponses: "+prompt), 0,
+		httptest.NewRequest(http.MethodPost, "/v1/chat/completions", http.NoBody))
+
+	got := logs("proxy: upstream body translation failed")
+	if len(got) == 0 {
+		t.Fatal("the translation failure must still be logged")
+	}
+	for _, line := range got {
+		if strings.Contains(line, prompt) {
+			t.Errorf("the upstream error echoed the request into the app log: %s", line)
+		}
+	}
+}
+
+// Every fault the describer names, and the catch-all, so a shape Go adds to
+// the multipart reader later still cannot put its text in the log: the default
+// branch answers for anything unrecognised.
+func TestDescribeMultipartFault_NamesTheClassAndNeverTheBytes(t *testing.T) {
+	t.Parallel()
+	const sentinel = "ZZSENTINELZZ"
+	malformed := func() error {
+		body := "--B\r\nContent-Disposition: form-data; name=\"f\"\r\n" + sentinel + "-no-colon\r\n\r\nx\r\n--B--\r\n"
+		_, _, err := parseMultipartParts([]byte(body), "B")
+		return err
+	}()
+	if malformed == nil {
+		t.Fatal("the malformed header should not parse")
+	}
+
+	cases := []struct {
+		name string
+		err  error
+		want string
+	}{
+		{"nil", nil, ""},
+		{"too large", multipart.ErrMessageTooLarge, "a part declared more MIME header than the reader accepts"},
+		{"unexpected eof", io.ErrUnexpectedEOF, "the body ended mid-part"},
+		{"malformed header", malformed, "a part or trailer carried a malformed MIME header"},
+		{"wrapped malformed header", fmt.Errorf("parse: %w", malformed), "a part or trailer carried a malformed MIME header"},
+		{"anything else", errors.New(sentinel + " unrecognised"), "the body is not a well-formed multipart form"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			got := describeMultipartFault(tc.err)
+			if got != tc.want {
+				t.Errorf("describeMultipartFault(%v) = %q, want %q", tc.err, got, tc.want)
+			}
+			if strings.Contains(got, sentinel) {
+				t.Errorf("the caller's bytes reached the description: %q", got)
+			}
+		})
 	}
 }

@@ -13,6 +13,7 @@ import (
 	"github.com/hugalafutro/model-hotel/internal/clientip"
 	"github.com/hugalafutro/model-hotel/internal/ctxkeys"
 	"github.com/hugalafutro/model-hotel/internal/debuglog"
+	"github.com/hugalafutro/model-hotel/internal/jsonfault"
 	"github.com/hugalafutro/model-hotel/internal/settings"
 	"github.com/hugalafutro/model-hotel/internal/util"
 )
@@ -127,7 +128,10 @@ func (h *Handler) ingestRequest(w http.ResponseWriter, r *http.Request, endpoint
 
 		var req ChatCompletionRequest
 		if err := json.Unmarshal(bodyBytes, &req); err != nil {
-			debuglog.Warn("proxy: failed to parse request body", "error", err)
+			// json's own error prints the offending literal (a number, a
+			// fragment of the caller's document); jsonfault reports the fault
+			// without it, the same bargain the multipart ingest takes.
+			debuglog.Warn("proxy: failed to parse request body", "fault", jsonfault.Describe(err, len(bodyBytes)))
 			publishRequestStartedEvent(logData)
 			h.rejectIngest(w, logData, "invalid request body", startTime, parseMs)
 			return nil, false
