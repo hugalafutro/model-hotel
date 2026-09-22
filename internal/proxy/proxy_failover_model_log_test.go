@@ -5,7 +5,9 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"log/slog"
+	"mime/multipart"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -295,5 +297,46 @@ func TestRejectUntranslatableBody_FencesTheUpstreamError(t *testing.T) {
 		if strings.Contains(line, prompt) {
 			t.Errorf("the upstream error echoed the request into the app log: %s", line)
 		}
+	}
+}
+
+// Every fault the describer names, and the catch-all, so a shape Go adds to
+// the multipart reader later still cannot put its text in the log: the default
+// branch answers for anything unrecognised.
+func TestDescribeMultipartFault_NamesTheClassAndNeverTheBytes(t *testing.T) {
+	t.Parallel()
+	const sentinel = "ZZSENTINELZZ"
+	malformed := func() error {
+		body := "--B\r\nContent-Disposition: form-data; name=\"f\"\r\n" + sentinel + "-no-colon\r\n\r\nx\r\n--B--\r\n"
+		_, _, err := parseMultipartParts([]byte(body), "B")
+		return err
+	}()
+	if malformed == nil {
+		t.Fatal("the malformed header should not parse")
+	}
+
+	cases := []struct {
+		name string
+		err  error
+		want string
+	}{
+		{"nil", nil, ""},
+		{"too large", multipart.ErrMessageTooLarge, "a part exceeded the form size limit"},
+		{"unexpected eof", io.ErrUnexpectedEOF, "the body ended mid-part"},
+		{"eof", io.EOF, "the body ended mid-part"},
+		{"malformed header", malformed, "a part carried a malformed MIME header"},
+		{"wrapped malformed header", fmt.Errorf("parse: %w", malformed), "a part carried a malformed MIME header"},
+		{"anything else", errors.New(sentinel + " unrecognised"), "the body is not a well-formed multipart form"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			got := describeMultipartFault(tc.err)
+			if got != tc.want {
+				t.Errorf("describeMultipartFault(%v) = %q, want %q", tc.err, got, tc.want)
+			}
+			if strings.Contains(got, sentinel) {
+				t.Errorf("the caller's bytes reached the description: %q", got)
+			}
+		})
 	}
 }
