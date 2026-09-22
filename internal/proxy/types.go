@@ -97,6 +97,23 @@ const (
 	endpointTypeSTT        = "stt"
 )
 
+// EndpointTypes lists every family the constants above can stamp on a row, in
+// the order the dashboard offers them. The endpoint_type log filter in
+// internal/api validates against it rather than its own copy, so the filter
+// accepts exactly what this package writes and a family added here needs no
+// second list updated. An unrecognised filter value is ignored rather than
+// rejected, so a list that lags this one would silently return every row.
+var EndpointTypes = []string{
+	endpointTypeChat,
+	endpointTypeMessages,
+	endpointTypeResponses,
+	endpointTypeEmbeddings,
+	endpointTypeRerank,
+	endpointTypeImage,
+	endpointTypeTTS,
+	endpointTypeSTT,
+}
+
 type requestLogData struct {
 	// masker scrubs the attempt's provider credential from bodies bound for
 	// the client and from the error message stored on this row. Stamped with
