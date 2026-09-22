@@ -340,11 +340,11 @@ func (t *translation) translateInput(raw json.RawMessage) ([]chatOutMessage, err
 			// chat provider can replay. The model reasons fresh from the
 			// transcript, the same choice the egress direction makes.
 		case "item_reference", "compaction", "context_compaction":
-			return nil, reject(field, kind+" refers to server-side state this gateway does not keep")
+			return nil, reject(field, "refers to server-side state this gateway does not keep")
 		default:
 			// A hosted tool's call or output from an earlier turn: only the
 			// endpoint that ran the tool can read it back.
-			t.deferNative(field, "item type "+kind+" is served by OpenAI's /v1/responses only")
+			t.deferNative(field, "this item type is served by OpenAI's /v1/responses only")
 		}
 	}
 	return out, nil
@@ -361,7 +361,7 @@ func (t *translation) translateInputMessage(it inputItem, field string) (*chatOu
 		role = "system"
 	case "user", "assistant", "system":
 	default:
-		return nil, reject(field, "role "+role+" is not a message role: use user, assistant, system or developer")
+		return nil, reject(field, "not a message role: use user, assistant, system or developer")
 	}
 	if role == "assistant" || role == "system" {
 		text := flattenItemText(it.Content)
@@ -399,7 +399,7 @@ func (t *translation) translateInputMessage(it inputItem, field string) (*chatOu
 			}
 			out = append(out, chatOutPart{Type: "file", File: &chatOutFile{Filename: p.Filename, FileData: p.FileData}})
 		default:
-			t.deferNative(partField, "content part type "+p.Type+" is served by OpenAI's /v1/responses only")
+			t.deferNative(partField, "this content part type is served by OpenAI's /v1/responses only")
 		}
 	}
 	if len(out) == 0 {
@@ -490,7 +490,7 @@ func (t *translation) translateIngressTools(raw []json.RawMessage) (out []chatRe
 	seen := map[string]string{} // chat name -> the tools[...] field that claimed it
 	claim := func(field, name string) error {
 		if prev, dup := seen[name]; dup {
-			return reject(field, "tool name "+name+" collides with "+prev+": every tool needs a distinct name, namespaces included")
+			return reject(field, "tool name collides with "+prev+": every tool needs a distinct name, namespaces included")
 		}
 		seen[name] = field
 		return nil
@@ -516,7 +516,7 @@ func (t *translation) translateIngressTools(raw []json.RawMessage) (out []chatRe
 					return nil, nil, nil, fmt.Errorf("openairesponses: invalid %s: %s", innerField, jsonfault.Describe(err, len(ir)))
 				}
 				if inner.Type != "function" {
-					t.deferNative(innerField, "tool type "+inner.Type+" is served by OpenAI's /v1/responses only; other routes take function tools")
+					t.deferNative(innerField, "this tool type is served by OpenAI's /v1/responses only; other routes take function tools")
 					continue
 				}
 				nt := NamespacedTool{Namespace: tool.Name, Name: inner.Name}
@@ -529,7 +529,7 @@ func (t *translation) translateIngressTools(raw []json.RawMessage) (out []chatRe
 		case strings.HasPrefix(tool.Type, "web_search"):
 			// dropped
 		default:
-			t.deferNative(field, "tool type "+tool.Type+" is served by OpenAI's /v1/responses only; other routes take function tools")
+			t.deferNative(field, "this tool type is served by OpenAI's /v1/responses only; other routes take function tools")
 		}
 	}
 	if len(names) == 0 {
@@ -559,7 +559,7 @@ func (t *translation) translateIngressToolChoice(raw json.RawMessage, names Tool
 		return nil, fmt.Errorf("openairesponses: invalid tool_choice: %s", jsonfault.Describe(err, len(raw)))
 	}
 	if tc.Type != "function" || tc.Name == "" {
-		t.deferNative("tool_choice", "type "+tc.Type+" is served by OpenAI's /v1/responses only; other routes take a mode string or a named function")
+		t.deferNative("tool_choice", "this tool_choice type is served by OpenAI's /v1/responses only; other routes take a mode string or a named function")
 		return nil, nil
 	}
 	name := tc.Name

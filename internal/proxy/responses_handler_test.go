@@ -236,8 +236,16 @@ func TestResponses_NativeOnlyMemberRefusedOnTranslatedRoute(t *testing.T) {
 	if w.Code != http.StatusBadRequest {
 		t.Fatalf("code = %d, body = %s", w.Code, w.Body.String())
 	}
-	if msg := openAIErrorMessage(t, w.Body.Bytes()); !strings.Contains(msg, "tools[0]") || !strings.Contains(msg, "custom") {
-		t.Errorf("message = %q", msg)
+	// The refusal names the field and never the caller's value. This message is
+	// the one that reaches request_logs.error_message and the request.completed
+	// operator event, so echoing the tool type back would store a fragment of
+	// the request body in the logs.
+	msg := openAIErrorMessage(t, w.Body.Bytes())
+	if !strings.Contains(msg, "tools[0]") {
+		t.Errorf("the refusal must name the field it refuses: %q", msg)
+	}
+	if strings.Contains(msg, "custom") {
+		t.Errorf("the refusal echoes the caller's tool type into a logged message: %q", msg)
 	}
 }
 
