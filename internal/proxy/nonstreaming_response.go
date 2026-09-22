@@ -39,7 +39,11 @@ import (
 //   - A non-2xx carries no completion. Its body is the provider's error
 //     document, and that text is the whole reason such a row is worth reading,
 //     so it is sanitized and kept.
-func nonStreamingFailureDetail(ctx context.Context, resp *http.Response, body []byte, readErr, decodeErr error, modelID string, fence *contentFence) (logMsg, detail string, kind ErrorKind, reason string) {
+//
+// The read error describes the upstream's own body, so it takes
+// fencedFrameMessage's full pass: the attempt's credential masked (a provider
+// is free to quote the operator's key back), then bounded, then fenced.
+func nonStreamingFailureDetail(ctx context.Context, resp *http.Response, body []byte, readErr, decodeErr error, modelID string, fence *contentFence, masker credentialMasker) (logMsg, detail string, kind ErrorKind, reason string) {
 	if servedSuccessStatus(resp.StatusCode) {
 		if readErr != nil {
 			// A read nobody was waiting for is not the provider failing. The body
@@ -60,12 +64,12 @@ func nonStreamingFailureDetail(ctx context.Context, resp *http.Response, body []
 				// and charges it (classifyProbeFailure), so this half does too,
 				// and the last candidate in a group records what a candidate with
 				// a sibling behind it would have.
-				detail = fmt.Sprintf("upstream stopped sending before the per-attempt deadline: %s (body_bytes=%d)", errString(readErr), len(body))
+				detail = fmt.Sprintf("upstream stopped sending before the per-attempt deadline: %s (body_bytes=%d)", fencedFrameMessage(fence, masker, errString(readErr)), len(body))
 				return detail, detail, KindProviderTimeout, "the provider stopped sending its response"
 			}
 			// A body that died on the wire is the provider breaking after it
 			// committed the status, which is what the breaker exists to catch.
-			detail = fmt.Sprintf("upstream body read error: %s (body_bytes=%d)", errString(readErr), len(body))
+			detail = fmt.Sprintf("upstream body read error: %s (body_bytes=%d)", fencedFrameMessage(fence, masker, errString(readErr)), len(body))
 			return detail, detail, KindProviderError, "the provider stopped sending its response"
 		}
 		// The content type is the upstream's own text on a detail that is stored
@@ -295,20 +299,24 @@ func (h *Handler) handleNonStreamingResponse(w http.ResponseWriter, r *http.Requ
 		logData.statusCode = resp.StatusCode
 		logData.durationMs = totalDuration
 		logData.responseHeaderMs = responseHeaderMs
-		logMsg, detail, kind, reason := nonStreamingFailureDetail(r.Context(), resp, body, readErr, decodeErr, logData.modelID, logData.fence())
-		// body is already exact-masked; the log row also gets the key-shape
-		// layer, like every other stored error message.
-		logData.errorMessage = string(maskKeyShapedTokens([]byte(logMsg)))
+		logMsg, detail, kind, reason := nonStreamingFailureDetail(r.Context(), resp, body, readErr, decodeErr, logData.modelID, logData.fence(), logData.masks())
+		// The full masker, not the key-shape layer alone: the exact pass over the
+		// attempt's own key and the held-secret union is what catches a
+		// credential that is not key-shaped (plain hex, a custom gateway token).
+		logData.errorMessage = string(logData.masks().mask([]byte(logMsg)))
 		logData.errorKind = kind
 		logData.failoverAttempt = attempt
 		logData.state = "failed"
 		// Fire-and-forget: skip WaitForInsert so the error response is not
 		// blocked.
 		h.updateRequestLog(logData, updateLogOption{skipWaitForInsert: true})
-		if debuglog.Level() <= slog.LevelDebug {
-			// detail left the fence above, so the app log gets the same text
-			// the row does.
-			debuglog.Debug("proxy: non-streaming error details", "status", resp.StatusCode, "error_kind", kind, "model", logData.modelID, "provider", logData.providerName, "error", detail, "duration_ms", totalDuration)
+		// Asks the installed handler, as fencedDebugText does, rather than the
+		// level cached at Init: the gate exists to skip the mask when the line
+		// would not be written, and the handler is what decides that.
+		if slog.Default().Enabled(r.Context(), slog.LevelDebug) {
+			// detail left the fence above; masked here too, so the app log gets
+			// the same passes the row does.
+			debuglog.Debug("proxy: non-streaming error details", "status", resp.StatusCode, "error_kind", kind, "model", logData.modelID, "provider", logData.providerName, "error", string(logData.masks().mask([]byte(detail))), "duration_ms", totalDuration)
 		}
 		// The row keeps resp.StatusCode above, since what the upstream said is
 		// the diagnostic. Only what the CLIENT is told changes.

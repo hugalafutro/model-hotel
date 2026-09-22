@@ -534,7 +534,10 @@ func (h *Handler) handleDataChunk(sink *streamSink, st *streamState, ev sseEvent
 		// Normalize provider finish_reason and suppress P2-2 bare duplicates.
 		switch decision, newPayload := computeFinishReason(chunk, payload, &st.lastFinishReason); decision {
 		case finishSuppress:
-			debuglog.Debug("proxy: suppressing duplicate finish_reason chunk", "finish_reason", normalizeFinishReason(*chunk.Choices[0].FinishReason), "model", logData.modelID, "provider", logData.providerName, "chunk_number", chunkCount)
+			// An unmapped finish_reason is returned unchanged by
+			// normalizeFinishReason, so the value is whatever string the
+			// provider chose: upstream text, fenced like any other.
+			debuglog.Debug("proxy: suppressing duplicate finish_reason chunk", "finish_reason", fencedDebugText(normalizeFinishReason(*chunk.Choices[0].FinishReason), logData), "model", logData.modelID, "provider", logData.providerName, "chunk_number", chunkCount)
 			sink.swallowBlank = true
 			return false
 		case finishRewrite:

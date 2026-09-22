@@ -603,11 +603,24 @@ func (h *Handler) failHedgeDisconnect(w http.ResponseWriter, st *requestState, l
 }
 
 // hedgeProbeLog is the throwaway log entry a hedged probe runs against: the
-// identity fields its log lines name, and the content fence, because the
-// probe's failure line renders the provider's error frame and that frame may
-// quote the prompt. Sharing the fence is safe: its parse is Once-guarded.
+// identity fields its log lines name, the content fence, because the probe's
+// failure line renders the provider's error frame and that frame may quote the
+// prompt, and this candidate's own credential masker, because the same line may
+// quote the key. Sharing the fence is safe: its parse is Once-guarded.
+//
+// The masker is the candidate's, not the entry's: a probe runs one candidate
+// while the entry still names whichever candidate stamped it last. The held
+// set would usually catch the key anyway, but provider.HoldKeys skips any key
+// that fails to decrypt, and the exact pass is the one that does not depend on
+// that.
 func hedgeProbeLog(entry *requestLogData, candidate modelCandidate) *requestLogData {
-	return &requestLogData{modelID: entry.modelID, providerName: candidate.provider.Name, endpointType: entry.endpointType, content: entry.content}
+	return &requestLogData{
+		modelID:      entry.modelID,
+		providerName: candidate.provider.Name,
+		endpointType: entry.endpointType,
+		content:      entry.content,
+		masker:       newCredentialMasker(candidate.apiKey),
+	}
 }
 
 // learnFromHedgedRefusal is the hedged race's share of the learnable-refusal

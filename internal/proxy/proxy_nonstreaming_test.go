@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log/slog"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -534,6 +535,45 @@ func TestHandleNonStreamingResponse_Non2xxKeepsUpstreamErrorText(t *testing.T) {
 	}
 }
 
+// The row and the Debug detail line both take the attempt's full credential
+// masker, not only the key-shape layer. The Content-Type is the one upstream
+// value on this path that reaches the detail without the exact pass (it is
+// bounded and fenced, and SanitizeLogBody runs the key-shape regex only), so a
+// credential that is not key-shaped survived into both copies before. The body
+// here is pre-masked by readNonStreamingBody, which is why a non-2xx body
+// cannot test this: only the header path reaches the new passes unmasked.
+func TestHandleNonStreamingResponse_MasksTheAttemptsCredentialInRowAndDebugLine(t *testing.T) {
+	h := newIntegrationHandler()
+	defer stopUnitHandlerIntegration(h)
+	logs := captureLogsAt(t, slog.LevelDebug)
+
+	key := "sk-" + strings.Repeat("c", 40)
+	resp := &http.Response{
+		StatusCode: http.StatusOK,
+		Body:       io.NopCloser(strings.NewReader("{")),
+		Header:     http.Header{"Content-Type": []string{"application/json; token=" + key}},
+	}
+	req := withAuthContext(httptest.NewRequest("POST", "/v1/chat/completions", http.NoBody))
+	logData := nonStreamingLogData()
+	logData.masker = newCredentialMasker(key)
+
+	h.handleNonStreamingResponse(httptest.NewRecorder(), req, logData, resp, readNonStreamingBody(resp, logData.masker), time.Now(), 0, 0, resolveTimings{}, 0, "", 1)
+
+	secret := strings.Repeat("c", 40)
+	if strings.Contains(logData.errorMessage, secret) {
+		t.Fatalf("the credential survived into the stored row: %q", logData.errorMessage)
+	}
+	lines := logs("proxy: non-streaming error details")
+	if len(lines) == 0 {
+		t.Fatal("the Debug detail line should be written when Debug is on")
+	}
+	for _, l := range lines {
+		if strings.Contains(l, secret) {
+			t.Fatalf("the credential survived into the Debug detail line: %s", l)
+		}
+	}
+}
+
 // A non-2xx that fails to decode as well (an HTML error page from a proxy in
 // front of the provider) keeps its text too — it is still an error document.
 func TestHandleNonStreamingResponse_UndecodableNon2xxKeepsBody(t *testing.T) {
@@ -704,7 +744,7 @@ func TestNonStreamingFailureDetail(t *testing.T) {
 		body := []byte(`{"choices":[{"message":{"role":"assistant","content":"private answer"}}],"created":"1"}`)
 		resp := &http.Response{StatusCode: http.StatusOK, Header: jsonHeader}
 
-		logMsg, detail, kind, reason := nonStreamingFailureDetail(context.Background(), resp, body, nil, decodeErr, "m", nil)
+		logMsg, detail, kind, reason := nonStreamingFailureDetail(context.Background(), resp, body, nil, decodeErr, "m", nil, credentialMasker{})
 
 		for _, s := range []string{logMsg, detail} {
 			if strings.Contains(s, "private answer") || strings.Contains(s, "choices") {
@@ -727,7 +767,7 @@ func TestNonStreamingFailureDetail(t *testing.T) {
 		body := []byte(`{"error":{"message":"rate limit reached for gpt-4o"}}`)
 		resp := &http.Response{StatusCode: http.StatusTooManyRequests, Header: jsonHeader}
 
-		logMsg, detail, kind, _ := nonStreamingFailureDetail(context.Background(), resp, body, nil, nil, "gpt-4o", nil)
+		logMsg, detail, kind, _ := nonStreamingFailureDetail(context.Background(), resp, body, nil, nil, "gpt-4o", nil, credentialMasker{})
 
 		if !strings.Contains(logMsg, "upstream HTTP 429") || !strings.Contains(logMsg, "rate limit reached") {
 			t.Errorf("logMsg = %q", logMsg)
@@ -745,7 +785,7 @@ func TestNonStreamingFailureDetail(t *testing.T) {
 		body := []byte(`<html>502 Bad Gateway</html>`)
 		resp := &http.Response{StatusCode: http.StatusBadGateway, Header: http.Header{"Content-Type": []string{"text/html"}}}
 
-		logMsg, _, _, _ := nonStreamingFailureDetail(context.Background(), resp, body, nil, decodeErr, "m", nil)
+		logMsg, _, _, _ := nonStreamingFailureDetail(context.Background(), resp, body, nil, decodeErr, "m", nil, credentialMasker{})
 
 		if !strings.Contains(logMsg, "response decode error") || !strings.Contains(logMsg, "502 Bad Gateway") {
 			t.Errorf("logMsg = %q", logMsg)
