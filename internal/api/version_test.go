@@ -9,6 +9,7 @@ import (
 	"net/http/httptest"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -154,6 +155,60 @@ func TestGetLatestVersion_ClientCancelStillCaches(t *testing.T) {
 	vCache.mu.Unlock()
 	if cachedTag != "v3.0.0" {
 		t.Errorf("expected cached tag 'v3.0.0' despite the cancelled request, got %q", cachedTag)
+	}
+}
+
+// A burst of cache misses shares one GitHub lookup instead of one each.
+func TestGetLatestVersion_ConcurrentMissesShareOneLookup(t *testing.T) {
+	resetVersionCache()
+
+	var calls atomic.Int32
+	release := make(chan struct{})
+	ghServer := newGHMockServer(t,
+		func(w http.ResponseWriter, _ *http.Request) {
+			calls.Add(1)
+			<-release
+			w.Header().Set("Content-Type", "application/json")
+			json.NewEncoder(w).Encode(map[string]string{"tag_name": "v4.0.0"})
+		},
+		nil,
+	)
+	defer ghServer.Close()
+
+	h := &Handler{
+		ghReleasesURL: ghServer.URL + "/repos/hugalafutro/model-hotel/releases/latest",
+		ghTagsURL:     ghServer.URL + "/repos/hugalafutro/model-hotel/tags",
+	}
+	r := chi.NewRouter()
+	h.RegisterVersion(r)
+
+	const visitors = 5
+	codes := make(chan int, visitors)
+	var wg sync.WaitGroup
+	for range visitors {
+		wg.Go(func() {
+			w := httptest.NewRecorder()
+			r.ServeHTTP(w, httptest.NewRequest(http.MethodGet, "/version/latest", http.NoBody))
+			codes <- w.Code
+		})
+	}
+	// Hold the one upstream call open until every visitor has joined it.
+	deadline := time.Now().Add(5 * time.Second)
+	for calls.Load() == 0 && time.Now().Before(deadline) {
+		time.Sleep(5 * time.Millisecond)
+	}
+	time.Sleep(200 * time.Millisecond)
+	close(release)
+	wg.Wait()
+	close(codes)
+
+	for code := range codes {
+		if code != http.StatusOK {
+			t.Errorf("expected every visitor to get %d, got %d", http.StatusOK, code)
+		}
+	}
+	if got := calls.Load(); got != 1 {
+		t.Errorf("expected one GitHub call for %d concurrent misses, got %d", visitors, got)
 	}
 }
 
