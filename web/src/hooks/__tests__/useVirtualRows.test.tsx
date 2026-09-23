@@ -155,7 +155,21 @@ describe("useVirtualRows", () => {
 		},
 	);
 
-	it("does not retry a failed fill until the rows change or the window resizes", () => {
+	it("does not retry a failed fill until the rows change or the box resizes", () => {
+		// Every ResizeObserver the hook creates, so the test can report the box
+		// resizing.
+		const observed: ResizeObserverCallback[] = [];
+		vi.stubGlobal(
+			"ResizeObserver",
+			class {
+				constructor(cb: ResizeObserverCallback) {
+					observed.push(cb);
+				}
+				observe() {}
+				unobserve() {}
+				disconnect() {}
+			},
+		);
 		const proto = HTMLElement.prototype;
 		const saved = ["clientHeight", "scrollHeight"].map(
 			(k) => [k, Object.getOwnPropertyDescriptor(proto, k)] as const,
@@ -191,14 +205,21 @@ describe("useVirtualRows", () => {
 			});
 			expect(fetchOlder).toHaveBeenCalledTimes(2);
 
+			// So may the box growing on its own (a banner went away).
+			act(() => {
+				for (const cb of observed) cb([], {} as ResizeObserver);
+			});
+			expect(fetchOlder).toHaveBeenCalledTimes(3);
+
 			// New rows arrived and still do not fill the box: next page.
 			rerender(<Harness entries={rows(0, 10)} {...props} />);
-			expect(fetchOlder).toHaveBeenCalledTimes(3);
+			expect(fetchOlder).toHaveBeenCalledTimes(4);
 		} finally {
 			for (const [k, d] of saved) {
 				if (d) Object.defineProperty(proto, k, d);
 				else delete (proto as unknown as Record<string, unknown>)[k];
 			}
+			vi.unstubAllGlobals();
 		}
 	});
 

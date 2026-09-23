@@ -180,7 +180,7 @@ export function useVirtualRows<T extends { id?: string }>({
 	// next page while the list still does not fill the box. One attempt per
 	// list state (which list, how many rows): a failed fetch leaves both
 	// unchanged, so it is not retried in a loop, only after new rows or a
-	// resize.
+	// resize of the box.
 	const fillAttemptRef = useRef<string | null>(null);
 	useLayoutEffect(() => {
 		if (!scrollEl) return;
@@ -201,9 +201,20 @@ export function useVirtualRows<T extends { id?: string }>({
 			}
 		};
 		fill(false);
+		// The box itself can grow with the window unchanged (a banner comes or
+		// goes, the filter bar re-wraps): watch the box where the browser can,
+		// and the window as the fallback.
 		const onResize = () => fill(true);
+		const observer =
+			typeof ResizeObserver === "undefined"
+				? null
+				: new ResizeObserver(onResize);
+		observer?.observe(scrollEl);
 		window.addEventListener("resize", onResize);
-		return () => window.removeEventListener("resize", onResize);
+		return () => {
+			observer?.disconnect();
+			window.removeEventListener("resize", onResize);
+		};
 	}, [
 		scrollEl,
 		listVersion,
