@@ -50,6 +50,8 @@
 		"manuallyDisabled": "手动禁用",
 		"loadingNewer": "加载较新的…",
 		"loadingOlder": "加载旧的…",
+		"showingRange": "显示第 {{start}}–{{end}} 条，共 {{total}} 条",
+		"showingNone": "显示 0 条，共 {{total}} 条",
 		"model": "模型",
 		"models": "模型",
 		"tokens": "Token",
@@ -2900,16 +2902,14 @@
 			"serverError": "服务器错误"
 		},
 		"virtualLogTable": {
-			"noLogsFound": "未找到日志",
-			"zeroEntries": "0 个条目"
+			"noLogsFound": "未找到日志"
 		},
 		"virtualAppLogTable": {
 			"noEntriesFound": "未找到日志条目",
 			"timeDate": "时间/日期",
 			"level": "级别",
 			"source": "来源",
-			"message": "消息",
-			"zeroEntries": "0 个条目"
+			"message": "消息"
 		},
 		"applyRecommendedButton": {
 			"loading": "正在加载…",
@@ -3357,7 +3357,6 @@
 			"remote": "地址",
 			"status": "状态"
 		},
-		"showing": "显示 {{count}} / {{total}} 条",
 		"loadMore": "加载更多",
 		"emptyState": "暂无审计条目。产生变更的管理操作将显示在这里。",
 		"toast": {

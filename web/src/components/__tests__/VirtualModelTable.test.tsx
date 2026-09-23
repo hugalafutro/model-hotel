@@ -130,10 +130,10 @@ describe("VirtualModelTable", () => {
 			expect(screen.getByText("No models found")).toBeInTheDocument();
 		});
 
-		it("renders '0 / 0' in footer when entries empty", () => {
+		it("renders 'Showing 0 of 0' in footer when entries empty", () => {
 			setupTable({ entries: [], total: 0 });
 			renderWithProviders(<VirtualModelTable />);
-			expect(screen.getByText("0 / 0")).toBeInTheDocument();
+			expect(screen.getByText("Showing 0 of 0")).toBeInTheDocument();
 		});
 
 		it("renders loading indicator when isLoadingInitial", () => {
@@ -608,7 +608,7 @@ describe("VirtualModelTable", () => {
 			const entries = [createModel()];
 			setupWithEntries(entries, { total: 1 });
 			renderWithProviders(<VirtualModelTable />);
-			expect(screen.getByText("1–1 / 1")).toBeInTheDocument();
+			expect(screen.getByText("Showing 1–1 of 1")).toBeInTheDocument();
 		});
 
 		it("calls onModelClick when model row is clicked", () => {

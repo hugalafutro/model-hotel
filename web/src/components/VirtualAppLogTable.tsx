@@ -10,7 +10,7 @@ import {
 import { appLogKey, displayLogMessage } from "../utils/logText";
 import { Badge } from "./Badge";
 import { ScrollTopButton } from "./ScrollTopButton";
-import { VirtualTableFooter } from "./VirtualTableFooter";
+import { TableFooter } from "./TableFooter";
 
 interface VirtualAppLogTableProps {
 	entries: AppLogEntry[];
@@ -75,16 +75,15 @@ export function VirtualAppLogTable(props: VirtualAppLogTableProps) {
 	});
 
 	return (
-		<div className="relative flex flex-col min-h-0">
+		<div className="relative flex flex-col flex-1 min-h-0">
 			<div
 				ref={scrollRef}
 				// Focus target for ScrollTopButton, so returning to the top does
 				// not drop keyboard focus to <body>.
 				tabIndex={-1}
-				className="ui-card overflow-y-auto overflow-x-auto"
+				className="ui-card overflow-y-auto overflow-x-auto flex-1 min-h-0"
 				style={{
 					overflowAnchor: "none",
-					height: "calc(100dvh - 242px)",
 					minHeight: "200px",
 				}}
 				onScroll={handleScroll}
@@ -204,12 +203,10 @@ export function VirtualAppLogTable(props: VirtualAppLogTableProps) {
 				</table>
 			</div>
 			<ScrollTopButton scrollEl={scrollEl} />
-			<VirtualTableFooter
-				range={
-					entries.length > 0
-						? `${startIndex}–${endIndex} / ${total.toLocaleString()}`
-						: t("components.virtualAppLogTable.zeroEntries")
-				}
+			<TableFooter
+				start={startIndex}
+				end={entries.length > 0 ? endIndex : 0}
+				total={total}
 				isLoadingBefore={isLoadingBefore}
 				isLoadingAfter={isLoadingAfter}
 			/>

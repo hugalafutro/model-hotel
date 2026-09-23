@@ -62,13 +62,13 @@ describe("VirtualAppLogTable", () => {
 			expect(screen.getByText("No log entries found")).toBeInTheDocument();
 		});
 
-		it('renders "0 entries" in footer when entries is empty', () => {
+		it('renders "Showing 0 of N" in footer when entries is empty', () => {
 			mockGetVirtualItems.mockReturnValue([]);
 			mockGetTotalSize.mockReturnValue(0);
 
 			renderWithProviders(<VirtualAppLogTable {...defaultProps} />);
 
-			expect(screen.getByText("0 entries")).toBeInTheDocument();
+			expect(screen.getByText(/^Showing 0 of /)).toBeInTheDocument();
 		});
 
 		it("renders loading newer indicator when isLoadingBefore=true and entries empty", () => {
@@ -673,22 +673,22 @@ describe("VirtualAppLogTable", () => {
 			mockGetTotalSize.mockReturnValue(entries.length * 48);
 		});
 
-		it('renders "X–Y / total" pagination in footer when entries exist', () => {
+		it('renders "Showing X–Y of total" in footer when entries exist', () => {
 			renderWithProviders(
 				<VirtualAppLogTable {...defaultProps} entries={entries} total={100} />,
 			);
 
-			// Should show "1–3 / 100" (indices 0-2 + 1 = 1-3)
-			expect(screen.getByText("1–3 / 100")).toBeInTheDocument();
+			// Should show "Showing 1–3 of 100" (indices 0-2 + 1 = 1-3)
+			expect(screen.getByText("Showing 1–3 of 100")).toBeInTheDocument();
 		});
 
-		it('renders "0 entries" when entries empty', () => {
+		it('renders "Showing 0 of N" when entries empty', () => {
 			mockGetVirtualItems.mockReturnValue([]);
 			mockGetTotalSize.mockReturnValue(0);
 
 			renderWithProviders(<VirtualAppLogTable {...defaultProps} />);
 
-			expect(screen.getByText("0 entries")).toBeInTheDocument();
+			expect(screen.getByText(/^Showing 0 of /)).toBeInTheDocument();
 		});
 
 		it("renders loading indicators in footer when populated and loading", () => {
@@ -1012,7 +1012,7 @@ describe("VirtualAppLogTable", () => {
 				<VirtualAppLogTable {...defaultProps} entries={entries} total={100} />,
 			);
 
-			expect(screen.getByText("1–20 / 100")).toBeInTheDocument();
+			expect(screen.getByText("Showing 1–20 of 100")).toBeInTheDocument();
 		});
 
 		it('displays "1-1 of 1" for single entry', () => {
@@ -1027,16 +1027,16 @@ describe("VirtualAppLogTable", () => {
 				<VirtualAppLogTable {...defaultProps} entries={entries} total={1} />,
 			);
 
-			expect(screen.getByText("1–1 / 1")).toBeInTheDocument();
+			expect(screen.getByText("Showing 1–1 of 1")).toBeInTheDocument();
 		});
 
-		it('displays "0 entries" when entries array is empty', () => {
+		it('displays "Showing 0 of N" when entries array is empty', () => {
 			mockGetVirtualItems.mockReturnValue([]);
 			mockGetTotalSize.mockReturnValue(0);
 
 			renderWithProviders(<VirtualAppLogTable {...defaultProps} />);
 
-			expect(screen.getByText("0 entries")).toBeInTheDocument();
+			expect(screen.getByText(/^Showing 0 of /)).toBeInTheDocument();
 		});
 
 		it("displays correct range for middle page (e.g., 21-40 of 100)", () => {
@@ -1067,7 +1067,7 @@ describe("VirtualAppLogTable", () => {
 				/>,
 			);
 
-			expect(screen.getByText("21–40 / 100")).toBeInTheDocument();
+			expect(screen.getByText("Showing 21–40 of 100")).toBeInTheDocument();
 		});
 
 		it("displays correct range for last page with partial items", () => {
@@ -1098,7 +1098,7 @@ describe("VirtualAppLogTable", () => {
 				/>,
 			);
 
-			expect(screen.getByText("96–100 / 100")).toBeInTheDocument();
+			expect(screen.getByText("Showing 96–100 of 100")).toBeInTheDocument();
 		});
 	});
 

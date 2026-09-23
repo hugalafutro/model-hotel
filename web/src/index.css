@@ -1,5 +1,12 @@
 @import "tailwindcss";
 
+/* 3xl: wider than a 1080p screen (1920px), where the content column has room
+   for a third card per row. Named, not min-[...], so Tailwind orders it after
+   the built-in breakpoints and it wins over md:/2xl: rules. */
+@theme {
+	--breakpoint-3xl: 120.0625rem;
+}
+
 /* Tailwind v4 dropped the v3 preflight rule that gave buttons a pointer
    cursor, which is why hand-cursor coverage drifted per element. Restore
    it in the base layer, with a not-allowed companion for disabled states

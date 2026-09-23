@@ -50,6 +50,8 @@
 		"manuallyDisabled": "手動で無効",
 		"loadingNewer": "新しい… を読み込み中",
 		"loadingOlder": "過去の項目を読み込み中…",
+		"showingRange": "{{total}} 件中 {{start}}–{{end}} 件を表示",
+		"showingNone": "{{total}} 件中 0 件を表示",
 		"model": "モデル",
 		"models": "モデル",
 		"tokens": "トークン",
@@ -2900,16 +2902,14 @@
 			"serverError": "サーバーエラー"
 		},
 		"virtualLogTable": {
-			"noLogsFound": "ログが見つかりません",
-			"zeroEntries": "0 項目"
+			"noLogsFound": "ログが見つかりません"
 		},
 		"virtualAppLogTable": {
 			"noEntriesFound": "ログエントリが見つかりません",
 			"timeDate": "時刻/日付",
 			"level": "レベル",
 			"source": "ソース",
-			"message": "メッセージ",
-			"zeroEntries": "0 項目"
+			"message": "メッセージ"
 		},
 		"applyRecommendedButton": {
 			"loading": "… を読み込み中",
@@ -3357,7 +3357,6 @@
 			"remote": "アドレス",
 			"status": "ステータス"
 		},
-		"showing": "{{total}} 件中 {{count}} 件を表示",
 		"loadMore": "さらに読み込む",
 		"emptyState": "監査エントリはまだありません。変更を伴う管理操作がここに表示されます。",
 		"toast": {

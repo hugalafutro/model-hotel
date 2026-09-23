@@ -50,6 +50,8 @@
 		"manuallyDisabled": "Handmatig uitgeschakeld",
 		"loadingNewer": "Nieuwere… laden",
 		"loadingOlder": "Oudere berichten laden…",
+		"showingRange": "{{start}}–{{end}} van {{total}} weergegeven",
+		"showingNone": "0 van {{total}} weergegeven",
 		"model": "model",
 		"models": "modellen",
 		"tokens": "Tokens",
@@ -2900,16 +2902,14 @@
 			"serverError": "Server fout"
 		},
 		"virtualLogTable": {
-			"noLogsFound": "Geen logs gevonden",
-			"zeroEntries": "0 vermeldingen"
+			"noLogsFound": "Geen logs gevonden"
 		},
 		"virtualAppLogTable": {
 			"noEntriesFound": "Geen logs gevonden",
 			"timeDate": "Tijd/Datum",
 			"level": "Niveau",
 			"source": "Bron",
-			"message": "bericht",
-			"zeroEntries": "0 vermeldingen"
+			"message": "bericht"
 		},
 		"applyRecommendedButton": {
 			"loading": "… wordt geladen",
@@ -3357,7 +3357,6 @@
 			"remote": "Adres",
 			"status": "Status"
 		},
-		"showing": "{{count}} van {{total}} weergegeven",
 		"loadMore": "Meer laden",
 		"emptyState": "Nog geen auditvermeldingen. Wijzigende beheeracties verschijnen hier.",
 		"toast": {

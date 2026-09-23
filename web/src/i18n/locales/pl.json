@@ -50,6 +50,8 @@
 		"manuallyDisabled": "Ręcznie wyłączone",
 		"loadingNewer": "Wczytywanie nowszych…",
 		"loadingOlder": "Ładowanie starszego…",
+		"showingRange": "Wyświetlanie {{start}}–{{end}} z {{total}}",
+		"showingNone": "Wyświetlanie 0 z {{total}}",
 		"model": "model",
 		"models": "modele",
 		"tokens": "Tokeny",
@@ -3030,16 +3032,14 @@
 			"serverError": "Błąd serwera"
 		},
 		"virtualLogTable": {
-			"noLogsFound": "Nie znaleziono logów",
-			"zeroEntries": "0 wpisów"
+			"noLogsFound": "Nie znaleziono logów"
 		},
 		"virtualAppLogTable": {
 			"noEntriesFound": "Nie znaleziono wpisów dziennika",
 			"timeDate": "Czas/Data",
 			"level": "Poziom",
 			"source": "Źródło",
-			"message": "Wiadomość",
-			"zeroEntries": "0 wpisów"
+			"message": "Wiadomość"
 		},
 		"applyRecommendedButton": {
 			"loading": "Ładowanie…",
@@ -3493,7 +3493,6 @@
 			"remote": "Adres",
 			"status": "Status"
 		},
-		"showing": "Wyświetlono {{count}} z {{total}}",
 		"loadMore": "Wczytaj więcej",
 		"emptyState": "Brak wpisów audytu. Działania administracyjne wprowadzające zmiany pojawią się tutaj.",
 		"toast": {

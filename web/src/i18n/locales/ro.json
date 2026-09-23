@@ -50,6 +50,8 @@
 		"manuallyDisabled": "Dezactivat manual",
 		"loadingNewer": "Se încarcă mai nou…",
 		"loadingOlder": "Se încarcă mai vechi…",
+		"showingRange": "Se afișează {{start}}–{{end}} din {{total}}",
+		"showingNone": "Se afișează 0 din {{total}}",
 		"model": "model",
 		"models": "modele",
 		"tokens": "Token-uri",
@@ -2965,16 +2967,14 @@
 			"serverError": "Eroare server"
 		},
 		"virtualLogTable": {
-			"noLogsFound": "Niciun jurnal găsit",
-			"zeroEntries": "0 intrări"
+			"noLogsFound": "Niciun jurnal găsit"
 		},
 		"virtualAppLogTable": {
 			"noEntriesFound": "Nu s-au găsit intrări în jurnal",
 			"timeDate": "Ora/Dată",
 			"level": "Nivel",
 			"source": "Sursa",
-			"message": "Mesaj",
-			"zeroEntries": "0 intrări"
+			"message": "Mesaj"
 		},
 		"applyRecommendedButton": {
 			"loading": "Se încarcă…",
@@ -3425,7 +3425,6 @@
 			"remote": "Adresă",
 			"status": "Stare"
 		},
-		"showing": "Se afișează {{count}} din {{total}}",
 		"loadMore": "Încarcă mai multe",
 		"emptyState": "Nu există încă intrări de audit. Acțiunile de administrare care fac modificări vor apărea aici.",
 		"toast": {

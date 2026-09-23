@@ -22,6 +22,7 @@ import { FilterDropdown } from "../../components/FilterDropdown";
 import { FilterInput } from "../../components/FilterInput";
 import { LoadingSpinner } from "../../components/LoadingSpinner";
 import { PageHeader } from "../../components/PageHeader";
+import { TableFooter } from "../../components/TableFooter";
 import { ViewModeToggle } from "../../components/ViewModeToggle";
 import { useToast } from "../../context/ToastContext";
 import { useDebounce } from "../../hooks/useDebounce";
@@ -213,7 +214,7 @@ export function Audit() {
 			/>
 
 			{entries.length > 0 ? (
-				<>
+				<div className="flex flex-col flex-1 min-h-0">
 					<div
 						ref={scrollRef}
 						className="ui-card overflow-y-auto flex-1 min-h-0"
@@ -304,8 +305,13 @@ export function Audit() {
 						)}
 					</div>
 
-					<div className="flex items-center justify-between text-sm text-gray-500 shrink-0">
-						<span>{t("audit.showing", { count: entries.length, total })}</span>
+					<TableFooter
+						start={isScroll ? 1 : (page - 1) * pageSize + 1}
+						end={
+							isScroll ? entries.length : (page - 1) * pageSize + entries.length
+						}
+						total={total}
+					>
 						{isScroll ? (
 							isFetchingNextPage && <LoadingSpinner inline />
 						) : (
@@ -322,8 +328,8 @@ export function Audit() {
 								hideCount
 							/>
 						)}
-					</div>
-				</>
+					</TableFooter>
+				</div>
 			) : (
 				<EmptyState message={t("audit.emptyState")} />
 			)}

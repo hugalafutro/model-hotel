@@ -50,6 +50,8 @@
 		"manuallyDisabled": "Ručne deaktivované",
 		"loadingNewer": "Načítavajú sa novšie…",
 		"loadingOlder": "Načítavanie starších stránok…",
+		"showingRange": "Zobrazené {{start}}–{{end}} z {{total}}",
+		"showingNone": "Zobrazené 0 z {{total}}",
 		"model": "model",
 		"models": "modely",
 		"tokens": "Tokeny",
@@ -3030,16 +3032,14 @@
 			"serverError": "Chyba servera"
 		},
 		"virtualLogTable": {
-			"noLogsFound": "Nenašli sa žiadne záznamy",
-			"zeroEntries": "0 záznamov"
+			"noLogsFound": "Nenašli sa žiadne záznamy"
 		},
 		"virtualAppLogTable": {
 			"noEntriesFound": "Nenašli sa žiadne záznamy v protokole",
 			"timeDate": "Čas/Dátum",
 			"level": "Úroveň",
 			"source": "Zdroj",
-			"message": "Správa",
-			"zeroEntries": "0 záznamov"
+			"message": "Správa"
 		},
 		"applyRecommendedButton": {
 			"loading": "Načítava sa…",
@@ -3493,7 +3493,6 @@
 			"remote": "Adresa",
 			"status": "Stav"
 		},
-		"showing": "Zobrazené {{count}} z {{total}}",
 		"loadMore": "Načítať ďalšie",
 		"emptyState": "Zatiaľ žiadne auditné záznamy. Administrátorské akcie vykonávajúce zmeny sa zobrazia tu.",
 		"toast": {

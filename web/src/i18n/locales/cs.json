@@ -50,6 +50,8 @@
 		"manuallyDisabled": "Ručně deaktivováno",
 		"loadingNewer": "Načítání novějších…",
 		"loadingOlder": "Načítání starších…",
+		"showingRange": "Zobrazeno {{start}}–{{end}} z {{total}}",
+		"showingNone": "Zobrazeno 0 z {{total}}",
 		"model": "model",
 		"models": "modely",
 		"tokens": "Tokeny",
@@ -3030,16 +3032,14 @@
 			"serverError": "Chyba serveru"
 		},
 		"virtualLogTable": {
-			"noLogsFound": "Nebyly nalezeny žádné záznamy",
-			"zeroEntries": "0 záznamů"
+			"noLogsFound": "Nebyly nalezeny žádné záznamy"
 		},
 		"virtualAppLogTable": {
 			"noEntriesFound": "Žádné log záznamy nenalezeny",
 			"timeDate": "Čas/Datum",
 			"level": "Úroveň",
 			"source": "Zdroj",
-			"message": "Zpráva",
-			"zeroEntries": "0 záznamů"
+			"message": "Zpráva"
 		},
 		"applyRecommendedButton": {
 			"loading": "Načítání…",
@@ -3493,7 +3493,6 @@
 			"remote": "Adresa",
 			"status": "Stav"
 		},
-		"showing": "Zobrazeno {{count}} z {{total}}",
 		"loadMore": "Načíst další",
 		"emptyState": "Zatím žádné auditní záznamy. Administrátorské akce provádějící změny se zobrazí zde.",
 		"toast": {

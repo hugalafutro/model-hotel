@@ -343,23 +343,17 @@ describe("Layout", () => {
 			expect(screen.getByTestId("test-content")).toBeInTheDocument();
 		});
 
-		it("applies max-width constraint to content", () => {
-			renderWithProviders(<Layout>{mockChildren}</Layout>);
+		it.each(["/dashboard", "/models", "/logs", "/settings"])(
+			"gives %s the same content column as every other page",
+			(route) => {
+				renderWithProviders(<Layout>{mockChildren}</Layout>, {
+					initialEntries: [route],
+				});
 
-			const main = screen.getByRole("main");
-			const contentDiv = main.querySelector("div");
-			expect(contentDiv).toHaveClass("max-w-7xl");
-		});
-
-		it("widens the content column on the request log route", () => {
-			renderWithProviders(<Layout>{mockChildren}</Layout>, {
-				initialEntries: ["/logs"],
-			});
-
-			const contentDiv = screen.getByRole("main").querySelector("div");
-			expect(contentDiv).toHaveClass("max-w-[88rem]");
-			expect(contentDiv).not.toHaveClass("max-w-7xl");
-		});
+				const contentDiv = screen.getByRole("main").querySelector("div");
+				expect(contentDiv).toHaveClass("max-w-[max(88rem,calc(48rem+38vw))]");
+			},
+		);
 
 		it("has proper main landmark", () => {
 			renderWithProviders(<Layout>{mockChildren}</Layout>);

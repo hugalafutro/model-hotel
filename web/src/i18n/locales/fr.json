@@ -50,6 +50,8 @@
 		"manuallyDisabled": "Désactivé manuellement",
 		"loadingNewer": "Chargement des plus récents…",
 		"loadingOlder": "Chargement des anciens…",
+		"showingRange": "Affichage de {{start}} à {{end}} sur {{total}}",
+		"showingNone": "Affichage de 0 sur {{total}}",
 		"model": "modèle",
 		"models": "modèles",
 		"tokens": "Jetons",
@@ -2965,16 +2967,14 @@
 			"serverError": "Erreur serveur"
 		},
 		"virtualLogTable": {
-			"noLogsFound": "Aucun journal trouvé",
-			"zeroEntries": "0 entrées"
+			"noLogsFound": "Aucun journal trouvé"
 		},
 		"virtualAppLogTable": {
 			"noEntriesFound": "Aucune entrée de journal trouvée",
 			"timeDate": "Heure/Date",
 			"level": "Niveau",
 			"source": "Source",
-			"message": "Message",
-			"zeroEntries": "0 entrées"
+			"message": "Message"
 		},
 		"applyRecommendedButton": {
 			"loading": "Chargement…",
@@ -3425,7 +3425,6 @@
 			"remote": "Adresse",
 			"status": "Statut"
 		},
-		"showing": "Affichage de {{count}} sur {{total}}",
 		"loadMore": "Charger plus",
 		"emptyState": "Aucune entrée d'audit pour l'instant. Les actions d'administration modifiantes apparaîtront ici.",
 		"toast": {

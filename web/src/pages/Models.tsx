@@ -293,7 +293,9 @@ export function Models() {
 	);
 
 	return (
-		<div className="space-y-4">
+		<div
+			className={`space-y-4 flex flex-col ${viewMode === "scroll" ? "overflow-hidden h-[calc(100dvh-1rem)]" : ""}`}
+		>
 			<PageHeader
 				icon={Bot}
 				title={countLabel(usableCount, "models.page_title")}

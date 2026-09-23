@@ -50,6 +50,8 @@
 		"manuallyDisabled": "수동으로 비활성화됨",
 		"loadingNewer": "최신 항목 불러오는 중…",
 		"loadingOlder": "이전 항목 불러오는 중…",
+		"showingRange": "{{total}}개 중 {{start}}–{{end}} 표시",
+		"showingNone": "{{total}}개 중 0개 표시",
 		"model": "모델",
 		"models": "모델",
 		"tokens": "토큰",
@@ -2900,16 +2902,14 @@
 			"serverError": "서버 오류"
 		},
 		"virtualLogTable": {
-			"noLogsFound": "로그가 없습니다",
-			"zeroEntries": "0건"
+			"noLogsFound": "로그가 없습니다"
 		},
 		"virtualAppLogTable": {
 			"noEntriesFound": "로그 항목이 없습니다",
 			"timeDate": "시간/날짜",
 			"level": "레벨",
 			"source": "출처",
-			"message": "메시지",
-			"zeroEntries": "0건"
+			"message": "메시지"
 		},
 		"applyRecommendedButton": {
 			"loading": "… 불러오는 중",
@@ -3357,7 +3357,6 @@
 			"remote": "주소",
 			"status": "상태"
 		},
-		"showing": "{{total}}개 중 {{count}}개 표시",
 		"loadMore": "더 불러오기",
 		"emptyState": "아직 감사 항목이 없습니다. 변경을 수행하는 관리 작업이 여기에 표시됩니다.",
 		"toast": {

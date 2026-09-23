@@ -694,8 +694,8 @@ describe("AppLogs scroll mode - cursor endpoint", () => {
 		// The virtual table may not render entries immediately due to jsdom height issues,
 		// but we can verify the table structure exists and the pagination footer shows count
 		await waitFor(() => {
-			// Check for the "1–0 / 2" or similar pagination indicator in scroll mode footer
-			expect(screen.getByText(/\/ 2/)).toBeInTheDocument();
+			// The footer names the total even before jsdom measures any rows.
+			expect(screen.getByText(/^Showing .* of 2$/)).toBeInTheDocument();
 		});
 	});
 });

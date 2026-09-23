@@ -50,6 +50,8 @@
 		"manuallyDisabled": "Manuelt Deaktiveret",
 		"loadingNewer": "Indlæser nyere…",
 		"loadingOlder": "Indlæser ældre…",
+		"showingRange": "Viser {{start}}–{{end}} af {{total}}",
+		"showingNone": "Viser 0 af {{total}}",
 		"model": "model",
 		"models": "modeller",
 		"tokens": "Tokens",
@@ -2900,16 +2902,14 @@
 			"serverError": "Serverfejl"
 		},
 		"virtualLogTable": {
-			"noLogsFound": "Ingen logs fundet",
-			"zeroEntries": "0 poster"
+			"noLogsFound": "Ingen logs fundet"
 		},
 		"virtualAppLogTable": {
 			"noEntriesFound": "Ingen logposter fundet",
 			"timeDate": "Tid/Dato",
 			"level": "Niveau",
 			"source": "Kilde",
-			"message": "Besked",
-			"zeroEntries": "0 poster"
+			"message": "Besked"
 		},
 		"applyRecommendedButton": {
 			"loading": "Indlæser…",
@@ -3357,7 +3357,6 @@
 			"remote": "Adresse",
 			"status": "Status"
 		},
-		"showing": "Viser {{count}} af {{total}}",
 		"loadMore": "Indlæs flere",
 		"emptyState": "Ingen revisionsposter endnu. Admin-handlinger med ændringer vises her.",
 		"toast": {

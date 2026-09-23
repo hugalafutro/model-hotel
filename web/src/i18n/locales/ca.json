@@ -50,6 +50,8 @@
 		"manuallyDisabled": "Desactivat manualment",
 		"loadingNewer": "Carregant les més recents…",
 		"loadingOlder": "Carregant les entrades més antigues…",
+		"showingRange": "Es mostren {{start}}–{{end}} de {{total}}",
+		"showingNone": "Es mostren 0 de {{total}}",
 		"model": "model",
 		"models": "models",
 		"tokens": "Tokens",
@@ -2965,16 +2967,14 @@
 			"serverError": "Error del servidor"
 		},
 		"virtualLogTable": {
-			"noLogsFound": "No s'han trobat registres",
-			"zeroEntries": "0 entrades"
+			"noLogsFound": "No s'han trobat registres"
 		},
 		"virtualAppLogTable": {
 			"noEntriesFound": "No s'han trobat entrades de registre",
 			"timeDate": "Hora/Data",
 			"level": "Nivell",
 			"source": "Font",
-			"message": "Missatge",
-			"zeroEntries": "0 entrades"
+			"message": "Missatge"
 		},
 		"applyRecommendedButton": {
 			"loading": "Carregant…",
@@ -3425,7 +3425,6 @@
 			"remote": "Adreça",
 			"status": "Estat"
 		},
-		"showing": "Es mostren {{count}} de {{total}}",
 		"loadMore": "Carrega'n més",
 		"emptyState": "Encara no hi ha entrades d'auditoria. Les accions d'administració que fan canvis apareixeran aquí.",
 		"toast": {

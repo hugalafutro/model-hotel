@@ -50,6 +50,8 @@
 		"manuallyDisabled": "Manuaalisesti Pois Käytöstä",
 		"loadingNewer": "Ladataan uudempaa…",
 		"loadingOlder": "Ladataan vanhempaa…",
+		"showingRange": "Näytetään {{start}}–{{end}} / {{total}}",
+		"showingNone": "Näytetään 0 / {{total}}",
 		"model": "malli",
 		"models": "mallit",
 		"tokens": "Tokenit",
@@ -2900,16 +2902,14 @@
 			"serverError": "Palvelin Virhe"
 		},
 		"virtualLogTable": {
-			"noLogsFound": "Lokeja ei löytynyt",
-			"zeroEntries": "0 merkintää"
+			"noLogsFound": "Lokeja ei löytynyt"
 		},
 		"virtualAppLogTable": {
 			"noEntriesFound": "Lokitietoja ei löytynyt",
 			"timeDate": "Aika/Päivämäärä",
 			"level": "Taso",
 			"source": "Lähde",
-			"message": "Viesti",
-			"zeroEntries": "0 merkintää"
+			"message": "Viesti"
 		},
 		"applyRecommendedButton": {
 			"loading": "Ladataan…",
@@ -3357,7 +3357,6 @@
 			"remote": "Osoite",
 			"status": "Tila"
 		},
-		"showing": "Näytetään {{count}} / {{total}}",
 		"loadMore": "Lataa lisää",
 		"emptyState": "Ei vielä auditointimerkintöjä. Muutoksia tekevät ylläpitotoimet näkyvät täällä.",
 		"toast": {
