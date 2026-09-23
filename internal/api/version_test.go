@@ -119,6 +119,44 @@ func TestGetLatestVersion_FetchSuccess(t *testing.T) {
 	}
 }
 
+// A visitor who leaves while the GitHub lookup is in flight cancels the
+// request context; the lookup must still finish and fill the cache.
+func TestGetLatestVersion_ClientCancelStillCaches(t *testing.T) {
+	resetVersionCache()
+
+	ghServer := newGHMockServer(t,
+		func(w http.ResponseWriter, _ *http.Request) {
+			w.Header().Set("Content-Type", "application/json")
+			json.NewEncoder(w).Encode(map[string]string{"tag_name": "v3.0.0"})
+		},
+		nil,
+	)
+	defer ghServer.Close()
+
+	h := &Handler{
+		ghReleasesURL: ghServer.URL + "/repos/hugalafutro/model-hotel/releases/latest",
+		ghTagsURL:     ghServer.URL + "/repos/hugalafutro/model-hotel/tags",
+	}
+	r := chi.NewRouter()
+	h.RegisterVersion(r)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	req := httptest.NewRequestWithContext(ctx, http.MethodGet, "/version/latest", http.NoBody)
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Errorf("expected status %d, got %d; body: %s", http.StatusOK, w.Code, w.Body.String())
+	}
+	vCache.mu.Lock()
+	cachedTag := vCache.tag
+	vCache.mu.Unlock()
+	if cachedTag != "v3.0.0" {
+		t.Errorf("expected cached tag 'v3.0.0' despite the cancelled request, got %q", cachedTag)
+	}
+}
+
 func TestGetLatestVersion_TagsFallback(t *testing.T) {
 	resetVersionCache()
 

@@ -72,9 +72,14 @@ func (h *Handler) GetLatestVersion(w http.ResponseWriter, r *http.Request) {
 	// GitHub Releases, the endpoint returns 404 — fall back to the tags API
 	// only in that case. For other errors (5xx, timeout) skip the fallback to
 	// avoid doubling worst-case latency.
-	tagName, err := fetchLatestTag(r.Context(), h.ghReleasesURL)
+	//
+	// The lookup fills a cache every later visitor reads, so a visitor who
+	// leaves mid-fetch (reload, navigation) must not abort it and log a
+	// failure that is not one; githubClient's timeout still bounds it.
+	ctx := context.WithoutCancel(r.Context())
+	tagName, err := fetchLatestTag(ctx, h.ghReleasesURL)
 	if errors.Is(err, errNotFound) {
-		tagName, err = fetchLatestTagFromTags(r.Context(), h.ghTagsURL)
+		tagName, err = fetchLatestTagFromTags(ctx, h.ghTagsURL)
 	}
 	if err != nil {
 		debuglog.Error("version: all GitHub lookups failed", "error", err)
