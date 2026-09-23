@@ -179,9 +179,10 @@ export function useVirtualRows<T extends { id?: string }>({
 	// the rest would never load. Whenever the rows or the box change, pull the
 	// next page while the list still does not fill the box. One attempt per
 	// list state (which list, how many rows): a failed fetch leaves both
-	// unchanged, so it is not retried in a loop, only after new rows or a
-	// resize of the box.
+	// unchanged, so it is not retried in a loop, only after new rows or the
+	// box actually changing size.
 	const fillAttemptRef = useRef<string | null>(null);
+	const fillRef = useRef<(retry: boolean) => void>(() => {});
 	useLayoutEffect(() => {
 		if (!scrollEl) return;
 		const fill = (retry: boolean) => {
@@ -200,11 +201,34 @@ export function useVirtualRows<T extends { id?: string }>({
 				fetchOlder();
 			}
 		};
+		fillRef.current = fill;
 		fill(false);
-		// The box itself can grow with the window unchanged (a banner comes or
-		// goes, the filter bar re-wraps): watch the box where the browser can,
-		// and the window as the fallback.
-		const onResize = () => fill(true);
+	}, [
+		scrollEl,
+		listVersion,
+		entries.length,
+		hasAfter,
+		isLoadingAfter,
+		fetchOlder,
+	]);
+
+	// The box can grow with the window unchanged (a banner comes or goes, the
+	// filter bar re-wraps): watch the box where the browser can, and the
+	// window as the fallback. One watcher per box, apart from the fill state,
+	// and it retries only when the size really changed: a ResizeObserver
+	// reports once on observe(), and treating that as a resize would retry a
+	// failed fetch every time the watcher was set up.
+	useLayoutEffect(() => {
+		if (!scrollEl) return;
+		let width = scrollEl.clientWidth;
+		let height = scrollEl.clientHeight;
+		const onResize = () => {
+			if (scrollEl.clientWidth === width && scrollEl.clientHeight === height)
+				return;
+			width = scrollEl.clientWidth;
+			height = scrollEl.clientHeight;
+			fillRef.current(true);
+		};
 		const observer =
 			typeof ResizeObserver === "undefined"
 				? null
@@ -215,14 +239,7 @@ export function useVirtualRows<T extends { id?: string }>({
 			observer?.disconnect();
 			window.removeEventListener("resize", onResize);
 		};
-	}, [
-		scrollEl,
-		listVersion,
-		entries.length,
-		hasAfter,
-		isLoadingAfter,
-		fetchOlder,
-	]);
+	}, [scrollEl]);
 
 	// The rows actually on screen, 1-based, for the footer. virtualItems also
 	// holds the overscan rendered off screen on either side, so it would

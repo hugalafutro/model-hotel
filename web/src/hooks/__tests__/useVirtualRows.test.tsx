@@ -24,6 +24,7 @@ function Harness({
 	expose,
 	pinTop = false,
 	listVersion = 0,
+	isLoadingAfter = false,
 }: {
 	entries: Row[];
 	heights: Record<string, number>;
@@ -34,6 +35,7 @@ function Harness({
 	expose: (api: { handleScroll: () => void }) => void;
 	pinTop?: boolean;
 	listVersion?: number;
+	isLoadingAfter?: boolean;
 }) {
 	const {
 		scrollRef,
@@ -48,7 +50,7 @@ function Harness({
 		hasBefore,
 		hasAfter,
 		isLoadingBefore: false,
-		isLoadingAfter: false,
+		isLoadingAfter,
 		fetchNewer,
 		fetchOlder,
 		pinTop,
@@ -156,27 +158,35 @@ describe("useVirtualRows", () => {
 	);
 
 	it("does not retry a failed fill until the rows change or the box resizes", () => {
-		// Every ResizeObserver the hook creates, so the test can report the box
-		// resizing.
-		const observed: ResizeObserverCallback[] = [];
+		// A ResizeObserver that, like a browser's, reports once on observe().
+		const observed: Array<() => void> = [];
 		vi.stubGlobal(
 			"ResizeObserver",
 			class {
+				private readonly cb: ResizeObserverCallback;
 				constructor(cb: ResizeObserverCallback) {
-					observed.push(cb);
+					this.cb = cb;
+					observed.push(() => cb([], this as unknown as ResizeObserver));
 				}
-				observe() {}
+				observe() {
+					this.cb([], this as unknown as ResizeObserver);
+				}
 				unobserve() {}
 				disconnect() {}
 			},
 		);
+		let boxHeight = 600;
 		const proto = HTMLElement.prototype;
-		const saved = ["clientHeight", "scrollHeight"].map(
+		const saved = ["clientHeight", "clientWidth", "scrollHeight"].map(
 			(k) => [k, Object.getOwnPropertyDescriptor(proto, k)] as const,
 		);
 		Object.defineProperty(proto, "clientHeight", {
 			configurable: true,
-			get: () => 600,
+			get: () => boxHeight,
+		});
+		Object.defineProperty(proto, "clientWidth", {
+			configurable: true,
+			get: () => 1000,
 		});
 		Object.defineProperty(proto, "scrollHeight", {
 			configurable: true,
@@ -195,19 +205,29 @@ describe("useVirtualRows", () => {
 			const { rerender } = render(<Harness entries={rows(0, 5)} {...props} />);
 			expect(fetchOlder).toHaveBeenCalledTimes(1);
 
-			// The fetch failed: same rows, a fresh render, no second attempt.
+			// The fetch ran and failed: loading on, then off, same rows. No
+			// retry, however the watcher is set up again.
+			rerender(<Harness entries={rows(0, 5)} {...props} isLoadingAfter />);
 			rerender(<Harness entries={rows(0, 5)} {...props} />);
 			expect(fetchOlder).toHaveBeenCalledTimes(1);
 
-			// A resize may have changed what fits: try again.
+			// A resize event that changed nothing is no reason to retry.
+			act(() => {
+				window.dispatchEvent(new Event("resize"));
+			});
+			expect(fetchOlder).toHaveBeenCalledTimes(1);
+
+			// The window grew the box: try again.
+			boxHeight = 700;
 			act(() => {
 				window.dispatchEvent(new Event("resize"));
 			});
 			expect(fetchOlder).toHaveBeenCalledTimes(2);
 
 			// So may the box growing on its own (a banner went away).
+			boxHeight = 800;
 			act(() => {
-				for (const cb of observed) cb([], {} as ResizeObserver);
+				for (const report of observed) report();
 			});
 			expect(fetchOlder).toHaveBeenCalledTimes(3);
 
