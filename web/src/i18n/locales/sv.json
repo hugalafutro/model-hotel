@@ -1084,6 +1084,7 @@
 			"image": "Bildutdata",
 			"audio": "Ljudutdata",
 			"video": "Videoutdata",
+			"pdf": "PDF-utdata",
 			"embedding": "Embedding",
 			"rerank": "Rerank"
 		},

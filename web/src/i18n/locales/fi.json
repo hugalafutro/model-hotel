@@ -1084,6 +1084,7 @@
 			"image": "Kuvaulostulo",
 			"audio": "Ääniulostulo",
 			"video": "Videoulostulo",
+			"pdf": "PDF-tuloste",
 			"embedding": "Embedding",
 			"rerank": "Rerank"
 		},

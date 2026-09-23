@@ -1,5 +1,6 @@
 import type { Icon } from "@phosphor-icons/react";
 import {
+	FileText,
 	Hash,
 	Image,
 	ListOrdered,
@@ -59,6 +60,15 @@ export const OUTPUT_META: OutputMeta[] = [
 			"bg-indigo-900/40 text-indigo-300 border-indigo-700/50 shadow-[0_0_6px_1px_rgba(99,102,241,0.35)]",
 		muted:
 			"bg-indigo-900/15 text-indigo-500/60 border-indigo-700/25 hover:bg-indigo-900/25 hover:text-indigo-400",
+	},
+	{
+		key: "pdf",
+		icon: FileText,
+		labelKey: "models.outputPills.pdf",
+		style:
+			"bg-red-900/40 text-red-300 border-red-700/50 shadow-[0_0_6px_1px_rgba(239,68,68,0.35)]",
+		muted:
+			"bg-red-900/15 text-red-500/60 border-red-700/25 hover:bg-red-900/25 hover:text-red-400",
 	},
 	{
 		key: "embedding",

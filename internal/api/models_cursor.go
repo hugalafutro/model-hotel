@@ -416,7 +416,7 @@ func buildModelFilterConditions(q url.Values, p modelListParams) ([]string, []an
 				// "code" counts as text (OpenRouter reports it for coder models;
 				// see internal/provider/model_class.go), so both match.
 				conditions = append(conditions, "COALESCE(m.output_modalities, '[]'::jsonb) ?| array['text','code']")
-			case "image", "audio", "video", "embedding", "rerank":
+			case "image", "audio", "video", "pdf", "embedding", "rerank":
 				conditions = append(conditions, fmt.Sprintf("COALESCE(m.output_modalities, '[]'::jsonb) ? $%d", argIdx))
 				args = append(args, o)
 				argIdx++

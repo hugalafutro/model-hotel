@@ -1084,6 +1084,7 @@
 			"image": "Beelduitvoer",
 			"audio": "Audio-uitvoer",
 			"video": "Video-uitvoer",
+			"pdf": "PDF-uitvoer",
 			"embedding": "Embedding",
 			"rerank": "Rerank"
 		},

@@ -1084,6 +1084,7 @@
 			"image": "画像出力",
 			"audio": "音声出力",
 			"video": "動画出力",
+			"pdf": "PDF出力",
 			"embedding": "埋め込み",
 			"rerank": "リランク"
 		},

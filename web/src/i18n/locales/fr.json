@@ -1120,6 +1120,7 @@
 			"image": "Sortie image",
 			"audio": "Sortie audio",
 			"video": "Sortie vidéo",
+			"pdf": "Sortie PDF",
 			"embedding": "Embedding",
 			"rerank": "Rerank"
 		},

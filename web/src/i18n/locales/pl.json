@@ -1156,6 +1156,7 @@
 			"image": "Wyjście obrazu",
 			"audio": "Wyjście audio",
 			"video": "Wyjście wideo",
+			"pdf": "Wyjście PDF",
 			"embedding": "Embedding",
 			"rerank": "Rerank"
 		},

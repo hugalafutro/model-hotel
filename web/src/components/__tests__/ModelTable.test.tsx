@@ -72,6 +72,32 @@ describe("ModelTable", () => {
 			expect(screen.queryByRole("img", { name: "Text out" })).toBeNull();
 		});
 
+		it("shows a PDF output icon and filters on it", () => {
+			const pdfModel = {
+				...mockModel,
+				id: "model-pdf",
+				name: "PDF Maker",
+				output_modalities: '["text","pdf"]',
+			};
+			const chatModel = {
+				...mockModel,
+				id: "model-chat",
+				name: "Chatty Model",
+				output_modalities: '["text"]',
+			};
+			renderWithProviders(
+				<ModelTable {...defaultProps} models={[pdfModel, chatModel]} />,
+			);
+			expect(screen.getByRole("img", { name: "PDF out" })).toBeInTheDocument();
+
+			// The paged table lists only outputs present in the data (text,
+			// pdf), too few to collapse, so no expand is needed.
+			fireEvent.click(screen.getByRole("button", { name: "PDF out" }));
+
+			expect(screen.getByText("PDF Maker")).toBeInTheDocument();
+			expect(screen.queryByText("Chatty Model")).not.toBeInTheDocument();
+		});
+
 		it("filters models by output modality pill", () => {
 			const genModel = {
 				...mockModel,

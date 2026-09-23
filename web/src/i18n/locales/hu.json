@@ -1084,6 +1084,7 @@
 			"image": "Képkimenet",
 			"audio": "Hangkimenet",
 			"video": "Videókimenet",
+			"pdf": "PDF-kimenet",
 			"embedding": "Embedding",
 			"rerank": "Rerank"
 		},

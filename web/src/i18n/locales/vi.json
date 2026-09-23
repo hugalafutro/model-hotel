@@ -1084,6 +1084,7 @@
 			"image": "Xuất hình ảnh",
 			"audio": "Xuất âm thanh",
 			"video": "Xuất video",
+			"pdf": "Đầu ra PDF",
 			"embedding": "Nhúng",
 			"rerank": "Xếp hạng lại"
 		},

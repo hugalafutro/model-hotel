@@ -1084,6 +1084,7 @@
 			"image": "이미지 출력",
 			"audio": "오디오 출력",
 			"video": "비디오 출력",
+			"pdf": "PDF 출력",
 			"embedding": "임베딩",
 			"rerank": "리랭크"
 		},

@@ -1120,6 +1120,7 @@
 			"image": "Saída de imagem",
 			"audio": "Saída de áudio",
 			"video": "Saída de vídeo",
+			"pdf": "Saída PDF",
 			"embedding": "Embedding",
 			"rerank": "Rerank"
 		},

@@ -1084,6 +1084,7 @@
 			"image": "Görsel çıkışı",
 			"audio": "Ses çıkışı",
 			"video": "Video çıkışı",
+			"pdf": "PDF çıktısı",
 			"embedding": "Gömme",
 			"rerank": "Yeniden sıralama"
 		},

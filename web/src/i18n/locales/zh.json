@@ -1084,6 +1084,7 @@
 			"image": "图像输出",
 			"audio": "音频输出",
 			"video": "视频输出",
+			"pdf": "PDF 输出",
 			"embedding": "嵌入",
 			"rerank": "重排序"
 		},

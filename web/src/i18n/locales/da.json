@@ -1084,6 +1084,7 @@
 			"image": "Billedoutput",
 			"audio": "Lydoutput",
 			"video": "Videooutput",
+			"pdf": "PDF-output",
 			"embedding": "Embedding",
 			"rerank": "Rerank"
 		},

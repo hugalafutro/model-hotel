@@ -1084,6 +1084,7 @@
 			"image": "Image out",
 			"audio": "Audio out",
 			"video": "Video out",
+			"pdf": "PDF out",
 			"embedding": "Embedding",
 			"rerank": "Rerank"
 		},

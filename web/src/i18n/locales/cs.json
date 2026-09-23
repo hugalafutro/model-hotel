@@ -1156,6 +1156,7 @@
 			"image": "Výstup obrázků",
 			"audio": "Výstup zvuku",
 			"video": "Výstup videa",
+			"pdf": "Výstup PDF",
 			"embedding": "Embedding",
 			"rerank": "Rerank"
 		},

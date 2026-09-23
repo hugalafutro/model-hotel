@@ -1084,6 +1084,7 @@
 			"image": "Bildausgabe",
 			"audio": "Audioausgabe",
 			"video": "Videoausgabe",
+			"pdf": "PDF-Ausgabe",
 			"embedding": "Embedding",
 			"rerank": "Rerank"
 		},

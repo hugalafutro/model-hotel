@@ -1120,6 +1120,7 @@
 			"image": "Ieșire imagine",
 			"audio": "Ieșire audio",
 			"video": "Ieșire video",
+			"pdf": "Ieșire PDF",
 			"embedding": "Embedding",
 			"rerank": "Rerank"
 		},
