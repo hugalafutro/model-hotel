@@ -1066,6 +1066,7 @@
 			"sortByModelName": "Sortera efter modellnamn",
 			"model": "Modell",
 			"capabilities": "Egenskaper",
+			"outputs": "Utdata",
 			"sortByProviderName": "Sortera efter leverantörens namn",
 			"provider": "Leverantör",
 			"sortByDiscoveredDate": "Sortera efter upptäckta datum",
@@ -1079,6 +1080,7 @@
 		},
 		"disabledByDiscovery": "Inte listad av leverantören sedan {{date}}",
 		"outputPills": {
+			"text": "Textutdata",
 			"image": "Bildutdata",
 			"audio": "Ljudutdata",
 			"video": "Videoutdata",

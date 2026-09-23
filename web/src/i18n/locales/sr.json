@@ -1102,6 +1102,7 @@
 			"sortByModelName": "Сортирај по називу модела",
 			"model": "Модел",
 			"capabilities": "Могућности",
+			"outputs": "Излази",
 			"sortByProviderName": "Сортирајте по називу провајдера",
 			"provider": "Пружалац",
 			"sortByDiscoveredDate": "Сортирај по датуму открића",
@@ -1115,6 +1116,7 @@
 		},
 		"disabledByDiscovery": "Није наведен од стране провајдера од {{date}}",
 		"outputPills": {
+			"text": "Текстуални излаз",
 			"image": "Излаз слике",
 			"audio": "Излаз звука",
 			"video": "Излаз видеа",

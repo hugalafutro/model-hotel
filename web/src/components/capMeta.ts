@@ -22,15 +22,8 @@ export interface CapMeta {
 export const CAP_DISABLED =
 	"bg-gray-800/30 text-gray-600/40 border-gray-700/20 cursor-not-allowed opacity-50";
 
+/** Ordered most-common first: the collapsed filter row shows only the first three. */
 export const CAP_META: CapMeta[] = [
-	{
-		key: "vision",
-		labelKey: "models.capPills.vision",
-		style:
-			"bg-purple-900/40 text-purple-300 border-purple-700/50 shadow-[0_0_6px_1px_rgba(147,51,234,0.35)]",
-		muted:
-			"bg-purple-900/15 text-purple-500/60 border-purple-700/25 hover:bg-purple-900/25 hover:text-purple-400",
-	},
 	{
 		key: "reasoning",
 		labelKey: "models.capPills.reasoning",
@@ -46,6 +39,14 @@ export const CAP_META: CapMeta[] = [
 			"bg-cyan-900/40 text-cyan-300 border-cyan-700/50 shadow-[0_0_6px_1px_rgba(6,182,212,0.35)]",
 		muted:
 			"bg-cyan-900/15 text-cyan-500/60 border-cyan-700/25 hover:bg-cyan-900/25 hover:text-cyan-400",
+	},
+	{
+		key: "vision",
+		labelKey: "models.capPills.vision",
+		style:
+			"bg-purple-900/40 text-purple-300 border-purple-700/50 shadow-[0_0_6px_1px_rgba(147,51,234,0.35)]",
+		muted:
+			"bg-purple-900/15 text-purple-500/60 border-purple-700/25 hover:bg-purple-900/25 hover:text-purple-400",
 	},
 	{
 		key: "structured_output",

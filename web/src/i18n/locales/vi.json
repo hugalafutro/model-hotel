@@ -1066,6 +1066,7 @@
 			"sortByModelName": "Sắp xếp theo tên mô hình",
 			"model": "Mô hình",
 			"capabilities": "Các tính năng",
+			"outputs": "Đầu ra",
 			"sortByProviderName": "Sắp xếp theo tên nhà cung cấp",
 			"provider": "Nhà cung cấp",
 			"sortByDiscoveredDate": "Sắp xếp theo ngày phát hiện",
@@ -1079,6 +1080,7 @@
 		},
 		"disabledByDiscovery": "Không được nhà cung cấp liệt kê kể từ {{date}}",
 		"outputPills": {
+			"text": "Đầu ra văn bản",
 			"image": "Xuất hình ảnh",
 			"audio": "Xuất âm thanh",
 			"video": "Xuất video",

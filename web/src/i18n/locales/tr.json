@@ -1066,6 +1066,7 @@
 			"sortByModelName": "Model adına göre sırala",
 			"model": "Model",
 			"capabilities": "Özellikler",
+			"outputs": "Çıktılar",
 			"sortByProviderName": "Sağlayıcı adına göre sırala",
 			"provider": "Sağlayıcı",
 			"sortByDiscoveredDate": "Keşfedilme tarihine göre sırala",
@@ -1079,6 +1080,7 @@
 		},
 		"disabledByDiscovery": "{{date}} tarihinden beri sağlayıcı tarafından listelenmiyor",
 		"outputPills": {
+			"text": "Metin çıktısı",
 			"image": "Görsel çıkışı",
 			"audio": "Ses çıkışı",
 			"video": "Video çıkışı",

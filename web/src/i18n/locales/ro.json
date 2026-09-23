@@ -1102,6 +1102,7 @@
 			"sortByModelName": "Sortează după numele modelului",
 			"model": "Model",
 			"capabilities": "Capabilități",
+			"outputs": "Ieșiri",
 			"sortByProviderName": "Sortează după numele furnizorului",
 			"provider": "Furnizor",
 			"sortByDiscoveredDate": "Sortează după data descoperită",
@@ -1115,6 +1116,7 @@
 		},
 		"disabledByDiscovery": "Nu este listat de furnizor din {{date}}",
 		"outputPills": {
+			"text": "Ieșire text",
 			"image": "Ieșire imagine",
 			"audio": "Ieșire audio",
 			"video": "Ieșire video",

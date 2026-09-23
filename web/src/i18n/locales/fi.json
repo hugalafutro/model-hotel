@@ -1066,6 +1066,7 @@
 			"sortByModelName": "Järjestä mallin nimen mukaan",
 			"model": "Malli",
 			"capabilities": "Ominaisuudet",
+			"outputs": "Tulosteet",
 			"sortByProviderName": "Järjestä palveluntarjoajan nimen mukaan",
 			"provider": "Tarjoaja",
 			"sortByDiscoveredDate": "Järjestä löydetyn päivämäärän mukaan",
@@ -1079,6 +1080,7 @@
 		},
 		"disabledByDiscovery": "Ei palveluntarjoajan listalla {{date}} lähtien",
 		"outputPills": {
+			"text": "Tekstituloste",
 			"image": "Kuvaulostulo",
 			"audio": "Ääniulostulo",
 			"video": "Videoulostulo",

@@ -1066,6 +1066,7 @@
 			"sortByModelName": "Sort by model name",
 			"model": "Model",
 			"capabilities": "Capabilities",
+			"outputs": "Outputs",
 			"sortByProviderName": "Sort by provider name",
 			"provider": "Provider",
 			"sortByDiscoveredDate": "Sort by discovered date",
@@ -1079,6 +1080,7 @@
 		},
 		"disabledByDiscovery": "Not listed by the provider since {{date}}",
 		"outputPills": {
+			"text": "Text out",
 			"image": "Image out",
 			"audio": "Audio out",
 			"video": "Video out",

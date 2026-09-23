@@ -114,6 +114,9 @@ function setupWithEntries(
 describe("VirtualModelTable", () => {
 	beforeEach(() => {
 		document.cookie = "mh_csrf=test-csrf; path=/";
+		// The pill strips persist their expanded state; each test starts collapsed.
+		localStorage.removeItem("modelTable.capPillsCollapsed");
+		localStorage.removeItem("modelTable.outputPillsCollapsed");
 		mockGetVirtualItems.mockReturnValue([]);
 		mockGetTotalSize.mockReturnValue(0);
 		mockMeasureElement.mockImplementation(() => {});
@@ -363,10 +366,12 @@ describe("VirtualModelTable", () => {
 			setupWithEntries(entries);
 			renderWithProviders(<VirtualModelTable />);
 
-			// The row pill is a span; the filter row renders a button with the
-			// same label.
-			const pills = screen.getAllByText("Image out");
-			expect(pills.some((el) => el.tagName === "SPAN")).toBe(true);
+			// The Outputs cell lists every output, so an image-only model shows
+			// the image icon and, by its absence, that it cannot answer in text.
+			expect(
+				screen.getByRole("img", { name: "Image out" }),
+			).toBeInTheDocument();
+			expect(screen.queryByRole("img", { name: "Text out" })).toBeNull();
 		});
 
 		it("renders capability filter buttons from existing model caps", () => {
@@ -399,6 +404,56 @@ describe("VirtualModelTable", () => {
 			expect(screen.getByText("✕")).toBeInTheDocument();
 		});
 
+		it("collapses the filter pills to the first three, the clear button marking a hidden filter", () => {
+			setupWithEntries([createModel({ id: "m", capabilities: "{}" })]);
+			renderWithProviders(<VirtualModelTable />);
+
+			for (const label of ["Reasoning", "Tools", "Vision"]) {
+				expect(screen.getByRole("button", { name: label })).toBeInTheDocument();
+			}
+			expect(screen.queryByRole("button", { name: "PDF" })).toBeNull();
+
+			fireEvent.click(screen.getAllByRole("button", { name: "Expand" })[0]);
+			fireEvent.click(screen.getByRole("button", { name: "PDF" }));
+			fireEvent.click(screen.getByRole("button", { name: "Collapse" }));
+
+			// Rolled in shows only the first three, even with PDF set; the clear
+			// button still says a filter is active.
+			expect(screen.queryByRole("button", { name: "PDF" })).toBeNull();
+			expect(screen.getByRole("button", { name: "✕" })).toBeInTheDocument();
+		});
+
+		it("collapses the output icons to text, image and audio", () => {
+			setupWithEntries([createModel({ id: "m" })]);
+			renderWithProviders(<VirtualModelTable />);
+
+			for (const label of ["Text out", "Image out", "Audio out"]) {
+				expect(screen.getByRole("button", { name: label })).toBeInTheDocument();
+			}
+			expect(screen.queryByRole("button", { name: "Video out" })).toBeNull();
+
+			// Each strip has its own toggle: capabilities first, outputs second.
+			fireEvent.click(screen.getAllByRole("button", { name: "Expand" })[1]);
+
+			expect(
+				screen.getByRole("button", { name: "Video out" }),
+			).toBeInTheDocument();
+			expect(screen.queryByRole("button", { name: "PDF" })).toBeNull();
+		});
+
+		it("greys out unselected pills only once a pill is selected", () => {
+			setupWithEntries([createModel({ id: "m", capabilities: "{}" })]);
+			renderWithProviders(<VirtualModelTable />);
+			const reasoning = screen.getByRole("button", { name: "Reasoning" });
+			const tools = screen.getByRole("button", { name: "Tools" });
+			expect(tools.className).not.toContain("grayscale");
+
+			fireEvent.click(reasoning);
+
+			expect(tools.className).toContain("grayscale");
+			expect(reasoning.className).not.toContain("grayscale");
+		});
+
 		it("offers capability filter pills even when no loaded row has that cap", () => {
 			// Same reasoning as output pills: capability filtering is
 			// server-side, so a PDF-capable model may exist outside the
@@ -406,6 +461,7 @@ describe("VirtualModelTable", () => {
 			const entries = [createModel({ id: "model-plain", capabilities: "{}" })];
 			setupWithEntries(entries);
 			renderWithProviders(<VirtualModelTable />);
+			fireEvent.click(screen.getAllByRole("button", { name: "Expand" })[0]);
 
 			const pdfPill = screen.getByText("PDF");
 			expect(pdfPill.tagName).toBe("BUTTON");
@@ -431,9 +487,9 @@ describe("VirtualModelTable", () => {
 			setupWithEntries(entries);
 			renderWithProviders(<VirtualModelTable />);
 
-			const imageOut = screen.getByText("Image out");
-			expect(imageOut.tagName).toBe("BUTTON");
-			fireEvent.click(imageOut);
+			// Output toggles live in their own column, outside the collapsible
+			// capability strip, so they need no expand.
+			fireEvent.click(screen.getByRole("button", { name: "Image out" }));
 
 			const lastCall =
 				mockUseBidirectionalFetch.mock.calls[
@@ -442,41 +498,19 @@ describe("VirtualModelTable", () => {
 			expect(lastCall.filters.outputs).toBe("image");
 		});
 
-		it("offers an output filter pill and sends the outputs filter", () => {
-			const entries = [
-				createModel({
-					id: "model-gen",
-					model_id: "z-image-turbo",
-					capabilities: "{}",
-					modality: "image",
-					output_modalities: '["image"]',
-				}),
-			];
-			setupWithEntries(entries);
+		it("sends outputs=text from the text icon", () => {
+			setupWithEntries([createModel({ id: "m" })]);
 			renderWithProviders(<VirtualModelTable />);
 
-			// One "Image out" in the filter row, one pill in the model row.
-			const imageOutButtons = screen.getAllByText("Image out");
-			expect(imageOutButtons.length).toBeGreaterThanOrEqual(2);
-			fireEvent.click(imageOutButtons[0]);
+			fireEvent.click(screen.getByRole("button", { name: "Text out" }));
 
 			const lastCall =
 				mockUseBidirectionalFetch.mock.calls[
 					mockUseBidirectionalFetch.mock.calls.length - 1
 				][0];
-			expect(lastCall.filters.outputs).toBe("image");
-
-			// Clear button resets the output filter too.
-			fireEvent.click(screen.getByText("✕"));
-			const afterClear =
-				mockUseBidirectionalFetch.mock.calls[
-					mockUseBidirectionalFetch.mock.calls.length - 1
-				][0];
-			expect(afterClear.filters.outputs).toBeUndefined();
+			expect(lastCall.filters.outputs).toBe("text");
 		});
-	});
 
-	describe("Rendering", () => {
 		it("renders model name in row", () => {
 			const entries = [createModel({ name: "GPT-4o" })];
 			setupWithEntries(entries);

@@ -1138,6 +1138,7 @@
 			"sortByModelName": "Сортировать по названию модели",
 			"model": "Модель",
 			"capabilities": "Возможности",
+			"outputs": "Выводы",
 			"sortByProviderName": "Сортировать по имени провайдера",
 			"provider": "Поставщик",
 			"sortByDiscoveredDate": "Сортировать по дате открытия",
@@ -1151,6 +1152,7 @@
 		},
 		"disabledByDiscovery": "Не указано поставщиком с {{date}}",
 		"outputPills": {
+			"text": "Текстовый вывод",
 			"image": "Вывод изображений",
 			"audio": "Вывод аудио",
 			"video": "Вывод видео",

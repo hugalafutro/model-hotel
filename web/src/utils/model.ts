@@ -89,6 +89,21 @@ export function isChatModel(m: {
 }
 
 /**
+ * Every output modality a model declares, "code" folded into "text" (it is
+ * text-equivalent). Matches the server-side outputs filter, so an undeclared
+ * list yields nothing rather than an assumed "text".
+ */
+export function outputKinds(m: { output_modalities?: string }): string[] {
+	return [
+		...new Set(
+			parseModalityArray(m.output_modalities).map((v) =>
+				v === "code" ? "text" : v,
+			),
+		),
+	];
+}
+
+/**
  * Non-text output modalities (image/audio/video/embedding/rerank), used to
  * render "produces X" pills alongside the input-capability pills. "code" is
  * text-equivalent (OpenRouter coder models), not a media output.

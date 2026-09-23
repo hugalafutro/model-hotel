@@ -1198,6 +1198,7 @@
 			"sortByModelName": "الترتيب حسب اسم النموذج",
 			"model": "الموديل",
 			"capabilities": "القدرات",
+			"outputs": "المخرجات",
 			"sortByProviderName": "الترتيب حسب اسم المزود",
 			"provider": "موفر",
 			"sortByDiscoveredDate": "الترتيب حسب تاريخ الاكتشاف",
@@ -1211,6 +1212,7 @@
 		},
 		"disabledByDiscovery": "غير مدرج من قبل المزود منذ {{date}}",
 		"outputPills": {
+			"text": "إخراج نصي",
 			"image": "إخراج صور",
 			"audio": "إخراج صوت",
 			"video": "إخراج فيديو",

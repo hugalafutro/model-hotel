@@ -335,6 +335,37 @@ describe("ModelPicker", () => {
 			expect(screen.getByText("Llama 3")).toBeInTheDocument();
 		});
 
+		it("greys the still-available pills once a capability is selected", async () => {
+			const models: Model[] = [
+				{
+					...mockModels[0],
+					model_id: "vision-reasoning",
+					capabilities: '{"vision":true,"reasoning":true}',
+				},
+				{
+					...mockModels[1],
+					model_id: "vision-only",
+					capabilities: '{"vision":true}',
+				},
+			];
+			const { user } = renderWithProviders(
+				<ModelPicker {...defaultProps} models={models} />,
+			);
+			const reasoning = () =>
+				screen.getByText("Reasoning").closest("button") as HTMLElement;
+			expect(reasoning().className).not.toContain("grayscale");
+
+			await user.click(
+				screen.getByText("Vision").closest("button") as HTMLElement,
+			);
+
+			expect(reasoning()).toBeEnabled();
+			expect(reasoning().className).toContain("grayscale");
+			expect(
+				(screen.getByText("Vision").closest("button") as HTMLElement).className,
+			).not.toContain("grayscale");
+		});
+
 		it("disables a capability pill when adding it to the active filter yields no models", async () => {
 			// A pill only renders for a capability present in the data, so give the
 			// two models DISJOINT capabilities: one vision-only, one tools-only. Both

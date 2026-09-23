@@ -1066,6 +1066,7 @@
 			"sortByModelName": "Sorter efter modelnavn",
 			"model": "Model",
 			"capabilities": "Funktioner",
+			"outputs": "Output",
 			"sortByProviderName": "Sorter efter udbydernavn",
 			"provider": "Udbyder",
 			"sortByDiscoveredDate": "Sorter efter opdaget dato",
@@ -1079,6 +1080,7 @@
 		},
 		"disabledByDiscovery": "Ikke opført af udbyderen siden {{date}}",
 		"outputPills": {
+			"text": "Tekstoutput",
 			"image": "Billedoutput",
 			"audio": "Lydoutput",
 			"video": "Videooutput",

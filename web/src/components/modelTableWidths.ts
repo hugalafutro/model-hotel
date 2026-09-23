@@ -3,36 +3,37 @@
  *  Edit here once — both modes stay in sync. */
 
 /** Columns when provider column is visible (Models page).
- *  Discovered gets a FIXED pixel width sized to its "DISCOVERED" header: its
- *  data is always short ("21m ago"), so a percentage width made it balloon
- *  relative to content on narrow (half-screen) windows. The other narrow
- *  numeric columns keep percentages sized so their header words fit unclipped
- *  in English at the ~1440p width this is developed against; the width is
- *  borrowed from the model-name column, which truncates its long values
- *  anyway. Headers ellipsize (+ title tooltip) below that, which is
- *  acceptable for narrow screens. */
+ *  Capabilities and Outputs are sized so their collapsed filter strips (toggle
+ *  plus three pills) stay on one line; that width comes from Model name and
+ *  Provider, which truncate. Discovered, Ctx and Max Out get FIXED pixel
+ *  widths sized to their header plus the sort arrow: their data is always
+ *  short, and a percentage either clipped the arrow on narrow windows or
+ *  ballooned on wide ones. Other headers ellipsize (+ title tooltip) when the
+ *  window is too narrow for them. */
 export const MODEL_COL_WIDTHS_WITH_PROVIDER = [
-	"w-[27%]", // Model name (truncates long names)
-	"w-[24%]", // Capabilities
-	"w-[16%]", // Provider
-	"w-[104px]", // Discovered - fixed: fits the "DISCOVERED" header, data is short
-	"w-[2%]", // (spacer)
-	"w-[5%]", // Ctx
-	"w-[2%]", // (spacer)
-	"w-[7%]", // Max Out - fits the "MAX OUT" header
-	"w-[2%]", // (spacer)
+	"w-[19%]", // Model name (truncates long names)
+	"w-[24%]", // Capabilities - the collapsed strip must fit one line
+	"w-[12%]", // Outputs - icons only; the collapsed strip must fit one line
+	"w-[9%]", // Provider (truncates)
+	"w-[120px]", // Discovered - fixed: fits "DISCOVERED" plus the sort arrow
+	"w-[1%]", // (spacer)
+	"w-[68px]", // Ctx - fixed: fits "CTX" plus the sort arrow and 7 digits
+	"w-[1%]", // (spacer)
+	"w-[100px]", // Max Out - fixed: fits "MAX OUT" plus the sort arrow
+	"w-[1%]", // (spacer)
 	"w-[8%]", // Status
 ] as const;
 
 /** Columns when provider column is hidden (ProviderModelsModal). */
 export const MODEL_COL_WIDTHS_NO_PROVIDER = [
-	"w-[38%]", // Model name (wider without provider col)
-	"w-[28%]", // Capabilities
-	"w-[104px]", // Discovered - fixed: fits the "DISCOVERED" header, data is short
+	"w-[28%]", // Model name (wider without provider col)
+	"w-[25%]", // Capabilities
+	"w-[10%]", // Outputs - icons only
+	"w-[120px]", // Discovered - fixed, as above
 	"w-[2%]", // (spacer)
-	"w-[6%]", // Ctx
+	"w-[68px]", // Ctx - fixed, as above
 	"w-[2%]", // (spacer)
-	"w-[6%]", // Max Out
+	"w-[100px]", // Max Out - fixed, as above
 	"w-[2%]", // (spacer)
 	"w-[10%]", // Status (wider to fit "Manually Disabled")
 ] as const;

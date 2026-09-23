@@ -109,6 +109,31 @@ function scrollGeometry(
 }
 
 describe("useVirtualRows", () => {
+	// A filter change swaps the whole list without emptying it first, so the
+	// scroller no longer collapses to the top on its own.
+	it.each([
+		["a refetch replaces the list", rows(100, 140), 0],
+		["rows are appended", [...rows(10, 50), ...rows(50, 60)], 900],
+	])("scrolls to the top only when %s", (_, next, expected) => {
+		const props = {
+			heights: {},
+			hasBefore: false,
+			hasAfter: true,
+			fetchNewer: vi.fn(),
+			fetchOlder: vi.fn(),
+			expose: () => {},
+		};
+		const { rerender, getByTestId } = render(
+			<Harness entries={rows(10, 50)} {...props} />,
+		);
+		const el = getByTestId("scroller") as HTMLDivElement;
+		scrollGeometry(el, 900, 4000);
+		act(() => {
+			rerender(<Harness entries={next} {...props} />);
+		});
+		expect(el.scrollTop).toBe(expected);
+	});
+
 	it("keeps the viewport on the same rows when unmeasured rows are prepended", () => {
 		const { rerender, getByTestId } = render(
 			<Harness

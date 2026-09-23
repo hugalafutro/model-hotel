@@ -10,7 +10,7 @@ import {
 import { parseCapabilities, proxyModelID } from "../../utils/model";
 import { CopyablePill } from "../CopyablePill";
 import { CAP_META, hasCap } from "../capMeta";
-import { OutputBadges } from "../OutputBadges";
+import { OutputIcons } from "../OutputBadges";
 
 /** One model in the virtual table. Cells match the width tables in order. */
 export function ModelRow({
@@ -55,7 +55,7 @@ export function ModelRow({
 					/>
 				</div>
 			</td>
-			<td className="px-4 py-1.5">
+			<td className="px-4 py-1.5 align-top">
 				<div className="flex flex-wrap gap-1">
 					{CAP_META.filter((m) => hasCap(caps, m.key)).map((m) => (
 						<span
@@ -65,8 +65,10 @@ export function ModelRow({
 							{t(m.labelKey)}
 						</span>
 					))}
-					<OutputBadges outputModalities={model.output_modalities} />
 				</div>
+			</td>
+			<td className="px-2 py-1.5 align-top">
+				<OutputIcons outputModalities={model.output_modalities} />
 			</td>
 			{showProviderCol && (
 				<td

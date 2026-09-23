@@ -1138,6 +1138,7 @@
 			"sortByModelName": "Сортувати за назвою моделі",
 			"model": "Модель",
 			"capabilities": "Можливості",
+			"outputs": "Виводи",
 			"sortByProviderName": "Сортувати за назвою постачальника",
 			"provider": "Постачальник",
 			"sortByDiscoveredDate": "Сортування за датою виявлення",
@@ -1151,6 +1152,7 @@
 		},
 		"disabledByDiscovery": "Не вказано провайдером з {{date}}",
 		"outputPills": {
+			"text": "Текстовий вивід",
 			"image": "Вивід зображень",
 			"audio": "Вивід аудіо",
 			"video": "Вивід відео",

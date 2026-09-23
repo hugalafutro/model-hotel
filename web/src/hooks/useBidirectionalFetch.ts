@@ -109,18 +109,23 @@ export function useBidirectionalFetch<
 	);
 	const prevSortDirRef = useRef<string | null>(null);
 
-	const reset = useCallback(() => {
+	// Drops every in-flight fetch without touching the loaded data.
+	const invalidate = useCallback(() => {
 		generationRef.current++;
-		setEntries([]);
-		setTotal(0);
-		setLastResponse(null);
-		setHasBefore(false);
-		setHasAfter(false);
 		setError(null);
 		isLoadingBeforeRef.current = false;
 		isLoadingAfterRef.current = false;
 		isLoadingInitialRef.current = false;
 	}, []);
+
+	const reset = useCallback(() => {
+		invalidate();
+		setEntries([]);
+		setTotal(0);
+		setLastResponse(null);
+		setHasBefore(false);
+		setHasAfter(false);
+	}, [invalidate]);
 
 	const mergeEntries = useCallback(
 		(updated: T[]) => {
@@ -160,6 +165,8 @@ export function useBidirectionalFetch<
 			setHasAfter(response.has_after);
 		} catch (err) {
 			if (gen !== generationRef.current) return;
+			// Rows kept from before a filter change no longer match the filters.
+			setEntries([]);
 			setError(
 				err instanceof Error
 					? err.message
@@ -253,7 +260,8 @@ export function useBidirectionalFetch<
 	const fetchNewer = useCallback(() => fetchPage("before"), [fetchPage]);
 	const fetchOlder = useCallback(() => fetchPage("after"), [fetchPage]);
 
-	// Detect filter changes and reset + refetch
+	// Detect filter changes and refetch. The current rows stay on screen until
+	// the new page replaces them, so the table does not blank and re-fill.
 	useEffect(() => {
 		const filtersChanged =
 			!prevFiltersRef.current ||
@@ -263,10 +271,10 @@ export function useBidirectionalFetch<
 		if (filtersChanged || sortDirChanged) {
 			prevFiltersRef.current = filters;
 			prevSortDirRef.current = sortDir;
-			reset();
+			invalidate();
 			fetchInitial();
 		}
-	}, [filters, sortDir, reset, fetchInitial]);
+	}, [filters, sortDir, invalidate, fetchInitial]);
 
 	return {
 		entries,

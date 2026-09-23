@@ -298,6 +298,12 @@ export function VirtualModelTable({
 							>
 								{t("models.table.capabilities")}
 							</th>
+							<th
+								className={MODEL_HEADER_BASE}
+								title={t("models.table.outputs")}
+							>
+								{t("models.table.outputs")}
+							</th>
 							{showProviderCol &&
 								th(
 									"provider",
@@ -344,7 +350,7 @@ export function VirtualModelTable({
 						{isEmpty ? (
 							<tr>
 								<td
-									colSpan={showProviderCol ? 10 : 9}
+									colSpan={showProviderCol ? 11 : 10}
 									className="px-4 py-8 text-center text-gray-500 text-sm"
 								>
 									{t("components.virtualModelTable.noModelsFound")}

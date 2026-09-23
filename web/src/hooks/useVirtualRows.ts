@@ -86,12 +86,12 @@ export function useVirtualRows<T extends { id?: string }>({
 	// paints.
 	useLayoutEffect(() => {
 		const prev = prevEntriesRef.current;
+		const keyOf = (item: T | undefined, index: number) => {
+			if (item === undefined) return undefined;
+			return getItemKey ? getItemKey(item, index) : item.id;
+		};
 		if (entries.length > prev.length && prev.length > 0) {
 			const newItemCount = entries.length - prev.length;
-			const keyOf = (item: T | undefined, index: number) => {
-				if (item === undefined) return undefined;
-				return getItemKey ? getItemKey(item, index) : item.id;
-			};
 			if (
 				keyOf(entries[newItemCount], newItemCount) === keyOf(prev[0], 0) &&
 				scrollEl
@@ -114,6 +114,16 @@ export function useVirtualRows<T extends { id?: string }>({
 				forceRerender((c) => c + 1);
 				return;
 			}
+		}
+		// A refetch replaced the list wholesale (appends and merges keep the
+		// first row, prepends are handled above): start the new list at the top.
+		if (
+			prev.length > 0 &&
+			entries.length > 0 &&
+			scrollEl &&
+			keyOf(entries[0], 0) !== keyOf(prev[0], 0)
+		) {
+			scrollEl.scrollTop = 0;
 		}
 		prevEntriesRef.current = entries;
 	}, [entries, virtualizer, scrollEl, estimateSize, getItemKey, pinTop]);

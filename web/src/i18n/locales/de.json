@@ -1066,6 +1066,7 @@
 			"sortByModelName": "Nach Modellnamen sortieren",
 			"model": "Modell",
 			"capabilities": "Fähigkeiten",
+			"outputs": "Ausgaben",
 			"sortByProviderName": "Nach Anbietername sortieren",
 			"provider": "Anbieter",
 			"sortByDiscoveredDate": "Nach Entdeckungsdatum sortieren",
@@ -1079,6 +1080,7 @@
 		},
 		"disabledByDiscovery": "Vom Anbieter nicht aufgeführt seit {{date}}",
 		"outputPills": {
+			"text": "Textausgabe",
 			"image": "Bildausgabe",
 			"audio": "Audioausgabe",
 			"video": "Videoausgabe",
