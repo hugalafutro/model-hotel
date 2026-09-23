@@ -224,10 +224,10 @@ export function DataStorageSettings({
 						<SettingsGroup title={t("settings.dataStorage.cacheAndResets")}>
 							<div className="flex items-center justify-between gap-2">
 								<div>
-									<p className="text-sm font-medium text-gray-300">
+									<p className="ui-label">
 										{t("settings.dataStorage.providerQuotaCache")}
 									</p>
-									<p className="text-gray-500 text-xs mt-0.5">
+									<p className="ui-hint mt-0.5">
 										{t("settings.dataStorage.providerQuotaCacheDescription", {
 											count: getProviderCacheCount(),
 										})}
@@ -254,10 +254,10 @@ export function DataStorageSettings({
 
 							<div className="flex items-center justify-between gap-2">
 								<div>
-									<p className="text-sm font-medium text-gray-300">
+									<p className="ui-label">
 										{t("settings.dataStorage.dismissedErrorBanners")}
 									</p>
-									<p className="text-gray-500 text-xs mt-0.5">
+									<p className="ui-hint mt-0.5">
 										{t("settings.dataStorage.dismissedErrorBannersDescription")}
 									</p>
 								</div>
@@ -415,10 +415,10 @@ export function DataStorageSettings({
 
 							<div className="flex items-center gap-2">
 								<div>
-									<p className="text-sm font-medium text-gray-300">
+									<p className="ui-label">
 										{t("settings.dataStorage.clearHistory")}
 									</p>
-									<p className="text-gray-500 text-xs mt-0.5">
+									<p className="ui-hint mt-0.5">
 										{t("settings.dataStorage.clearHistoryDescription", {
 											count: getArenaHistoryCount(),
 										})}

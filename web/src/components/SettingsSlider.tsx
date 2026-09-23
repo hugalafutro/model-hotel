@@ -204,10 +204,7 @@ export function SettingsSlider({
 	return (
 		<div className={disabled ? "opacity-50 cursor-not-allowed" : ""}>
 			<div className="flex items-center gap-3">
-				<label
-					htmlFor={id}
-					className="text-sm font-medium text-gray-300 flex-shrink-0"
-				>
+				<label htmlFor={id} className="ui-label flex-shrink-0">
 					{label}
 				</label>
 				{onReset && (
@@ -292,9 +289,7 @@ export function SettingsSlider({
 					</span>
 				)}
 			</div>
-			{description && (
-				<p className="text-gray-500 text-xs mt-0.5">{description}</p>
-			)}
+			{description && <p className="ui-hint mt-0.5">{description}</p>}
 		</div>
 	);
 }

@@ -53,12 +53,9 @@ export function StepApprise({
 	return (
 		<>
 			<StepTitle icon={PlugZap}>{t(`${K}.step1Title`)}</StepTitle>
-			<p className="text-xs text-(--text-muted)">{t(`${K}.step1Hint`)}</p>
+			<p className="ui-hint">{t(`${K}.step1Hint`)}</p>
 			<div className="space-y-1.5">
-				<label
-					className="text-sm font-medium text-(--text-secondary)"
-					htmlFor="wiz-api-url"
-				>
+				<label className="ui-label" htmlFor="wiz-api-url">
 					{t(`${K}.apiUrlLabel`)}
 				</label>
 				<div className="flex items-center gap-2">
@@ -114,7 +111,7 @@ export function StepKind({
 			<StepTitle id="wiz-kind-title" icon={Send}>
 				{t(`${K}.step2Title`)}
 			</StepTitle>
-			<p className="text-xs text-(--text-muted)">{t(`${K}.step2Hint`)}</p>
+			<p className="ui-hint">{t(`${K}.step2Hint`)}</p>
 			{/* "Add another" is one click, so undoing it has to be one click too:
 			    Back walks the run's own order (towards the apprise address), which
 			    is not where a second destination was started from. It is offered
@@ -159,7 +156,7 @@ export function StepKind({
 										? t(`${K}.${KIND_TITLE[kind]}`)
 										: t(`settings.alerts.kind.${kind}`)}
 								</span>
-								<span className="block text-xs text-(--text-muted)">
+								<span className="block ui-hint">
 									{t(`${K}.${KIND_HINT[kind]}`)}
 								</span>
 							</span>
@@ -198,7 +195,7 @@ export function StepDetails({ state, dispatch, t }: StepProps) {
 	return (
 		<>
 			<StepTitle icon={Pencil}>{t(`${K}.step3Title`)}</StepTitle>
-			<p className="text-xs text-(--text-muted)">{t(`${K}.step3Hint`)}</p>
+			<p className="ui-hint">{t(`${K}.step3Hint`)}</p>
 
 			{FIELDS[kind].map((f) => (
 				<Fragment key={f.key}>
@@ -226,9 +223,7 @@ export function StepDetails({ state, dispatch, t }: StepProps) {
 					    failure. Step 4 sends from the server, which is the side that has
 					    to reach the ntfy server anyway. */}
 					{kind === "ntfy" && f.key === "server" && (
-						<p className="text-xs text-(--text-muted)">
-							{t(`${K}.ntfyServerHint`)}
-						</p>
+						<p className="ui-hint">{t(`${K}.ntfyServerHint`)}</p>
 					)}
 				</Fragment>
 			))}
@@ -302,7 +297,7 @@ export function StepTest({
 	return (
 		<>
 			<StepTitle icon={Bell}>{t(`${K}.step4Title`)}</StepTitle>
-			<p className="text-xs text-(--text-muted)">{t(`${K}.step4Hint`)}</p>
+			<p className="ui-hint">{t(`${K}.step4Hint`)}</p>
 			<Composed url={state.draft.url} t={t} />
 			<div>
 				<button
@@ -323,7 +318,7 @@ export function StepTest({
 				</ResultLine>
 			)}
 			{!state.draft.tested && (
-				<p className="text-xs text-(--text-muted)">{t(`${K}.testMustPass`)}</p>
+				<p className="ui-hint">{t(`${K}.testMustPass`)}</p>
 			)}
 		</>
 	);
@@ -359,12 +354,12 @@ export function StepDestinations({
 	return (
 		<>
 			<StepTitle icon={ListChecks}>{t(`${K}.step5Title`)}</StepTitle>
-			<p className="text-xs text-(--text-muted)">{t(`${K}.step5Hint`)}</p>
+			<p className="ui-hint">{t(`${K}.step5Hint`)}</p>
 			{/* The stored destinations are not this run's work and not this run's to
 			    delete, so they are counted rather than listed: the list below is
 			    what this run adds, and every row on it can be taken back off. */}
 			{savedTargets.length > 0 && (
-				<p data-testid="wiz-saved-note" className="text-xs text-(--text-muted)">
+				<p data-testid="wiz-saved-note" className="ui-hint">
 					{t(`${K}.savedNote`, { count: savedTargets.length })}
 				</p>
 			)}
@@ -422,7 +417,7 @@ export function StepEvents({
 	return (
 		<>
 			<StepTitle icon={CheckSquare}>{t(`${K}.step6Title`)}</StepTitle>
-			<p className="text-xs text-(--text-muted)">{t(`${K}.step6Hint`)}</p>
+			<p className="ui-hint">{t(`${K}.step6Hint`)}</p>
 			{/* The card's own picker, so the guided run and the card offer the same
 			    list in the same order; it reads the catalog from the API itself. */}
 			<AlertEventPicker
@@ -524,7 +519,7 @@ export function StepFinish({
 			<StepTitle icon={CheckCircle2}>{t(`${K}.step7Title`)}</StepTitle>
 			{/* A managed member is not switching alerting on and is not choosing
 			    events, so the closing line promises only what it writes. */}
-			<p className="text-xs text-(--text-muted)">
+			<p className="ui-hint">
 				{t(`${K}.${managed ? "step7HintManaged" : "step7Hint"}`)}
 			</p>
 			{/* Trimmed, because the summary promises what the write will store. */}

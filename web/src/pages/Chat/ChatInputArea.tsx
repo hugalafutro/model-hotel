@@ -217,9 +217,7 @@ export function ChatInputArea({
 										})}
 							</p>
 						) : (
-							<p className="text-xs text-(--text-muted)">
-								{t("chat.misc.keyboardHint")}
-							</p>
+							<p className="ui-hint">{t("chat.misc.keyboardHint")}</p>
 						)}
 					</div>
 				</div>

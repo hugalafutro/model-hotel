@@ -1720,6 +1720,21 @@ html[data-ui-style="glassmorphism-lite"].light .ui-popover {
 }
 
 /* =============================================
+   MODAL WIDTH (all themes)
+   ============================================= */
+
+/* Modal card width: its max-w-* tier (--modal-w, in rem) up to a 1080p
+   screen, then in proportion to the viewport, so a dialog keeps the share of
+   the screen it has at 1920px. In pixels that grows well under the content
+   column (max(88rem, 48rem + 38vw)), so dialogs widen with the tables behind
+   them; the widest tier (max-w-6xl) only catches up with the column past
+   ~3700px. 1920px = 16px root: 1rem = 0.8334vw at that width. Below it the
+   rem term wins and nothing changes. */
+.ui-modal-panel {
+	max-width: max(calc(var(--modal-w) * 1rem), calc(var(--modal-w) * 0.8334vw));
+}
+
+/* =============================================
    GLASSMORPHISM MODALS
    ============================================= */
 
@@ -2763,6 +2778,47 @@ html[data-ui-style="cyber-terminal"] .ui-tab-active:hover {
 
 [data-ui-style] .ui-text-error {
 	color: var(--error-text);
+}
+
+/* Text roles: type and colour only. Spacing and display stay inline at the
+   call site, because these rules are unlayered and would beat margin utilities. */
+
+/* Form field and setting-row labels. */
+.ui-label {
+	font-size: var(--text-sm);
+	line-height: var(--text-sm--line-height);
+	font-weight: var(--font-weight-medium);
+	color: var(--text-secondary);
+}
+
+/* Help text under a field, small captions. */
+.ui-hint {
+	font-size: var(--text-xs);
+	line-height: var(--text-xs--line-height);
+	color: var(--text-muted);
+}
+
+/* Modal heading (an h2, so the terminal heading rule still applies). */
+.ui-modal-title {
+	font-size: var(--text-xl);
+	line-height: var(--text-xl--line-height);
+	font-weight: var(--font-weight-bold);
+	color: var(--text-primary);
+}
+
+/* Line under a modal title. */
+.ui-subtitle {
+	font-size: var(--text-sm);
+	line-height: var(--text-sm--line-height);
+	color: var(--text-tertiary);
+}
+
+/* Tiny uppercase caption above a value. */
+.ui-overline {
+	font-size: 10px;
+	letter-spacing: var(--tracking-wider);
+	text-transform: uppercase;
+	color: var(--text-tertiary);
 }
 
 /* =============================================

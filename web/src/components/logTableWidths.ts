@@ -22,12 +22,12 @@
  *    the th title tooltip carries the full word, as before.
  *
  *  LOG_TABLE_MIN_W keeps Model from collapsing to zero: below the fitted
- *  sum plus a ~6.5rem Model floor the table scrolls horizontally instead
+ *  sum plus a 6rem Model floor the table scrolls horizontally instead
  *  of squeezing (fitted columns cannot give, they would overflow). */
 export const LOG_COL_WIDTHS = [
 	{ key: "date", width: "w-[10.25rem]" }, // "23/08/2026, 22:59:28" (20ch mono)
 	{ key: "model", width: "w-auto" }, // Model takes the leftover; truncates with tooltip
-	{ key: "provider", width: "w-[6.5rem]" }, // "PROVIDER" header; "Ollama Cloud" fits, longer names truncate
+	{ key: "provider", width: "w-[9.25rem]" }, // "Anthropic Messages" fits, in the terminal mono too; longer names truncate
 	{ key: "status", width: "w-[5.25rem]" }, // "STATUS" header + arrow slot (wider than the [Live] badge)
 	{ key: "tokens", width: "w-[7.25rem]" }, // "154,304+3,796" (13ch mono)
 	{ key: "tps", width: "w-[4rem]" }, // "1234.5" (6ch mono)
@@ -40,8 +40,8 @@ export const LOG_COL_WIDTHS = [
 	{ key: "ip", width: "w-[8rem]" }, // full IPv4 (15ch mono); IPv6 truncates with tooltip
 ] as const;
 
-/** Fitted columns sum to 77.5rem; the rest is the Model floor. The request
+/** Fitted columns sum to 80.25rem; the rest is the Model floor. The request
  *  page gets Layout's content column (at least 88rem); below this
  *  width the table scrolls horizontally rather than starving Model, since the
  *  fitted columns cannot shrink. */
-export const LOG_TABLE_MIN_W = "min-w-[83.5rem]";
+export const LOG_TABLE_MIN_W = "min-w-[86.25rem]";

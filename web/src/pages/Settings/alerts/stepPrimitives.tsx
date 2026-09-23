@@ -151,10 +151,7 @@ export function Field({
 	const id = `wiz-field-${def.key}`;
 	return (
 		<div className="space-y-1.5">
-			<label
-				className="text-sm font-medium text-(--text-secondary)"
-				htmlFor={id}
-			>
+			<label className="ui-label" htmlFor={id}>
 				{label}
 			</label>
 			<div className="flex items-center gap-2">
@@ -192,7 +189,7 @@ export function CopyRow({
 	if (value === "") return null;
 	return (
 		<div className="flex items-center gap-2 flex-wrap">
-			<span className="text-xs text-(--text-muted)">{label}</span>
+			<span className="ui-hint">{label}</span>
 			<Mono>{value}</Mono>
 			<CopyButton
 				variant="label"

@@ -50,10 +50,10 @@ export function NanoGPTQuotaModal({
 			header={
 				<div className="flex justify-between items-start mb-6">
 					<div>
-						<h2 className="text-xl font-bold text-(--text-primary)">
+						<h2 className="ui-modal-title">
 							{t("components.providerModals.nanoGPTSubscription")}
 						</h2>
-						<p className="text-sm text-(--text-tertiary) mt-1">
+						<p className="ui-subtitle mt-1">
 							{usage.active ? (
 								<span className="inline-flex items-center gap-1.5">
 									<span

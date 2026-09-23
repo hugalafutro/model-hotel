@@ -27,10 +27,7 @@ export function RateLimitField({
 	const { t } = useTranslation();
 	return (
 		<div>
-			<label
-				htmlFor={id}
-				className="block text-sm font-medium text-gray-300 mb-1"
-			>
+			<label htmlFor={id} className="block ui-label mb-1">
 				{t(labelKey)}
 			</label>
 			<input

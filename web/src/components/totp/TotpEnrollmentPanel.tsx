@@ -155,7 +155,7 @@ export function TotpEnrollmentPanel({
 					</button>
 				</div>
 				{totp.status?.enabled_at && (
-					<p className="text-(--text-tertiary) text-sm">
+					<p className="ui-subtitle">
 						{t("settings.totp.enabledOn", {
 							date: formatDate(totp.status.enabled_at),
 						})}

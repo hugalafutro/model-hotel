@@ -105,10 +105,7 @@ export function KeyDetailModal({
 								label={t("virtualkeys.modal.sections.identity")}
 							/>
 							<div>
-								<label
-									htmlFor="vk-detail-name"
-									className="block text-sm font-medium text-gray-300 mb-1"
-								>
+								<label htmlFor="vk-detail-name" className="block ui-label mb-1">
 									{t("virtualkeys.modal.form.name")}
 								</label>
 								<input
@@ -126,7 +123,7 @@ export function KeyDetailModal({
 								<div>
 									<label
 										htmlFor="vk-detail-owner"
-										className="block text-sm font-medium text-gray-300 mb-1"
+										className="block ui-label mb-1"
 									>
 										{t("virtualkeys.modal.form.owner")}
 									</label>
@@ -146,7 +143,7 @@ export function KeyDetailModal({
 											</option>
 										))}
 									</select>
-									<p className="text-xs text-gray-500 mt-1">
+									<p className="ui-hint mt-1">
 										{t("virtualkeys.modal.form.ownerHint")}
 									</p>
 								</div>
@@ -432,7 +429,7 @@ export function KeyDetailModal({
 					// The page-level ManagedBanner sits behind this full-screen modal, so
 					// without the footer actions the modal would read as blank. Restate the
 					// read-only intent inline (same copy as the synced Settings sections).
-					<p data-testid="managed-note" className="text-xs text-(--text-muted)">
+					<p data-testid="managed-note" className="ui-hint">
 						{t("settings.managed.sectionNote")}
 					</p>
 				)}

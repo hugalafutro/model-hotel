@@ -58,10 +58,10 @@ export function NeuralWattQuotaModal({
 			header={
 				<div className="flex justify-between items-start mb-6">
 					<div>
-						<h2 className="text-xl font-bold text-(--text-primary)">
+						<h2 className="ui-modal-title">
 							{t("components.providerModals.neuralWattCredits")}
 						</h2>
-						<p className="text-sm text-(--text-tertiary) mt-1">
+						<p className="ui-subtitle mt-1">
 							<span className="inline-flex items-center gap-1.5">
 								<span
 									data-testid="neuralwatt-status-dot"
@@ -95,7 +95,7 @@ export function NeuralWattQuotaModal({
 				    spent figure here could only ever render as untouched
 				    credits / a fabricated $0.00. */}
 				<div className="flex justify-between items-center">
-					<span className="text-sm font-medium text-(--text-secondary)">
+					<span className="ui-label">
 						{t("components.providerModals.neuralwattBalance")}
 					</span>
 					<span className="text-sm text-(--text-primary) font-medium">
@@ -116,7 +116,7 @@ export function NeuralWattQuotaModal({
 						dataTestId="neuralwatt-kwh-bar"
 						footer={
 							quota.balance.accounting_method && (
-								<p className="text-xs text-(--text-muted) mt-1">
+								<p className="ui-hint mt-1">
 									{t("components.providerModals.neuralwattAccountingMethod")}:{" "}
 									<span className="capitalize">
 										{quota.balance.accounting_method}

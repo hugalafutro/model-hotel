@@ -46,7 +46,7 @@ export function ReasoningEffortSelect({
 	const { t } = useTranslation();
 	return (
 		<div>
-			<span className="text-[10px] uppercase tracking-wider text-(--text-tertiary)">
+			<span className="ui-overline">
 				{t("components.reasoningEffortSelect.reasoningEffort")}
 			</span>
 			{EFFORT_ROWS.map((row) => (

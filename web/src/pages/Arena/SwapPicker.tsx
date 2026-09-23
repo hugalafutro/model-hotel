@@ -113,9 +113,7 @@ export function SwapPicker({
 					);
 				})}
 				{available.length === 0 && (
-					<span className="text-xs text-(--text-muted)">
-						{t("arena.swapPicker.noModels")}
-					</span>
+					<span className="ui-hint">{t("arena.swapPicker.noModels")}</span>
 				)}
 			</div>
 		</div>

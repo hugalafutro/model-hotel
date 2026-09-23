@@ -56,10 +56,10 @@ export function OpenRouterQuotaModal({
 			header={
 				<div className="flex justify-between items-start mb-6">
 					<div>
-						<h2 className="text-xl font-bold text-(--text-primary)">
+						<h2 className="ui-modal-title">
 							{t("components.providerModals.openRouterCredits")}
 						</h2>
-						<p className="text-sm text-(--text-tertiary) mt-1">
+						<p className="ui-subtitle mt-1">
 							{balance.is_free_tier ? (
 								<span className="inline-flex items-center gap-1.5">
 									<span className="w-2 h-2 rounded-full bg-yellow-400"></span>
@@ -94,7 +94,7 @@ export function OpenRouterQuotaModal({
 			<div className="space-y-6">
 				<div>
 					<div className="flex justify-between items-center mb-2">
-						<span className="text-sm font-medium text-(--text-secondary)">
+						<span className="ui-label">
 							{t("components.providerModals.accountBalance")}
 						</span>
 						<span className="text-sm text-(--text-primary) font-medium">
@@ -111,7 +111,7 @@ export function OpenRouterQuotaModal({
 							/>
 						</div>
 					)}
-					<p className="text-xs text-(--text-muted) mt-1">
+					<p className="ui-hint mt-1">
 						{balance.credits_total > 0
 							? t("components.providerModals.spentTotal", {
 									amount: formatDollars(balance.credits_used),
@@ -123,10 +123,10 @@ export function OpenRouterQuotaModal({
 				{balance.limit !== null && (
 					<div>
 						<div className="flex justify-between items-center mb-2">
-							<span className="text-sm font-medium text-(--text-secondary)">
+							<span className="ui-label">
 								{t("components.providerModals.keySpendingLimit")}
 							</span>
-							<span className="text-sm text-(--text-tertiary)">
+							<span className="ui-subtitle">
 								{formatDollars(balance.limit_remaining ?? 0)}{" "}
 								{t("components.providerModals.remaining")}
 							</span>
@@ -146,7 +146,7 @@ export function OpenRouterQuotaModal({
 								}}
 							/>
 						</div>
-						<p className="text-xs text-(--text-muted) mt-1 whitespace-pre-line">
+						<p className="ui-hint mt-1 whitespace-pre-line">
 							{balance.limit > 0
 								? `${(barMode === "used" ? 100 - limitPct : limitPct).toFixed(1)}% ${barMode === "used" ? t("components.providerModals.used") : t("components.providerModals.remaining")}`
 								: balance.limit === 0
@@ -163,7 +163,7 @@ export function OpenRouterQuotaModal({
 					<DetailSectionHeader icon={DollarSign}>
 						{t("components.providerModals.keyUsage")}
 					</DetailSectionHeader>
-					<p className="text-xs text-(--text-muted) mb-3">
+					<p className="ui-hint mb-3">
 						{t("components.providerModals.spendingByThisKey")}
 					</p>
 					<div className="grid grid-cols-2 gap-2">

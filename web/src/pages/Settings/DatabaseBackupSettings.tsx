@@ -87,7 +87,7 @@ export function DatabaseBackupSettings({
 				<SettingsGroup title={t("settings.backup.rotation.title")}>
 					<div className="flex items-center justify-between">
 						<div>
-							<p className="text-xs text-(--text-muted) mt-0.5">
+							<p className="ui-hint mt-0.5">
 								{t("settings.backup.rotation.enabledDescription")}
 							</p>
 						</div>
@@ -388,7 +388,7 @@ export function DatabaseBackupSettings({
 													{backup.filename}
 												</p>
 											</div>
-											<p className="text-xs text-(--text-muted)">
+											<p className="ui-hint">
 												{backup.origin === "manual" && (
 													<span className="text-(--accent)">
 														{t("settings.backup.manuallyCreated")} ·{" "}
@@ -470,9 +470,7 @@ export function DatabaseBackupSettings({
 							</p>
 						</>
 					) : (
-						<p className="text-xs text-(--text-muted)">
-							{t("settings.backup.noBackups")}
-						</p>
+						<p className="ui-hint">{t("settings.backup.noBackups")}</p>
 					)}
 				</SettingsGroup>
 			</div>

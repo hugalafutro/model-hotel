@@ -36,9 +36,7 @@ export function ProviderAccessPicker({
 		<>
 			<div>
 				<div className="flex items-center justify-between mb-1">
-					<span className="text-sm font-medium text-gray-300">
-						{t(headingKey)}
-					</span>
+					<span className="ui-label">{t(headingKey)}</span>
 					{excludedProviders.length > 0 && (
 						<button
 							type="button"
@@ -51,7 +49,7 @@ export function ProviderAccessPicker({
 						</button>
 					)}
 				</div>
-				<p className="text-xs text-gray-500 mb-2">{t(instructionsKey)}</p>
+				<p className="ui-hint mb-2">{t(instructionsKey)}</p>
 				{outsideCapIds.length > 0 && (
 					<p
 						id={capNoteId}

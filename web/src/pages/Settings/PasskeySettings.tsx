@@ -243,7 +243,7 @@ function CredentialRow({
 							/>
 						</button>
 					)}
-					<p className="text-xs text-(--text-muted)">
+					<p className="ui-hint">
 						{t("settings.passkeys.registered")}{" "}
 						{formatDateTimeShort(cred.created_at)}
 					</p>

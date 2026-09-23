@@ -143,10 +143,8 @@ export function QuotaBar({
 	return (
 		<div>
 			<div className="flex justify-between items-center mb-1">
-				<span className="text-sm font-medium text-(--text-secondary)">
-					{label}
-				</span>
-				<span className="text-sm text-(--text-tertiary)">{rightText}</span>
+				<span className="ui-label">{label}</span>
+				<span className="ui-subtitle">{rightText}</span>
 			</div>
 			<div
 				{...(dataTestId ? { "data-testid": dataTestId } : {})}
@@ -164,9 +162,7 @@ export function QuotaBar({
 				/>
 			</div>
 			{children && (
-				<p className="text-xs text-(--text-muted) mt-1 whitespace-pre-line">
-					{children}
-				</p>
+				<p className="ui-hint mt-1 whitespace-pre-line">{children}</p>
 			)}
 			{footer}
 		</div>

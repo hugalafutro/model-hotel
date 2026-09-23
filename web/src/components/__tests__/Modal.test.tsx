@@ -313,6 +313,31 @@ describe("Modal", () => {
 		expect(modalContent).toBeInTheDocument();
 	});
 
+	it("scales a known width tier with the viewport via its rem value", () => {
+		render(
+			<Modal onClose={onClose} title="Tier Test" maxWidth="max-w-lg">
+				Content
+			</Modal>,
+		);
+		const panel = getByDialogName("Tier Test").querySelector(".max-w-lg");
+		expect(panel).toHaveClass("ui-modal-panel");
+		expect((panel as HTMLElement).style.getPropertyValue("--modal-w")).toBe(
+			"32",
+		);
+	});
+
+	it("leaves a custom width class unscaled", () => {
+		render(
+			<Modal onClose={onClose} title="Custom Width" maxWidth="max-w-[30rem]">
+				Content
+			</Modal>,
+		);
+		const panel =
+			getByDialogName("Custom Width").querySelector(".max-w-\\[30rem\\]");
+		expect(panel).not.toHaveClass("ui-modal-panel");
+		expect((panel as HTMLElement).style.getPropertyValue("--modal-w")).toBe("");
+	});
+
 	it("applies custom className via maxWidth", () => {
 		render(
 			<Modal onClose={onClose} title="Width Test 2">

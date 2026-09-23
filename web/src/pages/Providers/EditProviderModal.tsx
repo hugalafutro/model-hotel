@@ -180,10 +180,7 @@ export function EditProviderModal({
 
 				<form onSubmit={handleSubmit} className="space-y-4">
 					<div>
-						<label
-							htmlFor="edit-provider-name"
-							className="block text-sm font-medium text-gray-300 mb-1"
-						>
+						<label htmlFor="edit-provider-name" className="block ui-label mb-1">
 							{t("providers.form_name_label")}
 						</label>
 						<input
@@ -204,7 +201,7 @@ export function EditProviderModal({
 					</div>
 
 					<div>
-						<span className="block text-sm font-medium text-gray-300 mb-1">
+						<span className="block ui-label mb-1">
 							{t("providers.form_type_label")}
 						</span>
 						<FilterDropdown
@@ -217,15 +214,13 @@ export function EditProviderModal({
 							}
 							options={providerTypeOptions(t)}
 						/>
-						<p className="text-gray-500 text-xs mt-1">
-							{t("providers.edit.typeHelper")}
-						</p>
+						<p className="ui-hint mt-1">{t("providers.edit.typeHelper")}</p>
 					</div>
 
 					<div>
 						<label
 							htmlFor="edit-provider-base-url"
-							className="block text-sm font-medium text-gray-300 mb-1"
+							className="block ui-label mb-1"
 						>
 							{t("providers.form_base_url_label")}
 						</label>
@@ -249,7 +244,7 @@ export function EditProviderModal({
 							placeholder="https://api.openai.com/v1"
 						/>
 						{isKnownProviderUrl(provider.base_url) && (
-							<p className="text-gray-500 text-xs mt-1">
+							<p className="ui-hint mt-1">
 								{t("providers.form_base_url_hint_preset")}
 							</p>
 						)}
@@ -268,7 +263,7 @@ export function EditProviderModal({
 					<div>
 						<label
 							htmlFor="edit-provider-api-key"
-							className="block text-sm font-medium text-gray-300 mb-1"
+							className="block ui-label mb-1"
 						>
 							{t("providers.form_api_key_label")}
 						</label>
@@ -279,7 +274,7 @@ export function EditProviderModal({
 							onChange={(api_key) => setFormData({ ...formData, api_key })}
 							placeholder={t("providers.edit_api_key_placeholder")}
 						/>
-						<p className="text-gray-500 text-xs mt-1">
+						<p className="ui-hint mt-1">
 							{t("providers.edit_api_key_current", {
 								key: provider.masked_key,
 							})}
@@ -305,10 +300,7 @@ export function EditProviderModal({
 								showFocusRing
 								ariaLabel={t("providers.edit.enabledToggle")}
 							/>
-							<label
-								htmlFor="edit-provider-enabled"
-								className="text-sm font-medium text-gray-300"
-							>
+							<label htmlFor="edit-provider-enabled" className="ui-label">
 								{t("providers.edit_enabled_label")}
 							</label>
 							<button
@@ -347,9 +339,7 @@ export function EditProviderModal({
 								</>
 							)}
 						</div>
-						<p className="text-gray-500 text-xs ml-0">
-							{t("providers.edit.enabledHelper")}
-						</p>
+						<p className="ui-hint ml-0">{t("providers.edit.enabledHelper")}</p>
 					</div>
 					{pickerOpen && (
 						<DatePickerPopover
@@ -386,14 +376,11 @@ export function EditProviderModal({
 								ariaLabel={t("providers.edit.autodiscoveryToggle")}
 								disabled={!formData.enabled}
 							/>
-							<label
-								htmlFor="edit-provider-autodiscovery"
-								className="text-sm font-medium text-gray-300"
-							>
+							<label htmlFor="edit-provider-autodiscovery" className="ui-label">
 								{t("providers.edit_autodiscovery_label")}
 							</label>
 						</div>
-						<p className="text-gray-500 text-xs ml-0">
+						<p className="ui-hint ml-0">
 							{t("providers.edit.autodiscoveryHelper")}
 						</p>
 					</div>
@@ -401,7 +388,7 @@ export function EditProviderModal({
 					<div>
 						<label
 							htmlFor="edit-provider-max-in-flight"
-							className="block text-sm font-medium text-gray-300 mb-1"
+							className="block ui-label mb-1"
 						>
 							{t("providers.edit.maxInFlightLabel")}
 						</label>
@@ -417,7 +404,7 @@ export function EditProviderModal({
 							className="ui-input"
 							placeholder={t("providers.edit.maxInFlightPlaceholder")}
 						/>
-						<p className="text-gray-500 text-xs mt-1">
+						<p className="ui-hint mt-1">
 							{t("providers.edit.maxInFlightHelper")}
 						</p>
 					</div>
@@ -425,7 +412,7 @@ export function EditProviderModal({
 					<div>
 						<label
 							htmlFor="edit-provider-quota-reserve"
-							className="block text-sm font-medium text-gray-300 mb-1"
+							className="block ui-label mb-1"
 						>
 							{t("providers.edit.quotaReserveLabel")}
 							<span
@@ -451,7 +438,7 @@ export function EditProviderModal({
 							}
 							className="w-full accent-yellow-400"
 						/>
-						<p className="text-gray-500 text-xs mt-1">
+						<p className="ui-hint mt-1">
 							{t("providers.edit.quotaReserveHelper")}
 						</p>
 						<p
