@@ -314,6 +314,8 @@ func TestListModelsCursor_OutputsFilter(t *testing.T) {
 		{"chat-model", `["text"]`},
 		{"nomic-embed", `["embedding"]`},
 		{"gemini-image", `["text","image"]`},
+		{"coder", `["code"]`},
+		{"pdf-maker", `["text","pdf"]`},
 	}
 	for i, m := range models {
 		_, err := pool.Exec(context.Background(),
@@ -363,17 +365,23 @@ func TestListModelsCursor_OutputsFilter(t *testing.T) {
 		t.Errorf("outputs=image,embedding: expected 0 entries, got %d (%v)", len(gotBoth), gotBoth)
 	}
 
-	// "text" is filterable too: the chat model and the chat model that also
-	// emits images.
+	// "text" is filterable too: the chat model, the chat model that also
+	// emits images, the PDF generator that also answers in text, and the
+	// coder model whose "code" output counts as text.
 	gotText := fetch("outputs=text&provider_id=" + providerResp.ID)
-	if len(gotText) != 2 {
-		t.Errorf("outputs=text: expected 2 entries, got %d (%v)", len(gotText), gotText)
+	if len(gotText) != 4 {
+		t.Errorf("outputs=text: expected 4 entries, got %d (%v)", len(gotText), gotText)
+	}
+
+	gotPDF := fetch("outputs=pdf&provider_id=" + providerResp.ID)
+	if len(gotPDF) != 1 || gotPDF[0] != "pdf-maker" {
+		t.Errorf("outputs=pdf: expected [pdf-maker], got %v", gotPDF)
 	}
 
 	// Unknown output values are ignored rather than matching nothing.
 	gotUnknown := fetch("outputs=hologram&provider_id=" + providerResp.ID)
-	if len(gotUnknown) != 4 {
-		t.Errorf("outputs=hologram: expected all 4 entries, got %d (%v)", len(gotUnknown), gotUnknown)
+	if len(gotUnknown) != 6 {
+		t.Errorf("outputs=hologram: expected all 6 entries, got %d (%v)", len(gotUnknown), gotUnknown)
 	}
 }
 

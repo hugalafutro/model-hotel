@@ -1,6 +1,9 @@
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { useBidirectionalFetch } from "../useBidirectionalFetch";
+import {
+	type CursorFetchFn,
+	useBidirectionalFetch,
+} from "../useBidirectionalFetch";
 
 type TestEntry = {
 	id: string;
@@ -301,7 +304,7 @@ describe("useBidirectionalFetch", () => {
 			expect(result.current.entries[0].id).toBe("fresh");
 		});
 
-		it("exposes only an accepted response as lastResponse, and none after a reset", async () => {
+		it("exposes only an accepted response as lastResponse", async () => {
 			let resolveFirst: (value: typeof defaultResponse) => void;
 			const firstPromise = new Promise<typeof defaultResponse>((resolve) => {
 				resolveFirst = resolve;
@@ -334,9 +337,9 @@ describe("useBidirectionalFetch", () => {
 			await waitFor(() => {
 				expect(mockFetchFn).toHaveBeenCalledTimes(1);
 			});
-			// The reset runs synchronously in the filter-change effect, so right
-			// after the rerender there is no accepted response, even though the
-			// refetch it kicks off may resolve on the very next tick.
+			// A filter change keeps the last accepted response until the refetch
+			// lands; none has been accepted yet, so there is still nothing here
+			// even though the refetch may resolve on the very next tick.
 			rerender({ filters: { status: "new" } });
 			expect(result.current.lastResponse).toBeNull();
 			await waitFor(() => {
@@ -1097,6 +1100,140 @@ describe("useBidirectionalFetch", () => {
 			expect(result.current.entries[0]).toEqual({ id: "1", name: "updated-a" });
 			expect(result.current.entries[1]).toEqual({ id: "2", name: "b" });
 			expect(result.current.entries[2]).toEqual({ id: "3", name: "updated-c" });
+		});
+	});
+	describe("filter change", () => {
+		function renderWithFilters(fetchFn: CursorFetchFn<TestEntry>) {
+			return renderHook(
+				({ filters }) =>
+					useBidirectionalFetch<TestEntry>({
+						fetchFn,
+						filters,
+						sortDir: "asc",
+						getCursor: (e) => e.id,
+						getId: (e) => e.id,
+					}),
+				{ initialProps: { filters: { status: "a" } } },
+			);
+		}
+
+		it("reset() clears the loaded rows, total and last response", async () => {
+			const fetchFn = vi.fn().mockResolvedValue(defaultResponse);
+			const { result } = renderWithFilters(fetchFn);
+			await waitFor(() => expect(result.current.entries).toHaveLength(1));
+
+			act(() => result.current.reset());
+
+			expect(result.current.entries).toEqual([]);
+			expect(result.current.total).toBe(0);
+			expect(result.current.lastResponse).toBeNull();
+		});
+
+		it("keeps the current rows on screen until the new page arrives", async () => {
+			let resolveSecond: (v: typeof defaultResponse) => void = () => {};
+			const fetchFn = vi
+				.fn()
+				.mockResolvedValueOnce(defaultResponse)
+				.mockReturnValueOnce(
+					new Promise((r) => {
+						resolveSecond = r;
+					}),
+				);
+			const { result, rerender } = renderWithFilters(fetchFn);
+			await waitFor(() => expect(result.current.entries).toHaveLength(1));
+
+			rerender({ filters: { status: "b" } });
+			await waitFor(() => expect(fetchFn).toHaveBeenCalledTimes(2));
+			expect(result.current.entries.map((e) => e.id)).toEqual(["1"]);
+			expect(result.current.total).toBe(1);
+
+			await act(async () => {
+				resolveSecond({
+					...defaultResponse,
+					entries: [{ id: "2", name: "item-2" }],
+				});
+			});
+			expect(result.current.entries.map((e) => e.id)).toEqual(["2"]);
+		});
+
+		it("drops the kept rows when the refetch fails", async () => {
+			const fetchFn = vi
+				.fn()
+				.mockResolvedValueOnce(defaultResponse)
+				.mockRejectedValueOnce(new Error("boom"));
+			const { result, rerender } = renderWithFilters(fetchFn);
+			await waitFor(() => expect(result.current.entries).toHaveLength(1));
+
+			rerender({ filters: { status: "b" } });
+
+			await waitFor(() => expect(result.current.error).toBe("boom"));
+			expect(result.current.entries).toEqual([]);
+			expect(result.current.total).toBe(0);
+			expect(result.current.lastResponse).toBeNull();
+			expect(result.current.hasAfter).toBe(false);
+		});
+
+		it("bumps listVersion when a fresh page replaces the rows", async () => {
+			const fetchFn = vi.fn().mockResolvedValue(defaultResponse);
+			const { result, rerender } = renderWithFilters(fetchFn);
+			await waitFor(() => expect(result.current.entries).toHaveLength(1));
+			const first = result.current.listVersion;
+
+			rerender({ filters: { status: "b" } });
+
+			// Same first row, new list: the version still moves.
+			await waitFor(() => expect(result.current.listVersion).not.toBe(first));
+		});
+
+		it("does not page off rows kept from before a filter change", async () => {
+			const fetchFn = vi
+				.fn()
+				.mockResolvedValueOnce({ ...defaultResponse, has_after: true })
+				.mockResolvedValue({
+					...defaultResponse,
+					entries: [{ id: "2", name: "item-2" }],
+					has_after: true,
+				});
+			const { result, rerender } = renderWithFilters(fetchFn);
+			await waitFor(() => expect(result.current.hasAfter).toBe(true));
+			// A scroll handler bound in the old render still holds the old rows.
+			const staleFetchOlder = result.current.fetchOlder;
+
+			rerender({ filters: { status: "b" } });
+			await waitFor(() =>
+				expect(result.current.entries.map((e) => e.id)).toEqual(["2"]),
+			);
+			await act(async () => {
+				await staleFetchOlder();
+			});
+
+			// The old rows' cursor belongs to the old filters: no page fetch.
+			expect(fetchFn).toHaveBeenCalledTimes(2);
+		});
+
+		it("clears a dropped page fetch's loading flag on a filter change", async () => {
+			let resolveOlder: (v: typeof defaultResponse) => void = () => {};
+			const fetchFn = vi
+				.fn()
+				.mockResolvedValueOnce({ ...defaultResponse, has_after: true })
+				.mockReturnValueOnce(
+					new Promise((r) => {
+						resolveOlder = r;
+					}),
+				)
+				.mockResolvedValue(defaultResponse);
+			const { result, rerender } = renderWithFilters(fetchFn);
+			await waitFor(() => expect(result.current.hasAfter).toBe(true));
+
+			act(() => {
+				void result.current.fetchOlder();
+			});
+			await waitFor(() => expect(result.current.isLoadingAfter).toBe(true));
+
+			rerender({ filters: { status: "b" } });
+			await act(async () => resolveOlder(defaultResponse));
+
+			await waitFor(() => expect(result.current.isLoadingAfter).toBe(false));
 		});
 	});
 });

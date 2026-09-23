@@ -1102,6 +1102,7 @@
 			"sortByModelName": "Trier par nom de modèle",
 			"model": "Modèle",
 			"capabilities": "Capacités",
+			"outputs": "Sorties",
 			"sortByProviderName": "Trier par nom de fournisseur",
 			"provider": "Fournisseur",
 			"sortByDiscoveredDate": "Trier par date de découverte",
@@ -1115,9 +1116,11 @@
 		},
 		"disabledByDiscovery": "Non répertorié par le fournisseur depuis {{date}}",
 		"outputPills": {
+			"text": "Sortie texte",
 			"image": "Sortie image",
 			"audio": "Sortie audio",
 			"video": "Sortie vidéo",
+			"pdf": "Sortie PDF",
 			"embedding": "Embedding",
 			"rerank": "Rerank"
 		},

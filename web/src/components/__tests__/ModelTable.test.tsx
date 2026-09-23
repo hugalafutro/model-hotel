@@ -64,10 +64,38 @@ describe("ModelTable", () => {
 			};
 			renderWithProviders(<ModelTable {...defaultProps} models={[genModel]} />);
 
-			// The row pill is a span; the filter row renders a button with the
-			// same label.
-			const pills = screen.getAllByText("Image out");
-			expect(pills.some((el) => el.tagName === "SPAN")).toBe(true);
+			// The Outputs cell lists every output, so an image-only model shows
+			// the image icon and, by its absence, that it cannot answer in text.
+			expect(
+				screen.getByRole("img", { name: "Image out" }),
+			).toBeInTheDocument();
+			expect(screen.queryByRole("img", { name: "Text out" })).toBeNull();
+		});
+
+		it("shows a PDF output icon and filters on it", () => {
+			const pdfModel = {
+				...mockModel,
+				id: "model-pdf",
+				name: "PDF Maker",
+				output_modalities: '["text","pdf"]',
+			};
+			const chatModel = {
+				...mockModel,
+				id: "model-chat",
+				name: "Chatty Model",
+				output_modalities: '["text"]',
+			};
+			renderWithProviders(
+				<ModelTable {...defaultProps} models={[pdfModel, chatModel]} />,
+			);
+			expect(screen.getByRole("img", { name: "PDF out" })).toBeInTheDocument();
+
+			// The paged table lists only outputs present in the data (text,
+			// pdf), too few to collapse, so no expand is needed.
+			fireEvent.click(screen.getByRole("button", { name: "PDF out" }));
+
+			expect(screen.getByText("PDF Maker")).toBeInTheDocument();
+			expect(screen.queryByText("Chatty Model")).not.toBeInTheDocument();
 		});
 
 		it("filters models by output modality pill", () => {
@@ -91,14 +119,59 @@ describe("ModelTable", () => {
 				<ModelTable {...defaultProps} models={[genModel, chatModel]} />,
 			);
 
-			const imageOutButton = screen
-				.getAllByText("Image out")
-				.find((el) => el.tagName === "BUTTON");
-			expect(imageOutButton).toBeDefined();
-			fireEvent.click(imageOutButton as HTMLElement);
+			fireEvent.click(screen.getByRole("button", { name: "Image out" }));
 
 			expect(screen.getByText("Z Image Turbo")).toBeInTheDocument();
 			expect(screen.queryByText("Chatty Model")).not.toBeInTheDocument();
+		});
+
+		it("disables a capability pill that would leave no models", () => {
+			// Disjoint capabilities: once Vision is set, adding Tools matches nothing.
+			const visionOnly = {
+				...mockModel,
+				id: "vision-only",
+				name: "Vision Only",
+				capabilities: '{"vision":true}',
+			};
+			const toolsOnly = {
+				...mockModel,
+				id: "tools-only",
+				name: "Tools Only",
+				capabilities: '{"tool_calling":true}',
+			};
+			renderWithProviders(
+				<ModelTable {...defaultProps} models={[visionOnly, toolsOnly]} />,
+			);
+			expect(screen.getByRole("button", { name: "Tools" })).toBeEnabled();
+
+			fireEvent.click(screen.getByRole("button", { name: "Vision" }));
+
+			expect(screen.getByRole("button", { name: "Tools" })).toBeDisabled();
+		});
+
+		it("filters to text-output models with the text icon", () => {
+			const genModel = {
+				...mockModel,
+				id: "model-gen",
+				name: "Z Image Turbo",
+				capabilities: "{}",
+				output_modalities: '["image"]',
+			};
+			const coderModel = {
+				...mockModel,
+				id: "model-coder",
+				name: "Coder Model",
+				output_modalities: '["code"]',
+			};
+			renderWithProviders(
+				<ModelTable {...defaultProps} models={[genModel, coderModel]} />,
+			);
+
+			fireEvent.click(screen.getByRole("button", { name: "Text out" }));
+
+			// "code" output counts as text.
+			expect(screen.getByText("Coder Model")).toBeInTheDocument();
+			expect(screen.queryByText("Z Image Turbo")).not.toBeInTheDocument();
 		});
 
 		it("renders model count correctly", () => {

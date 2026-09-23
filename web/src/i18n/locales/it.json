@@ -1102,6 +1102,7 @@
 			"sortByModelName": "Ordina per nome modello",
 			"model": "Modello",
 			"capabilities": "Capacità",
+			"outputs": "Output",
 			"sortByProviderName": "Ordina per nome provider",
 			"provider": "Provider",
 			"sortByDiscoveredDate": "Ordina per data scoperta",
@@ -1115,9 +1116,11 @@
 		},
 		"disabledByDiscovery": "Non elencato dal provider dal {{date}}",
 		"outputPills": {
+			"text": "Output di testo",
 			"image": "Output immagine",
 			"audio": "Output audio",
 			"video": "Output video",
+			"pdf": "Output PDF",
 			"embedding": "Embedding",
 			"rerank": "Rerank"
 		},

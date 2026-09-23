@@ -16,6 +16,8 @@ interface VirtualLogTableProps {
 	hasAfter: boolean;
 	isLoadingBefore: boolean;
 	isLoadingAfter: boolean;
+	/** useBidirectionalFetch listVersion: a change scrolls back to the top. */
+	listVersion: number;
 	onFetchNewer: () => void;
 	onFetchOlder: () => void;
 	onRowClick: (entry: LogEntry) => void;
@@ -41,6 +43,7 @@ export function VirtualLogTable(props: VirtualLogTableProps) {
 		hasAfter,
 		isLoadingBefore,
 		isLoadingAfter,
+		listVersion,
 		onFetchNewer,
 		onFetchOlder,
 		onRowClick,
@@ -62,6 +65,7 @@ export function VirtualLogTable(props: VirtualLogTableProps) {
 		endIndex,
 	} = useVirtualRows({
 		entries,
+		listVersion,
 		hasBefore,
 		hasAfter,
 		isLoadingBefore,

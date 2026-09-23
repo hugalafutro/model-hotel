@@ -1066,6 +1066,7 @@
 			"sortByModelName": "Rendezés modellnév szerint",
 			"model": "Modell",
 			"capabilities": "Képességek",
+			"outputs": "Kimenetek",
 			"sortByProviderName": "Szolgáltató neve szerint rendezés",
 			"provider": "Szolgáltató",
 			"sortByDiscoveredDate": "Rendezés felfedezés dátuma szerint",
@@ -1079,9 +1080,11 @@
 		},
 		"disabledByDiscovery": "A szolgáltató nem listázza {{date}} óta",
 		"outputPills": {
+			"text": "Szöveges kimenet",
 			"image": "Képkimenet",
 			"audio": "Hangkimenet",
 			"video": "Videókimenet",
+			"pdf": "PDF-kimenet",
 			"embedding": "Embedding",
 			"rerank": "Rerank"
 		},

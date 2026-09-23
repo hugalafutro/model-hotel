@@ -4,11 +4,7 @@ import type { Model, Provider } from "../api/types";
 import { useWheelPaging } from "../hooks/useWheelPaging";
 import { toggleInSet } from "../utils/collections";
 import { formatDate, formatRelativeTime, formatTokens } from "../utils/format";
-import {
-	nonTextOutputs,
-	parseCapabilities,
-	proxyModelID,
-} from "../utils/model";
+import { outputKinds, parseCapabilities, proxyModelID } from "../utils/model";
 import { sortByName } from "../utils/sort";
 import { CapBadge } from "./CapBadge";
 import { ConfirmDialog } from "./ConfirmDialog";
@@ -31,11 +27,12 @@ import {
 } from "./DataTable";
 import { FilterDropdown } from "./FilterDropdown";
 import { FilterInput } from "./FilterInput";
+import { OutputFilterIcons, PillStrip } from "./modelTable/CapFilterRow";
 import {
 	MODEL_COL_WIDTHS_NO_PROVIDER,
 	MODEL_COL_WIDTHS_WITH_PROVIDER,
 } from "./modelTableWidths";
-import { OutputBadges } from "./OutputBadges";
+import { OutputIcons } from "./OutputBadges";
 import { OUTPUT_META } from "./outputMeta";
 
 export type SortField =
@@ -127,7 +124,7 @@ export function ModelTable({
 				for (const meta of CAP_META) {
 					if (hasCap(c, meta.key)) capsInData.add(meta.key);
 				}
-				for (const o of nonTextOutputs(m)) outputsInData.add(o);
+				for (const o of outputKinds(m)) outputsInData.add(o);
 			}
 
 			let filtered = baseFiltered;
@@ -144,7 +141,7 @@ export function ModelTable({
 
 			if (outputFilter.size > 0) {
 				filtered = filtered.filter((m) => {
-					const outputs = nonTextOutputs(m);
+					const outputs = outputKinds(m);
 					for (const o of outputFilter) {
 						if (!outputs.includes(o)) return false;
 					}
@@ -256,7 +253,7 @@ export function ModelTable({
 		onNext: () => setCurrentPage(safePage + 1),
 	});
 
-	const colSpan = showProviderCol ? 10 : 9;
+	const colSpan = showProviderCol ? 11 : 10;
 
 	return (
 		<div className="space-y-4">
@@ -346,6 +343,9 @@ export function ModelTable({
 							<StaticHeaderNoArrow>
 								{t("components.modelDetailPanel.capabilities")}
 							</StaticHeaderNoArrow>
+							<StaticHeaderNoArrow>
+								{t("models.table.outputs")}
+							</StaticHeaderNoArrow>
 							{showProviderCol && (
 								<SortableHeader
 									label={t("components.modelTable.provider")}
@@ -389,56 +389,46 @@ export function ModelTable({
 						</tr>
 						<tr className="ui-table-row-filter">
 							<th className="px-4 py-2" />
-							<th className="px-4 py-2">
-								<span className="flex flex-wrap gap-1">
-									{CAP_META.filter((m) => existingCaps.has(m.key)).map((m) => {
-										const isActive = capFilter.has(m.key);
-										const isAvailable = pillAvailability.get(m.key) ?? false;
-										const isDisabled = !isActive && !isAvailable;
-										return (
-											<button
-												key={m.key}
-												type="button"
-												disabled={isDisabled}
-												aria-pressed={isActive}
-												onClick={() => toggleCapFilter(m.key)}
-												className={`ui-badge inline-flex items-center px-1.5 py-0.5 text-[10px] font-medium border transition-colors ${isActive ? m.style : isDisabled ? CAP_DISABLED : m.muted}`}
-											>
-												{t(m.labelKey)}
-											</button>
-										);
-									})}
-									{OUTPUT_META.filter(
+							<th className="px-4 py-2 align-top">
+								<PillStrip
+									label={t("models.table.capabilities")}
+									storageKey="modelTable.capPillsCollapsed"
+									pills={CAP_META.filter((m) => existingCaps.has(m.key)).map(
+										(m) => {
+											const active = capFilter.has(m.key);
+											const disabled =
+												!active && !(pillAvailability.get(m.key) ?? false);
+											return {
+												key: m.labelKey,
+												label: t(m.labelKey),
+												className: active
+													? m.style
+													: disabled
+														? CAP_DISABLED
+														: m.muted,
+												active,
+												disabled,
+												onToggle: () => toggleCapFilter(m.key),
+											};
+										},
+									)}
+									showClear={capFilter.size > 0 || outputFilter.size > 0}
+									onClear={() => {
+										setCapFilter(new Set());
+										setOutputFilter(new Set());
+										setCurrentPage(1);
+									}}
+								/>
+							</th>
+							<th className="px-2 py-2 align-top">
+								<OutputFilterIcons
+									metas={OUTPUT_META.filter(
 										(m) =>
 											existingOutputs.has(m.key) || outputFilter.has(m.key),
-									).map((m) => {
-										const isActive = outputFilter.has(m.key);
-										return (
-											<button
-												key={m.key}
-												type="button"
-												aria-pressed={isActive}
-												onClick={() => toggleOutputFilter(m.key)}
-												className={`ui-badge inline-flex items-center px-1.5 py-0.5 text-[10px] font-medium border transition-colors ${isActive ? m.style : m.muted}`}
-											>
-												{t(m.labelKey)}
-											</button>
-										);
-									})}
-									{(capFilter.size > 0 || outputFilter.size > 0) && (
-										<button
-											type="button"
-											onClick={() => {
-												setCapFilter(new Set());
-												setOutputFilter(new Set());
-												setCurrentPage(1);
-											}}
-											className="ui-badge inline-flex items-center px-1.5 py-0.5 text-[10px] font-medium text-gray-400 hover:text-gray-200"
-										>
-											✕
-										</button>
 									)}
-								</span>
+									active={outputFilter}
+									onToggle={toggleOutputFilter}
+								/>
 							</th>
 							{showProviderCol && <th className="px-4 py-2" />}
 							<th className="px-4 py-2" />
@@ -474,15 +464,15 @@ export function ModelTable({
 												/>
 											</div>
 										</td>
-										<td className="px-4 py-1.5">
+										<td className="px-4 py-1.5 align-top">
 											<div className="flex flex-wrap gap-1">
 												{CAP_META.map((m) => (
 													<CapBadge key={m.key} caps={caps} capKey={m.key} />
 												))}
-												<OutputBadges
-													outputModalities={model.output_modalities}
-												/>
 											</div>
+										</td>
+										<td className="px-2 py-1.5 align-top">
+											<OutputIcons outputModalities={model.output_modalities} />
 										</td>
 										{showProviderCol && (
 											<td className="px-4 py-1.5 whitespace-nowrap text-sm text-gray-300">

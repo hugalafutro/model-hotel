@@ -273,8 +273,14 @@ export function ModelPicker({
 								onClick={() => {
 									setCapFilter((prev) => toggleInSet(prev, m.key));
 								}}
-								className={`ui-tab inline-flex items-center px-1.5 py-0.5 text-[10px] font-medium border transition-colors ${
-									isActive ? m.style : isDisabled ? CAP_DISABLED : m.muted
+								className={`ui-tab inline-flex items-center px-1.5 py-0.5 text-[10px] font-medium border transition-[color,background-color,border-color,filter] ${
+									isActive
+										? m.style
+										: isDisabled
+											? CAP_DISABLED
+											: capFilter.size > 0
+												? `${m.muted} grayscale hover:grayscale-0`
+												: m.muted
 								}`}
 							>
 								{t(m.labelKey)}

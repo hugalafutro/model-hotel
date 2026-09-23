@@ -1066,6 +1066,7 @@
 			"sortByModelName": "Sorteer volgens modelnaam",
 			"model": "Model",
 			"capabilities": "Vermogens",
+			"outputs": "Uitsette",
 			"sortByProviderName": "Sorteer volgens verskaffernaam",
 			"provider": "Verskaffer",
 			"sortByDiscoveredDate": "Sorteer volgens ontdekkingdatum",
@@ -1079,9 +1080,11 @@
 		},
 		"disabledByDiscovery": "Nie sedert {{date}} deur die verskaffer gelys nie",
 		"outputPills": {
+			"text": "Teksuitset",
 			"image": "Beeld-uitset",
 			"audio": "Klank-uitset",
 			"video": "Video-uitset",
+			"pdf": "PDF-uitset",
 			"embedding": "Embedding",
 			"rerank": "Rerank"
 		},

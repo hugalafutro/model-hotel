@@ -147,6 +147,7 @@ export function AppLogs() {
 		isLoadingInitial: isScrollLoading,
 		isLoadingBefore,
 		isLoadingAfter,
+		listVersion,
 		fetchNewer: scrollFetchNewer,
 		fetchOlder: scrollFetchOlder,
 		error: scrollError,
@@ -500,6 +501,7 @@ export function AppLogs() {
 								hasAfter={hasAfter}
 								isLoadingBefore={isLoadingBefore}
 								isLoadingAfter={isLoadingAfter}
+								listVersion={listVersion}
 								onFetchNewer={scrollFetchNewer}
 								onFetchOlder={scrollFetchOlder}
 								onRowClick={(entry) => setSelectedLog(entry)}

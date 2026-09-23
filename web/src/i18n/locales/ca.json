@@ -1102,6 +1102,7 @@
 			"sortByModelName": "Ordena per nom del model",
 			"model": "Model",
 			"capabilities": "Capacitats",
+			"outputs": "Sortides",
 			"sortByProviderName": "Ordena per nom del proveïdor",
 			"provider": "Proveïdor",
 			"sortByDiscoveredDate": "Ordena per data de descobriment",
@@ -1115,9 +1116,11 @@
 		},
 		"disabledByDiscovery": "No llistat pel proveïdor des de {{date}}",
 		"outputPills": {
+			"text": "Sortida de text",
 			"image": "Sortida d'imatge",
 			"audio": "Sortida d'àudio",
 			"video": "Sortida de vídeo",
+			"pdf": "Sortida PDF",
 			"embedding": "Embedding",
 			"rerank": "Rerank"
 		},

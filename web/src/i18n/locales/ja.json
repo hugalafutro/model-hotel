@@ -1066,6 +1066,7 @@
 			"sortByModelName": "モデル名でソート",
 			"model": "モデル",
 			"capabilities": "機能",
+			"outputs": "出力",
 			"sortByProviderName": "プロバイダ名でソート",
 			"provider": "プロバイダー",
 			"sortByDiscoveredDate": "発見日時でソート",
@@ -1079,9 +1080,11 @@
 		},
 		"disabledByDiscovery": "{{date}} 以降、プロバイダーのリストに掲載されていません",
 		"outputPills": {
+			"text": "テキスト出力",
 			"image": "画像出力",
 			"audio": "音声出力",
 			"video": "動画出力",
+			"pdf": "PDF出力",
 			"embedding": "埋め込み",
 			"rerank": "リランク"
 		},

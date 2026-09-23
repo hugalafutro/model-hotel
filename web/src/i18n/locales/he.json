@@ -1102,6 +1102,7 @@
 			"sortByModelName": "מיין לפי שם הדגם",
 			"model": "דגם",
 			"capabilities": "יכולות",
+			"outputs": "פלטים",
 			"sortByProviderName": "מיין לפי שם הספק",
 			"provider": "ספק",
 			"sortByDiscoveredDate": "מיין לפי תאריך הגילוי",
@@ -1115,9 +1116,11 @@
 		},
 		"disabledByDiscovery": "לא מופיע ברשימת הספק מאז {{date}}",
 		"outputPills": {
+			"text": "פלט טקסט",
 			"image": "פלט תמונה",
 			"audio": "פלט שמע",
 			"video": "פלט וידאו",
+			"pdf": "פלט PDF",
 			"embedding": "הטמעה",
 			"rerank": "דירוג מחדש"
 		},

@@ -1138,6 +1138,7 @@
 			"sortByModelName": "Seřadit podle názvu modelu",
 			"model": "Model",
 			"capabilities": "Možnosti",
+			"outputs": "Výstupy",
 			"sortByProviderName": "Seřadit podle názvu poskytovatele",
 			"provider": "Poskytovatel",
 			"sortByDiscoveredDate": "Seřadit podle data vyhledání",
@@ -1151,9 +1152,11 @@
 		},
 		"disabledByDiscovery": "Poskytovatelem není uveden od {{date}}",
 		"outputPills": {
+			"text": "Textový výstup",
 			"image": "Výstup obrázků",
 			"audio": "Výstup zvuku",
 			"video": "Výstup videa",
+			"pdf": "Výstup PDF",
 			"embedding": "Embedding",
 			"rerank": "Rerank"
 		},

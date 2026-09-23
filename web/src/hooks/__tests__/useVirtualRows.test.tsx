@@ -23,6 +23,7 @@ function Harness({
 	fetchOlder,
 	expose,
 	pinTop = false,
+	listVersion = 0,
 }: {
 	entries: Row[];
 	heights: Record<string, number>;
@@ -32,6 +33,7 @@ function Harness({
 	fetchOlder: () => void;
 	expose: (api: { handleScroll: () => void }) => void;
 	pinTop?: boolean;
+	listVersion?: number;
 }) {
 	const {
 		scrollRef,
@@ -42,6 +44,7 @@ function Harness({
 		endIndex,
 	} = useVirtualRows({
 		entries,
+		listVersion,
 		hasBefore,
 		hasAfter,
 		isLoadingBefore: false,
@@ -109,6 +112,40 @@ function scrollGeometry(
 }
 
 describe("useVirtualRows", () => {
+	// A refetch swaps the whole list without emptying it first; the fetch
+	// hook's listVersion, not the rows themselves, says it happened, so a new
+	// list whose first row survived the filter still starts at the top.
+	it.each([
+		["a new list version keeps the first row", rows(10, 50), 1, 0],
+		[
+			"rows are appended in the same version",
+			[...rows(10, 50), ...rows(50, 60)],
+			0,
+			900,
+		],
+	])(
+		"when %s, scrollTop ends at the expected offset",
+		(_, next, version, expected) => {
+			const props = {
+				heights: {},
+				hasBefore: false,
+				hasAfter: true,
+				fetchNewer: vi.fn(),
+				fetchOlder: vi.fn(),
+				expose: () => {},
+			};
+			const { rerender, getByTestId } = render(
+				<Harness entries={rows(10, 50)} listVersion={0} {...props} />,
+			);
+			const el = getByTestId("scroller") as HTMLDivElement;
+			scrollGeometry(el, 900, 4000);
+			act(() => {
+				rerender(<Harness entries={next} listVersion={version} {...props} />);
+			});
+			expect(el.scrollTop).toBe(expected);
+		},
+	);
+
 	it("keeps the viewport on the same rows when unmeasured rows are prepended", () => {
 		const { rerender, getByTestId } = render(
 			<Harness

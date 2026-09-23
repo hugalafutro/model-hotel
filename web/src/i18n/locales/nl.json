@@ -1066,6 +1066,7 @@
 			"sortByModelName": "Sorteren op modelnaam",
 			"model": "Model",
 			"capabilities": "Mogelijkheden",
+			"outputs": "Uitvoer",
 			"sortByProviderName": "Sorteren op providernaam",
 			"provider": "Leverancier",
 			"sortByDiscoveredDate": "Sorteren op ontdekte datum",
@@ -1079,9 +1080,11 @@
 		},
 		"disabledByDiscovery": "Niet vermeld door de provider sinds {{date}}",
 		"outputPills": {
+			"text": "Tekstuitvoer",
 			"image": "Beelduitvoer",
 			"audio": "Audio-uitvoer",
 			"video": "Video-uitvoer",
+			"pdf": "PDF-uitvoer",
 			"embedding": "Embedding",
 			"rerank": "Rerank"
 		},

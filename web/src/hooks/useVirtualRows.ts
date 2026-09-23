@@ -11,6 +11,7 @@ const EDGE_THRESHOLD_PX = 500;
  */
 export function useVirtualRows<T extends { id?: string }>({
 	entries,
+	listVersion,
 	hasBefore,
 	hasAfter,
 	isLoadingBefore,
@@ -22,6 +23,8 @@ export function useVirtualRows<T extends { id?: string }>({
 	pinTop = false,
 }: {
 	entries: T[];
+	/** useBidirectionalFetch's listVersion: a change scrolls back to the top. */
+	listVersion: number;
 	hasBefore: boolean;
 	hasAfter: boolean;
 	isLoadingBefore: boolean;
@@ -117,6 +120,19 @@ export function useVirtualRows<T extends { id?: string }>({
 		}
 		prevEntriesRef.current = entries;
 	}, [entries, virtualizer, scrollEl, estimateSize, getItemKey, pinTop]);
+
+	// A new list version replaced the rows wholesale (see useBidirectionalFetch
+	// listVersion): start it at the top. Declared after the prepend correction
+	// so a replacement that happens to look like a prepend still ends at 0.
+	const prevListVersionRef = useRef(listVersion);
+	useLayoutEffect(() => {
+		if (listVersion === prevListVersionRef.current) return;
+		prevListVersionRef.current = listVersion;
+		if (scrollEl && scrollEl.scrollTop !== 0) {
+			scrollEl.scrollTop = 0;
+			forceRerender((c) => c + 1);
+		}
+	}, [listVersion, scrollEl]);
 
 	const [paddingTop, paddingBottom] =
 		virtualItems.length > 0

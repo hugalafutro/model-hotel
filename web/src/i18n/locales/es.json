@@ -1102,6 +1102,7 @@
 			"sortByModelName": "Ordenar por nombre del modelo",
 			"model": "Modelo",
 			"capabilities": "Capacidades",
+			"outputs": "Salidas",
 			"sortByProviderName": "Ordenar por nombre del proveedor",
 			"provider": "Proveedor",
 			"sortByDiscoveredDate": "Ordenar por fecha de descubrimiento",
@@ -1115,9 +1116,11 @@
 		},
 		"disabledByDiscovery": "No aparece en la lista del proveedor desde {{date}}",
 		"outputPills": {
+			"text": "Salida de texto",
 			"image": "Salida de imagen",
 			"audio": "Salida de audio",
 			"video": "Salida de vídeo",
+			"pdf": "Salida PDF",
 			"embedding": "Embedding",
 			"rerank": "Rerank"
 		},
