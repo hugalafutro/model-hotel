@@ -50,6 +50,8 @@
 		"manuallyDisabled": "מושבת ידנית",
 		"loadingNewer": "טוען רשומות חדשות יותר…",
 		"loadingOlder": "טוען רשומות ישנות יותר…",
+		"showingRange": "מוצגים {{start}}–{{end}} מתוך {{total}}",
+		"showingNone": "מוצגים 0 מתוך {{total}}",
 		"model": "מודל",
 		"models": "מודלים",
 		"tokens": "אסימונים",
@@ -2965,16 +2967,14 @@
 			"serverError": "שגיאת שרת"
 		},
 		"virtualLogTable": {
-			"noLogsFound": "לא נמצאו יומנים",
-			"zeroEntries": "0 רשומות"
+			"noLogsFound": "לא נמצאו יומנים"
 		},
 		"virtualAppLogTable": {
 			"noEntriesFound": "לא נמצאו רשומות ביומן",
 			"timeDate": "שעה/תאריך",
 			"level": "רמה",
 			"source": "מקור",
-			"message": "הודעה",
-			"zeroEntries": "0 רשומות"
+			"message": "הודעה"
 		},
 		"applyRecommendedButton": {
 			"loading": "טוען…",
@@ -3425,7 +3425,6 @@
 			"remote": "כתובת",
 			"status": "סטטוס"
 		},
-		"showing": "מוצגות {{count}} מתוך {{total}}",
 		"loadMore": "טעינת עוד",
 		"emptyState": "אין עדיין רשומות ביקורת. פעולות ניהול משנות יופיעו כאן.",
 		"toast": {

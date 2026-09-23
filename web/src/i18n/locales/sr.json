@@ -50,6 +50,8 @@
 		"manuallyDisabled": "Ручно онемогућено",
 		"loadingNewer": "Учитавање новијих…",
 		"loadingOlder": "Учитавање старијих…",
+		"showingRange": "Приказано {{start}}–{{end}} од {{total}}",
+		"showingNone": "Приказано 0 од {{total}}",
 		"model": "модел",
 		"models": "модели",
 		"tokens": "Токени",
@@ -2965,16 +2967,14 @@
 			"serverError": "Грешка на серверу"
 		},
 		"virtualLogTable": {
-			"noLogsFound": "Није пронађен ниједан лог",
-			"zeroEntries": "0 уноса"
+			"noLogsFound": "Није пронађен ниједан лог"
 		},
 		"virtualAppLogTable": {
 			"noEntriesFound": "Није пронађен ниједан запис у дневнику",
 			"timeDate": "Време/Датум",
 			"level": "Ниво",
 			"source": "Извор",
-			"message": "Порука",
-			"zeroEntries": "0 уноса"
+			"message": "Порука"
 		},
 		"applyRecommendedButton": {
 			"loading": "Учитавање…",
@@ -3425,7 +3425,6 @@
 			"remote": "Удаљена адреса",
 			"status": "Status"
 		},
-		"showing": "Приказано {{count}} од {{total}}",
 		"loadMore": "Учитај још",
 		"emptyState": "Још нема ревизијских записа. Административне радње које праве измене појавиће се овде.",
 		"toast": {

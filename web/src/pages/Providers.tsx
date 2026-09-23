@@ -342,7 +342,10 @@ export function Providers() {
 				</div>
 			</div>
 
-			<div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+			{/* A third column only above 1920px wide (3xl): the content column
+			    grows with the screen there, and two cards per row turn long and
+			    empty. */}
+			<div className="grid grid-cols-1 md:grid-cols-2 3xl:grid-cols-3 gap-6">
 				{filteredProviders?.map((provider) => (
 					<ProviderCard
 						key={provider.id}

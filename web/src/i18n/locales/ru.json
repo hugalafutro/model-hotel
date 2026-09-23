@@ -50,6 +50,8 @@
 		"manuallyDisabled": "Вручную отключена",
 		"loadingNewer": "Загрузка новых…",
 		"loadingOlder": "Загрузка старых…",
+		"showingRange": "Показано {{start}}–{{end}} из {{total}}",
+		"showingNone": "Показано 0 из {{total}}",
 		"model": "модель",
 		"models": "модели",
 		"tokens": "Токены",
@@ -3030,16 +3032,14 @@
 			"serverError": "Ошибка сервера"
 		},
 		"virtualLogTable": {
-			"noLogsFound": "Логи не найдены",
-			"zeroEntries": "0 записей"
+			"noLogsFound": "Логи не найдены"
 		},
 		"virtualAppLogTable": {
 			"noEntriesFound": "Записи журнала не найдены",
 			"timeDate": "Время/Дата",
 			"level": "Уровень",
 			"source": "Источник",
-			"message": "Сообщение",
-			"zeroEntries": "0 записей"
+			"message": "Сообщение"
 		},
 		"applyRecommendedButton": {
 			"loading": "Загрузка…",
@@ -3493,7 +3493,6 @@
 			"remote": "Адрес",
 			"status": "Статус"
 		},
-		"showing": "Показано {{count}} из {{total}}",
 		"loadMore": "Загрузить ещё",
 		"emptyState": "Записей аудита пока нет. Действия администраторов, вносящие изменения, появятся здесь.",
 		"toast": {

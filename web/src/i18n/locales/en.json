@@ -50,6 +50,8 @@
 		"manuallyDisabled": "Manually Disabled",
 		"loadingNewer": "Loading newer…",
 		"loadingOlder": "Loading older…",
+		"showingRange": "Showing {{start}}–{{end}} of {{total}}",
+		"showingNone": "Showing 0 of {{total}}",
 		"model": "model",
 		"models": "models",
 		"tokens": "Tokens",
@@ -2900,16 +2902,14 @@
 			"serverError": "Server Error"
 		},
 		"virtualLogTable": {
-			"noLogsFound": "No logs found",
-			"zeroEntries": "0 entries"
+			"noLogsFound": "No logs found"
 		},
 		"virtualAppLogTable": {
 			"noEntriesFound": "No log entries found",
 			"timeDate": "Time/Date",
 			"level": "Level",
 			"source": "Source",
-			"message": "Message",
-			"zeroEntries": "0 entries"
+			"message": "Message"
 		},
 		"applyRecommendedButton": {
 			"loading": "Loading…",
@@ -3357,7 +3357,6 @@
 			"remote": "Remote",
 			"status": "Status"
 		},
-		"showing": "Showing {{count}} of {{total}}",
 		"loadMore": "Load more",
 		"emptyState": "No audit entries yet. Mutating admin actions will appear here.",
 		"toast": {

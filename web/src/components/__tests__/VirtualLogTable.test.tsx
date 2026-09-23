@@ -60,9 +60,9 @@ describe("VirtualLogTable", () => {
 			expect(screen.getByText("No logs found")).toBeInTheDocument();
 		});
 
-		it('renders "0 entries" in footer when entries is empty', () => {
+		it('renders "Showing 0 of N" in footer when entries is empty', () => {
 			renderWithProviders(<VirtualLogTable {...defaultProps} />);
-			expect(screen.getByText("0 entries")).toBeInTheDocument();
+			expect(screen.getByText(/^Showing 0 of /)).toBeInTheDocument();
 		});
 
 		it("renders loading newer indicator when isLoadingBefore=true and entries empty", () => {
@@ -683,7 +683,7 @@ describe("VirtualLogTable", () => {
 	});
 
 	describe("Pagination footer", () => {
-		it('renders "X–Y / total" pagination in footer', () => {
+		it('renders "Showing X–Y of total" in footer', () => {
 			const entries = Array.from({ length: 10 }, (_, i) =>
 				createLogTableEntry({ id: `log-${i}` }),
 			);
@@ -701,13 +701,13 @@ describe("VirtualLogTable", () => {
 				<VirtualLogTable {...defaultProps} entries={entries} total={100} />,
 			);
 
-			// Should show "1–10 / 100"
-			expect(screen.getByText("1–10 / 100")).toBeInTheDocument();
+			// Should show "Showing 1–10 of 100"
+			expect(screen.getByText("Showing 1–10 of 100")).toBeInTheDocument();
 		});
 
-		it('renders "0 entries" when entries empty', () => {
+		it('renders "Showing 0 of N" when entries empty', () => {
 			renderWithProviders(<VirtualLogTable {...defaultProps} />);
-			expect(screen.getByText("0 entries")).toBeInTheDocument();
+			expect(screen.getByText(/^Showing 0 of /)).toBeInTheDocument();
 		});
 
 		it("renders loading indicators in footer when populated", () => {

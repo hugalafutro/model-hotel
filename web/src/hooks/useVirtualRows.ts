@@ -23,8 +23,12 @@ export function useVirtualRows<T extends { id?: string }>({
 	pinTop = false,
 }: {
 	entries: T[];
-	/** useBidirectionalFetch's listVersion: a change scrolls back to the top. */
-	listVersion: number;
+	/**
+	 * Changes whenever the rows are replaced wholesale (useBidirectionalFetch's
+	 * listVersion, or any other token of which list is shown): a change
+	 * scrolls back to the top.
+	 */
+	listVersion: number | string;
 	hasBefore: boolean;
 	hasAfter: boolean;
 	isLoadingBefore: boolean;
@@ -170,9 +174,86 @@ export function useVirtualRows<T extends { id?: string }>({
 		fetchOlder,
 	]);
 
-	const startIndex = virtualItems.length > 0 ? virtualItems[0].index + 1 : 0;
-	const endIndex =
-		virtualItems.length > 0
+	// Loading more waits for a scroll, and a list shorter than its box cannot
+	// scroll: on a tall or zoomed-out window the first page can fit whole and
+	// the rest would never load. Whenever the rows or the box change, pull the
+	// next page while the list still does not fill the box. One attempt per
+	// list state (which list, how many rows): a failed fetch leaves both
+	// unchanged, so it is not retried in a loop, only after new rows or the
+	// box actually changing size.
+	const fillAttemptRef = useRef<string | null>(null);
+	const fillRef = useRef<(retry: boolean) => void>(() => {});
+	useLayoutEffect(() => {
+		if (!scrollEl) return;
+		const fill = (retry: boolean) => {
+			const state = `${listVersion}:${entries.length}`;
+			if (
+				hasAfter &&
+				!isLoadingAfter &&
+				entries.length > 0 &&
+				(retry || fillAttemptRef.current !== state) &&
+				// No height means no layout (hidden, or not yet laid out): nothing
+				// to fill yet.
+				scrollEl.clientHeight > 0 &&
+				scrollEl.scrollHeight <= scrollEl.clientHeight
+			) {
+				fillAttemptRef.current = state;
+				fetchOlder();
+			}
+		};
+		fillRef.current = fill;
+		fill(false);
+	}, [
+		scrollEl,
+		listVersion,
+		entries.length,
+		hasAfter,
+		isLoadingAfter,
+		fetchOlder,
+	]);
+
+	// The box can grow with the window unchanged (a banner comes or goes, the
+	// filter bar re-wraps): watch the box where the browser can, and the
+	// window as the fallback. One watcher per box, apart from the fill state,
+	// and it retries only when the size really changed: a ResizeObserver
+	// reports once on observe(), and treating that as a resize would retry a
+	// failed fetch every time the watcher was set up.
+	useLayoutEffect(() => {
+		if (!scrollEl) return;
+		let width = scrollEl.clientWidth;
+		let height = scrollEl.clientHeight;
+		const onResize = () => {
+			if (scrollEl.clientWidth === width && scrollEl.clientHeight === height)
+				return;
+			width = scrollEl.clientWidth;
+			height = scrollEl.clientHeight;
+			fillRef.current(true);
+		};
+		const observer =
+			typeof ResizeObserver === "undefined"
+				? null
+				: new ResizeObserver(onResize);
+		observer?.observe(scrollEl);
+		window.addEventListener("resize", onResize);
+		return () => {
+			observer?.disconnect();
+			window.removeEventListener("resize", onResize);
+		};
+	}, [scrollEl]);
+
+	// The rows actually on screen, 1-based, for the footer. virtualItems also
+	// holds the overscan rendered off screen on either side, so it would
+	// overstate the range; the virtualizer's own range does not. A virtualizer
+	// that has not measured a range yet falls back to the rendered rows.
+	const range = virtualizer.range;
+	const startIndex = range
+		? range.startIndex + 1
+		: virtualItems.length > 0
+			? virtualItems[0].index + 1
+			: 0;
+	const endIndex = range
+		? range.endIndex + 1
+		: virtualItems.length > 0
 			? virtualItems[virtualItems.length - 1].index + 1
 			: 0;
 

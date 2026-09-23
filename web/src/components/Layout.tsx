@@ -1,5 +1,5 @@
 import { useTranslation } from "react-i18next";
-import { Link, useLocation } from "react-router";
+import { Link } from "react-router";
 import { AlertTriangle } from "@/lib/icons";
 import { useTheme } from "../context/ThemeContext";
 import { useManaged } from "../hooks/useManaged";
@@ -11,7 +11,6 @@ import { useCircuitBreakerStatus } from "./layout/useCircuitBreakerStatus";
 import { useDiscrepancyModal } from "./layout/useDiscrepancyModal";
 import { useLogout } from "./layout/useLogout";
 import { useNavigation } from "./layout/useNavigation";
-import { LOG_PAGE_MAX_W } from "./logTableWidths";
 import { ModelDiscrepancyModal } from "./ModelDiscrepancyModal";
 import { QuotaModalsHost } from "./QuotaModalsHost";
 
@@ -39,7 +38,6 @@ function ReadOnlyBanner() {
 
 export function Layout({ children }: LayoutProps) {
 	const { t } = useTranslation();
-	const wideContent = useLocation().pathname.startsWith("/logs");
 	const { uiStyle } = useTheme();
 	// Separator between paired labels/counts in the sidebar. The terminal theme
 	// keeps a literal "/" (fits its monospace aesthetic); other themes use a
@@ -83,13 +81,13 @@ export function Layout({ children }: LayoutProps) {
 			</aside>
 
 			<main className="flex-1 ui-main overflow-auto">
-				{/* The request log's thirteen fitted columns need more than the
-				    80rem every other page reads well at, so that route alone gets
-				    a wider column instead of a horizontal scrollbar. The width
-				    lives beside the column widths it has to clear. */}
-				<div
-					className={`p-2 mx-auto h-full ${wideContent ? LOG_PAGE_MAX_W : "max-w-7xl"}`}
-				>
+				{/* One content column for every page, so the width never jumps
+				    between them. It grows slower than the screen (48rem + 38vw),
+				    so the side gaps widen with the resolution instead of the page
+				    stretching; the 88rem floor clears the request log's fitted
+				    columns. A flex column, so a full-height table page fills what
+				    is left under the read-only banner with flex-1 min-h-0. */}
+				<div className="p-2 mx-auto h-full flex flex-col max-w-[max(88rem,calc(48rem+38vw))]">
 					<ReadOnlyBanner />
 					{children}
 				</div>

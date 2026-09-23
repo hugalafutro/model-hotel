@@ -50,6 +50,8 @@
 		"manuallyDisabled": "Вручну вимкнено",
 		"loadingNewer": "Завантаження новіших…",
 		"loadingOlder": "Завантаження старіших…",
+		"showingRange": "Показано {{start}}–{{end}} з {{total}}",
+		"showingNone": "Показано 0 з {{total}}",
 		"model": "модель",
 		"models": "моделі",
 		"tokens": "Токени",
@@ -3030,16 +3032,14 @@
 			"serverError": "Помилка сервера"
 		},
 		"virtualLogTable": {
-			"noLogsFound": "Не знайдено журналів",
-			"zeroEntries": "0 записів"
+			"noLogsFound": "Не знайдено журналів"
 		},
 		"virtualAppLogTable": {
 			"noEntriesFound": "Не знайдено записів у журналі",
 			"timeDate": "Час/Дата",
 			"level": "Рівень",
 			"source": "Джерело",
-			"message": "Повідомлення",
-			"zeroEntries": "0 записів"
+			"message": "Повідомлення"
 		},
 		"applyRecommendedButton": {
 			"loading": "Завантаження…",
@@ -3493,7 +3493,6 @@
 			"remote": "Адреса",
 			"status": "Статус"
 		},
-		"showing": "Показано {{count}} з {{total}}",
 		"loadMore": "Завантажити ще",
 		"emptyState": "Записів аудиту поки немає. Дії адміністраторів, що вносять зміни, з'являться тут.",
 		"toast": {

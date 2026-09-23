@@ -50,6 +50,8 @@
 		"manuallyDisabled": "Elle devre dışı bırakıldı",
 		"loadingNewer": "Daha yenileri yükleniyor…",
 		"loadingOlder": "Daha eskiler yükleniyor…",
+		"showingRange": "{{total}} kayıttan {{start}}–{{end}} gösteriliyor",
+		"showingNone": "{{total}} kayıttan 0 gösteriliyor",
 		"model": "model",
 		"models": "modeller",
 		"tokens": "Token",
@@ -2900,16 +2902,14 @@
 			"serverError": "Sunucu Hatası"
 		},
 		"virtualLogTable": {
-			"noLogsFound": "Herhangi bir günlük bulunamadı",
-			"zeroEntries": "0 kayıt"
+			"noLogsFound": "Herhangi bir günlük bulunamadı"
 		},
 		"virtualAppLogTable": {
 			"noEntriesFound": "Günlük girdisi bulunamadı",
 			"timeDate": "Saat/Tarih",
 			"level": "Seviye",
 			"source": "Kaynak",
-			"message": "Mesaj",
-			"zeroEntries": "0 kayıt"
+			"message": "Mesaj"
 		},
 		"applyRecommendedButton": {
 			"loading": "… yükleniyor",
@@ -3357,7 +3357,6 @@
 			"remote": "Adres",
 			"status": "Durum"
 		},
-		"showing": "{{total}} kayıttan {{count}} tanesi gösteriliyor",
 		"loadMore": "Daha fazla yükle",
 		"emptyState": "Henüz denetim girdisi yok. Değişiklik yapan yönetici işlemleri burada görünecek.",
 		"toast": {

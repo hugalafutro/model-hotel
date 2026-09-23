@@ -50,6 +50,8 @@
 		"manuallyDisabled": "Kézi letiltás",
 		"loadingNewer": "Újabb bejegyzések betöltése:…",
 		"loadingOlder": "Régebbi bejegyzések betöltése…",
+		"showingRange": "{{start}}–{{end}} / {{total}} megjelenítve",
+		"showingNone": "0 / {{total}} megjelenítve",
 		"model": "modell",
 		"models": "modellek",
 		"tokens": "Tokenek",
@@ -2900,16 +2902,14 @@
 			"serverError": "Szerverhiba"
 		},
 		"virtualLogTable": {
-			"noLogsFound": "Nem találtam naplófájlokat",
-			"zeroEntries": "0 találat"
+			"noLogsFound": "Nem találtam naplófájlokat"
 		},
 		"virtualAppLogTable": {
 			"noEntriesFound": "Nem találtam naplóbejegyzéseket",
 			"timeDate": "Idő/Dátum",
 			"level": "Szint",
 			"source": "Forrás",
-			"message": "Üzenet",
-			"zeroEntries": "0 találat"
+			"message": "Üzenet"
 		},
 		"applyRecommendedButton": {
 			"loading": "… betöltése",
@@ -3357,7 +3357,6 @@
 			"remote": "Cím",
 			"status": "Állapot"
 		},
-		"showing": "{{count}} / {{total}} megjelenítve",
 		"loadMore": "Továbbiak betöltése",
 		"emptyState": "Még nincsenek auditbejegyzések. A módosító adminisztrátori műveletek itt jelennek meg.",
 		"toast": {

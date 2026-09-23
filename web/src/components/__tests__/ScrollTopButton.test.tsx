@@ -49,8 +49,18 @@ describe("ScrollTopButton", () => {
 		expect(screen.queryByTestId("scroll-top-button")).toBeNull();
 	});
 
+	it("jumps instead of animating from far down the list", () => {
+		// Far down, rows on the way up are unmeasured and the virtualizer's
+		// corrections would cancel a smooth scroll part way: jump instead.
+		const { el } = makeScroller(400);
+		renderWithProviders(<ScrollTopButton scrollEl={el} />);
+		scrollTo(el, 5000);
+		fireEvent.click(screen.getByTestId("scroll-top-button"));
+		expect(el.scrollTo).toHaveBeenCalledWith({ top: 0, behavior: "auto" });
+	});
+
 	it("re-checks the threshold when the viewport resizes", () => {
-		// The scroller is sized in dvh, so shrinking the window can put a
+		// The scroller's height follows the viewport, so shrinking the window can put a
 		// position that was inside the first screenful past it, with no scroll
 		// event of its own to notice.
 		const { el, resizeTo } = makeScroller(400);

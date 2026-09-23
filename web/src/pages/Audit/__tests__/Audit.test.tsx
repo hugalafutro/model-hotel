@@ -1,38 +1,37 @@
-import { act, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { HttpResponse, http } from "msw";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import type { AuditEntry } from "../../../api/types";
 import { server } from "../../../test/mocks/server";
 import { renderWithProviders } from "../../../test/utils";
 import { Audit } from "../index";
 
-// Controllable IntersectionObserver: the page arms one on its scroll-foot
-// sentinel, and tests call trigger() to simulate it scrolling into view.
-class MockIntersectionObserver {
-	static instances: MockIntersectionObserver[] = [];
-	private readonly cb: IntersectionObserverCallback;
-	private elements: Element[] = [];
-	constructor(cb: IntersectionObserverCallback) {
-		this.cb = cb;
-		MockIntersectionObserver.instances.push(this);
-	}
-	observe(el: Element) {
-		this.elements.push(el);
-	}
-	unobserve() {}
-	disconnect() {}
-	takeRecords() {
-		return [];
-	}
-	trigger(isIntersecting = true) {
-		this.cb(
-			this.elements.map(
-				(target) => ({ isIntersecting, target }) as IntersectionObserverEntry,
-			),
-			this as unknown as IntersectionObserver,
-		);
-	}
+// Scroll mode is a virtual table, and jsdom lays nothing out: give the scroll
+// box (the only tabIndex=-1 element) and each row a height, so the virtualizer
+// mounts rows the way a browser would.
+function mockLayout() {
+	const original = Object.getOwnPropertyDescriptor(
+		HTMLElement.prototype,
+		"offsetHeight",
+	);
+	Object.defineProperty(HTMLElement.prototype, "offsetHeight", {
+		configurable: true,
+		get(this: HTMLElement) {
+			if (this.getAttribute("tabindex") === "-1") return 600;
+			if (this.tagName === "TR") return 45;
+			return 0;
+		},
+	});
+	return () => {
+		if (original)
+			Object.defineProperty(HTMLElement.prototype, "offsetHeight", original);
+	};
+}
+
+/** The scroll box holding the rows. */
+function scroller(rowText: string): HTMLElement {
+	return screen.getByText(rowText).closest('[tabindex="-1"]') as HTMLElement;
 }
 
 function entry(overrides: Partial<AuditEntry>): AuditEntry {
@@ -51,15 +50,15 @@ function entry(overrides: Partial<AuditEntry>): AuditEntry {
 }
 
 describe("Audit page", () => {
+	let restoreLayout: () => void = () => {};
 	beforeEach(() => {
 		server.resetHandlers();
 		localStorage.clear();
-		MockIntersectionObserver.instances = [];
-		vi.stubGlobal("IntersectionObserver", MockIntersectionObserver);
+		restoreLayout = mockLayout();
 	});
 
 	afterEach(() => {
-		vi.unstubAllGlobals();
+		restoreLayout();
 	});
 
 	it("renders entries with actor, action, entity, remote address, and status", async () => {
@@ -150,7 +149,7 @@ describe("Audit page", () => {
 		});
 	});
 
-	it("appends the next page when the scroll sentinel comes into view", async () => {
+	it("appends the next page when scrolled to the foot", async () => {
 		server.use(
 			http.get("/api/audit", ({ request }) => {
 				// Scroll mode pages by keyset cursor, not offset, so inserts at the top
@@ -174,16 +173,50 @@ describe("Audit page", () => {
 		renderWithProviders(<Audit />);
 
 		expect(await screen.findByText("/first-page")).toBeInTheDocument();
-		// Simulate the foot sentinel scrolling into view -> next page loads.
-		act(() => {
-			MockIntersectionObserver.instances.at(-1)?.trigger();
-		});
+		// A scroll with the foot in view (jsdom: no scroll height) -> next page.
+		fireEvent.scroll(scroller("/first-page"));
 		expect(await screen.findByText("/second-page")).toBeInTheDocument();
 		// The first page stays appended above the second.
 		expect(screen.getByText("/first-page")).toBeInTheDocument();
 	});
 
-	it("does not fetch the next page when the sentinel is not intersecting", async () => {
+	it("names the rows on screen, not the rows loaded, and offers a way back up", async () => {
+		server.use(
+			http.get("/api/audit", () =>
+				HttpResponse.json({
+					entries: Array.from({ length: 30 }, (_, i) =>
+						entry({ route: `/row-${i}` }),
+					),
+					total: 30,
+					has_more: false,
+				}),
+			),
+		);
+		renderWithProviders(<Audit />);
+		expect(await screen.findByText("/row-0")).toBeInTheDocument();
+
+		// A 600px box of 45px rows holds far fewer than the 30 loaded.
+		const status = screen.getByText(/^Showing 1–\d+ of 30$/);
+		const shown = Number(/–(\d+)/.exec(status.textContent ?? "")?.[1]);
+		expect(shown).toBeGreaterThan(0);
+		expect(shown).toBeLessThan(30);
+
+		// More than one screen down, the back-to-top button appears.
+		const box = scroller("/row-0");
+		Object.defineProperty(box, "scrollHeight", {
+			configurable: true,
+			value: 1350,
+		});
+		Object.defineProperty(box, "clientHeight", {
+			configurable: true,
+			value: 600,
+		});
+		box.scrollTop = 700;
+		fireEvent.scroll(box);
+		expect(await screen.findByTestId("scroll-top-button")).toBeInTheDocument();
+	});
+
+	it("does not fetch the next page on a scroll away from the foot", async () => {
 		let requests = 0;
 		server.use(
 			http.get("/api/audit", ({ request }) => {
@@ -201,11 +234,18 @@ describe("Audit page", () => {
 
 		expect(await screen.findByText("/first-page")).toBeInTheDocument();
 		const requestsAfterFirst = requests;
-		// The sentinel reports as leaving view (isIntersecting false): the observer
-		// must no-op, not pull another page.
-		act(() => {
-			MockIntersectionObserver.instances.at(-1)?.trigger(false);
+		// A long list scrolled near its top: the foot is out of reach, so the
+		// scroll must not pull another page.
+		const box = scroller("/first-page");
+		Object.defineProperty(box, "scrollHeight", {
+			configurable: true,
+			value: 5000,
 		});
+		Object.defineProperty(box, "clientHeight", {
+			configurable: true,
+			value: 600,
+		});
+		fireEvent.scroll(box);
 		await waitFor(() => {
 			expect(requests).toBe(requestsAfterFirst);
 		});
@@ -241,9 +281,7 @@ describe("Audit page", () => {
 		renderWithProviders(<Audit />);
 
 		expect(await screen.findByText("/first-page")).toBeInTheDocument();
-		act(() => {
-			MockIntersectionObserver.instances.at(-1)?.trigger();
-		});
+		fireEvent.scroll(scroller("/first-page"));
 		// Spinner is visible while the next page is in flight.
 		expect(
 			await screen.findByRole("status", { name: "Loading" }),
@@ -323,6 +361,44 @@ describe("Audit page", () => {
 		// Jump to page two -> the next offset is requested.
 		await user.click(await screen.findByRole("button", { name: "2" }));
 		expect(await screen.findByText("/page-two")).toBeInTheDocument();
+	});
+
+	it("keeps the footer on the rows shown while the next page loads", async () => {
+		let releasePageTwo: () => void = () => {};
+		const pageTwoHeld = new Promise<void>((r) => {
+			releasePageTwo = r;
+		});
+		server.use(
+			http.get("/api/audit", async ({ request }) => {
+				const offset = Number(
+					new URL(request.url).searchParams.get("offset") ?? "0",
+				);
+				if (offset > 0) await pageTwoHeld;
+				return HttpResponse.json({
+					entries: [entry({ route: offset > 0 ? "/page-two" : "/page-one" })],
+					total: 60,
+					has_more: offset === 0,
+				});
+			}),
+		);
+		const { user } = renderWithProviders(<Audit />);
+		expect(await screen.findByText("/page-one")).toBeInTheDocument();
+		await user.click(
+			screen.getByTitle(
+				"Click to toggle between pagination and infinite scrolling.",
+			),
+		);
+		await user.click(await screen.findByRole("button", { name: "2" }));
+
+		// Page one's row is still on screen, so the footer still describes it,
+		// not page two's offset applied to page one's rows.
+		expect(screen.getByText("/page-one")).toBeInTheDocument();
+		expect(screen.getByText("Showing 1–1 of 60")).toBeInTheDocument();
+
+		act(() => releasePageTwo());
+		expect(await screen.findByText("/page-two")).toBeInTheDocument();
+		expect(screen.queryByText("Showing 1–1 of 60")).toBeNull();
+		expect(screen.getByText(/^Showing (\d+)–\1 of 60$/)).toBeInTheDocument();
 	});
 
 	it("purges after confirmation", async () => {

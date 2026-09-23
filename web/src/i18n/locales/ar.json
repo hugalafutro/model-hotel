@@ -50,6 +50,8 @@
 		"manuallyDisabled": "معطل يدويًا",
 		"loadingNewer": "تحميل أحدث…",
 		"loadingOlder": "تحميل القديم…",
+		"showingRange": "عرض {{start}}–{{end}} من {{total}}",
+		"showingNone": "عرض 0 من {{total}}",
 		"model": "نموذج",
 		"models": "النماذج",
 		"tokens": "الرموز",
@@ -3160,16 +3162,14 @@
 			"serverError": "خطأ في الخادم"
 		},
 		"virtualLogTable": {
-			"noLogsFound": "لا توجد سجلات",
-			"zeroEntries": "0 إدخالات"
+			"noLogsFound": "لا توجد سجلات"
 		},
 		"virtualAppLogTable": {
 			"noEntriesFound": "لم يتم العثور على إدخالات السجل",
 			"timeDate": "الوقت/التاريخ",
 			"level": "المستوى",
 			"source": "المصدر",
-			"message": "رسالة",
-			"zeroEntries": "0 إدخالات"
+			"message": "رسالة"
 		},
 		"applyRecommendedButton": {
 			"loading": "جاري التحميل…",
@@ -3629,7 +3629,6 @@
 			"remote": "العنوان",
 			"status": "الحالة"
 		},
-		"showing": "عرض {{count}} من {{total}}",
 		"loadMore": "تحميل المزيد",
 		"emptyState": "لا توجد إدخالات تدقيق بعد. ستظهر هنا إجراءات المشرف التي تُجري تغييرات.",
 		"toast": {

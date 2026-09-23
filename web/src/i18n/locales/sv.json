@@ -50,6 +50,8 @@
 		"manuallyDisabled": "Manuellt inaktiverad",
 		"loadingNewer": "Laddar nyare…",
 		"loadingOlder": "Laddar äldre…",
+		"showingRange": "Visar {{start}}–{{end}} av {{total}}",
+		"showingNone": "Visar 0 av {{total}}",
 		"model": "modell",
 		"models": "modeller",
 		"tokens": "Tokens",
@@ -2900,16 +2902,14 @@
 			"serverError": "Serverfel"
 		},
 		"virtualLogTable": {
-			"noLogsFound": "Inga loggar hittades",
-			"zeroEntries": "0 poster"
+			"noLogsFound": "Inga loggar hittades"
 		},
 		"virtualAppLogTable": {
 			"noEntriesFound": "Inga loggposter hittades",
 			"timeDate": "Tid/datum",
 			"level": "Nivå",
 			"source": "Källa",
-			"message": "Meddelande",
-			"zeroEntries": "0 poster"
+			"message": "Meddelande"
 		},
 		"applyRecommendedButton": {
 			"loading": "Laddar…",
@@ -3357,7 +3357,6 @@
 			"remote": "Adress",
 			"status": "Status"
 		},
-		"showing": "Visar {{count}} av {{total}}",
 		"loadMore": "Ladda fler",
 		"emptyState": "Inga granskningsposter ännu. Admin-åtgärder som gör ändringar visas här.",
 		"toast": {

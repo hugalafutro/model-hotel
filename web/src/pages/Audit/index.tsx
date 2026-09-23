@@ -4,7 +4,7 @@ import {
 	useQuery,
 	useQueryClient,
 } from "@tanstack/react-query";
-import { useEffect, useRef, useState } from "react";
+import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { History } from "@/lib/icons";
 import { api } from "../../api/client";
@@ -22,11 +22,15 @@ import { FilterDropdown } from "../../components/FilterDropdown";
 import { FilterInput } from "../../components/FilterInput";
 import { LoadingSpinner } from "../../components/LoadingSpinner";
 import { PageHeader } from "../../components/PageHeader";
+import { ScrollTopButton } from "../../components/ScrollTopButton";
+import { TableFooter } from "../../components/TableFooter";
 import { ViewModeToggle } from "../../components/ViewModeToggle";
 import { useToast } from "../../context/ToastContext";
 import { useDebounce } from "../../hooks/useDebounce";
 import { useLocalStorage } from "../../hooks/useLocalStorage";
 import { useModalNav } from "../../hooks/useModalNav";
+import { useVirtualRows } from "../../hooks/useVirtualRows";
+import { onActivateKey } from "../../utils/a11y";
 import { formatRelativeTime } from "../../utils/format";
 
 const METHODS = ["POST", "PUT", "PATCH", "DELETE"] as const;
@@ -35,8 +39,8 @@ const PAGE_SIZE = 50;
 /**
  * Admin-only audit trail: who did what on the dashboard API, newest first, with
  * actor/method filters. Two viewing modes matching the Logs pages: infinite
- * scroll (default) that appends pages as you reach the bottom, and a paginated
- * static table. The server records mutations only and never stores request
+ * scroll (default), a virtual table that appends pages as you reach the
+ * bottom, and a paginated static table. The server records mutations only and never stores request
  * bodies.
  */
 export function Audit() {
@@ -85,14 +89,15 @@ export function Audit() {
 
 	// Pagination mode: a single offset page, keeping the previous page visible
 	// while the next one loads so the table does not blank out on navigation.
+	// The page carries the offset it was fetched at: while the next page loads,
+	// `page` has already moved on but the rows on screen are still the old ones.
 	const paginated = useQuery({
 		queryKey: ["audit", "page", debouncedActor, method, page, pageSize],
-		queryFn: () =>
-			api.audit.list({
-				...filters,
-				limit: pageSize,
-				offset: (page - 1) * pageSize,
-			}),
+		queryFn: async () => {
+			const offset = (page - 1) * pageSize;
+			const res = await api.audit.list({ ...filters, limit: pageSize, offset });
+			return { ...res, offset };
+		},
 		enabled: !isScroll,
 		placeholderData: keepPreviousData,
 	});
@@ -103,6 +108,8 @@ export function Audit() {
 	const total = isScroll
 		? (scroll.data?.pages[0]?.total ?? 0)
 		: (paginated.data?.total ?? 0);
+	// Where the paged view's rows start: the offset they were fetched at.
+	const shownOffset = paginated.data?.offset ?? 0;
 	const isLoading = isScroll ? scroll.isLoading : paginated.isLoading;
 	const auditNav = useModalNav(entries, selected, setSelected, (e) => e.id);
 	const totalPages = Math.max(1, Math.ceil(total / pageSize));
@@ -111,45 +118,39 @@ export function Audit() {
 	// the paginated view jumps back to page one.
 	const resetPaging = () => setPage(1);
 
-	// Sentinel at the list foot: when it scrolls into view (scroll mode only),
-	// pull the next page. Re-armed whenever the fetch state changes so it keeps
-	// firing down a long list.
-	const scrollRef = useRef<HTMLDivElement>(null);
-	const sentinelRef = useRef<HTMLDivElement>(null);
+	// Scroll mode renders through the same virtual-row hook as the log tables:
+	// only the rows near the viewport mount, the footer names the rows on
+	// screen, the back-to-top button appears, and reaching the foot pulls the
+	// next page. Placeholder pages belong to the previous filter, so their
+	// cursor must not fetch a "next" page for the new one.
 	const { hasNextPage, isFetchingNextPage, fetchNextPage, isPlaceholderData } =
 		scroll;
-	useEffect(() => {
-		if (!isScroll) return;
-		const el = sentinelRef.current;
-		if (!el) return;
-		// Root is the table's own scroll box, not the viewport: the page is pinned
-		// to the viewport height and only the table body scrolls, so intersection
-		// must be measured against that inner scroller. rootMargin pulls the next
-		// page in a little before the foot is actually reached.
-		const observer = new IntersectionObserver(
-			(observed) => {
-				// Placeholder pages belong to the previous filter: their cursor
-				// must not fetch a "next" page for the new one.
-				if (
-					observed[0]?.isIntersecting &&
-					hasNextPage &&
-					!isFetchingNextPage &&
-					!isPlaceholderData
-				) {
-					fetchNextPage();
-				}
-			},
-			{ root: scrollRef.current, rootMargin: "300px" },
-		);
-		observer.observe(el);
-		return () => observer.disconnect();
-	}, [
-		isScroll,
-		hasNextPage,
-		isFetchingNextPage,
-		fetchNextPage,
-		isPlaceholderData,
-	]);
+	const {
+		scrollRef,
+		scrollEl,
+		virtualizer,
+		virtualItems,
+		paddingTop,
+		paddingBottom,
+		handleScroll,
+		startIndex,
+		endIndex,
+	} = useVirtualRows({
+		entries: isScroll ? entries : [],
+		// A new filter's first page replaces the list: back to the top then.
+		listVersion: isPlaceholderData
+			? "placeholder"
+			: `${debouncedActor}|${method}`,
+		hasBefore: false,
+		hasAfter: isScroll && !!hasNextPage && !isPlaceholderData,
+		isLoadingBefore: false,
+		isLoadingAfter: isFetchingNextPage,
+		fetchNewer: () => {},
+		fetchOlder: () => {
+			fetchNextPage();
+		},
+		estimateSize: 49,
+	});
 
 	const handlePurge = async () => {
 		setConfirmPurge(false);
@@ -169,8 +170,8 @@ export function Audit() {
 
 	return (
 		<div
-			className={`space-y-6 flex flex-col ${
-				isScroll ? "h-[calc(100dvh-1rem)] overflow-hidden" : "flex-1 min-h-0"
+			className={`space-y-6 flex flex-col flex-1 min-h-0 ${
+				isScroll ? "overflow-hidden" : ""
 			}`}
 		>
 			<PageHeader
@@ -213,12 +214,24 @@ export function Audit() {
 			/>
 
 			{entries.length > 0 ? (
-				<>
+				<div className="relative flex flex-col flex-1 min-h-0">
 					<div
-						ref={scrollRef}
+						ref={isScroll ? scrollRef : undefined}
+						// Focus target for ScrollTopButton, so returning to the top does
+						// not drop keyboard focus to <body>.
+						tabIndex={isScroll ? -1 : undefined}
 						className="ui-card overflow-y-auto flex-1 min-h-0"
+						style={isScroll ? { overflowAnchor: "none" } : undefined}
+						onScroll={isScroll ? handleScroll : undefined}
 					>
-						<table className="w-full table-fixed ui-table">
+						<table
+							className={`w-full table-fixed ui-table ${isScroll ? "ui-table-virtual" : ""}`}
+							style={
+								isScroll
+									? { marginTop: paddingTop, marginBottom: paddingBottom }
+									: undefined
+							}
+						>
 							<colgroup>
 								<col className="w-[9%]" />
 								<col className="w-[13%]" />
@@ -240,72 +253,38 @@ export function Audit() {
 								</tr>
 							</thead>
 							<tbody>
-								{entries.map((e) => (
-									<Row key={e.id} onClick={() => setSelected(e)}>
-										<td
-											className="px-4 py-3 text-sm text-gray-400 whitespace-nowrap"
-											title={new Date(e.created_at).toLocaleString()}
-										>
-											{formatRelativeTime(e.created_at)}
-										</td>
-										<td className="px-4 py-3 text-sm text-gray-200 truncate">
-											<span title={e.actor}>{e.actor}</span>
-											{e.actor_role === "admin" && (
-												<span className="ml-1.5 text-xs text-gray-500">
-													{t("users.role.admin")}
-												</span>
-											)}
-										</td>
-										<td className="px-4 py-3">
-											<Badge variant={auditMethodVariant(e.method)}>
-												{e.method}
-											</Badge>
-										</td>
-										<td
-											className="px-4 py-3 text-sm text-gray-300 font-mono truncate"
-											title={e.path}
-										>
-											{e.route}
-										</td>
-										{/* Resolved name when the entity still exists; its full UUID
-										   as the fallback trace when it does not. The cell clips
-										   with an ellipsis only once the column runs out of room. */}
-										<td className="px-4 py-3 text-sm text-gray-400 truncate">
-											{e.entity_name ? (
-												<span title={e.entity_id}>{e.entity_name}</span>
-											) : e.entity_id ? (
-												<span className="font-mono" title={e.entity_id}>
-													{e.entity_id}
-												</span>
-											) : (
-												"—"
-											)}
-										</td>
-										<td
-											className="px-4 py-3 text-sm text-gray-400 font-mono truncate"
-											title={e.remote_addr}
-										>
-											{e.remote_addr}
-										</td>
-										<td className="px-4 py-3">
-											<Badge variant={auditStatusVariant(e.status_code)}>
-												{e.status_code}
-											</Badge>
-										</td>
-									</Row>
-								))}
+								{isScroll
+									? virtualItems.map((vItem) => {
+											const e = entries[vItem.index];
+											return (
+												<tr
+													key={vItem.key}
+													data-index={vItem.index}
+													ref={virtualizer.measureElement}
+													className={`hover:bg-(--surface-hover) cursor-pointer ${vItem.index % 2 === 1 ? "ui-row-even" : ""}`}
+													tabIndex={0}
+													onClick={() => setSelected(e)}
+													onKeyDown={onActivateKey(() => setSelected(e))}
+												>
+													<AuditCells entry={e} />
+												</tr>
+											);
+										})
+									: entries.map((e) => (
+											<Row key={e.id} onClick={() => setSelected(e)}>
+												<AuditCells entry={e} />
+											</Row>
+										))}
 							</tbody>
 						</table>
-						{/* Foot marker the observer watches (scroll mode). It lives inside
-						   the scroll box so it enters view as the table body scrolls, not
-						   the page. */}
-						{isScroll && (
-							<div ref={sentinelRef} aria-hidden="true" className="h-px" />
-						)}
 					</div>
+					{isScroll && <ScrollTopButton scrollEl={scrollEl} />}
 
-					<div className="flex items-center justify-between text-sm text-gray-500 shrink-0">
-						<span>{t("audit.showing", { count: entries.length, total })}</span>
+					<TableFooter
+						start={isScroll ? startIndex : shownOffset + 1}
+						end={isScroll ? endIndex : shownOffset + entries.length}
+						total={total}
+					>
 						{isScroll ? (
 							isFetchingNextPage && <LoadingSpinner inline />
 						) : (
@@ -322,8 +301,8 @@ export function Audit() {
 								hideCount
 							/>
 						)}
-					</div>
-				</>
+					</TableFooter>
+				</div>
 			) : (
 				<EmptyState message={t("audit.emptyState")} />
 			)}
@@ -345,5 +324,62 @@ export function Audit() {
 				/>
 			)}
 		</div>
+	);
+}
+
+/** One audit row's cells, shared by the virtual (scroll) and paged tables. */
+function AuditCells({ entry: e }: { entry: AuditEntry }) {
+	const { t } = useTranslation();
+	return (
+		<>
+			<td
+				className="px-4 py-3 text-sm text-gray-400 whitespace-nowrap"
+				title={new Date(e.created_at).toLocaleString()}
+			>
+				{formatRelativeTime(e.created_at)}
+			</td>
+			<td className="px-4 py-3 text-sm text-gray-200 truncate">
+				<span title={e.actor}>{e.actor}</span>
+				{e.actor_role === "admin" && (
+					<span className="ml-1.5 text-xs text-gray-500">
+						{t("users.role.admin")}
+					</span>
+				)}
+			</td>
+			<td className="px-4 py-3">
+				<Badge variant={auditMethodVariant(e.method)}>{e.method}</Badge>
+			</td>
+			<td
+				className="px-4 py-3 text-sm text-gray-300 font-mono truncate"
+				title={e.path}
+			>
+				{e.route}
+			</td>
+			{/* Resolved name when the entity still exists; its full UUID as the
+			   fallback trace when it does not. The cell clips with an ellipsis
+			   only once the column runs out of room. */}
+			<td className="px-4 py-3 text-sm text-gray-400 truncate">
+				{e.entity_name ? (
+					<span title={e.entity_id}>{e.entity_name}</span>
+				) : e.entity_id ? (
+					<span className="font-mono" title={e.entity_id}>
+						{e.entity_id}
+					</span>
+				) : (
+					"—"
+				)}
+			</td>
+			<td
+				className="px-4 py-3 text-sm text-gray-400 font-mono truncate"
+				title={e.remote_addr}
+			>
+				{e.remote_addr}
+			</td>
+			<td className="px-4 py-3">
+				<Badge variant={auditStatusVariant(e.status_code)}>
+					{e.status_code}
+				</Badge>
+			</td>
+		</>
 	);
 }

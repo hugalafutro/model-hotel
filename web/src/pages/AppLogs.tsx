@@ -243,7 +243,7 @@ export function AppLogs() {
 			)}
 
 			<div
-				className={`space-y-4 flex flex-col ${viewMode === "scroll" ? "overflow-hidden h-[calc(100dvh-1rem)]" : "flex-1 min-h-0"}`}
+				className={`space-y-4 flex flex-col flex-1 min-h-0 ${viewMode === "scroll" ? "overflow-hidden" : ""}`}
 			>
 				<PageHeader
 					icon={FileText}
@@ -454,14 +454,12 @@ export function AppLogs() {
 												)}
 											</td>
 											<td className="px-2 py-1 align-middle">
-												<div className="min-h-[2lh] flex items-center">
-													<div className="text-xs font-mono line-clamp-2 text-gray-400">
-														{displayLogMessage(
-															entry.message,
-															entry.escaped,
-															entry.attrs_at,
-														)}
-													</div>
+												<div className="text-xs font-mono line-clamp-2 text-gray-400">
+													{displayLogMessage(
+														entry.message,
+														entry.escaped,
+														entry.attrs_at,
+													)}
 												</div>
 											</td>
 										</Row>

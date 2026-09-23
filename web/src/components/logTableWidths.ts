@@ -40,14 +40,8 @@ export const LOG_COL_WIDTHS = [
 	{ key: "ip", width: "w-[8rem]" }, // full IPv4 (15ch mono); IPv6 truncates with tooltip
 ] as const;
 
-/** Fitted columns sum to 77.5rem; the rest is the Model floor. Above the
- *  80rem content column the other pages use, so Layout gives the request log
- *  route LOG_PAGE_MAX_W instead; below this width the table scrolls
- *  horizontally rather than starving Model, since the fitted columns cannot
- *  shrink. */
+/** Fitted columns sum to 77.5rem; the rest is the Model floor. The request
+ *  page gets Layout's content column (at least 88rem); below this
+ *  width the table scrolls horizontally rather than starving Model, since the
+ *  fitted columns cannot shrink. */
 export const LOG_TABLE_MIN_W = "min-w-[83.5rem]";
-
-/** The page column Layout gives the request log route. It has to stay wider
- *  than LOG_TABLE_MIN_W, or the table scrolls horizontally on every viewport,
- *  so the two live together. */
-export const LOG_PAGE_MAX_W = "max-w-[88rem]";

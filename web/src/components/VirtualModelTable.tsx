@@ -4,7 +4,6 @@ import type { Model, ModelsCursorResponse, Provider } from "../api/types";
 import { useBidirectionalFetch } from "../hooks/useBidirectionalFetch";
 import { useVirtualRows } from "../hooks/useVirtualRows";
 import { toggleInSet } from "../utils/collections";
-import { formatNumber } from "../utils/format";
 import { proxyModelID } from "../utils/model";
 import { sortByName } from "../utils/sort";
 import { ConfirmDialog } from "./ConfirmDialog";
@@ -27,7 +26,7 @@ import {
 	MODEL_COL_WIDTHS_WITH_PROVIDER,
 } from "./modelTableWidths";
 import { ScrollTopButton } from "./ScrollTopButton";
-import { VirtualTableFooter } from "./VirtualTableFooter";
+import { TableFooter } from "./TableFooter";
 
 interface VirtualModelTableProps {
 	providers?: Provider[];
@@ -214,7 +213,7 @@ export function VirtualModelTable({
 	);
 
 	return (
-		<div className="relative flex flex-col min-h-0">
+		<div className="relative flex flex-col flex-1 min-h-0">
 			<div className="flex items-center gap-4 mb-4">
 				<div className="flex items-center gap-2 shrink-0">
 					{providers !== undefined && onProviderFilterChange && (
@@ -263,10 +262,9 @@ export function VirtualModelTable({
 				// Focus target for ScrollTopButton, so returning to the top does
 				// not drop keyboard focus to <body>.
 				tabIndex={-1}
-				className="ui-card overflow-y-auto overflow-x-auto"
+				className="ui-card overflow-y-auto overflow-x-auto flex-1 min-h-0"
 				style={{
 					overflowAnchor: "none",
-					height: "calc(100dvh - 242px)",
 					minHeight: "200px",
 				}}
 				onScroll={handleScroll}
@@ -374,19 +372,17 @@ export function VirtualModelTable({
 				</table>
 			</div>
 			<ScrollTopButton scrollEl={scrollEl} />
-			<VirtualTableFooter
-				range={
-					entries.length > 0
-						? `${formatNumber(startIndex)}–${formatNumber(endIndex)} / ${formatNumber(total)}`
-						: `0 / ${formatNumber(total)}`
-				}
+			<TableFooter
+				start={startIndex}
+				end={entries.length > 0 ? endIndex : 0}
+				total={total}
 				isLoadingBefore={isLoadingBefore}
 				isLoadingAfter={isLoadingAfter}
 			>
 				{isLoadingInitial && !isLoadingBefore && !isLoadingAfter && (
 					<span className="text-(--accent)">{t("common.loadingDots")}</span>
 				)}
-			</VirtualTableFooter>
+			</TableFooter>
 			{pendingDisabled && onDeleteDisabled && (
 				<ConfirmDialog
 					title={t("components.virtualModelTable.deleteDisabledModels")}

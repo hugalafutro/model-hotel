@@ -24,6 +24,7 @@ function Harness({
 	expose,
 	pinTop = false,
 	listVersion = 0,
+	isLoadingAfter = false,
 }: {
 	entries: Row[];
 	heights: Record<string, number>;
@@ -34,6 +35,7 @@ function Harness({
 	expose: (api: { handleScroll: () => void }) => void;
 	pinTop?: boolean;
 	listVersion?: number;
+	isLoadingAfter?: boolean;
 }) {
 	const {
 		scrollRef,
@@ -48,7 +50,7 @@ function Harness({
 		hasBefore,
 		hasAfter,
 		isLoadingBefore: false,
-		isLoadingAfter: false,
+		isLoadingAfter,
 		fetchNewer,
 		fetchOlder,
 		pinTop,
@@ -112,6 +114,135 @@ function scrollGeometry(
 }
 
 describe("useVirtualRows", () => {
+	// A first page shorter than its box cannot be scrolled, so waiting for a
+	// scroll would strand the rest of the list: it loads straight away.
+	it.each([
+		["the rows do not fill the box", 300, 1],
+		["the rows overflow the box", 4000, 0],
+	])(
+		"pulls the next page on its own only when %s",
+		(_, scrollHeight, calls) => {
+			const proto = HTMLElement.prototype;
+			const saved = ["clientHeight", "scrollHeight"].map(
+				(k) => [k, Object.getOwnPropertyDescriptor(proto, k)] as const,
+			);
+			Object.defineProperty(proto, "clientHeight", {
+				configurable: true,
+				get: () => 600,
+			});
+			Object.defineProperty(proto, "scrollHeight", {
+				configurable: true,
+				get: () => scrollHeight,
+			});
+			try {
+				const fetchOlder = vi.fn();
+				render(
+					<Harness
+						entries={rows(0, 5)}
+						heights={{}}
+						hasBefore={false}
+						hasAfter
+						fetchNewer={vi.fn()}
+						fetchOlder={fetchOlder}
+						expose={() => {}}
+					/>,
+				);
+				expect(fetchOlder).toHaveBeenCalledTimes(calls);
+			} finally {
+				for (const [k, d] of saved) {
+					if (d) Object.defineProperty(proto, k, d);
+					else delete (proto as unknown as Record<string, unknown>)[k];
+				}
+			}
+		},
+	);
+
+	it("does not retry a failed fill until the rows change or the box resizes", () => {
+		// A ResizeObserver that, like a browser's, reports once on observe().
+		const observed: Array<() => void> = [];
+		vi.stubGlobal(
+			"ResizeObserver",
+			class {
+				private readonly cb: ResizeObserverCallback;
+				constructor(cb: ResizeObserverCallback) {
+					this.cb = cb;
+					observed.push(() => cb([], this as unknown as ResizeObserver));
+				}
+				observe() {
+					this.cb([], this as unknown as ResizeObserver);
+				}
+				unobserve() {}
+				disconnect() {}
+			},
+		);
+		let boxHeight = 600;
+		const proto = HTMLElement.prototype;
+		const saved = ["clientHeight", "clientWidth", "scrollHeight"].map(
+			(k) => [k, Object.getOwnPropertyDescriptor(proto, k)] as const,
+		);
+		Object.defineProperty(proto, "clientHeight", {
+			configurable: true,
+			get: () => boxHeight,
+		});
+		Object.defineProperty(proto, "clientWidth", {
+			configurable: true,
+			get: () => 1000,
+		});
+		Object.defineProperty(proto, "scrollHeight", {
+			configurable: true,
+			get: () => 300,
+		});
+		try {
+			const fetchOlder = vi.fn();
+			const props = {
+				heights: {},
+				hasBefore: false,
+				hasAfter: true,
+				fetchNewer: vi.fn(),
+				fetchOlder,
+				expose: () => {},
+			};
+			const { rerender } = render(<Harness entries={rows(0, 5)} {...props} />);
+			expect(fetchOlder).toHaveBeenCalledTimes(1);
+
+			// The fetch ran and failed: loading on, then off, same rows. No
+			// retry, however the watcher is set up again.
+			rerender(<Harness entries={rows(0, 5)} {...props} isLoadingAfter />);
+			rerender(<Harness entries={rows(0, 5)} {...props} />);
+			expect(fetchOlder).toHaveBeenCalledTimes(1);
+
+			// A resize event that changed nothing is no reason to retry.
+			act(() => {
+				window.dispatchEvent(new Event("resize"));
+			});
+			expect(fetchOlder).toHaveBeenCalledTimes(1);
+
+			// The window grew the box: try again.
+			boxHeight = 700;
+			act(() => {
+				window.dispatchEvent(new Event("resize"));
+			});
+			expect(fetchOlder).toHaveBeenCalledTimes(2);
+
+			// So may the box growing on its own (a banner went away).
+			boxHeight = 800;
+			act(() => {
+				for (const report of observed) report();
+			});
+			expect(fetchOlder).toHaveBeenCalledTimes(3);
+
+			// New rows arrived and still do not fill the box: next page.
+			rerender(<Harness entries={rows(0, 10)} {...props} />);
+			expect(fetchOlder).toHaveBeenCalledTimes(4);
+		} finally {
+			for (const [k, d] of saved) {
+				if (d) Object.defineProperty(proto, k, d);
+				else delete (proto as unknown as Record<string, unknown>)[k];
+			}
+			vi.unstubAllGlobals();
+		}
+	});
+
 	// A refetch swaps the whole list without emptying it first; the fetch
 	// hook's listVersion, not the rows themselves, says it happened, so a new
 	// list whose first row survived the filter still starts at the top.

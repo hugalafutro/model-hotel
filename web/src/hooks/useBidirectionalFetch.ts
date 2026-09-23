@@ -217,6 +217,13 @@ export function useBidirectionalFetch<
 				// Rows from before a filter change: their cursor belongs to the
 				// old filters.
 				entriesGen !== generationRef.current ||
+				// The filters or sort changed in this very render and the effect
+				// that retires the old rows has not run yet (a layout effect can
+				// ask for a page first): this call carries the new filters, the
+				// rows still hold the old ones' cursor.
+				!prevFiltersRef.current ||
+				!deepEqualFilters(prevFiltersRef.current, filters) ||
+				prevSortDirRef.current !== sortDir ||
 				entries.length === 0 ||
 				entries.length >= MAX_ROWS
 			) {

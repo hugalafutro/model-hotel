@@ -1,4 +1,5 @@
 import { act, renderHook, waitFor } from "@testing-library/react";
+import { useLayoutEffect } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
 	type CursorFetchFn,
@@ -1209,6 +1210,53 @@ describe("useBidirectionalFetch", () => {
 
 			// The old rows' cursor belongs to the old filters: no page fetch.
 			expect(fetchFn).toHaveBeenCalledTimes(2);
+		});
+
+		it("refuses a page asked for in the commit that changes the filters", async () => {
+			// A layout effect runs before the effect that retires the old rows,
+			// so in that commit the rows still hold the old filters' cursor.
+			const fetchFn = vi
+				.fn()
+				.mockResolvedValueOnce({ ...defaultResponse, has_after: true })
+				.mockResolvedValue({
+					...defaultResponse,
+					entries: [{ id: "2", name: "item-2" }],
+					has_after: true,
+				});
+			let asked = false;
+			const { result, rerender } = renderHook(
+				({ filters }) => {
+					const r = useBidirectionalFetch<TestEntry>({
+						fetchFn,
+						filters,
+						sortDir: "asc",
+						getCursor: (e) => e.id,
+						getId: (e) => e.id,
+					});
+					useLayoutEffect(() => {
+						if (filters.status === "b" && !asked) {
+							asked = true;
+							void r.fetchOlder();
+						}
+					});
+					return r;
+				},
+				{ initialProps: { filters: { status: "a" } } },
+			);
+			await waitFor(() => expect(result.current.hasAfter).toBe(true));
+
+			rerender({ filters: { status: "b" } });
+			await waitFor(() =>
+				expect(result.current.entries.map((e) => e.id)).toEqual(["2"]),
+			);
+
+			// The new filter never went out with the old row's cursor.
+			expect(asked).toBe(true);
+			expect(
+				fetchFn.mock.calls.some(
+					([params]) => params.status === "b" && params.cursor === "1",
+				),
+			).toBe(false);
 		});
 
 		it("clears a dropped page fetch's loading flag on a filter change", async () => {

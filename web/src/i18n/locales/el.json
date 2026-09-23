@@ -50,6 +50,8 @@
 		"manuallyDisabled": "Χειροκίνητα Απενεργοποιημένα",
 		"loadingNewer": "Φόρτωση νεώτερου…",
 		"loadingOlder": "Φόρτωση παλαιότερων…",
+		"showingRange": "Εμφάνιση {{start}}–{{end}} από {{total}}",
+		"showingNone": "Εμφάνιση 0 από {{total}}",
 		"model": "μοντέλο",
 		"models": "μοντέλα",
 		"tokens": "Tokens",
@@ -2900,16 +2902,14 @@
 			"serverError": "Σφάλμα Διακομιστή"
 		},
 		"virtualLogTable": {
-			"noLogsFound": "Δεν βρέθηκαν αρχεία καταγραφής",
-			"zeroEntries": "0 καταχωρήσεις"
+			"noLogsFound": "Δεν βρέθηκαν αρχεία καταγραφής"
 		},
 		"virtualAppLogTable": {
 			"noEntriesFound": "Δεν βρέθηκαν καταχωρήσεις καταγραφής",
 			"timeDate": "Ώρα/Ημερομηνία",
 			"level": "Επίπεδο",
 			"source": "Πηγή",
-			"message": "Μήνυμα",
-			"zeroEntries": "0 καταχωρήσεις"
+			"message": "Μήνυμα"
 		},
 		"applyRecommendedButton": {
 			"loading": "Φόρτωση…",
@@ -3357,7 +3357,6 @@
 			"remote": "Διεύθυνση",
 			"status": "Κατάσταση"
 		},
-		"showing": "Εμφανίζονται {{count}} από {{total}}",
 		"loadMore": "Φόρτωση περισσότερων",
 		"emptyState": "Δεν υπάρχουν ακόμη εγγραφές ελέγχου. Οι ενέργειες διαχειριστή που κάνουν αλλαγές θα εμφανιστούν εδώ.",
 		"toast": {

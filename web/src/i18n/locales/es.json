@@ -50,6 +50,8 @@
 		"manuallyDisabled": "Deshabilitado manualmente",
 		"loadingNewer": "Cargando nueva…",
 		"loadingOlder": "Cargando antigua…",
+		"showingRange": "Mostrando {{start}}–{{end}} de {{total}}",
+		"showingNone": "Mostrando 0 de {{total}}",
 		"model": "modelo",
 		"models": "modelos",
 		"tokens": "Tokens",
@@ -2965,16 +2967,14 @@
 			"serverError": "Error del servidor"
 		},
 		"virtualLogTable": {
-			"noLogsFound": "No se encontraron registros",
-			"zeroEntries": "0 entradas"
+			"noLogsFound": "No se encontraron registros"
 		},
 		"virtualAppLogTable": {
 			"noEntriesFound": "No se encontraron registros",
 			"timeDate": "Hora/Fecha",
 			"level": "Nivel",
 			"source": "Fuente",
-			"message": "Mensaje",
-			"zeroEntries": "0 entradas"
+			"message": "Mensaje"
 		},
 		"applyRecommendedButton": {
 			"loading": "Cargando…",
@@ -3425,7 +3425,6 @@
 			"remote": "Dirección",
 			"status": "Estado"
 		},
-		"showing": "Mostrando {{count}} de {{total}}",
 		"loadMore": "Cargar más",
 		"emptyState": "Aún no hay entradas de auditoría. Las acciones de administración que hacen cambios aparecerán aquí.",
 		"toast": {
