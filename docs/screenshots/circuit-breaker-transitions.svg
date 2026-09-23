@@ -1,4 +1,4 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 900" font-family="'Segoe UI', system-ui, -apple-system, sans-serif">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 1000" font-family="'Segoe UI', system-ui, -apple-system, sans-serif">
   <defs>
     <marker id="arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
       <path d="M 0 0 L 10 5 L 0 10 z" fill="#94a3b8"/>
@@ -20,55 +20,71 @@
   <!-- Title -->
   <rect x="230" y="10" width="500" height="36" rx="18" fill="#1e293b" stroke="#64748b" stroke-width="1.5" filter="url(#shadow)"/>
   <text x="480" y="34" text-anchor="middle" fill="#e2e8f0" font-size="14" font-weight="700">Circuit Breaker State Transitions</text>
+  <text x="480" y="70" text-anchor="middle" fill="#94a3b8" font-size="11">One circuit per (provider, upstream model). Each circuit moves through these states on its own.</text>
 
   <!-- CLOSED state -->
-  <rect x="60" y="80" width="280" height="140" rx="12" fill="#1e293b" stroke="#10b981" stroke-width="2" filter="url(#shadow)"/>
-  <rect x="60" y="80" width="280" height="36" rx="12" fill="#10b981" opacity="0.15"/>
-  <text x="200" y="103" text-anchor="middle" fill="#34d399" font-size="16" font-weight="700">CLOSED</text>
-  <text x="200" y="135" text-anchor="middle" fill="#94a3b8" font-size="10">consecutiveFails &lt; threshold</text>
-  <text x="200" y="155" text-anchor="middle" fill="#94a3b8" font-size="10">All requests pass through</text>
-  <text x="200" y="175" text-anchor="middle" fill="#64748b" font-size="9">SSE: circuit_breaker.closed</text>
-  <text x="200" y="200" text-anchor="middle" fill="#4ade80" font-size="9">Reset on RecordSuccess()</text>
+  <rect x="40" y="90" width="400" height="200" rx="12" fill="#1e293b" stroke="#10b981" stroke-width="2" filter="url(#shadow)"/>
+  <rect x="40" y="90" width="400" height="36" rx="12" fill="#10b981" opacity="0.15"/>
+  <text x="240" y="113" text-anchor="middle" fill="#34d399" font-size="16" font-weight="700">CLOSED</text>
+  <text x="240" y="148" text-anchor="middle" fill="#94a3b8" font-size="10">consecutiveFails &lt; threshold (default 5)</text>
+  <text x="240" y="168" text-anchor="middle" fill="#94a3b8" font-size="10">Requests pass through</text>
+  <text x="60" y="194" fill="#f87171" font-size="9">+1: 5xx, 401, 403, network error, timeout, empty answer, unclassified 429</text>
+  <text x="60" y="214" fill="#4ade80" font-size="9">Reset to 0: delivered output, a 400, or any 429 if failover_on_rate_limit off</text>
+  <text x="60" y="234" fill="#94a3b8" font-size="9">No change: saturated (busy) 429, 404, 499</text>
+  <text x="240" y="268" text-anchor="middle" fill="#64748b" font-size="9">SSE: circuit_breaker.closed (sent when a circuit closes)</text>
 
   <!-- OPEN state -->
-  <rect x="340" y="340" width="280" height="180" rx="12" fill="#1e293b" stroke="#f43f5e" stroke-width="2" filter="url(#shadow)"/>
-  <rect x="340" y="340" width="280" height="36" rx="12" fill="#f43f5e" opacity="0.15"/>
-  <text x="480" y="363" text-anchor="middle" fill="#fb7185" font-size="16" font-weight="700">OPEN</text>
-  <text x="480" y="395" text-anchor="middle" fill="#94a3b8" font-size="10">consecutiveFails ≥ threshold (default 5)</text>
-  <text x="480" y="415" text-anchor="middle" fill="#94a3b8" font-size="10">All requests skip this provider</text>
-  <text x="480" y="435" text-anchor="middle" fill="#94a3b8" font-size="10">openedAt: now()</text>
-  <text x="480" y="455" text-anchor="middle" fill="#64748b" font-size="9">SSE: circuit_breaker.open</text>
-  <text x="480" y="480" text-anchor="middle" fill="#f87171" font-size="9">Cooldown: 60s (configurable)</text>
-  <text x="480" y="500" text-anchor="middle" fill="#f59e0b" font-size="9">After cooldown → transition to Half-Open</text>
+  <rect x="500" y="330" width="420" height="210" rx="12" fill="#1e293b" stroke="#f43f5e" stroke-width="2" filter="url(#shadow)"/>
+  <rect x="500" y="330" width="420" height="36" rx="12" fill="#f43f5e" opacity="0.15"/>
+  <text x="710" y="353" text-anchor="middle" fill="#fb7185" font-size="16" font-weight="700">OPEN</text>
+  <text x="710" y="388" text-anchor="middle" fill="#94a3b8" font-size="10">This model is skipped on this provider</text>
+  <text x="710" y="408" text-anchor="middle" fill="#94a3b8" font-size="10">openedAt: now()</text>
+  <text x="710" y="434" text-anchor="middle" fill="#f87171" font-size="9">Cooldown: 60s base (circuit_breaker_cooldown)</text>
+  <text x="710" y="452" text-anchor="middle" fill="#f87171" font-size="9">Doubles per failed probe, cap 15m (circuit_breaker_backoff_max)</text>
+  <text x="710" y="470" text-anchor="middle" fill="#f59e0b" font-size="9">A quota pin can hold it until the spent window resets</text>
+  <text x="710" y="496" text-anchor="middle" fill="#64748b" font-size="9">SSE: circuit_breaker.open</text>
+  <text x="710" y="514" text-anchor="middle" fill="#64748b" font-size="9">SSE: circuit_breaker.unstable when it keeps reopening</text>
 
   <!-- HALF-OPEN state -->
-  <rect x="60" y="640" width="280" height="160" rx="12" fill="#1e293b" stroke="#eab308" stroke-width="2" filter="url(#shadow)"/>
-  <rect x="60" y="640" width="280" height="36" rx="12" fill="#eab308" opacity="0.15"/>
-  <text x="200" y="663" text-anchor="middle" fill="#fbbf24" font-size="16" font-weight="700">HALF-OPEN</text>
-  <text x="200" y="695" text-anchor="middle" fill="#94a3b8" font-size="10">Allow limited probe requests</text>
-  <text x="200" y="715" text-anchor="middle" fill="#94a3b8" font-size="10">halfOpenProbes &lt; HalfOpenMaxProbes</text>
-  <text x="200" y="735" text-anchor="middle" fill="#64748b" font-size="9">SSE: circuit_breaker.half-open</text>
-  <text x="80" y="760" fill="#4ade80" font-size="9">✓ Probe succeeds → Closed</text>
-  <text x="80" y="780" fill="#f87171" font-size="9">✗ Probe fails → Open (reset cooldown)</text>
+  <rect x="40" y="600" width="400" height="180" rx="12" fill="#1e293b" stroke="#eab308" stroke-width="2" filter="url(#shadow)"/>
+  <rect x="40" y="600" width="400" height="36" rx="12" fill="#eab308" opacity="0.15"/>
+  <text x="240" y="623" text-anchor="middle" fill="#fbbf24" font-size="16" font-weight="700">HALF-OPEN</text>
+  <text x="240" y="658" text-anchor="middle" fill="#94a3b8" font-size="10">No admission limit: requests flow, each one a probe</text>
+  <text x="240" y="678" text-anchor="middle" fill="#94a3b8" font-size="10">Does not count toward the provider verdict</text>
+  <text x="60" y="706" fill="#4ade80" font-size="9">✓ 1 success closes it (HalfOpenMaxProbes), backoff cleared</text>
+  <text x="60" y="726" fill="#f87171" font-size="9">✗ Any failure reopens it, and the next cooldown doubles</text>
+  <text x="60" y="746" fill="#94a3b8" font-size="9">Busy 429, 404, 499: stays half-open (failover_on_rate_limit off: a 429 closes it)</text>
+  <text x="240" y="768" text-anchor="middle" fill="#64748b" font-size="9">No SSE event on entering half-open (debug log only)</text>
 
-  <!-- CLOSED → OPEN arrow (5 consecutive failures) -->
-  <path d="M 340 180 L 480 180 L 480 330" fill="none" stroke="#f87171" stroke-width="2" marker-end="url(#arr-red)"/>
-  <rect x="455" y="230" width="180" height="26" rx="4" fill="#1e293b" stroke="#f43f5e" stroke-width="0.5"/>
-  <text x="545" y="248" text-anchor="middle" fill="#f87171" font-size="9" font-weight="600">5 consecutive failures</text>
+  <!-- CLOSED → OPEN arrow -->
+  <path d="M 440 190 L 710 190 L 710 320" fill="none" stroke="#f87171" stroke-width="2" marker-end="url(#arr-red)"/>
+  <rect x="590" y="226" width="240" height="44" rx="4" fill="#1e293b" stroke="#f43f5e" stroke-width="0.5"/>
+  <text x="710" y="243" text-anchor="middle" fill="#f87171" font-size="9" font-weight="600">5 consecutive failures, or</text>
+  <text x="710" y="260" text-anchor="middle" fill="#f87171" font-size="9" font-weight="600">1 exhausted 429 / 402 (spent quota)</text>
 
-  <!-- OPEN → HALF-OPEN arrow (60s cooldown) -->
-  <path d="M 340 430 L 200 430 L 200 630" fill="none" stroke="#eab308" stroke-width="2" marker-end="url(#arr-yel)"/>
-  <rect x="130" y="398" width="180" height="26" rx="4" fill="#1e293b" stroke="#eab308" stroke-width="0.5"/>
-  <text x="220" y="416" text-anchor="middle" fill="#fbbf24" font-size="9" font-weight="600">60s cooldown elapsed</text>
+  <!-- OPEN → HALF-OPEN arrow -->
+  <path d="M 500 435 L 240 435 L 240 590" fill="none" stroke="#eab308" stroke-width="2" marker-end="url(#arr-yel)"/>
+  <rect x="130" y="490" width="220" height="44" rx="4" fill="#1e293b" stroke="#eab308" stroke-width="0.5"/>
+  <text x="240" y="507" text-anchor="middle" fill="#fbbf24" font-size="9" font-weight="600">Cooldown elapsed: the next</text>
+  <text x="240" y="524" text-anchor="middle" fill="#fbbf24" font-size="9" font-weight="600">routing check flips it (no timer)</text>
 
-  <!-- HALF-OPEN → CLOSED arrow (probe succeeds) -->
-  <path d="M 60 760 L 15 760 L 15 150 L 50 150" fill="none" stroke="#4ade80" stroke-width="2" marker-end="url(#arr-grn)"/>
-  <rect x="2" y="560" width="160" height="26" rx="4" fill="#1e293b" stroke="#10b981" stroke-width="0.5"/>
-  <text x="82" y="578" text-anchor="middle" fill="#4ade80" font-size="9" font-weight="600">Probe succeeds (200)</text>
+  <!-- HALF-OPEN → CLOSED arrow -->
+  <path d="M 40 690 L 15 690 L 15 190 L 30 190" fill="none" stroke="#4ade80" stroke-width="2" marker-end="url(#arr-grn)"/>
+  <rect x="2" y="400" width="170" height="26" rx="4" fill="#1e293b" stroke="#10b981" stroke-width="0.5"/>
+  <text x="87" y="418" text-anchor="middle" fill="#4ade80" font-size="9" font-weight="600">Probe succeeds (output or a 400)</text>
 
-  <!-- HALF-OPEN → OPEN arrow (probe fails) -->
-  <path d="M 340 760 L 680 760 L 680 430 L 640 430" fill="none" stroke="#f87171" stroke-width="2" marker-end="url(#arr-red)"/>
-  <rect x="615" y="560" width="160" height="26" rx="4" fill="#1e293b" stroke="#f43f5e" stroke-width="0.5"/>
-  <text x="695" y="578" text-anchor="middle" fill="#f87171" font-size="9" font-weight="600">Probe fails (502)</text>
+  <!-- HALF-OPEN → OPEN arrow -->
+  <path d="M 440 690 L 710 690 L 710 550" fill="none" stroke="#f87171" stroke-width="2" marker-end="url(#arr-red)"/>
+  <rect x="600" y="598" width="220" height="44" rx="4" fill="#1e293b" stroke="#f43f5e" stroke-width="0.5"/>
+  <text x="710" y="615" text-anchor="middle" fill="#f87171" font-size="9" font-weight="600">Probe fails:</text>
+  <text x="710" y="632" text-anchor="middle" fill="#f87171" font-size="9" font-weight="600">cooldown doubles: 2m, 4m, 8m, then 15m</text>
 
+  <!-- Provider verdict -->
+  <rect x="40" y="830" width="880" height="140" rx="12" fill="#1e293b" stroke="#64748b" stroke-width="1.5" filter="url(#shadow)"/>
+  <rect x="40" y="830" width="880" height="36" rx="12" fill="#64748b" opacity="0.15"/>
+  <text x="480" y="853" text-anchor="middle" fill="#e2e8f0" font-size="14" font-weight="700">Provider verdict (derived, never charged directly)</text>
+  <text x="60" y="890" fill="#94a3b8" font-size="10">A request skips a provider when its own model's circuit is open, or when the whole provider counts as down:</text>
+  <text x="80" y="912" fill="#f87171" font-size="10">• at least 2 of its model circuits are open (circuit_breaker_span_models), or</text>
+  <text x="80" y="932" fill="#f59e0b" font-size="10">• an account-wide quota pin holds (a spent balance or plan answered for the account)</text>
+  <text x="60" y="956" fill="#64748b" font-size="9">All of this applies only while circuit_breaker_enabled is on. The 402 and exhausted-429 fast open follow circuit_breaker_open_on_exhaustion.</text>
 </svg>

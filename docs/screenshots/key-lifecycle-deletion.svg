@@ -34,7 +34,13 @@
   <rect x="225" y="255" width="450" height="50" rx="6" fill="#1e293b" stroke="#f43f5e" stroke-width="1.5" filter="url(#shadow)"/>
   <rect x="225" y="255" width="450" height="24" rx="6" fill="#f43f5e" opacity="0.15"/>
   <text x="450" y="273" text-anchor="middle" fill="#fb7185" font-size="12" font-weight="700">Subsequent requests → 401 Unauthorized</text>
-  <text x="450" y="295" text-anchor="middle" fill="#94a3b8" font-size="10">Effective immediately; no cache or grace period</text>
+  <text x="450" y="295" text-anchor="middle" fill="#94a3b8" font-size="10">Effective immediately: the key lookup is not cached</text>
+
+  <!-- HA caveat -->
+  <line x1="675" y1="280" x2="695" y2="280" stroke="#64748b" stroke-width="1.2" stroke-dasharray="4,3"/>
+  <rect x="695" y="255" width="195" height="50" rx="6" fill="#1e293b" stroke="#64748b" stroke-width="1" filter="url(#shadow)"/>
+  <text x="792" y="275" text-anchor="middle" fill="#cbd5e1" font-size="9" font-weight="600">HA fleet: delete on the primary;</text>
+  <text x="792" y="291" text-anchor="middle" fill="#94a3b8" font-size="9">members drop it on the next sync</text>
 
   <line x1="450" y1="305" x2="450" y2="335" stroke="#94a3b8" stroke-width="1.5" marker-end="url(#arr)"/>
 

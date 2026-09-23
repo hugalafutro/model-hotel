@@ -49,7 +49,7 @@
   <g clip-path="url(#cp3)">
     <text x="450" y="385" text-anchor="middle" font-family="Inter, Segoe UI, Roboto, sans-serif" font-size="15" font-weight="600" fill="#ffffff">3. Request Size Limiting</text>
   </g>
-  <text x="450" y="418" text-anchor="middle" font-family="Inter, Segoe UI, Roboto, sans-serif" font-size="13" fill="#94a3b8">MAX_REQUEST_SIZE default 50MB (1KB&#8211;100MB), enforced via http.MaxBytesReader</text>
+  <text x="450" y="418" text-anchor="middle" font-family="Inter, Segoe UI, Roboto, sans-serif" font-size="13" fill="#94a3b8">MAX_REQUEST_SIZE default 50MB (1KB to 100MB), via http.MaxBytesReader</text>
   <line x1="450" y1="445" x2="450" y2="465" stroke="#9ca3af" stroke-width="2" marker-end="url(#arrow)"/>
 
   <!-- 4. IP Rate Limiter (DoS Protection) -->
@@ -78,39 +78,40 @@
   <g clip-path="url(#cp5a)">
     <text x="240" y="685" text-anchor="middle" font-family="Inter, Segoe UI, Roboto, sans-serif" font-size="14" font-weight="600" fill="#ffffff">5a. Admin API Path (/api/*)</text>
   </g>
-  <text x="240" y="718" text-anchor="middle" font-family="Inter, Segoe UI, Roboto, sans-serif" font-size="11" fill="#94a3b8">Admin Token / Session Validation</text>
-  <text x="240" y="740" text-anchor="middle" font-family="Inter, Segoe UI, Roboto, sans-serif" font-size="11" fill="#94a3b8">Bearer token (SHA-256) or HttpOnly session cookie</text>
-  <text x="240" y="762" text-anchor="middle" font-family="Inter, Segoe UI, Roboto, sans-serif" font-size="11" fill="#94a3b8">sessions: token exchange &#183; WebAuthn &#183; login &#183; GitHub SSO &#183; OIDC</text>
+  <text x="240" y="718" text-anchor="middle" font-family="Inter, Segoe UI, Roboto, sans-serif" font-size="11" fill="#94a3b8">Public, no auth: config, demo login and the sign-in routes</text>
+  <text x="240" y="740" text-anchor="middle" font-family="Inter, Segoe UI, Roboto, sans-serif" font-size="11" fill="#94a3b8">(token exchange, passkey, password, TOTP, OIDC, GitHub)</text>
+  <text x="240" y="762" text-anchor="middle" font-family="Inter, Segoe UI, Roboto, sans-serif" font-size="11" fill="#94a3b8">Rest: admin token (SHA-256) or HttpOnly session cookie</text>
   <text x="240" y="784" text-anchor="middle" font-family="Inter, Segoe UI, Roboto, sans-serif" font-size="11" fill="#f87171">HTTP 401 on failure &#183; CSRF 403 on cookie-authed writes</text>
 
-  <!-- 5b. Proxy API Path (/v1/chat/completions) -->
+  <!-- 5b. Proxy API Path (/v1/*) -->
   <rect x="470" y="660" width="380" height="130" fill="#172554" rx="12" filter="url(#shadow)" stroke="#374151" stroke-width="1.5"/>
   <rect x="470" y="660" width="380" height="36" fill="#d97706" rx="12"/>
   <rect x="470" y="684" width="380" height="12" fill="#d97706"/>
   <clipPath id="cp5b"><rect x="470" y="660" width="380" height="130" rx="12"/></clipPath>
   <g clip-path="url(#cp5b)">
-    <text x="660" y="685" text-anchor="middle" font-family="Inter, Segoe UI, Roboto, sans-serif" font-size="14" font-weight="600" fill="#ffffff">5b. Proxy API Path (/v1/chat/completions)</text>
+    <text x="660" y="685" text-anchor="middle" font-family="Inter, Segoe UI, Roboto, sans-serif" font-size="14" font-weight="600" fill="#ffffff">5b. Proxy API Path (/v1/*)</text>
   </g>
   <text x="660" y="718" text-anchor="middle" font-family="Inter, Segoe UI, Roboto, sans-serif" font-size="11" fill="#94a3b8">Virtual Key Validation</text>
-  <text x="660" y="740" text-anchor="middle" font-family="Inter, Segoe UI, Roboto, sans-serif" font-size="11" fill="#94a3b8">Bearer key sk-..., SHA-256 hash + DB lookup</text>
+  <text x="660" y="740" text-anchor="middle" font-family="Inter, Segoe UI, Roboto, sans-serif" font-size="11" fill="#94a3b8">Bearer or x-api-key sk-..., SHA-256 hash + DB lookup</text>
   <text x="660" y="762" text-anchor="middle" font-family="Inter, Segoe UI, Roboto, sans-serif" font-size="11" fill="#94a3b8">last-used timestamp updated async</text>
-  <text x="660" y="784" text-anchor="middle" font-family="Inter, Segoe UI, Roboto, sans-serif" font-size="11" fill="#f87171">HTTP 401 on failure</text>
+  <text x="660" y="784" text-anchor="middle" font-family="Inter, Segoe UI, Roboto, sans-serif" font-size="11" fill="#f87171">HTTP 401 on a bad key or a disabled owner account</text>
   <line x1="240" y1="790" x2="350" y2="840" stroke="#9ca3af" stroke-width="2" marker-end="url(#arrow)"/>
   <line x1="660" y1="790" x2="550" y2="840" stroke="#9ca3af" stroke-width="2" marker-end="url(#arrow)"/>
 
   <!-- 6. Usage Rate Limiters (after auth) -->
-  <rect x="200" y="840" width="500" height="110" fill="#1e293b" rx="12" filter="url(#shadow)" stroke="#374151" stroke-width="1.5"/>
+  <rect x="200" y="840" width="500" height="125" fill="#1e293b" rx="12" filter="url(#shadow)" stroke="#374151" stroke-width="1.5"/>
   <rect x="200" y="840" width="500" height="36" fill="#db2777" rx="12"/>
   <rect x="200" y="864" width="500" height="12" fill="#db2777"/>
-  <clipPath id="cp6"><rect x="200" y="840" width="500" height="110" rx="12"/></clipPath>
+  <clipPath id="cp6"><rect x="200" y="840" width="500" height="125" rx="12"/></clipPath>
   <g clip-path="url(#cp6)">
-    <text x="450" y="865" text-anchor="middle" font-family="Inter, Segoe UI, Roboto, sans-serif" font-size="15" font-weight="600" fill="#ffffff">6. Usage Rate Limiters (after auth)</text>
+    <text x="450" y="865" text-anchor="middle" font-family="Inter, Segoe UI, Roboto, sans-serif" font-size="15" font-weight="600" fill="#ffffff">6. Usage Limiters (after auth)</text>
   </g>
-  <text x="450" y="898" text-anchor="middle" font-family="Inter, Segoe UI, Roboto, sans-serif" font-size="13" fill="#94a3b8">Proxy path: per-virtual-key RPS/burst + tokens-per-minute (TPM) buckets</text>
-  <text x="450" y="920" text-anchor="middle" font-family="Inter, Segoe UI, Roboto, sans-serif" font-size="13" fill="#94a3b8">Admin chat: per-user buckets &#183; graceful backpressure (max_wait_ms)</text>
-  <line x1="450" y1="950" x2="450" y2="975" stroke="#9ca3af" stroke-width="2" marker-end="url(#arrow)"/>
+  <text x="450" y="898" text-anchor="middle" font-family="Inter, Segoe UI, Roboto, sans-serif" font-size="13" fill="#94a3b8">Proxy path: key + owner RPS/burst, then TPM, then dollar budget</text>
+  <text x="450" y="920" text-anchor="middle" font-family="Inter, Segoe UI, Roboto, sans-serif" font-size="13" fill="#94a3b8">Admin chat: RPS per client address, TPM + budget per user</text>
+  <text x="450" y="942" text-anchor="middle" font-family="Inter, Segoe UI, Roboto, sans-serif" font-size="13" fill="#94a3b8">RPS waits rate_limit_max_wait_ms; TPM 429s at once; budget 429/503</text>
+  <line x1="450" y1="965" x2="450" y2="985" stroke="#9ca3af" stroke-width="2" marker-end="url(#arrow)"/>
 
   <!-- Target Handler -->
-  <rect x="325" y="980" width="250" height="55" fill="#0f172a" rx="12" stroke="#22c55e" stroke-width="2" filter="url(#shadow)"/>
-  <text x="450" y="1013" text-anchor="middle" font-family="Inter, Segoe UI, Roboto, sans-serif" font-size="16" font-weight="600" fill="#22c55e">Target Handler</text>
+  <rect x="325" y="990" width="250" height="55" fill="#0f172a" rx="12" stroke="#22c55e" stroke-width="2" filter="url(#shadow)"/>
+  <text x="450" y="1023" text-anchor="middle" font-family="Inter, Segoe UI, Roboto, sans-serif" font-size="16" font-weight="600" fill="#22c55e">Target Handler</text>
 </svg>

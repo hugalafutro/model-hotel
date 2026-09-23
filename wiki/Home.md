@@ -63,4 +63,4 @@ See [[Development]] for local setup details.
 
 ![Architecture](screenshots/architecture-tree.svg)
 
-Core packages: `proxy/` (streaming, failover), `provider/` (discovery), `failover/` (circuit breaker, routing), `auth/` (provider key encryption), `virtualkey/` (client key auth), `ratelimit/` (rate limiting), `model/` (caching, CRUD). PostgreSQL backend (schema managed by versioned migrations).
+Core packages: `proxy/` (routing, failover loop, streaming), `provider/` (discovery), `failover/` (groups, circuit breaker), `auth/` (provider key encryption), `virtualkey/` (client key auth), `ratelimit/` (rate limiting), `budget/` (dollar budgets), `model/` (caching, CRUD). PostgreSQL backend (schema managed by versioned migrations).

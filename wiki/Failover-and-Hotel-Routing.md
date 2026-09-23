@@ -396,7 +396,7 @@ The diagram below focuses on the streaming safeguards - the **TTFT probe** that 
 
 ### How It Works
 
-Failover is **sequential** - providers are tried one at a time, in order:
+Failover is **sequential** by default - providers are tried one at a time, in order (for streaming groups, opt-in [Request Hedging](#request-hedging) races them instead):
 
 1. Client requests a model (e.g. `hotel/glm-4.6` or `OpenRouter/z-ai/glm-4.6`)
 2. The proxy resolves a list of candidate providers
