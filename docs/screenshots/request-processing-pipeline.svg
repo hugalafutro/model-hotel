@@ -1,4 +1,4 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 1050" font-family="'Segoe UI', system-ui, -apple-system, sans-serif">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 1330" font-family="'Segoe UI', system-ui, -apple-system, sans-serif">
   <defs>
     <marker id="arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
       <path d="M 0 0 L 10 5 L 0 10 z" fill="#94a3b8"/>
@@ -14,118 +14,133 @@
     </filter>
   </defs>
 
-  <!-- Background: transparent -->
-  <rect width="900" height="1200" fill="none" rx="0"/>
-
   <!-- HTTP Request (top card) -->
-  <rect x="280" y="20" width="340" height="60" rx="8" fill="#1e293b" stroke="#3b82f6" stroke-width="1.5" filter="url(#shadow)"/>
-  <rect x="280" y="20" width="340" height="24" rx="8" fill="#3b82f6" opacity="0.15"/>
-  <clipPath id="cpInput"><rect x="280" y="20" width="340" height="60" rx="8"/></clipPath>
-  <g clip-path="url(#cpInput)">
-    <text x="450" y="37" text-anchor="middle" fill="#93c5fd" font-size="14" font-weight="700">HTTP Request</text>
-  </g>
-  <text x="450" y="60" text-anchor="middle" fill="#94a3b8" font-size="10">Authorization: Bearer sk-xxxx...</text>
+  <rect x="260" y="20" width="380" height="60" rx="8" fill="#1e293b" stroke="#3b82f6" stroke-width="1.5" filter="url(#shadow)"/>
+  <rect x="260" y="20" width="380" height="24" rx="8" fill="#3b82f6" opacity="0.15"/>
+  <text x="450" y="37" text-anchor="middle" fill="#93c5fd" font-size="14" font-weight="700">HTTP Request to /v1/*</text>
+  <text x="450" y="64" text-anchor="middle" fill="#94a3b8" font-size="10">Authorization: Bearer sk-xxxx... or x-api-key: sk-xxxx...</text>
 
   <line x1="450" y1="80" x2="450" y2="100" stroke="#94a3b8" stroke-width="1.5" marker-end="url(#arr)"/>
 
-  <!-- ProxyKeyMiddleware (pill) -->
-  <rect x="300" y="105" width="300" height="42" rx="21" fill="#1e293b" stroke="#10b981" stroke-width="1.5" filter="url(#shadow)"/>
-  <text x="450" y="131" text-anchor="middle" fill="#34d399" font-size="13" font-weight="700">ProxyKeyMiddleware</text>
+  <!-- IP limiter (pill) -->
+  <rect x="250" y="105" width="400" height="42" rx="21" fill="#1e293b" stroke="#db2777" stroke-width="1.5" filter="url(#shadow)"/>
+  <text x="450" y="124" text-anchor="middle" fill="#f472b6" font-size="13" font-weight="700">IP Rate Limiter</text>
+  <text x="450" y="139" text-anchor="middle" fill="#94a3b8" font-size="9">Per client IP, before any key check (default 30 RPS, burst 60) → 429</text>
 
   <line x1="450" y1="147" x2="450" y2="165" stroke="#94a3b8" stroke-width="1.5" marker-end="url(#arr)"/>
 
-  <!-- Main flow container -->
-  <rect x="50" y="175" width="800" height="850" rx="10" fill="none" stroke="#475569" stroke-width="1.5" stroke-dasharray="6,3"/>
-  <text x="450" y="200" text-anchor="middle" fill="#64748b" font-size="12" font-weight="600" letter-spacing="1">REQUEST PROCESSING PIPELINE</text>
+  <!-- ProxyKeyMiddleware (pill) -->
+  <rect x="300" y="170" width="300" height="42" rx="21" fill="#1e293b" stroke="#10b981" stroke-width="1.5" filter="url(#shadow)"/>
+  <text x="450" y="196" text-anchor="middle" fill="#34d399" font-size="13" font-weight="700">ProxyKeyMiddleware</text>
 
-  <!-- Step 1: ParseBearerToken -->
-  <rect x="90" y="225" width="720" height="56" rx="6" fill="#1e293b" stroke="#3b82f6" stroke-width="1" filter="url(#shadow)"/>
-  <text x="110" y="255" fill="#60a5fa" font-size="12" font-weight="700">1. ParseBearerToken()</text>
-  <text x="310" y="255" fill="#94a3b8" font-size="11">Extract Bearer token from Authorization header</text>
-  <line x1="450" y1="281" x2="450" y2="299" stroke="#94a3b8" stroke-width="1.5" marker-end="url(#arr)"/>
+  <line x1="450" y1="212" x2="450" y2="230" stroke="#94a3b8" stroke-width="1.5" marker-end="url(#arr)"/>
+
+  <!-- Main flow container -->
+  <rect x="50" y="240" width="800" height="740" rx="10" fill="none" stroke="#475569" stroke-width="1.5" stroke-dasharray="6,3"/>
+  <text x="450" y="265" text-anchor="middle" fill="#64748b" font-size="12" font-weight="600" letter-spacing="1">KEY AUTHENTICATION (ProxyKeyMiddleware)</text>
+
+  <!-- Step 1: ParseProxyKey -->
+  <rect x="90" y="285" width="720" height="56" rx="6" fill="#1e293b" stroke="#3b82f6" stroke-width="1" filter="url(#shadow)"/>
+  <text x="110" y="310" fill="#60a5fa" font-size="12" font-weight="700">1. util.ParseProxyKey()</text>
+  <text x="300" y="310" fill="#94a3b8" font-size="11">Bearer token from Authorization, else the x-api-key header</text>
+  <text x="300" y="328" fill="#f87171" font-size="10">Neither header present → 401</text>
+  <line x1="450" y1="341" x2="450" y2="359" stroke="#94a3b8" stroke-width="1.5" marker-end="url(#arr)"/>
 
   <!-- Step 2: virtualkey.Hash(token) -->
-  <rect x="90" y="305" width="720" height="56" rx="6" fill="#1e293b" stroke="#3b82f6" stroke-width="1" filter="url(#shadow)"/>
-  <text x="110" y="335" fill="#60a5fa" font-size="12" font-weight="700">2. virtualkey.Hash(token)</text>
-  <text x="330" y="335" fill="#94a3b8" font-size="11">Compute SHA-256 hash of the plaintext token</text>
-  <line x1="450" y1="361" x2="450" y2="379" stroke="#94a3b8" stroke-width="1.5" marker-end="url(#arr)"/>
+  <rect x="90" y="365" width="720" height="56" rx="6" fill="#1e293b" stroke="#3b82f6" stroke-width="1" filter="url(#shadow)"/>
+  <text x="110" y="398" fill="#60a5fa" font-size="12" font-weight="700">2. virtualkey.Hash(token)</text>
+  <text x="330" y="398" fill="#94a3b8" font-size="11">Compute SHA-256 hash of the plaintext token</text>
+  <line x1="450" y1="421" x2="450" y2="439" stroke="#94a3b8" stroke-width="1.5" marker-end="url(#arr)"/>
 
   <!-- Step 3: FindByKeyHash(keyHash) -->
-  <rect x="90" y="385" width="720" height="56" rx="6" fill="#1e293b" stroke="#3b82f6" stroke-width="1" filter="url(#shadow)"/>
-  <text x="110" y="415" fill="#60a5fa" font-size="12" font-weight="700">3. FindByKeyHash(keyHash)</text>
-  <text x="340" y="415" fill="#94a3b8" font-size="11">Database lookup in virtual_keys table</text>
-  <line x1="450" y1="441" x2="450" y2="459" stroke="#94a3b8" stroke-width="1.5" marker-end="url(#arr)"/>
+  <rect x="90" y="445" width="720" height="56" rx="6" fill="#1e293b" stroke="#3b82f6" stroke-width="1" filter="url(#shadow)"/>
+  <text x="110" y="478" fill="#60a5fa" font-size="12" font-weight="700">3. FindByKeyHash(keyHash)</text>
+  <text x="340" y="478" fill="#94a3b8" font-size="11">Database lookup in virtual_keys, bounded by a 10s timeout</text>
 
   <!-- Branch label -->
-  <text x="450" y="480" text-anchor="middle" fill="#64748b" font-size="10" font-weight="600">LOOKUP RESULT</text>
+  <text x="460" y="530" fill="#64748b" font-size="10" font-weight="600">LOOKUP RESULT</text>
 
   <!-- NOT FOUND (left) -->
-  <rect x="100" y="500" width="220" height="80" rx="8" fill="#1e293b" stroke="#f43f5e" stroke-width="1.5" filter="url(#shadow)"/>
-  <rect x="100" y="500" width="220" height="28" rx="8" fill="#f43f5e" opacity="0.15"/>
-  <clipPath id="cpNotFound"><rect x="100" y="500" width="220" height="80" rx="8"/></clipPath>
-  <g clip-path="url(#cpNotFound)">
-    <text x="210" y="518" text-anchor="middle" fill="#fb7185" font-size="12" font-weight="700">NOT FOUND</text>
-  </g>
-  <text x="210" y="545" text-anchor="middle" fill="#e2e8f0" font-size="10">No matching key_hash in DB</text>
-  <text x="210" y="565" text-anchor="middle" fill="#f87171" font-size="12" font-weight="700">401 Unauthorized</text>
+  <rect x="80" y="555" width="220" height="80" rx="8" fill="#1e293b" stroke="#f43f5e" stroke-width="1.5" filter="url(#shadow)"/>
+  <rect x="80" y="555" width="220" height="28" rx="8" fill="#f43f5e" opacity="0.15"/>
+  <text x="190" y="573" text-anchor="middle" fill="#fb7185" font-size="12" font-weight="700">NOT FOUND</text>
+  <text x="190" y="600" text-anchor="middle" fill="#e2e8f0" font-size="10">No matching key_hash in DB</text>
+  <text x="190" y="620" text-anchor="middle" fill="#f87171" font-size="12" font-weight="700">401 Unauthorized</text>
+
+  <!-- LOOKUP ERROR (center) -->
+  <rect x="340" y="555" width="220" height="80" rx="8" fill="#1e293b" stroke="#f59e0b" stroke-width="1.5" filter="url(#shadow)"/>
+  <rect x="340" y="555" width="220" height="28" rx="8" fill="#f59e0b" opacity="0.15"/>
+  <text x="450" y="573" text-anchor="middle" fill="#fbbf24" font-size="12" font-weight="700">LOOKUP ERROR</text>
+  <text x="450" y="600" text-anchor="middle" fill="#e2e8f0" font-size="10">DB error or 10s timeout</text>
+  <text x="450" y="620" text-anchor="middle" fill="#fbbf24" font-size="12" font-weight="700">500 Internal Error</text>
 
   <!-- FOUND (right) -->
-  <rect x="580" y="500" width="220" height="80" rx="8" fill="#1e293b" stroke="#10b981" stroke-width="1.5" filter="url(#shadow)"/>
-  <rect x="580" y="500" width="220" height="28" rx="8" fill="#10b981" opacity="0.15"/>
-  <clipPath id="cpFound"><rect x="580" y="500" width="220" height="80" rx="8"/></clipPath>
-  <g clip-path="url(#cpFound)">
-    <text x="690" y="518" text-anchor="middle" fill="#34d399" font-size="12" font-weight="700">FOUND</text>
-  </g>
-  <text x="690" y="545" text-anchor="middle" fill="#e2e8f0" font-size="10">Virtual key record loaded</text>
-  <text x="690" y="565" text-anchor="middle" fill="#34d399" font-size="11">Continue processing →</text>
+  <rect x="600" y="555" width="220" height="80" rx="8" fill="#1e293b" stroke="#10b981" stroke-width="1.5" filter="url(#shadow)"/>
+  <rect x="600" y="555" width="220" height="28" rx="8" fill="#10b981" opacity="0.15"/>
+  <text x="710" y="573" text-anchor="middle" fill="#34d399" font-size="12" font-weight="700">FOUND</text>
+  <text x="710" y="600" text-anchor="middle" fill="#e2e8f0" font-size="10">Key and owner loaded</text>
+  <text x="710" y="620" text-anchor="middle" fill="#f87171" font-size="10">Owner account disabled → 401</text>
 
   <!-- Arrows from Step 3 to branches -->
-  <line x1="450" y1="465" x2="210" y2="490" stroke="#f87171" stroke-width="1.5" marker-end="url(#arr-red)"/>
-  <line x1="450" y1="465" x2="690" y2="490" stroke="#4ade80" stroke-width="1.5" marker-end="url(#arr-green)"/>
+  <line x1="450" y1="501" x2="190" y2="545" stroke="#f87171" stroke-width="1.5" marker-end="url(#arr-red)"/>
+  <line x1="450" y1="501" x2="450" y2="545" stroke="#f59e0b" stroke-width="1.5" marker-end="url(#arr)"/>
+  <line x1="450" y1="501" x2="710" y2="545" stroke="#4ade80" stroke-width="1.5" marker-end="url(#arr-green)"/>
 
   <!-- Continue arrow from FOUND to Step 4 -->
-  <line x1="690" y1="580" x2="450" y2="608" stroke="#4ade80" stroke-width="1.5" marker-end="url(#arr-green)"/>
+  <line x1="710" y1="635" x2="710" y2="663" stroke="#4ade80" stroke-width="1.5" marker-end="url(#arr-green)"/>
+  <text x="700" y="654" text-anchor="end" fill="#34d399" font-size="10">owner enabled, or no owner</text>
 
   <!-- Step 4: Set context values -->
-  <rect x="90" y="615" width="720" height="70" rx="6" fill="#1e293b" stroke="#a78bfa" stroke-width="1" filter="url(#shadow)"/>
-  <rect x="90" y="615" width="720" height="26" rx="6" fill="#a78bfa" opacity="0.15"/>
-  <clipPath id="cpCtx"><rect x="90" y="615" width="720" height="70" rx="6"/></clipPath>
-  <g clip-path="url(#cpCtx)">
-    <text x="110" y="633" fill="#c4b5fd" font-size="12" font-weight="700">4. Set context values</text>
-  </g>
-  <text x="110" y="660" fill="#94a3b8" font-size="10">virtual_key_name, virtual_key_id, virtual_key_hash, rate_limit_rps, rate_limit_burst, max_wait_ms</text>
-  <text x="110" y="675" fill="#64748b" font-size="9">Stored in request context for downstream handlers</text>
-  <line x1="450" y1="685" x2="450" y2="703" stroke="#94a3b8" stroke-width="1.5" marker-end="url(#arr)"/>
+  <rect x="90" y="670" width="720" height="92" rx="6" fill="#1e293b" stroke="#a78bfa" stroke-width="1" filter="url(#shadow)"/>
+  <rect x="90" y="670" width="720" height="26" rx="6" fill="#a78bfa" opacity="0.15"/>
+  <text x="110" y="688" fill="#c4b5fd" font-size="12" font-weight="700">4. Set context values</text>
+  <text x="110" y="715" fill="#94a3b8" font-size="10">Key: name, id, hash, rate_limit_rps, rate_limit_burst, rate_limit_tpm, allowed_providers, strip_reasoning, budget</text>
+  <text x="110" y="733" fill="#94a3b8" font-size="10">Owner (when the key has one): owner id, RPS, burst, TPM, allowed_providers, budget</text>
+  <text x="110" y="751" fill="#64748b" font-size="9">Stored in request context for the limiters and the proxy handler</text>
+  <line x1="450" y1="762" x2="450" y2="780" stroke="#94a3b8" stroke-width="1.5" marker-end="url(#arr)"/>
 
   <!-- Step 5: TouchLastUsed -->
-  <rect x="90" y="710" width="720" height="56" rx="6" fill="#1e293b" stroke="#f59e0b" stroke-width="1" filter="url(#shadow)"/>
-  <rect x="90" y="710" width="720" height="26" rx="6" fill="#f59e0b" opacity="0.15"/>
-  <clipPath id="cpTouch"><rect x="90" y="710" width="720" height="56" rx="6"/></clipPath>
-  <g clip-path="url(#cpTouch)">
-    <text x="110" y="728" fill="#fbbf24" font-size="12" font-weight="700">5. TouchLastUsed(keyHash)</text>
-  </g>
-  <text x="380" y="728" fill="#94a3b8" font-size="11">Async update of last_used timestamp</text>
-  <line x1="450" y1="766" x2="450" y2="784" stroke="#94a3b8" stroke-width="1.5" marker-end="url(#arr)"/>
+  <rect x="90" y="787" width="720" height="56" rx="6" fill="#1e293b" stroke="#f59e0b" stroke-width="1" filter="url(#shadow)"/>
+  <rect x="90" y="787" width="720" height="26" rx="6" fill="#f59e0b" opacity="0.15"/>
+  <text x="110" y="805" fill="#fbbf24" font-size="12" font-weight="700">5. TouchLastUsed(keyHash)</text>
+  <text x="380" y="805" fill="#94a3b8" font-size="11">Async update of last_used timestamp</text>
+  <line x1="450" y1="843" x2="450" y2="861" stroke="#94a3b8" stroke-width="1.5" marker-end="url(#arr)"/>
 
   <!-- Step 6: next.ServeHTTP() -->
-  <rect x="90" y="795" width="720" height="56" rx="6" fill="#1e293b" stroke="#10b981" stroke-width="1" filter="url(#shadow)"/>
-  <rect x="90" y="795" width="720" height="26" rx="6" fill="#10b981" opacity="0.15"/>
-  <clipPath id="cpNext"><rect x="90" y="795" width="720" height="56" rx="6"/></clipPath>
-  <g clip-path="url(#cpNext)">
-    <text x="110" y="813" fill="#34d399" font-size="12" font-weight="700">6. next.ServeHTTP()</text>
-  </g>
-  <text x="310" y="813" fill="#94a3b8" font-size="11">Continue to rate limiter → proxy handler</text>
-  <line x1="450" y1="851" x2="450" y2="869" stroke="#94a3b8" stroke-width="1.5" marker-end="url(#arr)"/>
+  <rect x="90" y="870" width="720" height="56" rx="6" fill="#1e293b" stroke="#10b981" stroke-width="1" filter="url(#shadow)"/>
+  <rect x="90" y="870" width="720" height="26" rx="6" fill="#10b981" opacity="0.15"/>
+  <text x="110" y="888" fill="#34d399" font-size="12" font-weight="700">6. next.ServeHTTP()</text>
+  <text x="310" y="888" fill="#94a3b8" font-size="11">Continue down the /v1 middleware chain</text>
+  <line x1="450" y1="980" x2="450" y2="998" stroke="#94a3b8" stroke-width="1.5" marker-end="url(#arr)"/>
+  <line x1="450" y1="926" x2="450" y2="980" stroke="#94a3b8" stroke-width="1.5"/>
 
-  <!-- Rate Limiter box -->
-  <rect x="280" y="875" width="340" height="50" rx="6" fill="#1e293b" stroke="#db2777" stroke-width="1.5" filter="url(#shadow)"/>
-  <text x="450" y="893" text-anchor="middle" fill="#f472b6" font-size="12" font-weight="700">Rate Limiter</text>
-  <text x="450" y="910" text-anchor="middle" fill="#94a3b8" font-size="9">Per-key token bucket with optional max_wait_ms</text>
-  <line x1="450" y1="925" x2="450" y2="943" stroke="#94a3b8" stroke-width="1.5" marker-end="url(#arr)"/>
+  <!-- Streaming-aware timeout -->
+  <rect x="230" y="1003" width="440" height="44" rx="6" fill="#1e293b" stroke="#64748b" stroke-width="1.5" filter="url(#shadow)"/>
+  <text x="450" y="1021" text-anchor="middle" fill="#e2e8f0" font-size="12" font-weight="700">Streaming-aware Timeout</text>
+  <text x="450" y="1038" text-anchor="middle" fill="#94a3b8" font-size="9">Reads model and stream flag from the body; 5 min limit for non-streaming</text>
+  <line x1="450" y1="1047" x2="450" y2="1063" stroke="#94a3b8" stroke-width="1.5" marker-end="url(#arr)"/>
+
+  <!-- RPS limiter -->
+  <rect x="230" y="1068" width="440" height="44" rx="6" fill="#1e293b" stroke="#db2777" stroke-width="1.5" filter="url(#shadow)"/>
+  <text x="450" y="1086" text-anchor="middle" fill="#f472b6" font-size="12" font-weight="700">RPS Limiter</text>
+  <text x="450" y="1103" text-anchor="middle" fill="#94a3b8" font-size="9">Key and owner token buckets; waits up to rate_limit_max_wait_ms (200), then 429</text>
+  <line x1="450" y1="1112" x2="450" y2="1128" stroke="#94a3b8" stroke-width="1.5" marker-end="url(#arr)"/>
+
+  <!-- TPM limiter -->
+  <rect x="230" y="1133" width="440" height="44" rx="6" fill="#1e293b" stroke="#db2777" stroke-width="1.5" filter="url(#shadow)"/>
+  <text x="450" y="1151" text-anchor="middle" fill="#f472b6" font-size="12" font-weight="700">TPM Limiter</text>
+  <text x="450" y="1168" text-anchor="middle" fill="#94a3b8" font-size="9">Key and owner tokens-per-minute budgets → 429</text>
+  <line x1="450" y1="1177" x2="450" y2="1193" stroke="#94a3b8" stroke-width="1.5" marker-end="url(#arr)"/>
+
+  <!-- Budget limiter -->
+  <rect x="230" y="1198" width="440" height="44" rx="6" fill="#1e293b" stroke="#db2777" stroke-width="1.5" filter="url(#shadow)"/>
+  <text x="450" y="1216" text-anchor="middle" fill="#f472b6" font-size="12" font-weight="700">Budget Limiter</text>
+  <text x="450" y="1233" text-anchor="middle" fill="#94a3b8" font-size="9">Key and owner dollar budgets for the period → 429</text>
+  <line x1="450" y1="1242" x2="450" y2="1258" stroke="#94a3b8" stroke-width="1.5" marker-end="url(#arr)"/>
 
   <!-- Proxy Handler -->
-  <rect x="250" y="950" width="400" height="50" rx="6" fill="#1e293b" stroke="#a78bfa" stroke-width="1.5" filter="url(#shadow)"/>
-  <text x="450" y="968" text-anchor="middle" fill="#c4b5fd" font-size="13" font-weight="700">Proxy Handler</text>
-  <text x="450" y="985" text-anchor="middle" fill="#94a3b8" font-size="10">Forward request to selected upstream provider</text>
+  <rect x="250" y="1263" width="400" height="50" rx="6" fill="#1e293b" stroke="#a78bfa" stroke-width="1.5" filter="url(#shadow)"/>
+  <text x="450" y="1281" text-anchor="middle" fill="#c4b5fd" font-size="13" font-weight="700">Proxy Handler</text>
+  <text x="450" y="1298" text-anchor="middle" fill="#94a3b8" font-size="10">Resolve candidates and forward to the upstream provider</text>
 
 </svg>

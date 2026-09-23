@@ -16,6 +16,7 @@
   <text x="105" y="90" text-anchor="middle" fill="#93c5fd" font-size="16" font-weight="700">Client</text>
   <text x="105" y="112" text-anchor="middle" fill="#94a3b8" font-size="10">Authorization:</text>
   <text x="105" y="126" text-anchor="middle" fill="#64748b" font-size="9">Bearer sk-abc123...</text>
+  <text x="105" y="140" text-anchor="middle" fill="#64748b" font-size="9">or x-api-key: sk-abc123...</text>
 
   <!-- Virtual Key arrow -->
   <line x1="180" y1="85" x2="280" y2="85" stroke="#3b82f6" stroke-width="1.8" marker-end="url(#arr)"/>

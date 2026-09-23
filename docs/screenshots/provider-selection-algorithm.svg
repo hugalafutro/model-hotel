@@ -1,4 +1,4 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 800" font-family="'Segoe UI', system-ui, -apple-system, sans-serif">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 930" font-family="'Segoe UI', system-ui, -apple-system, sans-serif">
   <defs>
     <marker id="arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
       <path d="M 0 0 L 10 5 L 0 10 z" fill="#94a3b8"/>
@@ -26,7 +26,7 @@
   <rect x="80" y="165" width="800" height="26" rx="8" fill="#a78bfa" opacity="0.15"/>
   <text x="100" y="183" fill="#c4b5fd" font-size="12" font-weight="700">STEP 1: Filter by entry_enabled</text>
   <text x="100" y="210" fill="#e2e8f0" font-size="11">Candidates: [uuid1, uuid3, uuid4]</text>
-  <text x="100" y="228" fill="#f87171" font-size="10">uuid2 skipped — entry disabled</text>
+  <text x="100" y="228" fill="#f87171" font-size="10">uuid2 skipped: entry disabled</text>
 
   <line x1="480" y1="245" x2="480" y2="270" stroke="#94a3b8" stroke-width="1.5" marker-end="url(#arr)"/>
 
@@ -35,7 +35,7 @@
   <rect x="80" y="275" width="800" height="26" rx="8" fill="#3b82f6" opacity="0.15"/>
   <text x="100" y="293" fill="#60a5fa" font-size="12" font-weight="700">STEP 2: Batch load models &amp; providers</text>
   <text x="100" y="318" fill="#94a3b8" font-size="11">Load models: GetByIDs([uuid1, uuid3, uuid4])</text>
-  <text x="100" y="336" fill="#94a3b8" font-size="11">Load providers: GetByIDs([prov1, prov3, prov4])</text>
+  <text x="100" y="336" fill="#94a3b8" font-size="11">Load providers of enabled models on enabled providers: GetByIDs([prov1, prov3])</text>
 
   <line x1="480" y1="345" x2="480" y2="370" stroke="#94a3b8" stroke-width="1.5" marker-end="url(#arr)"/>
 
@@ -45,8 +45,8 @@
   <text x="100" y="393" fill="#fbbf24" font-size="12" font-weight="700">STEP 3: Filter by enabled flags</text>
   <text x="100" y="420" fill="#94a3b8" font-size="11">Skip if model.enabled = false</text>
   <text x="100" y="438" fill="#94a3b8" font-size="11">Skip if provider.enabled = false</text>
-  <text x="550" y="420" fill="#e2e8f0" font-size="11">→ [uuid1, uuid3]</text>
-  <text x="550" y="438" fill="#f87171" font-size="10">uuid4 skipped — provider disabled</text>
+  <text x="640" y="420" fill="#e2e8f0" font-size="11">→ [uuid1, uuid3]</text>
+  <text x="640" y="438" fill="#f87171" font-size="10">uuid4 skipped: provider disabled</text>
 
   <line x1="480" y1="455" x2="480" y2="480" stroke="#94a3b8" stroke-width="1.5" marker-end="url(#arr)"/>
 
@@ -54,9 +54,10 @@
   <rect x="80" y="485" width="800" height="80" rx="8" fill="#1e293b" stroke="#f43f5e" stroke-width="1" filter="url(#shadow)"/>
   <rect x="80" y="485" width="800" height="26" rx="8" fill="#f43f5e" opacity="0.15"/>
   <text x="100" y="503" fill="#fb7185" font-size="12" font-weight="700">STEP 4: Filter by circuit breaker</text>
-  <text x="100" y="530" fill="#94a3b8" font-size="11">Skip if circuitBreaker.IsOpen(providerID) = true</text>
-  <text x="550" y="530" fill="#e2e8f0" font-size="11">→ [uuid1]</text>
-  <text x="550" y="548" fill="#f87171" font-size="10">uuid3 skipped — circuit open</text>
+  <text x="100" y="530" fill="#94a3b8" font-size="11">Skip if IsOpen(provider.ID, provider.Name, upstream model id)</text>
+  <text x="100" y="548" fill="#64748b" font-size="10">That model's circuit is open, or the provider counts as down (only while circuit_breaker_enabled)</text>
+  <text x="640" y="530" fill="#e2e8f0" font-size="11">→ [uuid1]</text>
+  <text x="640" y="548" fill="#f87171" font-size="10">uuid3 skipped: circuit open</text>
 
   <line x1="480" y1="565" x2="480" y2="590" stroke="#94a3b8" stroke-width="1.5" marker-end="url(#arr)"/>
 
@@ -69,12 +70,24 @@
 
   <line x1="480" y1="675" x2="480" y2="700" stroke="#94a3b8" stroke-width="1.5" marker-end="url(#arr)"/>
 
+  <!-- STEP 6 -->
+  <rect x="80" y="705" width="800" height="80" rx="8" fill="#1e293b" stroke="#a78bfa" stroke-width="1" filter="url(#shadow)"/>
+  <rect x="80" y="705" width="800" height="26" rx="8" fill="#a78bfa" opacity="0.15"/>
+  <text x="100" y="723" fill="#c4b5fd" font-size="12" font-weight="700">STEP 6: Filter by allowed_providers (proxy_request.go)</text>
+  <text x="100" y="750" fill="#94a3b8" font-size="11">Keep providers in the key's list intersected with the owner's cap</text>
+  <text x="100" y="768" fill="#94a3b8" font-size="11">No list on either side = no restriction</text>
+  <text x="640" y="750" fill="#e2e8f0" font-size="11">→ [uuid1]</text>
+  <text x="640" y="768" fill="#f87171" font-size="10">None left: 403</text>
+
+  <line x1="480" y1="785" x2="480" y2="810" stroke="#94a3b8" stroke-width="1.5" marker-end="url(#arr)"/>
+
   <!-- OUTPUT -->
-  <rect x="80" y="705" width="800" height="80" rx="8" fill="#1e293b" stroke="#10b981" stroke-width="1.5" filter="url(#shadow)"/>
-  <rect x="80" y="705" width="800" height="28" rx="8" fill="#10b981" opacity="0.15"/>
-  <text x="100" y="723" fill="#34d399" font-size="12" font-weight="700">OUTPUT: Ordered list of model candidates</text>
-  <text x="100" y="750" fill="#94a3b8" font-size="11">If empty: return error "no available provider"</text>
-  <text x="500" y="750" fill="#94a3b8" font-size="11">If non-empty: pass to failover loop</text>
-  <text x="100" y="770" fill="#e2e8f0" font-size="11">Final candidates: [uuid1 with decrypted API key]</text>
+  <rect x="80" y="815" width="800" height="100" rx="8" fill="#1e293b" stroke="#10b981" stroke-width="1.5" filter="url(#shadow)"/>
+  <rect x="80" y="815" width="800" height="28" rx="8" fill="#10b981" opacity="0.15"/>
+  <text x="100" y="833" fill="#34d399" font-size="12" font-weight="700">OUTPUT: Ordered list of model candidates</text>
+  <text x="100" y="860" fill="#e2e8f0" font-size="11">Final candidates: [uuid1 with decrypted API key]</text>
+  <text x="500" y="860" fill="#94a3b8" font-size="11">If non-empty: pass to failover loop</text>
+  <text x="100" y="882" fill="#f87171" font-size="10">Empty: 502 "no available provider for hotel/X", or 429 + Retry-After when breaker skips emptied it</text>
+  <text x="100" y="900" fill="#f87171" font-size="10">Every key failed to decrypt: 404 "all N candidate(s) failed key decryption (wrong master key?)"</text>
 
 </svg>

@@ -25,6 +25,12 @@
   <text x="450" y="102" text-anchor="middle" fill="#93c5fd" font-size="12" font-weight="700">Admin Dashboard / API</text>
   <text x="450" y="118" text-anchor="middle" fill="#64748b" font-size="9">POST /api/virtual-keys</text>
 
+  <!-- Managed member guard -->
+  <line x1="625" y1="105" x2="653" y2="105" stroke="#f87171" stroke-width="1.5" marker-end="url(#arr-red)"/>
+  <rect x="658" y="80" width="232" height="50" rx="8" fill="#1e293b" stroke="#f43f5e" stroke-width="1" filter="url(#shadow)"/>
+  <text x="774" y="100" text-anchor="middle" fill="#fb7185" font-size="10" font-weight="700">Front Desk managed member: 403</text>
+  <text x="774" y="117" text-anchor="middle" fill="#94a3b8" font-size="9">Keys are synced from the primary</text>
+
   <line x1="450" y1="130" x2="450" y2="155" stroke="#94a3b8" stroke-width="1.5" marker-end="url(#arr)"/>
 
   <!-- Generate -->
@@ -44,17 +50,19 @@
   <line x1="450" y1="301" x2="450" y2="325" stroke="#94a3b8" stroke-width="1.5" marker-end="url(#arr)"/>
 
   <!-- DB Insert -->
-  <rect x="225" y="330" width="450" height="56" rx="6" fill="#1e293b" stroke="#10b981" stroke-width="1" filter="url(#shadow)"/>
+  <rect x="225" y="330" width="450" height="84" rx="6" fill="#1e293b" stroke="#10b981" stroke-width="1" filter="url(#shadow)"/>
   <rect x="225" y="330" width="450" height="24" rx="6" fill="#10b981" opacity="0.15"/>
   <text x="450" y="348" text-anchor="middle" fill="#34d399" font-size="12" font-weight="700">INSERT INTO virtual_keys</text>
-  <text x="450" y="372" text-anchor="middle" fill="#94a3b8" font-size="10">name, key_hash, key_preview, tokens_used, last_used_at</text>
+  <text x="450" y="372" text-anchor="middle" fill="#94a3b8" font-size="10">name, key_hash, key_preview, rate_limit_rps, rate_limit_burst, rate_limit_tpm,</text>
+  <text x="450" y="387" text-anchor="middle" fill="#94a3b8" font-size="10">allowed_providers, strip_reasoning, owner_user_id, budget_usd, budget_period</text>
+  <text x="450" y="404" text-anchor="middle" fill="#64748b" font-size="9">tokens_used and last_used_at start at their defaults</text>
 
-  <line x1="450" y1="386" x2="450" y2="410" stroke="#94a3b8" stroke-width="1.5" marker-end="url(#arr)"/>
+  <line x1="450" y1="414" x2="450" y2="438" stroke="#94a3b8" stroke-width="1.5" marker-end="url(#arr)"/>
 
   <!-- Return key -->
-  <rect x="225" y="415" width="450" height="56" rx="6" fill="#1e293b" stroke="#f43f5e" stroke-width="1.5" filter="url(#shadow)"/>
-  <rect x="225" y="415" width="450" height="24" rx="6" fill="#f43f5e" opacity="0.15"/>
-  <text x="450" y="433" text-anchor="middle" fill="#fb7185" font-size="12" font-weight="700">Return plaintext key ONCE</text>
-  <text x="450" y="457" text-anchor="middle" fill="#f87171" font-size="10" font-weight="600">The raw key is never stored or shown again</text>
+  <rect x="225" y="443" width="450" height="56" rx="6" fill="#1e293b" stroke="#f43f5e" stroke-width="1.5" filter="url(#shadow)"/>
+  <rect x="225" y="443" width="450" height="24" rx="6" fill="#f43f5e" opacity="0.15"/>
+  <text x="450" y="461" text-anchor="middle" fill="#fb7185" font-size="12" font-weight="700">Return plaintext key ONCE</text>
+  <text x="450" y="485" text-anchor="middle" fill="#f87171" font-size="10" font-weight="600">The raw key is never stored or shown again</text>
 
 </svg>
