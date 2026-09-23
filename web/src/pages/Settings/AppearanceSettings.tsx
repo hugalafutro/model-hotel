@@ -210,9 +210,7 @@ export function AppearanceSettings({
 				{/* Accent Color + Theme */}
 				<div className="flex items-center justify-between gap-6">
 					<div className="flex items-center gap-3">
-						<p className="text-sm font-medium text-gray-300">
-							{t("settings.appearance.accentColor")}
-						</p>
+						<p className="ui-label">{t("settings.appearance.accentColor")}</p>
 						<div className="flex flex-wrap gap-2 py-1 px-1">
 							{accentPresets.map((preset) => (
 								<button
@@ -260,9 +258,7 @@ export function AppearanceSettings({
 					</div>
 
 					<div className="flex items-center gap-3">
-						<p className="text-sm font-medium text-gray-300">
-							{t("settings.appearance.theme")}
-						</p>
+						<p className="ui-label">{t("settings.appearance.theme")}</p>
 						<div className="theme-mode-toggle">
 							{THEMES.map(({ id, labelKey }) => (
 								<button

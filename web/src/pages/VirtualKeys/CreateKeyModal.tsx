@@ -154,10 +154,7 @@ export function CreateKeyModal({
 			) : (
 				<form onSubmit={handleSubmit} className="space-y-4">
 					<div>
-						<label
-							htmlFor="vk-name"
-							className="block text-sm font-medium text-gray-300 mb-1"
-						>
+						<label htmlFor="vk-name" className="block ui-label mb-1">
 							{t("virtualkeys.modal.nameLabel")}
 						</label>
 						<input
@@ -173,10 +170,7 @@ export function CreateKeyModal({
 					</div>
 					{isAdmin && (
 						<div>
-							<label
-								htmlFor="vk-owner"
-								className="block text-sm font-medium text-gray-300 mb-1"
-							>
+							<label htmlFor="vk-owner" className="block ui-label mb-1">
 								{t("virtualkeys.modal.form.owner")}
 							</label>
 							<select
@@ -195,7 +189,7 @@ export function CreateKeyModal({
 									</option>
 								))}
 							</select>
-							<p className="text-xs text-gray-500 mt-1">
+							<p className="ui-hint mt-1">
 								{t("virtualkeys.modal.form.ownerHint")}
 							</p>
 						</div>

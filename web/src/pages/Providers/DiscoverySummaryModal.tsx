@@ -329,10 +329,7 @@ export function DiscoverySummaryModal({
 		>
 			<div className="space-y-5" data-testid="discovery-summary">
 				{singleUnchanged ? (
-					<p
-						className="text-sm text-(--text-tertiary)"
-						data-testid="discovery-summary-no-changes"
-					>
+					<p className="ui-subtitle" data-testid="discovery-summary-no-changes">
 						{t("providers.discoverySummary.noChanges")}
 					</p>
 				) : (

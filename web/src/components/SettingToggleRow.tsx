@@ -41,7 +41,7 @@ export function SettingToggleRow({
 		>
 			<div className="min-w-0">
 				<div className="flex items-center gap-1">
-					<p className="text-sm font-medium text-gray-300">{label}</p>
+					<p className="ui-label">{label}</p>
 					{onReset && (
 						<ResetButton
 							tooltip={t("settings.common.resetSetting")}
@@ -51,7 +51,7 @@ export function SettingToggleRow({
 						/>
 					)}
 				</div>
-				<p className="text-gray-500 text-xs mt-0.5">{description}</p>
+				<p className="ui-hint mt-0.5">{description}</p>
 			</div>
 			<Toggle
 				checked={checked}

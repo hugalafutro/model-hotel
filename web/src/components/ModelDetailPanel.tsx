@@ -31,7 +31,7 @@ function PriceCell({
 	const { t } = useTranslation();
 	return (
 		<div>
-			<span className="text-[10px] text-(--text-tertiary) uppercase tracking-wider">
+			<span className="ui-overline">
 				{t(`components.modelDetailPanel.${labelKey}`)}
 			</span>
 			<div className="text-(--text-primary) font-medium flex items-center gap-1">
@@ -178,7 +178,7 @@ export function ModelDetailPanel({
 
 					<div className="space-y-2">
 						<div>
-							<span className="text-[10px] text-(--text-tertiary) uppercase tracking-wider">
+							<span className="ui-overline">
 								{t("components.modelDetailPanel.provider")}
 							</span>
 							<div className="text-(--text-primary) font-medium">
@@ -186,7 +186,7 @@ export function ModelDetailPanel({
 							</div>
 						</div>
 						<div>
-							<span className="text-[10px] text-(--text-tertiary) uppercase tracking-wider">
+							<span className="ui-overline">
 								{t("components.modelDetailPanel.modelId")}
 							</span>
 							<div
@@ -198,7 +198,7 @@ export function ModelDetailPanel({
 						</div>
 						<div className="grid grid-cols-2 gap-2">
 							<div>
-								<span className="text-[10px] text-(--text-tertiary) uppercase tracking-wider">
+								<span className="ui-overline">
 									{t("components.modelDetailPanel.context")}
 								</span>
 								<div className="text-(--text-primary) font-medium">
@@ -206,7 +206,7 @@ export function ModelDetailPanel({
 								</div>
 							</div>
 							<div>
-								<span className="text-[10px] text-(--text-tertiary) uppercase tracking-wider">
+								<span className="ui-overline">
 									{t("components.modelDetailPanel.maxOut")}
 								</span>
 								<div className="text-(--text-primary) font-medium">
@@ -231,7 +231,7 @@ export function ModelDetailPanel({
 					{(CAP_META.some((m) => caps[m.key]) ||
 						nonTextOutputs(model).length > 0) && (
 						<div>
-							<span className="text-[10px] text-(--text-tertiary) uppercase tracking-wider">
+							<span className="ui-overline">
 								{t("components.modelDetailPanel.capabilities")}
 							</span>
 							<div className="flex flex-wrap gap-1 mt-1">
@@ -244,7 +244,7 @@ export function ModelDetailPanel({
 					)}
 
 					<div>
-						<span className="text-[10px] text-(--text-tertiary) uppercase tracking-wider">
+						<span className="ui-overline">
 							{t("components.modelDetailPanel.proxyId")}
 						</span>
 						<CopyablePill

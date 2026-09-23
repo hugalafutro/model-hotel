@@ -82,10 +82,7 @@ export function UserModal({
 				)}
 
 				<div>
-					<label
-						htmlFor="user-username"
-						className="block text-sm font-medium text-gray-300 mb-2"
-					>
+					<label htmlFor="user-username" className="block ui-label mb-2">
 						{t("users.modal.username")}
 					</label>
 					<input
@@ -101,10 +98,7 @@ export function UserModal({
 				</div>
 
 				<div>
-					<label
-						htmlFor="user-display-name"
-						className="block text-sm font-medium text-gray-300 mb-2"
-					>
+					<label htmlFor="user-display-name" className="block ui-label mb-2">
 						{t("users.modal.displayName")}
 					</label>
 					<input
@@ -119,10 +113,7 @@ export function UserModal({
 				</div>
 
 				<div>
-					<label
-						htmlFor="user-email"
-						className="block text-sm font-medium text-gray-300 mb-2"
-					>
+					<label htmlFor="user-email" className="block ui-label mb-2">
 						{t("users.modal.email")}
 					</label>
 					<input
@@ -134,17 +125,12 @@ export function UserModal({
 						autoComplete="off"
 						disabled={managed}
 					/>
-					<p className="text-xs text-gray-500 mt-1">
-						{t("users.modal.emailHint")}
-					</p>
+					<p className="ui-hint mt-1">{t("users.modal.emailHint")}</p>
 				</div>
 
 				{!isEdit && (
 					<div>
-						<label
-							htmlFor="user-password"
-							className="block text-sm font-medium text-gray-300 mb-2"
-						>
+						<label htmlFor="user-password" className="block ui-label mb-2">
 							{t("users.modal.password")}
 						</label>
 						<input
@@ -161,10 +147,7 @@ export function UserModal({
 				)}
 
 				<div>
-					<label
-						htmlFor="user-role"
-						className="block text-sm font-medium text-gray-300 mb-2"
-					>
+					<label htmlFor="user-role" className="block ui-label mb-2">
 						{t("users.modal.role")}
 					</label>
 					<select
@@ -177,7 +160,7 @@ export function UserModal({
 						<option value="user">{t("users.role.user")}</option>
 						<option value="admin">{t("users.role.admin")}</option>
 					</select>
-					<p className="text-xs text-gray-500 mt-1">
+					<p className="ui-hint mt-1">
 						{role === "admin"
 							? t("users.modal.roleAdminHint")
 							: t("users.modal.roleUserHint")}
@@ -186,7 +169,7 @@ export function UserModal({
 
 				{role === "user" && (
 					<fieldset>
-						<legend className="block text-sm font-medium text-gray-300 mb-2">
+						<legend className="block ui-label mb-2">
 							{t("users.modal.grants")}
 						</legend>
 						<div className="grid grid-cols-2 gap-2">
@@ -211,7 +194,7 @@ export function UserModal({
 				)}
 
 				<fieldset>
-					<legend className="block text-sm font-medium text-gray-300 mb-2">
+					<legend className="block ui-label mb-2">
 						{t("users.providerAccess")}
 					</legend>
 					<div className="space-y-2" data-testid="provider-access-mode">
@@ -275,12 +258,10 @@ export function UserModal({
 				</fieldset>
 
 				<fieldset>
-					<legend className="block text-sm font-medium text-gray-300 mb-1">
+					<legend className="block ui-label mb-1">
 						{t("users.modal.limits")}
 					</legend>
-					<p className="text-xs text-gray-500 mb-2">
-						{t("users.modal.limitsHint")}
-					</p>
+					<p className="ui-hint mb-2">{t("users.modal.limitsHint")}</p>
 					<div className="grid grid-cols-3 gap-2">
 						<div>
 							<label
@@ -367,9 +348,7 @@ export function UserModal({
 
 				{isEdit && (
 					<div className="flex items-center justify-between">
-						<span className="text-sm font-medium text-gray-300">
-							{t("users.modal.enabled")}
-						</span>
+						<span className="ui-label">{t("users.modal.enabled")}</span>
 						<Toggle
 							checked={enabled}
 							onChange={setEnabled}
@@ -397,7 +376,7 @@ export function UserModal({
 				</div>
 
 				{managed && isEdit && (
-					<p data-testid="managed-note" className="text-xs text-(--text-muted)">
+					<p data-testid="managed-note" className="ui-hint">
 						{t("settings.managed.sectionNote")}
 					</p>
 				)}
@@ -407,7 +386,7 @@ export function UserModal({
 						<div>
 							<label
 								htmlFor="user-reset-password"
-								className="block text-sm font-medium text-gray-300 mb-2"
+								className="block ui-label mb-2"
 							>
 								{t("users.modal.resetPassword")}
 							</label>
@@ -437,9 +416,7 @@ export function UserModal({
 									{t("users.modal.resetButton")}
 								</button>
 							</div>
-							<p className="text-xs text-gray-500 mt-1">
-								{t("users.modal.resetHint")}
-							</p>
+							<p className="ui-hint mt-1">{t("users.modal.resetHint")}</p>
 						</div>
 
 						{user?.totp_enabled && (
@@ -453,9 +430,7 @@ export function UserModal({
 								>
 									{t("users.modal.totpResetButton")}
 								</button>
-								<p className="text-xs text-gray-500 mt-1">
-									{t("users.modal.totpResetHint")}
-								</p>
+								<p className="ui-hint mt-1">{t("users.modal.totpResetHint")}</p>
 							</div>
 						)}
 

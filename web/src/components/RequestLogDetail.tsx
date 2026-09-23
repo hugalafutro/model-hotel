@@ -66,7 +66,7 @@ export function RequestLogDetail({
 			nav={nav}
 			header={
 				<div className="flex items-center gap-3 flex-wrap mb-4">
-					<h2 className="text-xl font-bold text-(--text-primary)">
+					<h2 className="ui-modal-title">
 						{t("components.requestLogDetail.title")}
 					</h2>
 					<StatusBadge
@@ -104,7 +104,7 @@ export function RequestLogDetail({
 					<div className="text-lg font-bold text-(--text-primary)">
 						<DurationFigure ms={requestLog.duration_ms} />
 					</div>
-					<div className="flex items-center justify-center gap-1 text-[10px] uppercase tracking-wider text-(--text-tertiary)">
+					<div className="flex items-center justify-center gap-1 ui-overline">
 						{t("components.requestLogDetail.duration")}
 						<InfoHint
 							tooltip={t("components.requestLogDetail.totalWallClockTime")}
@@ -120,7 +120,7 @@ export function RequestLogDetail({
 							"-"
 						)}
 					</div>
-					<div className="flex items-center justify-center gap-1 text-[10px] uppercase tracking-wider text-(--text-tertiary)">
+					<div className="flex items-center justify-center gap-1 ui-overline">
 						{t("components.requestLogDetail.headers")}
 						<InfoHint
 							tooltip={t("components.requestLogDetail.timeToReceiveHeaders")}
@@ -136,7 +136,7 @@ export function RequestLogDetail({
 							"-"
 						)}
 					</div>
-					<div className="flex items-center justify-center gap-1 text-[10px] uppercase tracking-wider text-(--text-tertiary)">
+					<div className="flex items-center justify-center gap-1 ui-overline">
 						{t("components.requestLogDetail.ttft")}
 						<InfoHint
 							tooltip={t("components.requestLogDetail.timeToFirstToken")}
@@ -157,7 +157,7 @@ export function RequestLogDetail({
 							? (requestLog.tokens_per_second as number).toFixed(1)
 							: "-"}
 					</div>
-					<div className="flex items-center justify-center gap-1 text-[10px] uppercase tracking-wider text-(--text-tertiary)">
+					<div className="flex items-center justify-center gap-1 ui-overline">
 						{t("components.requestLogDetail.tokensPerSecond")}
 						<InfoHint
 							tooltip={t("components.requestLogDetail.outputTokensPerSecond")}
@@ -169,7 +169,7 @@ export function RequestLogDetail({
 					<div className="text-lg font-bold text-(--text-primary)">
 						{totalTokens > 0 ? totalTokens.toLocaleString() : "-"}
 					</div>
-					<div className="flex items-center justify-center gap-1 text-[10px] uppercase tracking-wider text-(--text-tertiary)">
+					<div className="flex items-center justify-center gap-1 ui-overline">
 						{t("common.tokens")}
 						<InfoHint tooltip={t("components.requestLogDetail.sumOfTokens")} />
 					</div>

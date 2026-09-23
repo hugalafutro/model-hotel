@@ -50,13 +50,8 @@ function ModelClassRows({
 	if (entry.current_interval_status === 3) {
 		return (
 			<div>
-				<p className="text-sm font-medium text-(--text-secondary) mb-1">
-					{label}
-				</p>
-				<p
-					className="text-xs text-(--text-muted)"
-					data-testid={`minimax-${name}-not-in-plan`}
-				>
+				<p className="ui-label mb-1">{label}</p>
+				<p className="ui-hint" data-testid={`minimax-${name}-not-in-plan`}>
 					{t("components.providerModals.miniMaxNotInPlan")}
 				</p>
 			</div>
@@ -77,7 +72,7 @@ function ModelClassRows({
 
 	return (
 		<div className="space-y-4">
-			<p className="text-sm font-medium text-(--text-secondary)">{label}</p>
+			<p className="ui-label">{label}</p>
 			<QuotaBar
 				label={t("components.providerModals.hTokenQuota", {
 					hours: intervalHours,
@@ -131,7 +126,7 @@ export function MiniMaxQuotaModal({
 			header={
 				<div className="flex justify-between items-start mb-6">
 					<div>
-						<h2 className="text-xl font-bold text-(--text-primary)">
+						<h2 className="ui-modal-title">
 							{t("components.providerModals.miniMaxPlanQuota")}
 						</h2>
 					</div>

@@ -275,7 +275,7 @@ export function AddProviderModal({
 
 			<form onSubmit={handleSubmit} className="space-y-4">
 				<div>
-					<span className="block text-sm font-medium text-gray-300 mb-1">
+					<span className="block ui-label mb-1">
 						{t("providers.form_type_label")}
 					</span>
 					<FilterDropdown
@@ -289,10 +289,7 @@ export function AddProviderModal({
 				</div>
 
 				<div>
-					<label
-						htmlFor="provider-name"
-						className="block text-sm font-medium text-gray-300 mb-1"
-					>
+					<label htmlFor="provider-name" className="block ui-label mb-1">
 						{t("providers.form_name_label")}
 					</label>
 					<input
@@ -311,16 +308,11 @@ export function AddProviderModal({
 						className="ui-input"
 						placeholder={t("providers.form_name_placeholder")}
 					/>
-					<p className="text-gray-500 text-xs mt-1">
-						{t("providers.form_name_hint")}
-					</p>
+					<p className="ui-hint mt-1">{t("providers.form_name_hint")}</p>
 				</div>
 
 				<div>
-					<label
-						htmlFor="provider-base-url"
-						className="block text-sm font-medium text-gray-300 mb-1"
-					>
+					<label htmlFor="provider-base-url" className="block ui-label mb-1">
 						{t("providers.add.baseUrl")}
 					</label>
 					<input
@@ -346,12 +338,12 @@ export function AddProviderModal({
 						}
 					/>
 					{!hasEditableBaseUrl(formData.provider_type) && (
-						<p className="text-gray-500 text-xs mt-1">
+						<p className="ui-hint mt-1">
 							{t("providers.form_base_url_hint_preset")}
 						</p>
 					)}
 					{isLocalProviderType(formData.provider_type) && (
-						<p className="text-gray-500 text-xs mt-1">
+						<p className="ui-hint mt-1">
 							{t("providers.add.baseUrlHelperDefault")}
 						</p>
 					)}
@@ -370,22 +362,19 @@ export function AddProviderModal({
 						</p>
 					)}
 					{formData.provider_type === "custom" && (
-						<p className="text-gray-500 text-xs mt-1">
+						<p className="ui-hint mt-1">
 							{t("providers.add.baseUrlHelperFull")}
 						</p>
 					)}
 					{formData.provider_type === "anthropic-messages" && (
-						<p className="text-gray-500 text-xs mt-1">
+						<p className="ui-hint mt-1">
 							{t("providers.add.baseUrlHelperAnthropicMessages")}
 						</p>
 					)}
 				</div>
 
 				<div>
-					<label
-						htmlFor="provider-api-key"
-						className="block text-sm font-medium text-gray-300 mb-1"
-					>
+					<label htmlFor="provider-api-key" className="block ui-label mb-1">
 						{t("providers.add.apiKey")}
 					</label>
 					<RevealableInput

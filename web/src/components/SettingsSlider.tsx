@@ -292,9 +292,7 @@ export function SettingsSlider({
 					</span>
 				)}
 			</div>
-			{description && (
-				<p className="text-gray-500 text-xs mt-0.5">{description}</p>
-			)}
+			{description && <p className="ui-hint mt-0.5">{description}</p>}
 		</div>
 	);
 }

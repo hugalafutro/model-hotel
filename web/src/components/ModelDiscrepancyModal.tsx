@@ -361,7 +361,7 @@ export function ModelDiscrepancyModal({
 				scrollable
 				header={
 					<div className="mb-4 flex items-center gap-3">
-						<h2 className="text-xl font-bold text-white">
+						<h2 className="ui-modal-title">
 							{t("providers.discrepancies.title")}
 						</h2>
 						{retestAllProgress ? (
@@ -520,17 +520,14 @@ export function ModelDiscrepancyModal({
 					   answer is nothing". Collapsing the first two into the third is
 					   the false reassurance this rework exists to remove. */
 						<p
-							className="text-sm text-(--text-tertiary)"
+							className="ui-subtitle"
 							data-testid="discrepancy-loading"
 							aria-live="polite"
 						>
 							{t("providers.discrepancies.loading")}
 						</p>
 					) : (
-						<p
-							className="text-sm text-(--text-tertiary)"
-							data-testid="discrepancy-empty"
-						>
+						<p className="ui-subtitle" data-testid="discrepancy-empty">
 							{t("providers.discrepancies.empty")}
 						</p>
 					)}

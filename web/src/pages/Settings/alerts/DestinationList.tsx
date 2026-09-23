@@ -44,10 +44,7 @@ export function DestinationList({
 
 	if (targets.length === 0) {
 		return (
-			<p
-				className="text-xs text-(--text-muted)"
-				data-testid="alert-destinations-empty"
-			>
+			<p className="ui-hint" data-testid="alert-destinations-empty">
 				{emptyText ?? t("settings.alerts.destinations.empty")}
 			</p>
 		);
@@ -56,10 +53,7 @@ export function DestinationList({
 	return (
 		<div className="space-y-1.5">
 			{disabledReason && (
-				<p
-					className="text-xs text-(--text-muted)"
-					data-testid="alert-destinations-dirty"
-				>
+				<p className="ui-hint" data-testid="alert-destinations-dirty">
 					{disabledReason}
 				</p>
 			)}

@@ -78,11 +78,7 @@ export function SettingsSection({
 			    content edge would otherwise be clipped by the collapse box. */}
 			<CollapseBody collapsed={collapsed} bleed>
 				{managed && (
-					<p
-						id={noteId}
-						data-testid="managed-note"
-						className="mb-4 text-xs text-(--text-muted)"
-					>
+					<p id={noteId} data-testid="managed-note" className="mb-4 ui-hint">
 						{t("settings.managed.sectionNote")}
 					</p>
 				)}

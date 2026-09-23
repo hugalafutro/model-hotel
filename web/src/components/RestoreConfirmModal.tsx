@@ -178,10 +178,7 @@ export function RestoreConfirmModal({
 			</div>
 
 			<div className="mb-4">
-				<label
-					htmlFor={signatureId}
-					className="block text-sm font-medium text-gray-300 mb-1"
-				>
+				<label htmlFor={signatureId} className="block ui-label mb-1">
 					{t("components.restoreConfirmModal.signatureLabel")}
 				</label>
 				<textarea
@@ -207,10 +204,7 @@ export function RestoreConfirmModal({
 			</div>
 
 			<div className="mb-4">
-				<label
-					htmlFor={inputId}
-					className="block text-sm font-medium text-gray-300 mb-1"
-				>
+				<label htmlFor={inputId} className="block ui-label mb-1">
 					{t("components.restoreConfirmModal.confirmWithAdminToken")}
 				</label>
 				<input

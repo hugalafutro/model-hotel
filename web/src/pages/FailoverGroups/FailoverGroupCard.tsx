@@ -205,9 +205,7 @@ export function FailoverGroupCard({
 				</div>
 				<div className="flex items-center gap-2 shrink-0">
 					{group.auto_created && (
-						<span className="text-xs text-gray-500">
-							{t("failover.auto_created")}
-						</span>
+						<span className="ui-hint">{t("failover.auto_created")}</span>
 					)}
 					{managed ? (
 						// The group on/off flag (group_enabled) is synced config, so under

@@ -38,9 +38,7 @@ export function GroupSection({
 					{title}
 				</span>
 				<div className="flex-1 h-px bg-gray-700/50" />
-				<span className="text-xs text-gray-500">
-					{t("failover.group_count", { count })}
-				</span>
+				<span className="ui-hint">{t("failover.group_count", { count })}</span>
 			</button>
 			<div
 				className="grid transition-[grid-template-rows] duration-200 ease-in-out"

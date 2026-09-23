@@ -289,7 +289,7 @@ export function AlertsSettings({
 				</p>
 
 				{managed && (
-					<p data-testid="managed-note" className="text-xs text-(--text-muted)">
+					<p data-testid="managed-note" className="ui-hint">
 						{t("settings.managed.alertsNote")}
 					</p>
 				)}
@@ -410,14 +410,12 @@ export function AlertsSettings({
 						    list it qualifies and stays out of the collapsed manual block
 						    that holds the address itself. */}
 						<div className="flex flex-wrap items-center justify-between gap-2">
-							<p className="text-sm font-medium text-(--text-secondary)">
+							<p className="ui-label">
 								{t("settings.alerts.destinations.title")}
 							</p>
 							{apiUrl !== "" && <AppriseStatus statusQuery={statusQuery} />}
 						</div>
-						<p className="text-xs text-(--text-muted)">
-							{t("settings.alerts.destinations.note")}
-						</p>
+						<p className="ui-hint">{t("settings.alerts.destinations.note")}</p>
 						{/* An unreadable stored list has already been explained by the
 						    callout above; rendering an empty list here on top of it would
 						    read as "nothing is configured" instead of "cannot be read". */}
@@ -461,10 +459,7 @@ export function AlertsSettings({
 					    it points at the manual block, so it waits until that block is
 					    on screen. */}
 						{apiUrl === "" && (
-							<p
-								className="text-xs text-(--text-muted)"
-								data-testid="alert-status-hint"
-							>
+							<p className="ui-hint" data-testid="alert-status-hint">
 								{t("settings.alerts.statusNotConfiguredHint")}
 							</p>
 						)}
@@ -475,16 +470,13 @@ export function AlertsSettings({
 				    operator who would rather type the Apprise URL themselves. */}
 				{showDelivery && (
 					<details data-testid="alert-manual">
-						<summary className="text-sm font-medium text-(--text-secondary)">
+						<summary className="ui-label">
 							{t("settings.alerts.manualTitle")}
 						</summary>
 						<div className="space-y-5 mt-3">
 							{/* apprise-api base URL */}
 							<div className="space-y-1.5">
-								<label
-									htmlFor="alert-api-url"
-									className="text-sm font-medium text-(--text-secondary)"
-								>
+								<label htmlFor="alert-api-url" className="ui-label">
 									{t("settings.alerts.apiUrl")}
 								</label>
 								<BlurCommitInput
@@ -496,17 +488,14 @@ export function AlertsSettings({
 									placeholder={DEFAULT_APPRISE_URL}
 									testId="alert-api-url-input"
 								/>
-								<p className="text-(--text-muted) text-xs">
+								<p className="ui-hint">
 									{t("settings.alerts.apiUrlDescription")}
 								</p>
 							</div>
 
 							{/* Apprise target (encrypted secret) */}
 							<div className="space-y-1.5">
-								<label
-									htmlFor="alert-target"
-									className="text-sm font-medium text-(--text-secondary)"
-								>
+								<label htmlFor="alert-target" className="ui-label">
 									{t("settings.alerts.target")}
 								</label>
 								<div className="flex items-center gap-2">
@@ -540,7 +529,7 @@ export function AlertsSettings({
 										</button>
 									)}
 								</div>
-								<p className="text-(--text-muted) text-xs">
+								<p className="ui-hint">
 									{/* The ';' separator is rendered as a code token (same effect as
 								    pg_dump in DB settings) so it doesn't read as ' ; ' literal. */}
 									<Trans
@@ -568,9 +557,7 @@ export function AlertsSettings({
 										: t("settings.alerts.testButton")}
 								</button>
 								{!canTest && (
-									<p className="text-(--text-muted) text-xs">
-										{t("settings.alerts.testHint")}
-									</p>
+									<p className="ui-hint">{t("settings.alerts.testHint")}</p>
 								)}
 							</div>
 

@@ -105,7 +105,7 @@ export function ModelDetailModal({
 				<div>
 					<div className="flex justify-between items-start mb-0">
 						<div className="min-w-0">
-							<h2 className="text-xl font-bold text-white">
+							<h2 className="ui-modal-title">
 								{model.display_name || model.name || pMid}
 							</h2>
 							<CopyablePill
@@ -118,7 +118,7 @@ export function ModelDetailModal({
 				</div>
 			}
 			onClose={handleClose}
-			maxWidth="max-w-lg"
+			maxWidth="max-w-xl"
 			zIndex={zIndex}
 			scrollable
 		>

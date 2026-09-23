@@ -147,16 +147,11 @@ export function SsoPanel({
 
 			{enabled && (
 				<>
-					{setupHint && (
-						<p className="text-gray-500 text-xs">{t(`${p}.setupHint`)}</p>
-					)}
+					{setupHint && <p className="ui-hint">{t(`${p}.setupHint`)}</p>}
 
 					{keys.issuer && (
 						<div className="space-y-1.5">
-							<label
-								htmlFor={`${prefix}-issuer`}
-								className="text-sm font-medium text-gray-300"
-							>
+							<label htmlFor={`${prefix}-issuer`} className="ui-label">
 								{t(`${p}.issuer`)}
 							</label>
 							<BlurCommitInput
@@ -166,19 +161,14 @@ export function SsoPanel({
 								placeholder="https://auth.example.com"
 								testId={`${prefix}-issuer-input`}
 							/>
-							<p className="text-gray-500 text-xs">
-								{t(`${p}.issuerDescription`)}
-							</p>
+							<p className="ui-hint">{t(`${p}.issuerDescription`)}</p>
 							{statusPill}
 						</div>
 					)}
 
 					{/* Client ID */}
 					<div className="space-y-1.5">
-						<label
-							htmlFor={`${prefix}-client-id`}
-							className="text-sm font-medium text-gray-300"
-						>
+						<label htmlFor={`${prefix}-client-id`} className="ui-label">
 							{t(`${p}.clientId`)}
 						</label>
 						<BlurCommitInput
@@ -193,10 +183,7 @@ export function SsoPanel({
 
 					{/* Client secret (encrypted at rest) */}
 					<div className="space-y-1.5">
-						<label
-							htmlFor={`${prefix}-client-secret`}
-							className="text-sm font-medium text-gray-300"
-						>
+						<label htmlFor={`${prefix}-client-secret`} className="ui-label">
 							{t(`${p}.clientSecret`)}
 						</label>
 						<SecretField
@@ -223,10 +210,7 @@ export function SsoPanel({
 
 					{/* Public base URL */}
 					<div className="space-y-1.5">
-						<label
-							htmlFor={`${prefix}-base-url`}
-							className="text-sm font-medium text-gray-300"
-						>
+						<label htmlFor={`${prefix}-base-url`} className="ui-label">
 							{t(`${p}.publicBaseUrl`)}
 						</label>
 						<BlurCommitInput
@@ -236,29 +220,23 @@ export function SsoPanel({
 							placeholder="https://hotel.example.com"
 							testId={`${prefix}-base-url-input`}
 						/>
-						<p className="text-gray-500 text-xs">
-							{t(`${p}.publicBaseUrlDescription`)}
-						</p>
+						<p className="ui-hint">{t(`${p}.publicBaseUrlDescription`)}</p>
 					</div>
 
 					{/* Callback URL to register with the provider */}
 					{callbackUri && (
 						<div className="space-y-1.5">
-							<p className="text-sm font-medium text-gray-300">
-								{t(`${p}.${callbackKeys.label}`)}
-							</p>
+							<p className="ui-label">{t(`${p}.${callbackKeys.label}`)}</p>
 							<CopyablePill
 								text={callbackUri}
 								tooltip={t(`${p}.${callbackKeys.copy}`)}
 								textClassName="font-mono text-xs break-all text-gray-200 select-all"
 							/>
-							<p className="text-gray-500 text-xs">
-								{t(`${p}.${callbackKeys.description}`)}
-							</p>
+							<p className="ui-hint">{t(`${p}.${callbackKeys.description}`)}</p>
 						</div>
 					)}
 
-					<p className="text-gray-500 text-xs">{t(`${p}.fallbackNote`)}</p>
+					<p className="ui-hint">{t(`${p}.fallbackNote`)}</p>
 				</>
 			)}
 
@@ -267,10 +245,7 @@ export function SsoPanel({
 			    does not itself offer this IdP it is still THE place to set who
 			    may log in on the members that do. */}
 			<div className="space-y-1.5">
-				<label
-					htmlFor={`${prefix}-allowed-emails`}
-					className="text-sm font-medium text-gray-300"
-				>
+				<label htmlFor={`${prefix}-allowed-emails`} className="ui-label">
 					{t(`${p}.allowedEmails`)}
 				</label>
 				<textarea
@@ -298,9 +273,7 @@ export function SsoPanel({
 					// edit it.
 					disabled={managed}
 				/>
-				<p className="text-gray-500 text-xs">
-					{t(`${p}.allowedEmailsDescription`)}
-				</p>
+				<p className="ui-hint">{t(`${p}.allowedEmailsDescription`)}</p>
 			</div>
 		</div>
 	);

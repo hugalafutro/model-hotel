@@ -337,10 +337,7 @@ export function CreateGroupModal({
 		>
 			<form onSubmit={handleSubmit} className="space-y-4">
 				<div>
-					<label
-						htmlFor="display-model"
-						className="block text-sm font-medium text-gray-300 mb-1"
-					>
+					<label htmlFor="display-model" className="block ui-label mb-1">
 						{t("failoverGroups.create.displayModelName")}
 					</label>
 					<input
@@ -353,7 +350,7 @@ export function CreateGroupModal({
 						className="ui-input"
 						placeholder={t("failoverGroups.create.displayModelNamePlaceholder")}
 					/>
-					<p className="text-gray-500 text-xs mt-1">
+					<p className="ui-hint mt-1">
 						{t("failoverGroups.create.displayModelNameHelper", {
 							modelName: displayModel || "model-name",
 						})}
@@ -361,10 +358,7 @@ export function CreateGroupModal({
 				</div>
 
 				<div>
-					<label
-						htmlFor="display-name"
-						className="block text-sm font-medium text-gray-300 mb-1"
-					>
+					<label htmlFor="display-name" className="block ui-label mb-1">
 						{t("failoverGroups.create.displayNameOptional")}
 					</label>
 					<input
@@ -379,10 +373,7 @@ export function CreateGroupModal({
 				</div>
 
 				<div>
-					<label
-						htmlFor="group-description"
-						className="block text-sm font-medium text-gray-300 mb-1"
-					>
+					<label htmlFor="group-description" className="block ui-label mb-1">
 						{t("failoverGroups.create.descriptionOptional")}
 					</label>
 					<input
@@ -407,7 +398,7 @@ export function CreateGroupModal({
 						align="left"
 						sortProvidersAlpha
 					/>
-					<p className="text-gray-500 text-xs mt-1">
+					<p className="ui-hint mt-1">
 						{t("failoverGroups.create.selectedCount", {
 							count: selectedProxyIDs.length,
 						})}

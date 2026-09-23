@@ -73,6 +73,20 @@ const ARROW_KEY_OWNERS = [
 	"[role='textbox']",
 ].join(", ");
 
+/** Width of each max-w-* tier in rem. The dialog keeps this width up to a
+ * 1080p screen, then widens with the viewport (see .ui-modal-panel). */
+const MODAL_TIER_REM: Record<string, number> = {
+	"max-w-sm": 24,
+	"max-w-md": 28,
+	"max-w-lg": 32,
+	"max-w-xl": 36,
+	"max-w-2xl": 42,
+	"max-w-3xl": 48,
+	"max-w-4xl": 56,
+	"max-w-5xl": 64,
+	"max-w-6xl": 72,
+};
+
 /** What Tab can land on inside the dialog. */
 const FOCUSABLE_SELECTOR =
 	'a[href], button, input, select, textarea, [tabindex]:not([tabindex="-1"])';
@@ -93,6 +107,7 @@ export const Modal = forwardRef<ModalHandle, ModalProps>(function Modal(
 	ref,
 ) {
 	const { t } = useTranslation();
+	const tierRem = MODAL_TIER_REM[maxWidth];
 	const dialogRef = useRef<HTMLDivElement>(null);
 	const headingId = useId();
 
@@ -323,8 +338,13 @@ export const Modal = forwardRef<ModalHandle, ModalProps>(function Modal(
 			{/* biome-ignore lint/a11y/useKeyWithClickEvents: purely structural click propagation control */}
 			<div
 				className={`relative ui-card p-6 w-full ${maxWidth}${
-					scrollable ? " max-h-[85vh] flex flex-col" : ""
-				}`}
+					tierRem ? " ui-modal-panel" : ""
+				}${scrollable ? " max-h-[85vh] flex flex-col" : ""}`}
+				style={
+					tierRem
+						? ({ "--modal-w": tierRem } as React.CSSProperties)
+						: undefined
+				}
 				onClick={(e) => e.stopPropagation()}
 			>
 				<div className="absolute top-3 right-3 z-10 flex items-center gap-1">

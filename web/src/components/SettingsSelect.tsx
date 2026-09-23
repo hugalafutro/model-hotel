@@ -67,18 +67,13 @@ export function SettingsSelect({
 				</div>
 			) : (
 				<>
-					<label
-						htmlFor={id}
-						className="block text-sm font-medium text-gray-300 mb-2"
-					>
+					<label htmlFor={id} className="block ui-label mb-2">
 						{label}
 					</label>
 					{selectElement}
 				</>
 			)}
-			{description && (
-				<p className="text-gray-500 text-xs mt-1">{description}</p>
-			)}
+			{description && <p className="ui-hint mt-1">{description}</p>}
 		</div>
 	);
 }

@@ -96,12 +96,8 @@ export function ObservabilitySettings({
 												aria-hidden="true"
 											/>
 											<div>
-												<p className="text-sm font-medium text-gray-300">
-													{exp.name}
-												</p>
-												<p className="text-gray-500 text-xs mt-0.5">
-													{exp.description}
-												</p>
+												<p className="ui-label">{exp.name}</p>
+												<p className="ui-hint mt-0.5">{exp.description}</p>
 											</div>
 										</div>
 										<span

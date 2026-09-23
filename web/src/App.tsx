@@ -322,10 +322,7 @@ function LoginScreen() {
 					{userLoginEnabled && (
 						<>
 							<div>
-								<label
-									htmlFor="login-username"
-									className="block text-sm font-medium text-gray-300 mb-2"
-								>
+								<label htmlFor="login-username" className="block ui-label mb-2">
 									{t("layout.auth.username")}
 								</label>
 								<input
@@ -339,10 +336,7 @@ function LoginScreen() {
 								/>
 							</div>
 							<div>
-								<label
-									htmlFor="login-password"
-									className="block text-sm font-medium text-gray-300 mb-2"
-								>
+								<label htmlFor="login-password" className="block ui-label mb-2">
 									{t("layout.auth.password")}
 								</label>
 								<input
@@ -361,7 +355,7 @@ function LoginScreen() {
 								<div>
 									<label
 										htmlFor="user-totp-code"
-										className="block text-sm font-medium text-gray-300 mb-2"
+										className="block ui-label mb-2"
 									>
 										{t("layout.auth.totpStep")}
 									</label>
@@ -415,10 +409,7 @@ function LoginScreen() {
 						</div>
 					)}
 					<div>
-						<label
-							htmlFor="admin-token"
-							className="block text-sm font-medium text-gray-300 mb-2"
-						>
+						<label htmlFor="admin-token" className="block ui-label mb-2">
 							{t("layout.auth.adminToken")}
 						</label>
 						<div className="relative">
@@ -450,10 +441,7 @@ function LoginScreen() {
 					</div>
 					{totpEnabled && (
 						<div>
-							<label
-								htmlFor="totp-code"
-								className="block text-sm font-medium text-gray-300 mb-2"
-							>
+							<label htmlFor="totp-code" className="block ui-label mb-2">
 								{t("layout.auth.totpStep")}
 							</label>
 							<input

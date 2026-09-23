@@ -436,7 +436,7 @@ export function ModelPicker({
 						);
 					})}
 					{filteredModels.length === 0 && (
-						<span className="text-xs text-(--text-muted)">
+						<span className="ui-hint">
 							{t("components.modelPicker.noModelsMatch")}
 						</span>
 					)}

@@ -45,7 +45,7 @@ export function OpenCodeGoQuotaModal({
 		<Modal
 			header={
 				<div className="flex justify-between items-start mb-6">
-					<h2 className="text-xl font-bold text-(--text-primary)">
+					<h2 className="ui-modal-title">
 						{t("components.providerModals.openCodeGoPlanQuota")}
 					</h2>
 					<QuotaModalHeaderActions

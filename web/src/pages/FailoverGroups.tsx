@@ -248,7 +248,7 @@ export function FailoverGroups() {
 				actions={
 					<>
 						{lastSyncedAt && (
-							<span className="text-xs text-(--text-muted)">
+							<span className="ui-hint">
 								<span className="whitespace-nowrap">
 									{t("failover.last_sync_label")}
 								</span>{" "}

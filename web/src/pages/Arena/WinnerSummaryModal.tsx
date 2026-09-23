@@ -16,9 +16,7 @@ export function WinnerSummaryModal({
 			header={
 				<div className="flex items-center gap-3 mb-0">
 					<Trophy size={28} className="text-amber-400" />
-					<h2 className="text-xl font-bold text-white">
-						{t("arena.winnerModal.title")}
-					</h2>
+					<h2 className="ui-modal-title">{t("arena.winnerModal.title")}</h2>
 				</div>
 			}
 			onClose={onClose}
