@@ -412,7 +412,11 @@ func buildModelFilterConditions(q url.Values, p modelListParams) ([]string, []an
 		// mistyped filter never empties the listing.
 		for _, o := range util.SplitAndTrim(outputs) {
 			switch o {
-			case "text", "image", "audio", "video", "embedding", "rerank":
+			case "text":
+				// "code" counts as text (OpenRouter reports it for coder models;
+				// see internal/provider/model_class.go), so both match.
+				conditions = append(conditions, "COALESCE(m.output_modalities, '[]'::jsonb) ?| array['text','code']")
+			case "image", "audio", "video", "embedding", "rerank":
 				conditions = append(conditions, fmt.Sprintf("COALESCE(m.output_modalities, '[]'::jsonb) ? $%d", argIdx))
 				args = append(args, o)
 				argIdx++

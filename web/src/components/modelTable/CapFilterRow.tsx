@@ -28,16 +28,20 @@ export interface FilterPill {
  */
 export function PillStrip({
 	pills,
+	label,
 	storageKey,
 	showClear = false,
 	onClear,
 }: {
 	pills: FilterPill[];
+	/** Names the toggle (its column), so each strip's toggle is told apart. */
+	label: string;
 	/** Where the expanded/collapsed choice persists. */
 	storageKey: string;
 	showClear?: boolean;
 	onClear?: () => void;
 }) {
+	const { t } = useTranslation();
 	const { collapsed, toggle } = useCollapsible(storageKey, true);
 	const anyActive = pills.some((p) => p.active);
 	const visible = collapsed ? pills.slice(0, COLLAPSED_PILLS) : pills;
@@ -49,6 +53,8 @@ export function PillStrip({
 				<CollapsibleToggle
 					collapsed={collapsed}
 					onToggle={toggle}
+					expandTitle={label}
+					collapseTitle={label}
 					iconStyle="double"
 					size={12}
 					className="ui-icon-btn p-0.5 rounded-md shrink-0"
@@ -75,6 +81,8 @@ export function PillStrip({
 				<button
 					type="button"
 					onClick={onClear}
+					aria-label={t("common.clearFilter")}
+					title={t("common.clearFilter")}
 					className="ui-badge inline-flex items-center px-1.5 py-0.5 text-[10px] font-medium text-gray-400 hover:text-gray-200"
 				>
 					✕
@@ -100,6 +108,7 @@ export function OutputFilterIcons({
 	const { t } = useTranslation();
 	return (
 		<PillStrip
+			label={t("models.table.outputs")}
 			storageKey="modelTable.outputPillsCollapsed"
 			pills={metas.map((m) => {
 				const on = active.has(m.key);
@@ -144,6 +153,7 @@ export function CapFilterRow({
 			<th className="px-4 py-2" />
 			<th className="px-4 py-2 align-top">
 				<PillStrip
+					label={t("models.table.capabilities")}
 					storageKey="modelTable.capPillsCollapsed"
 					pills={CAP_META.map((m) => {
 						const active = capFilter.has(m.key);

@@ -24,6 +24,7 @@ const defaultProps = {
 	hasAfter: false,
 	isLoadingBefore: false,
 	isLoadingAfter: false,
+	listVersion: 0,
 	onFetchNewer: vi.fn(),
 	onFetchOlder: vi.fn(),
 	onRowClick: vi.fn(),

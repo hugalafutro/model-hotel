@@ -391,6 +391,7 @@ export function ModelTable({
 							<th className="px-4 py-2" />
 							<th className="px-4 py-2 align-top">
 								<PillStrip
+									label={t("models.table.capabilities")}
 									storageKey="modelTable.capPillsCollapsed"
 									pills={CAP_META.filter((m) => existingCaps.has(m.key)).map(
 										(m) => {

@@ -130,6 +130,7 @@ export function VirtualModelTable({
 		isLoadingInitial,
 		isLoadingBefore,
 		isLoadingAfter,
+		listVersion,
 		fetchNewer,
 		fetchOlder,
 		reset,
@@ -189,6 +190,7 @@ export function VirtualModelTable({
 		endIndex,
 	} = useVirtualRows({
 		entries,
+		listVersion,
 		hasBefore,
 		hasAfter,
 		isLoadingBefore,

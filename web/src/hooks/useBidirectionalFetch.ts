@@ -49,6 +49,13 @@ export interface UseBidirectionalFetchReturn<
 	lastResponse: R | null;
 	hasBefore: boolean;
 	hasAfter: boolean;
+	/**
+	 * Changes whenever the rows are replaced wholesale (a fresh first page, a
+	 * reset, a failed refetch), never on a prepend, append or merge. A filter
+	 * change keeps the old rows on screen until the new page lands, so the
+	 * scroller uses this, not an empty list, as its cue to return to the top.
+	 */
+	listVersion: number;
 	isLoadingInitial: boolean;
 	isLoadingBefore: boolean;
 	isLoadingAfter: boolean;
@@ -84,6 +91,10 @@ export function useBidirectionalFetch<
 	getId,
 }: UseBidirectionalFetchOptions<T, R>): UseBidirectionalFetchReturn<T, R> {
 	const [entries, setEntries] = useState<T[]>([]);
+	// The generation that produced `entries`, set in the same render as them,
+	// so a page fetch can tell rows from before a filter change apart from the
+	// current ones even while the refetch's rows are still on their way in.
+	const [entriesGen, setEntriesGen] = useState(0);
 	const [total, setTotal] = useState<number>(0);
 	const [lastResponse, setLastResponse] = useState<R | null>(null);
 	const [hasBefore, setHasBefore] = useState<boolean>(false);
@@ -113,19 +124,28 @@ export function useBidirectionalFetch<
 	const invalidate = useCallback(() => {
 		generationRef.current++;
 		setError(null);
+		// The dropped fetches' finally blocks skip on the generation check, so
+		// their loading flags are cleared here or they would stay set.
+		setIsLoadingBefore(false);
+		setIsLoadingAfter(false);
 		isLoadingBeforeRef.current = false;
 		isLoadingAfterRef.current = false;
 		isLoadingInitialRef.current = false;
 	}, []);
 
-	const reset = useCallback(() => {
-		invalidate();
+	const clearData = useCallback(() => {
 		setEntries([]);
+		setEntriesGen(generationRef.current);
 		setTotal(0);
 		setLastResponse(null);
 		setHasBefore(false);
 		setHasAfter(false);
-	}, [invalidate]);
+	}, []);
+
+	const reset = useCallback(() => {
+		invalidate();
+		clearData();
+	}, [invalidate, clearData]);
 
 	const mergeEntries = useCallback(
 		(updated: T[]) => {
@@ -159,6 +179,7 @@ export function useBidirectionalFetch<
 			if (gen !== generationRef.current) return;
 
 			setEntries(response.entries);
+			setEntriesGen(gen);
 			setTotal(response.total);
 			setLastResponse(response);
 			setHasBefore(response.has_before);
@@ -166,7 +187,7 @@ export function useBidirectionalFetch<
 		} catch (err) {
 			if (gen !== generationRef.current) return;
 			// Rows kept from before a filter change no longer match the filters.
-			setEntries([]);
+			clearData();
 			setError(
 				err instanceof Error
 					? err.message
@@ -178,7 +199,7 @@ export function useBidirectionalFetch<
 				setIsLoadingInitial(false);
 			}
 		}
-	}, [fetchFn, filters, sortDir]);
+	}, [fetchFn, filters, sortDir, clearData]);
 
 	// The two directions are one routine: which end of the list supplies the
 	// cursor, which loading pair guards it, where the page is spliced in, and
@@ -193,6 +214,9 @@ export function useBidirectionalFetch<
 			if (
 				loadingRef.current ||
 				isLoadingInitialRef.current ||
+				// Rows from before a filter change: their cursor belongs to the
+				// old filters.
+				entriesGen !== generationRef.current ||
 				entries.length === 0 ||
 				entries.length >= MAX_ROWS
 			) {
@@ -254,7 +278,7 @@ export function useBidirectionalFetch<
 				}
 			}
 		},
-		[fetchFn, filters, sortDir, entries, getCursor, getId],
+		[fetchFn, filters, sortDir, entries, entriesGen, getCursor, getId],
 	);
 
 	const fetchNewer = useCallback(() => fetchPage("before"), [fetchPage]);
@@ -282,6 +306,7 @@ export function useBidirectionalFetch<
 		lastResponse,
 		hasBefore,
 		hasAfter,
+		listVersion: entriesGen,
 		isLoadingInitial,
 		isLoadingBefore,
 		isLoadingAfter,

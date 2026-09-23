@@ -17,12 +17,14 @@ describe("CollapsibleToggle", () => {
 		render(<CollapsibleToggle collapsed onToggle={onToggle} />);
 		const button = screen.getByRole("button");
 		expect(button).toHaveAttribute("title", "Expand");
+		expect(button).toHaveAttribute("aria-expanded", "false");
 	});
 
 	it("renders button with correct title when expanded", () => {
 		render(<CollapsibleToggle collapsed={false} onToggle={onToggle} />);
 		const button = screen.getByRole("button");
 		expect(button).toHaveAttribute("title", "Collapse");
+		expect(button).toHaveAttribute("aria-expanded", "true");
 	});
 
 	it("calls onToggle when clicked", async () => {

@@ -413,14 +413,16 @@ describe("VirtualModelTable", () => {
 			}
 			expect(screen.queryByRole("button", { name: "PDF" })).toBeNull();
 
-			fireEvent.click(screen.getAllByRole("button", { name: "Expand" })[0]);
+			fireEvent.click(screen.getByRole("button", { name: "Capabilities" }));
 			fireEvent.click(screen.getByRole("button", { name: "PDF" }));
-			fireEvent.click(screen.getByRole("button", { name: "Collapse" }));
+			fireEvent.click(screen.getByRole("button", { name: "Capabilities" }));
 
 			// Rolled in shows only the first three, even with PDF set; the clear
 			// button still says a filter is active.
 			expect(screen.queryByRole("button", { name: "PDF" })).toBeNull();
-			expect(screen.getByRole("button", { name: "✕" })).toBeInTheDocument();
+			expect(
+				screen.getByRole("button", { name: "Clear filter" }),
+			).toBeInTheDocument();
 		});
 
 		it("collapses the output icons to text, image and audio", () => {
@@ -432,8 +434,7 @@ describe("VirtualModelTable", () => {
 			}
 			expect(screen.queryByRole("button", { name: "Video out" })).toBeNull();
 
-			// Each strip has its own toggle: capabilities first, outputs second.
-			fireEvent.click(screen.getAllByRole("button", { name: "Expand" })[1]);
+			fireEvent.click(screen.getByRole("button", { name: "Outputs" }));
 
 			expect(
 				screen.getByRole("button", { name: "Video out" }),
@@ -461,7 +462,7 @@ describe("VirtualModelTable", () => {
 			const entries = [createModel({ id: "model-plain", capabilities: "{}" })];
 			setupWithEntries(entries);
 			renderWithProviders(<VirtualModelTable />);
-			fireEvent.click(screen.getAllByRole("button", { name: "Expand" })[0]);
+			fireEvent.click(screen.getByRole("button", { name: "Capabilities" }));
 
 			const pdfPill = screen.getByText("PDF");
 			expect(pdfPill.tagName).toBe("BUTTON");
@@ -509,8 +510,18 @@ describe("VirtualModelTable", () => {
 					mockUseBidirectionalFetch.mock.calls.length - 1
 				][0];
 			expect(lastCall.filters.outputs).toBe("text");
-		});
 
+			// Clear button resets the output filter too.
+			fireEvent.click(screen.getByRole("button", { name: "Clear filter" }));
+			const afterClear =
+				mockUseBidirectionalFetch.mock.calls[
+					mockUseBidirectionalFetch.mock.calls.length - 1
+				][0];
+			expect(afterClear.filters.outputs).toBeUndefined();
+		});
+	});
+
+	describe("Rendering", () => {
 		it("renders model name in row", () => {
 			const entries = [createModel({ name: "GPT-4o" })];
 			setupWithEntries(entries);

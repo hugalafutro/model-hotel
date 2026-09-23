@@ -11,6 +11,7 @@ const EDGE_THRESHOLD_PX = 500;
  */
 export function useVirtualRows<T extends { id?: string }>({
 	entries,
+	listVersion,
 	hasBefore,
 	hasAfter,
 	isLoadingBefore,
@@ -22,6 +23,8 @@ export function useVirtualRows<T extends { id?: string }>({
 	pinTop = false,
 }: {
 	entries: T[];
+	/** useBidirectionalFetch's listVersion: a change scrolls back to the top. */
+	listVersion: number;
 	hasBefore: boolean;
 	hasAfter: boolean;
 	isLoadingBefore: boolean;
@@ -86,12 +89,12 @@ export function useVirtualRows<T extends { id?: string }>({
 	// paints.
 	useLayoutEffect(() => {
 		const prev = prevEntriesRef.current;
-		const keyOf = (item: T | undefined, index: number) => {
-			if (item === undefined) return undefined;
-			return getItemKey ? getItemKey(item, index) : item.id;
-		};
 		if (entries.length > prev.length && prev.length > 0) {
 			const newItemCount = entries.length - prev.length;
+			const keyOf = (item: T | undefined, index: number) => {
+				if (item === undefined) return undefined;
+				return getItemKey ? getItemKey(item, index) : item.id;
+			};
 			if (
 				keyOf(entries[newItemCount], newItemCount) === keyOf(prev[0], 0) &&
 				scrollEl
@@ -115,18 +118,21 @@ export function useVirtualRows<T extends { id?: string }>({
 				return;
 			}
 		}
-		// A refetch replaced the list wholesale (appends and merges keep the
-		// first row, prepends are handled above): start the new list at the top.
-		if (
-			prev.length > 0 &&
-			entries.length > 0 &&
-			scrollEl &&
-			keyOf(entries[0], 0) !== keyOf(prev[0], 0)
-		) {
-			scrollEl.scrollTop = 0;
-		}
 		prevEntriesRef.current = entries;
 	}, [entries, virtualizer, scrollEl, estimateSize, getItemKey, pinTop]);
+
+	// A new list version replaced the rows wholesale (see useBidirectionalFetch
+	// listVersion): start it at the top. Declared after the prepend correction
+	// so a replacement that happens to look like a prepend still ends at 0.
+	const prevListVersionRef = useRef(listVersion);
+	useLayoutEffect(() => {
+		if (listVersion === prevListVersionRef.current) return;
+		prevListVersionRef.current = listVersion;
+		if (scrollEl && scrollEl.scrollTop !== 0) {
+			scrollEl.scrollTop = 0;
+			forceRerender((c) => c + 1);
+		}
+	}, [listVersion, scrollEl]);
 
 	const [paddingTop, paddingBottom] =
 		virtualItems.length > 0

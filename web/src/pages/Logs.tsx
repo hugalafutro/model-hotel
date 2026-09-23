@@ -128,6 +128,7 @@ function RequestLogs() {
 		isLoadingInitial: isScrollLoading,
 		isLoadingBefore,
 		isLoadingAfter,
+		listVersion,
 		fetchNewer: scrollFetchNewer,
 		fetchOlder: scrollFetchOlder,
 		mergeEntries: scrollMergeEntries,
@@ -377,6 +378,7 @@ function RequestLogs() {
 								hasAfter={hasAfter}
 								isLoadingBefore={isLoadingBefore}
 								isLoadingAfter={isLoadingAfter}
+								listVersion={listVersion}
 								onFetchNewer={scrollFetchNewer}
 								onFetchOlder={scrollFetchOlder}
 								onRowClick={(entry) => setSelectedLog(entry)}
