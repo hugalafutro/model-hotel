@@ -48,10 +48,10 @@
   <text x="120" y="386" fill="#94a3b8" font-size="10">2. Batch load models, then their enabled providers</text>
   <text x="120" y="402" fill="#94a3b8" font-size="10">3. Skip disabled or missing models and providers</text>
   <text x="490" y="370" fill="#94a3b8" font-size="10">4. Skip an open circuit (provider, upstream model)</text>
-  <text x="490" y="386" fill="#94a3b8" font-size="10">5. Decrypt API keys via DecryptCached(...)</text>
+  <text x="490" y="386" fill="#94a3b8" font-size="10">5. Decrypt API keys via DecryptCached(...), keyless skip it</text>
   <text x="490" y="402" fill="#94a3b8" font-size="10">6. allowed_providers: key list intersected with owner cap</text>
-  <text x="120" y="426" fill="#f87171" font-size="9">None left: 502 "no available provider for hotel/glm-4.6", or 429 + Retry-After when breaker skips emptied it.</text>
-  <text x="120" y="442" fill="#f87171" font-size="9">403 when the allow-list denies every candidate; 404 when every key fails to decrypt.</text>
+  <text x="120" y="426" fill="#f87171" font-size="9">None left: 502 "no available provider for hotel/glm-4.6", or 429 + Retry-After when breaker skips emptied it</text>
+  <text x="120" y="442" fill="#f87171" font-size="9">(502 when failover_exhaustion_status_429 is off). 403 when the allow-list denies every candidate; 404 when every key fails to decrypt.</text>
 
   <line x1="370" y1="455" x2="370" y2="480" stroke="#94a3b8" stroke-width="1.5" marker-end="url(#arr)"/>
 
@@ -132,9 +132,9 @@
   <text x="480" y="1245" text-anchor="middle" fill="#4ade80" font-size="11" font-weight="600">return (served)</text>
 
   <!-- Loop footer -->
-  <text x="100" y="1285" fill="#94a3b8" font-size="10">Last candidate: one more try on a saturated 429 or a transient 5xx instead of a terminal error.</text>
+  <text x="100" y="1285" fill="#94a3b8" font-size="10">Last candidate: one more try on a saturated 429, or on a 500/502/503/504 while server_error_retry_enabled and the deadline allow.</text>
   <text x="100" y="1303" fill="#94a3b8" font-size="10">Every remaining candidate busy: wait for the first free slot (rate_limit_saturation_max_wait), then send there.</text>
-  <text x="100" y="1321" fill="#64748b" font-size="9">A 429 fails over only while failover_on_rate_limit is on (default).</text>
+  <text x="100" y="1321" fill="#64748b" font-size="9">A 429 fails over only while failover_on_rate_limit is on (default). Deadlines: request_timeout 1m per attempt (x10 streaming), 2x that overall.</text>
 
   <line x1="480" y1="1345" x2="480" y2="1375" stroke="#4ade80" stroke-width="1.5" marker-end="url(#arr-grn)"/>
 

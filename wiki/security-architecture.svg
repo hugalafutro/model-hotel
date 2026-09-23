@@ -78,9 +78,9 @@
   <g clip-path="url(#cp5a)">
     <text x="240" y="685" text-anchor="middle" font-family="Inter, Segoe UI, Roboto, sans-serif" font-size="14" font-weight="600" fill="#ffffff">5a. Admin API Path (/api/*)</text>
   </g>
-  <text x="240" y="718" text-anchor="middle" font-family="Inter, Segoe UI, Roboto, sans-serif" font-size="11" fill="#94a3b8">Admin Token / Session Validation</text>
-  <text x="240" y="740" text-anchor="middle" font-family="Inter, Segoe UI, Roboto, sans-serif" font-size="11" fill="#94a3b8">Bearer token (SHA-256) or HttpOnly session cookie</text>
-  <text x="240" y="762" text-anchor="middle" font-family="Inter, Segoe UI, Roboto, sans-serif" font-size="11" fill="#94a3b8">sessions: token exchange &#183; WebAuthn &#183; login &#183; GitHub SSO &#183; OIDC</text>
+  <text x="240" y="718" text-anchor="middle" font-family="Inter, Segoe UI, Roboto, sans-serif" font-size="11" fill="#94a3b8">Public, no auth: config, demo login and the sign-in routes</text>
+  <text x="240" y="740" text-anchor="middle" font-family="Inter, Segoe UI, Roboto, sans-serif" font-size="11" fill="#94a3b8">(token exchange, passkey, password, TOTP, OIDC, GitHub)</text>
+  <text x="240" y="762" text-anchor="middle" font-family="Inter, Segoe UI, Roboto, sans-serif" font-size="11" fill="#94a3b8">Rest: admin token (SHA-256) or HttpOnly session cookie</text>
   <text x="240" y="784" text-anchor="middle" font-family="Inter, Segoe UI, Roboto, sans-serif" font-size="11" fill="#f87171">HTTP 401 on failure &#183; CSRF 403 on cookie-authed writes</text>
 
   <!-- 5b. Proxy API Path (/v1/*) -->
@@ -108,7 +108,7 @@
   </g>
   <text x="450" y="898" text-anchor="middle" font-family="Inter, Segoe UI, Roboto, sans-serif" font-size="13" fill="#94a3b8">Proxy path: key + owner RPS/burst, then TPM, then dollar budget</text>
   <text x="450" y="920" text-anchor="middle" font-family="Inter, Segoe UI, Roboto, sans-serif" font-size="13" fill="#94a3b8">Admin chat: RPS per client address, TPM + budget per user</text>
-  <text x="450" y="942" text-anchor="middle" font-family="Inter, Segoe UI, Roboto, sans-serif" font-size="13" fill="#94a3b8">graceful backpressure (rate_limit_max_wait_ms), then 429</text>
+  <text x="450" y="942" text-anchor="middle" font-family="Inter, Segoe UI, Roboto, sans-serif" font-size="13" fill="#94a3b8">RPS waits rate_limit_max_wait_ms; TPM 429s at once; budget 429/503</text>
   <line x1="450" y1="965" x2="450" y2="985" stroke="#9ca3af" stroke-width="2" marker-end="url(#arrow)"/>
 
   <!-- Target Handler -->

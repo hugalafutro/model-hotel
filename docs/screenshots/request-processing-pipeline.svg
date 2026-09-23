@@ -117,7 +117,7 @@
   <!-- Streaming-aware timeout -->
   <rect x="230" y="1003" width="440" height="44" rx="6" fill="#1e293b" stroke="#64748b" stroke-width="1.5" filter="url(#shadow)"/>
   <text x="450" y="1021" text-anchor="middle" fill="#e2e8f0" font-size="12" font-weight="700">Streaming-aware Timeout</text>
-  <text x="450" y="1038" text-anchor="middle" fill="#94a3b8" font-size="9">Reads model and stream flag from the body; 5 min limit for non-streaming</text>
+  <text x="450" y="1038" text-anchor="middle" fill="#94a3b8" font-size="9">Outer cap 5m non-streaming; each attempt request_timeout 1m (x10 streaming), 2x overall</text>
   <line x1="450" y1="1047" x2="450" y2="1063" stroke="#94a3b8" stroke-width="1.5" marker-end="url(#arr)"/>
 
   <!-- RPS limiter -->
@@ -135,7 +135,7 @@
   <!-- Budget limiter -->
   <rect x="230" y="1198" width="440" height="44" rx="6" fill="#1e293b" stroke="#db2777" stroke-width="1.5" filter="url(#shadow)"/>
   <text x="450" y="1216" text-anchor="middle" fill="#f472b6" font-size="12" font-weight="700">Budget Limiter</text>
-  <text x="450" y="1233" text-anchor="middle" fill="#94a3b8" font-size="9">Key and owner dollar budgets for the period → 429</text>
+  <text x="450" y="1233" text-anchor="middle" fill="#94a3b8" font-size="9">Key and owner dollar budgets → 429 (503 if spend unknown; GET calls skip it)</text>
   <line x1="450" y1="1242" x2="450" y2="1258" stroke="#94a3b8" stroke-width="1.5" marker-end="url(#arr)"/>
 
   <!-- Proxy Handler -->

@@ -120,6 +120,8 @@
   <text x="410" y="585" text-anchor="middle" fill="#34d399" font-size="13" font-weight="600">SERVED FROM HEALTHY PROVIDER</text>
   <text x="410" y="603" text-anchor="middle" fill="#94a3b8" font-size="11">OpenAI &#8226; Anthropic &#8226; Ollama &#8226; &#8230;</text>
 
+  <text x="410" y="652" text-anchor="middle" fill="#64748b" font-size="10">Deadlines: each attempt request_timeout (1m, x10 streaming = 10m); whole request 2x that</text>
+
   <!-- Legend -->
   <line x1="200" y1="672" x2="230" y2="672" stroke="#34d399" stroke-width="1.5" marker-end="url(#arrow-green)"/>
   <text x="236" y="676" fill="#94a3b8" font-size="10.5">success path</text>

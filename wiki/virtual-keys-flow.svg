@@ -30,6 +30,7 @@
   <text x="360" y="110" text-anchor="middle" fill="#94a3b8" font-size="10">DB lookup</text>
   <text x="360" y="130" text-anchor="middle" fill="#94a3b8" font-size="10">Decrypt provider key</text>
   <text x="360" y="145" text-anchor="middle" fill="#64748b" font-size="9">via MASTER_KEY</text>
+  <text x="360" y="158" text-anchor="middle" fill="#64748b" font-size="9">(keyless providers skip this)</text>
 
   <!-- Provider API Key arrow -->
   <line x1="440" y1="85" x2="520" y2="85" stroke="#a78bfa" stroke-width="1.8" marker-end="url(#arr)"/>

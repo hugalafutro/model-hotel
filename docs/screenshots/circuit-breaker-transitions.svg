@@ -29,7 +29,7 @@
   <text x="240" y="148" text-anchor="middle" fill="#94a3b8" font-size="10">consecutiveFails &lt; threshold (default 5)</text>
   <text x="240" y="168" text-anchor="middle" fill="#94a3b8" font-size="10">Requests pass through</text>
   <text x="60" y="194" fill="#f87171" font-size="9">+1: 5xx, 401, 403, network error, timeout, empty answer, unclassified 429</text>
-  <text x="60" y="214" fill="#4ade80" font-size="9">Reset to 0: answer with delivered output, or a 400 (provider alive)</text>
+  <text x="60" y="214" fill="#4ade80" font-size="9">Reset to 0: delivered output, a 400, or any 429 if failover_on_rate_limit off</text>
   <text x="60" y="234" fill="#94a3b8" font-size="9">No change: saturated (busy) 429, 404, 499</text>
   <text x="240" y="268" text-anchor="middle" fill="#64748b" font-size="9">SSE: circuit_breaker.closed (sent when a circuit closes)</text>
 
@@ -53,7 +53,7 @@
   <text x="240" y="678" text-anchor="middle" fill="#94a3b8" font-size="10">Does not count toward the provider verdict</text>
   <text x="60" y="706" fill="#4ade80" font-size="9">✓ 1 success closes it (HalfOpenMaxProbes), backoff cleared</text>
   <text x="60" y="726" fill="#f87171" font-size="9">✗ Any failure reopens it, and the next cooldown doubles</text>
-  <text x="60" y="746" fill="#94a3b8" font-size="9">Busy 429, 404, 499: stays half-open</text>
+  <text x="60" y="746" fill="#94a3b8" font-size="9">Busy 429, 404, 499: stays half-open (failover_on_rate_limit off: a 429 closes it)</text>
   <text x="240" y="768" text-anchor="middle" fill="#64748b" font-size="9">No SSE event on entering half-open (debug log only)</text>
 
   <!-- CLOSED → OPEN arrow -->
