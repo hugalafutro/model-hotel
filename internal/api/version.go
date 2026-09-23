@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/go-chi/chi/v5"
+	"golang.org/x/sync/singleflight"
 
 	"github.com/hugalafutro/model-hotel/internal/debuglog"
 	"github.com/hugalafutro/model-hotel/internal/httpx"
@@ -39,6 +40,11 @@ type versionCache struct {
 
 var vCache versionCache
 
+// versionLookupGroup coalesces concurrent cache misses into one GitHub lookup,
+// so a burst of dashboards loading after a restart or cache expiry costs one
+// call against GitHub's unauthenticated rate limit, not one per visitor.
+var versionLookupGroup singleflight.Group
+
 // githubClient is the single client both GitHub lookups use, holding the 10s
 // per-request bound each of them runs under. Its nil Transport is
 // http.DefaultTransport, so connections to api.github.com pool across calls
@@ -68,14 +74,14 @@ func (h *Handler) GetLatestVersion(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Try the releases endpoint first. When the repo has tags but no formal
-	// GitHub Releases, the endpoint returns 404 — fall back to the tags API
-	// only in that case. For other errors (5xx, timeout) skip the fallback to
-	// avoid doubling worst-case latency.
-	tagName, err := fetchLatestTag(r.Context(), h.ghReleasesURL)
-	if errors.Is(err, errNotFound) {
-		tagName, err = fetchLatestTagFromTags(r.Context(), h.ghTagsURL)
-	}
+	// The lookup fills a cache every later visitor reads, so a visitor who
+	// leaves mid-fetch (reload, navigation) must not abort it and log a
+	// failure that is not one. githubClient's 10s timeout bounds each of its
+	// at most two calls.
+	ctx := context.WithoutCancel(r.Context())
+	v, err, _ := versionLookupGroup.Do(h.ghReleasesURL, func() (any, error) {
+		return refreshLatestTag(ctx, h.ghReleasesURL, h.ghTagsURL)
+	})
 	if err != nil {
 		debuglog.Error("version: all GitHub lookups failed", "error", err)
 		if tag != "" {
@@ -85,13 +91,40 @@ func (h *Handler) GetLatestVersion(w http.ResponseWriter, r *http.Request) {
 		respondError(w, "failed to fetch latest version", err, http.StatusBadGateway)
 		return
 	}
+	tagName, _ := v.(string)
+
+	writeJSON(w, map[string]string{"tag_name": tagName})
+}
+
+// refreshLatestTag fetches the latest tag and stores it in vCache. It first
+// rechecks the cache: a request that missed it just before another flight
+// finished filling it reuses that result instead of calling GitHub again.
+//
+// It tries the releases endpoint first. When the repo has tags but no formal
+// GitHub Releases, that endpoint returns 404; only then does it fall back to
+// the tags API. Other errors (5xx, timeout) skip the fallback to avoid
+// doubling worst-case latency.
+func refreshLatestTag(ctx context.Context, releasesURL, tagsURL string) (string, error) {
+	vCache.mu.Lock()
+	tag, fetchedAt := vCache.tag, vCache.fetchedAt
+	vCache.mu.Unlock()
+	if tag != "" && time.Since(fetchedAt) < versionCacheTTL {
+		return tag, nil
+	}
+
+	tagName, err := fetchLatestTag(ctx, releasesURL)
+	if errors.Is(err, errNotFound) {
+		tagName, err = fetchLatestTagFromTags(ctx, tagsURL)
+	}
+	if err != nil {
+		return "", err
+	}
 
 	vCache.mu.Lock()
 	vCache.tag = tagName
 	vCache.fetchedAt = time.Now()
 	vCache.mu.Unlock()
-
-	writeJSON(w, map[string]string{"tag_name": tagName})
+	return tagName, nil
 }
 
 // githubGetJSON performs one GitHub API GET and decodes the body into out. The

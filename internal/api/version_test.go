@@ -9,7 +9,9 @@ import (
 	"net/http/httptest"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"testing"
+	"testing/synctest"
 	"time"
 
 	"github.com/go-chi/chi/v5"
@@ -117,6 +119,104 @@ func TestGetLatestVersion_FetchSuccess(t *testing.T) {
 	if cachedTag != "v2.0.0" {
 		t.Errorf("expected cached tag 'v2.0.0', got %q", cachedTag)
 	}
+}
+
+// A visitor who leaves while the GitHub lookup is in flight cancels the
+// request context; the lookup must still finish and fill the cache.
+func TestGetLatestVersion_ClientCancelStillCaches(t *testing.T) {
+	resetVersionCache()
+
+	ghServer := newGHMockServer(t,
+		func(w http.ResponseWriter, _ *http.Request) {
+			w.Header().Set("Content-Type", "application/json")
+			json.NewEncoder(w).Encode(map[string]string{"tag_name": "v3.0.0"})
+		},
+		nil,
+	)
+	defer ghServer.Close()
+
+	h := &Handler{
+		ghReleasesURL: ghServer.URL + "/repos/hugalafutro/model-hotel/releases/latest",
+		ghTagsURL:     ghServer.URL + "/repos/hugalafutro/model-hotel/tags",
+	}
+	r := chi.NewRouter()
+	h.RegisterVersion(r)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	req := httptest.NewRequestWithContext(ctx, http.MethodGet, "/version/latest", http.NoBody)
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Errorf("expected status %d, got %d; body: %s", http.StatusOK, w.Code, w.Body.String())
+	}
+	vCache.mu.Lock()
+	cachedTag := vCache.tag
+	vCache.mu.Unlock()
+	if cachedTag != "v3.0.0" {
+		t.Errorf("expected cached tag 'v3.0.0' despite the cancelled request, got %q", cachedTag)
+	}
+}
+
+// roundTripFunc adapts a function to http.RoundTripper.
+type roundTripFunc func(*http.Request) (*http.Response, error)
+
+func (f roundTripFunc) RoundTrip(r *http.Request) (*http.Response, error) { return f(r) }
+
+// A burst of cache misses shares one GitHub lookup instead of one each. The
+// synctest bubble makes the barrier exact: synctest.Wait returns only once
+// every visitor is durably blocked, the first inside the held GitHub call and
+// the rest waiting on its flight, so none can arrive late and read the cache.
+func TestGetLatestVersion_ConcurrentMissesShareOneLookup(t *testing.T) {
+	synctest.Test(t, func(t *testing.T) {
+		resetVersionCache()
+
+		var calls atomic.Int32
+		release := make(chan struct{})
+		orig := githubClient
+		githubClient = &http.Client{Transport: roundTripFunc(func(*http.Request) (*http.Response, error) {
+			calls.Add(1)
+			<-release
+			return &http.Response{
+				StatusCode: http.StatusOK,
+				Header:     http.Header{"Content-Type": {"application/json"}},
+				Body:       io.NopCloser(strings.NewReader(`{"tag_name":"v4.0.0"}`)),
+			}, nil
+		})}
+		t.Cleanup(func() { githubClient = orig })
+
+		h := &Handler{
+			ghReleasesURL: "https://gh.test/repos/hugalafutro/model-hotel/releases/latest",
+			ghTagsURL:     "https://gh.test/repos/hugalafutro/model-hotel/tags",
+		}
+		r := chi.NewRouter()
+		h.RegisterVersion(r)
+
+		const visitors = 5
+		codes := make(chan int, visitors)
+		var wg sync.WaitGroup
+		for range visitors {
+			wg.Go(func() {
+				w := httptest.NewRecorder()
+				r.ServeHTTP(w, httptest.NewRequest(http.MethodGet, "/version/latest", http.NoBody))
+				codes <- w.Code
+			})
+		}
+		synctest.Wait()
+		close(release)
+		wg.Wait()
+		close(codes)
+
+		for code := range codes {
+			if code != http.StatusOK {
+				t.Errorf("expected every visitor to get %d, got %d", http.StatusOK, code)
+			}
+		}
+		if got := calls.Load(); got != 1 {
+			t.Errorf("expected one GitHub call for %d concurrent misses, got %d", visitors, got)
+		}
+	})
 }
 
 func TestGetLatestVersion_TagsFallback(t *testing.T) {
