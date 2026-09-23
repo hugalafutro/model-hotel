@@ -177,26 +177,41 @@ export function useVirtualRows<T extends { id?: string }>({
 	// Loading more waits for a scroll, and a list shorter than its box cannot
 	// scroll: on a tall or zoomed-out window the first page can fit whole and
 	// the rest would never load. Whenever the rows or the box change, pull the
-	// next page while the list still does not fill the box.
+	// next page while the list still does not fill the box. One attempt per
+	// list state (which list, how many rows): a failed fetch leaves both
+	// unchanged, so it is not retried in a loop, only after new rows or a
+	// resize.
+	const fillAttemptRef = useRef<string | null>(null);
 	useLayoutEffect(() => {
 		if (!scrollEl) return;
-		const fill = () => {
+		const fill = (retry: boolean) => {
+			const state = `${listVersion}:${entries.length}`;
 			if (
 				hasAfter &&
 				!isLoadingAfter &&
 				entries.length > 0 &&
+				(retry || fillAttemptRef.current !== state) &&
 				// No height means no layout (hidden, or not yet laid out): nothing
 				// to fill yet.
 				scrollEl.clientHeight > 0 &&
 				scrollEl.scrollHeight <= scrollEl.clientHeight
 			) {
+				fillAttemptRef.current = state;
 				fetchOlder();
 			}
 		};
-		fill();
-		window.addEventListener("resize", fill);
-		return () => window.removeEventListener("resize", fill);
-	}, [scrollEl, entries.length, hasAfter, isLoadingAfter, fetchOlder]);
+		fill(false);
+		const onResize = () => fill(true);
+		window.addEventListener("resize", onResize);
+		return () => window.removeEventListener("resize", onResize);
+	}, [
+		scrollEl,
+		listVersion,
+		entries.length,
+		hasAfter,
+		isLoadingAfter,
+		fetchOlder,
+	]);
 
 	// The rows actually on screen, 1-based, for the footer. virtualItems also
 	// holds the overscan rendered off screen on either side, so it would

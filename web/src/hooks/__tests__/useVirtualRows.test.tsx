@@ -155,6 +155,53 @@ describe("useVirtualRows", () => {
 		},
 	);
 
+	it("does not retry a failed fill until the rows change or the window resizes", () => {
+		const proto = HTMLElement.prototype;
+		const saved = ["clientHeight", "scrollHeight"].map(
+			(k) => [k, Object.getOwnPropertyDescriptor(proto, k)] as const,
+		);
+		Object.defineProperty(proto, "clientHeight", {
+			configurable: true,
+			get: () => 600,
+		});
+		Object.defineProperty(proto, "scrollHeight", {
+			configurable: true,
+			get: () => 300,
+		});
+		try {
+			const fetchOlder = vi.fn();
+			const props = {
+				heights: {},
+				hasBefore: false,
+				hasAfter: true,
+				fetchNewer: vi.fn(),
+				fetchOlder,
+				expose: () => {},
+			};
+			const { rerender } = render(<Harness entries={rows(0, 5)} {...props} />);
+			expect(fetchOlder).toHaveBeenCalledTimes(1);
+
+			// The fetch failed: same rows, a fresh render, no second attempt.
+			rerender(<Harness entries={rows(0, 5)} {...props} />);
+			expect(fetchOlder).toHaveBeenCalledTimes(1);
+
+			// A resize may have changed what fits: try again.
+			act(() => {
+				window.dispatchEvent(new Event("resize"));
+			});
+			expect(fetchOlder).toHaveBeenCalledTimes(2);
+
+			// New rows arrived and still do not fill the box: next page.
+			rerender(<Harness entries={rows(0, 10)} {...props} />);
+			expect(fetchOlder).toHaveBeenCalledTimes(3);
+		} finally {
+			for (const [k, d] of saved) {
+				if (d) Object.defineProperty(proto, k, d);
+				else delete (proto as unknown as Record<string, unknown>)[k];
+			}
+		}
+	});
+
 	// A refetch swaps the whole list without emptying it first; the fetch
 	// hook's listVersion, not the rows themselves, says it happened, so a new
 	// list whose first row survived the filter still starts at the top.
