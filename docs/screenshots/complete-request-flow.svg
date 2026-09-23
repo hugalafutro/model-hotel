@@ -51,7 +51,7 @@
   <text x="490" y="386" fill="#94a3b8" font-size="10">5. Decrypt API keys via DecryptCached(...), keyless skip it</text>
   <text x="490" y="402" fill="#94a3b8" font-size="10">6. allowed_providers: key list intersected with owner cap</text>
   <text x="120" y="426" fill="#f87171" font-size="9">None left: 502 "no available provider for hotel/glm-4.6", or 429 + Retry-After when breaker skips emptied it</text>
-  <text x="120" y="442" fill="#f87171" font-size="9">(502 when failover_exhaustion_status_429 is off). 403 when the allow-list denies every candidate; 404 when every key fails to decrypt.</text>
+  <text x="120" y="442" fill="#f87171" font-size="9">(502 if failover_exhaustion_status_429 is off; same if the only allowed providers were breaker-skipped). 403: allow-list denies all; 404: no key decrypts.</text>
 
   <line x1="370" y1="455" x2="370" y2="480" stroke="#94a3b8" stroke-width="1.5" marker-end="url(#arr)"/>
 
