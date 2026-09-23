@@ -245,15 +245,17 @@ func TestCompactJSON_EmptyAndInvalidBecomeAnEmptyObject(t *testing.T) {
 }
 
 // The block reason is the one field of a blocked prompt this error names, and
-// it is named only in its enum shape: a relay that puts prose in it gets
-// "unknown", while a real Gemini reason reads unchanged.
+// it is named only when documented: a relay that puts prose or a short
+// identifier-shaped echo in it gets "unknown", a real reason reads unchanged.
 func TestBuildChatCompletion_NamesOnlyAnEnumShapedBlockReason(t *testing.T) {
 	_, err := BuildChatCompletion([]byte(`{"promptFeedback": {"blockReason": "SAFETY"}}`), "id", "m", 0)
 	if err == nil || !strings.Contains(err.Error(), "SAFETY") || !errors.Is(err, ErrPromptBlocked) {
 		t.Fatalf("a real block reason was lost: %v", err)
 	}
-	_, err = BuildChatCompletion([]byte(`{"promptFeedback": {"blockReason": "user asked PIN 2468"}}`), "id", "m", 0)
-	if err == nil || strings.Contains(err.Error(), "2468") {
-		t.Fatalf("prose in blockReason reached the error: %v", err)
+	for _, echo := range []string{"user asked PIN 2468", "PIN2468"} {
+		_, err = BuildChatCompletion([]byte(`{"promptFeedback": {"blockReason": "`+echo+`"}}`), "id", "m", 0)
+		if err == nil || strings.Contains(err.Error(), "2468") {
+			t.Fatalf("an undocumented blockReason %q reached the error: %v", echo, err)
+		}
 	}
 }

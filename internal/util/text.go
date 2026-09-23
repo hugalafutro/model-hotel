@@ -40,24 +40,18 @@ func CollapseSpace(s string) string {
 	return strings.Join(strings.Fields(s), " ")
 }
 
-// EnumToken returns s when it has the shape of a provider's enum value (a
-// short identifier: letters, digits, '_', '.', '-', starting with a letter)
+// KnownToken returns s when it is one of a provider's documented enum values
 // and "unknown" otherwise. It is for the one field of an upstream error a
-// gateway may name while leaving the rest out, such as Anthropic's error.type
-// or Gemini's promptFeedback.blockReason: real values are identifiers, so a
-// relay that puts prose (a quoted prompt) in the field gets nothing into a log.
-// Shape rather than a list, so a type the provider adds tomorrow still reads.
-func EnumToken(s string) string {
-	if s == "" || len(s) > 64 {
-		return "unknown"
+// gateway names while leaving the rest out, such as Anthropic's error.type or
+// Gemini's blockReason and finishReason: the text reaches logs and the request
+// row, and a relay is free to put anything in the field. A shape check was not
+// enough: a short identifier-shaped value ("PIN2468") passes one, and an echo
+// that short is below the request-content fence's window too. A value the
+// provider adds later reads "unknown" until it is listed, which costs only a
+// diagnostic.
+func KnownToken(s string, known map[string]bool) string {
+	if known[s] {
+		return s
 	}
-	for i, r := range s {
-		switch {
-		case r >= 'a' && r <= 'z', r >= 'A' && r <= 'Z':
-		case i > 0 && (r >= '0' && r <= '9' || r == '_' || r == '.' || r == '-'):
-		default:
-			return "unknown"
-		}
-	}
-	return s
+	return "unknown"
 }
