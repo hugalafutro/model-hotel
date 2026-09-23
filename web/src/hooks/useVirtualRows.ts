@@ -174,6 +174,30 @@ export function useVirtualRows<T extends { id?: string }>({
 		fetchOlder,
 	]);
 
+	// Loading more waits for a scroll, and a list shorter than its box cannot
+	// scroll: on a tall or zoomed-out window the first page can fit whole and
+	// the rest would never load. Whenever the rows or the box change, pull the
+	// next page while the list still does not fill the box.
+	useLayoutEffect(() => {
+		if (!scrollEl) return;
+		const fill = () => {
+			if (
+				hasAfter &&
+				!isLoadingAfter &&
+				entries.length > 0 &&
+				// No height means no layout (hidden, or not yet laid out): nothing
+				// to fill yet.
+				scrollEl.clientHeight > 0 &&
+				scrollEl.scrollHeight <= scrollEl.clientHeight
+			) {
+				fetchOlder();
+			}
+		};
+		fill();
+		window.addEventListener("resize", fill);
+		return () => window.removeEventListener("resize", fill);
+	}, [scrollEl, entries.length, hasAfter, isLoadingAfter, fetchOlder]);
+
 	// The rows actually on screen, 1-based, for the footer. virtualItems also
 	// holds the overscan rendered off screen on either side, so it would
 	// overstate the range; the virtualizer's own range does not. A virtualizer

@@ -49,17 +49,14 @@ describe("ScrollTopButton", () => {
 		expect(screen.queryByTestId("scroll-top-button")).toBeNull();
 	});
 
-	it("finishes with a jump when the smooth scroll stops short of the top", () => {
+	it("jumps instead of animating from far down the list", () => {
+		// Far down, rows on the way up are unmeasured and the virtualizer's
+		// corrections would cancel a smooth scroll part way: jump instead.
 		const { el } = makeScroller(400);
 		renderWithProviders(<ScrollTopButton scrollEl={el} />);
 		scrollTo(el, 5000);
 		fireEvent.click(screen.getByTestId("scroll-top-button"));
-
-		// The virtualizer re-measured rows on the way and cancelled the smooth
-		// scroll part way up: when scrolling ends there, it jumps the rest.
-		el.scrollTop = 1200;
-		fireEvent(el, new Event("scrollend"));
-		expect(el.scrollTop).toBe(0);
+		expect(el.scrollTo).toHaveBeenCalledWith({ top: 0, behavior: "auto" });
 	});
 
 	it("re-checks the threshold when the viewport resizes", () => {

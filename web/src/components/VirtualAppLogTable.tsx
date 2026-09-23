@@ -69,7 +69,8 @@ export function VirtualAppLogTable(props: VirtualAppLogTableProps) {
 		isLoadingAfter,
 		fetchNewer: onFetchNewer,
 		fetchOlder: onFetchOlder,
-		estimateSize: 48,
+		// A one-line message row; a two-line one measures itself taller.
+		estimateSize: 34,
 		pinTop: true,
 		getItemKey: appLogKey,
 	});
@@ -186,14 +187,12 @@ export function VirtualAppLogTable(props: VirtualAppLogTableProps) {
 										)}
 									</td>
 									<td className="px-2 py-1 align-middle">
-										<div className="min-h-[2lh] flex items-center">
-											<div className="text-xs font-mono line-clamp-2 text-gray-400">
-												{displayLogMessage(
-													entry.message,
-													entry.escaped,
-													entry.attrs_at,
-												)}
-											</div>
+										<div className="text-xs font-mono line-clamp-2 text-gray-400">
+											{displayLogMessage(
+												entry.message,
+												entry.escaped,
+												entry.attrs_at,
+											)}
 										</div>
 									</td>
 								</tr>

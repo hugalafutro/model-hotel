@@ -112,6 +112,49 @@ function scrollGeometry(
 }
 
 describe("useVirtualRows", () => {
+	// A first page shorter than its box cannot be scrolled, so waiting for a
+	// scroll would strand the rest of the list: it loads straight away.
+	it.each([
+		["the rows do not fill the box", 300, 1],
+		["the rows overflow the box", 4000, 0],
+	])(
+		"pulls the next page on its own only when %s",
+		(_, scrollHeight, calls) => {
+			const proto = HTMLElement.prototype;
+			const saved = ["clientHeight", "scrollHeight"].map(
+				(k) => [k, Object.getOwnPropertyDescriptor(proto, k)] as const,
+			);
+			Object.defineProperty(proto, "clientHeight", {
+				configurable: true,
+				get: () => 600,
+			});
+			Object.defineProperty(proto, "scrollHeight", {
+				configurable: true,
+				get: () => scrollHeight,
+			});
+			try {
+				const fetchOlder = vi.fn();
+				render(
+					<Harness
+						entries={rows(0, 5)}
+						heights={{}}
+						hasBefore={false}
+						hasAfter
+						fetchNewer={vi.fn()}
+						fetchOlder={fetchOlder}
+						expose={() => {}}
+					/>,
+				);
+				expect(fetchOlder).toHaveBeenCalledTimes(calls);
+			} finally {
+				for (const [k, d] of saved) {
+					if (d) Object.defineProperty(proto, k, d);
+					else delete (proto as unknown as Record<string, unknown>)[k];
+				}
+			}
+		},
+	);
+
 	// A refetch swaps the whole list without emptying it first; the fetch
 	// hook's listVersion, not the rows themselves, says it happened, so a new
 	// list whose first row survived the filter still starts at the top.
