@@ -23,8 +23,8 @@ export function ScrollTopButton({
 		const update = () => setShow(scrollEl.scrollTop > scrollEl.clientHeight);
 		update();
 		scrollEl.addEventListener("scroll", update, { passive: true });
-		// The scroller is sized in dvh, so a viewport change moves the threshold
-		// without producing a scroll event of its own.
+		// The scroller's height follows the viewport, so a viewport change moves
+		// the threshold without producing a scroll event of its own.
 		window.addEventListener("resize", update);
 		return () => {
 			scrollEl.removeEventListener("scroll", update);
@@ -43,6 +43,18 @@ export function ScrollTopButton({
 		// its target: arrow keys then keep scrolling the rows. The scroller
 		// carries tabIndex={-1} so it can take focus without joining tab order.
 		scrollEl.focus({ preventScroll: true });
+		// A smooth scroll is cancelled by any programmatic scroll on the way, and
+		// the virtualizer makes one whenever rows it had only estimated get
+		// measured as they pass: from far down a list of uneven rows, the
+		// animation stalls part way. When scrolling stops short of the top,
+		// finish with a jump.
+		scrollEl.addEventListener(
+			"scrollend",
+			() => {
+				if (scrollEl.scrollTop > 0) scrollEl.scrollTop = 0;
+			},
+			{ once: true },
+		);
 		scrollEl.scrollTo({
 			top: 0,
 			behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches

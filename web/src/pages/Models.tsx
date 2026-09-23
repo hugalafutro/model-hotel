@@ -294,7 +294,7 @@ export function Models() {
 
 	return (
 		<div
-			className={`space-y-4 flex flex-col ${viewMode === "scroll" ? "overflow-hidden h-[calc(100dvh-1rem)]" : ""}`}
+			className={`space-y-4 flex flex-col ${viewMode === "scroll" ? "overflow-hidden flex-1 min-h-0" : ""}`}
 		>
 			<PageHeader
 				icon={Bot}

@@ -85,8 +85,9 @@ export function Layout({ children }: LayoutProps) {
 				    between them. It grows slower than the screen (48rem + 38vw),
 				    so the side gaps widen with the resolution instead of the page
 				    stretching; the 88rem floor clears the request log's fitted
-				    columns. */}
-				<div className="p-2 mx-auto h-full max-w-[max(88rem,calc(48rem+38vw))]">
+				    columns. A flex column, so a full-height table page fills what
+				    is left under the read-only banner with flex-1 min-h-0. */}
+				<div className="p-2 mx-auto h-full flex flex-col max-w-[max(88rem,calc(48rem+38vw))]">
 					<ReadOnlyBanner />
 					{children}
 				</div>

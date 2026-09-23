@@ -23,8 +23,12 @@ export function useVirtualRows<T extends { id?: string }>({
 	pinTop = false,
 }: {
 	entries: T[];
-	/** useBidirectionalFetch's listVersion: a change scrolls back to the top. */
-	listVersion: number;
+	/**
+	 * Changes whenever the rows are replaced wholesale (useBidirectionalFetch's
+	 * listVersion, or any other token of which list is shown): a change
+	 * scrolls back to the top.
+	 */
+	listVersion: number | string;
 	hasBefore: boolean;
 	hasAfter: boolean;
 	isLoadingBefore: boolean;
@@ -170,9 +174,19 @@ export function useVirtualRows<T extends { id?: string }>({
 		fetchOlder,
 	]);
 
-	const startIndex = virtualItems.length > 0 ? virtualItems[0].index + 1 : 0;
-	const endIndex =
-		virtualItems.length > 0
+	// The rows actually on screen, 1-based, for the footer. virtualItems also
+	// holds the overscan rendered off screen on either side, so it would
+	// overstate the range; the virtualizer's own range does not. A virtualizer
+	// that has not measured a range yet falls back to the rendered rows.
+	const range = virtualizer.range;
+	const startIndex = range
+		? range.startIndex + 1
+		: virtualItems.length > 0
+			? virtualItems[0].index + 1
+			: 0;
+	const endIndex = range
+		? range.endIndex + 1
+		: virtualItems.length > 0
 			? virtualItems[virtualItems.length - 1].index + 1
 			: 0;
 

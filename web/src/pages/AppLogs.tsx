@@ -243,7 +243,7 @@ export function AppLogs() {
 			)}
 
 			<div
-				className={`space-y-4 flex flex-col ${viewMode === "scroll" ? "overflow-hidden h-[calc(100dvh-1rem)]" : "flex-1 min-h-0"}`}
+				className={`space-y-4 flex flex-col flex-1 min-h-0 ${viewMode === "scroll" ? "overflow-hidden" : ""}`}
 			>
 				<PageHeader
 					icon={FileText}
