@@ -324,7 +324,7 @@ export function AlertsSettings({
 							<div className="flex items-center gap-1.5">
 								<button
 									type="button"
-									className="flex items-center gap-1.5 text-sm font-medium text-(--text-secondary)"
+									className="flex items-center gap-1.5 ui-label"
 									onClick={() => setPickerOpen((o) => !o)}
 									aria-expanded={pickerExpanded}
 									disabled={!enabled}

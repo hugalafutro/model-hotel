@@ -339,9 +339,7 @@ export function EditProviderModal({
 								</>
 							)}
 						</div>
-						<p className="text-gray-500 text-xs ml-0">
-							{t("providers.edit.enabledHelper")}
-						</p>
+						<p className="ui-hint ml-0">{t("providers.edit.enabledHelper")}</p>
 					</div>
 					{pickerOpen && (
 						<DatePickerPopover
@@ -382,7 +380,7 @@ export function EditProviderModal({
 								{t("providers.edit_autodiscovery_label")}
 							</label>
 						</div>
-						<p className="text-gray-500 text-xs ml-0">
+						<p className="ui-hint ml-0">
 							{t("providers.edit.autodiscoveryHelper")}
 						</p>
 					</div>

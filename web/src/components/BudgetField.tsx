@@ -17,7 +17,7 @@ export function BudgetField({
 	onAmountChange,
 	onPeriodChange,
 	disabled = false,
-	labelClassName = "block text-sm font-medium text-gray-300 mb-1",
+	labelClassName = "block ui-label mb-1",
 }: {
 	idPrefix: string;
 	amount: string;
@@ -65,9 +65,7 @@ export function BudgetField({
 					))}
 				</select>
 			</div>
-			<p className="col-span-2 text-xs text-gray-500 -mt-2">
-				{t("budget.hint")}
-			</p>
+			<p className="col-span-2 ui-hint -mt-2">{t("budget.hint")}</p>
 		</div>
 	);
 }

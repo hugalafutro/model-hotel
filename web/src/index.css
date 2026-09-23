@@ -1720,18 +1720,23 @@ html[data-ui-style="glassmorphism-lite"].light .ui-popover {
 }
 
 /* =============================================
-   GLASSMORPHISM MODALS
+   MODAL WIDTH (all themes)
    ============================================= */
 
 /* Modal card width: its max-w-* tier (--modal-w, in rem) up to a 1080p
    screen, then in proportion to the viewport, so a dialog keeps the share of
    the screen it has at 1920px. In pixels that grows well under the content
    column (max(88rem, 48rem + 38vw)), so dialogs widen with the tables behind
-   them and stay narrower. 1920px = 16px root: 1rem = 0.8334vw at that width.
-   Below it the rem term wins and nothing changes. */
+   them; the widest tier (max-w-6xl) only catches up with the column past
+   ~3700px. 1920px = 16px root: 1rem = 0.8334vw at that width. Below it the
+   rem term wins and nothing changes. */
 .ui-modal-panel {
 	max-width: max(calc(var(--modal-w) * 1rem), calc(var(--modal-w) * 0.8334vw));
 }
+
+/* =============================================
+   GLASSMORPHISM MODALS
+   ============================================= */
 
 /* The page behind a modal is dimmed and GENTLY blurred via the overlay
    close-button (absolute inset-0) — a SIBLING of the dialog card, never

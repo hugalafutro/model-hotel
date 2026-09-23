@@ -162,9 +162,7 @@ export function QuotaBar({
 				/>
 			</div>
 			{children && (
-				<p className="text-xs text-(--text-muted) mt-1 whitespace-pre-line">
-					{children}
-				</p>
+				<p className="ui-hint mt-1 whitespace-pre-line">{children}</p>
 			)}
 			{footer}
 		</div>

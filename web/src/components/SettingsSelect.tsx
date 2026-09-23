@@ -57,10 +57,7 @@ export function SettingsSelect({
 		<div>
 			{inline ? (
 				<div className="flex items-center justify-between gap-3">
-					<label
-						htmlFor={id}
-						className="text-sm font-medium text-gray-300 whitespace-nowrap"
-					>
+					<label htmlFor={id} className="ui-label whitespace-nowrap">
 						{label}
 					</label>
 					{selectElement}

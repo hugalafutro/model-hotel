@@ -146,7 +146,7 @@ export function OpenRouterQuotaModal({
 								}}
 							/>
 						</div>
-						<p className="text-xs text-(--text-muted) mt-1 whitespace-pre-line">
+						<p className="ui-hint mt-1 whitespace-pre-line">
 							{balance.limit > 0
 								? `${(barMode === "used" ? 100 - limitPct : limitPct).toFixed(1)}% ${barMode === "used" ? t("components.providerModals.used") : t("components.providerModals.remaining")}`
 								: balance.limit === 0

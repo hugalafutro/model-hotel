@@ -178,10 +178,7 @@ function SessionRow({
 				<div className="flex items-center gap-2">
 					{/* The raw user agent in the tooltip: the summary is meant to be
 					    recognizable, the tooltip is the evidence. */}
-					<p
-						className="truncate text-sm font-medium text-gray-300"
-						title={session.user_agent}
-					>
+					<p className="truncate ui-label" title={session.user_agent}>
 						{device}
 					</p>
 					{session.current && (
@@ -193,9 +190,7 @@ function SessionRow({
 						</span>
 					)}
 				</div>
-				<p className="text-gray-500 text-xs mt-0.5 truncate">
-					{details.join(" · ")}
-				</p>
+				<p className="ui-hint mt-0.5 truncate">{details.join(" · ")}</p>
 			</div>
 			{!session.current && (
 				<button

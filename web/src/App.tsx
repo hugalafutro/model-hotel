@@ -402,7 +402,7 @@ function LoginScreen() {
 						userLoginEnabled) && (
 						<div className="flex items-center gap-3">
 							<div className="flex-1 h-px bg-gray-700"></div>
-							<span className="text-xs text-gray-500 uppercase">
+							<span className="ui-hint uppercase">
 								{t("layout.auth.orDivider")}
 							</span>
 							<div className="flex-1 h-px bg-gray-700"></div>

@@ -370,7 +370,7 @@ export function ArenaHistoryModal({
 
 	const header = (
 		<div className="flex items-center gap-3 mb-4">
-			<h2 className="text-xl font-bold text-white flex items-center gap-2">
+			<h2 className="ui-modal-title flex items-center gap-2">
 				<History size={20} className="text-(--accent)" />
 				{t("components.arenaHistoryModal.matchHistory")}
 			</h2>

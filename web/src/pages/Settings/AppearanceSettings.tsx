@@ -178,7 +178,7 @@ export function AppearanceSettings({
 							</div>
 						</div>
 
-						<p className="text-center text-gray-500 text-xs mt-4">
+						<p className="text-center ui-hint mt-4">
 							{t(
 								`settings.toast.position.${TOAST_POSITIONS.find((p) => p.id === toastPosition)?.key ?? "bottomRight"}`,
 							)}

@@ -375,7 +375,7 @@ export const Modal = forwardRef<ModalHandle, ModalProps>(function Modal(
 					title && (
 						<h2
 							id={headingId}
-							className={`shrink-0 text-xl font-bold text-white mb-4 ${headerPadding}`}
+							className={`shrink-0 ui-modal-title mb-4 ${headerPadding}`}
 						>
 							{title}
 						</h2>
