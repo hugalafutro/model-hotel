@@ -10,6 +10,7 @@ import (
 	"strings"
 
 	"github.com/hugalafutro/model-hotel/internal/jsonfault"
+	"github.com/hugalafutro/model-hotel/internal/util"
 )
 
 // Text-to-speech through generateContent.
@@ -193,7 +194,7 @@ func decodeAudioAnswer(body []byte, what string, errNo error) (genResponse, Spee
 		usage = SpeechUsage{PromptTokens: u.PromptTokens, CompletionTokens: u.CompletionTokens}
 	}
 	if resp.PromptFeedback != nil && resp.PromptFeedback.BlockReason != "" {
-		return resp, usage, fmt.Errorf("%w: prompt blocked (%s)", errNo, resp.PromptFeedback.BlockReason)
+		return resp, usage, fmt.Errorf("%w: prompt blocked (%s)", errNo, util.KnownToken(resp.PromptFeedback.BlockReason, blockReasons))
 	}
 	return resp, usage, nil
 }
@@ -202,7 +203,7 @@ func decodeAudioAnswer(body []byte, what string, errNo error) (genResponse, Spee
 // for, naming the finish reason the candidate gave when it gave one.
 func noContentError(resp genResponse, errNo error, detail string) error {
 	if len(resp.Candidates) > 0 && resp.Candidates[0].FinishReason != "" {
-		detail += " (finish reason " + resp.Candidates[0].FinishReason + ")"
+		detail += " (finish reason " + util.KnownToken(resp.Candidates[0].FinishReason, finishReasons) + ")"
 	}
 	return fmt.Errorf("%w: %s", errNo, detail)
 }

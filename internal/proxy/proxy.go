@@ -361,17 +361,17 @@ func recoverFirstToken(buf *bytes.Buffer, startTime time.Time, scanErr error) (p
 	// other way to learn this branch fired.
 	switch verdict {
 	case probeFrameEmptyStream:
-		debuglog.Warn("proxy: TTFT probe recovered [DONE] before any first token after scanner error", "scan_error", scanErr)
+		debuglog.Warn("proxy: TTFT probe recovered [DONE] before any first token after scanner error", "scan_error", describeBodyReadFault(scanErr))
 		return nil, 0, &emptyStreamError{}, true
 	case probeFrameError:
 		// Provider text withheld for the same reason as the main loop: this
 		// function never saw the api key, so it cannot mask it.
-		debuglog.Warn("proxy: TTFT probe recovered an error envelope after scanner error", "message_bytes", len(msg), "scan_error", scanErr)
+		debuglog.Warn("proxy: TTFT probe recovered an error envelope after scanner error", "message_bytes", len(msg), "scan_error", describeBodyReadFault(scanErr))
 		return nil, 0, &upstreamFrameError{msg: msg}, true
 	case probeFrameNotAToken, probeFrameToken:
 	}
 	ttft := util.MillisSince(startTime)
-	debuglog.Info("proxy: TTFT probe recovered data after scanner error", "ttft_ms", ttft, "scan_error", scanErr)
+	debuglog.Info("proxy: TTFT probe recovered data after scanner error", "ttft_ms", ttft, "scan_error", describeBodyReadFault(scanErr))
 	return buf, ttft, nil, true
 }
 

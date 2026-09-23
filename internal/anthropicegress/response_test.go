@@ -418,3 +418,23 @@ func TestBuildChatCompletion_NotAMessage(t *testing.T) {
 		})
 	}
 }
+
+// upstreamError names error.type and nothing else, and only a documented type:
+// the text reaches the request row, so a relay that puts the prompt in the
+// field, prose or a short identifier-shaped echo, gets "unknown" instead.
+func TestUpstreamError_NamesOnlyAnEnumShapedType(t *testing.T) {
+	if got := upstreamError(&antRespError{Type: "overloaded_error"}).Error(); !strings.Contains(got, "overloaded_error") {
+		t.Fatalf("a real type was lost: %q", got)
+	}
+	for _, echo := range []string{"the user said PIN 2468", "PIN2468"} {
+		got := upstreamError(&antRespError{Type: echo}).Error()
+		if strings.Contains(got, "2468") || !strings.Contains(got, "unknown") {
+			t.Fatalf("an undocumented error.type %q reached the error: %q", echo, got)
+		}
+	}
+	for typ := range anthropicErrorTypes {
+		if got := upstreamError(&antRespError{Type: typ}).Error(); !strings.Contains(got, typ) {
+			t.Errorf("the documented type %q was lost: %q", typ, got)
+		}
+	}
+}

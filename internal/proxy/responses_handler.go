@@ -103,7 +103,7 @@ func (h *Handler) readRawBody(w http.ResponseWriter, r *http.Request) ([]byte, b
 	body, err := io.ReadAll(r.Body)
 	_ = r.Body.Close()
 	if err != nil {
-		debuglog.Warn("responses: failed to read request body", "error", err)
+		debuglog.Warn("responses: failed to read request body", "fault", describeBodyReadFault(err))
 		writeOpenAIError(w, "failed to read request body", http.StatusBadRequest)
 		return nil, false
 	}

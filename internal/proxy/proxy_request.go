@@ -1,9 +1,13 @@
 package proxy
 
 import (
+	"bufio"
+	"context"
 	"encoding/json"
+	"errors"
 	"io"
 	"net/http"
+	"net/textproto"
 	"strings"
 	"time"
 	"unicode/utf8"
@@ -44,6 +48,36 @@ const modelExcerptRunes = 64
 // model is not too long; "model is required" is a separate guard downstream.
 func modelTooLong(model string) bool {
 	return utf8.RuneCountInString(model) > maxModelNameRunes
+}
+
+// describeBodyReadFault names why a body could not be read, without quoting
+// it. It serves both directions. A chunked request's malformed trailer comes
+// back from a body read as a textproto.ProtocolError quoting the caller's line
+// verbatim, the leak describeMultipartFault closes on the multipart ingest; the
+// JSON routes read their bodies in streamingAwareTimeout today, so the
+// handler-level reads that log this only run for a route mounted without it,
+// and this keeps them from reopening the leak when one is. A response's
+// malformed trailer is already errMalformedTrailer by the time anything reads
+// it (trailerSafeTransport), and the TTFT probe's recovery lines name a failed
+// stream read by this class rather than by its text.
+func describeBodyReadFault(err error) string {
+	var tooLarge *http.MaxBytesError
+	var protocolErr textproto.ProtocolError
+	switch {
+	case errors.As(err, &tooLarge):
+		return "the body exceeded the size limit"
+	case errors.As(err, &protocolErr), errors.Is(err, errMalformedTrailer):
+		return "a trailer carried a malformed MIME header"
+	case errors.Is(err, bufio.ErrTooLong):
+		return "a line exceeded the reader's limit"
+	case errors.Is(err, context.Canceled):
+		return "the read was cancelled"
+	case errors.Is(err, context.DeadlineExceeded):
+		return "the read timed out"
+	case errors.Is(err, io.ErrUnexpectedEOF):
+		return "the body ended early"
+	}
+	return "the body could not be read"
 }
 
 // rejectOversizedModel is the one outcome every ingest path has for a model past
@@ -118,7 +152,7 @@ func (h *Handler) ingestRequest(w http.ResponseWriter, r *http.Request, endpoint
 			var err error
 			bodyBytes, err = io.ReadAll(r.Body)
 			if err != nil {
-				debuglog.Warn("proxy: failed to read request body", "error", err)
+				debuglog.Warn("proxy: failed to read request body", "fault", describeBodyReadFault(err))
 				publishRequestStartedEvent(logData)
 				h.rejectIngest(w, logData, "failed to read request body", startTime, parseMs)
 				return nil, false

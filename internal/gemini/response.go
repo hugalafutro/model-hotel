@@ -165,6 +165,25 @@ var ErrMalformedFunctionCall = errors.New("gemini: model produced a malformed fu
 // charges the breaker.
 var ErrPromptBlocked = errors.New("gemini: prompt blocked")
 
+// blockReasons and finishReasons are the documented values of Gemini's
+// PromptFeedback.BlockReason and Candidate.FinishReason (ai.google.dev/api/
+// generate-content, checked 2026-09-23), with every finish reason this
+// package already maps in mapFinishReason. Named in error text only when
+// listed: that text reaches the request row, and a relay is free to put
+// anything in the field. A value added later reads "unknown" until listed.
+var (
+	blockReasons = map[string]bool{
+		"BLOCK_REASON_UNSPECIFIED": true, "SAFETY": true, "OTHER": true,
+		"BLOCKLIST": true, "PROHIBITED_CONTENT": true, "IMAGE_SAFETY": true,
+	}
+	finishReasons = map[string]bool{
+		"FINISH_REASON_UNSPECIFIED": true, "STOP": true, "MAX_TOKENS": true,
+		"SAFETY": true, "RECITATION": true, "OTHER": true, "LANGUAGE": true,
+		"BLOCKLIST": true, "PROHIBITED_CONTENT": true, "SPII": true, "IMAGE_SAFETY": true,
+		"MALFORMED_FUNCTION_CALL": true, "BLOCKED_PROACTIVE_ABUSE": true,
+	}
+)
+
 // BuildChatCompletion converts a non-streaming Gemini generateContent response
 // body into an OpenAI chat-completion body. id, model and created are supplied
 // by the caller (the model string the client requested is echoed back).
@@ -175,7 +194,7 @@ func BuildChatCompletion(body []byte, id, model string, created int64) ([]byte, 
 	}
 	if len(resp.Candidates) == 0 {
 		if resp.PromptFeedback != nil && resp.PromptFeedback.BlockReason != "" {
-			return nil, fmt.Errorf("gemini: prompt blocked: %s: %w", resp.PromptFeedback.BlockReason, ErrPromptBlocked)
+			return nil, fmt.Errorf("gemini: prompt blocked: %s: %w", util.KnownToken(resp.PromptFeedback.BlockReason, blockReasons), ErrPromptBlocked)
 		}
 		// No candidates and no stated reason: not Gemini declining to answer,
 		// but a body that carries none at all (an aggregator's error envelope,

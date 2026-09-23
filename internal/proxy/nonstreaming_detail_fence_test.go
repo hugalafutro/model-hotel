@@ -1,16 +1,20 @@
 package proxy
 
 import (
+	"bufio"
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"net/http"
+	"net/textproto"
 	"strings"
 	"testing"
 	"time"
 	"unicode/utf8"
 
 	"github.com/hugalafutro/model-hotel/internal/ctxkeys"
+	"github.com/hugalafutro/model-hotel/internal/httpx"
 	"github.com/hugalafutro/model-hotel/internal/provider"
 	"github.com/hugalafutro/model-hotel/internal/util"
 )
@@ -231,5 +235,44 @@ func TestErrString_StripsAHeadPulledUnderTheCutByMasking(t *testing.T) {
 	got := errString(errors.New(strings.Repeat(key, 24)))
 	if strings.Contains(got, key[:16]) {
 		t.Fatalf("a held key's head survived errString: %q", got)
+	}
+}
+
+// The gateway's own body-cap refusal keeps its text in the detail: it is this
+// gateway's prose, not the provider's, and it is what tells an operator why a
+// large answer was refused. (A decode failure is made content-free at its
+// source, readNonStreamingBody; see upstream_content_leak_test.go.)
+func TestNonStreamingFailureDetail_KeepsTheBodyCapRefusal(t *testing.T) {
+	t.Parallel()
+	resp := &http.Response{StatusCode: http.StatusOK, Header: http.Header{"Content-Type": {"application/json"}}}
+	capErr := fmt.Errorf("upstream response exceeds the cap: %w", httpx.ErrBodyTooLarge)
+	_, detail, _, _ := nonStreamingFailureDetail(context.Background(), resp, []byte("{"), nil, capErr, "m", nil, credentialMasker{})
+	if !strings.Contains(detail, "exceeds the cap") {
+		t.Fatalf("the gateway's own cap refusal lost its text: %s", detail)
+	}
+}
+
+// Every class describeBodyReadFault names, none of them quoting the body: the
+// trailer case is the one that did, since textproto quotes the caller's line.
+func TestDescribeBodyReadFault_NamesTheClassNotTheBytes(t *testing.T) {
+	t.Parallel()
+	const sentinel = "ZZBODYSENTINELZZ"
+	for _, tc := range []struct {
+		err  error
+		want string
+	}{
+		{&http.MaxBytesError{Limit: 1}, "the body exceeded the size limit"},
+		{textproto.ProtocolError("malformed MIME header: missing colon: " + sentinel), "a trailer carried a malformed MIME header"},
+		{fmt.Errorf("read: %w", io.ErrUnexpectedEOF), "the body ended early"},
+		{errMalformedTrailer, "a trailer carried a malformed MIME header"},
+		{bufio.ErrTooLong, "a line exceeded the reader's limit"},
+		{fmt.Errorf("read: %w", context.Canceled), "the read was cancelled"},
+		{fmt.Errorf("read: %w", context.DeadlineExceeded), "the read timed out"},
+		{errors.New(sentinel + " anything else"), "the body could not be read"},
+	} {
+		got := describeBodyReadFault(tc.err)
+		if got != tc.want || strings.Contains(got, sentinel) {
+			t.Errorf("describeBodyReadFault(%v) = %q, want %q", tc.err, got, tc.want)
+		}
 	}
 }

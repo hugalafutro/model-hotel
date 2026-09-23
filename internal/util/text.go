@@ -39,3 +39,19 @@ func TruncateBytes(s string, maxBytes int) string {
 func CollapseSpace(s string) string {
 	return strings.Join(strings.Fields(s), " ")
 }
+
+// KnownToken returns s when it is one of a provider's documented enum values
+// and "unknown" otherwise. It is for the one field of an upstream error a
+// gateway names while leaving the rest out, such as Anthropic's error.type or
+// Gemini's blockReason and finishReason: the text reaches logs and the request
+// row, and a relay is free to put anything in the field. A shape check was not
+// enough: a short identifier-shaped value ("PIN2468") passes one, and an echo
+// that short is below the request-content fence's window too. A value the
+// provider adds later reads "unknown" until it is listed, which costs only a
+// diagnostic.
+func KnownToken(s string, known map[string]bool) string {
+	if known[s] {
+		return s
+	}
+	return "unknown"
+}
