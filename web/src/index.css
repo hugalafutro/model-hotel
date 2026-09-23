@@ -2784,7 +2784,7 @@ html[data-ui-style="cyber-terminal"] .ui-tab-active:hover {
    call site, because these rules are unlayered and would beat margin utilities. */
 
 /* Form field and setting-row labels. */
-[data-ui-style] .ui-label {
+.ui-label {
 	font-size: var(--text-sm);
 	line-height: var(--text-sm--line-height);
 	font-weight: var(--font-weight-medium);
@@ -2792,14 +2792,14 @@ html[data-ui-style="cyber-terminal"] .ui-tab-active:hover {
 }
 
 /* Help text under a field, small captions. */
-[data-ui-style] .ui-hint {
+.ui-hint {
 	font-size: var(--text-xs);
 	line-height: var(--text-xs--line-height);
 	color: var(--text-muted);
 }
 
 /* Modal heading (an h2, so the terminal heading rule still applies). */
-[data-ui-style] .ui-modal-title {
+.ui-modal-title {
 	font-size: var(--text-xl);
 	line-height: var(--text-xl--line-height);
 	font-weight: var(--font-weight-bold);
@@ -2807,14 +2807,14 @@ html[data-ui-style="cyber-terminal"] .ui-tab-active:hover {
 }
 
 /* Line under a modal title. */
-[data-ui-style] .ui-subtitle {
+.ui-subtitle {
 	font-size: var(--text-sm);
 	line-height: var(--text-sm--line-height);
 	color: var(--text-tertiary);
 }
 
 /* Tiny uppercase caption above a value. */
-[data-ui-style] .ui-overline {
+.ui-overline {
 	font-size: 10px;
 	letter-spacing: var(--tracking-wider);
 	text-transform: uppercase;
