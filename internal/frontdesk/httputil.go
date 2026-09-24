@@ -35,8 +35,12 @@ func writeError(w http.ResponseWriter, err error) {
 	case errors.Is(err, ErrValidation), errors.Is(err, ErrDuplicateURL), errors.Is(err, ErrInsecureURL):
 		http.Error(w, err.Error(), http.StatusBadRequest)
 	default:
+		// A caller that hung up mid-request cancels the context underneath the
+		// store, which is not this desk's failure: httpx.StatusForError keeps
+		// it out of the 5xx range so accessLogger does not log a second error
+		// line for it (debuglog.Error drops the first one to Warn itself).
 		debuglog.Error("frontdesk: request failed", "error", err)
-		http.Error(w, "internal error", http.StatusInternalServerError)
+		http.Error(w, "internal error", httpx.StatusForError(err, http.StatusInternalServerError))
 	}
 }
 

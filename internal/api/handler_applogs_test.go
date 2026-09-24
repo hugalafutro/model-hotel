@@ -1266,8 +1266,9 @@ func fillRing(rb *ringBuffer, source string, n int) {
 
 // A DELETE the database refused used to answer 200 with a count taken from the
 // ring buffer it had already emptied, so the operator saw a purge that never
-// happened and lost the live view on top of it. The failure is a 500 and the
-// ring is left holding what the rows still hold.
+// happened and lost the live view on top of it. A genuine database failure is a
+// 500; the cancelled DELETE this test drives is a 499. Either way the ring is
+// left holding what the rows still hold.
 func TestClearAppLogs_FailedDeleteAnswers499AndKeepsRing(t *testing.T) {
 	h := newTestHandler(t)
 	rb := withTestRingBuffer(t)
