@@ -69,30 +69,41 @@ func (h *Handler) ListModels(w http.ResponseWriter, r *http.Request) {
 
 	groups, err := h.failoverRepo.GetEnabled(r.Context())
 	if err != nil {
-		debuglog.Warn("proxy: failed to list failover groups", "error", err)
-	} else {
-		for _, g := range groups {
-			for _, modelUUID := range g.PriorityOrder {
-				if !g.IsEntryEnabled(modelUUID) {
-					continue
-				}
-				m, ok := byID[modelUUID]
-				if !ok {
-					continue
-				}
-				if !providerAllowed(m.ProviderID) {
-					// Keep walking the priority order rather than dropping the
-					// group here. A request naming the group is filtered
-					// candidate by candidate, so the group stays reachable while
-					// ANY entry sits on a provider this caller may use, and the
-					// first such entry is the one that would serve it. Only a
-					// group with no reachable entry at all falls out.
-					continue
-				}
-
-				openAIModels = append(openAIModels, modelToOpenAIItem(m, "hotel/"+g.DisplayModel, "hotel"))
-				break
+		// Serving the plain models with every hotel/ group missing would answer
+		// "this fleet has no failover groups", which is a discovery answer the
+		// caller acts on: it would route around a group that is in fact there,
+		// and nothing in the body says the catalogue is partial. Fail the
+		// listing instead, with the same two statuses the catalogue read above
+		// uses. debuglog.Error drops the line to Warn for a cancel on its own.
+		debuglog.Error("proxy: failed to list failover groups", "error", err)
+		status := http.StatusInternalServerError
+		if errors.Is(err, context.Canceled) && r.Context().Err() != nil {
+			status = statusClientClosedRequest
+		}
+		writeOpenAIError(w, "failed to list failover groups", status)
+		return
+	}
+	for _, g := range groups {
+		for _, modelUUID := range g.PriorityOrder {
+			if !g.IsEntryEnabled(modelUUID) {
+				continue
 			}
+			m, ok := byID[modelUUID]
+			if !ok {
+				continue
+			}
+			if !providerAllowed(m.ProviderID) {
+				// Keep walking the priority order rather than dropping the
+				// group here. A request naming the group is filtered
+				// candidate by candidate, so the group stays reachable while
+				// ANY entry sits on a provider this caller may use, and the
+				// first such entry is the one that would serve it. Only a
+				// group with no reachable entry at all falls out.
+				continue
+			}
+
+			openAIModels = append(openAIModels, modelToOpenAIItem(m, "hotel/"+g.DisplayModel, "hotel"))
+			break
 		}
 	}
 

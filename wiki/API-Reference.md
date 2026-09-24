@@ -41,6 +41,8 @@ Returns the model list in OpenAI-compatible format.
 
 The list is scoped to what the calling key may actually call: the key's own `allowed_providers` intersected with its owner account's provider cap, the same pair a chat request is routed through. A key restricted on neither side sees the whole catalogue, so this is a no-op unless an operator has deliberately restricted access. A `hotel/` failover group stays listed while any entry in its priority order sits on a provider the caller may reach, and is described by the entry that would actually serve the request.
 
+The listing is all-or-nothing: if either read behind it fails, the endpoint answers an error rather than a 200 that is missing rows. A partial catalogue is a discovery answer a client routes on, and nothing in the OpenAI-compatible body can mark it as incomplete. A caller that hangs up mid-read gets 499 (client closed request), which is what the access log and the request counters record for it.
+
 **Response:**
 ```json
 {

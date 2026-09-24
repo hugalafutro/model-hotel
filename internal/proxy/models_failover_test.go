@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 	"time"
 
@@ -534,15 +535,17 @@ func TestListModels_FailoverGroupInvalidJSON(t *testing.T) {
 	}
 }
 
-// TestListModels_FailoverRepoError tests the error path when failoverRepo.GetEnabled fails.
-// Covers line 91 in models.go (debuglog.Warn for failover repo error).
+// TestListModels_FailoverRepoError: an unreadable group list fails the listing.
+// Answering 200 without the hotel/ entries would tell the caller this fleet has
+// no failover groups — a discovery answer they route on — with nothing in the
+// body marking the catalogue as partial. A 500 they retry is the honest answer.
 func TestListModels_FailoverRepoError(t *testing.T) {
 	h := newUnitHandler()
 	defer stopUnitHandler(h)
 
 	h.modelRepo = &mockModelRepo{listEnabledResult: []*model.Model{}}
 
-	// Create a repository with an invalid connection string that will fail
+	// A repository whose connection cannot be made: the group read fails.
 	ctx := context.Background()
 	poolCfg, err := pgxpool.ParseConfig("postgres://invalid:invalid@localhost:59999/testdb?sslmode=disable&connect_timeout=1")
 	if err != nil {
@@ -559,21 +562,11 @@ func TestListModels_FailoverRepoError(t *testing.T) {
 	rr := httptest.NewRecorder()
 	h.ListModels(rr, req)
 
-	if rr.Code != http.StatusOK {
-		t.Errorf("expected 200, got %d", rr.Code)
+	if rr.Code != http.StatusInternalServerError {
+		t.Errorf("expected 500, got %d", rr.Code)
 	}
-
-	var resp map[string]any
-	if err := json.NewDecoder(rr.Body).Decode(&resp); err != nil {
-		t.Fatalf("failed to decode response: %v", err)
-	}
-
-	data, ok := resp["data"].([]any)
-	if !ok {
-		t.Fatal("response 'data' should be an array")
-	}
-	if len(data) != 0 {
-		t.Errorf("expected empty data array, got %d items", len(data))
+	if !strings.Contains(rr.Body.String(), "failed to list failover groups") {
+		t.Errorf("body = %q, want it to name the group read", rr.Body.String())
 	}
 }
 

@@ -12,7 +12,6 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/hugalafutro/model-hotel/internal/auth"
 	"github.com/hugalafutro/model-hotel/internal/failover"
@@ -194,18 +193,10 @@ func TestListModels_JSONEncodeError(t *testing.T) {
 	h := newUnitHandler()
 	defer stopUnitHandler(h)
 
-	// Initialize failoverRepo with a pool that will fail gracefully
-	ctx := context.Background()
-	poolCfg, err := pgxpool.ParseConfig("postgres://invalid:invalid@localhost:59999/testdb?sslmode=disable&connect_timeout=1")
-	if err != nil {
-		t.Fatalf("failed to parse pool config: %v", err)
-	}
-	pool, err := pgxpool.NewWithConfig(ctx, poolCfg)
-	if err != nil {
-		t.Fatalf("failed to create pool: %v", err)
-	}
-	h.failoverRepo = failover.NewRepository(pool)
-	defer pool.Close()
+	// A real failover repo: the group walk has to succeed for this test to reach
+	// what it is about, now that an unreadable group list fails the listing
+	// instead of serving a catalogue with every hotel/ entry silently missing.
+	h.failoverRepo = failover.NewRepository(testDB.Pool())
 
 	h.modelRepo = &mockModelRepo{listEnabledResult: []*model.Model{}}
 
