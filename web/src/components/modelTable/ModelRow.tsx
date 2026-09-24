@@ -55,7 +55,7 @@ export function ModelRow({
 					/>
 				</div>
 			</td>
-			<td className="px-4 py-1.5 align-top">
+			<td className="px-4 py-1.5 align-middle">
 				<div className="flex flex-wrap gap-1">
 					{CAP_META.filter((m) => hasCap(caps, m.key)).map((m) => (
 						<span
@@ -67,7 +67,7 @@ export function ModelRow({
 					))}
 				</div>
 			</td>
-			<td className="px-2 py-1.5 align-top">
+			<td className="px-2 py-1.5 align-middle">
 				<OutputIcons outputModalities={model.output_modalities} />
 			</td>
 			{showProviderCol && (
