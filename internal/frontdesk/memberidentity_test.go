@@ -117,11 +117,39 @@ func TestCreateMemberErrorsCarryCodes(t *testing.T) {
 		host := fleetIdentityStub(t, `{"state":"warning","is_primary":true,"frontdesk_id":"fd-somewhere-else"}`, "iid-theirs")
 
 		rec := do(t, srv, http.MethodPost, "/api/members", `{"name":"theirs","url":"`+host.URL+`","token":"tok"}`, true)
-		if rec.Code != http.StatusConflict || codeOf(t, rec) != "already_primary" {
-			t.Fatalf("got %d code=%q, want 409 already_primary", rec.Code, codeOf(t, rec))
+		if rec.Code != http.StatusConflict || codeOf(t, rec) != "primary_elsewhere" {
+			t.Fatalf("got %d code=%q, want 409 primary_elsewhere", rec.Code, codeOf(t, rec))
 		}
 		if members, _ := store.ListMembers(t.Context()); len(members) != 0 {
 			t.Errorf("members = %d after the refused add, want 0", len(members))
+		}
+	})
+	// ...and enrolled anyway once the operator confirms this desk's admin token,
+	// which is how a Front Desk rebuilt from an empty database recovers the
+	// primary that still remembers the id it used to have. Without this the only
+	// way back is to wait out fleetForgetTTL (24h) on the member.
+	t.Run("another desk's stale primary is addable with the admin token", func(t *testing.T) {
+		srv, store := newTestServer(t)
+		host := fleetIdentityStub(t, `{"state":"warning","is_primary":true,"frontdesk_id":"fd-that-is-gone"}`, "iid-recovered")
+
+		body := `{"name":"recovered","url":"` + host.URL + `","token":"tok","confirm_token":"` + testFrontdeskToken + `"}`
+		rec := do(t, srv, http.MethodPost, "/api/members", body, true)
+		if rec.Code != http.StatusCreated {
+			t.Fatalf("confirmed recovery add = %d code=%q, want 201", rec.Code, codeOf(t, rec))
+		}
+		if members, _ := store.ListMembers(t.Context()); len(members) != 1 {
+			t.Errorf("members = %d after the confirmed add, want 1", len(members))
+		}
+	})
+	// A wrong token is no confirmation at all: the refusal stands.
+	t.Run("another desk's stale primary refuses a wrong admin token", func(t *testing.T) {
+		srv, _ := newTestServer(t)
+		host := fleetIdentityStub(t, `{"state":"warning","is_primary":true,"frontdesk_id":"fd-that-is-gone"}`, "iid-nope")
+
+		body := `{"name":"nope","url":"` + host.URL + `","token":"tok","confirm_token":"not-the-admin-token"}`
+		rec := do(t, srv, http.MethodPost, "/api/members", body, true)
+		if rec.Code != http.StatusConflict || codeOf(t, rec) != "primary_elsewhere" {
+			t.Fatalf("got %d code=%q, want 409 primary_elsewhere", rec.Code, codeOf(t, rec))
 		}
 	})
 	// A host too old to report which Front Desk manages it keeps the refusal it
@@ -132,8 +160,8 @@ func TestCreateMemberErrorsCarryCodes(t *testing.T) {
 		host := fleetIdentityStub(t, `{"state":"warning","is_primary":true}`, "iid-legacy")
 
 		rec := do(t, srv, http.MethodPost, "/api/members", `{"name":"legacy","url":"`+host.URL+`","token":"tok"}`, true)
-		if rec.Code != http.StatusConflict || codeOf(t, rec) != "already_primary" {
-			t.Fatalf("got %d code=%q, want 409 already_primary", rec.Code, codeOf(t, rec))
+		if rec.Code != http.StatusConflict || codeOf(t, rec) != "primary_elsewhere" {
+			t.Fatalf("got %d code=%q, want 409 primary_elsewhere", rec.Code, codeOf(t, rec))
 		}
 	})
 	// A stale ex-MEMBER (never a primary) is addable whoever managed it: the

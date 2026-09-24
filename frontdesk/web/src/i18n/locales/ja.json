@@ -187,7 +187,9 @@
 		"resetCircuitsRecovered_other": "{{count}} 回路を復旧",
 		"resetCircuitsMembers_one": "{{count}} メンバー",
 		"resetCircuitsCleared_one": "{{count}} 回路をクリア",
-		"resetCircuitsRecovered_one": "{{count}} 回路を復旧"
+		"resetCircuitsRecovered_one": "{{count}} 回路を復旧",
+		"errPrimaryElsewhere": "別の Front Desk が引き続きこのホストを自身のフリートのプライマリとしています。今は到達できないだけかもしれず、ここで追加するとそのフリートを奪うことになります。まず向こうで削除してください。その Front Desk が完全になくなっている場合は、下にこの Front Desk の管理トークンを入力すれば、それでも追加できます。",
+		"confirmDeskTokenLabel": "この Front Desk の管理トークン"
 	},
 	"traffic": {
 		"title": "トラフィック",

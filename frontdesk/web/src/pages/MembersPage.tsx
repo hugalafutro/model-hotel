@@ -586,6 +586,11 @@ function AddMemberForm({
 	const [name, setName] = useState("");
 	const [url, setUrl] = useState("");
 	const [token, setToken] = useState("");
+	// Only asked for after a primary_elsewhere refusal: the host still names
+	// another Front Desk as the owner of its primary role, and enrolling it takes
+	// that fleet over, so the operator confirms with this desk's admin token.
+	const [confirmToken, setConfirmToken] = useState("");
+	const [needsConfirm, setNeedsConfirm] = useState(false);
 	const [busy, setBusy] = useState(false);
 	const [error, setError] = useState("");
 
@@ -597,11 +602,18 @@ function AddMemberForm({
 			// An add now succeeds only once the host replied and verified (token
 			// accepted, not the fleet primary), so there is no "saved but unconfirmed"
 			// warning path here anymore: a failure throws and is shown below.
-			const created = await api.createMember(name.trim(), url.trim(), token);
+			const created = await api.createMember(
+				name.trim(),
+				url.trim(),
+				token,
+				confirmToken.trim(),
+			);
 			toast(t("members.added", { name: created.name }), "success");
 			setName("");
 			setUrl("");
 			setToken("");
+			setConfirmToken("");
+			setNeedsConfirm(false);
 			onAdded();
 		} catch (err) {
 			if (
@@ -621,6 +633,12 @@ function AddMemberForm({
 						break;
 					case "already_primary":
 						setError(t("members.errAlreadyPrimary"));
+						break;
+					case "primary_elsewhere":
+						// Recoverable by the operator, so reveal the confirm field
+						// rather than leaving the message pointing at nothing.
+						setError(t("members.errPrimaryElsewhere"));
+						setNeedsConfirm(true);
 						break;
 					case "already_member":
 						setError(t("members.errAlreadyMember"));
@@ -722,11 +740,33 @@ function AddMemberForm({
 					{error}
 				</div>
 			)}
+			{needsConfirm && (
+				<div className="ui-field" style={{ marginTop: "0.8rem" }}>
+					<label className="ui-label" htmlFor="add-confirm-token">
+						{t("members.confirmDeskTokenLabel")}
+					</label>
+					<input
+						id="add-confirm-token"
+						className="ui-input"
+						type="password"
+						autoComplete="off"
+						value={confirmToken}
+						onChange={(e) => setConfirmToken(e.target.value)}
+						placeholder={t("members.confirmTokenPlaceholder")}
+					/>
+				</div>
+			)}
 			<div style={{ marginTop: "0.9rem" }}>
 				<button
 					type="submit"
 					className="ui-btn ui-btn-primary"
-					disabled={busy || !name.trim() || !url.trim() || !token.trim()}
+					disabled={
+						busy ||
+						!name.trim() ||
+						!url.trim() ||
+						!token.trim() ||
+						(needsConfirm && !confirmToken.trim())
+					}
 				>
 					{busy ? t("common.adding") : t("common.add")}
 				</button>

@@ -350,6 +350,55 @@ describe("MembersPage", () => {
 		);
 	});
 
+	it("offers the confirm field when another Front Desk still owns the host", async () => {
+		let lastBody: Record<string, unknown> = {};
+		let attempts = 0;
+		server.use(
+			http.get("/api/members", () => HttpResponse.json([])),
+			http.post("/api/members", async ({ request }) => {
+				attempts += 1;
+				lastBody = (await request.json()) as Record<string, unknown>;
+				if (attempts === 1) {
+					return HttpResponse.json(
+						{
+							code: "primary_elsewhere",
+							error:
+								"Another Front Desk still names this host its fleet primary.",
+						},
+						{ status: 409 },
+					);
+				}
+				return HttpResponse.json(
+					{ id: "m1", name: "recovered", url: "https://hotel-1.example.com" },
+					{ status: 201 },
+				);
+			}),
+		);
+		renderPage();
+		await screen.findByText(/No members yet/i);
+		await userEvent.type(screen.getByLabelText(/Display name/i), "recovered");
+		await userEvent.type(
+			screen.getByLabelText(/Base URL/i),
+			"https://hotel-1.example.com",
+		);
+		await userEvent.type(screen.getByLabelText("Admin token"), "tok");
+		await userEvent.click(screen.getByRole("button", { name: /^Add$/i }));
+
+		// The refusal is recoverable, so the operator is given somewhere to
+		// confirm it rather than a dead end.
+		expect(await screen.findByRole("alert")).toHaveTextContent(
+			/still names this host its fleet primary/i,
+		);
+		const confirm = await screen.findByLabelText(
+			/This Front Desk's admin token/i,
+		);
+		await userEvent.type(confirm, "fd-admin-token");
+		await userEvent.click(screen.getByRole("button", { name: /^Add$/i }));
+
+		await waitFor(() => expect(attempts).toBe(2));
+		expect(lastBody.confirm_token).toBe("fd-admin-token");
+	});
+
 	it("shows the backend message when the member refuses the token", async () => {
 		server.use(
 			http.get("/api/members", () => HttpResponse.json([])),

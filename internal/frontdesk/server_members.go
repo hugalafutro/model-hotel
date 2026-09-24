@@ -65,6 +65,16 @@ type createMemberRequest struct {
 	Name  string `json:"name"`
 	URL   string `json:"url"`
 	Token string `json:"token"`
+	// ConfirmToken is this Front Desk's own admin token, re-supplied to enrol a
+	// host that still names ANOTHER Front Desk as the owner of its primary role
+	// (see the primary_elsewhere refusal below). It is the operator stating that
+	// the other desk is really gone - typically because this one replaced it and
+	// was rebuilt from an empty database, so it no longer carries the id the
+	// member remembers. The bearer on the request may be a passkey or TOTP
+	// session rather than the raw token, which is why the token is asked for
+	// again here rather than inferred from being signed in, exactly as the
+	// primary repoint does.
+	ConfirmToken string `json:"confirm_token"`
 }
 
 // memberResponse is a Member plus an optional, non-fatal warning surfaced after
@@ -164,8 +174,16 @@ func (s *Server) createMember(w http.ResponseWriter, r *http.Request) {
 			fail("identity_unverified", "Front Desk could not read its own fleet identity to check who manages this host. Try again.", http.StatusInternalServerError)
 			return
 		}
-		if ident.FrontdeskID != ownID {
-			fail("already_primary", "Another Front Desk still names this host its fleet primary (the config source of truth). It may only be unreachable right now, so adding it here would take its fleet over. Remove it there first.", http.StatusConflict)
+		// The other desk may also be gone for good rather than briefly away: it
+		// was replaced by this one, or rebuilt from an empty database and so no
+		// longer carries the id the member remembers. There is no way to tell
+		// from here, and waiting the host out takes until its role expires
+		// (fleetForgetTTL, 24h), so the operator settles it by re-supplying this
+		// Front Desk's admin token. That keeps the refusal in front of an
+		// accidental takeover while leaving a deliberate recovery one confirmed
+		// step away.
+		if ident.FrontdeskID != ownID && !s.adminMgr.Validate(strings.TrimSpace(req.ConfirmToken)) {
+			fail("primary_elsewhere", "Another Front Desk still names this host its fleet primary (the config source of truth). It may only be unreachable right now, and adding it here would take its fleet over. Remove it there first, or, if that Front Desk is gone for good, confirm this Front Desk's admin token to enrol it anyway.", http.StatusConflict)
 			return
 		}
 	}

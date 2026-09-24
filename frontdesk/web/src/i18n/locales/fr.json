@@ -191,7 +191,9 @@
 		"resetCircuitsCleared_other": "{{count}} circuits effacés",
 		"resetCircuitsRecovered_one": "{{count}} rétabli",
 		"resetCircuitsRecovered_many": "{{count}} rétablis",
-		"resetCircuitsRecovered_other": "{{count}} rétablis"
+		"resetCircuitsRecovered_other": "{{count}} rétablis",
+		"errPrimaryElsewhere": "Un autre Front Desk désigne toujours cet hôte comme le primaire de sa flotte. Il est peut-être seulement injoignable pour le moment, et l'ajouter ici reviendrait à reprendre sa flotte. Retirez-le d'abord là-bas ou, si ce Front Desk a définitivement disparu, saisissez ci-dessous le jeton d'administration de ce Front Desk pour l'enrôler malgré tout.",
+		"confirmDeskTokenLabel": "Jeton d'administration de ce Front Desk"
 	},
 	"traffic": {
 		"title": "Trafic",
