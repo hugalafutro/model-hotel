@@ -535,6 +535,27 @@ func TestListModels_FailoverGroupInvalidJSON(t *testing.T) {
 	}
 }
 
+// A group read the caller abandoned is the caller's doing, so it answers 499
+// rather than the 500 a genuine read failure earns. Same rule as the catalogue
+// read above it, on the second query.
+func TestListModels_FailoverReadAbandonedIsAClientDisconnect(t *testing.T) {
+	h := newUnitHandler()
+	defer stopUnitHandler(h)
+
+	h.modelRepo = &mockModelRepo{listEnabledResult: []*model.Model{}}
+	h.failoverRepo = failover.NewRepository(testDB.Pool())
+
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	req := httptest.NewRequest("GET", "/models", http.NoBody).WithContext(ctx)
+	rr := httptest.NewRecorder()
+	h.ListModels(rr, req)
+
+	if rr.Code != statusClientClosedRequest {
+		t.Errorf("expected %d, got %d: %s", statusClientClosedRequest, rr.Code, rr.Body.String())
+	}
+}
+
 // TestListModels_FailoverRepoError: an unreadable group list fails the listing.
 // Answering 200 without the hotel/ entries would tell the caller this fleet has
 // no failover groups — a discovery answer they route on — with nothing in the
