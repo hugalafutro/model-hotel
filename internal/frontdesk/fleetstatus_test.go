@@ -57,7 +57,7 @@ func newStubFleetMember(t *testing.T, token string) *stubFleetMember {
 			// The fleet-identity self-report the add path reads to confirm the host
 			// is not the primary and not an already-registered instance. A faithful
 			// member stub answers it: a non-primary box with a unique instance_id.
-			_, _ = fmt.Fprintf(w, `{"fleet":{"is_primary":false},"instance_id":%q}`, sm.instanceID)
+			_, _ = fmt.Fprintf(w, `{"fleet":{"state":"member","is_primary":false},"instance_id":%q}`, sm.instanceID)
 		case r.Method == http.MethodGet && r.URL.Path == "/api/config/export":
 			_, _ = w.Write([]byte(sm.exportBody))
 		case r.Method == http.MethodPost && r.URL.Path == "/api/config/import":

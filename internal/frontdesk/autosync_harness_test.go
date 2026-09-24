@@ -183,7 +183,7 @@ func newStubAutoMember(t *testing.T, token string) *stubAutoMember {
 		case r.Method == http.MethodGet && strings.HasPrefix(r.URL.Path, "/api/system"):
 			// The fleet-identity self-report the add path reads: a faithful member
 			// stub answers a non-primary box with a unique instance_id.
-			_, _ = w.Write([]byte(`{"fleet":{"is_primary":false},"instance_id":"` + sm.instanceID + `"}`))
+			_, _ = w.Write([]byte(`{"fleet":{"state":"member","is_primary":false},"instance_id":"` + sm.instanceID + `"}`))
 		case r.Method == http.MethodPost && r.URL.Path == "/api/backups":
 			// No sync path may reach here; the counters exist to prove it.
 			sm.gotBackup = true

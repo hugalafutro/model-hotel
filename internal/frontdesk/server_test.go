@@ -47,8 +47,15 @@ func systemMemberServerID(t *testing.T, selfReportsPrimary bool, instanceID stri
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if strings.HasPrefix(r.URL.Path, "/api/system") {
 			w.Header().Set("Content-Type", "application/json")
-			_, _ = fmt.Fprintf(w, `{"fleet":{"is_primary":%s},"instance_id":%q}`,
-				strconv.FormatBool(selfReportsPrimary), instanceID)
+			// Both fields, exactly as a real member answers: the state is what
+			// Front Desk reads, and it is "primary" only while the announce that
+			// set the flag is still fresh (internal/api/fleet.go).
+			state := "member"
+			if selfReportsPrimary {
+				state = "primary"
+			}
+			_, _ = fmt.Fprintf(w, `{"fleet":{"state":%q,"is_primary":%s},"instance_id":%q}`,
+				state, strconv.FormatBool(selfReportsPrimary), instanceID)
 			return
 		}
 		w.WriteHeader(http.StatusOK)

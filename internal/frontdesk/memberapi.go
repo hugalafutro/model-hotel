@@ -166,6 +166,15 @@ func (s *Server) probeMemberToken(ctx context.Context, url, token string) tokenP
 // same). ok=false means the report could not be obtained (unreachable, non-200,
 // unparseable); callers fail open. instanceID is "" on a pre-056 member that
 // does not expose one yet.
+//
+// Primary is taken from the reported fleet STATE, not the raw is_primary flag.
+// The flag outlives the fleet: a member keeps its last announced role for
+// fleetForgetTTL (24h) and only the state degrades to "warning" when the
+// heartbeat goes stale (90s). Disbanding a fleet removes every member row at
+// once, so nothing announces the demotion - reading the flag would refuse to
+// re-add that host for a day with "already the fleet primary", naming a fleet
+// that no longer exists. The state answers the question the callers actually
+// ask: is some live control plane calling this host its primary right now.
 func (s *Server) memberIdentity(ctx context.Context, url, token string) (isPrimary bool, instanceID string, ok bool) {
 	ctx, cancel := context.WithTimeout(ctx, memberProbeTimeout)
 	defer cancel()
@@ -175,14 +184,14 @@ func (s *Server) memberIdentity(ctx context.Context, url, token string) (isPrima
 	}
 	var payload struct {
 		Fleet *struct {
-			IsPrimary bool `json:"is_primary"`
+			State string `json:"state"`
 		} `json:"fleet"`
 		InstanceID string `json:"instance_id"`
 	}
 	if err := json.Unmarshal(body, &payload); err != nil {
 		return false, "", false
 	}
-	return payload.Fleet != nil && payload.Fleet.IsPrimary, payload.InstanceID, true
+	return payload.Fleet != nil && payload.Fleet.State == "primary", payload.InstanceID, true
 }
 
 // memberTokenOrErr loads a member and its decrypted admin token, returning a

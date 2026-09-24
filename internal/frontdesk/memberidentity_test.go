@@ -68,6 +68,32 @@ func TestCreateMemberErrorsCarryCodes(t *testing.T) {
 			t.Fatalf("got %d code=%q, want 409 already_primary", rec.Code, codeOf(t, rec))
 		}
 	})
+	// A host still carrying is_primary from a fleet that no longer exists must be
+	// addable. Disbanding removes every member row at once, so nothing announces
+	// the demotion and the flag sits there for fleetForgetTTL (24h) while the
+	// state degrades to "warning" within 90s. Reading the flag refused the re-add
+	// for a day; reading the state refuses only while a live control plane still
+	// calls the host its primary.
+	t.Run("stale primary flag is addable", func(t *testing.T) {
+		srv, store := newTestServer(t)
+		host := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			if strings.HasPrefix(r.URL.Path, "/api/system") {
+				w.Header().Set("Content-Type", "application/json")
+				_, _ = w.Write([]byte(`{"fleet":{"state":"warning","is_primary":true},"instance_id":"iid-ex-primary"}`))
+				return
+			}
+			w.WriteHeader(http.StatusOK)
+		}))
+		t.Cleanup(host.Close)
+
+		rec := do(t, srv, http.MethodPost, "/api/members", `{"name":"re-added","url":"`+host.URL+`","token":"tok"}`, true)
+		if rec.Code != http.StatusCreated {
+			t.Fatalf("re-add of a stale ex-primary = %d code=%q, want 201", rec.Code, codeOf(t, rec))
+		}
+		if members, _ := store.ListMembers(t.Context()); len(members) != 1 {
+			t.Errorf("members = %d after the re-add, want 1", len(members))
+		}
+	})
 	t.Run("already_member", func(t *testing.T) {
 		srv, _ := newTestServer(t)
 		h1 := systemMemberServerID(t, false, "iid-dup")
