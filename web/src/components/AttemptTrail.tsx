@@ -196,7 +196,7 @@ export function AttemptTrail({
 						{/* Verdict badges and the timing travel as one cluster, pinned
 						    to the row's right edge. Under the names on a phone, it may
 						    wrap there rather than overflow a narrow dialog. */}
-						<span className="col-start-2 col-span-2 sm:col-start-auto sm:col-span-1 flex flex-wrap sm:flex-nowrap items-center sm:justify-end gap-x-2 gap-y-1 whitespace-nowrap">
+						<span className="col-[2/-1] sm:col-auto flex flex-wrap sm:flex-nowrap items-center sm:justify-end gap-x-2 gap-y-1 whitespace-nowrap">
 							{isSkipped(a) ? (
 								<span className="ui-badge ui-badge-amber text-xs">
 									{t("components.requestLogDetail.attemptSkipped")}
@@ -240,7 +240,7 @@ export function AttemptTrail({
 							// lives here rather than beside the timing so the badge
 							// cluster stays short and the names keep their width.
 							<span
-								className="col-start-2 col-span-2 sm:col-span-3 flex flex-wrap items-baseline gap-x-2"
+								className="col-[2/-1] flex flex-wrap items-baseline gap-x-2"
 								data-testid="attempt-trail-meta"
 							>
 								{showsVerdict(a) && (

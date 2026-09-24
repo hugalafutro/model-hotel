@@ -230,7 +230,9 @@ describe("RequestLogDetail attempt trail", () => {
 			/>,
 		);
 		const line = screen.getByTestId("attempt-trail-meta");
-		expect(line).toHaveClass("col-start-2", "flex-wrap");
+		// jsdom does no grid layout, so the class that places the line is the
+		// check: from the provider column to the row's end, at every width.
+		expect(line).toHaveClass("col-[2/-1]", "flex-wrap");
 		expect(line.firstElementChild).toHaveAttribute("title");
 		// Every verdict names the breaker, and the served verdict reads as
 		// the circuit resetting, not as money being credited.
