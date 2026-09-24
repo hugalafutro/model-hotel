@@ -205,7 +205,7 @@ describe("RequestLogDetail attempt trail", () => {
 		expect(row).not.toHaveTextContent("refused connection");
 	});
 
-	it("puts the breaker verdict on the indented line, under the provider", () => {
+	it("puts the breaker verdict on the second line, under the provider", () => {
 		// The verdict belongs on the row's own second line, which starts in the
 		// provider column. Beside the timing it would widen the right-hand badge
 		// cluster and take width from the provider and model names.

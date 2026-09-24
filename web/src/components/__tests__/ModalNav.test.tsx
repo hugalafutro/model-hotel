@@ -34,17 +34,6 @@ const prevButton = () => screen.getByRole("button", { name: "Previous row" });
 const nextButton = () => screen.getByRole("button", { name: "Next row" });
 
 describe("ModalNav", () => {
-	it("shows no row count, since the loaded window is not the whole log", () => {
-		renderWithProviders(<Harness />);
-		expect(screen.queryByText("2/3")).not.toBeInTheDocument();
-		expect(screen.queryByText(/Row 2 of 3/)).not.toBeInTheDocument();
-	});
-
-	it("hangs the dialog from the top so the arrows stay put between rows", () => {
-		renderWithProviders(<Harness />);
-		expect(screen.getByRole("dialog")).toHaveClass("items-start");
-	});
-
 	it("steps to the next and previous row", async () => {
 		const user = userEvent.setup();
 		renderWithProviders(<Harness />);

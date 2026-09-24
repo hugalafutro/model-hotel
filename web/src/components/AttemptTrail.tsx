@@ -167,12 +167,15 @@ export function AttemptTrail({
 			    cluster line up across rows. The cluster column is as wide as
 			    the widest cluster and sits at the right edge; provider and
 			    model split whatever width is left and truncate when the
-			    dialog is narrow. */}
-			<ol className="grid grid-cols-[1.5rem_minmax(0,1fr)_minmax(0,1fr)_auto] gap-y-1">
+			    dialog is narrow. On a phone there is no width to share, so
+			    the cluster drops to its own line under the names. The number
+			    column is 2rem because a subgrid row's padding and half its
+			    gap come out of it. */}
+			<ol className="grid grid-cols-[2rem_minmax(0,1fr)_minmax(0,1fr)] sm:grid-cols-[2rem_minmax(0,1fr)_minmax(0,1fr)_auto] gap-y-1">
 				{ordered.map((a) => (
 					<li
 						key={`${a.attempt}-${a.provider_id}-${a.model}-${a.status ?? 0}-${a.duration_ms}`}
-						className="col-span-4 grid grid-cols-subgrid items-center gap-x-2 gap-y-0.5 text-sm p-2 ui-stat-tile"
+						className="col-span-3 sm:col-span-4 grid grid-cols-subgrid items-center gap-x-2 gap-y-0.5 text-sm p-2 ui-stat-tile"
 						data-testid="attempt-trail-row"
 					>
 						<span className="font-mono text-xs text-(--text-tertiary)">
@@ -192,7 +195,7 @@ export function AttemptTrail({
 						</span>
 						{/* Verdict badges and the timing travel as one non-wrapping
 						    cluster, pinned to the row's right edge. */}
-						<span className="flex items-center justify-end gap-x-2 whitespace-nowrap">
+						<span className="col-start-2 col-span-2 sm:col-start-auto sm:col-span-1 flex items-center sm:justify-end gap-x-2 whitespace-nowrap">
 							{isSkipped(a) ? (
 								<span className="ui-badge ui-badge-amber text-xs">
 									{t("components.requestLogDetail.attemptSkipped")}
@@ -236,7 +239,7 @@ export function AttemptTrail({
 							// lives here rather than beside the timing so the badge
 							// cluster stays short and the names keep their width.
 							<span
-								className="col-start-2 col-span-3 flex flex-wrap items-baseline gap-x-2"
+								className="col-start-2 col-span-2 sm:col-span-3 flex flex-wrap items-baseline gap-x-2"
 								data-testid="attempt-trail-meta"
 							>
 								{showsVerdict(a) && (
