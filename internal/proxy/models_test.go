@@ -169,6 +169,25 @@ func TestListModels_RepoError(t *testing.T) {
 	}
 }
 
+// A repository that reports cancellation while the request itself is still live
+// is not a client hangup: something on this side cancelled, and the caller is
+// owed the 500. This is the other half of the rule
+// TestListModels_WithCanceledContext pins, and the same distinction
+// TestProxyKeyMiddleware_KeyLookupIsBounded holds for the key lookup.
+func TestListModels_RepoCancelOnALiveRequestIsStillA500(t *testing.T) {
+	h := newUnitHandler()
+	defer stopUnitHandler(h)
+	h.modelRepo = &mockModelRepo{listEnabledErr: fmt.Errorf("query row: %w", context.Canceled)}
+
+	req := httptest.NewRequest("GET", "/models", http.NoBody)
+	rr := httptest.NewRecorder()
+	h.ListModels(rr, req)
+
+	if rr.Code != http.StatusInternalServerError {
+		t.Errorf("status = %d, want 500: the request never went away", rr.Code)
+	}
+}
+
 // TestListModels_JSONEncodeError tests the error path when JSON encoding fails.
 // Covers line 183 in models.go (debuglog.Error for encode failure).
 func TestListModels_JSONEncodeError(t *testing.T) {
@@ -297,9 +316,11 @@ func TestListModels_WithCanceledContext(t *testing.T) {
 	rr := httptest.NewRecorder()
 	h.ListModels(rr, req)
 
-	// Should return 500 due to DB error from canceled context
-	if rr.Code != http.StatusInternalServerError {
-		t.Errorf("expected 500 from canceled context, got %d", rr.Code)
+	// The catalogue read carries the request's context, so a cancel is the
+	// caller hanging up: 499. A repo failure on a live request stays the 500
+	// TestListModels_RepoError pins.
+	if rr.Code != statusClientClosedRequest {
+		t.Errorf("expected %d from canceled context, got %d", statusClientClosedRequest, rr.Code)
 	}
 }
 
