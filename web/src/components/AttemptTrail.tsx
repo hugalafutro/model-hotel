@@ -193,9 +193,10 @@ export function AttemptTrail({
 						>
 							{a.model}
 						</span>
-						{/* Verdict badges and the timing travel as one non-wrapping
-						    cluster, pinned to the row's right edge. */}
-						<span className="col-start-2 col-span-2 sm:col-start-auto sm:col-span-1 flex items-center sm:justify-end gap-x-2 whitespace-nowrap">
+						{/* Verdict badges and the timing travel as one cluster, pinned
+						    to the row's right edge. Under the names on a phone, it may
+						    wrap there rather than overflow a narrow dialog. */}
+						<span className="col-start-2 col-span-2 sm:col-start-auto sm:col-span-1 flex flex-wrap sm:flex-nowrap items-center sm:justify-end gap-x-2 gap-y-1 whitespace-nowrap">
 							{isSkipped(a) ? (
 								<span className="ui-badge ui-badge-amber text-xs">
 									{t("components.requestLogDetail.attemptSkipped")}

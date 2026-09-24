@@ -12,7 +12,12 @@ import {
 import { createPortal } from "react-dom";
 import { useTranslation } from "react-i18next";
 import { X } from "@/lib/icons";
-import { ModalNav, type ModalNavProps } from "./ModalNav";
+import {
+	ModalNav,
+	type ModalNavProps,
+	type StepAnnouncement,
+	type StepDirection,
+} from "./ModalNav";
 
 export interface ModalHandle {
 	close: () => void;
@@ -228,9 +233,16 @@ export const Modal = forwardRef<ModalHandle, ModalProps>(function Modal(
 	// scroll container reused for every row, so a long row scrolled to its
 	// end would otherwise hand the next row a scroll position it never had.
 	// Set before the new row renders, so it never paints at the old offset.
-	const stepTo = useCallback((go: () => void) => {
+	//
+	// Each step is also recorded for the stepper to announce. Recorded here,
+	// at the step, rather than derived from the open row: a live update that
+	// moves the list along is not a step the reader took, and announcing it
+	// would talk over whoever is listening.
+	const [lastStep, setLastStep] = useState<StepAnnouncement | null>(null);
+	const stepTo = useCallback((go: () => void, dir: StepDirection) => {
 		go();
 		if (scrollRef.current) scrollRef.current.scrollTop = 0;
+		setLastStep((prev) => ({ dir, seq: (prev?.seq ?? 0) + 1 }));
 	}, []);
 
 	// Escape and the stepper's arrow keys are handled on the DOCUMENT, not on
@@ -276,7 +288,7 @@ export const Modal = forwardRef<ModalHandle, ModalProps>(function Modal(
 			// Consumed: the same press must not also scroll the dialog, and a
 			// listener further out can see the key was taken.
 			e.preventDefault();
-			stepTo(step);
+			stepTo(step, e.key === "ArrowLeft" ? "prev" : "next");
 		};
 		document.addEventListener("keydown", onKeyDown);
 		return () => {
@@ -339,8 +351,9 @@ export const Modal = forwardRef<ModalHandle, ModalProps>(function Modal(
 						<ModalNav
 							index={nav.index}
 							total={nav.total}
-							onPrev={() => stepTo(nav.onPrev)}
-							onNext={() => stepTo(nav.onNext)}
+							lastStep={lastStep}
+							onPrev={() => stepTo(nav.onPrev, "prev")}
+							onNext={() => stepTo(nav.onNext, "next")}
 						/>
 					)}
 					<button

@@ -73,6 +73,40 @@ describe("ModalNav", () => {
 		expect(screen.getByText("row a")).toBeInTheDocument();
 	});
 
+	const announced = () =>
+		document
+			.querySelector("[role='dialog'] [aria-live='polite']")
+			?.textContent?.trim();
+
+	it("announces each step the reader takes, including repeats", async () => {
+		const user = userEvent.setup();
+		renderWithProviders(<Harness rows={[...ROWS, { id: "d" }]} startId="a" />);
+		// Nothing on open: the dialog title already spoke.
+		expect(announced()).toBe("");
+
+		await user.click(nextButton());
+		const first = document.querySelector("[aria-live='polite'] > span");
+		expect(announced()).toBe("Next row");
+
+		// The same words again are a new node, so a screen reader reads them.
+		await user.click(nextButton());
+		expect(announced()).toBe("Next row");
+		expect(document.querySelector("[aria-live='polite'] > span")).not.toBe(
+			first,
+		);
+
+		fireEvent.keyDown(document, { key: "ArrowLeft" });
+		expect(announced()).toBe("Previous row");
+	});
+
+	it("stays quiet when a live update moves the row along", () => {
+		const { rerender } = renderWithProviders(<Harness />);
+
+		rerender(<Harness rows={[{ id: "new" }, ...ROWS]} />);
+
+		expect(announced()).toBe("");
+	});
+
 	it("starts the next row at the top when an arrow key steps", () => {
 		renderWithProviders(<Harness />);
 		const body = document.querySelector<HTMLElement>("[data-modal-scroll]");
