@@ -77,8 +77,7 @@
 			"opencode": "OpenCode"
 		},
 		"prevRow": "Hàng trước",
-		"nextRow": "Hàng tiếp theo",
-		"rowPosition": "Hàng {{position}} trên {{total}}"
+		"nextRow": "Hàng tiếp theo"
 	},
 	"layout": {
 		"title": "Model Hotel",

@@ -1,10 +1,13 @@
 import { useTranslation } from "react-i18next";
 import { ChevronLeft, ChevronRight } from "@/lib/icons";
 
-/** A row the stepper moved to, counted from one. */
-export interface StepPosition {
-	position: number;
-	total: number;
+export type StepDirection = "prev" | "next";
+
+/** A step the reader took. seq grows with every step, so two steps the same
+ * way still read as two separate announcements. */
+export interface StepAnnouncement {
+	dir: StepDirection;
+	seq: number;
 }
 
 export interface ModalNavProps {
@@ -22,19 +25,19 @@ export interface ModalNavProps {
  *
  * It walks the rows the list has already loaded, which makes the ends of that
  * window the ends of the walk: the dialog never fetches, so a page or scroll
- * window is stepped through exactly as it is drawn behind the modal.
+ * window is stepped through exactly as it is drawn behind the modal. It shows
+ * no "n of m" count for the same reason: the loaded window is a slice of the
+ * log, not the log, so its size and offsets are not numbers worth reading.
  */
 export function ModalNav({
 	index,
 	total,
-	steppedTo,
+	lastStep,
 	onPrev,
 	onNext,
 }: ModalNavProps & {
-	/** The row the user last stepped to, from Modal, or null before they do.
-	 * Kept out of this component so a list that shifts underneath an open
-	 * dialog does not read itself out. */
-	steppedTo: StepPosition | null;
+	/** The step the reader last took, from Modal, or null before they do. */
+	lastStep: StepAnnouncement | null;
 }) {
 	const { t } = useTranslation();
 	const canPrev = index > 0;
@@ -54,27 +57,16 @@ export function ModalNav({
 			>
 				<ChevronLeft size={18} />
 			</button>
-			<span
-				aria-hidden="true"
-				className="text-xs text-(--text-tertiary) tabular-nums select-none"
-			>
-				{index + 1}/{total}
-			</span>
-			{/* The compact readout above is what there is room for beside the
-			    close button, and it reads as bare digits. These say the same
-			    thing in a sentence: the first so the position can be read on
-			    arrival, the second because stepping changes which row the
-			    dialog shows while its title stays the same, and it is only
-			    ever filled in by a step the user took. */}
-			<span className="sr-only">
-				{t("common.rowPosition", { position: index + 1, total })}
-			</span>
+			{/* Stepping swaps the dialog's body while its title and the focused
+			    arrow stay the same, so a screen reader would otherwise hear
+			    nothing. The announcement is keyed by the step, so it is a new
+			    node each time and is read even when the words repeat. */}
 			<span aria-live="polite" className="sr-only">
-				{steppedTo &&
-					t("common.rowPosition", {
-						position: steppedTo.position,
-						total: steppedTo.total,
-					})}
+				{lastStep && (
+					<span key={lastStep.seq}>
+						{t(lastStep.dir === "prev" ? "common.prevRow" : "common.nextRow")}
+					</span>
+				)}
 			</span>
 			<button
 				type="button"

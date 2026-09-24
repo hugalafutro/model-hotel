@@ -162,35 +162,41 @@ export function AttemptTrail({
 				{t("components.requestLogDetail.attemptTrail")}
 				<InfoHint tooltip={t("components.requestLogDetail.attemptTrailHint")} />
 			</DetailSectionHeader>
-			<ol className="space-y-1">
+			{/* One grid for the whole trail, each row a subgrid of it: every
+			    row shares the same columns, so provider, model and the badge
+			    cluster line up across rows. The cluster column is as wide as
+			    the widest cluster and sits at the right edge; provider and
+			    model split whatever width is left and truncate when the
+			    dialog is narrow. On a phone there is no width to share, so
+			    the cluster drops to its own line under the names. The number
+			    column is 2rem because a subgrid row's padding and half its
+			    gap come out of it. */}
+			<ol className="grid grid-cols-[2rem_minmax(0,1fr)_minmax(0,1fr)] sm:grid-cols-[2rem_minmax(0,1fr)_minmax(0,1fr)_auto] gap-y-1">
 				{ordered.map((a) => (
 					<li
 						key={`${a.attempt}-${a.provider_id}-${a.model}-${a.status ?? 0}-${a.duration_ms}`}
-						className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-sm p-2 ui-stat-tile"
+						className="col-span-3 sm:col-span-4 grid grid-cols-subgrid items-center gap-x-2 gap-y-0.5 text-sm p-2 ui-stat-tile"
 						data-testid="attempt-trail-row"
 					>
-						<span className="font-mono text-xs text-(--text-tertiary) w-6 shrink-0">
+						<span className="font-mono text-xs text-(--text-tertiary)">
 							{a.attempt < 0 ? "–" : a.attempt + 1}
 						</span>
-						{/* Provider and model each get their own fixed column, truncated
-						    separately, so the badges after them start at the same x on
-						    every row however long either name is. */}
 						<span
-							className="font-medium text-(--text-primary) w-36 shrink-0 truncate"
+							className="font-medium text-(--text-primary) truncate"
 							title={a.provider}
 						>
 							{a.provider}
 						</span>
 						<span
-							className="font-mono text-xs text-(--text-secondary) w-44 shrink-0 truncate"
+							className="font-mono text-xs text-(--text-secondary) truncate"
 							title={a.model}
 						>
 							{a.model}
 						</span>
-						{/* Verdict badges and the timing travel as one non-wrapping
-						    cluster: when the row runs out of width the whole cluster
-						    drops to the next line together, never the timing alone. */}
-						<span className="flex items-center gap-x-2 whitespace-nowrap">
+						{/* Verdict badges and the timing travel as one cluster, pinned
+						    to the row's right edge. Under the names on a phone, it may
+						    wrap there rather than overflow a narrow dialog. */}
+						<span className="col-[2/-1] sm:col-auto flex flex-wrap sm:flex-nowrap items-center sm:justify-end gap-x-2 gap-y-1 whitespace-nowrap">
 							{isSkipped(a) ? (
 								<span className="ui-badge ui-badge-amber text-xs">
 									{t("components.requestLogDetail.attemptSkipped")}
@@ -229,13 +235,12 @@ export function AttemptTrail({
 						</span>
 						{(showsVerdict(a) || kindSaysMore(a) || detailSaysMore(a)) && (
 							// A second line carrying the breaker verdict and whatever the
-							// first line does not already say, indented past the number
+							// first line does not already say, starting in the provider
 							// column so it lines up with the provider name. The verdict
-							// lives here rather than beside the timing because a row that
-							// runs long wraps it to its own line anyway, and a wrapped
-							// flex child starts at the row's start edge, under the number.
+							// lives here rather than beside the timing so the badge
+							// cluster stays short and the names keep their width.
 							<span
-								className="basis-full flex flex-wrap items-baseline gap-x-2 ps-8"
+								className="col-[2/-1] flex flex-wrap items-baseline gap-x-2"
 								data-testid="attempt-trail-meta"
 							>
 								{showsVerdict(a) && (

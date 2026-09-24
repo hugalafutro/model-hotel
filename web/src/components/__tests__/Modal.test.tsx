@@ -16,6 +16,27 @@ describe("Modal", () => {
 		onClose.mockClear();
 	});
 
+	it("hangs a dialog with a row stepper from the top, and centres the rest", () => {
+		// Rows differ in height: a centred stepper dialog would move its
+		// arrows out from under the pointer on every step.
+		const nav = { index: 0, total: 2, onPrev: () => {}, onNext: () => {} };
+		const { unmount } = render(
+			<Modal title="Stepper" nav={nav} onClose={onClose}>
+				<p>row</p>
+			</Modal>,
+		);
+		expect(screen.getByRole("dialog")).toHaveClass("items-start");
+		expect(screen.getByRole("dialog")).not.toHaveClass("items-center");
+		unmount();
+
+		render(
+			<Modal title="Plain" onClose={onClose}>
+				<p>plain</p>
+			</Modal>,
+		);
+		expect(screen.getByRole("dialog")).toHaveClass("items-center");
+	});
+
 	it("renders children", () => {
 		render(<Modal onClose={onClose}>Test Content</Modal>);
 		expect(screen.getByText("Test Content")).toBeInTheDocument();
