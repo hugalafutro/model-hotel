@@ -219,13 +219,9 @@ Test any model from the Models page with a single click. The test sends a minima
 For providers that expose it, click a provider's quota badge (on its card or in the sidebar panel) to open a live usage breakdown - no need to leave the dashboard for the provider's billing page. **OpenRouter** shows credit balance and per-key spend; **Z.ai Coding Plan** shows its 5-hour, weekly, and MCP token quotas; **Kimi Code** shows its 5-hour and weekly quotas plus parallel-request limit and membership tier; **MiniMax** shows its 5-hour and weekly Token Plan quotas by model class; **NanoGPT** shows weekly token and daily image quotas with subscription details; **OpenCode Go** shows its rolling 5-hour, weekly and monthly plan quotas with their reset times; **NeuralWatt** shows energy-based quota with subscription and lifetime usage. Each modal toggles between **quota used** and **quota remaining**, and refreshes on demand. Some providers surface usage without a dedicated modal - **DeepSeek** shows account balance and **Ollama Cloud** shows plan status on their cards and sidebar badges.
 
 <p align="center">
-  <a href="docs/screenshots/quota_openrouter.png"><img src="docs/screenshots/quota_openrouter.png" height="200" alt="OpenRouter credits & usage"></a>
+  <a href="docs/screenshots/quota_zaicoding.png"><img src="docs/screenshots/quota_zaicoding.png" width="360" alt="Z.ai Coding Plan quota"></a>
   &nbsp;&nbsp;
-  <a href="docs/screenshots/quota_zaicoding.png"><img src="docs/screenshots/quota_zaicoding.png" height="200" alt="Z.ai Coding Plan quota"></a>
-  &nbsp;&nbsp;
-  <a href="docs/screenshots/quota_nanogpt.png"><img src="docs/screenshots/quota_nanogpt.png" height="200" alt="NanoGPT weekly token & image quotas"></a>
-  &nbsp;&nbsp;
-  <a href="docs/screenshots/quota_opencodego.png"><img src="docs/screenshots/quota_opencodego.png" height="200" alt="OpenCode Go plan quotas"></a>
+  <a href="docs/screenshots/quota_nanogpt.png"><img src="docs/screenshots/quota_nanogpt.png" width="360" alt="NanoGPT weekly token & image quotas"></a>
   <br>
   <sub>Quota limits/balance/spend modals for supported providers</sub>
 </p>
