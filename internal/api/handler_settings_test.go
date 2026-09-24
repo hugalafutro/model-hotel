@@ -887,8 +887,8 @@ func TestUpdateSettings_BeginTxError(t *testing.T) {
 	w := httptest.NewRecorder()
 	h.UpdateSettings(w, req)
 
-	if w.Code != http.StatusInternalServerError {
-		t.Errorf("expected status %d, got %d; body: %s", http.StatusInternalServerError, w.Code, w.Body.String())
+	if w.Code != statusClientClosed {
+		t.Errorf("expected status %d, got %d; body: %s", statusClientClosed, w.Code, w.Body.String())
 	}
 }
 

@@ -1497,9 +1497,9 @@ func TestListProviders_ScanErrorWithCancelledCtx(t *testing.T) {
 
 	h.ListProviders(w, req)
 
-	// Either 500 (query failure) or 200 (if cancellation hit after scan) is acceptable
-	if w.Code != http.StatusInternalServerError && w.Code != http.StatusOK {
-		t.Errorf("expected 500 or 200, got %d", w.Code)
+	// Either 499 (query abandoned) or 200 (if cancellation hit after scan) is acceptable
+	if w.Code != statusClientClosed && w.Code != http.StatusOK {
+		t.Errorf("expected 499 or 200, got %d", w.Code)
 	}
 }
 
@@ -1541,9 +1541,9 @@ func TestListProviders_TokenRowCountScanError(t *testing.T) {
 
 	h.ListProviders(w, req)
 
-	// Either 500 (query failure) or 200 (if queries ran before cancellation) is acceptable
-	if w.Code != http.StatusInternalServerError && w.Code != http.StatusOK {
-		t.Errorf("expected 500 or 200, got %d; body: %s", w.Code, w.Body.String())
+	// Either 499 (query abandoned) or 200 (if queries ran before cancellation) is acceptable
+	if w.Code != statusClientClosed && w.Code != http.StatusOK {
+		t.Errorf("expected 499 or 200, got %d; body: %s", w.Code, w.Body.String())
 	}
 }
 

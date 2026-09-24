@@ -431,8 +431,8 @@ func TestWebAuthnHandler_LoginStart_CancelledContext(t *testing.T) {
 
 	h.LoginStart(w, req)
 
-	if w.Code != http.StatusInternalServerError {
-		t.Errorf("expected status %d, got %d; body: %s", http.StatusInternalServerError, w.Code, w.Body.String())
+	if w.Code != statusClientClosed {
+		t.Errorf("expected status %d, got %d; body: %s", statusClientClosed, w.Code, w.Body.String())
 	}
 }
 
@@ -576,8 +576,8 @@ func TestWebAuthnHandler_LoginFinish_CancelledContext(t *testing.T) {
 
 	h.LoginFinish(w, req)
 
-	if w.Code != http.StatusBadRequest {
-		t.Errorf("expected status %d, got %d; body: %s", http.StatusBadRequest, w.Code, w.Body.String())
+	if w.Code != statusClientClosed {
+		t.Errorf("expected status %d, got %d; body: %s", statusClientClosed, w.Code, w.Body.String())
 	}
 }
 

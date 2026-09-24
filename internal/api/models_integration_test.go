@@ -1122,8 +1122,8 @@ func TestListModels_CancelledContext(t *testing.T) {
 
 	r.ServeHTTP(rec, req)
 
-	if rec.Code != http.StatusInternalServerError {
-		t.Errorf("Expected 500 for cancelled context, got %d: %s", rec.Code, rec.Body.String())
+	if rec.Code != statusClientClosed {
+		t.Errorf("Expected 499 for cancelled context, got %d: %s", rec.Code, rec.Body.String())
 	}
 }
 
@@ -1147,8 +1147,8 @@ func TestUpdateModel_CancelledContext(t *testing.T) {
 
 	r.ServeHTTP(rec, req)
 
-	if rec.Code != http.StatusInternalServerError {
-		t.Errorf("Expected 500 for cancelled context, got %d: %s", rec.Code, rec.Body.String())
+	if rec.Code != statusClientClosed {
+		t.Errorf("Expected 499 for cancelled context, got %d: %s", rec.Code, rec.Body.String())
 	}
 }
 
@@ -1171,8 +1171,8 @@ func TestDeleteModel_CancelledContext(t *testing.T) {
 
 	r.ServeHTTP(rec, req)
 
-	if rec.Code != http.StatusInternalServerError {
-		t.Errorf("Expected 500 for cancelled context, got %d: %s", rec.Code, rec.Body.String())
+	if rec.Code != statusClientClosed {
+		t.Errorf("Expected 499 for cancelled context, got %d: %s", rec.Code, rec.Body.String())
 	}
 }
 
@@ -1196,8 +1196,8 @@ func TestDeleteModel_LookupDBError(t *testing.T) {
 
 	r.ServeHTTP(rec, req)
 
-	if rec.Code != http.StatusInternalServerError {
-		t.Errorf("Expected 500 for lookup DB error, got %d: %s", rec.Code, rec.Body.String())
+	if rec.Code != statusClientClosed {
+		t.Errorf("Expected 499 for a lookup the caller abandoned, got %d: %s", rec.Code, rec.Body.String())
 	}
 }
 
