@@ -8,7 +8,7 @@ Model discovery is the process by which Model Hotel learns about available model
 </p>
 
 <p align="center">
-<img src="screenshots/modeldetailsmodal.png" alt="Model Detail Panel" width="500"><br>
+<img src="screenshots/modeldetailsmodal.png" alt="Model Detail Panel" width="700"><br>
 <em>Model detail panel with configuration, pricing, capabilities, and test button</em>
 </p>
 
@@ -129,7 +129,7 @@ In `discover-all` responses the same `diff` object appears per provider inside e
 The badge on the **Models** sidebar item opens this. It answers one question: what does discovery currently believe is wrong, and what can you do about it.
 
 <div align="center">
-<img src="screenshots/discrepancy_modal.png" alt="Model discrepancy modal: one provider pill open with its suspect bucket unrolled, the other pills collapsed with their gone counts, and the Recent changes journal expanded below" width="720"><br>
+<img src="screenshots/discrepancy_modal.png" alt="Model discrepancy modal: one provider pill open with its gone bucket unrolled, another collapsed with its refused count, and the Recent changes journal expanded below" width="720"><br>
 </div>
 
 ### Rules
