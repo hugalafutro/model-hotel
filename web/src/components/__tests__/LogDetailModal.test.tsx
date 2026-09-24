@@ -95,7 +95,6 @@ describe("LogDetailModal", () => {
 			expect(
 				screen.getByRole("heading", { name: "Request Details" }),
 			).toBeInTheDocument();
-			expect(screen.getByText("2/4")).toBeInTheDocument();
 			fireEvent.click(screen.getByRole("button", { name: "Previous row" }));
 			expect(onPrev).toHaveBeenCalledTimes(1);
 		});
@@ -537,7 +536,6 @@ describe("LogDetailModal", () => {
 				/>,
 			);
 
-			expect(screen.getByText("1/9")).toBeInTheDocument();
 			fireEvent.click(screen.getByRole("button", { name: "Next row" }));
 			expect(onNext).toHaveBeenCalledTimes(1);
 		});

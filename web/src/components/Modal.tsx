@@ -12,7 +12,7 @@ import {
 import { createPortal } from "react-dom";
 import { useTranslation } from "react-i18next";
 import { X } from "@/lib/icons";
-import { ModalNav, type ModalNavProps, type StepPosition } from "./ModalNav";
+import { ModalNav, type ModalNavProps } from "./ModalNav";
 
 export interface ModalHandle {
 	close: () => void;
@@ -224,24 +224,14 @@ export const Modal = forwardRef<ModalHandle, ModalProps>(function Modal(
 	}, [nav]);
 
 	const scrollRef = useRef<HTMLDivElement>(null);
-	// The row the stepper last moved to. Recorded here, at the step, rather
-	// than derived from the current position: a live update that prepends a
-	// newer row moves the whole list along, and reading the new position out
-	// each time would talk over whoever is listening.
-	const [steppedTo, setSteppedTo] = useState<StepPosition | null>(null);
-
 	// Stepping to another row starts that row at the top: the dialog is one
 	// scroll container reused for every row, so a long row scrolled to its
 	// end would otherwise hand the next row a scroll position it never had.
 	// Set before the new row renders, so it never paints at the old offset.
-	const stepTo = useCallback(
-		(go: () => void, position: number, total: number) => {
-			go();
-			if (scrollRef.current) scrollRef.current.scrollTop = 0;
-			setSteppedTo({ position, total });
-		},
-		[],
-	);
+	const stepTo = useCallback((go: () => void) => {
+		go();
+		if (scrollRef.current) scrollRef.current.scrollTop = 0;
+	}, []);
 
 	// Escape and the stepper's arrow keys are handled on the DOCUMENT, not on
 	// the dialog node.
@@ -286,12 +276,7 @@ export const Modal = forwardRef<ModalHandle, ModalProps>(function Modal(
 			// Consumed: the same press must not also scroll the dialog, and a
 			// listener further out can see the key was taken.
 			e.preventDefault();
-			// The row it lands on, counted from one.
-			stepTo(
-				step,
-				e.key === "ArrowLeft" ? nav.index : nav.index + 2,
-				nav.total,
-			);
+			stepTo(step);
 		};
 		document.addEventListener("keydown", onKeyDown);
 		return () => {
@@ -304,10 +289,12 @@ export const Modal = forwardRef<ModalHandle, ModalProps>(function Modal(
 	useImperativeHandle(ref, () => ({ close: handleClose }), [handleClose]);
 
 	// Title and header keep clear of the corner controls: the close button
-	// alone, or the stepper plus the close button. The stepper's readout is
-	// the variable part, and pr-48 holds a four-digit count on each side of
-	// its slash.
-	const headerPadding = nav ? "pr-48" : "pr-10";
+	// alone, or the stepper's two arrows plus the close button.
+	const headerPadding = nav ? "pr-32" : "pr-10";
+	// A dialog with a stepper hangs from a fixed top edge instead of centring:
+	// rows differ in height, and a centred dialog would move its arrows up or
+	// down on every step, out from under a pointer clicking through the rows.
+	const placement = nav ? "items-start pt-[7.5vh]" : "items-center";
 
 	// Portal to <body>: pages open modals from inside glassmorphism cards whose
 	// backdrop-filter would otherwise trap the overlay's blur (it could only
@@ -320,7 +307,7 @@ export const Modal = forwardRef<ModalHandle, ModalProps>(function Modal(
 			aria-modal="true"
 			aria-labelledby={title || header ? headingId : undefined}
 			tabIndex={-1}
-			className={`fixed inset-0 flex items-center justify-center ${zIndex} outline-none`}
+			className={`fixed inset-0 flex ${placement} justify-center ${zIndex} outline-none`}
 			style={{
 				opacity,
 				transition: `opacity ${FADE_DURATION}ms ease`,
@@ -352,9 +339,8 @@ export const Modal = forwardRef<ModalHandle, ModalProps>(function Modal(
 						<ModalNav
 							index={nav.index}
 							total={nav.total}
-							steppedTo={steppedTo}
-							onPrev={() => stepTo(nav.onPrev, nav.index, nav.total)}
-							onNext={() => stepTo(nav.onNext, nav.index + 2, nav.total)}
+							onPrev={() => stepTo(nav.onPrev)}
+							onNext={() => stepTo(nav.onNext)}
 						/>
 					)}
 					<button

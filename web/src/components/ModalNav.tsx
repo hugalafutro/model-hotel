@@ -1,12 +1,6 @@
 import { useTranslation } from "react-i18next";
 import { ChevronLeft, ChevronRight } from "@/lib/icons";
 
-/** A row the stepper moved to, counted from one. */
-export interface StepPosition {
-	position: number;
-	total: number;
-}
-
 export interface ModalNavProps {
 	/** Zero-based position of the open row inside the list behind the modal. */
 	index: number;
@@ -22,20 +16,11 @@ export interface ModalNavProps {
  *
  * It walks the rows the list has already loaded, which makes the ends of that
  * window the ends of the walk: the dialog never fetches, so a page or scroll
- * window is stepped through exactly as it is drawn behind the modal.
+ * window is stepped through exactly as it is drawn behind the modal. It shows
+ * no "n of m" count for the same reason: the loaded window is a slice of the
+ * log, not the log, so its size and offsets are not numbers worth reading.
  */
-export function ModalNav({
-	index,
-	total,
-	steppedTo,
-	onPrev,
-	onNext,
-}: ModalNavProps & {
-	/** The row the user last stepped to, from Modal, or null before they do.
-	 * Kept out of this component so a list that shifts underneath an open
-	 * dialog does not read itself out. */
-	steppedTo: StepPosition | null;
-}) {
+export function ModalNav({ index, total, onPrev, onNext }: ModalNavProps) {
 	const { t } = useTranslation();
 	const canPrev = index > 0;
 	const canNext = index < total - 1;
@@ -54,28 +39,6 @@ export function ModalNav({
 			>
 				<ChevronLeft size={18} />
 			</button>
-			<span
-				aria-hidden="true"
-				className="text-xs text-(--text-tertiary) tabular-nums select-none"
-			>
-				{index + 1}/{total}
-			</span>
-			{/* The compact readout above is what there is room for beside the
-			    close button, and it reads as bare digits. These say the same
-			    thing in a sentence: the first so the position can be read on
-			    arrival, the second because stepping changes which row the
-			    dialog shows while its title stays the same, and it is only
-			    ever filled in by a step the user took. */}
-			<span className="sr-only">
-				{t("common.rowPosition", { position: index + 1, total })}
-			</span>
-			<span aria-live="polite" className="sr-only">
-				{steppedTo &&
-					t("common.rowPosition", {
-						position: steppedTo.position,
-						total: steppedTo.total,
-					})}
-			</span>
 			<button
 				type="button"
 				onClick={canNext ? onNext : undefined}

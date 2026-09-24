@@ -77,8 +77,7 @@
 			"opencode": "OpenCode"
 		},
 		"prevRow": "השורה הקודמת",
-		"nextRow": "השורה הבאה",
-		"rowPosition": "שורה {{position}} מתוך {{total}}"
+		"nextRow": "השורה הבאה"
 	},
 	"layout": {
 		"title": "Model Hotel",

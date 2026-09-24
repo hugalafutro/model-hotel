@@ -34,9 +34,15 @@ const prevButton = () => screen.getByRole("button", { name: "Previous row" });
 const nextButton = () => screen.getByRole("button", { name: "Next row" });
 
 describe("ModalNav", () => {
-	it("shows the open row's position in the list", () => {
+	it("shows no row count, since the loaded window is not the whole log", () => {
 		renderWithProviders(<Harness />);
-		expect(screen.getByText("2/3")).toBeInTheDocument();
+		expect(screen.queryByText("2/3")).not.toBeInTheDocument();
+		expect(screen.queryByText(/Row 2 of 3/)).not.toBeInTheDocument();
+	});
+
+	it("hangs the dialog from the top so the arrows stay put between rows", () => {
+		renderWithProviders(<Harness />);
+		expect(screen.getByRole("dialog")).toHaveClass("items-start");
 	});
 
 	it("steps to the next and previous row", async () => {
@@ -45,7 +51,6 @@ describe("ModalNav", () => {
 
 		await user.click(nextButton());
 		expect(screen.getByText("row c")).toBeInTheDocument();
-		expect(screen.getByText("3/3")).toBeInTheDocument();
 
 		await user.click(prevButton());
 		await user.click(prevButton());
@@ -79,27 +84,7 @@ describe("ModalNav", () => {
 		expect(screen.getByText("row a")).toBeInTheDocument();
 	});
 
-	const announced = () =>
-		document
-			.querySelector("[role='dialog'] [aria-live='polite']")
-			?.textContent?.trim();
-
-	it("says where the open row sits once the reader steps there", async () => {
-		const user = userEvent.setup();
-		renderWithProviders(<Harness />);
-		// Nothing to announce on open: the dialog title already spoke, and
-		// the position is there to be read rather than read out.
-		expect(announced()).toBe("");
-		expect(screen.getByText("Row 2 of 3")).toBeInTheDocument();
-
-		await user.click(nextButton());
-		expect(announced()).toBe("Row 3 of 3");
-
-		await user.click(prevButton());
-		expect(announced()).toBe("Row 2 of 3");
-	});
-
-	it("says where the arrow keys landed too", () => {
+	it("starts the next row at the top when an arrow key steps", () => {
 		renderWithProviders(<Harness />);
 		const body = document.querySelector<HTMLElement>("[data-modal-scroll]");
 		if (!body) throw new Error("scrollable body not rendered");
@@ -107,18 +92,8 @@ describe("ModalNav", () => {
 
 		fireEvent.keyDown(document, { key: "ArrowLeft" });
 
-		expect(announced()).toBe("Row 1 of 3");
+		expect(screen.getByText("row a")).toBeInTheDocument();
 		expect(body.scrollTop).toBe(0);
-	});
-
-	it("stays quiet when a live update moves the row along", () => {
-		const { rerender } = renderWithProviders(<Harness />);
-
-		rerender(<Harness rows={[{ id: "new" }, ...ROWS]} />);
-
-		// The position changed, but the reader did not ask for it and may be
-		// midway through the row they opened.
-		expect(announced()).toBe("");
 	});
 
 	it("steps with the left and right arrow keys", () => {
@@ -202,7 +177,7 @@ describe("ModalNav", () => {
 		// Escape closes and nothing else: it is not consumed here, and it does
 		// not step the list on its way out.
 		expect(fireEvent.keyDown(document, { key: "Escape" })).toBe(true);
-		expect(announced()).toBe("");
+		expect(screen.getByText("row b")).toBeInTheDocument();
 		await waitFor(() =>
 			expect(screen.queryByRole("dialog")).not.toBeInTheDocument(),
 		);
@@ -246,12 +221,14 @@ describe("ModalNav", () => {
 
 	it("follows the open row when a live update shifts the list", () => {
 		const { rerender } = renderWithProviders(<Harness />);
-		expect(screen.getByText("2/3")).toBeInTheDocument();
 
-		// A newer row arrives at the top: same row still open, one place later.
+		// A newer row arrives at the top: same row still open, one place later,
+		// so stepping back walks through the rows now in front of it.
 		rerender(<Harness rows={[{ id: "new" }, ...ROWS]} />);
 		expect(screen.getByText("row b")).toBeInTheDocument();
-		expect(screen.getByText("3/4")).toBeInTheDocument();
+		fireEvent.keyDown(document, { key: "ArrowLeft" });
+		fireEvent.keyDown(document, { key: "ArrowLeft" });
+		expect(screen.getByText("row new")).toBeInTheDocument();
 	});
 
 	it("starts each stepped-to row at the top of the dialog", async () => {
