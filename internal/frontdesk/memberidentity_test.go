@@ -21,10 +21,28 @@ func TestMemberIdentityUnparseableBody(t *testing.T) {
 	}))
 	t.Cleanup(bad.Close)
 
-	isPrimary, id, ok := srv.memberIdentity(t.Context(), bad.URL, "tok")
-	if ok || isPrimary || id != "" {
-		t.Fatalf("unparseable /api/system: got (isPrimary=%v, id=%q, ok=%v), want (false, \"\", false)", isPrimary, id, ok)
+	ident, ok := srv.memberIdentity(t.Context(), bad.URL, "tok")
+	if ok || ident != (memberFleetIdentity{}) {
+		t.Fatalf("unparseable /api/system: got (%+v, ok=%v), want (zero identity, false)", ident, ok)
 	}
+}
+
+// fleetIdentityStub stands in for a member host whose /api/system reports the
+// given fleet block verbatim, so a test can pin a state, a lingering is_primary
+// and an owning Front Desk id together. It answers every other path 200, which
+// is what the token probe needs.
+func fleetIdentityStub(t *testing.T, fleetJSON, instanceID string) *httptest.Server {
+	t.Helper()
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if strings.HasPrefix(r.URL.Path, "/api/system") {
+			w.Header().Set("Content-Type", "application/json")
+			_, _ = io.WriteString(w, `{"fleet":`+fleetJSON+`,"instance_id":"`+instanceID+`"}`)
+			return
+		}
+		w.WriteHeader(http.StatusOK)
+	}))
+	t.Cleanup(srv.Close)
+	return srv
 }
 
 // TestCreateMemberErrorsCarryCodes checks the add-failure responses carry a
@@ -68,30 +86,65 @@ func TestCreateMemberErrorsCarryCodes(t *testing.T) {
 			t.Fatalf("got %d code=%q, want 409 already_primary", rec.Code, codeOf(t, rec))
 		}
 	})
-	// A host still carrying is_primary from a fleet that no longer exists must be
-	// addable. Disbanding removes every member row at once, so nothing announces
-	// the demotion and the flag sits there for fleetForgetTTL (24h) while the
-	// state degrades to "warning" within 90s. Reading the flag refused the re-add
-	// for a day; reading the state refuses only while a live control plane still
-	// calls the host its primary.
-	t.Run("stale primary flag is addable", func(t *testing.T) {
+	// A host still carrying is_primary from a fleet THIS Front Desk disbanded
+	// must be addable at once. Disbanding drops every member row together, so
+	// nothing is left to announce the demotion: the flag sits there for
+	// fleetForgetTTL (24h) while the state degrades to "warning" after 90s. The
+	// host names this desk as its owner, and this desk knows it is no longer
+	// announcing, so the role it reports is one only this desk could have given.
+	t.Run("own stale ex-primary is addable", func(t *testing.T) {
 		srv, store := newTestServer(t)
-		host := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			if strings.HasPrefix(r.URL.Path, "/api/system") {
-				w.Header().Set("Content-Type", "application/json")
-				_, _ = w.Write([]byte(`{"fleet":{"state":"warning","is_primary":true},"instance_id":"iid-ex-primary"}`))
-				return
-			}
-			w.WriteHeader(http.StatusOK)
-		}))
-		t.Cleanup(host.Close)
+		ownID, err := store.EnsureFrontdeskID(t.Context())
+		if err != nil {
+			t.Fatalf("frontdesk id: %v", err)
+		}
+		host := fleetIdentityStub(t, `{"state":"warning","is_primary":true,"frontdesk_id":"`+ownID+`"}`, "iid-ex-primary")
 
 		rec := do(t, srv, http.MethodPost, "/api/members", `{"name":"re-added","url":"`+host.URL+`","token":"tok"}`, true)
 		if rec.Code != http.StatusCreated {
-			t.Fatalf("re-add of a stale ex-primary = %d code=%q, want 201", rec.Code, codeOf(t, rec))
+			t.Fatalf("re-add of our own stale ex-primary = %d code=%q, want 201", rec.Code, codeOf(t, rec))
 		}
 		if members, _ := store.ListMembers(t.Context()); len(members) != 1 {
 			t.Errorf("members = %d after the re-add, want 1", len(members))
+		}
+	})
+	// The same stale report naming a DIFFERENT Front Desk is refused. That desk
+	// may only be unreachable for the moment, and its member adopts a new owner
+	// as soon as the old one's heartbeat goes stale - so enrolling it here would
+	// quietly take a live fleet's config source away from it.
+	t.Run("another desk's stale primary is refused", func(t *testing.T) {
+		srv, store := newTestServer(t)
+		host := fleetIdentityStub(t, `{"state":"warning","is_primary":true,"frontdesk_id":"fd-somewhere-else"}`, "iid-theirs")
+
+		rec := do(t, srv, http.MethodPost, "/api/members", `{"name":"theirs","url":"`+host.URL+`","token":"tok"}`, true)
+		if rec.Code != http.StatusConflict || codeOf(t, rec) != "already_primary" {
+			t.Fatalf("got %d code=%q, want 409 already_primary", rec.Code, codeOf(t, rec))
+		}
+		if members, _ := store.ListMembers(t.Context()); len(members) != 0 {
+			t.Errorf("members = %d after the refused add, want 0", len(members))
+		}
+	})
+	// A host too old to report which Front Desk manages it keeps the refusal it
+	// has always had: nothing it says can place its fleet, so the conservative
+	// answer is the safe one.
+	t.Run("stale primary without a desk id is refused", func(t *testing.T) {
+		srv, _ := newTestServer(t)
+		host := fleetIdentityStub(t, `{"state":"warning","is_primary":true}`, "iid-legacy")
+
+		rec := do(t, srv, http.MethodPost, "/api/members", `{"name":"legacy","url":"`+host.URL+`","token":"tok"}`, true)
+		if rec.Code != http.StatusConflict || codeOf(t, rec) != "already_primary" {
+			t.Fatalf("got %d code=%q, want 409 already_primary", rec.Code, codeOf(t, rec))
+		}
+	})
+	// A stale ex-MEMBER (never a primary) is addable whoever managed it: the
+	// ownership question only arises for the one host a fleet cannot do without.
+	t.Run("another desk's stale member is addable", func(t *testing.T) {
+		srv, _ := newTestServer(t)
+		host := fleetIdentityStub(t, `{"state":"warning","is_primary":false,"frontdesk_id":"fd-somewhere-else"}`, "iid-plain")
+
+		rec := do(t, srv, http.MethodPost, "/api/members", `{"name":"plain","url":"`+host.URL+`","token":"tok"}`, true)
+		if rec.Code != http.StatusCreated {
+			t.Fatalf("add of another desk's stale member = %d code=%q, want 201", rec.Code, codeOf(t, rec))
 		}
 	})
 	t.Run("already_member", func(t *testing.T) {
