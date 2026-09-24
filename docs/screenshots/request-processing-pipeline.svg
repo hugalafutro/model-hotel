@@ -72,7 +72,7 @@
   <rect x="340" y="555" width="220" height="28" rx="8" fill="#f59e0b" opacity="0.15"/>
   <text x="450" y="573" text-anchor="middle" fill="#fbbf24" font-size="12" font-weight="700">LOOKUP ERROR</text>
   <text x="450" y="600" text-anchor="middle" fill="#e2e8f0" font-size="10">DB error or 10s timeout</text>
-  <text x="450" y="620" text-anchor="middle" fill="#fbbf24" font-size="12" font-weight="700">500 Internal Error</text>
+  <text x="450" y="620" text-anchor="middle" fill="#fbbf24" font-size="12" font-weight="700">500, or 499 if the caller left</text>
 
   <!-- FOUND (right) -->
   <rect x="600" y="555" width="220" height="80" rx="8" fill="#1e293b" stroke="#10b981" stroke-width="1.5" filter="url(#shadow)"/>

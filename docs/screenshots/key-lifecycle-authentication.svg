@@ -64,7 +64,7 @@
   <rect x="340" y="395" width="220" height="80" rx="8" fill="#1e293b" stroke="#f59e0b" stroke-width="1.5" filter="url(#shadow)"/>
   <rect x="340" y="395" width="220" height="24" rx="8" fill="#f59e0b" opacity="0.15"/>
   <text x="450" y="413" text-anchor="middle" fill="#fbbf24" font-size="12" font-weight="700">DB ERROR / TIMEOUT</text>
-  <text x="450" y="445" text-anchor="middle" fill="#fbbf24" font-size="12" font-weight="700">500 Internal Error</text>
+  <text x="450" y="445" text-anchor="middle" fill="#fbbf24" font-size="12" font-weight="700">500, or 499 if the caller left</text>
 
   <!-- FOUND -->
   <rect x="620" y="395" width="220" height="80" rx="8" fill="#1e293b" stroke="#10b981" stroke-width="1.5" filter="url(#shadow)"/>
