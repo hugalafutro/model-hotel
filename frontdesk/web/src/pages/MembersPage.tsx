@@ -594,6 +594,18 @@ function AddMemberForm({
 	const [busy, setBusy] = useState(false);
 	const [error, setError] = useState("");
 
+	// A confirmation is given for ONE host. Editing the URL or the member token
+	// re-aims the form, so the confirmation is dropped with it: otherwise the next
+	// submit would carry it to a host the operator never confirmed, which is the
+	// takeover the refusal exists to prevent. The refusal message goes too, since
+	// it describes the host that is no longer being added.
+	const retarget = () => {
+		if (!needsConfirm) return;
+		setConfirmToken("");
+		setNeedsConfirm(false);
+		setError("");
+	};
+
 	const submit = async (e: SyntheticEvent) => {
 		e.preventDefault();
 		setError("");
@@ -701,7 +713,10 @@ function AddMemberForm({
 						id="add-url"
 						className="ui-input"
 						value={url}
-						onChange={(e) => setUrl(e.target.value)}
+						onChange={(e) => {
+							setUrl(e.target.value);
+							retarget();
+						}}
 						placeholder={t("members.urlPlaceholder")}
 						required
 					/>
@@ -720,7 +735,10 @@ function AddMemberForm({
 					type="password"
 					autoComplete="off"
 					value={token}
-					onChange={(e) => setToken(e.target.value)}
+					onChange={(e) => {
+						setToken(e.target.value);
+						retarget();
+					}}
 					placeholder={t("members.tokenPlaceholder")}
 					required
 				/>

@@ -399,6 +399,53 @@ describe("MembersPage", () => {
 		expect(lastBody.confirm_token).toBe("fd-admin-token");
 	});
 
+	it("drops the confirmation when the operator re-aims the form at another host", async () => {
+		const bodies: Record<string, unknown>[] = [];
+		server.use(
+			http.get("/api/members", () => HttpResponse.json([])),
+			http.post("/api/members", async ({ request }) => {
+				bodies.push((await request.json()) as Record<string, unknown>);
+				return HttpResponse.json(
+					{
+						code: "primary_elsewhere",
+						error:
+							"Another Front Desk still names this host its fleet primary.",
+					},
+					{ status: 409 },
+				);
+			}),
+		);
+		renderPage();
+		await screen.findByText(/No members yet/i);
+		await userEvent.type(screen.getByLabelText(/Display name/i), "host-a");
+		await userEvent.type(
+			screen.getByLabelText(/Base URL/i),
+			"https://hotel-a.example.com",
+		);
+		await userEvent.type(screen.getByLabelText("Admin token"), "tok-a");
+		await userEvent.click(screen.getByRole("button", { name: /^Add$/i }));
+		await userEvent.type(
+			await screen.findByLabelText(/This Front Desk's admin token/i),
+			"fd-admin-token",
+		);
+
+		// Re-aimed at a different host: the confirmation was for the first one, so
+		// it must not travel to this one.
+		await userEvent.clear(screen.getByLabelText(/Base URL/i));
+		await userEvent.type(
+			screen.getByLabelText(/Base URL/i),
+			"https://hotel-b.example.com",
+		);
+		expect(
+			screen.queryByLabelText(/This Front Desk's admin token/i),
+		).not.toBeInTheDocument();
+
+		await userEvent.click(screen.getByRole("button", { name: /^Add$/i }));
+		await waitFor(() => expect(bodies).toHaveLength(2));
+		expect(bodies[1].url).toBe("https://hotel-b.example.com");
+		expect(bodies[1].confirm_token).toBeUndefined();
+	});
+
 	it("shows the backend message when the member refuses the token", async () => {
 		server.use(
 			http.get("/api/members", () => HttpResponse.json([])),
