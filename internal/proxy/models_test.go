@@ -297,9 +297,11 @@ func TestListModels_WithCanceledContext(t *testing.T) {
 	rr := httptest.NewRecorder()
 	h.ListModels(rr, req)
 
-	// Should return 500 due to DB error from canceled context
-	if rr.Code != http.StatusInternalServerError {
-		t.Errorf("expected 500 from canceled context, got %d", rr.Code)
+	// The catalogue read carries the request's context, so a cancel is the
+	// caller hanging up: 499. A repo failure on a live request stays the 500
+	// TestListModels_RepoError pins.
+	if rr.Code != statusClientClosedRequest {
+		t.Errorf("expected %d from canceled context, got %d", statusClientClosedRequest, rr.Code)
 	}
 }
 

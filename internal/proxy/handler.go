@@ -393,11 +393,13 @@ func (h *Handler) ProxyKeyMiddleware(next http.Handler) http.Handler {
 				refuse("invalid virtual key")
 			case errors.Is(err, context.Canceled) && r.Context().Err() != nil:
 				// The client left mid-lookup: not the database's fault, so
-				// not the Error stream. The refusal is still written, into
-				// what is by now a closed socket; the response contract
-				// holds for every error the lookup can return.
+				// not the Error stream, and 499 rather than a 500 that would
+				// bill the operator's dashboard for the caller's disconnect.
+				// The refusal is still written, into what is by now a closed
+				// socket; the response contract holds for every error the
+				// lookup can return.
 				debuglog.Warn("auth: key lookup abandoned, client gone", "remote_addr", clientip.From(r))
-				writeOpenAIError(w, "internal error", http.StatusInternalServerError)
+				writeOpenAIError(w, "client disconnected", statusClientClosedRequest)
 			default:
 				debuglog.Error("auth: db lookup failed", "error", err)
 				writeOpenAIError(w, "internal error", http.StatusInternalServerError)

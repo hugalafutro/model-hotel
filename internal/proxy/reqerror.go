@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"unicode/utf8"
 
+	"github.com/hugalafutro/model-hotel/internal/httpx"
 	"github.com/hugalafutro/model-hotel/internal/util"
 )
 
@@ -346,5 +347,7 @@ func errString(err error) string {
 
 // statusClientClosedRequest is nginx's non-standard 499 "Client Closed Request",
 // which Go's net/http has no constant for. It goes in the request log and on the
-// wire whenever the terminal cause is the client going away.
-const statusClientClosedRequest = 499
+// wire whenever the terminal cause is the client going away. Spelled here as the
+// admin surfaces' constant so the gateway and the dashboard cannot drift apart
+// on the number.
+const statusClientClosedRequest = httpx.StatusClientClosedRequest

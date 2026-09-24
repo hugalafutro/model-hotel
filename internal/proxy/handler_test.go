@@ -347,8 +347,13 @@ func TestProxyKeyMiddleware_ContextCanceledDBError(t *testing.T) {
 	if called {
 		t.Error("next handler should NOT be called on DB error")
 	}
-	if rr.Code != http.StatusInternalServerError {
-		t.Errorf("expected 500, got %d", rr.Code)
+	// The request's own context is done, so the cancelled lookup is the caller
+	// hanging up: 499, not a 500 that would bill the operator for it.
+	if rr.Code != statusClientClosedRequest {
+		t.Errorf("expected %d, got %d", statusClientClosedRequest, rr.Code)
+	}
+	if !strings.Contains(rr.Body.String(), "client disconnected") {
+		t.Errorf("body = %q, want it to name the disconnect", rr.Body.String())
 	}
 }
 
