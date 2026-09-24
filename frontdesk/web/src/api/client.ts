@@ -152,8 +152,19 @@ const jsonInit = (method: string, body: unknown): RequestInit => ({
 
 export const api = {
 	listMembers: () => request<MemberView[]>("/api/members"),
-	createMember: (name: string, url: string, token: string) =>
-		request<Member>("/api/members", jsonInit("POST", { name, url, token })),
+	// confirmToken is this Front Desk's own admin token, sent only to get past the
+	// primary_elsewhere refusal: the host still names another Front Desk as the
+	// owner of its primary role, and the operator is stating that desk is gone.
+	createMember: (name: string, url: string, token: string, confirmToken = "") =>
+		request<Member>(
+			"/api/members",
+			jsonInit("POST", {
+				name,
+				url,
+				token,
+				...(confirmToken ? { confirm_token: confirmToken } : {}),
+			}),
+		),
 	patchMember: (id: string, patch: { name?: string; token?: string }) =>
 		request<Member>(
 			`/api/members/${encodeURIComponent(id)}`,

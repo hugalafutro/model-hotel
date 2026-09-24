@@ -191,7 +191,9 @@
 		"resetCircuitsCleared_other": "{{count}} circuitos limpiados",
 		"resetCircuitsRecovered_one": "{{count}} recuperado",
 		"resetCircuitsRecovered_many": "{{count}} recuperados",
-		"resetCircuitsRecovered_other": "{{count}} recuperados"
+		"resetCircuitsRecovered_other": "{{count}} recuperados",
+		"errPrimaryElsewhere": "Otro Front Desk sigue considerando este host el primario de su flota. Puede que solo esté inaccesible en este momento, y añadirlo aquí se apropiaría de su flota. Elimínelo allí primero o, si ese Front Desk ha desaparecido definitivamente, introduzca abajo el token de administrador de este Front Desk para incorporarlo de todos modos.",
+		"confirmDeskTokenLabel": "Token de administrador de este Front Desk"
 	},
 	"traffic": {
 		"title": "Tráfico",

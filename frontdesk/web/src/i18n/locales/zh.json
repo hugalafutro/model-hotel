@@ -187,7 +187,9 @@
 		"resetCircuitsRecovered_other": "恢复 {{count}} 个",
 		"resetCircuitsMembers_one": "{{count}} 个成员",
 		"resetCircuitsCleared_one": "清除 {{count}} 个回路",
-		"resetCircuitsRecovered_one": "恢复 {{count}} 个"
+		"resetCircuitsRecovered_one": "恢复 {{count}} 个",
+		"errPrimaryElsewhere": "另一个 Front Desk 仍将此主机视为其集群的主实例。它可能只是暂时无法访问，在这里添加会夺走那个集群。请先在那边移除它；如果那个 Front Desk 已彻底不存在，请在下方输入本 Front Desk 的管理令牌，仍然添加它。",
+		"confirmDeskTokenLabel": "本 Front Desk 的管理令牌"
 	},
 	"traffic": {
 		"title": "流量",

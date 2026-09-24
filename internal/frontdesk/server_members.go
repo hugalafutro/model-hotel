@@ -65,6 +65,16 @@ type createMemberRequest struct {
 	Name  string `json:"name"`
 	URL   string `json:"url"`
 	Token string `json:"token"`
+	// ConfirmToken is this Front Desk's own admin token, re-supplied to enrol a
+	// host that still names ANOTHER Front Desk as the owner of its primary role
+	// (see the primary_elsewhere refusal below). It is the operator stating that
+	// the other desk is really gone - typically because this one replaced it and
+	// was rebuilt from an empty database, so it no longer carries the id the
+	// member remembers. The bearer on the request may be a passkey or TOTP
+	// session rather than the raw token, which is why the token is asked for
+	// again here rather than inferred from being signed in, exactly as the
+	// primary repoint does.
+	ConfirmToken string `json:"confirm_token"`
 }
 
 // memberResponse is a Member plus an optional, non-fatal warning surfaced after
@@ -128,18 +138,56 @@ func (s *Server) createMember(w http.ResponseWriter, r *http.Request) {
 	// identity here is anomalous: rather than fail open (which could admit the
 	// primary or a duplicate under a new URL), block the add and let the operator
 	// retry once the host answers /api/system cleanly.
-	isPrimary, instanceID, identOK := s.memberIdentity(r.Context(), memberURL, req.Token)
+	ident, identOK := s.memberIdentity(r.Context(), memberURL, req.Token)
 	if !identOK {
 		fail("identity_unverified", "Front Desk verified the admin token but could not read this host's fleet identity (/api/system) to confirm it is not the fleet primary or an existing member. Check the host and try again.", http.StatusBadRequest)
 		return
 	}
-	// Reject the fleet primary re-added under a different URL. Only one primary
-	// exists, so a host self-reporting is_primary is that primary reached under
-	// another address.
-	if isPrimary {
+	// Reject a live fleet primary re-added under a different URL. Only one
+	// primary exists, so a host whose state is "primary" is that primary reached
+	// under another address, announced to within the last 90 seconds.
+	if ident.State == "primary" {
 		fail("already_primary", "This host is already the fleet primary (the config source of truth), reached under a different address. It cannot also be added as a member.", http.StatusConflict)
 		return
 	}
+	// Past that window the host still reports the role it last heard (the flag
+	// outlives the fleet by 24h), and only the Front Desk id it names separates
+	// the two reasons the announces stopped.
+	//
+	// Another desk's id: that desk may simply be unreachable right now, and
+	// enrolling its primary here would adopt it out from under a live fleet the
+	// moment this desk announced (the member accepts a new owner once the old
+	// one's heartbeat is stale). Refuse; waiting it out is recoverable, a
+	// silent ownership transfer is not.
+	//
+	// Our own id: this desk is the one that stopped announcing, i.e. the member
+	// was removed or the fleet disbanded (which drops every row at once, leaving
+	// nothing to announce the demotion). Re-adding it is exactly what the
+	// operator means to do, so let it through instead of making them wait out a
+	// role that only this desk could have given it.
+	//
+	// No id at all is treated as another desk's: only a member too old to report
+	// one answers that way, and refusing it is what this check has always done.
+	if ident.IsPrimary {
+		ownID, idErr := s.store.EnsureFrontdeskID(r.Context())
+		if idErr != nil {
+			fail("identity_unverified", "Front Desk could not read its own fleet identity to check who manages this host. Try again.", http.StatusInternalServerError)
+			return
+		}
+		// The other desk may also be gone for good rather than briefly away: it
+		// was replaced by this one, or rebuilt from an empty database and so no
+		// longer carries the id the member remembers. There is no way to tell
+		// from here, and waiting the host out takes until its role expires
+		// (fleetForgetTTL, 24h), so the operator settles it by re-supplying this
+		// Front Desk's admin token. That keeps the refusal in front of an
+		// accidental takeover while leaving a deliberate recovery one confirmed
+		// step away.
+		if ident.FrontdeskID != ownID && !s.adminMgr.Validate(strings.TrimSpace(req.ConfirmToken)) {
+			fail("primary_elsewhere", "Another Front Desk still names this host its fleet primary (the config source of truth). It may only be unreachable right now, and adding it here would take its fleet over. Remove it there first, or, if that Front Desk is gone for good, confirm this Front Desk's admin token to enrol it anyway.", http.StatusConflict)
+			return
+		}
+	}
+	instanceID := ident.InstanceID
 	// Reject a host that is already a member under a different URL: compare its
 	// instance_id against every other member. Any member whose id we do not yet
 	// know is probed once and backfilled, so this stays correct even for members

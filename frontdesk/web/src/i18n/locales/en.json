@@ -187,7 +187,9 @@
 		"resetCircuitsCleared_one": "{{count}} circuit cleared",
 		"resetCircuitsCleared_other": "{{count}} circuits cleared",
 		"resetCircuitsRecovered_one": "{{count}} recovered",
-		"resetCircuitsRecovered_other": "{{count}} recovered"
+		"resetCircuitsRecovered_other": "{{count}} recovered",
+		"errPrimaryElsewhere": "Another Front Desk still names this host its fleet primary. It may only be unreachable right now, and adding it here would take its fleet over. Remove it there first, or, if that Front Desk is gone for good, enter this Front Desk's admin token below to enrol it anyway.",
+		"confirmDeskTokenLabel": "This Front Desk's admin token"
 	},
 	"traffic": {
 		"title": "Traffic",

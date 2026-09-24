@@ -216,8 +216,10 @@ func (s *Server) repointTargetsCurrentPrimary(ctx context.Context, cur AutoSyncC
 	if !ok {
 		return false, nil
 	}
-	isPrimary, _, determined := s.memberIdentity(ctx, m.URL, token)
-	return determined && isPrimary, nil
+	// The live state, not the lingering flag: a candidate that merely used to be
+	// the primary of a fleet that no longer announces is not "already primary".
+	ident, determined := s.memberIdentity(ctx, m.URL, token)
+	return determined && ident.State == "primary", nil
 }
 
 // instanceAlreadyMember reports whether instanceID belongs to a member other
@@ -245,7 +247,8 @@ func (s *Server) instanceAlreadyMember(ctx context.Context, excludeID, instanceI
 		if known == "" && m.HasToken {
 			token, ok, terr := s.store.MemberToken(ctx, m.ID)
 			if terr == nil && ok {
-				if _, id, identOK := s.memberIdentity(ctx, m.URL, token); identOK && id != "" {
+				if ident, identOK := s.memberIdentity(ctx, m.URL, token); identOK && ident.InstanceID != "" {
+					id := ident.InstanceID
 					known = id
 					if serr := s.store.SetMemberInstanceID(ctx, m.ID, id); serr != nil {
 						if errors.Is(serr, ErrDuplicateInstance) {

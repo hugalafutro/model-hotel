@@ -159,30 +159,51 @@ func (s *Server) probeMemberToken(ctx context.Context, url, token string) tokenP
 	return tokenProbe{reached: true, valid: status == http.StatusOK, status: status}
 }
 
-// memberIdentity reads a member's /api/system self-report: whether it currently
-// considers itself the fleet primary, and its stable instance_id. The host is
-// queried directly, so both are independent of the member id or URL string
-// (public DNS vs a LAN address resolve to the same instance, which answers the
-// same). ok=false means the report could not be obtained (unreachable, non-200,
-// unparseable); callers fail open. instanceID is "" on a pre-056 member that
-// does not expose one yet.
-func (s *Server) memberIdentity(ctx context.Context, url, token string) (isPrimary bool, instanceID string, ok bool) {
+// memberFleetIdentity is a host's own account of its fleet role, as /api/system
+// reports it. Both role fields are needed because they answer different
+// questions: State is live ("primary" only while the last announce is younger
+// than 90s), while IsPrimary is the last role announced and survives for 24h
+// after the announces stop. A host with IsPrimary and State "warning" is
+// therefore an EX-primary or one whose Front Desk is currently unreachable -
+// which of the two, only FrontdeskID can say.
+type memberFleetIdentity struct {
+	State       string // "primary", "member", "warning"; "" when standalone
+	IsPrimary   bool
+	FrontdeskID string // the Front Desk the host says owns its fleet role
+	InstanceID  string // stable per instance; "" on a pre-056 member
+}
+
+// memberIdentity reads a member's /api/system self-report: what it makes of its
+// own fleet role, and its stable instance_id. The host is queried directly, so
+// the answer is independent of the member id or URL string (public DNS vs a LAN
+// address resolve to the same instance, which answers the same). ok=false means
+// the report could not be obtained (unreachable, non-200, unparseable); callers
+// fail open.
+func (s *Server) memberIdentity(ctx context.Context, url, token string) (ident memberFleetIdentity, ok bool) {
 	ctx, cancel := context.WithTimeout(ctx, memberProbeTimeout)
 	defer cancel()
 	status, body, err := s.callMember(ctx, http.MethodGet, url, memberSystemPath, token, nil)
 	if err != nil || status != http.StatusOK {
-		return false, "", false
+		return memberFleetIdentity{}, false
 	}
 	var payload struct {
 		Fleet *struct {
-			IsPrimary bool `json:"is_primary"`
+			State       string `json:"state"`
+			IsPrimary   bool   `json:"is_primary"`
+			FrontdeskID string `json:"frontdesk_id"`
 		} `json:"fleet"`
 		InstanceID string `json:"instance_id"`
 	}
 	if err := json.Unmarshal(body, &payload); err != nil {
-		return false, "", false
+		return memberFleetIdentity{}, false
 	}
-	return payload.Fleet != nil && payload.Fleet.IsPrimary, payload.InstanceID, true
+	ident = memberFleetIdentity{InstanceID: payload.InstanceID}
+	if payload.Fleet != nil {
+		ident.State = payload.Fleet.State
+		ident.IsPrimary = payload.Fleet.IsPrimary
+		ident.FrontdeskID = payload.Fleet.FrontdeskID
+	}
+	return ident, true
 }
 
 // memberTokenOrErr loads a member and its decrypted admin token, returning a

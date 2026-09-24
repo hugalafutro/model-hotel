@@ -72,10 +72,24 @@ func activeMemberCount(members []*Member) int {
 // designation left pointing at a removed member would otherwise beat a marker that
 // still names a real one, and every member would be told there is no primary.
 //
-// Nothing resolving means no member is flagged primary. The membership signal is
-// still worth sending, so the caller continues without one rather than aborting; a
-// read error is treated the same way.
+// A one-member roster is the primary by itself, whatever the two sources say. No
+// designation can exist there (the wizard and SetAutoSyncGuarded both refuse one
+// below two members, the fleet-size floor), so without this the sole member would
+// be announced as a non-primary member: its own state machine reads a fresh
+// heartbeat plus is_primary=false as "managed member" and refuses every
+// synced-entity edit, pointing the operator at a primary that cannot be
+// designated. It is the only instance in the fleet, so it is the config source of
+// truth by definition.
+//
+// Nothing resolving on a larger roster means no member is flagged primary. The
+// membership signal is still worth sending, so the caller continues without one
+// rather than aborting; a read error is treated the same way.
 func (p *Poller) fleetPrimary(ctx context.Context, members []*Member) (id, name string, ok bool) {
+	// Answered before either source is read: on a one-member roster both can only
+	// name this same member or nobody, so there is nothing for them to decide.
+	if len(members) == 1 {
+		return members[0].ID, members[0].Name, true
+	}
 	cfg, cfgErr := p.store.GetAutoSync(ctx)
 	if cfgErr != nil {
 		debuglog.Warn("frontdesk: poll announce: read auto-sync config", "error", cfgErr)

@@ -187,7 +187,9 @@
 		"resetCircuitsCleared_one": "{{count}} Stromkreis gelöscht",
 		"resetCircuitsCleared_other": "{{count}} Stromkreise gelöscht",
 		"resetCircuitsRecovered_one": "{{count}} wiederhergestellt",
-		"resetCircuitsRecovered_other": "{{count}} wiederhergestellt"
+		"resetCircuitsRecovered_other": "{{count}} wiederhergestellt",
+		"errPrimaryElsewhere": "Ein anderes Front Desk führt diesen Host weiterhin als Primary seiner Flotte. Möglicherweise ist es nur gerade nicht erreichbar, und ein Hinzufügen hier würde seine Flotte übernehmen. Entfernen Sie ihn zuerst dort, oder geben Sie, falls jenes Front Desk endgültig verschwunden ist, unten das Admin-Token dieses Front Desks ein, um ihn trotzdem aufzunehmen.",
+		"confirmDeskTokenLabel": "Admin-Token dieses Front Desks"
 	},
 	"traffic": {
 		"title": "Traffic",
