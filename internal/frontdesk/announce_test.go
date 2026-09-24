@@ -332,9 +332,15 @@ func TestPollAnnounceOnce_FallsBackToTheMarkerWithoutADesignation(t *testing.T) 
 	ctx := context.Background()
 
 	primarySrv := newAnnounceRecorder(t, http.StatusNoContent)
+	replicaSrv := newAnnounceRecorder(t, http.StatusNoContent)
 	primary, err := store.CreateMember(ctx, "primary", primarySrv.srv.URL, "tok-primary")
 	if err != nil {
 		t.Fatalf("create primary: %v", err)
+	}
+	// A second member, so it is the marker that names the primary here and not
+	// the lone-roster answer.
+	if _, err := store.CreateMember(ctx, "replica", replicaSrv.srv.URL, "tok-replica"); err != nil {
+		t.Fatalf("create replica: %v", err)
 	}
 	if err := store.SetFleetSyncState(ctx, primary.ID, "primary", time.Now().UTC()); err != nil {
 		t.Fatalf("set fleet sync state: %v", err)
@@ -349,6 +355,9 @@ func TestPollAnnounceOnce_FallsBackToTheMarkerWithoutADesignation(t *testing.T) 
 	if _, ann, _ := primarySrv.snapshot(); !ann.IsPrimary {
 		t.Error("a wizard-synced fleet lost its primary flag")
 	}
+	if _, ann, _ := replicaSrv.snapshot(); ann.IsPrimary {
+		t.Error("the replica was flagged primary too; only the marked member may be")
+	}
 }
 
 // TestPollAnnounceOnce_AnnouncesThePrimarysCurrentName: the name is read from the
@@ -359,9 +368,15 @@ func TestPollAnnounceOnce_AnnouncesThePrimarysCurrentName(t *testing.T) {
 	ctx := context.Background()
 
 	primarySrv := newAnnounceRecorder(t, http.StatusNoContent)
+	replicaSrv := newAnnounceRecorder(t, http.StatusNoContent)
 	primary, err := store.CreateMember(ctx, "old-name", primarySrv.srv.URL, "tok-primary")
 	if err != nil {
 		t.Fatalf("create primary: %v", err)
+	}
+	// A second member, so the announced name comes from resolving the marker
+	// against the roster rather than from the lone-roster answer.
+	if _, err := store.CreateMember(ctx, "replica", replicaSrv.srv.URL, "tok-replica"); err != nil {
+		t.Fatalf("create replica: %v", err)
 	}
 	if err := store.SetFleetSyncState(ctx, primary.ID, "old-name", time.Now().UTC()); err != nil {
 		t.Fatalf("set fleet sync state: %v", err)
@@ -375,6 +390,9 @@ func TestPollAnnounceOnce_AnnouncesThePrimarysCurrentName(t *testing.T) {
 
 	if _, ann, _ := primarySrv.snapshot(); ann.PrimaryName != newName {
 		t.Errorf("announced primary name = %q, want the current %q", ann.PrimaryName, newName)
+	}
+	if _, ann, _ := replicaSrv.snapshot(); ann.IsPrimary {
+		t.Error("the replica was flagged primary; the marker names the renamed member, not it")
 	}
 }
 
@@ -426,9 +444,15 @@ func TestPollAnnounceOnce_DormantDesignationStillBeatsNoMarker(t *testing.T) {
 	ctx := context.Background()
 
 	srv := newAnnounceRecorder(t, http.StatusNoContent)
+	otherSrv := newAnnounceRecorder(t, http.StatusNoContent)
 	m, err := store.CreateMember(ctx, "chosen", srv.srv.URL, "tok")
 	if err != nil {
 		t.Fatalf("create member: %v", err)
+	}
+	// A second member, so the designation is what flags the chosen one and not
+	// the lone-roster answer.
+	if _, err := store.CreateMember(ctx, "other", otherSrv.srv.URL, "tok-other"); err != nil {
+		t.Fatalf("create other member: %v", err)
 	}
 	if err := store.SetAutoSync(ctx, false, m.ID); err != nil {
 		t.Fatalf("set auto-sync: %v", err)
@@ -437,7 +461,10 @@ func TestPollAnnounceOnce_DormantDesignationStillBeatsNoMarker(t *testing.T) {
 	p.PollAnnounceOnce(ctx)
 
 	if _, ann, _ := srv.snapshot(); !ann.IsPrimary {
-		t.Error("the only designated member was not flagged, so nothing would be editable")
+		t.Error("the designated member was not flagged, so nothing would be editable")
+	}
+	if _, ann, _ := otherSrv.snapshot(); ann.IsPrimary {
+		t.Error("the undesignated member was flagged primary as well")
 	}
 }
 
@@ -459,6 +486,12 @@ func TestPollAnnounceOnce_StaleDesignationFallsBackToTheMarker(t *testing.T) {
 	if err != nil {
 		t.Fatalf("create live: %v", err)
 	}
+	// A third member, so removing the designated one still leaves a roster the
+	// two sources have to resolve against rather than a lone member.
+	restSrv := newAnnounceRecorder(t, http.StatusNoContent)
+	if _, err := store.CreateMember(ctx, "rest", restSrv.srv.URL, "tok-rest"); err != nil {
+		t.Fatalf("create rest: %v", err)
+	}
 	if err := store.SetAutoSync(ctx, true, gone.ID); err != nil {
 		t.Fatalf("set auto-sync: %v", err)
 	}
@@ -474,6 +507,73 @@ func TestPollAnnounceOnce_StaleDesignationFallsBackToTheMarker(t *testing.T) {
 	if _, ann, _ := liveSrv.snapshot(); !ann.IsPrimary {
 		t.Error("a designation pointing at a removed member left the fleet with no primary at all")
 	}
+	if _, ann, _ := restSrv.snapshot(); ann.IsPrimary {
+		t.Error("a member neither source names was flagged primary")
+	}
+}
+
+// TestPollAnnounceOnce_FlagsTheLoneMemberAsPrimary: a fleet of one has no
+// designated primary and can never get one (the wizard and SetAutoSyncGuarded
+// both refuse a designation below two members). Announcing is_primary=false there
+// told the sole instance it was a managed member, which locked providers, virtual
+// keys, users and synced settings behind a 403 naming a primary that does not
+// exist. The only member is the config source of truth, so it is flagged.
+func TestPollAnnounceOnce_FlagsTheLoneMemberAsPrimary(t *testing.T) {
+	p, store, _ := newTestPoller(t, "")
+	ctx := context.Background()
+
+	srv := newAnnounceRecorder(t, http.StatusNoContent)
+	// No designation and no wizard run: the state a freshly added first member is
+	// in, and the only state a one-member fleet can be in.
+	if _, err := store.CreateMember(ctx, "solo", srv.srv.URL, "tok"); err != nil {
+		t.Fatalf("create member: %v", err)
+	}
+
+	p.PollAnnounceOnce(ctx)
+
+	_, ann, _ := srv.snapshot()
+	if !ann.IsPrimary {
+		t.Error("the only member of the fleet was not flagged primary, so everything on it stays read-only")
+	}
+	if ann.PrimaryName != "solo" {
+		t.Errorf("announced primary name = %q, want %q", ann.PrimaryName, "solo")
+	}
+}
+
+// TestPollAnnounceOnce_SecondMemberEndsTheLonePrimary: the lone-roster answer is
+// recomputed per poll and must not linger as an implicit designation. The fleet
+// is polled while it holds one member, then again after a second joins: the flag
+// has to drop on its own, because from two members up the operator designates a
+// primary through the wizard, which is only permitted at that size.
+func TestPollAnnounceOnce_SecondMemberEndsTheLonePrimary(t *testing.T) {
+	p, store, _ := newTestPoller(t, "")
+	ctx := context.Background()
+
+	firstSrv := newAnnounceRecorder(t, http.StatusNoContent)
+	secondSrv := newAnnounceRecorder(t, http.StatusNoContent)
+	if _, err := store.CreateMember(ctx, "first", firstSrv.srv.URL, "tok-first"); err != nil {
+		t.Fatalf("create first: %v", err)
+	}
+
+	// Lone fleet: the one member is the primary.
+	p.PollAnnounceOnce(ctx)
+	if hits, ann, _ := firstSrv.snapshot(); hits != 1 || !ann.IsPrimary {
+		t.Fatalf("lone member: hits=%d is_primary=%v, want 1/true", hits, ann.IsPrimary)
+	}
+
+	if _, err := store.CreateMember(ctx, "second", secondSrv.srv.URL, "tok-second"); err != nil {
+		t.Fatalf("create second: %v", err)
+	}
+	p.PollAnnounceOnce(ctx)
+
+	// Both announces still land (hit counts prove it): the flag dropped because
+	// the roster grew, not because announcing stopped.
+	if hits, ann, _ := firstSrv.snapshot(); hits != 2 || ann.IsPrimary {
+		t.Errorf("first member after the second joined: hits=%d is_primary=%v, want 2/false", hits, ann.IsPrimary)
+	}
+	if hits, ann, _ := secondSrv.snapshot(); hits != 1 || ann.IsPrimary {
+		t.Errorf("second member: hits=%d is_primary=%v, want 1/false", hits, ann.IsPrimary)
+	}
 }
 
 // TestFleetPrimaryFailsOpenOnReadErrors: both primary sources are reads that can
@@ -483,11 +583,17 @@ func TestPollAnnounceOnce_StaleDesignationFallsBackToTheMarker(t *testing.T) {
 func TestFleetPrimaryFailsOpenOnReadErrors(t *testing.T) {
 	p, store, _ := newTestPoller(t, "")
 	ctx := context.Background()
+	// Two members: a one-member roster is answered without reading either source
+	// at all, so it could not show what a failed read does.
 	m, err := store.CreateMember(ctx, "member", "http://127.0.0.1:9", "tok")
 	if err != nil {
 		t.Fatalf("create member: %v", err)
 	}
-	members := []*Member{m}
+	other, err := store.CreateMember(ctx, "other", "http://127.0.0.1:10", "tok-other")
+	if err != nil {
+		t.Fatalf("create other member: %v", err)
+	}
+	members := []*Member{m, other}
 	if err := store.Close(); err != nil {
 		t.Fatalf("close store: %v", err)
 	}
