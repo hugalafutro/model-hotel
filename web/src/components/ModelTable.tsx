@@ -464,14 +464,14 @@ export function ModelTable({
 												/>
 											</div>
 										</td>
-										<td className="px-4 py-1.5 align-top">
+										<td className="px-4 py-1.5 align-middle">
 											<div className="flex flex-wrap gap-1">
 												{CAP_META.map((m) => (
 													<CapBadge key={m.key} caps={caps} capKey={m.key} />
 												))}
 											</div>
 										</td>
-										<td className="px-2 py-1.5 align-top">
+										<td className="px-2 py-1.5 align-middle">
 											<OutputIcons outputModalities={model.output_modalities} />
 										</td>
 										{showProviderCol && (
