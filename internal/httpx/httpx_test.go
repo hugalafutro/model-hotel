@@ -116,6 +116,32 @@ func TestRespondError(t *testing.T) {
 			t.Errorf("status = %d, want 403", w.Code)
 		}
 	})
+
+	t.Run("a cancelled request answers 499 and warns", func(t *testing.T) {
+		capt := captureLogs(t)
+		w := httptest.NewRecorder()
+		RespondError(w, "api", "failed to query time series",
+			fmt.Errorf("query row: %w", context.Canceled), http.StatusInternalServerError)
+		if w.Code != StatusClientClosedRequest {
+			t.Errorf("status = %d, want %d for a client that hung up", w.Code, StatusClientClosedRequest)
+		}
+		if capt.last != slog.LevelWarn {
+			t.Errorf("log level = %v, want warn: the caller cancelled, nothing here failed", capt.last)
+		}
+	})
+
+	t.Run("a deadline that expired stays a 500 error", func(t *testing.T) {
+		capt := captureLogs(t)
+		w := httptest.NewRecorder()
+		RespondError(w, "api", "failed to query time series",
+			fmt.Errorf("query row: %w", context.DeadlineExceeded), http.StatusInternalServerError)
+		if w.Code != http.StatusInternalServerError {
+			t.Errorf("status = %d, want 500: the timeout is this server's own", w.Code)
+		}
+		if capt.last != slog.LevelError {
+			t.Errorf("log level = %v, want error", capt.last)
+		}
+	})
 }
 
 func TestRespondLookupError(t *testing.T) {

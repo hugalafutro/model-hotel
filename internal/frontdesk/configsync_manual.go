@@ -152,6 +152,14 @@ func (s *Server) configSync(w http.ResponseWriter, r *http.Request) {
 		writeCodedError(w, http.StatusConflict, syncSourceNotPrimaryCode, run.err.Error())
 	case errors.Is(run.err, errPrimaryExportUnreadable):
 		http.Error(w, run.err.Error(), http.StatusBadGateway)
+	case errors.Is(run.err, context.Canceled) && r.Context().Err() == nil:
+		// The run's context is the server's lifetime, not this request's, so a
+		// cancel while the caller is still connected is Shutdown ending the run
+		// before it reached a member. Same answer as a run Shutdown refused to
+		// start: the operator retries once Front Desk is back. writeError would
+		// read the cancel as the caller hanging up and answer 499, which would
+		// hide a server-side interruption from 5xx monitoring.
+		http.Error(w, "front desk is shutting down; run the sync again once it is back", http.StatusServiceUnavailable)
 	case run.err != nil:
 		writeError(w, run.err)
 	case run.repointed:

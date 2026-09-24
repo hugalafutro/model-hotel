@@ -124,9 +124,9 @@ func TestGetAppLogsHistory_CancelledContext(t *testing.T) {
 	rec := httptest.NewRecorder()
 	r.ServeHTTP(rec, req)
 
-	// A query that cannot run is a 500, not a success with an error body.
-	if rec.Code != http.StatusInternalServerError {
-		t.Errorf("expected status %d, got %d: %s", http.StatusInternalServerError, rec.Code, rec.Body.String())
+	// A query the caller abandoned is a 499, not a success with an error body.
+	if rec.Code != statusClientClosed {
+		t.Errorf("expected status %d, got %d: %s", statusClientClosed, rec.Code, rec.Body.String())
 	}
 	if !strings.Contains(rec.Body.String(), "failed to query logs") {
 		t.Errorf("body = %q, want the query-failure error", rec.Body.String())
@@ -883,8 +883,8 @@ func TestGetAppLogsCursor_CancelledContext(t *testing.T) {
 	w := httptest.NewRecorder()
 	r.ServeHTTP(w, req)
 
-	if w.Code != http.StatusInternalServerError {
-		t.Errorf("expected 500, got %d", w.Code)
+	if w.Code != statusClientClosed {
+		t.Errorf("expected 499, got %d", w.Code)
 	}
 }
 

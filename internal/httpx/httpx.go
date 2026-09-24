@@ -9,6 +9,7 @@
 package httpx
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"io"
@@ -23,11 +24,35 @@ import (
 	"github.com/hugalafutro/model-hotel/internal/debuglog"
 )
 
+// StatusClientClosedRequest is nginx's non-standard 499, returned when the
+// client hung up before the response was written. The stdlib has no constant
+// for it, and no standard code says "nobody is listening any more": a 5xx
+// would blame this server for the caller's disconnect.
+const StatusClientClosedRequest = 499
+
+// StatusForError answers 499 in place of code when err is (or wraps)
+// context.Canceled: the request context is cancelled underneath the handler
+// when the client hangs up, so nothing on this side failed and nobody reads
+// the body either way. Keeping it out of the 5xx range keeps the access log,
+// the dashboard error shelf and the 5xx counters free of one browser
+// navigation's worth of noise. Only the client's cancel counts: this server's
+// own route timeout surfaces as context.DeadlineExceeded and stays the failure
+// it is, and debuglog.Error draws the same line for the accompanying log
+// record. Any response mapper that writes its own status calls this so the
+// rule has one owner.
+func StatusForError(err error, code int) int {
+	if errors.Is(err, context.Canceled) {
+		return StatusClientClosedRequest
+	}
+	return code
+}
+
 // RespondError logs the error details server-side and sends an HTTP error
 // response. Internal error details are logged but never sent to the client.
 // For 5xx errors without an error value, the message is still logged for
-// debugging.
+// debugging. A cancelled caller answers 499; see StatusForError.
 func RespondError(w http.ResponseWriter, component, message string, err error, code int) {
+	code = StatusForError(err, code)
 	if err != nil {
 		debuglog.Error(component+": "+message, "error", err)
 	} else if code >= 500 {

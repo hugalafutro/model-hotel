@@ -1080,8 +1080,8 @@ func TestGetAppLogs_HistoryCountFailure(t *testing.T) {
 	req.Header.Set("Authorization", "Bearer test-admin-token")
 	r.ServeHTTP(rec, req)
 
-	if rec.Code != http.StatusInternalServerError {
-		t.Fatalf("status = %d, want 500", rec.Code)
+	if rec.Code != statusClientClosed {
+		t.Fatalf("status = %d, want 499: the caller cancelled the count", rec.Code)
 	}
 	if !strings.Contains(rec.Body.String(), "failed to count logs") {
 		t.Errorf("body = %q, want the count-failure error", rec.Body.String())

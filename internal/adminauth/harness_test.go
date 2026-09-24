@@ -14,10 +14,17 @@ import (
 
 	"github.com/hugalafutro/model-hotel/internal/authcookie"
 	"github.com/hugalafutro/model-hotel/internal/db"
+	"github.com/hugalafutro/model-hotel/internal/httpx"
 	totpsvc "github.com/hugalafutro/model-hotel/internal/totp"
 	"github.com/hugalafutro/model-hotel/internal/util"
 	"github.com/hugalafutro/model-hotel/internal/webauthn"
 )
+
+// statusClientClosed is the 499 a handler answers when the caller hung up
+// before the response was written (httpx.RespondError remaps a cancelled
+// context to it). Named once here so the cancellation tests do not each
+// import httpx for one constant.
+const statusClientClosed = httpx.StatusClientClosedRequest
 
 // Shared test harness for the adminauth package. The WebAuthn and TOTP handler
 // suites moved here from internal/api during the auth-handler extraction; this

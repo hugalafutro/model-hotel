@@ -492,8 +492,8 @@ func TestQuotaFleetExportListError(t *testing.T) {
 
 	rr := httptest.NewRecorder()
 	fleet.ExportSnapshots(rr, cancelledRequest(http.MethodGet, "/config/quota-snapshots", ""))
-	if rr.Code != http.StatusInternalServerError {
-		t.Fatalf("want 500 on store error, got %d", rr.Code)
+	if rr.Code != statusClientClosed {
+		t.Fatalf("want 499 when the caller cancelled the read, got %d", rr.Code)
 	}
 }
 

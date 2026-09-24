@@ -31,8 +31,8 @@ func TestFailoverUpdateHelperDBErrors(t *testing.T) {
 		if h.validateDisplayModelPatch(rec, req, body, existing) {
 			t.Error("expected validation to fail when GetByModel errors")
 		}
-		if rec.Code != http.StatusInternalServerError {
-			t.Errorf("expected 500, got %d", rec.Code)
+		if rec.Code != statusClientClosed {
+			t.Errorf("expected 499, got %d", rec.Code)
 		}
 	})
 
@@ -46,8 +46,8 @@ func TestFailoverUpdateHelperDBErrors(t *testing.T) {
 		if h.validateGroupEnabledState(rec, req, body, existing, priority, entries) {
 			t.Error("expected validation to fail when GetByIDs errors")
 		}
-		if rec.Code != http.StatusInternalServerError {
-			t.Errorf("expected 500, got %d", rec.Code)
+		if rec.Code != statusClientClosed {
+			t.Errorf("expected 499, got %d", rec.Code)
 		}
 	})
 }

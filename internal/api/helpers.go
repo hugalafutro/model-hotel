@@ -113,6 +113,10 @@ func (h *Handler) spentFor(ctx context.Context, s *budget.Subject) *float64 {
 // rather than the error a failed write earns. Only the caller's cancel counts:
 // this member's own route timeout surfaces as context.DeadlineExceeded and is
 // a failure here. Reports whether it answered.
+//
+// The 503 is deliberate and narrower than the 499 httpx.RespondError answers
+// for the same cancel: a fleet peer retries on its own schedule and reads the
+// code, where a browser that hung up reads nothing.
 func respondAbandoned(w http.ResponseWriter, what string, err error) bool {
 	if !errors.Is(err, context.Canceled) {
 		return false

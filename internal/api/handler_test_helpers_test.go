@@ -11,6 +11,7 @@ import (
 	"github.com/hugalafutro/model-hotel/internal/config"
 	"github.com/hugalafutro/model-hotel/internal/db"
 	"github.com/hugalafutro/model-hotel/internal/failover"
+	"github.com/hugalafutro/model-hotel/internal/httpx"
 	"github.com/hugalafutro/model-hotel/internal/model"
 	"github.com/hugalafutro/model-hotel/internal/provider"
 	"github.com/hugalafutro/model-hotel/internal/settings"
@@ -19,6 +20,12 @@ import (
 )
 
 const testMasterKey = "testmasterkey1234567890abcdef"
+
+// statusClientClosed is the 499 a handler answers when the caller hung up
+// before the response was written (httpx.RespondError remaps a cancelled
+// context to it). Named once here so the cancellation tests across this
+// package do not each import httpx for one constant.
+const statusClientClosed = httpx.StatusClientClosedRequest
 
 // TestMain is defined in failover_api_test.go
 

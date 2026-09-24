@@ -2,6 +2,7 @@ package debuglog
 
 import (
 	"context"
+	"fmt"
 	"log/slog"
 	"os"
 	"testing"
@@ -194,6 +195,37 @@ func TestError(t *testing.T) {
 	}
 	if rec.Message != "error message" {
 		t.Errorf("Error: message = %q, want %q", rec.Message, "error message")
+	}
+}
+
+func TestError_CancellationDropsToWarn(t *testing.T) {
+	t.Setenv("DEBUG_LOG", "1")
+	Init()
+
+	tests := []struct {
+		name string
+		args []any
+		want slog.Level
+	}{
+		{"a wrapped cancel warns", []any{"error", fmt.Errorf("query row: %w", context.Canceled)}, slog.LevelWarn},
+		{"a cancel under any key warns", []any{"query", "spend", "err", context.Canceled}, slog.LevelWarn},
+		{"a cancel inside an Attr warns", []any{slog.Any("error", context.Canceled)}, slog.LevelWarn},
+		{"an expired deadline stays an error", []any{"error", fmt.Errorf("query row: %w", context.DeadlineExceeded)}, slog.LevelError},
+		{"an ordinary failure stays an error", []any{"error", fmt.Errorf("db down")}, slog.LevelError},
+		{"a message naming cancel is not one", []any{"state", "context canceled"}, slog.LevelError},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			h := newCaptureHandler(slog.LevelWarn)
+			SetHandler(h)
+			Error("stats: query failed", tt.args...)
+			if len(h.records) == 0 {
+				t.Fatal("no record captured")
+			}
+			if got := h.records[0].Level; got != tt.want {
+				t.Errorf("level = %v, want %v", got, tt.want)
+			}
+		})
 	}
 }
 

@@ -1343,8 +1343,8 @@ func TestListModelsCursor_CancelledContext(t *testing.T) {
 	w := httptest.NewRecorder()
 	r.ServeHTTP(w, req)
 
-	if w.Code != http.StatusInternalServerError {
-		t.Errorf("expected 500, got %d", w.Code)
+	if w.Code != statusClientClosed {
+		t.Errorf("expected 499, got %d", w.Code)
 	}
 }
 

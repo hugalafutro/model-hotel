@@ -826,8 +826,8 @@ func TestListProviders_CancelledContext(t *testing.T) {
 
 	h.ListProviders(w, req)
 	// With cancelled context, the model counts query should fail
-	if w.Code != http.StatusInternalServerError {
-		t.Fatalf("expected status %d, got %d", http.StatusInternalServerError, w.Code)
+	if w.Code != statusClientClosed {
+		t.Fatalf("expected status %d, got %d", statusClientClosed, w.Code)
 	}
 }
 
@@ -1339,8 +1339,8 @@ func TestListProviders_TokenCountScanError(t *testing.T) {
 
 	h.ListProviders(w, req)
 	// With a cancelled context, one of the queries should fail
-	if w.Code != http.StatusInternalServerError {
-		t.Fatalf("expected status %d, got %d", http.StatusInternalServerError, w.Code)
+	if w.Code != statusClientClosed {
+		t.Fatalf("expected status %d, got %d", statusClientClosed, w.Code)
 	}
 }
 

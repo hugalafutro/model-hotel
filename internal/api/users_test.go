@@ -484,8 +484,8 @@ func TestUsersAPI_RepositoryFailures(t *testing.T) {
 		{"delete", http.MethodDelete, "/users/" + id, ""},
 	}
 	for _, tc := range cases {
-		if w := doJSONCtx(ctx, t, r, tc.method, tc.path, envAdminToken, tc.body); w.Code != http.StatusInternalServerError {
-			t.Errorf("%s with cancelled ctx: %d, want 500", tc.name, w.Code)
+		if w := doJSONCtx(ctx, t, r, tc.method, tc.path, envAdminToken, tc.body); w.Code != statusClientClosed {
+			t.Errorf("%s with cancelled ctx: %d, want 499", tc.name, w.Code)
 		}
 	}
 }

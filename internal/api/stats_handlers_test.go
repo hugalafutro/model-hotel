@@ -1698,9 +1698,9 @@ func TestGetTimeSeries_CancelledContext(t *testing.T) {
 	rec := httptest.NewRecorder()
 	r.ServeHTTP(rec, req)
 
-	// Should get 500 because the query fails with cancelled context
-	if rec.Code != http.StatusInternalServerError {
-		t.Errorf("Expected 500 for cancelled context, got %d", rec.Code)
+	// Should get 499 because the caller cancelled before the query returned
+	if rec.Code != statusClientClosed {
+		t.Errorf("Expected 499 for cancelled context, got %d", rec.Code)
 	}
 }
 
@@ -1728,9 +1728,9 @@ func TestGetProviderDistribution_CancelledContext(t *testing.T) {
 	rec := httptest.NewRecorder()
 	r.ServeHTTP(rec, req)
 
-	// Should get 500 because the query fails with cancelled context
-	if rec.Code != http.StatusInternalServerError {
-		t.Errorf("Expected 500 for cancelled context, got %d", rec.Code)
+	// Should get 499 because the caller cancelled before the query returned
+	if rec.Code != statusClientClosed {
+		t.Errorf("Expected 499 for cancelled context, got %d", rec.Code)
 	}
 }
 

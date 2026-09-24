@@ -15,6 +15,7 @@ package debuglog
 
 import (
 	"context"
+	"errors"
 	"log/slog"
 	"maps"
 	"os"
@@ -247,9 +248,35 @@ func Warn(msg string, args ...any) {
 	slog.Warn(msg, args...)
 }
 
-// Error logs at Error level.
+// Error logs at Error level, except when one of the args is (or wraps)
+// context.Canceled: that is the caller hanging up mid-request, which cancels
+// the request context underneath every query still running on it. Nothing on
+// this side failed, so the record drops to Warn and one abandoned dashboard
+// page stops filling the error shelf with a query's worth of lines each.
+// A context.DeadlineExceeded is this server's own timeout expiring and stays
+// at Error. The check walks the values because callers pass the error under
+// several keys ("error", "err", a per-query label); it runs only on the Error
+// path, where an extra type assertion per arg costs nothing.
 func Error(msg string, args ...any) {
+	if hasCanceled(args) {
+		slog.Warn(msg, args...)
+		return
+	}
 	slog.Error(msg, args...)
+}
+
+// hasCanceled reports whether any arg is an error wrapping context.Canceled,
+// looking inside a slog.Attr as well as at a bare value.
+func hasCanceled(args []any) bool {
+	for _, a := range args {
+		if attr, ok := a.(slog.Attr); ok {
+			a = attr.Value.Any()
+		}
+		if err, ok := a.(error); ok && errors.Is(err, context.Canceled) {
+			return true
+		}
+	}
+	return false
 }
 
 // Fatal logs at Error level and then exits the process with status 1. Unlike

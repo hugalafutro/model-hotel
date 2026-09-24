@@ -1250,8 +1250,8 @@ func TestDeleteModel_CancelledContext_Direct(t *testing.T) {
 	w := httptest.NewRecorder()
 	h.DeleteModel(w, req)
 
-	if w.Code != http.StatusInternalServerError {
-		t.Errorf("expected status %d, got %d; body: %s", http.StatusInternalServerError, w.Code, w.Body.String())
+	if w.Code != statusClientClosed {
+		t.Errorf("expected status %d, got %d; body: %s", statusClientClosed, w.Code, w.Body.String())
 	}
 }
 
@@ -1291,8 +1291,8 @@ func TestDeleteModel_DBLookupError(t *testing.T) {
 	w := httptest.NewRecorder()
 	h.DeleteModel(w, req)
 
-	if w.Code != http.StatusInternalServerError {
-		t.Errorf("expected 500 for DB lookup error, got %d: %s", w.Code, w.Body.String())
+	if w.Code != statusClientClosed {
+		t.Errorf("expected 499 for a lookup the caller abandoned, got %d: %s", w.Code, w.Body.String())
 	}
 }
 

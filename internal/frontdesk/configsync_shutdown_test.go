@@ -188,3 +188,31 @@ func TestConfigSyncRefusedOnceShutdownBegins(t *testing.T) {
 		t.Error("a refused sync still pushed to a member")
 	}
 }
+
+// TestConfigSyncCancelledByShutdownIsNotAClientDisconnect: the run is detached,
+// so its cancel comes from the server's lifetime, not from the caller. With the
+// operator still connected, that must stay a 503 they can retry — a 499 would
+// file a Front Desk shutdown as a browser hanging up and drop it out of 5xx
+// monitoring. Cancelling shutdownCtx without entering Shutdown is what puts the
+// run on a dead context while the request is alive: StartBackground gates on the
+// drain's own flag, so the run still registers and starts.
+func TestConfigSyncCancelledByShutdownIsNotAClientDisconnect(t *testing.T) {
+	srv, store := newTestServer(t)
+	primary := newStubConfigMember(t, "ptoken")
+	pm, err := store.CreateMember(t.Context(), "primary", primary.srv.URL, "ptoken")
+	if err != nil {
+		t.Fatalf("create primary: %v", err)
+	}
+	enableAutoSync(t, store, pm.ID)
+	alignFleetVersions(t, srv, store, "dev")
+
+	srv.shutdownCancel() // the server's lifetime ends; the request's does not
+
+	rec := do(t, srv, http.MethodPost, "/api/config/sync", `{"primary_id":"`+pm.ID+`"}`, true)
+	if rec.Code != http.StatusServiceUnavailable {
+		t.Errorf("sync cancelled by shutdown = %d, want 503; body=%s", rec.Code, rec.Body.String())
+	}
+	if !strings.Contains(rec.Body.String(), "shutting down") {
+		t.Errorf("body = %q, want it to name the shutdown", rec.Body.String())
+	}
+}
