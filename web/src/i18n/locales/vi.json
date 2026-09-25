@@ -2805,7 +2805,6 @@
 		},
 		"requestLogDetail": {
 			"title": "Chi tiết yêu cầu",
-			"requestDetails": "Chi tiết yêu cầu",
 			"attempt": "Lần thử {{number}}",
 			"duration": "Thời lượng",
 			"totalWallClockTime": "Tổng thời gian thực từ khi bắt đầu yêu cầu đến khi kết thúc phản hồi",

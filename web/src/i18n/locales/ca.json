@@ -2870,7 +2870,6 @@
 		},
 		"requestLogDetail": {
 			"title": "Detalls de la sol·licitud",
-			"requestDetails": "Detalls de la sol·licitud",
 			"attempt": "Intent {{number}}",
 			"duration": "Durada",
 			"totalWallClockTime": "Temps total de rellotge des de l'inici de la sol·licitud fins al final de la resposta",

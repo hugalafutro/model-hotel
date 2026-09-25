@@ -2805,7 +2805,6 @@
 		},
 		"requestLogDetail": {
 			"title": "Talep Ayrıntıları",
-			"requestDetails": "Talep Ayrıntıları",
 			"attempt": "Deneme {{number}}",
 			"duration": "Süre",
 			"totalWallClockTime": "İsteğin başlangıcından yanıtın sonuna kadar geçen toplam süre",

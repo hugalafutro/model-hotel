@@ -2935,7 +2935,6 @@
 		},
 		"requestLogDetail": {
 			"title": "Podrobnosti žádosti",
-			"requestDetails": "Podrobnosti žádosti",
 			"attempt": "Pokus {{number}}",
 			"duration": "Trvání",
 			"totalWallClockTime": "Celková doba v reálném čase od zahájení požadavku do ukončení odpovědi",

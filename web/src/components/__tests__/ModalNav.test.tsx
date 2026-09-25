@@ -1,7 +1,7 @@
 import { fireEvent, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { useState } from "react";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { useModalNav } from "../../hooks/useModalNav";
 import { renderWithProviders } from "../../test/utils";
 import { Modal } from "../Modal";
@@ -132,6 +132,37 @@ describe("ModalNav", () => {
 		// Already at the first row: the key is a no-op, not a wrap-around.
 		fireEvent.keyDown(document, { key: "ArrowLeft" });
 		expect(screen.getByText("row a")).toBeInTheDocument();
+	});
+
+	it("presses the arrow a step went through, clicked or keyed", async () => {
+		const pressed: Element[] = [];
+		const spy = vi
+			.spyOn(Element.prototype, "animate")
+			.mockImplementation(function (this: Element) {
+				pressed.push(this);
+				return {} as Animation;
+			});
+		try {
+			renderWithProviders(<Harness />);
+
+			fireEvent.keyDown(document, { key: "ArrowRight" });
+			fireEvent.keyDown(document, { key: "ArrowLeft" });
+			fireEvent.keyDown(document, { key: "ArrowLeft" });
+			await userEvent.setup().click(nextButton());
+
+			expect(pressed).toEqual([
+				nextButton(),
+				prevButton(),
+				prevButton(),
+				nextButton(),
+			]);
+			// No step taken, no press: the first row has nothing before it.
+			fireEvent.keyDown(document, { key: "ArrowLeft" });
+			fireEvent.keyDown(document, { key: "ArrowLeft" });
+			expect(pressed).toHaveLength(5);
+		} finally {
+			spy.mockRestore();
+		}
 	});
 
 	it("leaves arrow keys to a field being typed in", () => {

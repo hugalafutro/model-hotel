@@ -2805,7 +2805,6 @@
 		},
 		"requestLogDetail": {
 			"title": "A kérelem részletei",
-			"requestDetails": "A kérelem részletei",
 			"attempt": "Kísérlet {{number}}",
 			"duration": "Időtartam",
 			"totalWallClockTime": "A kérés kezdetétől a válasz befejezéséig eltelt teljes idő",

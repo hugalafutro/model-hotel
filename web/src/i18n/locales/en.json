@@ -2805,7 +2805,6 @@
 		},
 		"requestLogDetail": {
 			"title": "Request Details",
-			"requestDetails": "Request Details",
 			"performance": "Performance",
 			"attempt": "Attempt {{number}}",
 			"duration": "Duration",

@@ -2805,7 +2805,6 @@
 		},
 		"requestLogDetail": {
 			"title": "Förfrågningsdetaljer",
-			"requestDetails": "Förfrågningsdetaljer",
 			"attempt": "Försök {{number}}",
 			"duration": "Varaktighet",
 			"totalWallClockTime": "Total faktisk tid från begärans start till svarets slut",

@@ -2805,7 +2805,6 @@
 		},
 		"requestLogDetail": {
 			"title": "Versoek besonderhede",
-			"requestDetails": "Versoek besonderhede",
 			"attempt": "Poging {{number}}",
 			"duration": "Duur",
 			"totalWallClockTime": "Totaal muurkloktyd van versoekbegin tot reaksie-einde",

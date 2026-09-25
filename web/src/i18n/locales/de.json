@@ -2805,7 +2805,6 @@
 		},
 		"requestLogDetail": {
 			"title": "Anfragedetails",
-			"requestDetails": "Anfragedetails",
 			"attempt": "Versuch {{number}}",
 			"duration": "Dauer",
 			"totalWallClockTime": "Gesamte Wanduhrzeit vom Anfrage-Start bis zum Antwort-Ende",

@@ -2805,7 +2805,6 @@
 		},
 		"requestLogDetail": {
 			"title": "Pyynnön tiedot",
-			"requestDetails": "Pyynnön tiedot",
 			"attempt": "Yritetään {{number}}",
 			"duration": "Kesto",
 			"totalWallClockTime": "Kokonaisaika pyynnön alusta vastauksen loppuun",

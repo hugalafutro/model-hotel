@@ -2870,7 +2870,6 @@
 		},
 		"requestLogDetail": {
 			"title": "Детаљи захтева",
-			"requestDetails": "Детаљи захтева",
 			"attempt": "Покушај {{number}}",
 			"duration": "Трајање",
 			"totalWallClockTime": "Укупно протекло време од почетка захтева до краја одговора",

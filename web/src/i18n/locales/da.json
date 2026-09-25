@@ -2805,7 +2805,6 @@
 		},
 		"requestLogDetail": {
 			"title": "Detaljer om anmodning",
-			"requestDetails": "Detaljer om anmodning",
 			"attempt": "Forsøg {{number}}",
 			"duration": "Varighed",
 			"totalWallClockTime": "Samlet forløbet tid fra anmodningens start til svarets afslutning",

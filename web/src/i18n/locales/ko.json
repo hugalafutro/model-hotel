@@ -2805,7 +2805,6 @@
 		},
 		"requestLogDetail": {
 			"title": "요청 세부 정보",
-			"requestDetails": "요청 세부 정보",
 			"attempt": "시도 {{number}}",
 			"duration": "소요 시간",
 			"totalWallClockTime": "요청 시작부터 응답 종료까지의 총 소요 시간",
