@@ -251,42 +251,52 @@ export function RequestLogDetail({
 						{[
 							{
 								labelKey: "components.requestLogDetail.prompt",
+								optional: false,
 								value: requestLog.tokens_prompt,
 								color: "text-(--text-primary)",
 							},
 							{
 								labelKey: "components.requestLogDetail.completion",
+								optional: false,
 								value: requestLog.tokens_completion,
 								color: "text-(--text-primary)",
 							},
 							{
 								labelKey: "components.requestLogDetail.reasoning",
+								optional: true,
 								value: requestLog.tokens_completion_reasoning,
 								color: "text-purple-400",
 							},
 							{
 								labelKey: "components.requestLogDetail.cacheHit",
+								optional: true,
 								value: requestLog.tokens_prompt_cache_hit,
 								color: "text-green-400",
 							},
 							{
 								labelKey: "components.requestLogDetail.cacheMiss",
+								optional: true,
 								value: requestLog.tokens_prompt_cache_miss,
 								color: "text-orange-400",
 							},
-						].map(({ labelKey, value, color }) => (
-							<div key={labelKey}>
-								<div className="text-[11px] uppercase text-(--text-tertiary)">
-									{t(labelKey)}
+						].map(({ labelKey, value, color, optional }) => {
+							// Prompt and completion are always recorded, so their 0 is a real
+							// count; the rest store 0 when the provider reported nothing.
+							const absent = optional && value === 0;
+							return (
+								<div key={labelKey}>
+									<div className="text-[11px] uppercase text-(--text-tertiary)">
+										{t(labelKey)}
+									</div>
+									{/* An absent count is a grey dash, so the grid keeps its shape. */}
+									<div
+										className={`text-sm font-mono ${absent ? "text-(--text-tertiary)" : color}`}
+									>
+										{absent ? "-" : value.toLocaleString()}
+									</div>
 								</div>
-								{/* An absent count is a grey dash, so the grid keeps its shape. */}
-								<div
-									className={`text-sm font-mono ${value > 0 ? color : "text-(--text-tertiary)"}`}
-								>
-									{value > 0 ? value.toLocaleString() : "-"}
-								</div>
-							</div>
-						))}
+							);
+						})}
 					</div>
 				</div>
 			)}

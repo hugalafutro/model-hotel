@@ -39,4 +39,16 @@ describe("RequestLogDetail token usage", () => {
 		expect(within(prompt).getByText("100")).toBeInTheDocument();
 		expect(prompt.className).not.toContain("text-(--text-tertiary)");
 	});
+
+	it("shows a recorded zero prompt or completion as 0, not a dash", () => {
+		renderWithProviders(
+			<RequestLogDetail
+				requestLog={{ ...log, tokens_prompt: 0, tokens_completion: 37 }}
+				onClose={() => {}}
+			/>,
+		);
+		const prompt = screen.getByText("Prompt").nextElementSibling as HTMLElement;
+		expect(prompt).toHaveTextContent(/^0$/);
+		expect(prompt.className).not.toContain("text-(--text-tertiary)");
+	});
 });

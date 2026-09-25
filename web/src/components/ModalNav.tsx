@@ -59,16 +59,17 @@ export function ModalNav({
 		pulsedSeq.current = lastStep.seq;
 		const btn = (lastStep.dir === "prev" ? prevRef : nextRef).current;
 		if (!btn) return;
-		const reduced = window.matchMedia(
-			"(prefers-reduced-motion: reduce)",
-		).matches;
+		// The press is decoration: a browser without either API just skips it
+		// rather than failing the step it decorates.
+		const reduced =
+			window.matchMedia?.("(prefers-reduced-motion: reduce)").matches ?? false;
 		// Full opacity: a step onto the last row greys its own arrow out.
 		const lit = {
 			opacity: 1,
 			color: "var(--icon-hover-color)",
 			filter: "drop-shadow(var(--icon-hover-glow))",
 		};
-		btn.animate(
+		btn.animate?.(
 			[
 				{ ...lit, transform: reduced ? "none" : "scale(0.8)" },
 				{ transform: "none" },

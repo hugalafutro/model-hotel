@@ -165,6 +165,23 @@ describe("ModalNav", () => {
 		}
 	});
 
+	it("still steps in a browser without the animation APIs", () => {
+		const animate = Element.prototype.animate;
+		const matchMedia = window.matchMedia;
+		// @ts-expect-error: simulating a browser that lacks the API
+		delete Element.prototype.animate;
+		// @ts-expect-error: simulating a browser that lacks the API
+		delete window.matchMedia;
+		try {
+			renderWithProviders(<Harness />);
+			fireEvent.keyDown(document, { key: "ArrowRight" });
+			expect(screen.getByText("row c")).toBeInTheDocument();
+		} finally {
+			Element.prototype.animate = animate;
+			window.matchMedia = matchMedia;
+		}
+	});
+
 	it("does not replay the last press when a live update brings the stepper back", () => {
 		const pressed: Element[] = [];
 		const spy = vi
