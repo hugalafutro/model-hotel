@@ -49,15 +49,22 @@ export function ModalNav({
 	// Every step, clicked or from an arrow key, plays a press on the arrow it
 	// went through: the body swaps in place, so without it a keyboard step
 	// changes the data with nothing on screen saying a step happened. Keyed
-	// on seq, so two steps the same way pulse twice.
+	// on seq, so two steps the same way pulse twice. The step outlives this
+	// stepper (Modal holds it, and hides the stepper while a live update has
+	// the open row out of the list), so a remount starts from the seq it
+	// finds and only a newer step pulses.
+	const pulsedSeq = useRef(lastStep?.seq);
 	useEffect(() => {
-		if (!lastStep) return;
+		if (!lastStep || lastStep.seq === pulsedSeq.current) return;
+		pulsedSeq.current = lastStep.seq;
 		const btn = (lastStep.dir === "prev" ? prevRef : nextRef).current;
 		if (!btn) return;
 		const reduced = window.matchMedia(
 			"(prefers-reduced-motion: reduce)",
 		).matches;
+		// Full opacity: a step onto the last row greys its own arrow out.
 		const lit = {
+			opacity: 1,
 			color: "var(--icon-hover-color)",
 			filter: "drop-shadow(var(--icon-hover-glow))",
 		};

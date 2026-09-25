@@ -165,6 +165,38 @@ describe("ModalNav", () => {
 		}
 	});
 
+	it("does not replay the last press when a live update brings the stepper back", () => {
+		const pressed: Element[] = [];
+		const spy = vi
+			.spyOn(Element.prototype, "animate")
+			.mockImplementation(function (this: Element) {
+				pressed.push(this);
+				return {} as Animation;
+			});
+		try {
+			const { rerender } = renderWithProviders(<Harness />);
+			fireEvent.keyDown(document, { key: "ArrowRight" });
+			expect(pressed).toHaveLength(1);
+
+			// The open row drops out of the list and comes back: the stepper
+			// unmounts and remounts with the step Modal still holds.
+			rerender(<Harness rows={[{ id: "a" }]} />);
+			expect(
+				screen.queryByRole("button", { name: "Next row" }),
+			).not.toBeInTheDocument();
+			rerender(<Harness />);
+			expect(nextButton()).toBeInTheDocument();
+			expect(pressed).toHaveLength(1);
+
+			// A new step still presses, on the remounted arrow.
+			fireEvent.keyDown(document, { key: "ArrowLeft" });
+			expect(pressed).toHaveLength(2);
+			expect(pressed[1]).toBe(prevButton());
+		} finally {
+			spy.mockRestore();
+		}
+	});
+
 	it("leaves arrow keys to a field being typed in", () => {
 		renderWithProviders(
 			<>
