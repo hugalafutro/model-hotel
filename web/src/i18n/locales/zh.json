@@ -2805,7 +2805,6 @@
 		},
 		"requestLogDetail": {
 			"title": "请求详情",
-			"requestDetails": "请求详情",
 			"attempt": "尝试 {{number}}",
 			"duration": "时长",
 			"totalWallClockTime": "从请求开始到响应结束的所有时钟时间",

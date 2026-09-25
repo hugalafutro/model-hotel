@@ -2935,7 +2935,6 @@
 		},
 		"requestLogDetail": {
 			"title": "Детали запроса",
-			"requestDetails": "Детали запроса",
 			"attempt": "Попытка {{number}}",
 			"duration": "Продолжительность",
 			"totalWallClockTime": "Общее фактическое время от начала запроса до конца ответа",

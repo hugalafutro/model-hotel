@@ -1,7 +1,7 @@
 import { fireEvent, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { useState } from "react";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { useModalNav } from "../../hooks/useModalNav";
 import { renderWithProviders } from "../../test/utils";
 import { Modal } from "../Modal";
@@ -132,6 +132,86 @@ describe("ModalNav", () => {
 		// Already at the first row: the key is a no-op, not a wrap-around.
 		fireEvent.keyDown(document, { key: "ArrowLeft" });
 		expect(screen.getByText("row a")).toBeInTheDocument();
+	});
+
+	it("presses the arrow a step went through, clicked or keyed", async () => {
+		const pressed: Element[] = [];
+		const spy = vi
+			.spyOn(Element.prototype, "animate")
+			.mockImplementation(function (this: Element) {
+				pressed.push(this);
+				return {} as Animation;
+			});
+		try {
+			renderWithProviders(<Harness />);
+
+			fireEvent.keyDown(document, { key: "ArrowRight" });
+			fireEvent.keyDown(document, { key: "ArrowLeft" });
+			fireEvent.keyDown(document, { key: "ArrowLeft" });
+			await userEvent.setup().click(nextButton());
+
+			expect(pressed).toEqual([
+				nextButton(),
+				prevButton(),
+				prevButton(),
+				nextButton(),
+			]);
+			// No step taken, no press: the first row has nothing before it.
+			fireEvent.keyDown(document, { key: "ArrowLeft" });
+			fireEvent.keyDown(document, { key: "ArrowLeft" });
+			expect(pressed).toHaveLength(5);
+		} finally {
+			spy.mockRestore();
+		}
+	});
+
+	it("still steps in a browser without the animation APIs", () => {
+		const animate = Element.prototype.animate;
+		const matchMedia = window.matchMedia;
+		// @ts-expect-error: simulating a browser that lacks the API
+		delete Element.prototype.animate;
+		// @ts-expect-error: simulating a browser that lacks the API
+		delete window.matchMedia;
+		try {
+			renderWithProviders(<Harness />);
+			fireEvent.keyDown(document, { key: "ArrowRight" });
+			expect(screen.getByText("row c")).toBeInTheDocument();
+		} finally {
+			Element.prototype.animate = animate;
+			window.matchMedia = matchMedia;
+		}
+	});
+
+	it("does not replay the last press when a live update brings the stepper back", () => {
+		const pressed: Element[] = [];
+		const spy = vi
+			.spyOn(Element.prototype, "animate")
+			.mockImplementation(function (this: Element) {
+				pressed.push(this);
+				return {} as Animation;
+			});
+		try {
+			const { rerender } = renderWithProviders(<Harness />);
+			fireEvent.keyDown(document, { key: "ArrowRight" });
+			expect(pressed).toHaveLength(1);
+
+			// The open row drops out of the list and comes back: the stepper
+			// unmounts and remounts with the step Modal still holds.
+			rerender(<Harness rows={[{ id: "a" }]} />);
+			expect(
+				screen.queryByRole("button", { name: "Next row" }),
+			).not.toBeInTheDocument();
+			rerender(<Harness />);
+			expect(nextButton()).toBeInTheDocument();
+			expect(pressed).toHaveLength(1);
+
+			// A new step still presses, on the remounted arrow.
+			fireEvent.keyDown(document, { key: "ArrowLeft" });
+			expect(pressed).toHaveLength(2);
+			expect(pressed[1]).toBe(prevButton());
+		} finally {
+			spy.mockRestore();
+		}
 	});
 
 	it("leaves arrow keys to a field being typed in", () => {

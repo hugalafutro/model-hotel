@@ -3065,7 +3065,6 @@
 		},
 		"requestLogDetail": {
 			"title": "تفاصيل الطلب",
-			"requestDetails": "تفاصيل الطلب",
 			"attempt": "محاولة {{number}}",
 			"duration": "المدة",
 			"totalWallClockTime": "إجمالي وقت الساعة من بداية الطلب إلى نهاية الاستجابة",

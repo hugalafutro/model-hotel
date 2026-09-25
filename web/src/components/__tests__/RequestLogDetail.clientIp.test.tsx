@@ -65,6 +65,9 @@ describe("RequestLogDetail client IP", () => {
 					...baseLog,
 					tokens_prompt: 100,
 					tokens_completion: 50,
+					tokens_completion_reasoning: 10,
+					tokens_prompt_cache_hit: 60,
+					tokens_prompt_cache_miss: 40,
 					tokens_per_second: 12,
 				}}
 				onClose={onClose}

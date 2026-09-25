@@ -88,6 +88,10 @@ vi.stubGlobal("EventSource", MockEventSource);
 if (typeof HTMLElement !== "undefined" && !HTMLElement.prototype.scrollTo) {
 	HTMLElement.prototype.scrollTo = () => {};
 }
+// jsdom has no Web Animations API; a no-op keeps .animate() callers running.
+if (typeof Element !== "undefined" && !Element.prototype.animate) {
+	Element.prototype.animate = (() => ({})) as unknown as Element["animate"];
+}
 // Mock scrollIntoView on Element (jsdom doesn't implement it)
 if (typeof Element !== "undefined" && !Element.prototype.scrollIntoView) {
 	Element.prototype.scrollIntoView = () => {};

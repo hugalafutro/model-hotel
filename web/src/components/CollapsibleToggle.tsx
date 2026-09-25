@@ -35,19 +35,6 @@ export function CollapsibleToggle({
 	const { t } = useTranslation();
 	const className = overrideClassName ?? "ui-icon-btn p-1.5 rounded-md";
 
-	const icons =
-		iconStyle === "double" ? (
-			collapsed ? (
-				<ChevronsUpDown size={size} />
-			) : (
-				<ChevronsDownUp size={size} />
-			)
-		) : collapsed ? (
-			<ChevronDown size={size} />
-		) : (
-			<ChevronUp size={size} />
-		);
-
 	const label = collapsed
 		? (expandTitle ?? t("common.expand"))
 		: (collapseTitle ?? t("common.collapse"));
@@ -61,9 +48,33 @@ export function CollapsibleToggle({
 			aria-label={label}
 			aria-expanded={!collapsed}
 		>
-			{icons}
+			<CollapsibleIcon
+				collapsed={collapsed}
+				iconStyle={iconStyle}
+				size={size}
+			/>
 		</button>
 	);
+}
+
+/**
+ * The toggle's icon alone, for a header that is itself the button (a button
+ * cannot nest another). Wrap it in `ui-icon-btn ui-icon-btn-in-group` inside a
+ * `group` button to get the same hover glow.
+ */
+export function CollapsibleIcon({
+	collapsed,
+	iconStyle = "single",
+	size = 14,
+}: Pick<CollapsibleToggleProps, "collapsed" | "iconStyle" | "size">) {
+	if (iconStyle === "double") {
+		return collapsed ? (
+			<ChevronsUpDown size={size} />
+		) : (
+			<ChevronsDownUp size={size} />
+		);
+	}
+	return collapsed ? <ChevronDown size={size} /> : <ChevronUp size={size} />;
 }
 
 interface CollapseBodyProps {

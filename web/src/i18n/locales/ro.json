@@ -2870,7 +2870,6 @@
 		},
 		"requestLogDetail": {
 			"title": "Detalii solicitare",
-			"requestDetails": "Detalii solicitare",
 			"attempt": "Încercare {{number}}",
 			"duration": "Durată",
 			"totalWallClockTime": "Timpul total scurs, de la începutul cererii până la sfârșitul răspunsului",

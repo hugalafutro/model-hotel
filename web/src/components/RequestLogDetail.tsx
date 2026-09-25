@@ -5,7 +5,6 @@ import {
 	Box,
 	Calendar,
 	Clock,
-	DisclosureChevron,
 	DollarSign,
 	Gauge,
 	Globe,
@@ -20,7 +19,7 @@ import { formatNumber, formatSpend } from "../utils/format";
 import { formatLogTimestamp } from "../utils/logBadgeUtils";
 import { formatMs } from "../utils/logHelpers";
 import { AttemptTrail } from "./AttemptTrail";
-import { CollapseBody } from "./CollapsibleToggle";
+import { CollapseBody, CollapsibleIcon } from "./CollapsibleToggle";
 import { CopyablePill } from "./CopyablePill";
 import { DetailSectionHeader } from "./DetailSectionHeader";
 import { InfoHint } from "./InfoHint";
@@ -55,10 +54,6 @@ export function RequestLogDetail({
 		(requestLog.settings_read_ms || 0);
 	// Reasoning is part of completion, not on top of it.
 	const totalTokens = requestLog.tokens_prompt + requestLog.tokens_completion;
-	const hasCache =
-		requestLog.tokens_prompt_cache_hit > 0 ||
-		requestLog.tokens_prompt_cache_miss > 0;
-	const hasReasoning = requestLog.tokens_completion_reasoning > 0;
 	const searchUnits = requestLog.search_units ?? 0;
 
 	return (
@@ -177,9 +172,6 @@ export function RequestLogDetail({
 			</div>
 
 			{/* Details Grid */}
-			<DetailSectionHeader icon={Box}>
-				{t("components.requestLogDetail.requestDetails")}
-			</DetailSectionHeader>
 			<div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-6">
 				<DetailItem
 					icon={Calendar}
@@ -255,55 +247,56 @@ export function RequestLogDetail({
 						<Layers size={14} className="text-(--accent)" />
 						{t("components.requestLogDetail.tokenUsage")}
 					</h4>
-					<div className="grid grid-cols-3 gap-3">
-						<div>
-							<div className="text-[11px] uppercase text-(--text-tertiary)">
-								{t("components.requestLogDetail.prompt")}
-							</div>
-							<div className="text-sm font-mono text-(--text-primary)">
-								{requestLog.tokens_prompt.toLocaleString()}
-							</div>
-						</div>
-						<div>
-							<div className="text-[11px] uppercase text-(--text-tertiary)">
-								{t("components.requestLogDetail.completion")}
-							</div>
-							<div className="text-sm font-mono text-(--text-primary)">
-								{requestLog.tokens_completion.toLocaleString()}
-							</div>
-						</div>
-						{hasReasoning && (
-							<div>
-								<div className="text-[11px] uppercase text-(--text-tertiary)">
-									{t("components.requestLogDetail.reasoning")}
-								</div>
-								<div className="text-sm font-mono text-purple-400">
-									{requestLog.tokens_completion_reasoning.toLocaleString()}
-								</div>
-							</div>
-						)}
-						{hasCache && (
-							<div className="col-span-3">
-								<div className="grid grid-cols-3 gap-3">
-									<div>
-										<div className="text-[11px] uppercase text-(--text-tertiary)">
-											{t("components.requestLogDetail.cacheHit")}
-										</div>
-										<div className="text-sm font-mono text-green-400">
-											{requestLog.tokens_prompt_cache_hit.toLocaleString()}
-										</div>
+					<div className="grid grid-cols-3 sm:grid-cols-5 gap-3">
+						{[
+							{
+								labelKey: "components.requestLogDetail.prompt",
+								optional: false,
+								value: requestLog.tokens_prompt,
+								color: "text-(--text-primary)",
+							},
+							{
+								labelKey: "components.requestLogDetail.completion",
+								optional: false,
+								value: requestLog.tokens_completion,
+								color: "text-(--text-primary)",
+							},
+							{
+								labelKey: "components.requestLogDetail.reasoning",
+								optional: true,
+								value: requestLog.tokens_completion_reasoning,
+								color: "text-purple-400",
+							},
+							{
+								labelKey: "components.requestLogDetail.cacheHit",
+								optional: true,
+								value: requestLog.tokens_prompt_cache_hit,
+								color: "text-green-400",
+							},
+							{
+								labelKey: "components.requestLogDetail.cacheMiss",
+								optional: true,
+								value: requestLog.tokens_prompt_cache_miss,
+								color: "text-orange-400",
+							},
+						].map(({ labelKey, value, color, optional }) => {
+							// Prompt and completion are always recorded, so their 0 is a real
+							// count; the rest store 0 when the provider reported nothing.
+							const absent = optional && value === 0;
+							return (
+								<div key={labelKey}>
+									<div className="text-[11px] uppercase text-(--text-tertiary)">
+										{t(labelKey)}
 									</div>
-									<div>
-										<div className="text-[11px] uppercase text-(--text-tertiary)">
-											{t("components.requestLogDetail.cacheMiss")}
-										</div>
-										<div className="text-sm font-mono text-orange-400">
-											{requestLog.tokens_prompt_cache_miss.toLocaleString()}
-										</div>
+									{/* An absent count is a grey dash, so the grid keeps its shape. */}
+									<div
+										className={`text-sm font-mono ${absent ? "text-(--text-tertiary)" : color}`}
+									>
+										{absent ? "-" : value.toLocaleString()}
 									</div>
 								</div>
-							</div>
-						)}
+							);
+						})}
 					</div>
 				</div>
 			)}
@@ -316,7 +309,7 @@ export function RequestLogDetail({
 						onClick={() => setOverheadOpen((o) => !o)}
 						aria-expanded={overheadOpen}
 						data-testid="proxy-overhead-toggle"
-						className="flex w-full items-center gap-2 text-sm font-semibold text-(--text-primary)"
+						className="group flex w-full items-center gap-2 text-sm font-semibold text-(--text-primary)"
 					>
 						<Gauge size={14} className="text-(--accent)" />
 						{t("components.requestLogDetail.proxyOverheadBreakdown")}
@@ -328,10 +321,9 @@ export function RequestLogDetail({
 						<span className="ml-auto font-mono text-(--accent)">
 							{formatMs(totalOverheadMs, 3)}
 						</span>
-						<DisclosureChevron
-							open={overheadOpen}
-							className="text-(--accent)"
-						/>
+						<span className="ui-icon-btn ui-icon-btn-in-group p-1.5 rounded-md">
+							<CollapsibleIcon collapsed={!overheadOpen} iconStyle="double" />
+						</span>
 					</button>
 					<CollapseBody collapsed={!overheadOpen}>
 						<div className="space-y-2 mt-3">

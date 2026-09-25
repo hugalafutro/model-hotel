@@ -2870,7 +2870,6 @@
 		},
 		"requestLogDetail": {
 			"title": "פרטי הבקשה",
-			"requestDetails": "פרטי הבקשה",
 			"attempt": "ניסיון {{number}}",
 			"duration": "משך",
 			"totalWallClockTime": "הזמן הכולל (לפי שעון הקיר) מתחילת הבקשה ועד סיום התגובה",

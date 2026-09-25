@@ -2935,7 +2935,6 @@
 		},
 		"requestLogDetail": {
 			"title": "Szczegóły żądania",
-			"requestDetails": "Szczegóły żądania",
 			"attempt": "Próba {{number}}",
 			"duration": "Czas trwania",
 			"totalWallClockTime": "Całkowity czas rzeczywisty od rozpoczęcia żądania do końca odpowiedzi",

@@ -2935,7 +2935,6 @@
 		},
 		"requestLogDetail": {
 			"title": "Деталі запиту",
-			"requestDetails": "Деталі запиту",
 			"attempt": "Спроба {{number}}",
 			"duration": "Тривалість",
 			"totalWallClockTime": "Загальний час від початку запиту до завершення відповіді",

@@ -2870,7 +2870,6 @@
 		},
 		"requestLogDetail": {
 			"title": "Dettagli richiesta",
-			"requestDetails": "Dettagli richiesta",
 			"attempt": "Tentativo {{number}}",
 			"duration": "Durata",
 			"totalWallClockTime": "Tempo totale dell'orologio da parete dall'inizio della richiesta alla fine della risposta",

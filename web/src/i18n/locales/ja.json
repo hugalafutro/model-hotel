@@ -2805,7 +2805,6 @@
 		},
 		"requestLogDetail": {
 			"title": "リクエストの詳細",
-			"requestDetails": "リクエストの詳細",
 			"attempt": "Attempt {{number}}",
 			"duration": "所要時間",
 			"totalWallClockTime": "リクエスト開始から応答終了までの合計壁時計時間",
