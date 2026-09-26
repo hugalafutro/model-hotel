@@ -126,7 +126,7 @@ export function ProviderFilter({
 			{selected.size > 0 && (
 				<button
 					type="button"
-					className="ui-badge absolute right-7 top-1/2 -translate-y-1/2 inline-flex items-center justify-center w-4 h-4 text-[10px] font-medium bg-(--accent-light) text-(--accent)"
+					className="ui-badge absolute end-8 top-1/2 -translate-y-1/2 inline-flex items-center justify-center w-4 h-4 text-[10px] font-medium bg-(--accent-light) text-(--accent)"
 					onClick={clear}
 					aria-label={t("components.providerFilter.clearFilter")}
 					title={t("components.providerFilter.clearFilter")}

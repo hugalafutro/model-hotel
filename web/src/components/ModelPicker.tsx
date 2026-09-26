@@ -159,12 +159,14 @@ export function ModelPicker({
 			});
 		}
 		if (search.trim()) {
+			// The text filter reads the model only. Narrowing by provider is the
+			// provider dropdown's job: matching the provider name here made "gpt"
+			// list every NanoGPT model, whatever it was called.
 			const q = search.trim().toLowerCase();
 			result = result.filter((m) => {
 				const name = (m.display_name || m.model_id).toLowerCase();
 				const pid = m.model_id.toLowerCase();
-				const prov = m.provider_name.toLowerCase();
-				return name.includes(q) || pid.includes(q) || prov.includes(q);
+				return name.includes(q) || pid.includes(q);
 			});
 		}
 		return [...result].sort((a, b) => {
