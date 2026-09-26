@@ -314,7 +314,6 @@ User preferences are stored in `localStorage` (client-side only, never sent to t
 
 | Key | Description |
 |-----|-------------|
-| `adminToken` | Admin authentication token (used for API calls) |
 | `theme` | dark/light |
 | `accentColor` | Hex color string |
 | `uiStyle` | clean-saas (default), cyber-terminal, or glassmorphism-lite |
@@ -322,7 +321,7 @@ User preferences are stored in `localStorage` (client-side only, never sent to t
 | `toastTimeout` | Toast display duration (ms) |
 | `persistChat` | Whether to persist chat state across sessions |
 | `persistConversation` | Whether to persist conversation state |
-| `persistArena` | Whether to persist arena state and history |
+| `persistArena` | Whether to persist arena state |
 | `arenaHistoryEnabled` | Whether to persist arena battle history across sessions |
 | `arenaHistoryLimit` | Maximum number of arena history entries to keep (default: 25) |
 | `sidebarChatSubMode` | chat/conversation |

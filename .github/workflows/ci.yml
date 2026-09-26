@@ -851,12 +851,18 @@ jobs:
         with:
           node-version: 24
           cache: pnpm
-          cache-dependency-path: web/pnpm-lock.yaml
+          cache-dependency-path: |
+            web/pnpm-lock.yaml
+            frontdesk/web/pnpm-lock.yaml
 
-      # make notices shells out to `pnpm licenses list`, which needs the
-      # production graph installed from the committed lockfile.
+      # make notices shells out to `pnpm licenses list` in both frontends,
+      # which needs each production graph installed from its committed lockfile.
       - name: Install frontend dependencies
         working-directory: web
+        run: pnpm install --frozen-lockfile
+
+      - name: Install Front Desk frontend dependencies
+        working-directory: frontdesk/web
         run: pnpm install --frozen-lockfile
 
       - name: Regenerate notices
@@ -865,7 +871,7 @@ jobs:
       - name: Verify THIRD-PARTY-NOTICES.md is up to date
         run: |
           if ! git diff --exit-code THIRD-PARTY-NOTICES.md; then
-            echo "THIRD-PARTY-NOTICES.md is stale — run 'make notices' and commit the result." >&2
+            echo "THIRD-PARTY-NOTICES.md is stale: run 'make notices' and commit the result." >&2
             exit 1
           fi
 

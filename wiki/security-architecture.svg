@@ -89,7 +89,7 @@
     <text x="450" y="865" text-anchor="middle" font-family="Inter, Segoe UI, Roboto, sans-serif" font-size="15" font-weight="600" fill="#f472b6">6. Usage Limiters (after auth)</text>
   </g>
   <text x="450" y="898" text-anchor="middle" font-family="Inter, Segoe UI, Roboto, sans-serif" font-size="13" fill="#94a3b8">Proxy path: key + owner RPS/burst, then TPM, then dollar budget</text>
-  <text x="450" y="920" text-anchor="middle" font-family="Inter, Segoe UI, Roboto, sans-serif" font-size="13" fill="#94a3b8">Admin chat: RPS per client address, TPM + budget per user</text>
+  <text x="450" y="920" text-anchor="middle" font-family="Inter, Segoe UI, Roboto, sans-serif" font-size="13" fill="#94a3b8">Admin chat: RPS per address and per user; TPM + budget per user</text>
   <text x="450" y="942" text-anchor="middle" font-family="Inter, Segoe UI, Roboto, sans-serif" font-size="13" fill="#94a3b8">RPS waits rate_limit_max_wait_ms; TPM 429s at once; budget 429/503</text>
   <line x1="450" y1="965" x2="450" y2="985" stroke="#94a3b8" stroke-width="2" marker-end="url(#arrow)"/>
   <!-- Target Handler -->

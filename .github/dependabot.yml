@@ -15,6 +15,13 @@ updates:
     groups:
       npm-deps:
         patterns: ["*"]
+    ignore:
+      # jsdom 30.1.x broke multipart `request.text()` (the restore tests in
+      # web/src/pages/Settings/__tests__/DatabaseBackupSettings.test.tsx read the
+      # uploaded body that way), so package.json pins 30.0.1. Lift this once a
+      # release fixes it.
+      - dependency-name: "jsdom"
+        versions: [">=30.1.0"]
 
   # Front Desk's UI is its own pnpm workspace root, so it needs its own entry;
   # the /web one does not reach it.

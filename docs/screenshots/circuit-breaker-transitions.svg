@@ -29,7 +29,7 @@
   <text x="240" y="148" text-anchor="middle" fill="#94a3b8" font-size="10">consecutiveFails &lt; threshold (default 5)</text>
   <text x="240" y="168" text-anchor="middle" fill="#94a3b8" font-size="10">Requests pass through</text>
   <text x="60" y="194" fill="#f87171" font-size="9">+1: 5xx, 401, 403, network error, timeout, empty answer, unclassified 429</text>
-  <text x="60" y="214" fill="#4ade80" font-size="9">Reset to 0: delivered output, a 400, or any 429 if failover_on_rate_limit off</text>
+  <text x="60" y="214" fill="#4ade80" font-size="9">Reset to 0: output, a 400/422 (non-retriable 4xx), a 429 if failover_on_rate_limit off</text>
   <text x="60" y="234" fill="#94a3b8" font-size="9">No change: saturated (busy) 429, 404, 499</text>
   <text x="240" y="268" text-anchor="middle" fill="#64748b" font-size="9">SSE: circuit_breaker.closed (sent when a circuit closes)</text>
 
@@ -40,7 +40,7 @@
   <text x="710" y="388" text-anchor="middle" fill="#94a3b8" font-size="10">This model is skipped on this provider</text>
   <text x="710" y="408" text-anchor="middle" fill="#94a3b8" font-size="10">openedAt: now()</text>
   <text x="710" y="434" text-anchor="middle" fill="#f87171" font-size="9">Cooldown: 60s base (circuit_breaker_cooldown)</text>
-  <text x="710" y="452" text-anchor="middle" fill="#f87171" font-size="9">Doubles per failed probe, cap 15m (circuit_breaker_backoff_max)</text>
+  <text x="710" y="452" text-anchor="middle" fill="#f87171" font-size="9">Doubles per failed probe, cap 15m (circuit_breaker_backoff_max)*</text>
   <text x="710" y="470" text-anchor="middle" fill="#f59e0b" font-size="9">A quota pin can hold it until the spent window resets</text>
   <text x="710" y="496" text-anchor="middle" fill="#64748b" font-size="9">SSE: circuit_breaker.open</text>
   <text x="710" y="514" text-anchor="middle" fill="#64748b" font-size="9">SSE: circuit_breaker.unstable when it keeps reopening</text>
@@ -85,6 +85,7 @@
   <text x="480" y="853" text-anchor="middle" fill="#e2e8f0" font-size="14" font-weight="700">Provider verdict (derived, never charged directly)</text>
   <text x="60" y="890" fill="#94a3b8" font-size="10">A request skips a provider when its own model's circuit is open, or when the whole provider counts as down:</text>
   <text x="80" y="912" fill="#f87171" font-size="10">• at least 2 of its model circuits are open (circuit_breaker_span_models), or</text>
-  <text x="80" y="932" fill="#f59e0b" font-size="10">• an account-wide quota pin holds (a spent balance or plan answered for the account)</text>
+  <text x="80" y="932" fill="#f59e0b" font-size="10">• an account-wide quota pin holds (a spent balance or plan answered for the account, or the quota poller measured the account spent)</text>
   <text x="60" y="956" fill="#64748b" font-size="9">All of this applies only while circuit_breaker_enabled is on. The 402 and exhausted-429 fast open follow circuit_breaker_open_on_exhaustion.</text>
+  <text x="60" y="990" fill="#64748b" font-size="9">* Backoff exceptions: after 3 opens in a row caused by 429s the cap rises to the quota-pin max; a probe that draws exhaustion under a response pin does not double it.</text>
 </svg>

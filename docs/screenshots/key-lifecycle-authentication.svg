@@ -46,7 +46,7 @@
 
   <!-- DB Lookup -->
   <rect x="225" y="309" width="450" height="50" rx="6" fill="#1e293b" stroke="#a78bfa" stroke-width="1" filter="url(#shadow)"/>
-  <text x="450" y="330" text-anchor="middle" fill="#c4b5fd" font-size="12" font-weight="700">SELECT * FROM virtual_keys WHERE key_hash = $1</text>
+  <text x="450" y="330" text-anchor="middle" fill="#c4b5fd" font-size="12" font-weight="700">virtual_keys LEFT JOIN users WHERE key_hash = $1</text>
   <text x="450" y="348" text-anchor="middle" fill="#94a3b8" font-size="9">Database lookup by SHA-256 hash, 10s timeout</text>
 
   <!-- Branch -->

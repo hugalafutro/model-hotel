@@ -157,7 +157,7 @@ runs:
         workflows=$(match '^\.github/')
         # THIRD-PARTY-NOTICES.md is generated FROM these, so a hand-edit to the
         # committed file must be caught by regenerating it.
-        deps=$(match '^go\.(mod|sum)$|^web/(package\.json|pnpm-lock\.yaml|pnpm-workspace\.yaml)$|^tools/gen-notices/|^THIRD-PARTY-NOTICES\.md$')
+        deps=$(match '^go\.(mod|sum)$|^(frontdesk/)?web/(package\.json|pnpm-lock\.yaml|pnpm-workspace\.yaml)$|^tools/gen-notices/|^THIRD-PARTY-NOTICES\.md$')
         # The locale gate reads both apps' sources, not just their catalogs: it
         # verifies every literal t("...") key resolves in en.json.
         i18n=$(match '^web/|^frontdesk/web/|^tools/i18n-translate/|^Makefile$')

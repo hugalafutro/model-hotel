@@ -40,7 +40,7 @@ model-hotel/
 ├── web/                           # React + TypeScript dashboard
 │   ├── src/
 │   │   ├── api/                   # API client (client.ts, http.ts, endpoints/) + types
-│   │   ├── assets/                # Images and provider logos
+│   │   ├── assets/                # Provider logos
 │   │   ├── components/            # Reusable UI components
 │   │   ├── context/               # React contexts (Theme, Toast, Event, Identity, Storage, Sidebar, QuotaModal)
 │   │   ├── data/                  # Static presets

@@ -206,9 +206,10 @@ describe("RequestLogDetail attempt trail", () => {
 	});
 
 	it("the verdict line is the row's last cell, after the provider", () => {
-		// The verdict belongs on the row's own second line, which starts in the
-		// provider column. Beside the timing it would widen the right-hand badge
-		// cluster and take width from the provider and model names.
+		// The verdict line is a direct child of the row and its last cell, after
+		// the provider cell, not a sibling of the timing badges. Where the grid
+		// then draws it is layout, which jsdom does not compute, so only the DOM
+		// order is asserted here.
 		renderWithProviders(
 			<RequestLogDetail
 				requestLog={{

@@ -6,7 +6,7 @@ Model Hotel is distributed under the MIT License (see [LICENSE](./LICENSE)).
 It bundles the third-party open-source components listed below; each is the
 property of its respective authors and is used under the terms reproduced here.
 
-_53 Go modules, 240 npm packages (regenerate with `make notices`)._
+_59 Go modules, 242 npm packages (regenerate with `make notices`)._
 
 ## Fonts
 
@@ -21,6 +21,7 @@ The web UI embeds the JetBrains Mono, Onest, and Schibsted Grotesk typefaces, an
 | [github.com/cenkalti/backoff/v5](https://github.com/cenkalti/backoff/v5) | v5.0.3 | Go | MIT |
 | [github.com/cespare/xxhash/v2](https://github.com/cespare/xxhash/v2) | v2.3.0 | Go | MIT |
 | [github.com/coreos/go-oidc/v3](https://github.com/coreos/go-oidc/v3) | v3.21.0 | Go | Apache-2.0 |
+| [github.com/dustin/go-humanize](https://github.com/dustin/go-humanize) | v1.0.1 | Go | MIT |
 | [github.com/fxamacker/cbor/v2](https://github.com/fxamacker/cbor/v2) | v2.9.4 | Go | MIT |
 | [github.com/go-chi/chi/v5](https://github.com/go-chi/chi/v5) | v5.3.2 | Go | MIT |
 | [github.com/go-jose/go-jose/v4](https://github.com/go-jose/go-jose/v4) | v4.1.5 | Go | Apache-2.0 |
@@ -45,6 +46,7 @@ The web UI embeds the JetBrains Mono, Onest, and Schibsted Grotesk typefaces, an
 | [github.com/prometheus/client_model](https://github.com/prometheus/client_model) | v0.6.2 | Go | Apache-2.0 |
 | [github.com/prometheus/common](https://github.com/prometheus/common) | v0.70.1 | Go | Apache-2.0 |
 | [github.com/prometheus/procfs](https://github.com/prometheus/procfs) | v0.21.1 | Go | Apache-2.0 |
+| [github.com/remyoudompheng/bigfft](https://github.com/remyoudompheng/bigfft) | v0.0.0-20230129092748-24d4a6f8daec | Go | BSD-3-Clause |
 | [github.com/tinylib/msgp](https://github.com/tinylib/msgp) | v1.6.4 | Go | MIT |
 | [github.com/x448/float16](https://github.com/x448/float16) | v0.8.4 | Go | MIT |
 | [go.opentelemetry.io/auto/sdk](https://go.opentelemetry.io/auto/sdk) | v1.2.1 | Go | Apache-2.0 |
@@ -69,6 +71,10 @@ The web UI embeds the JetBrains Mono, Onest, and Schibsted Grotesk typefaces, an
 | [google.golang.org/genproto/googleapis/rpc](https://google.golang.org/genproto/googleapis/rpc) | v0.0.0-20260819154853-08b0e4226688 | Go | Apache-2.0 |
 | [google.golang.org/grpc](https://google.golang.org/grpc) | v1.83.2 | Go | Apache-2.0 |
 | [google.golang.org/protobuf](https://google.golang.org/protobuf) | v1.36.12 | Go | BSD-3-Clause |
+| [modernc.org/libc](https://modernc.org/libc) | v1.75.7 | Go | BSD-3-Clause |
+| [modernc.org/mathutil](https://modernc.org/mathutil) | v1.7.1 | Go | BSD-3-Clause |
+| [modernc.org/memory](https://modernc.org/memory) | v1.12.1 | Go | BSD-3-Clause |
+| [modernc.org/sqlite](https://modernc.org/sqlite) | v1.59.0 | Go | BSD-3-Clause |
 | [@babel/runtime](https://babel.dev/docs/en/next/babel-runtime) | 7.29.7 | npm | MIT |
 | [@dnd-kit/accessibility](https://github.com/clauderic/dnd-kit#readme) | 3.1.1 | npm | MIT |
 | [@dnd-kit/core](https://github.com/clauderic/dnd-kit#readme) | 6.3.1 | npm | MIT |
@@ -179,6 +185,7 @@ The web UI embeds the JetBrains Mono, Onest, and Schibsted Grotesk typefaces, an
 | [html-void-elements](https://github.com/wooorm/html-void-elements#readme) | 3.0.0 | npm | MIT |
 | [i18next](https://www.i18next.com) | 26.4.2 | npm | MIT |
 | [i18next-browser-languagedetector](https://github.com/i18next/i18next-browser-languageDetector) | 8.2.1 | npm | MIT |
+| [immer](https://github.com/immerjs/immer#readme) | 11.1.15 | npm | MIT |
 | [immer](https://github.com/immerjs/immer#readme) | 11.1.18 | npm | MIT |
 | [inline-style-parser](https://github.com/remarkablemark/inline-style-parser#readme) | 0.2.7 | npm | MIT |
 | [internmap](https://github.com/mbostock/internmap/) | 2.0.3 | npm | ISC |
@@ -256,6 +263,7 @@ The web UI embeds the JetBrains Mono, Onest, and Schibsted Grotesk typefaces, an
 | [react-dom](https://react.dev/) | 19.3.0 | npm | MIT |
 | [react-i18next](https://github.com/i18next/react-i18next) | 17.0.14 | npm | MIT |
 | [react-is](https://react.dev/) | 19.2.6 | npm | MIT |
+| [react-is](https://react.dev/) | 19.2.7 | npm | MIT |
 | [react-markdown](https://github.com/remarkjs/react-markdown#readme) | 10.1.0 | npm | MIT |
 | [react-redux](https://github.com/reduxjs/react-redux) | 9.3.0 | npm | MIT |
 | [react-router](https://github.com/remix-run/react-router#readme) | 8.4.0 | npm | MIT |
@@ -1007,7 +1015,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 Copyright (c) Meta Platforms, Inc. and affiliates.
 
-Applies to: `react@19.3.0`, `react-dom@19.3.0`, `react-is@19.2.6`, `scheduler@0.28.0`, `use-sync-external-store@1.6.0`, `use-sync-external-store@1.7.0`
+Applies to: `react@19.3.0`, `react-dom@19.3.0`, `react-is@19.2.6`, `react-is@19.2.7`, `scheduler@0.28.0`, `use-sync-external-store@1.6.0`, `use-sync-external-store@1.7.0`
 
 ```
 MIT License
@@ -1331,6 +1339,36 @@ Permission is hereby granted, free of charge, to any person obtaining a copy of 
 The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
 
 THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+```
+
+### MIT
+
+Copyright (c) 2017 Michel Weststrate
+
+Applies to: `immer@11.1.15`, `immer@11.1.18`
+
+```
+MIT License
+
+Copyright (c) 2017 Michel Weststrate
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
 ```
 
 ### MIT
@@ -1818,6 +1856,36 @@ Copyright 2014 CoreOS, Inc
 
 This product includes software developed at CoreOS, Inc.
 (http://www.coreos.com/).
+```
+
+### MIT
+
+Copyright (c) 2005-2008  Dustin Sallings <dustin@spy.net>
+
+Applies to: `github.com/dustin/go-humanize@v1.0.1`
+
+```
+Copyright (c) 2005-2008  Dustin Sallings <dustin@spy.net>
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in
+all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+
+<http://www.opensource.org/licenses/mit-license.php>
 ```
 
 ### MIT
@@ -3589,6 +3657,42 @@ This product includes software developed at
 SoundCloud Ltd. (http://soundcloud.com/).
 ```
 
+### BSD-3-Clause
+
+Copyright (c) 2012 The Go Authors. All rights reserved.
+
+Applies to: `github.com/remyoudompheng/bigfft@v0.0.0-20230129092748-24d4a6f8daec`
+
+```
+Copyright (c) 2012 The Go Authors. All rights reserved.
+
+Redistribution and use in source and binary forms, with or without
+modification, are permitted provided that the following conditions are
+met:
+
+   * Redistributions of source code must retain the above copyright
+notice, this list of conditions and the following disclaimer.
+   * Redistributions in binary form must reproduce the above
+copyright notice, this list of conditions and the following disclaimer
+in the documentation and/or other materials provided with the
+distribution.
+   * Neither the name of Google Inc. nor the names of its
+contributors may be used to endorse or promote products derived from
+this software without specific prior written permission.
+
+THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+"AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
+A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
+OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
+SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
+LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
+DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
+THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+(INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+```
+
 ### MIT
 
 Copyright (c) 2014 Philip Hofer
@@ -3896,6 +4000,570 @@ DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
 THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+```
+
+### BSD-3-Clause
+
+Copyright (c) 2017 The Libc Authors. All rights reserved.
+
+Applies to: `modernc.org/libc@v1.75.7`
+
+```
+Copyright (c) 2017 The Libc Authors. All rights reserved.
+
+Redistribution and use in source and binary forms, with or without
+modification, are permitted provided that the following conditions are
+met:
+
+   * Redistributions of source code must retain the above copyright
+notice, this list of conditions and the following disclaimer.
+   * Redistributions in binary form must reproduce the above
+copyright notice, this list of conditions and the following disclaimer
+in the documentation and/or other materials provided with the
+distribution.
+   * Neither the names of the authors nor the names of the
+contributors may be used to endorse or promote products derived from
+this software without specific prior written permission.
+
+THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+"AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
+A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
+OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
+SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
+LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
+DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
+THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+(INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+
+----- ----- -----
+
+# Third-Party Software Notices
+
+This repository contains code and assets acquired from third-party sources.
+While the main project is licensed under the BSD-3 License, the components
+listed below are subject to their own specific license terms and copyright
+notices.
+
+The following is a list of third-party software included in this repository,
+their locations, and their respective licenses.
+
+
+----
+
+## Go
+
+* **URL:** https://github.com/golang/go
+----
+
+Copyright (c) 2009 The Go Authors. All rights reserved.
+
+Redistribution and use in source and binary forms, with or without
+modification, are permitted provided that the following conditions are
+met:
+
+   * Redistributions of source code must retain the above copyright
+notice, this list of conditions and the following disclaimer.
+   * Redistributions in binary form must reproduce the above
+copyright notice, this list of conditions and the following disclaimer
+in the documentation and/or other materials provided with the
+distribution.
+   * Neither the name of Google Inc. nor the names of its
+contributors may be used to endorse or promote products derived from
+this software without specific prior written permission.
+
+THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+"AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
+A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
+OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
+SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
+LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
+DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
+THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+(INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+
+----
+
+## musl libc
+
+* **URL:** https://musl.libc.org/
+
+----
+
+musl as a whole is licensed under the following standard MIT license:
+
+----------------------------------------------------------------------
+Copyright © 2005-2020 Rich Felker, et al.
+
+Permission is hereby granted, free of charge, to any person obtaining
+a copy of this software and associated documentation files (the
+"Software"), to deal in the Software without restriction, including
+without limitation the rights to use, copy, modify, merge, publish,
+distribute, sublicense, and/or sell copies of the Software, and to
+permit persons to whom the Software is furnished to do so, subject to
+the following conditions:
+
+The above copyright notice and this permission notice shall be
+included in all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
+IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY
+CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,
+TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
+SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+----------------------------------------------------------------------
+
+Authors/contributors include:
+
+A. Wilcox
+Ada Worcester
+Alex Dowad
+Alex Suykov
+Alexander Monakov
+Andre McCurdy
+Andrew Kelley
+Anthony G. Basile
+Aric Belsito
+Arvid Picciani
+Bartosz Brachaczek
+Benjamin Peterson
+Bobby Bingham
+Boris Brezillon
+Brent Cook
+Chris Spiegel
+Clément Vasseur
+Daniel Micay
+Daniel Sabogal
+Daurnimator
+David Carlier
+David Edelsohn
+Denys Vlasenko
+Dmitry Ivanov
+Dmitry V. Levin
+Drew DeVault
+Emil Renner Berthing
+Fangrui Song
+Felix Fietkau
+Felix Janda
+Gianluca Anzolin
+Hauke Mehrtens
+He X
+Hiltjo Posthuma
+Isaac Dunham
+Jaydeep Patil
+Jens Gustedt
+Jeremy Huntwork
+Jo-Philipp Wich
+Joakim Sindholt
+John Spencer
+Julien Ramseier
+Justin Cormack
+Kaarle Ritvanen
+Khem Raj
+Kylie McClain
+Leah Neukirchen
+Luca Barbato
+Luka Perkov
+M Farkas-Dyck (Strake)
+Mahesh Bodapati
+Markus Wichmann
+Masanori Ogino
+Michael Clark
+Michael Forney
+Mikhail Kremnyov
+Natanael Copa
+Nicholas J. Kain
+orc
+Pascal Cuoq
+Patrick Oppenlander
+Petr Hosek
+Petr Skocik
+Pierre Carrier
+Reini Urban
+Rich Felker
+Richard Pennington
+Ryan Fairfax
+Samuel Holland
+Segev Finer
+Shiz
+sin
+Solar Designer
+Stefan Kristiansson
+Stefan O'Rear
+Szabolcs Nagy
+Timo Teräs
+Trutz Behn
+Valentin Ochs
+Will Dietz
+William Haddon
+William Pitcock
+
+Portions of this software are derived from third-party works licensed
+under terms compatible with the above MIT license:
+
+The TRE regular expression implementation (src/regex/reg* and
+src/regex/tre*) is Copyright © 2001-2008 Ville Laurikari and licensed
+under a 2-clause BSD license (license text in the source files). The
+included version has been heavily modified by Rich Felker in 2012, in
+the interests of size, simplicity, and namespace cleanliness.
+
+Much of the math library code (src/math/* and src/complex/*) is
+Copyright © 1993,2004 Sun Microsystems or
+Copyright © 2003-2011 David Schultz or
+Copyright © 2003-2009 Steven G. Kargl or
+Copyright © 2003-2009 Bruce D. Evans or
+Copyright © 2008 Stephen L. Moshier or
+Copyright © 2017-2018 Arm Limited
+and labelled as such in comments in the individual source files. All
+have been licensed under extremely permissive terms.
+
+The ARM memcpy code (src/string/arm/memcpy.S) is Copyright © 2008
+The Android Open Source Project and is licensed under a two-clause BSD
+license. It was taken from Bionic libc, used on Android.
+
+The AArch64 memcpy and memset code (src/string/aarch64/*) are
+Copyright © 1999-2019, Arm Limited.
+
+The implementation of DES for crypt (src/crypt/crypt_des.c) is
+Copyright © 1994 David Burren. It is licensed under a BSD license.
+
+The implementation of blowfish crypt (src/crypt/crypt_blowfish.c) was
+originally written by Solar Designer and placed into the public
+domain. The code also comes with a fallback permissive license for use
+in jurisdictions that may not recognize the public domain.
+
+The smoothsort implementation (src/stdlib/qsort.c) is Copyright © 2011
+Valentin Ochs and is licensed under an MIT-style license.
+
+The x86_64 port was written by Nicholas J. Kain and is licensed under
+the standard MIT terms.
+
+The mips and microblaze ports were originally written by Richard
+Pennington for use in the ellcc project. The original code was adapted
+by Rich Felker for build system and code conventions during upstream
+integration. It is licensed under the standard MIT terms.
+
+The mips64 port was contributed by Imagination Technologies and is
+licensed under the standard MIT terms.
+
+The powerpc port was also originally written by Richard Pennington,
+and later supplemented and integrated by John Spencer. It is licensed
+under the standard MIT terms.
+
+All other files which have no copyright comments are original works
+produced specifically for use as part of this library, written either
+by Rich Felker, the main author of the library, or by one or more
+contibutors listed above. Details on authorship of individual files
+can be found in the git version control history of the project. The
+omission of copyright and license comments in each file is in the
+interest of source tree size.
+
+In addition, permission is hereby granted for all public header files
+(include/* and arch/*/bits/*) and crt files intended to be linked into
+applications (crt/*, ldso/dlstart.c, and arch/*/crt_arch.h) to omit
+the copyright notice and permission notice otherwise required by the
+license, and to use these files without any requirement of
+attribution. These files include substantial contributions from:
+
+Bobby Bingham
+John Spencer
+Nicholas J. Kain
+Rich Felker
+Richard Pennington
+Stefan Kristiansson
+Szabolcs Nagy
+
+all of whom have explicitly granted such permission.
+
+This file previously contained text expressing a belief that most of
+the files covered by the above exception were sufficiently trivial not
+to be subject to copyright, resulting in confusion over whether it
+negated the permissions granted in the license. In the spirit of
+permissive licensing, and of not having licensing issues being an
+obstacle to adoption, that text has been removed.
+
+----
+
+## go-netdb
+
+* **URL:** https://github.com/dominikh/go-netdb
+
+----
+
+Copyright (c) 2012 Dominik Honnef
+
+Permission is hereby granted, free of charge, to any person obtaining
+a copy of this software and associated documentation files (the
+"Software"), to deal in the Software without restriction, including
+without limitation the rights to use, copy, modify, merge, publish,
+distribute, sublicense, and/or sell copies of the Software, and to
+permit persons to whom the Software is furnished to do so, subject to
+the following conditions:
+
+The above copyright notice and this permission notice shall be
+included in all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
+IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY
+CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,
+TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
+SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+
+----
+
+## NixOS/nixpkgs
+
+* **URL:** https://github.com/NixOS/nixpkgs
+
+----
+
+Copyright (c) 2003-2025 Eelco Dolstra and the Nixpkgs/NixOS contributors
+
+Permission is hereby granted, free of charge, to any person obtaining
+a copy of this software and associated documentation files (the
+"Software"), to deal in the Software without restriction, including
+without limitation the rights to use, copy, modify, merge, publish,
+distribute, sublicense, and/or sell copies of the Software, and to
+permit persons to whom the Software is furnished to do so, subject to
+the following conditions:
+
+The above copyright notice and this permission notice shall be
+included in all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
+NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE
+LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION
+OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
+WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+```
+
+### BSD-3-Clause
+
+Copyright (c) 2014 The mathutil Authors. All rights reserved.
+
+Applies to: `modernc.org/mathutil@v1.7.1`
+
+```
+Copyright (c) 2014 The mathutil Authors. All rights reserved.
+
+Redistribution and use in source and binary forms, with or without
+modification, are permitted provided that the following conditions are
+met:
+
+   * Redistributions of source code must retain the above copyright
+notice, this list of conditions and the following disclaimer.
+   * Redistributions in binary form must reproduce the above
+copyright notice, this list of conditions and the following disclaimer
+in the documentation and/or other materials provided with the
+distribution.
+   * Neither the names of the authors nor the names of the
+contributors may be used to endorse or promote products derived from
+this software without specific prior written permission.
+
+THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+"AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
+A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
+OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
+SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
+LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
+DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
+THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+(INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+```
+
+### BSD-3-Clause
+
+Copyright (c) 2017 The Memory Authors. All rights reserved.
+
+Applies to: `modernc.org/memory@v1.12.1`
+
+```
+Copyright (c) 2017 The Memory Authors. All rights reserved.
+
+Redistribution and use in source and binary forms, with or without
+modification, are permitted provided that the following conditions are
+met:
+
+   * Redistributions of source code must retain the above copyright
+notice, this list of conditions and the following disclaimer.
+   * Redistributions in binary form must reproduce the above
+copyright notice, this list of conditions and the following disclaimer
+in the documentation and/or other materials provided with the
+distribution.
+   * Neither the names of the authors nor the names of the
+contributors may be used to endorse or promote products derived from
+this software without specific prior written permission.
+
+THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+"AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
+A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
+OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
+SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
+LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
+DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
+THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+(INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+
+----- ----- -----
+
+Copyright (c) 2009 The Go Authors. All rights reserved.
+
+Redistribution and use in source and binary forms, with or without
+modification, are permitted provided that the following conditions are
+met:
+
+   * Redistributions of source code must retain the above copyright
+notice, this list of conditions and the following disclaimer.
+   * Redistributions in binary form must reproduce the above
+copyright notice, this list of conditions and the following disclaimer
+in the documentation and/or other materials provided with the
+distribution.
+   * Neither the name of Google Inc. nor the names of its
+contributors may be used to endorse or promote products derived from
+this software without specific prior written permission.
+
+THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+"AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
+A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
+OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
+SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
+LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
+DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
+THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+(INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+
+----- ----- -----
+
+https://commons.wikimedia.org/wiki/File:Memory_infra_logo.png
+
+----- ----- -----
+
+Copyright (c) 2011, Evan Shaw <edsrzf@gmail.com>
+All rights reserved.
+
+Redistribution and use in source and binary forms, with or without
+modification, are permitted provided that the following conditions are met:
+    * Redistributions of source code must retain the above copyright
+      notice, this list of conditions and the following disclaimer.
+    * Redistributions in binary form must reproduce the above copyright
+      notice, this list of conditions and the following disclaimer in the
+      documentation and/or other materials provided with the distribution.
+    * Neither the name of the copyright holder nor the
+      names of its contributors may be used to endorse or promote products
+      derived from this software without specific prior written permission.
+
+THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND
+ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
+WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+DISCLAIMED. IN NO EVENT SHALL <COPYRIGHT HOLDER> BE LIABLE FOR ANY
+DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
+(INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
+LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND
+ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+(INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
+SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+```
+
+### BSD-3-Clause
+
+Copyright (c) 2017 The Sqlite Authors. All rights reserved.
+
+Applies to: `modernc.org/sqlite@v1.59.0`
+
+```
+Copyright (c) 2017 The Sqlite Authors. All rights reserved.
+
+Redistribution and use in source and binary forms, with or without
+modification, are permitted provided that the following conditions are met:
+
+1. Redistributions of source code must retain the above copyright notice, this
+list of conditions and the following disclaimer.
+
+2. Redistributions in binary form must reproduce the above copyright notice,
+this list of conditions and the following disclaimer in the documentation
+and/or other materials provided with the distribution.
+
+3. Neither the name of the copyright holder nor the names of its contributors
+may be used to endorse or promote products derived from this software without
+specific prior written permission.
+
+THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND
+ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
+WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE
+FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
+SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
+CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
+OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+
+----- ----- -----
+
+SQLite Is Public Domain
+
+All of the code and documentation in SQLite has been dedicated to the public
+domain by the authors. All code authors, and representatives of the companies
+they work for, have signed affidavits dedicating their contributions to the
+public domain and originals of those signed affidavits are stored in a firesafe
+at the main offices of Hwaci. Anyone is free to copy, modify, publish, use,
+compile, sell, or distribute the original SQLite code, either in source code
+form or as a compiled binary, for any purpose, commercial or non-commercial,
+and by any means.
+
+The previous paragraph applies to the deliverable code and documentation in
+SQLite - those parts of the SQLite library that you actually bundle and ship
+with a larger application. Some scripts used as part of the build process (for
+example the "configure" scripts generated by autoconf) might fall under other
+open-source licenses. Nothing from these build scripts ever reaches the final
+deliverable SQLite library, however, and so the licenses associated with those
+scripts should not be a factor in assessing your rights to copy and use the
+SQLite library.
+
+All of the deliverable code in SQLite has been written from scratch. No code
+has been taken from other projects or from the open internet. Every line of
+code can be traced back to its original author, and all of those authors have
+public domain dedications on file. So the SQLite code base is clean and is
+uncontaminated with licensed code from other projects.
+
+----- ----- -----
+
+MIT License
+
+Copyright (c) 2024 Alex Garcia
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
 ```
 
 ### MIT
@@ -5272,36 +5940,6 @@ Applies to: `i18next-browser-languagedetector@8.2.1`
 The MIT License (MIT)
 
 Copyright (c) 2025 i18next
-
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
-
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-SOFTWARE.
-```
-
-### MIT
-
-Copyright (c) 2017 Michel Weststrate
-
-Applies to: `immer@11.1.18`
-
-```
-MIT License
-
-Copyright (c) 2017 Michel Weststrate
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal

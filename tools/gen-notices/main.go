@@ -1,10 +1,11 @@
 // Command gen-notices regenerates THIRD-PARTY-NOTICES.md at the repo root.
 //
 // It collects the license files of everything actually distributed in a
-// release: the Go modules compiled into ./cmd/server and the production
-// (bundled) frontend npm packages. Dev-only tooling (test runners, linters,
-// build plugins) is intentionally excluded — it is not shipped, so it carries
-// no attribution obligation.
+// release: the Go modules compiled into the two binaries (./cmd/server and
+// ./cmd/frontdesk) and the production (bundled) npm packages of both frontends
+// (web/ and frontdesk/web/). Dev-only tooling (test runners, linters, build
+// plugins) is intentionally excluded: it is not shipped, so it carries no
+// attribution obligation.
 //
 // License texts are reproduced verbatim and deduplicated by content, so packages
 // that share an identical license file are listed together under one copy. This
@@ -83,10 +84,10 @@ func repoRoot() (string, error) {
 	return strings.TrimSpace(string(out)), nil
 }
 
-// collectGo lists the modules compiled into the server binary and reads each
-// module's license file from the module cache.
+// collectGo lists the modules compiled into the server and Front Desk
+// binaries and reads each module's license file from the module cache.
 func collectGo(root string) ([]dep, error) {
-	cmd := exec.Command("go", "list", "-deps", "-json", "./cmd/server/")
+	cmd := exec.Command("go", "list", "-deps", "-json", "./cmd/server/", "./cmd/frontdesk/")
 	cmd.Dir = root
 	out, err := output(cmd)
 	if err != nil {
@@ -140,25 +141,31 @@ type pnpmPkg struct {
 	Homepage string   `json:"homepage"`
 }
 
-// collectNPM lists the production (bundled) frontend packages and reads each
-// package's license file from the pnpm store.
+// collectNPM lists the production (bundled) packages of both frontends (each
+// is its own pnpm workspace root) and reads each package's license file from
+// the pnpm store.
 func collectNPM(root string) ([]dep, error) {
-	cmd := exec.Command("pnpm", "licenses", "list", "--prod", "--json")
-	cmd.Dir = filepath.Join(root, "web")
-	out, err := output(cmd)
-	if err != nil {
-		return nil, err
-	}
-
 	byLicense := map[string][]pnpmPkg{}
-	if err := json.Unmarshal(out, &byLicense); err != nil {
-		return nil, err
+	for _, dir := range []string{"web", filepath.Join("frontdesk", "web")} {
+		cmd := exec.Command("pnpm", "licenses", "list", "--prod", "--json")
+		cmd.Dir = filepath.Join(root, dir)
+		out, err := output(cmd)
+		if err != nil {
+			return nil, err
+		}
+		var part map[string][]pnpmPkg
+		if err := json.Unmarshal(out, &part); err != nil {
+			return nil, err
+		}
+		for spdx, pkgs := range part {
+			byLicense[spdx] = append(byLicense[spdx], pkgs...)
+		}
 	}
 
 	seen := map[string]dep{}
 	for spdx, pkgs := range byLicense {
 		for _, p := range pkgs {
-			// pnpm reports parallel Versions/Paths arrays — one entry per
+			// pnpm reports parallel Versions/Paths arrays: one entry per
 			// installed instance. Emit each so a package present at two
 			// versions is fully attributed (and paired with its own path),
 			// rather than collapsed onto a single version/path.

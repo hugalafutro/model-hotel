@@ -173,6 +173,7 @@ describe("ModalNav", () => {
 	});
 
 	it("Regression pin: steps back with the right arrow in a right-to-left page", () => {
+		const priorDir = document.documentElement.dir;
 		document.documentElement.dir = "rtl";
 		try {
 			renderWithProviders(<Harness />);
@@ -184,7 +185,7 @@ describe("ModalNav", () => {
 			fireEvent.keyDown(document, { key: "ArrowLeft" });
 			expect(screen.getByText("row c")).toBeInTheDocument();
 		} finally {
-			document.documentElement.dir = "";
+			document.documentElement.dir = priorDir;
 		}
 	});
 
