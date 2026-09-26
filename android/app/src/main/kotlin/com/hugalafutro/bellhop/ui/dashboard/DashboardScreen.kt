@@ -349,16 +349,22 @@ fun DashboardScreen(
                             // with duplicate ids would crash a keyed LazyColumn outright.
                             // Positional identity is fine for a small stateless list.
                             items(ui.members) { member ->
+                                val designated = member.id == ui.primaryId
                                 MemberCard(
                                     member = member,
                                     isPrimary = member.id == ui.badgePrimaryId,
                                     traffic = ui.traffic[member.id],
                                     recentEvent = ui.recentEvents[member.id],
-                                    // Auto-sync is a property of the primary, so it
-                                    // rides that card's header. Everyone sees the
-                                    // state; only an operator can open the lever.
-                                    autoSyncEnabled = ui.autoSync.pendingEnabled ?: ui.autoSyncEnabled,
-                                    onAutoSyncClick = if (canOperate) ({ showAutoSync = true }) else null,
+                                    // Auto-sync is a property of the designated
+                                    // primary (the only one the lever can toggle),
+                                    // so it rides that card's header alone, even
+                                    // when Front Desk badges another member (a
+                                    // fleet grown from one has nothing designated).
+                                    // Everyone sees the state; only an operator can
+                                    // open the lever.
+                                    autoSyncEnabled =
+                                        if (designated) ui.autoSync.pendingEnabled ?: ui.autoSyncEnabled else null,
+                                    onAutoSyncClick = if (canOperate && designated) ({ showAutoSync = true }) else null,
                                     onClick = { onMemberClick(member.id) },
                                     onUrlClick = { urlDialogFor = member },
                                     onLongClick =

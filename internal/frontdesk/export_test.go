@@ -36,3 +36,23 @@ func (s *Store) SetFleetPrimaryMarker(ctx context.Context, primaryID, primaryNam
 	}
 	return nil
 }
+
+// CreateMember inserts one member row alone (no instance id, no lone-primary
+// marker). It models a legacy roster, e.g. two members with no marker, the
+// shape a fleet had before the verified add recorded one; production adds go
+// through CreateVerifiedMember.
+func (s *Store) CreateMember(ctx context.Context, name, rawURL, token string) (*Member, error) {
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return nil, err
+	}
+	defer func() { _ = tx.Rollback() }() // a no-op after a successful commit
+	id, err := s.insertMemberTx(ctx, tx, name, rawURL, token, "")
+	if err != nil {
+		return nil, err
+	}
+	if err := tx.Commit(); err != nil {
+		return nil, err
+	}
+	return s.GetMember(ctx, id)
+}

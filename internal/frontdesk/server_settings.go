@@ -192,18 +192,6 @@ func (s *Server) getAutoSync(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, status)
 }
 
-// putAutoSync sets the auto-sync toggle and designated primary. Enabling without
-// a primary, or naming a primary that is unknown or has no stored admin token, is
-// rejected: the loop could not authenticate to pull its config, so the choice
-// would silently do nothing.
-//
-// Repointing or clearing an already-configured primary is high-impact (it changes
-// which instance's config gets pushed across the whole fleet), so it is gated on a
-// fresh admin-token confirmation. The bearer may be a passkey/TOTP session token
-// rather than the raw FRONTDESK_TOKEN, so the check happens here against AdminMgr
-// rather than client-side. The first primary selection (none configured yet) and
-// changes that leave the primary untouched (e.g. just toggling enabled) need no
-// confirmation.
 // repointTargetsCurrentPrimary reports whether repointing the fleet primary to
 // candidateID would land on the same physical host that is already the primary,
 // reached under a different URL. It asks the candidate host's own HA self-report
@@ -243,10 +231,11 @@ func (s *Server) repointTargetsCurrentPrimary(ctx context.Context, cur AutoSyncC
 		return false, nil
 	}
 	// The flag also lingers on a FORMER primary of this desk (repointed away
-	// from, then unreachable), so it only counts when the candidate is the host
-	// the designation names: a known instance_id on both sides that differs
-	// makes the flag stale and the repoint legitimate. A designation with no row
-	// left is no host to collide with.
+	// from, then unreachable), so it only counts when the candidate is provably
+	// the host the designation names: the same known instance_id on both sides.
+	// An unknown id on either side fails open like the rest of this check (the
+	// admin-token gate still protects the repoint), and a designation with no
+	// row left is no host to collide with.
 	current, err := s.store.GetMember(ctx, cur.PrimaryID)
 	if errors.Is(err, ErrNotFound) {
 		return false, nil
@@ -254,7 +243,7 @@ func (s *Server) repointTargetsCurrentPrimary(ctx context.Context, cur AutoSyncC
 	if err != nil {
 		return false, err
 	}
-	return ident.InstanceID == "" || current.InstanceID == "" || ident.InstanceID == current.InstanceID, nil
+	return ident.InstanceID != "" && ident.InstanceID == current.InstanceID, nil
 }
 
 // instanceAlreadyMember reports whether instanceID belongs to a member other
@@ -262,17 +251,19 @@ func (s *Server) repointTargetsCurrentPrimary(ctx context.Context, cur AutoSyncC
 // member whose identity is not yet known (empty stored id, e.g. added before
 // instance identity existed) it probes /api/system once and backfills the
 // learned id, so the check is correct without a separate migration pass. A
-// member that cannot be probed is skipped (it simply cannot be deduped yet); a
-// store read failure is surfaced so the caller can refuse rather than guess.
+// member that cannot be probed is skipped (it simply cannot be deduped yet) and
+// the first such member's name is returned as unidentified, for a caller that
+// cannot accept that gap; a store read failure is surfaced so the caller can
+// refuse rather than guess.
 //
 // Two simultaneous adds of the same physical instance under different URLs
 // can both pass this scan (neither row exists yet); the
 // members_instance_id_unique index refuses the second insert, and the add
 // reports it as already_member.
-func (s *Server) instanceAlreadyMember(ctx context.Context, excludeID, instanceID string) (bool, error) {
+func (s *Server) instanceAlreadyMember(ctx context.Context, excludeID, instanceID string) (dup bool, unidentified string, err error) {
 	members, err := s.store.ListMembers(ctx)
 	if err != nil {
-		return false, err
+		return false, "", err
 	}
 	for _, m := range members {
 		if m.ID == excludeID {
@@ -300,12 +291,27 @@ func (s *Server) instanceAlreadyMember(ctx context.Context, excludeID, instanceI
 			}
 		}
 		if known == instanceID {
-			return true, nil
+			return true, "", nil
+		}
+		if known == "" && unidentified == "" {
+			unidentified = m.Name
 		}
 	}
-	return false, nil
+	return false, unidentified, nil
 }
 
+// putAutoSync sets the auto-sync toggle and designated primary. Enabling without
+// a primary, or naming a primary that is unknown or has no stored admin token, is
+// rejected: the loop could not authenticate to pull its config, so the choice
+// would silently do nothing.
+//
+// Repointing or clearing an already-configured primary is high-impact (it changes
+// which instance's config gets pushed across the whole fleet), so it is gated on a
+// fresh admin-token confirmation. The bearer may be a passkey/TOTP session token
+// rather than the raw FRONTDESK_TOKEN, so the check happens here against AdminMgr
+// rather than client-side. The first primary selection (none configured yet) and
+// changes that leave the primary untouched (e.g. just toggling enabled) need no
+// confirmation.
 func (s *Server) putAutoSync(w http.ResponseWriter, r *http.Request) {
 	var req struct {
 		Enabled      bool   `json:"enabled"`

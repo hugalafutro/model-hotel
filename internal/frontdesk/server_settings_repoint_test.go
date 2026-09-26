@@ -98,8 +98,9 @@ func TestRepointTargetsCurrentPrimary_NoCollisionToFind(t *testing.T) {
 // the candidate is the designated primary's own host (same instance_id) under
 // a second URL, it is still caught. The same lingering flag on a DIFFERENT host
 // (a former primary this desk repointed away from) is stale and the repoint is
-// allowed, as it is when the designation has no row left. A flag naming another
-// desk, or none, never counts (regression pins: neither makes the candidate the
+// allowed, as it is when the designation has no row left or either side's
+// instance_id is unknown (the check fails open). A flag naming another desk,
+// or none, never counts (regression pins: neither makes the candidate the
 // current primary).
 func TestRepointTargetsCurrentPrimary_LingeringOwnFlag(t *testing.T) {
 	srv, store := newTestServer(t)
@@ -113,6 +114,10 @@ func TestRepointTargetsCurrentPrimary_LingeringOwnFlag(t *testing.T) {
 		t.Fatalf("CreateVerifiedMember: %v", err)
 	}
 	cur := AutoSyncConfig{Enabled: true, PrimaryID: designated.ID}
+	legacy, err := store.CreateMember(ctx, "legacy-designated", "http://127.0.0.1:9/legacy", "tok")
+	if err != nil {
+		t.Fatalf("CreateMember: %v", err)
+	}
 	own := `{"state":"warning","is_primary":true,"frontdesk_id":"` + ownID + `"}`
 	cases := []struct {
 		name, fleet, instanceID string
@@ -122,6 +127,8 @@ func TestRepointTargetsCurrentPrimary_LingeringOwnFlag(t *testing.T) {
 		{"designated host under a second URL", own, "iid-designated", cur, true},
 		{"former primary with a stale flag", own, "iid-former", cur, false},
 		{"designation with no row left", own, "iid-designated", AutoSyncConfig{Enabled: true, PrimaryID: "gone"}, false},
+		{"candidate reports no instance id", own, "", cur, false},
+		{"designated row has no instance id", own, "iid-designated", AutoSyncConfig{Enabled: true, PrimaryID: legacy.ID}, false},
 		{"another desk's lingering flag", `{"state":"warning","is_primary":true,"frontdesk_id":"fd-elsewhere"}`, "iid-designated", cur, false},
 		{"not flagged", `{"state":"warning","is_primary":false,"frontdesk_id":"` + ownID + `"}`, "iid-designated", cur, false},
 	}

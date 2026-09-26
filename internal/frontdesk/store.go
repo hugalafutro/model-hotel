@@ -165,7 +165,7 @@ type Store struct {
 
 // Open opens (creating if absent) the SQLite database at path and runs the
 // embedded migrations. masterKey encrypts stored member admin tokens at rest;
-// it may be empty, in which case CreateMember/SetMemberToken reject a non-empty
+// it may be empty, in which case CreateVerifiedMember/SetMemberToken reject a non-empty
 // token (so a token is never written in the clear). allowHTTPMembers permits
 // plain-http member URLs; when false (the default), member URLs must be https so
 // the admin token is never sent in the clear across the network.

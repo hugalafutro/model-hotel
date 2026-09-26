@@ -2,6 +2,7 @@ package frontdesk
 
 import (
 	"encoding/json"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"slices"
@@ -169,6 +170,7 @@ func TestSetAutoSyncGuarded_MarkerClearFailure(t *testing.T) {
 	if cfg, _ := store.GetAutoSync(ctx); cfg.PrimaryID != "" {
 		t.Errorf("designation = %q after the failed write, want none", cfg.PrimaryID)
 	}
+	// Regression pin: a closed store refuses the write.
 	if err := store.Close(); err != nil {
 		t.Fatalf("Close: %v", err)
 	}
@@ -275,6 +277,9 @@ func TestCreateMember_LonePrimaryMarkerWriteFailure(t *testing.T) {
 	if rec.Code != http.StatusInternalServerError {
 		t.Errorf("add = %d, want 500", rec.Code)
 	}
+	if members, _ := store.ListMembers(ctx); len(members) != 1 {
+		t.Errorf("members = %d after the failed add, want 1 (the insert rolled back)", len(members))
+	}
 }
 
 // Both checks that ask whose primary role a host holds need this desk's own
@@ -310,6 +315,7 @@ func TestOwnFrontdeskIDFailure(t *testing.T) {
 // later add leaves it alone.
 func TestCreateVerifiedMember_LonePrimaryMarker(t *testing.T) {
 	ctx := t.Context()
+	// Regression pin: a run recorded against the lone member stays recorded.
 	t.Run("keeps a run recorded against the lone member", func(t *testing.T) {
 		store := newTestStore(t)
 		a, err := store.CreateMember(ctx, "a", "http://127.0.0.1:9/a", "tok")
@@ -515,5 +521,75 @@ func TestCreateMember_OwnPrimaryRefusedBesideAnUnidentifiedRow(t *testing.T) {
 	}
 	if members, _ := store.ListMembers(ctx); len(members) != 1 {
 		t.Errorf("members = %d, want 1", len(members))
+	}
+}
+
+// A transaction that read the roster and then writes after another connection
+// committed fails with SQLITE_BUSY_SNAPSHOT; the delete path maps that real
+// error to ErrMembershipChanged and passes every other error through.
+func TestMembershipChangedOnBusySnapshot(t *testing.T) {
+	store := newTestStore(t)
+	ctx := t.Context()
+	if _, err := store.CreateMember(ctx, "a", "http://127.0.0.1:9/a", "tok"); err != nil {
+		t.Fatalf("CreateMember: %v", err)
+	}
+	reader, err := store.db.Conn(ctx)
+	if err != nil {
+		t.Fatalf("Conn: %v", err)
+	}
+	defer func() { _ = reader.Close() }()
+	if _, err := reader.ExecContext(ctx, `BEGIN`); err != nil {
+		t.Fatalf("BEGIN: %v", err)
+	}
+	var n int
+	if err := reader.QueryRowContext(ctx, `SELECT COUNT(*) FROM members`).Scan(&n); err != nil {
+		t.Fatalf("read: %v", err)
+	}
+	if _, err := store.CreateMember(ctx, "b", "http://127.0.0.1:9/b", "tok"); err != nil {
+		t.Fatalf("concurrent write: %v", err)
+	}
+	_, err = reader.ExecContext(ctx, `DELETE FROM members WHERE name = 'a'`)
+	if got := membershipChangedOnBusySnapshot(err); !errors.Is(got, ErrMembershipChanged) {
+		t.Fatalf("write after a concurrent commit: %v, want ErrMembershipChanged", got)
+	}
+	_, _ = reader.ExecContext(ctx, `ROLLBACK`)
+	other := errors.New("other")
+	if got := membershipChangedOnBusySnapshot(other); !errors.Is(got, other) || errors.Is(got, ErrMembershipChanged) {
+		t.Errorf("other error mapped to %v, want it unchanged", got)
+	}
+	if membershipChangedOnBusySnapshot(nil) != nil {
+		t.Error("nil error mapped to non-nil")
+	}
+}
+
+// An unreadable auto-sync row is Front Desk's own failure: the quota proxy
+// answers 500 rather than an empty "no quota" that would wipe device badges.
+func TestHandleQuota_AutoSyncReadFailure(t *testing.T) {
+	srv, store := newTestServer(t)
+	if _, err := store.db.ExecContext(t.Context(), `ALTER TABLE settings DROP COLUMN auto_sync_enabled`); err != nil {
+		t.Fatalf("drop column: %v", err)
+	}
+	rr := httptest.NewRecorder()
+	srv.handleQuota(rr, httptest.NewRequest(http.MethodGet, "/api/quota", http.NoBody))
+	if rr.Code != http.StatusInternalServerError {
+		t.Errorf("handleQuota = %d, want 500", rr.Code)
+	}
+}
+
+// A failed insert or an unusable store surfaces as an error and leaves no row.
+func TestCreateVerifiedMember_StoreFailures(t *testing.T) {
+	ctx := t.Context()
+	store := newTestStore(t)
+	if _, err := store.db.ExecContext(ctx, `CREATE TRIGGER no_insert BEFORE INSERT ON members BEGIN SELECT RAISE(ABORT, 'no insert'); END`); err != nil {
+		t.Fatalf("trigger: %v", err)
+	}
+	if _, err := store.CreateVerifiedMember(ctx, "a", "http://127.0.0.1:9/a", "tok", "iid-a"); err == nil {
+		t.Error("insert failure: CreateVerifiedMember succeeded")
+	}
+	if err := store.Close(); err != nil {
+		t.Fatalf("Close: %v", err)
+	}
+	if _, err := store.CreateVerifiedMember(ctx, "a", "http://127.0.0.1:9/a", "tok", "iid-a"); err == nil {
+		t.Error("closed store: CreateVerifiedMember succeeded")
 	}
 }

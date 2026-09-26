@@ -213,7 +213,7 @@ func (s *Server) createMember(w http.ResponseWriter, r *http.Request) {
 	// instance_id skips dedup (there is nothing to compare); it is the one
 	// residual gap, and adds now require a token anyway.
 	if instanceID != "" {
-		dup, derr := s.instanceAlreadyMember(r.Context(), "", instanceID)
+		dup, unidentified, derr := s.instanceAlreadyMember(r.Context(), "", instanceID)
 		if derr != nil {
 			fail("verify_failed", "Front Desk could not verify whether this host is already a member. Try again.", http.StatusInternalServerError)
 			return
@@ -222,23 +222,13 @@ func (s *Server) createMember(w http.ResponseWriter, r *http.Request) {
 			fail("already_member", "This host is already a member (added under a different address). Remove the existing entry first if you want to re-add it.", http.StatusConflict)
 			return
 		}
-	}
-	// A host admitted by the own-desk carve-out above claims to be this fleet's
-	// primary; the dedup clears it only if every roster row is identified. A
-	// row still without an instance_id (a legacy row whose probe failed, or one
-	// with no token) could be this very host under its old address, so refuse
-	// until it answers or is removed rather than enrol the primary twice.
-	if ident.State == "primary" {
-		members, merr := s.store.ListMembers(r.Context())
-		if merr != nil {
-			fail("verify_failed", "Front Desk could not verify whether this host is already a member. Try again.", http.StatusInternalServerError)
+		// A host admitted by the own-desk carve-out above claims to be this
+		// fleet's primary, and the dedup clears it only if every roster row is
+		// identified. A row still without an instance_id could be this very host
+		// under its old address, so refuse rather than enrol the primary twice.
+		if ident.State == "primary" && unidentified != "" {
+			fail("identity_unverified", "This host reports being this fleet's primary, but member "+unidentified+" reports no instance id (it runs a release too old to report one, has no stored admin token, or did not answer), so Front Desk cannot rule out that they are the same host. Upgrade that member or store its admin token, or remove it first (on a two-member fleet, removing it disbands the fleet).", http.StatusBadRequest)
 			return
-		}
-		for _, m := range members {
-			if m.InstanceID == "" {
-				fail("identity_unverified", "This host reports being this fleet's primary, and member "+m.Name+" could not be identified to rule out that it is the same host. Try again once that member answers, or remove it first.", http.StatusBadRequest)
-				return
-			}
 		}
 	}
 
@@ -378,7 +368,7 @@ func (s *Server) deleteMember(w http.ResponseWriter, r *http.Request) {
 	}
 	switch outcome {
 	case DeleteRefusedPrimary:
-		http.Error(w, "this host is the fleet primary (the config source of truth); change the primary from the Fleet Sync wizard before removing it", http.StatusConflict)
+		http.Error(w, "this host is the fleet primary (the config source of truth); change the primary from the Fleet Sync wizard before removing it (on a two-member fleet, removing the other member disbands the fleet)", http.StatusConflict)
 		return
 	case DeleteDisbanded:
 		// Cancel any auto-sync pass still importing from the now-cleared primary

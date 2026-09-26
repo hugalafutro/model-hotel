@@ -1308,25 +1308,6 @@ describe("MembersPage", () => {
 		expect(badge.closest("tr")).toHaveTextContent("hotel-2");
 	});
 
-	// An older backend sends no effective_primary_id: the designation still
-	// badges its member.
-	it("falls back to the designation when the server sends no effective primary", async () => {
-		server.use(
-			http.get("/api/members", () =>
-				HttpResponse.json([
-					member({ id: "1", name: "hotel-1" }),
-					member({ id: "2", name: "hotel-2" }),
-				]),
-			),
-			http.get("/api/fleet/autosync", () =>
-				HttpResponse.json({ enabled: true, primary_id: "2" }),
-			),
-		);
-		renderPage();
-		const badge = await screen.findByTestId("primary-badge");
-		expect(badge.closest("tr")).toHaveTextContent("hotel-2");
-	});
-
 	// A dormant designation the marker outranks is still refused by the backend
 	// delete guard, so its row offers no Remove either.
 	it("gives a dormant designated member no Remove button", async () => {

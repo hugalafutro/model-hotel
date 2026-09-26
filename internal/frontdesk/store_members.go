@@ -10,6 +10,8 @@ import (
 	"unicode/utf8"
 
 	"github.com/google/uuid"
+	"modernc.org/sqlite"
+	sqlite3 "modernc.org/sqlite/lib"
 
 	"github.com/hugalafutro/model-hotel/internal/auth"
 	"github.com/hugalafutro/model-hotel/internal/debuglog"
@@ -56,52 +58,54 @@ func validMemberName(name string) (string, error) {
 	return name, nil
 }
 
-// CreateMember validates and inserts a new member. name must be non-empty and
-// rawURL must be a valid http(s) URL with a host; the URL is normalized (scheme
-// lowercased, trailing slash trimmed) and deduped. token is optional; when set
-// it is encrypted at rest with the store master key.
-func (s *Store) CreateMember(ctx context.Context, name, rawURL, token string) (*Member, error) {
-	return s.insertMember(ctx, name, rawURL, token, "", false)
-}
-
-// CreateVerifiedMember inserts a member together with the instance id its
-// verification learned, in one statement, so a verified add never sits
-// half-registered (present but un-deduplicable) between an insert and a
-// second write. An empty instanceID records no identity. A non-empty one
-// that another row already holds is refused by the members_instance_id_unique
-// index (ErrDuplicateInstance): that is the guarantee two adds racing on the
-// same host under different URLs rely on, since both can pass the scan the
-// handler runs before inserting. The same transaction records the former lone
-// member as the fleet primary when this add makes the roster two
-// (lonePrimaryMarker).
+// CreateVerifiedMember validates and inserts a member together with the
+// instance id its verification learned, in one statement, so a verified add
+// never sits half-registered (present but un-deduplicable) between an insert
+// and a second write. name must be non-empty and rawURL a valid http(s) URL
+// with a host (normalized: scheme lowercased, trailing slash trimmed, and
+// deduped); token is optional and encrypted at rest with the store master key.
+// An empty instanceID records no identity. A non-empty one that another row
+// already holds is refused by the members_instance_id_unique index
+// (ErrDuplicateInstance): that is the guarantee two adds racing on the same
+// host under different URLs rely on, since both can pass the scan the handler
+// runs before inserting. The same transaction records the former lone member
+// as the fleet primary when this add makes the roster two (lonePrimaryMarker).
 func (s *Store) CreateVerifiedMember(ctx context.Context, name, rawURL, token, instanceID string) (*Member, error) {
-	return s.insertMember(ctx, name, rawURL, token, instanceID, true)
-}
-
-// insertMember is the insert behind CreateMember (the row alone) and
-// CreateVerifiedMember (the row plus the lone-primary marker).
-func (s *Store) insertMember(ctx context.Context, name, rawURL, token, instanceID string, keepLonePrimary bool) (*Member, error) {
-	name, err := validMemberName(name)
-	if err != nil {
-		return nil, err
-	}
-	normURL, err := normalizeMemberURL(rawURL, s.allowHTTPMembers)
-	if err != nil {
-		return nil, err
-	}
-
-	cipher, nonce, salt, err := s.encryptToken(token)
-	if err != nil {
-		return nil, err
-	}
-
-	id := uuid.NewString()
-	now := time.Now().UTC().UnixNano()
 	tx, err := s.db.BeginTx(ctx, nil)
 	if err != nil {
 		return nil, fmt.Errorf("frontdesk: begin insert member: %w", err)
 	}
 	defer tx.Rollback() //nolint:errcheck // rollback after a successful commit is a no-op
+	id, err := s.insertMemberTx(ctx, tx, name, rawURL, token, instanceID)
+	if err != nil {
+		return nil, err
+	}
+	if _, err := tx.ExecContext(ctx, lonePrimaryMarker, id); err != nil {
+		return nil, fmt.Errorf("frontdesk: record lone primary: %w", err)
+	}
+	if err := commitTx(tx, "commit insert member"); err != nil {
+		return nil, err
+	}
+	return s.GetMember(ctx, id)
+}
+
+// insertMemberTx validates, encrypts and inserts one member row inside tx and
+// returns its id.
+func (s *Store) insertMemberTx(ctx context.Context, tx *sql.Tx, name, rawURL, token, instanceID string) (string, error) {
+	name, err := validMemberName(name)
+	if err != nil {
+		return "", err
+	}
+	normURL, err := normalizeMemberURL(rawURL, s.allowHTTPMembers)
+	if err != nil {
+		return "", err
+	}
+	cipher, nonce, salt, err := s.encryptToken(token)
+	if err != nil {
+		return "", err
+	}
+	id := uuid.NewString()
+	now := time.Now().UTC().UnixNano()
 	_, err = tx.ExecContext(ctx,
 		`INSERT INTO members (id, name, url, state, token_cipher, token_nonce, token_salt, instance_id, created_at, updated_at)
 		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
@@ -110,21 +114,13 @@ func (s *Store) insertMember(ctx context.Context, name, rawURL, token, instanceI
 	if err != nil {
 		if isUniqueViolation(err) {
 			if strings.Contains(err.Error(), "instance_id") {
-				return nil, ErrDuplicateInstance
+				return "", ErrDuplicateInstance
 			}
-			return nil, ErrDuplicateURL
+			return "", ErrDuplicateURL
 		}
-		return nil, fmt.Errorf("frontdesk: insert member: %w", err)
+		return "", fmt.Errorf("frontdesk: insert member: %w", err)
 	}
-	if keepLonePrimary {
-		if _, err := tx.ExecContext(ctx, lonePrimaryMarker, id); err != nil {
-			return nil, fmt.Errorf("frontdesk: record lone primary: %w", err)
-		}
-	}
-	if err := commitTx(tx, "commit insert member"); err != nil {
-		return nil, err
-	}
-	return s.GetMember(ctx, id)
+	return id, nil
 }
 
 // ListMembers returns all members ordered by creation time.
@@ -234,7 +230,7 @@ func (s *Store) SetMemberState(ctx context.Context, id string, state MemberState
 	return nil
 }
 
-// ValidateMember checks a member's name and URL the way CreateMember does, and
+// ValidateMember checks a member's name and URL the way CreateVerifiedMember does, and
 // that the URL is not already a member's, without inserting anything. The add
 // handler verifies the host first and inserts only a verified member: a row
 // inserted before verification counted toward the fleet-size floor for the
@@ -323,6 +319,26 @@ type RemovedMember struct{ ID, Name string }
 // DELETE statement itself, so a concurrent add, drain or repoint cannot slip
 // between the roster read and the write.
 func (s *Store) DeleteMemberOrDisband(ctx context.Context, id string) (DeleteOutcome, []RemovedMember, error) {
+	outcome, removed, err := s.deleteMemberOrDisband(ctx, id)
+	return outcome, removed, membershipChangedOnBusySnapshot(err)
+}
+
+// membershipChangedOnBusySnapshot maps SQLite's SQLITE_BUSY_SNAPSHOT to
+// ErrMembershipChanged and returns any other error unchanged. The delete
+// transaction reads the roster before it writes, and in WAL mode a write
+// another connection committed in between makes the first write fail with
+// that code, which busy_timeout does not retry: a roster change under the
+// operator's confirmed action, not a server fault. Every error path of the
+// delete returns a zero outcome and no rows, so only the error needs mapping.
+func membershipChangedOnBusySnapshot(err error) error {
+	var se *sqlite.Error
+	if errors.As(err, &se) && se.Code() == sqlite3.SQLITE_BUSY_SNAPSHOT {
+		return ErrMembershipChanged
+	}
+	return err
+}
+
+func (s *Store) deleteMemberOrDisband(ctx context.Context, id string) (DeleteOutcome, []RemovedMember, error) {
 	// The delete and its designation/sync-state cleanup run in one transaction,
 	// so a crash mid-way can never leave a fleet_sync_state row or auto-sync
 	// pointer naming a member that was already removed.

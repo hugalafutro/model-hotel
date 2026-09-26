@@ -61,11 +61,11 @@ func (s *Server) RunQuotaDistribute(ctx context.Context) {
 // the receiving member's suppression relies on: a node Front Desk is not
 // feeding has no recent fleet snapshot and keeps self-polling.
 //
-// It also waits for the fleet to be set up: a designation or a recorded sync
-// run. A fleet that only grew from one member (lonePrimaryMarker's no-run
-// marker) has never synced its providers, and members match snapshots by
-// provider name, so relaying then could hand a member the quota of a
-// same-named provider on a different account.
+// It also needs the operator to have chosen the source: a designation or a
+// recorded sync run. A primary named only by lonePrimaryMarker's no-run marker
+// (a fleet grown from one member) is nobody's explicit choice yet, and since
+// members match snapshots by provider name, relaying from it could hand a
+// member the quota of a same-named provider on a different account.
 func (s *Server) DistributeQuotaOnce(ctx context.Context) {
 	primaryID, members, cfg, ran, err := s.effectivePrimary(ctx)
 	if err != nil {

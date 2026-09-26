@@ -466,6 +466,24 @@ class DashboardScreenTest {
         composeTestRule.onNodeWithTag("member-autosync", useUnmergedTree = true).assertDoesNotExist()
     }
 
+    // A primary Front Desk names without a designation (a fleet grown from one
+    // member) is badged Primary, but the auto-sync lever only toggles a
+    // designated primary, so its card carries no auto-sync badge.
+    @Test
+    fun autoSyncBadgeAbsentOnAnUndesignatedPrimary() {
+        composeTestRule.setContent {
+            BellhopTheme {
+                DashboardScreen(
+                    link = link,
+                    ui = DashboardUiState(loading = false, members = allUp, primaryId = "", effectivePrimaryId = "m1"),
+                    canOperate = true,
+                )
+            }
+        }
+        composeTestRule.onNodeWithTag("member-primary", useUnmergedTree = true).assertIsDisplayed()
+        composeTestRule.onNodeWithTag("member-autosync", useUnmergedTree = true).assertDoesNotExist()
+    }
+
     @Test
     fun autoSyncForbiddenCollapsesToNoteWithoutToggle() {
         composeTestRule.setContent {

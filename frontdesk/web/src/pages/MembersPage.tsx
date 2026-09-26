@@ -89,10 +89,10 @@ export function MembersPage() {
 	const latestPrimary = useLatestRequest();
 	// The fleet primary is the server's answer (GET /api/fleet/autosync ->
 	// effective_primary_id: the sole member of a one-member fleet, otherwise the
-	// designation or last-sync marker resolved against the roster), falling back
-	// to the raw designation when it is absent (an older backend, or none
-	// resolves). The page never infers it from the roster. The response also
-	// carries the fleet-state verdict for the header badge; both refresh below.
+	// designation or last-sync marker resolved against the roster; absent when
+	// none resolves). The page never infers it from the roster. The response
+	// also carries the fleet-state verdict for the header badge; both refresh
+	// below.
 	const refreshPrimary = useCallback(() => {
 		const seq = latestPrimary.next();
 		api
@@ -102,8 +102,7 @@ export function MembersPage() {
 			})
 			.catch(() => {});
 	}, [latestPrimary]);
-	const primaryId =
-		autoSync?.effective_primary_id || autoSync?.primary_id || null;
+	const primaryId = autoSync?.effective_primary_id || null;
 	// useMembers owns the page's single SSE subscription; piggyback on it to
 	// refresh the auto-sync status when membership, a sync, health, a fleet /
 	// Traefik signal, or a settings change lands, rather than opening a second
@@ -168,9 +167,9 @@ export function MembersPage() {
 
 	// Only non-primary members are removable: neither the effective primary
 	// nor the raw designation gets a Remove button, matching the backend, which
-	// refuses deleting either with 409 (the wizard changes the primary). A fleet never shrinks
-	// to one member: at two members (or a lone row) Remove disbands the whole
-	// fleet and the confirm modal says so. A lone row keeps its Remove even when
+	// refuses deleting either with 409 (the wizard changes the primary). A
+	// fleet never shrinks to one member: at two members (or a lone row) Remove
+	// disbands the whole fleet and the confirm modal says so. A lone row keeps its Remove even when
 	// badged primary: with nothing to sync it protects nothing, and disbanding
 	// is the only way to empty the fleet.
 	const disbandOnRemove = members.length <= 2;
