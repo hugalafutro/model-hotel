@@ -9,6 +9,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync/atomic"
 
 	"github.com/google/uuid"
 
@@ -27,6 +28,9 @@ type Manager struct {
 	dataDir    string
 	tokenHash  string
 	plainToken string
+	// held records that the plaintext token has been handed to the log
+	// masker's held set, so Validate does it on the first success only.
+	held atomic.Bool
 }
 
 // New creates a new Manager. If initialToken is non-empty, it is used as the
@@ -47,6 +51,13 @@ func New(dataDir, initialToken string) (*Manager, bool, error) {
 
 	m.tokenHash = tokenHash
 	m.plainToken = plainToken
+	// No key-shape rule matches an admin token, so the log masker catches one
+	// only as a held secret. The plaintext exists here on first boot, and
+	// ADMIN_TOKEN is held whatever the file says; after that, the first
+	// request Validate accepts supplies it (HoldSecret ignores "").
+	util.HoldSecret(initialToken)
+	util.HoldSecret(plainToken)
+	m.held.Store(plainToken != "")
 
 	if isNew {
 		debuglog.Info("admin: generated new admin token", "data_dir", dataDir)
@@ -66,7 +77,16 @@ func (m *Manager) Validate(token string) bool {
 		return false
 	}
 	// tokenHash is always stored without the sha256: prefix (see loadOrCreateToken)
-	return subtle.ConstantTimeCompare([]byte(util.SHA256Hex(token)), []byte(m.tokenHash)) == 1
+	if subtle.ConstantTimeCompare([]byte(util.SHA256Hex(token)), []byte(m.tokenHash)) != 1 {
+		return false
+	}
+	// A restarted process keeps only the hash, so an accepted token is the
+	// one steady-state source of the plaintext for the log masker.
+	if !m.held.Load() {
+		util.HoldSecret(token)
+		m.held.Store(true)
+	}
+	return true
 }
 
 // writeTokenFileAtomic writes the admin-token file via a temp file + fsync +

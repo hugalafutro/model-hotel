@@ -6,6 +6,10 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/google/uuid"
+
+	"github.com/hugalafutro/model-hotel/internal/util"
 )
 
 func TestNewCreatesHashedToken(t *testing.T) {
@@ -728,5 +732,44 @@ func TestMalformedStoredHashFailsStartup(t *testing.T) {
 				t.Fatal("New() accepted a token file that can never authenticate")
 			}
 		})
+	}
+}
+
+// Regression pin: a restarted process keeps only the token's hash, so the
+// log masker had no plaintext to hold and an admin token leaking into a log
+// line went out unmasked. The first request Validate accepts supplies it.
+func TestValidate_HoldsTheAcceptedTokenForTheLogMasker(t *testing.T) {
+	dir := t.TempDir()
+	// Unique per run: the held set is process-lifetime.
+	token := "steady-state-admin-" + uuid.NewString()
+	if err := os.WriteFile(filepath.Join(dir, "admin-token"), []byte(sha256Prefix+util.SHA256Hex(token)), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	mgr, _, err := New(dir, "")
+	if err != nil {
+		t.Fatalf("New() failed: %v", err)
+	}
+	if got := util.MaskCredentials(nil, "leak "+token); got != "leak "+token {
+		t.Fatalf("the token was held before any request proved it: %q", got)
+	}
+	if mgr.Validate("wrong-" + token) {
+		t.Fatal("a wrong token validated")
+	}
+	if !mgr.Validate(token) {
+		t.Fatal("the stored token did not validate")
+	}
+	if got := util.MaskCredentials(nil, "leak "+token); got != "leak [redacted]" {
+		t.Fatalf("an accepted token was not masked afterwards: %q", got)
+	}
+}
+
+// On first boot the plaintext exists in New, so it is held from startup.
+func TestNew_HoldsTheFirstBootTokenForTheLogMasker(t *testing.T) {
+	token := "first-boot-admin-" + uuid.NewString()
+	if _, _, err := New(t.TempDir(), token); err != nil {
+		t.Fatalf("New() failed: %v", err)
+	}
+	if got := util.MaskCredentials(nil, "leak "+token); got != "leak [redacted]" {
+		t.Fatalf("the first-boot token was not held: %q", got)
 	}
 }

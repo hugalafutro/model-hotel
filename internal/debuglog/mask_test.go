@@ -441,6 +441,14 @@ func TestMaskAny_MasksMapKeysWithoutDroppingEntries(t *testing.T) {
 	if _, ok := m["[redacted]#2"]; !ok {
 		t.Fatalf("masked map = %v, want the colliding key suffixed #2", m)
 	}
+	// The suffixes follow the keys' order, not map order, so every record of
+	// the same map reads the same.
+	for range 50 {
+		masked, _ := maskAny(fn, map[string]string{"SECRETA": "1", "SECRETB": "2"})
+		if m := masked.(map[string]any); m["[redacted]"] != "1" || m["[redacted]#2"] != "2" {
+			t.Fatalf("masked map = %v, want SECRETA unsuffixed and SECRETB as #2", m)
+		}
+	}
 }
 
 // The JSON form is clean but MarshalText, what the text handler prints,

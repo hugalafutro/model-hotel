@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"net/url"
 	"regexp"
+	"slices"
 	"strings"
 )
 
@@ -44,10 +45,14 @@ var unambiguousKeyShape = regexp.MustCompile(`\bAIza[0-9A-Za-z_-]{30,}|\bAKIA[A-
 
 // secretParamShape is a credential passed by name in a query string or a form
 // body ("?api_key=...", "&client_secret=..."), whatever format the value has:
-// the name says what it is, so no key shape is needed. The value stops at the
-// next parameter, whitespace, a quote or a backslash, so a JSON body stays
-// valid. "max_tokens=" does not match: the name must end right at the "=".
-var secretParamShape = regexp.MustCompile(`(?i)(api[_-]?key|access_token|token|secret|password)=[^&\s"'\\<>]+`)
+// the name says what it is, so no key shape is needed. The name must start a
+// parameter (the text start, "?", "&", whitespace, a quote, "(", "," or ";")
+// and be one of the credential names, so "max_token=5", "has_secret=true" and
+// "prompt_token=3" are left alone. A bare "key=" is not one: the gateway logs
+// a virtual key's NAME under that attribute. The value stops at the next
+// parameter or separator (&,;) or whitespace, a quote or a backslash, so the
+// rest of the line survives and a JSON body stays valid.
+var secretParamShape = regexp.MustCompile(`(?i)(^|[?&\s"'(,;])((?:client_|refresh_|access_|auth_)?(?:token|secret|password)|(?:api|access|secret|client)[_-]?key)=[^&,;)\s"'\\<>]+`)
 
 // CredentialMinLen is the shortest provider key the exact-value mask will
 // redact. Keyless local providers carry an empty key and a handful of test or
@@ -91,7 +96,7 @@ func MaskKeyShapedTokens(body []byte) []byte {
 	})
 	body = unambiguousKeyShape.ReplaceAll(body, []byte("[redacted]"))
 	body = URLUserinfoRE.ReplaceAll(body, []byte("${1}[redacted]@"))
-	return secretParamShape.ReplaceAll(body, []byte("${1}=[redacted]"))
+	return secretParamShape.ReplaceAll(body, []byte("${1}${2}=[redacted]"))
 }
 
 // maskShapes is MaskKeyShapedTokens over a string. Text no pattern matches,
@@ -197,24 +202,52 @@ func MaskCredentialBounded(secret, body string, maxLen int) string {
 
 // MaskExactCredentials is the exact pass alone: every listed secret of
 // credential length and every held secret (see withHeld for the order), each
-// also in its query-escaped form, so a key quoted inside a logged URL ("+" as
-// "%2B", "/" as "%2F") is masked too. It cannot false-positive, so it is the
-// pass for error text that must not meet the shape regexes (prose a client
-// reads). A caller that lists a superset ("Bearer X") before its subset ("X")
-// has the whole token consumed first.
+// also in its URL-escaped forms (escapedForms), so a key quoted inside a
+// logged URL ("+" as "%2B", "/" as "%2F", in a query or a path segment) is
+// masked too. A held secret's forms are held beside it (HoldSecret); a listed
+// one's are built here. It cannot false-positive, so it is the pass for error
+// text that must not meet the shape regexes (prose a client reads). A caller
+// that lists a superset ("Bearer X") before its subset ("X") has the whole
+// token consumed first.
 func MaskExactCredentials(secrets []string, body string) string {
 	for _, secret := range withHeld(secrets) {
-		if len(secret) < CredentialMinLen {
-			continue
-		}
-		if strings.Contains(body, secret) {
-			body = strings.ReplaceAll(body, secret, "[redacted]")
-		}
-		// QueryEscape returns its argument without allocating when nothing in
-		// it needs escaping, the common case.
-		if escaped := url.QueryEscape(secret); escaped != secret && strings.Contains(body, escaped) {
-			body = strings.ReplaceAll(body, escaped, "[redacted]")
+		body = maskOne(secret, body)
+	}
+	for _, secret := range secrets {
+		if len(secret) >= CredentialMinLen {
+			for _, form := range escapedForms(secret) {
+				body = maskOne(form, body)
+			}
 		}
 	}
 	return body
 }
+
+func maskOne(secret, body string) string {
+	if len(secret) >= CredentialMinLen && strings.Contains(body, secret) {
+		return strings.ReplaceAll(body, secret, "[redacted]")
+	}
+	return body
+}
+
+// escapedForms returns the renderings of secret a URL can carry that differ
+// from it: query-escaped and path-escaped, each also with lowercase hex
+// ("%2f"), which some encoders emit. Mixed-case hex within one key is not
+// covered.
+func escapedForms(secret string) []string {
+	var forms []string
+	for _, f := range []string{url.QueryEscape(secret), url.PathEscape(secret)} {
+		if f == secret {
+			continue
+		}
+		lower := percentHex.ReplaceAllStringFunc(f, strings.ToLower)
+		for _, g := range []string{f, lower} {
+			if !slices.Contains(forms, g) {
+				forms = append(forms, g)
+			}
+		}
+	}
+	return forms
+}
+
+var percentHex = regexp.MustCompile(`%[0-9A-F]{2}`)

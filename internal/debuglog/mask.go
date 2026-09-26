@@ -7,6 +7,8 @@ import (
 	"fmt"
 	"log/slog"
 	"reflect"
+	"slices"
+	"strings"
 	"sync/atomic"
 )
 
@@ -135,7 +137,9 @@ const depthMarker = "[omitted: nested past the log masker's depth]"
 // carries text (a struct, a pointer, an error, a Stringer, a type with its own
 // MarshalJSON or MarshalText) is rendered the way each sink renders it (see
 // maskRendered) and, when any rendering masks differently, replaced by the
-// masked text.
+// masked text. That replacement is a string in every sink, so a value with a
+// MarshalJSON that masks differently reaches the JSON sink as a JSON string,
+// not the object it marshals to.
 func maskAny(fn func(string) string, x any) (any, bool) {
 	return maskAnyDepth(fn, x, maskDepth)
 }
@@ -206,14 +210,24 @@ func maskSlice(fn func(string) string, rv reflect.Value, depth int) (any, bool) 
 // Keys become field names, rendered to strings for a map with non-string
 // keys. Two keys that render or mask to the same name (two credentials both
 // masked to "[redacted]") keep both entries: the later one gets a "#2", "#3"
-// suffix rather than overwriting the first.
+// suffix rather than overwriting the first. Entries are taken in the order of
+// their rendered keys, not map order, so the same map gets the same suffixes
+// on every record.
 func maskMap(fn func(string) string, rv reflect.Value, depth int) (any, bool) {
-	out := make(map[string]any, rv.Len())
-	changed := false
+	type entry struct {
+		key string
+		val any
+	}
+	entries := make([]entry, 0, rv.Len())
 	for iter := rv.MapRange(); iter.Next(); {
-		k := fmt.Sprint(iter.Key().Interface())
-		mk := fn(k)
-		if mk != k {
+		entries = append(entries, entry{fmt.Sprint(iter.Key().Interface()), iter.Value().Interface()})
+	}
+	slices.SortFunc(entries, func(a, b entry) int { return strings.Compare(a.key, b.key) })
+	out := make(map[string]any, len(entries))
+	changed := false
+	for _, e := range entries {
+		mk := fn(e.key)
+		if mk != e.key {
 			changed = true
 		}
 		if _, taken := out[mk]; taken {
@@ -226,11 +240,11 @@ func maskMap(fn func(string) string, rv reflect.Value, depth int) (any, bool) {
 				}
 			}
 		}
-		e := iter.Value().Interface()
-		if m, ok := maskAnyDepth(fn, e, depth); ok {
-			e, changed = m, true
+		v := e.val
+		if m, ok := maskAnyDepth(fn, v, depth); ok {
+			v, changed = m, true
 		}
-		out[mk] = e
+		out[mk] = v
 	}
 	if !changed {
 		return nil, false
@@ -243,12 +257,18 @@ func maskMap(fn func(string) string, rv reflect.Value, depth int) (any, bool) {
 // rendering is not enough: the text handler prints a struct's nested pointer
 // as an address where the JSON sink prints the string behind it, and a type's
 // own MarshalJSON or MarshalText can emit text neither %+v nor String shows.
+// The text rendering is masked only when it differs from the JSON one, which
+// for an error or a Stringer it almost never does.
 func maskRendered(fn func(string) string, x any) (any, bool) {
-	for _, render := range [...]func(any) (string, bool){jsonRendering, textRendering} {
-		if s, ok := render(x); ok {
-			if m := fn(s); m != s {
-				return m, true
-			}
+	js, jsOK := jsonRendering(x)
+	if jsOK {
+		if m := fn(js); m != js {
+			return m, true
+		}
+	}
+	if ts, ok := textRendering(x); ok && (!jsOK || ts != js) {
+		if m := fn(ts); m != ts {
+			return m, true
 		}
 	}
 	return nil, false

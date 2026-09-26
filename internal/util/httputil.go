@@ -19,7 +19,11 @@ import (
 // unbounded at the top end, so no margin can promise to contain them. The
 // guarantee comes from the patterns themselves, each of which matches its own
 // truncated prefix: a credential cut by the window is still recognised as
-// one, and redacted, rather than leaving a head fragment behind.
+// one, and redacted, rather than leaving a head fragment behind. URLUserinfoRE
+// is the exception, since a userinfo cut before its "@" no longer matches; the
+// scrub runs over the whole window before the cut at maxLen, so only a
+// userinfo longer than scrubMargin could straddle the window, and its head
+// then falls past maxLen and is discarded with the rest.
 const scrubMargin = 4096
 
 // MaskLogText applies every rewrite a fragment can go through before it is
