@@ -126,7 +126,7 @@ export function ProviderFilter({
 			{selected.size > 0 && (
 				<button
 					type="button"
-					className="ui-badge absolute right-7 top-1/2 -translate-y-1/2 inline-flex items-center justify-center w-4 h-4 text-[10px] font-medium bg-(--accent-light) text-(--accent)"
+					className="ui-badge absolute end-8 top-1/2 -translate-y-1/2 inline-flex items-center justify-center w-4 h-4 text-[10px] font-medium bg-(--accent-light) text-(--accent)"
 					onClick={clear}
 					aria-label={t("components.providerFilter.clearFilter")}
 					title={t("components.providerFilter.clearFilter")}
@@ -201,7 +201,9 @@ export function ProviderFilter({
 						role="listbox"
 						aria-multiselectable="true"
 						aria-label={t("components.providerFilter.filterProviders")}
-						className="max-h-48 overflow-y-auto px-1"
+						// One row shorter than it was: at max-h-48 the open list just
+						// pushed the create-group modal into a scrollbar on a 1440p screen.
+						className="max-h-40 overflow-y-auto px-1"
 					>
 						{filtered.length === 0 ? (
 							<div className="px-2.5 py-3 text-xs text-(--text-muted) text-center">
