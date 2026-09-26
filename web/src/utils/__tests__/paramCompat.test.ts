@@ -46,6 +46,23 @@ describe("normalizeToProviderType", () => {
 		expect(normalizeToProviderType("z.ai Coding")).toBe("zai-coding");
 	});
 
+	// Regression pin: the Messages type is not folded into "anthropic", whose
+	// table hides reasoning_effort.
+	it("keeps Anthropic Messages apart from Anthropic", () => {
+		expect(normalizeToProviderType("anthropic-messages")).toBe(
+			"anthropic-messages",
+		);
+		expect(normalizeToProviderType("Anthropic Messages")).toBe(
+			"anthropic-messages",
+		);
+		expect(normalizeToProviderType("My Anthropic Messages")).toBe(
+			"anthropic-messages",
+		);
+		expect(isParamHidden("Anthropic Messages", "reasoning_effort")).toBe(false);
+		expect(isParamHidden("Anthropic Messages", "top_p")).toBe(true);
+		expect(isParamHidden("Anthropic", "reasoning_effort")).toBe(true);
+	});
+
 	it("handles Ollama Cloud (matches ollama-cloud directly)", () => {
 		expect(normalizeToProviderType("Ollama Cloud")).toBe("ollama-cloud");
 	});

@@ -139,7 +139,7 @@ func cachedRenames(cache *sync.Map, cacheKey string) map[string]string {
 
 // ParseProviderParamRename parses 400 error bodies for params the upstream wants
 // renamed rather than dropped. Unlike a rejected param (which we strip), a
-// renamed param carries a value we must preserve under the new name — stripping
+// renamed param carries a value we must preserve under the new name; stripping
 // it would silently discard the caller's intent (e.g. their token budget).
 //
 // The only case in the wild today: OpenAI's gpt-5 and o-series models reject the
@@ -159,7 +159,7 @@ func ParseProviderParamRename(body []byte) map[string]string {
 	// require the old name, the new name, AND the "use X instead" wording. This
 	// excludes value-validation errors that merely mention max_completion_tokens
 	// (e.g. "max_completion_tokens must not exceed 4096"), which would otherwise
-	// poison the rename cache and force every max_tokens request to be renamed —
+	// poison the rename cache and force every max_tokens request to be renamed,
 	// breaking a sibling model on the same key that natively accepts max_tokens.
 	if strings.Contains(msg, "max_tokens") &&
 		strings.Contains(msg, "max_completion_tokens") &&
@@ -203,6 +203,22 @@ func isValueRangeComplaint(msg string) bool {
 	return false
 }
 
+// isEnumValueComplaint reports whether msg refuses one value of an enum param
+// while the param itself stands: OpenAI's "Unsupported value:
+// 'reasoning_effort' does not support 'none' with this model. Supported values
+// are: 'low', 'medium', and 'high'." The quoted value (or the list of supported
+// ones) is what tells it apart from a numeric refusal such as "'temperature'
+// does not support 0", which stays learnable because the model then takes only
+// its default.
+func isEnumValueComplaint(msg string) bool {
+	lower := strings.ToLower(msg)
+	return strings.Contains(lower, "supported values") || strings.Contains(lower, "does not support '")
+}
+
+// enumParams are the params whose value is a word from a fixed set, so a
+// refusal of one value says nothing about the others.
+var enumParams = []string{"reasoning_effort"}
+
 // paramQuoteChars are the quote styles providers wrap a parameter name in when
 // they name it in a 400. Anchoring on a quote is what keeps short names like
 // "n" and "stop" from matching unrelated prose.
@@ -227,7 +243,7 @@ func paramIsQuoted(msg, param string) bool {
 
 // ParseProviderParamError parses 400 error bodies for rejected sampling/param names.
 // Any LLM API mentioning these param names in a 400 error can only be referring
-// to the request parameter — there is no other meaning in this context.
+// to the request parameter; there is no other meaning in this context.
 // This works universally across all providers, not just Anthropic.
 func ParseProviderParamError(body []byte) map[string]bool {
 	msg := util.ErrorEnvelopeMessage(body)
@@ -245,7 +261,7 @@ func ParseProviderParamError(body []byte) map[string]bool {
 	}
 	rejected := make(map[string]bool)
 
-	// "cannot both be specified" — strip top_p, keep temperature
+	// "cannot both be specified"; strip top_p, keep temperature
 	if strings.Contains(msg, "cannot both be specified") {
 		rejected["top_p"] = true
 	}
@@ -275,12 +291,21 @@ func ParseProviderParamError(body []byte) map[string]bool {
 			rejected[p] = true
 		}
 	}
+	// One refused enum value is the caller's choice, not the model's verdict on
+	// the param: learning it as a strip would turn every later low/medium/high
+	// request to the model into a request with no reasoning_effort at all. The
+	// 400 goes back to the caller who picked the value.
+	if isEnumValueComplaint(msg) {
+		for _, p := range enumParams {
+			delete(rejected, p)
+		}
+	}
 	// chat_template_args is a non-standard field model-hotel injects for some
 	// OpenCode providers (see InjectProviderParams). Strict upstream backends
 	// reject it with varying message formats and quote styles, e.g. vLLM's
 	// "Extra inputs are not permitted, field: 'chat_template_args'" (single
 	// quotes) or OpenAI's "Unrecognized request argument: chat_template_args"
-	// (bare). The token is specific enough that a bare substring match is safe —
+	// (bare). The token is specific enough that a bare substring match is safe:
 	// it has no other meaning in an error message. Stripping it on retry trades
 	// reasoning output for a successful completion on models that reject it.
 	if strings.Contains(msg, "chat_template_args") {

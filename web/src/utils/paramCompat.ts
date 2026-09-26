@@ -3,7 +3,10 @@ import type { GenerationParams } from "../api/types";
 /**
  * Maps provider type → param key → human-readable reason the param is incompatible.
  * Provider type keys must match the backend's provider-type vocabulary
- * (internal/provider/types.go) and the ProviderBrand keys.
+ * (internal/provider/types.go) and the ProviderBrand keys. Whether a type hides
+ * reasoning_effort follows ProviderUnsupportedParams in
+ * internal/paramrewrite/params.go, which TestDashboardReasoningEffortMatchesStrips
+ * checks against this table.
  */
 export const PROVIDER_PARAM_INCOMPATIBILITY: Record<
 	string,
@@ -15,6 +18,14 @@ export const PROVIDER_PARAM_INCOMPATIBILITY: Record<
 		presence_penalty: "paramCompat.anthropic.presencePenalty",
 		min_p: "paramCompat.anthropic.minP",
 		reasoning_effort: "paramCompat.anthropic.reasoningEffort",
+	},
+	// The Messages type keeps reasoning_effort and turns it into a thinking
+	// request, so the reasoning control (None included) stays visible there.
+	"anthropic-messages": {
+		top_p: "paramCompat.anthropic.topP",
+		frequency_penalty: "paramCompat.anthropic.frequencyPenalty",
+		presence_penalty: "paramCompat.anthropic.presencePenalty",
+		min_p: "paramCompat.anthropic.minP",
 	},
 	google: {
 		frequency_penalty: "paramCompat.google.frequencyPenalty",
@@ -101,6 +112,8 @@ export function normalizeToProviderType(providerName: string): string {
 
 	// Substring heuristic: check if the provider name contains a known type
 	const typePatterns: Record<string, string[]> = {
+		// Before the bare "anthropic" row: every Messages name contains it too.
+		"anthropic-messages": ["anthropic-messages"],
 		anthropic: ["anthropic"],
 		openai: ["openai"],
 		google: ["google", "gemini", "generativelanguage"],

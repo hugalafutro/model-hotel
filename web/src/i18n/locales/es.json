@@ -2572,7 +2572,8 @@
 			"default": "Predeterminado",
 			"none": "Ninguno",
 			"defaultHint": "Deja que decida el proveedor",
-			"noneHint": "Desactiva el razonamiento por completo"
+			"noneHint": "Desactiva el razonamiento por completo",
+			"hintLine": "{{label}}: {{hint}}"
 		},
 		"dataTable": {
 			"sortBy": "Ordenar por {{label}}",

@@ -2572,7 +2572,8 @@
 			"default": "Implicit",
 			"none": "Niciunul",
 			"defaultHint": "Lasă furnizorul să decidă",
-			"noneHint": "Dezactivează complet raționamentul"
+			"noneHint": "Dezactivează complet raționamentul",
+			"hintLine": "{{label}}: {{hint}}"
 		},
 		"dataTable": {
 			"sortBy": "Sortează după {{label}}",

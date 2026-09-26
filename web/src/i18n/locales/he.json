@@ -2572,7 +2572,8 @@
 			"default": "ברירת מחדל",
 			"none": "ללא",
 			"defaultHint": "תן לספק להחליט",
-			"noneHint": "כבה את החשיבה לחלוטין"
+			"noneHint": "כבה את החשיבה לחלוטין",
+			"hintLine": "{{label}}: {{hint}}"
 		},
 		"dataTable": {
 			"sortBy": "מיין לפי {{label}}",

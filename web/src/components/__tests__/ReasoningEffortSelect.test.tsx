@@ -1,6 +1,7 @@
 import { screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
+import i18n from "../../i18n";
 import { renderWithProviders } from "../../test/utils";
 import { ReasoningEffortSelect } from "../ReasoningEffortSelect";
 
@@ -152,20 +153,43 @@ describe("ReasoningEffortSelect", () => {
 		);
 	});
 
-	it("Default and None carry a hint, the levels do not", () => {
+	// Regression pin: the hints are visible text tied to their buttons, not
+	// tooltips a keyboard user never sees.
+	it("Default and None are described by visible hints, the levels are not", () => {
 		renderWithProviders(<ReasoningEffortSelect {...defaultProps} />);
 
-		expect(screen.getByRole("button", { name: /Default/i })).toHaveAttribute(
-			"title",
-			"Let the provider decide",
+		const key = "components.reasoningEffortSelect";
+		expect(
+			screen.getByRole("button", { name: i18n.t(`${key}.default`) }),
+		).toHaveAccessibleDescription(
+			i18n.t(`${key}.hintLine`, {
+				label: i18n.t(`${key}.default`),
+				hint: i18n.t(`${key}.defaultHint`),
+			}),
 		);
-		expect(screen.getByRole("button", { name: /None/i })).toHaveAttribute(
-			"title",
-			"Switch thinking off entirely",
+		expect(
+			screen.getByRole("button", { name: i18n.t(`${key}.none`) }),
+		).toHaveAccessibleDescription(
+			i18n.t(`${key}.hintLine`, {
+				label: i18n.t(`${key}.none`),
+				hint: i18n.t(`${key}.noneHint`),
+			}),
 		);
-		expect(screen.getByRole("button", { name: /Low/i })).not.toHaveAttribute(
-			"title",
-		);
+		expect(
+			screen.getByText(i18n.t(`${key}.noneHint`), { exact: false }),
+		).toBeVisible();
+		expect(
+			screen.getByRole("button", { name: i18n.t(`${key}.low`) }),
+		).not.toHaveAttribute("aria-describedby");
+	});
+
+	it("labels the buttons as one group named Reasoning Effort", () => {
+		renderWithProviders(<ReasoningEffortSelect {...defaultProps} />);
+
+		const group = screen.getByRole("group", {
+			name: i18n.t("components.reasoningEffortSelect.reasoningEffort"),
+		});
+		expect(group.querySelectorAll("button")).toHaveLength(5);
 	});
 
 	it("clicking the selected button keeps that value instead of clearing it", async () => {

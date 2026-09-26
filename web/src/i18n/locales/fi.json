@@ -2514,7 +2514,8 @@
 			"default": "Oletus",
 			"none": "Ei mitään",
 			"defaultHint": "Anna palveluntarjoajan päättää",
-			"noneHint": "Kytke ajattelu kokonaan pois"
+			"noneHint": "Kytke ajattelu kokonaan pois",
+			"hintLine": "{{label}}: {{hint}}"
 		},
 		"dataTable": {
 			"sortBy": "Järjestä {{label}} mukaan",

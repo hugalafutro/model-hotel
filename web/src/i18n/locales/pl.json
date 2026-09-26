@@ -2630,7 +2630,8 @@
 			"default": "Domyślny",
 			"none": "Brak",
 			"defaultHint": "Pozostaw decyzję dostawcy",
-			"noneHint": "Całkowicie wyłącz rozumowanie"
+			"noneHint": "Całkowicie wyłącz rozumowanie",
+			"hintLine": "{{label}}: {{hint}}"
 		},
 		"dataTable": {
 			"sortBy": "Sortuj według {{label}}",

@@ -2514,7 +2514,8 @@
 			"default": "기본값",
 			"none": "없음",
 			"defaultHint": "제공업체가 결정하도록 함",
-			"noneHint": "추론을 완전히 끄기"
+			"noneHint": "추론을 완전히 끄기",
+			"hintLine": "{{label}}: {{hint}}"
 		},
 		"dataTable": {
 			"sortBy": "정렬 기준 {{label}}",

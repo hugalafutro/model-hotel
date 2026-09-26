@@ -2514,7 +2514,8 @@
 			"default": "Mặc định",
 			"none": "Không có",
 			"defaultHint": "Để nhà cung cấp quyết định",
-			"noneHint": "Tắt hoàn toàn khả năng suy luận"
+			"noneHint": "Tắt hoàn toàn khả năng suy luận",
+			"hintLine": "{{label}}: {{hint}}"
 		},
 		"dataTable": {
 			"sortBy": "Sắp xếp theo {{label}}",

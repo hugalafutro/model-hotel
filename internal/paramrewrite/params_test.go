@@ -3,6 +3,10 @@ package paramrewrite
 import (
 	"encoding/json"
 	"fmt"
+	"os"
+	"regexp"
+	"slices"
+	"strings"
 	"sync"
 	"testing"
 )
@@ -27,7 +31,7 @@ func TestParseProviderParamError_GoogleArrayWrappedReasoning(t *testing.T) {
 		t.Errorf("expected \"reasoning\" to be learned as rejected, got %v", rejected)
 	}
 	if rejected["reasoning_effort"] {
-		t.Error("\"reasoning\" must not also strip reasoning_effort — they are separate params")
+		t.Error("\"reasoning\" must not also strip reasoning_effort; they are separate params")
 	}
 }
 
@@ -86,7 +90,7 @@ func TestLearnedCacheKey_ScopedPerProviderNotPerType(t *testing.T) {
 		t.Error("provider A taught us it rejects top_p, so its own requests must drop it")
 	}
 	if _, present := rawB["top_p"]; !present {
-		t.Error("provider B never rejected top_p — another openai-typed endpoint's 400 " +
+		t.Error("provider B never rejected top_p; another openai-typed endpoint's 400 " +
 			"must not strip it here")
 	}
 }
@@ -156,5 +160,65 @@ func TestParseProviderParamError_ValueRangeComplaintTeachesNothing(t *testing.T)
 	body := []byte(`{"error":{"message":"Unsupported value: 'temperature' does not support 0 with this model. Only the default (1) value is supported."}}`)
 	if rejected := ParseProviderParamError(body); !rejected["temperature"] {
 		t.Errorf("unsupported-value refusal no longer learned: %v", rejected)
+	}
+}
+
+// Regression pin: a model that refuses one reasoning_effort value still takes
+// the others, so the refusal is handed back to the caller and nothing is
+// learned; a param the model does not take at all is still learned.
+func TestParseProviderParamError_EnumValueRefusalTeachesNothing(t *testing.T) {
+	t.Parallel()
+
+	for _, msg := range []string{
+		`Unsupported value: 'reasoning_effort' does not support 'none' with this model. Supported values are: 'low', 'medium', and 'high'.`,
+		`Invalid value for 'reasoning_effort'. Supported values are: 'low' and 'high'.`,
+	} {
+		body := []byte(`{"error":{"message":` + fmt.Sprintf("%q", msg) + `,"type":"invalid_request_error","param":"reasoning_effort","code":"unsupported_value"}}`)
+		if rejected := ParseProviderParamError(body); rejected["reasoning_effort"] {
+			t.Errorf("%q: learned reasoning_effort as a strip, want nothing", msg)
+		}
+	}
+	for _, msg := range []string{
+		`Unsupported value: 'temperature' does not support 0 with this model. Only the default (1) value is supported.`,
+		`Unrecognized request argument supplied: 'reasoning_effort'`,
+		`Unsupported parameter: 'reasoning_effort' is not supported with this model.`,
+	} {
+		body := []byte(`{"error":{"message":` + fmt.Sprintf("%q", msg) + `}}`)
+		if rejected := ParseProviderParamError(body); len(rejected) != 1 {
+			t.Errorf("%q: learned %v, want the one named param", msg, rejected)
+		}
+	}
+}
+
+// The dashboard hides the reasoning control on a provider type whose
+// PROVIDER_PARAM_INCOMPATIBILITY entry names reasoning_effort. Hiding it where
+// the backend forwards the param makes None unreachable on the one type that
+// honours it; showing it where the backend strips the param offers a switch
+// that does nothing. Every type this package strips for must have an entry
+// there that agrees.
+func TestDashboardReasoningEffortMatchesStrips(t *testing.T) {
+	const tablePath = "../../web/src/utils/paramCompat.ts"
+	raw, err := os.ReadFile(tablePath)
+	if err != nil {
+		t.Fatalf("read %s: %v", tablePath, err)
+	}
+	source := string(raw)
+	start := strings.Index(source, "PROVIDER_PARAM_INCOMPATIBILITY")
+	end := strings.Index(source, "\n};")
+	if start < 0 || end < start {
+		t.Fatalf("PROVIDER_PARAM_INCOMPATIBILITY not found in %s", tablePath)
+	}
+	table := source[start:end]
+	for typ, params := range ProviderUnsupportedParams {
+		entry := regexp.MustCompile(`(?m)^\t"?` + regexp.QuoteMeta(typ) + `"?: \{([^}]*)\}`).FindStringSubmatch(table)
+		if entry == nil {
+			t.Errorf("provider type %q has no entry in %s", typ, tablePath)
+			continue
+		}
+		strips := slices.Contains(params, "reasoning_effort")
+		hides := strings.Contains(entry[1], "reasoning_effort:")
+		if strips != hides {
+			t.Errorf("provider type %q: backend strips reasoning_effort = %v, dashboard hides it = %v", typ, strips, hides)
+		}
 	}
 }

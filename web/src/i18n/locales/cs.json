@@ -2630,7 +2630,8 @@
 			"default": "Výchozí",
 			"none": "Žádné",
 			"defaultHint": "Rozhodnutí nechat na poskytovateli",
-			"noneHint": "Úplně vypnout uvažování"
+			"noneHint": "Úplně vypnout uvažování",
+			"hintLine": "{{label}}: {{hint}}"
 		},
 		"dataTable": {
 			"sortBy": "Seřadit podle {{label}}",

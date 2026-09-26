@@ -2514,7 +2514,8 @@
 			"default": "默认",
 			"none": "无",
 			"defaultHint": "由提供商决定",
-			"noneHint": "完全关闭思考"
+			"noneHint": "完全关闭思考",
+			"hintLine": "{{label}}：{{hint}}"
 		},
 		"dataTable": {
 			"sortBy": "按 {{label}} 排序",
