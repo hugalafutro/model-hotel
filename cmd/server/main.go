@@ -95,6 +95,12 @@ func main() {
 	if err != nil {
 		debuglog.Fatal("startup: failed to initialize admin manager", "error", err)
 	}
+	// No key-shape rule matches an admin token, so it is held for the exact
+	// layer and a leak into any log line after this is masked. Token() is the
+	// plaintext only on first boot (the file keeps a hash), so ADMIN_TOKEN is
+	// held too; HoldSecret ignores an empty value.
+	util.HoldSecret(cfg.AdminToken)
+	util.HoldSecret(adminMgr.Token())
 
 	database, err := db.New(ctx, cfg.DatabaseURL, cfg.DBMaxConns, cfg.DBMinConns)
 	if err != nil {

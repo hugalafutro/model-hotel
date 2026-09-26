@@ -1,8 +1,10 @@
 package util
 
 import (
+	"net/url"
 	"strings"
 	"testing"
+	"unsafe"
 )
 
 // The shapes an upstream has actually been seen to quote back, plus the prose
@@ -127,7 +129,7 @@ func TestSanitizeLogBody_ScrubsCredentials(t *testing.T) {
 // Every pattern has to match its own truncated prefix, because the scan window
 // and the caller's own truncation both cut mid-credential. A JWT is the one
 // that needed two dots to match at all, so a long one cut short matched
-// nothing and left its header and payload — the parts carrying the claims — in
+// nothing and left its header and payload, the parts carrying the claims, in
 // the output.
 func TestMaskKeyShapedTokens_MasksTruncatedCredentials(t *testing.T) {
 	long := func(prefix string, n int) string { return prefix + strings.Repeat("a", n) }
@@ -272,5 +274,42 @@ func TestMaskCredentialsBounded_StripStaysWithinMaxLen(t *testing.T) {
 	}
 	if n := len(strings.TrimSuffix(got, "…")); n > 200 {
 		t.Errorf("result is %d bytes, over maxLen 200", n)
+	}
+}
+
+// Regression pin: a credential passed by name in a query string, or as a
+// URL's userinfo, has no key shape, so an unheld custom token or a basic-auth
+// password in a logged URL passed the mask untouched.
+func TestMaskCredentials_MasksNamedParametersAndURLUserinfo(t *testing.T) {
+	for _, tc := range []struct{ in, want string }{
+		{"GET https://relay.example/v1/models?foo=1&api_key=customTokenNoShape&x=2 failed",
+			"GET https://relay.example/v1/models?foo=1&api_key=[redacted]&x=2 failed"},
+		{`{"error":"bad client_secret=abc.def in form"}`, `{"error":"bad client_secret=[redacted] in form"}`},
+		{"dial https://bob:hunter2pass@proxy.example:8443/v1 refused", "dial https://[redacted]@proxy.example:8443/v1 refused"},
+		{"max_tokens=4096 exceeds the limit", "max_tokens=4096 exceeds the limit"},
+	} {
+		if got := MaskCredentials(nil, tc.in); got != tc.want {
+			t.Errorf("MaskCredentials(%q) = %q, want %q", tc.in, got, tc.want)
+		}
+	}
+}
+
+// Regression pin: a held key quoted inside a URL is query-escaped ("+" as
+// "%2B", "/" as "%2F"), so the exact pass never saw it.
+func TestMaskExactCredentials_MasksTheQueryEscapedForm(t *testing.T) {
+	const secret = "cust+om/Key=value42"
+	HoldSecret(secret)
+	in := "GET https://relay.example/v1?k=" + url.QueryEscape(secret) + " failed"
+	if got := MaskExactCredentials(nil, in); got != "GET https://relay.example/v1?k=[redacted] failed" {
+		t.Fatalf("MaskExactCredentials(%q) = %q", in, got)
+	}
+}
+
+// Text nothing matches, nearly every log line, comes back as the same string:
+// no copy through []byte and no replacement pass.
+func TestMaskCredentials_ReturnsCleanTextUncopied(t *testing.T) {
+	in := strings.Repeat("proxy: an ordinary log line with nothing in it ", 4)
+	if got := MaskCredentials(nil, in); unsafe.StringData(got) != unsafe.StringData(in) {
+		t.Fatal("clean text was copied")
 	}
 }

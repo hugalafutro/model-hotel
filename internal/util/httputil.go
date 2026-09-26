@@ -18,7 +18,7 @@ import (
 // It is a backstop rather than the guarantee: two of the patterns are
 // unbounded at the top end, so no margin can promise to contain them. The
 // guarantee comes from the patterns themselves, each of which matches its own
-// truncated prefix — a credential cut by the window is still recognised as
+// truncated prefix: a credential cut by the window is still recognised as
 // one, and redacted, rather than leaving a head fragment behind.
 const scrubMargin = 4096
 
@@ -29,7 +29,7 @@ const scrubMargin = 4096
 // still matches: masking a 16-rune window away must not let the rest of a
 // short prompt through.
 func MaskLogText(s string) string {
-	return uuidPattern.ReplaceAllString(string(MaskKeyShapedTokens([]byte(maskExact(nil, s)))), "[REDACTED]")
+	return uuidPattern.ReplaceAllString(maskShapes(MaskExactCredentials(nil, s)), "[REDACTED]")
 }
 
 // uuidPattern matches standard UUIDs (e.g., 793ac38b-0211-43e6-baa7-aa7054c39931)
@@ -98,9 +98,9 @@ func sanitizeShape(body string, maxLen int, beforeCut func(string) string) strin
 	//
 	// The order matters: a credential straddling the cut would otherwise leave
 	// a prefix behind that no later pass can match. The bound matters just as
-	// much, because callers do NOT all arrive pre-bounded — the non-streaming
-	// error path reads up to 32 MB and the discovery paths read without a limit
-	// — and scrubbing all of it to keep 200 bytes cost seconds of CPU per
+	// much, because callers do NOT all arrive pre-bounded (the non-streaming
+	// error path reads up to 32 MB and the discovery paths read without a
+	// limit), and scrubbing all of it to keep 200 bytes cost seconds of CPU per
 	// request. Everything past maxLen+scrubMargin is discarded below anyway, so
 	// scanning it buys nothing.
 	if len(body) > maxLen+scrubMargin {
@@ -108,7 +108,7 @@ func sanitizeShape(body string, maxLen int, beforeCut func(string) string) strin
 		// the rune-safe truncation below, so the returned string is unaffected.
 		body = body[:maxLen+scrubMargin]
 	}
-	body = string(MaskKeyShapedTokens([]byte(body)))
+	body = maskShapes(body)
 	body = uuidPattern.ReplaceAllString(body, "[REDACTED]")
 	if beforeCut != nil && len(body) > maxLen {
 		body = beforeCut(body)
@@ -250,7 +250,7 @@ func BuildProviderTargetURL(baseURL, providerType, endpoint string) string {
 // Cohere-compatible gateway adds it as a generic OpenAI-compatible provider,
 // so the type never says "cohere". Its base still carries the tell-tale /compatibility/v1 suffix
 // (a Cohere-specific shape; Jina/Voyage/TEI use a bare /v1), so match on that
-// too — otherwise the default path would build <host>/compatibility/v1/rerank
+// too; otherwise the default path would build <host>/compatibility/v1/rerank
 // and 404.
 func isCohereRerankBase(providerType, sanitized string) bool {
 	if providerType == "cohere" {

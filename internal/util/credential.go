@@ -2,6 +2,7 @@ package util
 
 import (
 	"bytes"
+	"net/url"
 	"regexp"
 	"strings"
 )
@@ -41,6 +42,13 @@ var ambiguousKeyShape = regexp.MustCompile(`\b(?:sk|gsk|xai|hf|fw|r8)[-_][A-Za-z
 // payload are the parts that carry claims.
 var unambiguousKeyShape = regexp.MustCompile(`\bAIza[0-9A-Za-z_-]{30,}|\bAKIA[A-Z0-9]{16}\b|\beyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}(?:\.[A-Za-z0-9_-]{5,})?`)
 
+// secretParamShape is a credential passed by name in a query string or a form
+// body ("?api_key=...", "&client_secret=..."), whatever format the value has:
+// the name says what it is, so no key shape is needed. The value stops at the
+// next parameter, whitespace, a quote or a backslash, so a JSON body stays
+// valid. "max_tokens=" does not match: the name must end right at the "=".
+var secretParamShape = regexp.MustCompile(`(?i)(api[_-]?key|access_token|token|secret|password)=[^&\s"'\\<>]+`)
+
 // CredentialMinLen is the shortest provider key the exact-value mask will
 // redact. Keyless local providers carry an empty key and a handful of test or
 // placeholder setups use tiny ones; rewriting every occurrence of a few
@@ -63,6 +71,12 @@ const CredentialMinLen = 8
 // hold that line: no model id in the bundled catalogs matches, and a
 // replacement cannot CREATE a verdict either, since the brackets in
 // "[redacted]" break the phrase-binding gap the classifier requires.
+//
+// A URL's userinfo (scheme://user:password@host) and a credential passed by
+// name as a query or form parameter are masked by the same pass: neither needs
+// a recognisable key format, and an unheld custom token reaches a log that way.
+// The userinfo rule is URLUserinfoRE, the one RedactURLUserinfo uses; the
+// scheme and host stay readable.
 func MaskKeyShapedTokens(body []byte) []byte {
 	// The ambiguous pass runs FIRST because its alternatives are the outer
 	// ones. "Bearer <jwt>" is matched whole by the bearer alternative; with
@@ -75,7 +89,19 @@ func MaskKeyShapedTokens(body []byte) []byte {
 		}
 		return []byte("[redacted]")
 	})
-	return unambiguousKeyShape.ReplaceAll(body, []byte("[redacted]"))
+	body = unambiguousKeyShape.ReplaceAll(body, []byte("[redacted]"))
+	body = URLUserinfoRE.ReplaceAll(body, []byte("${1}[redacted]@"))
+	return secretParamShape.ReplaceAll(body, []byte("${1}=[redacted]"))
+}
+
+// maskShapes is MaskKeyShapedTokens over a string. Text no pattern matches,
+// nearly every log line, is returned as is: no copy, no replacement pass.
+func maskShapes(s string) string {
+	if !ambiguousKeyShape.MatchString(s) && !unambiguousKeyShape.MatchString(s) &&
+		!URLUserinfoRE.MatchString(s) && !secretParamShape.MatchString(s) {
+		return s
+	}
+	return string(MaskKeyShapedTokens([]byte(s)))
 }
 
 // MaskCredential scrubs one provider's credential out of text bound for a log,
@@ -104,7 +130,7 @@ func MaskCredential(secret, body string) string {
 // Every exact pass also masks the held set (held_secrets.go): the caller names
 // only the secrets it knows about, and a relay can quote any other.
 func MaskCredentials(secrets []string, body string) string {
-	return string(MaskKeyShapedTokens([]byte(maskExact(secrets, body))))
+	return maskShapes(MaskExactCredentials(secrets, body))
 }
 
 // MaskCredentialsBounded is MaskCredentials followed by SanitizeLogBody, in the
@@ -119,7 +145,7 @@ func MaskCredentialsBounded(secrets []string, body string, maxLen int) string {
 	if len(body) > maxLen+scrubMargin {
 		body = body[:maxLen+scrubMargin]
 	}
-	return stripSecretTail(sanitizeShape(maskExact(secrets, body), maxLen, nil), secrets, maxLen)
+	return stripSecretTail(sanitizeShape(MaskExactCredentials(secrets, body), maxLen, nil), secrets, maxLen)
 }
 
 // stripSecretTail redacts a proper prefix of any listed or held secret, of
@@ -169,13 +195,25 @@ func MaskCredentialBounded(secret, body string, maxLen int) string {
 	return MaskCredentialsBounded([]string{secret}, body, maxLen)
 }
 
-// maskExact replaces every listed secret of credential length. It runs the
-// list in order, so a caller that lists a superset ("Bearer X") before its
-// subset ("X") has the whole token consumed first.
-func maskExact(secrets []string, body string) string {
+// MaskExactCredentials is the exact pass alone: every listed secret of
+// credential length and every held secret (see withHeld for the order), each
+// also in its query-escaped form, so a key quoted inside a logged URL ("+" as
+// "%2B", "/" as "%2F") is masked too. It cannot false-positive, so it is the
+// pass for error text that must not meet the shape regexes (prose a client
+// reads). A caller that lists a superset ("Bearer X") before its subset ("X")
+// has the whole token consumed first.
+func MaskExactCredentials(secrets []string, body string) string {
 	for _, secret := range withHeld(secrets) {
-		if len(secret) >= CredentialMinLen && strings.Contains(body, secret) {
+		if len(secret) < CredentialMinLen {
+			continue
+		}
+		if strings.Contains(body, secret) {
 			body = strings.ReplaceAll(body, secret, "[redacted]")
+		}
+		// QueryEscape returns its argument without allocating when nothing in
+		// it needs escaping, the common case.
+		if escaped := url.QueryEscape(secret); escaped != secret && strings.Contains(body, escaped) {
+			body = strings.ReplaceAll(body, escaped, "[redacted]")
 		}
 	}
 	return body

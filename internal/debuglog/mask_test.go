@@ -1,7 +1,9 @@
 package debuglog
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"log/slog"
@@ -153,7 +155,8 @@ func TestWithMasking_DoesNotWrapTwice(t *testing.T) {
 type nilPtrErr struct{ inner *struct{ msg string } }
 
 // Error dereferences a nil field on a non-nil receiver: isTypedNil cannot see
-// it, and only the recover in safeText keeps it from crashing the handler.
+// it, and only the recovers in jsonRendering and fmt keep it from crashing
+// the handler.
 func (e *nilPtrErr) Error() string { return e.inner.msg }
 
 type typedNilStringer struct{ s string }
@@ -351,5 +354,117 @@ func (n nilFieldStringer) String() string { return n.inner.s }
 func TestMaskAny_SurvivesAPanickingStringer(t *testing.T) {
 	if _, changed := maskAny(func(s string) string { return s }, nilFieldStringer{}); changed {
 		t.Fatal("a Stringer that panicked was reported as masked")
+	}
+}
+
+type nestedKeyHolder struct{ Key *string }
+
+// The key sits behind a pointer, so %+v prints an address, not the key.
+type keyEmittingMarshaler struct{ key *string }
+
+func (m keyEmittingMarshaler) MarshalJSON() ([]byte, error) {
+	return json.Marshal(map[string]string{"auth": *m.key})
+}
+
+type keyEmittingTextMarshaler struct{ key *string }
+
+func (m keyEmittingTextMarshaler) MarshalText() ([]byte, error) { return []byte("auth " + *m.key), nil }
+
+// Regression pin: the text handler prints a nested pointer as an address and
+// knows nothing of MarshalJSON, so masking only the %+v rendering let a key
+// behind a *string field, or one only a custom MarshalJSON emits, reach the
+// JSON sink (LOG_FORMAT=json and the app-log fields) unmasked.
+func TestMaskingHandler_MasksWhatOnlyTheJSONSinkRenders(t *testing.T) {
+	const secret = "SECRETVALUE"
+	SetMasker(func(s string) string { return strings.ReplaceAll(s, secret, "[redacted]") })
+	t.Cleanup(func() { SetMasker(nil) })
+
+	key := "k " + secret
+	for name, value := range map[string]any{
+		"nested *string":     nestedKeyHolder{Key: &key},
+		"custom MarshalJSON": keyEmittingMarshaler{key: &key},
+		"custom MarshalText": keyEmittingTextMarshaler{key: &key},
+	} {
+		t.Run(name, func(t *testing.T) {
+			var buf bytes.Buffer
+			slog.New(maskingHandler{newJSONHandler(&buf, slog.LevelInfo)}).Info("value", "v", value)
+			if strings.Contains(buf.String(), secret) || !strings.Contains(buf.String(), "[redacted]") {
+				t.Fatalf("the JSON sink rendered the secret of a %s: %s", name, buf.String())
+			}
+		})
+	}
+}
+
+type cleanStringer struct{}
+
+func (cleanStringer) String() string { return "clean" }
+
+// A value the mask leaves unchanged is not replaced: a Stringer or a collection
+// swapped for a string or a rebuilt []any / map[string]any changes the JSON
+// shape of a structured field, and costs an allocation per record.
+func TestMaskAny_LeavesUnchangedValuesTheirOwnType(t *testing.T) {
+	identity := func(s string) string { return strings.ReplaceAll(s, "SECRETVALUE", "x") }
+	for name, value := range map[string]any{
+		"Stringer":       cleanStringer{},
+		"[]string":       []string{"a", "b"},
+		"map[string]any": map[string]any{"a": 1, "b": []string{"c"}},
+		"map[int]string": map[int]string{1: "one"},
+		"string":         "plain",
+		"[]byte":         []byte("plain"),
+	} {
+		if _, changed := maskAny(identity, value); changed {
+			t.Errorf("a clean %s was replaced", name)
+		}
+	}
+}
+
+// Map keys are masked too, and two keys that mask to the same name both
+// survive: the later one takes a numbered suffix instead of overwriting.
+func TestMaskAny_MasksMapKeysWithoutDroppingEntries(t *testing.T) {
+	fn := func(s string) string {
+		if strings.HasPrefix(s, "SECRET") {
+			return "[redacted]"
+		}
+		return s
+	}
+	masked, changed := maskAny(fn, map[string]string{"SECRETA": "1", "SECRETB": "2", "plain": "3"})
+	if !changed {
+		t.Fatal("a map with credential keys was not masked")
+	}
+	m := masked.(map[string]any)
+	if len(m) != 3 || m["plain"] != "3" {
+		t.Fatalf("masked map = %v, want three entries with the clean one intact", m)
+	}
+	if _, ok := m["[redacted]"]; !ok {
+		t.Fatalf("masked map = %v, want a [redacted] key", m)
+	}
+	if _, ok := m["[redacted]#2"]; !ok {
+		t.Fatalf("masked map = %v, want the colliding key suffixed #2", m)
+	}
+}
+
+// The JSON form is clean but MarshalText, what the text handler prints,
+// carries the key: checking the JSON rendering alone would pass it.
+type textOnlyLeak struct{ key *string }
+
+func (textOnlyLeak) MarshalJSON() ([]byte, error) { return []byte(`"clean"`), nil }
+
+func (m textOnlyLeak) MarshalText() ([]byte, error) { return []byte("auth " + *m.key), nil }
+
+type panickingTextMarshaler struct{}
+
+func (panickingTextMarshaler) MarshalText() ([]byte, error) { panic("boom") }
+
+// Every rendering a sink uses is checked, and one that panics is skipped
+// rather than crashing the logger.
+func TestMaskAny_ChecksTheTextRenderingAndSurvivesAPanic(t *testing.T) {
+	const secret = "SECRETVALUE"
+	fn := func(s string) string { return strings.ReplaceAll(s, secret, "[redacted]") }
+	key := secret
+	if masked, changed := maskAny(fn, textOnlyLeak{key: &key}); !changed || masked != "auth [redacted]" {
+		t.Fatalf("maskAny = %v, %v; want the masked MarshalText", masked, changed)
+	}
+	if _, changed := maskAny(fn, panickingTextMarshaler{}); changed {
+		t.Fatal("a MarshalText that panicked was reported as masked")
 	}
 }

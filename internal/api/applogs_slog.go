@@ -64,6 +64,23 @@ func quoteLogValue(v any) string {
 	return s
 }
 
+// textLine is the stderr text form of a record whose message is line[:msgLen]
+// and whose flattened attributes follow it. The message is written bare, the
+// shape the CrowdSec parser classifies on, unless it holds a quote or a
+// control character: then it is quoted with strconv.Quote, as slog's text
+// handler quotes a message. A bare newline would start a line every reader
+// takes for a new record, and a bare quote would flip the quote parity the
+// parser's address rule reads the line by. The gateway's own messages are
+// fixed strings that need neither; a bridged line (net/http's ErrorLog, a
+// recovered panic) or a message built from a name can.
+func textLine(line string, msgLen int) string {
+	head := line[:msgLen]
+	if !strings.ContainsRune(head, '"') && !strings.ContainsFunc(head, unicode.IsControl) {
+		return line
+	}
+	return strconv.Quote(head) + line[msgLen:]
+}
+
 func (h *appSlogHandler) Enabled(_ context.Context, level slog.Level) bool {
 	return level >= h.level
 }
@@ -100,7 +117,7 @@ func (h *appSlogHandler) Handle(_ context.Context, r slog.Record) error {
 
 	// Extract source from "[source]" prefix in message, same as parseLogLine.
 	source, msgStr := debuglog.SplitSource(msg.String())
-	// For slog entries, the level is authoritative — do not let the text
+	// For slog entries, the level is authoritative; do not let the text
 	// heuristic (detectLevel) override it.  Field values like "error_chunks=0"
 	// or "has_error=false" would falsely trigger detectLevel's "error" match.
 	// The heuristic remains useful for legacy log.Printf lines (Write path).
@@ -143,7 +160,7 @@ func (h *appSlogHandler) Handle(_ context.Context, r slog.Record) error {
 		_, _ = fmt.Fprintf(h.stderr, "%s level=%s %s\n",
 			r.Time.Format("2006/01/02 15:04:05"),
 			strings.ToUpper(appLevel),
-			msg.String())
+			textLine(msg.String(), preAttrLen))
 	}
 
 	return nil

@@ -2,7 +2,6 @@ package proxy
 
 import (
 	"bytes"
-	"cmp"
 	"encoding/json"
 	"io"
 	"net/http"
@@ -203,25 +202,17 @@ func (m credentialMasker) mask(body []byte) []byte {
 	return maskKeyShapedTokens(m.maskAll(body))
 }
 
-// maskAll replaces the candidate's key and every held provider key as one
-// union ordered by length alone, longest first: a key that is a prefix of
-// another is never masked first, which would leave the longer one's tail
-// behind, whichever side of the union each came from. The held set is read
-// at call time, so a key registered after the masker was built is masked too.
+// maskAll replaces the candidate's key and every held provider key (each also
+// in its query-escaped form), longest first, through util's exact pass: a key
+// that is a prefix of another is never masked first, which would leave the
+// longer one's tail behind. The held set is read at call time, so a key
+// registered after the masker was built is masked too.
 func (m credentialMasker) maskAll(body []byte) []byte {
-	held := util.HeldSecrets()
-	secrets := make([]string, 0, 1+len(held))
+	var secrets []string
 	if len(m.secret) > 0 {
-		secrets = append(secrets, string(m.secret))
+		secrets = []string{string(m.secret)}
 	}
-	secrets = append(secrets, held...)
-	slices.SortStableFunc(secrets, func(a, b string) int { return cmp.Compare(len(b), len(a)) })
-	for _, secret := range secrets {
-		if bytes.Contains(body, []byte(secret)) {
-			body = bytes.ReplaceAll(body, []byte(secret), []byte("[redacted]"))
-		}
-	}
-	return body
+	return []byte(util.MaskExactCredentials(secrets, string(body)))
 }
 
 // maskExact replaces only the candidate's exact credential. It cannot
