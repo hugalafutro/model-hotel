@@ -377,9 +377,10 @@ jobs:
           git fetch --no-tags --depth=1 --quiet origin "$HUB_REF"
           git checkout --quiet FETCH_HEAD
 
-      # The collection is already merged upstream, so these overwrite the hub's
-      # copies with the ones in this branch: the point is to test what this
-      # repository ships, not what the hub last published.
+      # Copies this repository's collection into the hub (the pinned hub does
+      # not carry it), so the run tests what this branch ships. The fixtures
+      # name these items by ./ path, which cscli hubtest loads without an
+      # index entry.
       - name: stage this branch's collection into the hub
         run: |
           mkdir -p hub/parsers/s01-parse/hugalafutro hub/scenarios/hugalafutro \

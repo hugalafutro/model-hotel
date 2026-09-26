@@ -46,6 +46,14 @@ pattern_syntax:
   # failed reason=\"nonce mismatch\" remote_addr=..."), and stopping early
   # would silently drop its source_ip.
   MH_ADDR: '^(?:[^"]|"(?:[^"\\]|\\.)*")*?(?:^|[ ])(remote_addr|remote|client_ip|ip)=%{NOTSPACE:mh_rawaddr}(?: |$)'
+  # The body of a quoted logfmt value, walked the way slog wrote it: an escaped
+  # quote (\") inside it does not end it.
+  MH_QUOTED: '(?:[^"\\]|\\.)*'
+  # Everything before an attribute token in mh_attrs, stepping over every
+  # complete quoted value exactly as MH_ADDR does, so the token found is real
+  # attribute text and never something a caller wrote inside a value (a
+  # username holding " path=/x" must not become the alert's path).
+  MH_ATTR_PREFIX: '^(?:[^"]|"(?:[^"\\]|\\.)*")*?(?:^|[ ])'
 nodes:
   # ---- normalise ------------------------------------------------------------
 
@@ -225,23 +233,25 @@ nodes:
       pattern: '^\[?%{IP:mh_ip}\]?(:%{NUMBER})?$'
       expression: evt.Parsed.mh_rawaddr
 
-  # Request path, for alert context only. Bare first, then quoted, so a quoted
+  # Request path, for alert context only, read from the attribute tail past
+  # every quoted value (MH_ATTR_PREFIX). Bare first, then quoted, so a quoted
   # path (one holding a space) wins over the truncated bare read of itself.
+  # The quoted read walks escapes, so a path holding \" is taken whole.
   - grok:
-      pattern: '(^| )path=%{NOTSPACE:mh_path}'
-      apply_on: message
+      pattern: '%{MH_ATTR_PREFIX}path=%{NOTSPACE:mh_path}'
+      apply_on: mh_attrs
   - grok:
-      pattern: '(^| )path="%{DATA:mh_path}"'
-      apply_on: message
+      pattern: '%{MH_ATTR_PREFIX}path="%{MH_QUOTED:mh_path}"'
+      apply_on: mh_attrs
 
   # The role a rejected request was made under, for alert context. Same
   # bare-then-quoted pair as the path, since usernames may hold a space.
   - grok:
-      pattern: '(^| )username=%{NOTSPACE:mh_user}'
-      apply_on: message
+      pattern: '%{MH_ATTR_PREFIX}username=%{NOTSPACE:mh_user}'
+      apply_on: mh_attrs
   - grok:
-      pattern: '(^| )username="%{DATA:mh_user}"'
-      apply_on: message
+      pattern: '%{MH_ATTR_PREFIX}username="%{MH_QUOTED:mh_user}"'
+      apply_on: mh_attrs
 
   # Only records this parser recognised are worth the rest of the pipeline.
   - filter: 'evt.Meta.log_type startsWith "model-hotel_"'

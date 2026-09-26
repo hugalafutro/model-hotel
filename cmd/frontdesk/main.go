@@ -46,9 +46,9 @@ var version = "dev"
 func main() {
 	// Init reads DEBUG_LOG (and DEBUG_LOG_SCOPES, LOG_FORMAT) from the
 	// environment itself, so Front Desk has no flag of its own to pass.
-	// Every log line takes the credential mask. Front Desk holds no provider
-	// keys, so this is the key-shape layer: a token or key some member or
-	// exporter quotes back is still caught.
+	// Every log line takes the credential mask: the held set exactly (each
+	// member admin token, held as MemberToken decrypts it), then any key-shaped
+	// token, so a token or key some member or exporter quotes back is caught.
 	debuglog.SetMasker(func(s string) string { return util.MaskCredentials(nil, s) })
 	debuglog.Init()
 
@@ -333,6 +333,6 @@ func warnWeakMasterKey(key string) {
 	if !config.WeakMasterKey(key) {
 		return
 	}
-	debuglog.Warn("frontdesk: FRONTDESK_MASTER_KEY is shorter than recommended — a low-entropy key weakens at-rest encryption of member tokens and the TOTP secret; generate a strong one with `openssl rand -base64 32`",
+	debuglog.Warn("frontdesk: FRONTDESK_MASTER_KEY is shorter than recommended: a low-entropy key weakens at-rest encryption of member tokens and the TOTP secret; generate a strong one with `openssl rand -base64 32`",
 		"length", len(key), "recommended_min", config.RecommendedMasterKeyLength)
 }
