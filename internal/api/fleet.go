@@ -303,7 +303,7 @@ func (h *FleetHandler) Announce(w http.ResponseWriter, r *http.Request) {
 	// touches nothing.
 	storedID, _, err := h.settings.GetChecked(ctx, keyFleetFrontdeskID)
 	if err != nil {
-		if respondAbandoned(w, "fleet announce", err) {
+		if respondAbandoned(w, r, "fleet announce", err) {
 			return
 		}
 		respondError(w, "failed to read fleet ownership", err, http.StatusInternalServerError)
@@ -316,7 +316,7 @@ func (h *FleetHandler) Announce(w http.ResponseWriter, r *http.Request) {
 	if storedID != "" && storedID != req.FrontdeskID {
 		seen, _, serr := h.settings.GetChecked(ctx, keyFleetManagedSeenAt)
 		if serr != nil {
-			if respondAbandoned(w, "fleet announce", serr) {
+			if respondAbandoned(w, r, "fleet announce", serr) {
 				return
 			}
 			respondError(w, "failed to read fleet heartbeat", serr, http.StatusInternalServerError)
@@ -358,7 +358,7 @@ func (h *FleetHandler) Announce(w http.ResponseWriter, r *http.Request) {
 	if err := h.settings.SetMany(ctx, writes); err != nil {
 		// Front Desk gave up waiting (a write on a busy member disk takes
 		// longer to commit than its timeout allows): the next announce lands.
-		if respondAbandoned(w, "fleet announce", err) {
+		if respondAbandoned(w, r, "fleet announce", err) {
 			return
 		}
 		respondError(w, "failed to record fleet announce", err, http.StatusInternalServerError)

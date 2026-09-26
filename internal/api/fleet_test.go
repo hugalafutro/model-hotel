@@ -182,11 +182,11 @@ func TestFleetAnnounce_WriteFailureIs500(t *testing.T) {
 	}
 }
 
-// TestFleetAnnounce_AbandonedByCallerIs503 pins that an announce cancelled by
-// the caller hanging up (Front Desk's timeout) answers 503 with a warning
-// rather than a 500, whichever of its store touches sees the cancel: nothing
+// TestFleetAnnounce_AbandonedByCallerIs499 pins that an announce cancelled by
+// the caller hanging up (Front Desk's timeout) answers 499 with a warning
+// rather than a 5xx the access log would file on the error shelf, whichever of its store touches sees the cancel: nothing
 // on this member failed.
-func TestFleetAnnounce_AbandonedByCallerIs503(t *testing.T) {
+func TestFleetAnnounce_AbandonedByCallerIs499(t *testing.T) {
 	abandoned := fmt.Errorf("store: %w", context.Canceled)
 	for name, arm := range map[string]func(fs *fakeFleetSettings){
 		"ownership read": func(fs *fakeFleetSettings) { fs.getErr = map[string]error{keyFleetFrontdeskID: abandoned} },
@@ -201,13 +201,15 @@ func TestFleetAnnounce_AbandonedByCallerIs503(t *testing.T) {
 			arm(fs)
 			h := NewFleetHandler(fs)
 
-			req := httptest.NewRequest(http.MethodPost, "/fleet/announce",
+			ctx, cancel := context.WithCancel(t.Context())
+			cancel() // Front Desk hung up
+			req := httptest.NewRequestWithContext(ctx, http.MethodPost, "/fleet/announce",
 				strings.NewReader(`{"is_primary":true,"frontdesk_id":"fd-1"}`))
 			rec := httptest.NewRecorder()
 			h.Announce(rec, req)
 
-			if rec.Code != http.StatusServiceUnavailable {
-				t.Fatalf("status = %d, want 503: %s", rec.Code, rec.Body.String())
+			if rec.Code != statusClientClosed {
+				t.Fatalf("status = %d, want 499: %s", rec.Code, rec.Body.String())
 			}
 		})
 	}

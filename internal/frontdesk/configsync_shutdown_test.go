@@ -3,6 +3,7 @@ package frontdesk
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"strconv"
@@ -23,7 +24,7 @@ import (
 // the time the store closes the run has stopped and recorded nothing. Left
 // unregistered, the drain has nothing to wait for: the store closes under a run
 // that is still pushing, and the member that answers next is reported as
-// "applied but could not record the sync stamp" — a fleet Front Desk changed and
+// "applied but could not record the sync stamp": a fleet Front Desk changed and
 // then forgot.
 func TestConfigSyncInFlightAtShutdownNeverStampsAClosedStore(t *testing.T) {
 	srv, store := newTestServer(t)
@@ -191,28 +192,44 @@ func TestConfigSyncRefusedOnceShutdownBegins(t *testing.T) {
 
 // TestConfigSyncCancelledByShutdownIsNotAClientDisconnect: the run is detached,
 // so its cancel comes from the server's lifetime, not from the caller. With the
-// operator still connected, that must stay a 503 they can retry — a 499 would
+// operator still connected, that must stay a 503 they can retry. A 499 would
 // file a Front Desk shutdown as a browser hanging up and drop it out of 5xx
 // monitoring. Cancelling shutdownCtx without entering Shutdown is what puts the
 // run on a dead context while the request is alive: StartBackground gates on the
 // drain's own flag, so the run still registers and starts.
 func TestConfigSyncCancelledByShutdownIsNotAClientDisconnect(t *testing.T) {
-	srv, store := newTestServer(t)
-	primary := newStubConfigMember(t, "ptoken")
-	pm, err := store.CreateMember(t.Context(), "primary", primary.srv.URL, "ptoken")
-	if err != nil {
-		t.Fatalf("create primary: %v", err)
-	}
-	enableAutoSync(t, store, pm.ID)
-	alignFleetVersions(t, srv, store, "dev")
+	// The operator leaving at the same moment changes nothing: the run's cancel
+	// is still Shutdown's, and hiding it behind a 499 would drop it from 5xx
+	// monitoring just the same.
+	for _, hungUp := range []bool{false, true} {
+		t.Run(fmt.Sprintf("caller hung up=%v", hungUp), func(t *testing.T) {
+			srv, store := newTestServer(t)
+			primary := newStubConfigMember(t, "ptoken")
+			pm, err := store.CreateMember(t.Context(), "primary", primary.srv.URL, "ptoken")
+			if err != nil {
+				t.Fatalf("create primary: %v", err)
+			}
+			enableAutoSync(t, store, pm.ID)
+			alignFleetVersions(t, srv, store, "dev")
 
-	srv.shutdownCancel() // the server's lifetime ends; the request's does not
+			srv.shutdownCancel() // the server's lifetime ends
 
-	rec := do(t, srv, http.MethodPost, "/api/config/sync", `{"primary_id":"`+pm.ID+`"}`, true)
-	if rec.Code != http.StatusServiceUnavailable {
-		t.Errorf("sync cancelled by shutdown = %d, want 503; body=%s", rec.Code, rec.Body.String())
-	}
-	if !strings.Contains(rec.Body.String(), "shutting down") {
-		t.Errorf("body = %q, want it to name the shutdown", rec.Body.String())
+			ctx, cancel := context.WithCancel(t.Context())
+			defer cancel()
+			if hungUp {
+				cancel()
+			}
+			req := httptest.NewRequestWithContext(ctx, http.MethodPost, "/api/config/sync",
+				strings.NewReader(`{"primary_id":"`+pm.ID+`"}`))
+			req.Header.Set("Authorization", "Bearer "+testFrontdeskToken)
+			rec := httptest.NewRecorder()
+			srv.ServeHTTP(rec, req)
+			if rec.Code != http.StatusServiceUnavailable {
+				t.Errorf("sync cancelled by shutdown = %d, want 503; body=%s", rec.Code, rec.Body.String())
+			}
+			if !strings.Contains(rec.Body.String(), "shutting down") {
+				t.Errorf("body = %q, want it to name the shutdown", rec.Body.String())
+			}
+		})
 	}
 }

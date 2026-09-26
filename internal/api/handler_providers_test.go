@@ -1489,7 +1489,8 @@ func TestListProviders_ScanErrorWithCancelledCtx(t *testing.T) {
 		},
 	}, nil, nil, &mockAdminAuth{validateFn: func(string) bool { return true }}, testDB)
 
-	// Cancel context after the list call so subsequent queries fail
+	// Cancel before the call: the mock list ignores the context, so the
+	// model-count query is the first to see the cancel.
 	req, w := newChiRequest(http.MethodGet, "/providers", nil)
 	ctx, cancel := context.WithCancel(req.Context())
 	cancel()
@@ -1497,9 +1498,10 @@ func TestListProviders_ScanErrorWithCancelledCtx(t *testing.T) {
 
 	h.ListProviders(w, req)
 
-	// Either 499 (query abandoned) or 200 (if cancellation hit after scan) is acceptable
-	if w.Code != statusClientClosed && w.Code != http.StatusOK {
-		t.Errorf("expected 499 or 200, got %d", w.Code)
+	// The context is cancelled before the call, so the model-count query
+	// never runs: the caller abandoned it.
+	if w.Code != statusClientClosed {
+		t.Errorf("expected 499, got %d; body: %s", w.Code, w.Body.String())
 	}
 }
 
@@ -1541,9 +1543,10 @@ func TestListProviders_TokenRowCountScanError(t *testing.T) {
 
 	h.ListProviders(w, req)
 
-	// Either 499 (query abandoned) or 200 (if queries ran before cancellation) is acceptable
-	if w.Code != statusClientClosed && w.Code != http.StatusOK {
-		t.Errorf("expected 499 or 200, got %d; body: %s", w.Code, w.Body.String())
+	// The context is cancelled before the call, so the first query never runs:
+	// the caller abandoned it.
+	if w.Code != statusClientClosed {
+		t.Errorf("expected 499, got %d; body: %s", w.Code, w.Body.String())
 	}
 }
 

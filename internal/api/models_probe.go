@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/hugalafutro/model-hotel/internal/debuglog"
+	"github.com/hugalafutro/model-hotel/internal/endpointtype"
 	"github.com/hugalafutro/model-hotel/internal/model"
 	"github.com/hugalafutro/model-hotel/internal/util"
 )
@@ -101,9 +102,9 @@ func billedSearchUnits(respBody []byte) int {
 // the family the probe was sent on.
 func probeEndpointType(m *model.Model) string {
 	if m.Modality == "rerank" {
-		return "rerank"
+		return endpointtype.Rerank
 	}
-	return "chat"
+	return endpointtype.Chat
 }
 
 // probeCost prices a probe the way the proxy prices live traffic: a rerank

@@ -167,7 +167,7 @@ func (h *QuotaFleetHandler) ReceiveSnapshots(w http.ResponseWriter, r *http.Requ
 	if err != nil {
 		// The sender hung up mid-batch (a Front Desk restart or its own
 		// timeout); the next push carries the same snapshots.
-		if respondAbandoned(w, "snapshot push", err) {
+		if respondAbandoned(w, r, "snapshot push", err) {
 			return
 		}
 		respondError(w, "failed to store snapshots", err, http.StatusInternalServerError)

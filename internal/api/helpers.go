@@ -3,7 +3,6 @@ package api
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"net/http"
 
 	"github.com/google/uuid"
@@ -108,20 +107,19 @@ func (h *Handler) spentFor(ctx context.Context, s *budget.Subject) *float64 {
 
 // respondAbandoned answers a fleet write whose caller stopped waiting: the
 // request context is cancelled underneath the store, which surfaces as
-// context.Canceled from the database driver. Nothing on this member failed,
-// and the caller retries on its own schedule, so it is a warning and a 503
-// rather than the error a failed write earns. Only the caller's cancel counts:
-// this member's own route timeout surfaces as context.DeadlineExceeded and is
-// a failure here. Reports whether it answered.
-//
-// The 503 is deliberate and narrower than the 499 httpx.RespondError answers
-// for the same cancel: a fleet peer retries on its own schedule and reads the
-// code, where a browser that hung up reads nothing.
-func respondAbandoned(w http.ResponseWriter, what string, err error) bool {
-	if !errors.Is(err, context.Canceled) {
+// context.Canceled from the database driver. Nothing on this member failed and
+// the caller retries on its own schedule, so it is a warning and the same 499
+// httpx.RespondError answers for any caller that hung up: a peer that
+// cancelled reads no status at all, and a 5xx here would put the abandoned
+// push on the dashboard error shelf through the access log. Only the caller's
+// cancel counts (httpx.StatusForRequestError): this member's own route timeout
+// surfaces as context.DeadlineExceeded and is a failure here. Reports whether
+// it answered.
+func respondAbandoned(w http.ResponseWriter, r *http.Request, what string, err error) bool {
+	if httpx.StatusForRequestError(r, err, 0) != httpx.StatusClientClosedRequest {
 		return false
 	}
 	debuglog.Warn(logComponent+": "+what+" abandoned by the caller before it completed", "error", err)
-	http.Error(w, what+" abandoned by caller", http.StatusServiceUnavailable)
+	http.Error(w, what+" abandoned by caller", httpx.StatusClientClosedRequest)
 	return true
 }

@@ -467,8 +467,8 @@ func TestUsersAPI_ErrorPaths(t *testing.T) {
 	}
 }
 
-// TestUsersAPI_RepositoryFailures drives each handler's generic 500 branch by
-// cancelling the request context so the underlying query fails.
+// TestUsersAPI_RepositoryFailures drives each handler's repository-error branch:
+// a cancelled request context is a 499, an expired one a genuine 500.
 func TestUsersAPI_RepositoryFailures(t *testing.T) {
 	r, _, _ := setupUsersTest(t)
 	id := createUserViaAPI(t, r, "gina", "password123", "user", nil)
@@ -486,6 +486,13 @@ func TestUsersAPI_RepositoryFailures(t *testing.T) {
 	for _, tc := range cases {
 		if w := doJSONCtx(ctx, t, r, tc.method, tc.path, envAdminToken, tc.body); w.Code != statusClientClosed {
 			t.Errorf("%s with cancelled ctx: %d, want 499", tc.name, w.Code)
+		}
+	}
+	// The same queries failing on this side (the route's own deadline expiring,
+	// not the caller hanging up) are a genuine 500.
+	for _, tc := range cases {
+		if w := doJSONCtx(expiredCtx(t), t, r, tc.method, tc.path, envAdminToken, tc.body); w.Code != http.StatusInternalServerError {
+			t.Errorf("%s with expired ctx: %d, want 500", tc.name, w.Code)
 		}
 	}
 }

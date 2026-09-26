@@ -10,6 +10,7 @@ import (
 	"slices"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/jackc/pgx/v5"
@@ -1030,29 +1031,39 @@ func cancelledCtx() context.Context {
 	return ctx
 }
 
-func TestConfigSync_ExportDBError(t *testing.T) {
+// expiredCtx returns a context whose deadline has already passed. A query run
+// on it fails with context.DeadlineExceeded, which is this server's own timeout
+// expiring rather than the caller hanging up, so it drives a handler's genuine
+// 500 branch where cancelledCtx drives its 499.
+func expiredCtx(t *testing.T) context.Context {
+	ctx, cancel := context.WithDeadline(context.Background(), time.Unix(0, 0))
+	t.Cleanup(cancel)
+	return ctx
+}
+
+func TestConfigSync_ExportCancelledCallerIs499(t *testing.T) {
 	cleanConfigTables(t)
 	r := newConfigSyncRouter(t, configSyncMasterKey)
 	rec := httptest.NewRecorder()
 	req := httptest.NewRequest(http.MethodGet, "/config/export", http.NoBody).WithContext(cancelledCtx())
 	r.ServeHTTP(rec, req)
-	if rec.Code != http.StatusInternalServerError {
-		t.Fatalf("export with DB error = %d, want 500", rec.Code)
+	if rec.Code != statusClientClosed {
+		t.Fatalf("export abandoned by the caller = %d, want 499", rec.Code)
 	}
 }
 
-func TestConfigSync_VersionDBError(t *testing.T) {
+func TestConfigSync_VersionCancelledCallerIs499(t *testing.T) {
 	cleanConfigTables(t)
 	r := newConfigSyncRouter(t, configSyncMasterKey)
 	rec := httptest.NewRecorder()
 	req := httptest.NewRequest(http.MethodGet, "/config/version", http.NoBody).WithContext(cancelledCtx())
 	r.ServeHTTP(rec, req)
-	if rec.Code != http.StatusInternalServerError {
-		t.Fatalf("version with DB error = %d, want 500", rec.Code)
+	if rec.Code != statusClientClosed {
+		t.Fatalf("version abandoned by the caller = %d, want 499", rec.Code)
 	}
 }
 
-func TestConfigSync_ImportDBError(t *testing.T) {
+func TestConfigSync_ImportCancelledCallerIs499(t *testing.T) {
 	cleanConfigTables(t)
 	r := newConfigSyncRouter(t, configSyncMasterKey)
 	// A valid, keyless envelope: it clears decode, schema, empty, and MASTER_KEY
@@ -1065,8 +1076,8 @@ func TestConfigSync_ImportDBError(t *testing.T) {
 	rec := httptest.NewRecorder()
 	req := httptest.NewRequest(http.MethodPost, "/config/import", bytes.NewReader(body)).WithContext(cancelledCtx())
 	r.ServeHTTP(rec, req)
-	if rec.Code != http.StatusInternalServerError {
-		t.Fatalf("import with DB error = %d, want 500", rec.Code)
+	if rec.Code != statusClientClosed {
+		t.Fatalf("import abandoned by the caller = %d, want 499", rec.Code)
 	}
 }
 

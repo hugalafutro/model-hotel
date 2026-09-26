@@ -1266,27 +1266,36 @@ func fillRing(rb *ringBuffer, source string, n int) {
 
 // A DELETE the database refused used to answer 200 with a count taken from the
 // ring buffer it had already emptied, so the operator saw a purge that never
-// happened and lost the live view on top of it. A genuine database failure is a
-// 500; the cancelled DELETE this test drives is a 499. Either way the ring is
-// left holding what the rows still hold.
-func TestClearAppLogs_FailedDeleteAnswers499AndKeepsRing(t *testing.T) {
-	h := newTestHandler(t)
-	rb := withTestRingBuffer(t)
-	fillRing(rb, "failed-delete", 4)
+// happened and lost the live view on top of it. A delete that failed on this
+// side (here the route's own deadline expiring) is a 500; one the caller
+// abandoned by hanging up is a 499. Either way the ring is left holding what
+// the rows still hold.
+func TestClearAppLogs_FailedDeleteKeepsRing(t *testing.T) {
+	for _, tc := range []struct {
+		name string
+		ctx  context.Context
+		want int
+	}{
+		{"caller abandoned the delete", cancelledCtx(), statusClientClosed},
+		{"delete failed on this side", expiredCtx(t), http.StatusInternalServerError},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			h := newTestHandler(t)
+			rb := withTestRingBuffer(t)
+			fillRing(rb, "failed-delete", 4)
 
-	// A cancelled request context is what the pool's Exec refuses on.
-	ctx, cancel := context.WithCancel(context.Background())
-	cancel()
-	rec := httptest.NewRecorder()
-	h.ClearAppLogs(rec, httptest.NewRequest(http.MethodDelete, "/logs/app", http.NoBody).WithContext(ctx))
+			rec := httptest.NewRecorder()
+			h.ClearAppLogs(rec, httptest.NewRequestWithContext(tc.ctx, http.MethodDelete, "/logs/app", http.NoBody))
 
-	if rec.Code != statusClientClosed {
-		t.Fatalf("status = %d, want 499: a refused delete answered success", rec.Code)
-	}
-	for i := range 4 {
-		if !ringHas(rb, fmt.Sprintf("ring entry %d", i)) {
-			t.Fatalf("ring entry %d is gone: the buffer was cleared for a delete that failed", i)
-		}
+			if rec.Code != tc.want {
+				t.Fatalf("status = %d, want %d: a refused delete answered success", rec.Code, tc.want)
+			}
+			for i := range 4 {
+				if !ringHas(rb, fmt.Sprintf("ring entry %d", i)) {
+					t.Fatalf("ring entry %d is gone: the buffer was cleared for a delete that failed", i)
+				}
+			}
+		})
 	}
 }
 

@@ -16,6 +16,7 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/hugalafutro/model-hotel/internal/authcookie"
+	"github.com/hugalafutro/model-hotel/internal/httpx"
 	totpsvc "github.com/hugalafutro/model-hotel/internal/totp"
 	"github.com/hugalafutro/model-hotel/internal/user"
 	"github.com/hugalafutro/model-hotel/internal/webauthn"
@@ -327,6 +328,55 @@ func TestUserLogin_LookupErrorIs500(t *testing.T) {
 	w := doLogin(t, r, `{"username":"alice","password":"whatever1"}`)
 	if w.Code != http.StatusInternalServerError {
 		t.Fatalf("lookup error status = %d, want 500", w.Code)
+	}
+}
+
+// hangUpOnCreate is a session store whose CreateSession runs as the caller
+// hangs up: it cancels the request context and fails with the cancel, which
+// is what the real store reports when the client leaves mid-insert. Earlier
+// steps (the Argon2 slot) also watch the context, so it has to be cancelled
+// here rather than before the request.
+type hangUpOnCreate struct {
+	*memSessionStore
+	cancel context.CancelFunc
+}
+
+func (s hangUpOnCreate) CreateSession(ctx context.Context, _ *webauthn.SessionRecord) error {
+	s.cancel()
+	return fmt.Errorf("insert session: %w", ctx.Err())
+}
+
+// TestUserLogin_SessionCreationFailure: a session store that cannot mint the
+// token is this server's failure and a 500, unless the caller hung up while it
+// ran, which cancels the store call underneath and is a 499 that stays out of
+// the access log's error lines.
+func TestUserLogin_SessionCreationFailure(t *testing.T) {
+	for _, hungUp := range []bool{false, true} {
+		t.Run(fmt.Sprintf("caller hung up=%v", hungUp), func(t *testing.T) {
+			u := testUser(t, "alice", "correct-horse", true)
+			store := &fakeUserStore{byUsername: map[string]*user.User{"alice": u}, hasEnabled: true}
+			ctx, cancel := context.WithCancel(t.Context())
+			defer cancel()
+			var sessions webauthn.SessionStore = hangUpOnCreate{newMemStore(), cancel}
+			want := httpx.StatusClientClosedRequest
+			if !hungUp {
+				failing := newMemStore()
+				failing.createErr = errors.New("session store down")
+				sessions, want = failing, http.StatusInternalServerError
+			}
+			h := NewUserLoginHandler(store, webauthn.NewSessionManager(sessions), mockIPLimiter{}, nil, "auto")
+			r := chi.NewRouter()
+			h.Register(r)
+
+			req := httptest.NewRequestWithContext(ctx, http.MethodPost, "/auth/login",
+				strings.NewReader(`{"username":"alice","password":"correct-horse"}`))
+			req.RemoteAddr = "10.0.0.1:1234"
+			w := httptest.NewRecorder()
+			r.ServeHTTP(w, req)
+			if w.Code != want {
+				t.Fatalf("status = %d, want %d; body %s", w.Code, want, w.Body.String())
+			}
+		})
 	}
 }
 

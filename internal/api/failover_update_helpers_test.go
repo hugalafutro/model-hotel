@@ -50,6 +50,36 @@ func TestFailoverUpdateHelperDBErrors(t *testing.T) {
 			t.Errorf("expected 499, got %d", rec.Code)
 		}
 	})
+
+	// The same lookups failing on this side (the route's own deadline
+	// expiring, not the caller hanging up) are a genuine 500.
+	t.Run("uniqueness_check_times_out", func(t *testing.T) {
+		rec := httptest.NewRecorder()
+		req := httptest.NewRequestWithContext(expiredCtx(t), http.MethodPatch, "/", http.NoBody)
+		dm := "new-model"
+		body := &UpdateFailoverGroupRequest{DisplayModel: &dm}
+		if h.validateDisplayModelPatch(rec, req, body, existing) {
+			t.Error("expected validation to fail when GetByModel errors")
+		}
+		if rec.Code != http.StatusInternalServerError {
+			t.Errorf("expected 500, got %d", rec.Code)
+		}
+	})
+
+	t.Run("member_lookup_times_out", func(t *testing.T) {
+		rec := httptest.NewRecorder()
+		req := httptest.NewRequestWithContext(expiredCtx(t), http.MethodPatch, "/", http.NoBody)
+		enabled := true
+		body := &UpdateFailoverGroupRequest{GroupEnabled: &enabled}
+		priority := []uuid.UUID{uuid.New(), uuid.New()}
+		entries := map[string]bool{"a": true}
+		if h.validateGroupEnabledState(rec, req, body, existing, priority, entries) {
+			t.Error("expected validation to fail when GetByIDs errors")
+		}
+		if rec.Code != http.StatusInternalServerError {
+			t.Errorf("expected 500, got %d", rec.Code)
+		}
+	})
 }
 
 // floorDisables and routableMembers: a member the group switched off does not

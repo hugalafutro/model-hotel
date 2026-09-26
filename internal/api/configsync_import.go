@@ -11,6 +11,7 @@ import (
 
 	"github.com/hugalafutro/model-hotel/internal/auth"
 	"github.com/hugalafutro/model-hotel/internal/debuglog"
+	"github.com/hugalafutro/model-hotel/internal/httpx"
 	"github.com/hugalafutro/model-hotel/internal/util"
 )
 
@@ -75,7 +76,7 @@ func (h *ConfigSyncHandler) Import(w http.ResponseWriter, r *http.Request) {
 	diff, err := h.computeDiff(ctx, env)
 	if err != nil {
 		debuglog.Error("configsync: compute diff", "error", err)
-		http.Error(w, "could not read current config", http.StatusInternalServerError)
+		http.Error(w, "could not read current config", httpx.StatusForRequestError(r, err, http.StatusInternalServerError))
 		return
 	}
 
@@ -136,7 +137,7 @@ func (h *ConfigSyncHandler) Import(w http.ResponseWriter, r *http.Request) {
 		return
 	case err != nil:
 		debuglog.Error("configsync: apply import", "error", util.RedactURLUserinfo(err.Error()))
-		http.Error(w, "could not apply config", http.StatusInternalServerError)
+		http.Error(w, "could not apply config", httpx.StatusForRequestError(r, err, http.StatusInternalServerError))
 		return
 	}
 

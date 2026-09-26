@@ -386,11 +386,11 @@ func TestQuotaFleetReceiveSnapshots_UpsertsAsFleet(t *testing.T) {
 	}
 }
 
-// TestQuotaFleetReceiveSnapshots_AbandonedByCallerIs503 pins that a push
+// TestQuotaFleetReceiveSnapshots_AbandonedByCallerIs499 pins that a push
 // whose sender hung up before the store completed (the request context is
-// cancelled underneath the store) answers 503 with a warning, not the 500 a
-// failure on this member would earn.
-func TestQuotaFleetReceiveSnapshots_AbandonedByCallerIs503(t *testing.T) {
+// cancelled underneath the store) answers 499 with a warning, not a 5xx the
+// access log would file on the error shelf.
+func TestQuotaFleetReceiveSnapshots_AbandonedByCallerIs499(t *testing.T) {
 	h := newTestHandler(t)
 	fleet := NewQuotaFleetHandler(h.quotaRepo, h.providerRepo)
 
@@ -409,8 +409,8 @@ func TestQuotaFleetReceiveSnapshots_AbandonedByCallerIs503(t *testing.T) {
 	req := httptest.NewRequest(http.MethodPost, "/config/quota-snapshots", strings.NewReader(body)).WithContext(ctx)
 	fleet.ReceiveSnapshots(rr, req)
 
-	if rr.Code != http.StatusServiceUnavailable {
-		t.Fatalf("want 503 for a push the sender abandoned, got %d: %s", rr.Code, rr.Body.String())
+	if rr.Code != statusClientClosed {
+		t.Fatalf("want 499 for a push the sender abandoned, got %d: %s", rr.Code, rr.Body.String())
 	}
 	if snap, _ := h.quotaRepo.Get(context.Background(), prov.ID, "usage"); snap != nil {
 		t.Fatalf("nothing should be stored for an abandoned push, got %+v", snap)

@@ -13,7 +13,7 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
 
-	"github.com/hugalafutro/model-hotel/internal/proxy"
+	"github.com/hugalafutro/model-hotel/internal/endpointtype"
 )
 
 func TestPurgeLogs(t *testing.T) {
@@ -250,7 +250,7 @@ func TestListLogs_WithEndpointTypeFilter(t *testing.T) {
 // rejected, so a family the proxy stamps but the filter does not know returns
 // every row while the UI claims it is filtered. That is what "responses" did
 // between shipping the /v1/responses ingress and this test. Driving the cases
-// off proxy.EndpointTypes means a family added there fails here until the
+// off endpointtype.All() means a family added there fails here until the
 // filter accepts it.
 func TestListLogs_EveryEndpointTypeFilters(t *testing.T) {
 	h, r := newTestHandlerWithRouter(t)
@@ -271,7 +271,7 @@ func TestListLogs_EveryEndpointTypeFilters(t *testing.T) {
 	// One row per family, each with a model_id naming its family so a wrong
 	// match is identifiable rather than merely miscounted.
 	pool := h.Pool().Pool()
-	for _, et := range proxy.EndpointTypes {
+	for _, et := range endpointtype.All() {
 		_, err := pool.Exec(context.Background(), `
 			INSERT INTO request_logs (provider_id, model_id, status_code, duration_ms, endpoint_type, created_at)
 			VALUES ($1, $2, $3, $4, $5, $6)`,
@@ -281,7 +281,7 @@ func TestListLogs_EveryEndpointTypeFilters(t *testing.T) {
 		}
 	}
 
-	for _, et := range proxy.EndpointTypes {
+	for _, et := range endpointtype.All() {
 		t.Run(et, func(t *testing.T) {
 			req := httptest.NewRequest("GET", "/logs?endpoint_type="+et+"&provider_id="+providerID, http.NoBody)
 			req.Header.Set("Authorization", "Bearer test-admin-token")
@@ -301,7 +301,7 @@ func TestListLogs_EveryEndpointTypeFilters(t *testing.T) {
 			if err := json.NewDecoder(w.Body).Decode(&response); err != nil {
 				t.Fatalf("decode response: %v", err)
 			}
-			// The unfiltered set is len(proxy.EndpointTypes) rows, so an
+			// The unfiltered set is len(endpointtype.All()) rows, so an
 			// ignored filter shows up here as the full list.
 			if len(response.Entries) != 1 {
 				t.Fatalf("endpoint_type=%s returned %d entries, want 1 (filter not applied?)", et, len(response.Entries))

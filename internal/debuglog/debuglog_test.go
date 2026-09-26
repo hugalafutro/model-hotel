@@ -210,6 +210,8 @@ func TestError_CancellationDropsToWarn(t *testing.T) {
 		{"a wrapped cancel warns", []any{"error", fmt.Errorf("query row: %w", context.Canceled)}, slog.LevelWarn},
 		{"a cancel under any key warns", []any{"query", "spend", "err", context.Canceled}, slog.LevelWarn},
 		{"a cancel inside an Attr warns", []any{slog.Any("error", context.Canceled)}, slog.LevelWarn},
+		{"a cancel inside a Group warns", []any{slog.Group("query", slog.String("name", "spend"), slog.Group("cause", slog.Any("error", context.Canceled)))}, slog.LevelWarn},
+		{"a Group without a cancel stays an error", []any{slog.Group("query", slog.Any("error", fmt.Errorf("db down")))}, slog.LevelError},
 		{"an expired deadline stays an error", []any{"error", fmt.Errorf("query row: %w", context.DeadlineExceeded)}, slog.LevelError},
 		{"an ordinary failure stays an error", []any{"error", fmt.Errorf("db down")}, slog.LevelError},
 		{"a message naming cancel is not one", []any{"state", "context canceled"}, slog.LevelError},

@@ -498,6 +498,30 @@ func TestChatUserContextMiddleware_FailsClosedWhenTheCapCannotBeRead(t *testing.
 	}
 }
 
+// A caller that hung up while its account limits were being read cancelled
+// the read underneath the middleware: still refused, but as a 499 that keeps
+// the access log's error lines for failures on this side.
+func TestChatUserContextMiddleware_CallerHungUpIs499(t *testing.T) {
+	uid := uuid.New()
+	id := &user.Identity{Role: user.RoleUser, Grants: []string{string(user.GrantChat)}, UserID: &uid, Username: "gone"}
+	h := newTestHandler(t)
+	h.SetUserAuth(failingUserStore{err: fmt.Errorf("get user: %w", context.Canceled)}, nil)
+
+	ctx, cancel := context.WithCancel(user.WithIdentity(t.Context(), id))
+	cancel()
+	req := httptest.NewRequestWithContext(ctx, http.MethodPost, "/api/chat/chat", http.NoBody)
+	w := httptest.NewRecorder()
+	var reached bool
+	var got publishedUserCtx
+	h.ChatUserContextMiddleware(userCtxProbe(&reached, &got)).ServeHTTP(w, req)
+	if reached {
+		t.Fatal("ESCALATION: the request reached the chat handler with no account limits resolved")
+	}
+	if w.Code != statusClientClosed {
+		t.Errorf("status = %d, want 499; body %s", w.Code, w.Body.String())
+	}
+}
+
 // The account's aggregate rate limits and its own id have to reach the chat
 // surface too, not just the provider cap: the limiters key their shared
 // "user:<uuid>" buckets on the id and gate on the caps, and the request log

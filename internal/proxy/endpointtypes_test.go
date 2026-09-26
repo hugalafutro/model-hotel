@@ -4,28 +4,20 @@ import (
 	"go/ast"
 	"go/parser"
 	"go/token"
-	"slices"
-	"strconv"
 	"strings"
 	"testing"
 )
 
-// TestEndpointTypesCoversEveryConstant ties the endpointType* constants to the
-// EndpointTypes slice built from them. The log filter in internal/api validates
-// against that slice and ignores anything it does not recognise, so a family
-// that is declared and stamped on rows but left out of the slice becomes a
-// filter option that matches every row instead of its own. That is the defect
-// this file exists to prevent recurring, and neither the compiler nor a
-// hand-written list of families would catch it: the constants are only reachable
-// by reading the declaration, so the test reads it.
-func TestEndpointTypesCoversEveryConstant(t *testing.T) {
-	fset := token.NewFileSet()
-	file, err := parser.ParseFile(fset, "types.go", nil, 0)
+// TestEndpointTypeConstantsComeFromTheLeaf: every endpointType* constant in
+// types.go must alias internal/endpointtype rather than carry its own literal.
+// The log filter validates against endpointtype.All, so a family declared here
+// as a literal would be stamped on rows the filter can never select.
+func TestEndpointTypeConstantsComeFromTheLeaf(t *testing.T) {
+	file, err := parser.ParseFile(token.NewFileSet(), "types.go", nil, 0)
 	if err != nil {
 		t.Fatalf("parse types.go: %v", err)
 	}
-
-	declared := map[string]string{} // constant name -> its string value
+	found := 0
 	ast.Inspect(file, func(n ast.Node) bool {
 		vs, ok := n.(*ast.ValueSpec)
 		if !ok {
@@ -35,28 +27,18 @@ func TestEndpointTypesCoversEveryConstant(t *testing.T) {
 			if !strings.HasPrefix(name.Name, "endpointType") || i >= len(vs.Values) {
 				continue
 			}
-			lit, ok := vs.Values[i].(*ast.BasicLit)
-			if !ok || lit.Kind != token.STRING {
-				continue
+			found++
+			var pkg *ast.Ident
+			if sel, ok := vs.Values[i].(*ast.SelectorExpr); ok {
+				pkg, _ = sel.X.(*ast.Ident)
 			}
-			value, err := strconv.Unquote(lit.Value)
-			if err != nil {
-				t.Fatalf("unquote %s: %v", name.Name, err)
+			if pkg == nil || pkg.Name != "endpointtype" {
+				t.Errorf("%s is not an endpointtype alias; declare the family in internal/endpointtype", name.Name)
 			}
-			declared[name.Name] = value
 		}
 		return true
 	})
-
-	if len(declared) == 0 {
+	if found == 0 {
 		t.Fatal("found no endpointType* constants in types.go; this test can no longer see what it guards")
-	}
-	for name, value := range declared {
-		if !slices.Contains(EndpointTypes, value) {
-			t.Errorf("constant %s (%q) is missing from EndpointTypes, so the log filter would ignore it and return every row", name, value)
-		}
-	}
-	if len(EndpointTypes) != len(declared) {
-		t.Errorf("EndpointTypes has %d entries but types.go declares %d endpointType* constants", len(EndpointTypes), len(declared))
 	}
 }
