@@ -239,7 +239,8 @@
 			"title": "Fouten",
 			"viewDetails": "Bekijk details",
 			"clearAllConfirm": "Klik nogmaals om te bevestigen",
-			"titleTooltip": "Maximaal {{limit}} recente serverfouten uit de afgelopen {{hours}} uur"
+			"titleTooltip_one": "Maximaal {{limit}} recente serverfouten uit het afgelopen {{count}} uur",
+			"titleTooltip_other": "Maximaal {{limit}} recente serverfouten uit de afgelopen {{count}} uur"
 		},
 		"ha": {
 			"primary": "Primair",

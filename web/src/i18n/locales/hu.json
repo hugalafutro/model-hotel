@@ -239,7 +239,8 @@
 			"title": "Hibák",
 			"viewDetails": "Részletek megtekintése",
 			"clearAllConfirm": "Kattintson újra a megerősítéshez",
-			"titleTooltip": "Legfeljebb {{limit}} friss szerverhiba az elmúlt {{hours}} órából"
+			"titleTooltip_one": "Legfeljebb {{limit}} friss szerverhiba az elmúlt {{count}} órából",
+			"titleTooltip_other": "Legfeljebb {{limit}} friss szerverhiba az elmúlt {{count}} órából"
 		},
 		"ha": {
 			"primary": "Elsődleges",

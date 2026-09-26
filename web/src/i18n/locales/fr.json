@@ -78,8 +78,8 @@
 		},
 		"prevRow": "Ligne précédente",
 		"nextRow": "Ligne suivante",
-		"expandNamed": "Agrandir: {{name}}",
-		"collapseNamed": "Réduire: {{name}}"
+		"expandNamed": "Agrandir : {{name}}",
+		"collapseNamed": "Réduire : {{name}}"
 	},
 	"layout": {
 		"title": "Model Hotel",
@@ -252,7 +252,9 @@
 			"title": "Erreurs",
 			"viewDetails": "Afficher les détails",
 			"clearAllConfirm": "Cliquez à nouveau pour confirmer",
-			"titleTooltip": "Jusqu'à {{limit}} erreurs serveur récentes des dernières {{hours}} heures"
+			"titleTooltip_one": "Jusqu'à {{limit}} erreurs serveur récentes de la dernière {{count}} heure",
+			"titleTooltip_many": "Jusqu'à {{limit}} erreurs serveur récentes des dernières {{count}} heures",
+			"titleTooltip_other": "Jusqu'à {{limit}} erreurs serveur récentes des dernières {{count}} heures"
 		},
 		"ha": {
 			"primary": "Principal",

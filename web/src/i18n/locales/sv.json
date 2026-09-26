@@ -239,7 +239,8 @@
 			"title": "Fel",
 			"viewDetails": "Visa detaljer",
 			"clearAllConfirm": "Klicka igen för att bekräfta",
-			"titleTooltip": "Upp till {{limit}} senaste serverfel från de senaste {{hours}} timmarna"
+			"titleTooltip_one": "Upp till {{limit}} senaste serverfel från den senaste {{count}} timmen",
+			"titleTooltip_other": "Upp till {{limit}} senaste serverfel från de senaste {{count}} timmarna"
 		},
 		"ha": {
 			"primary": "Primär",

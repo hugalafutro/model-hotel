@@ -138,12 +138,12 @@
 			"requestsTodayAll": "Yêu cầu hôm nay (tất cả)",
 			"requestsTodayOwn": "Yêu cầu hôm nay (của bạn)",
 			"requestsToday": "Yêu cầu hôm nay",
-			"aggregateNetwork_other": "Tổng mạng trên {{count}} vùng chứa compose",
-			"aggregateDisk_other": "Tổng I/O đĩa trên {{count}} vùng chứa compose",
-			"aggregateMemory_other": "Tổng bộ nhớ trên {{count}} vùng chứa compose",
 			"aggregateNetwork_one": "Tổng mạng trên {{count}} vùng chứa compose",
+			"aggregateNetwork_other": "Tổng mạng trên {{count}} vùng chứa compose",
 			"aggregateDisk_one": "Tổng I/O đĩa trên {{count}} vùng chứa compose",
-			"aggregateMemory_one": "Tổng bộ nhớ trên {{count}} vùng chứa compose"
+			"aggregateDisk_other": "Tổng I/O đĩa trên {{count}} vùng chứa compose",
+			"aggregateMemory_one": "Tổng bộ nhớ trên {{count}} vùng chứa compose",
+			"aggregateMemory_other": "Tổng bộ nhớ trên {{count}} vùng chứa compose"
 		},
 		"toast": {
 			"copiedToClipboard": "Đã sao chép vào khay nhớ tạm",
@@ -215,14 +215,14 @@
 			"memoryUsed": "Bộ nhớ máy chủ đang dùng",
 			"memoryLimit": "Giới hạn bộ nhớ máy chủ được phép đạt tới trước khi bị dừng",
 			"memoryHeap": "Vùng nhớ heap của Go đang cấp phát; máy chủ này không đặt giới hạn bộ nhớ",
-			"aggregateCpu_other": "CPU đang dùng trên {{count}} vùng chứa compose",
-			"aggregateProcs_other": "Tiến trình trên {{count}} vùng chứa compose",
-			"aggregateMemoryUsed_other": "Bộ nhớ đang dùng trên {{count}} vùng chứa compose",
-			"aggregateMemoryLimit_other": "Giới hạn bộ nhớ cao nhất do {{count}} vùng chứa compose báo cáo",
 			"aggregateCpu_one": "CPU đang dùng trên {{count}} vùng chứa compose",
+			"aggregateCpu_other": "CPU đang dùng trên {{count}} vùng chứa compose",
 			"aggregateProcs_one": "Tiến trình trên {{count}} vùng chứa compose",
+			"aggregateProcs_other": "Tiến trình trên {{count}} vùng chứa compose",
 			"aggregateMemoryUsed_one": "Bộ nhớ đang dùng trên {{count}} vùng chứa compose",
-			"aggregateMemoryLimit_one": "Giới hạn bộ nhớ cao nhất do {{count}} vùng chứa compose báo cáo"
+			"aggregateMemoryUsed_other": "Bộ nhớ đang dùng trên {{count}} vùng chứa compose",
+			"aggregateMemoryLimit_one": "Giới hạn bộ nhớ cao nhất do {{count}} vùng chứa compose báo cáo",
+			"aggregateMemoryLimit_other": "Giới hạn bộ nhớ cao nhất do {{count}} vùng chứa compose báo cáo"
 		},
 		"githubRepo": "Kho lưu trữ GitHub",
 		"readOnly": {
@@ -239,7 +239,8 @@
 			"title": "Lỗi",
 			"viewDetails": "Xem chi tiết",
 			"clearAllConfirm": "Nhấp lại để xác nhận",
-			"titleTooltip": "Tối đa {{limit}} lỗi máy chủ gần đây trong {{hours}} giờ qua"
+			"titleTooltip_one": "Tối đa {{limit}} lỗi máy chủ gần đây trong {{count}} giờ qua",
+			"titleTooltip_other": "Tối đa {{limit}} lỗi máy chủ gần đây trong {{count}} giờ qua"
 		},
 		"ha": {
 			"primary": "Chính",

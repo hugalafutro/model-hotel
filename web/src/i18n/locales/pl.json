@@ -265,7 +265,10 @@
 			"title": "Błędy",
 			"viewDetails": "Zobacz szczegóły",
 			"clearAllConfirm": "Kliknij ponownie, aby potwierdzić",
-			"titleTooltip": "Do {{limit}} ostatnich błędów serwera z ostatnich {{hours}} godzin"
+			"titleTooltip_one": "Do {{limit}} ostatnich błędów serwera z ostatniej {{count}} godziny",
+			"titleTooltip_few": "Do {{limit}} ostatnich błędów serwera z ostatnich {{count}} godzin",
+			"titleTooltip_many": "Do {{limit}} ostatnich błędów serwera z ostatnich {{count}} godzin",
+			"titleTooltip_other": "Do {{limit}} ostatnich błędów serwera z ostatnich {{count}} godziny"
 		},
 		"ha": {
 			"primary": "Podstawowy",

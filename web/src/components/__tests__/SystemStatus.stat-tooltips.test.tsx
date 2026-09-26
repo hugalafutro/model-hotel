@@ -124,8 +124,7 @@ describe("SystemStatus stat tooltips", () => {
 		).toHaveTextContent("1.0");
 		// Regression pin: the CPU figure names the containers itself, so its
 		// row carries no second tooltip saying the same thing.
-		const cpuRow = screen.getByText(i18n.t("layout.stats.cpu")).parentElement;
-		expect(cpuRow).not.toHaveAttribute("title");
+		expect(screen.getByTestId("stat-cpu")).not.toHaveAttribute("title");
 	});
 
 	it("Regression pin: phrases the container count through plural forms", async () => {
@@ -162,6 +161,7 @@ describe("SystemStatus stat tooltips", () => {
 			"layout.stats.aggregateDisk",
 			"layout.stats.aggregateMemory",
 		]) {
+			expect(i18n.exists(`${key}_one`)).toBe(true);
 			expect(i18n.exists(`${key}_other`)).toBe(true);
 			expect(i18n.exists(key)).toBe(false);
 		}
@@ -178,7 +178,8 @@ describe("SystemStatus stat tooltips", () => {
 		// Without Docker aggregates there is nothing a row-level tooltip could
 		// add over the label already on screen, so these rows carry none.
 		for (const key of ["cpu", "network", "disk", "memory"]) {
-			const row = screen.getByText(i18n.t(`layout.stats.${key}`)).parentElement;
+			const row = screen.getByTestId(`stat-${key}`);
+			expect(row).toHaveTextContent(i18n.t(`layout.stats.${key}`));
 			expect(row).not.toHaveAttribute("title");
 		}
 	});

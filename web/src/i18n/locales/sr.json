@@ -252,7 +252,9 @@
 			"title": "Грешке",
 			"viewDetails": "Прикажи детаље",
 			"clearAllConfirm": "Кликните поново да бисте потврдили",
-			"titleTooltip": "До {{limit}} недавних грешака сервера из последња {{hours}} сата"
+			"titleTooltip_one": "До {{limit}} недавних грешака сервера из последњег {{count}} сата",
+			"titleTooltip_few": "До {{limit}} недавних грешака сервера из последња {{count}} сата",
+			"titleTooltip_other": "До {{limit}} недавних грешака сервера из последњих {{count}} сати"
 		},
 		"ha": {
 			"primary": "Примарни",

@@ -252,7 +252,9 @@
 			"title": "Errores",
 			"viewDetails": "Ver detalles",
 			"clearAllConfirm": "Haga clic de nuevo para confirmar",
-			"titleTooltip": "Hasta {{limit}} errores recientes del servidor de las últimas {{hours}} horas"
+			"titleTooltip_one": "Hasta {{limit}} errores recientes del servidor de la última {{count}} hora",
+			"titleTooltip_many": "Hasta {{limit}} errores recientes del servidor de las últimas {{count}} horas",
+			"titleTooltip_other": "Hasta {{limit}} errores recientes del servidor de las últimas {{count}} horas"
 		},
 		"ha": {
 			"primary": "Primario",

@@ -138,12 +138,12 @@
 			"requestsTodayAll": "今日请求（全部）",
 			"requestsTodayOwn": "今日请求（我的）",
 			"requestsToday": "今日请求",
-			"aggregateNetwork_other": "{{count}} 个 compose 容器的网络总量",
-			"aggregateDisk_other": "{{count}} 个 compose 容器的磁盘 I/O 总量",
-			"aggregateMemory_other": "{{count}} 个 compose 容器的内存总量",
 			"aggregateNetwork_one": "{{count}} 个 compose 容器的网络总量",
+			"aggregateNetwork_other": "{{count}} 个 compose 容器的网络总量",
 			"aggregateDisk_one": "{{count}} 个 compose 容器的磁盘 I/O 总量",
-			"aggregateMemory_one": "{{count}} 个 compose 容器的内存总量"
+			"aggregateDisk_other": "{{count}} 个 compose 容器的磁盘 I/O 总量",
+			"aggregateMemory_one": "{{count}} 个 compose 容器的内存总量",
+			"aggregateMemory_other": "{{count}} 个 compose 容器的内存总量"
 		},
 		"toast": {
 			"copiedToClipboard": "复制到剪贴板",
@@ -215,14 +215,14 @@
 			"memoryUsed": "服务器当前占用的内存",
 			"memoryLimit": "服务器被终止前允许占用的内存上限",
 			"memoryHeap": "当前分配的 Go 堆内存；此服务器未设置内存上限",
-			"aggregateCpu_other": "{{count}} 个 compose 容器已用 CPU",
-			"aggregateProcs_other": "{{count}} 个 compose 容器的进程总数",
-			"aggregateMemoryUsed_other": "{{count}} 个 compose 容器已用内存总量",
-			"aggregateMemoryLimit_other": "{{count}} 个 compose 容器报告的最高内存上限",
 			"aggregateCpu_one": "{{count}} 个 compose 容器已用 CPU",
+			"aggregateCpu_other": "{{count}} 个 compose 容器已用 CPU",
 			"aggregateProcs_one": "{{count}} 个 compose 容器的进程总数",
+			"aggregateProcs_other": "{{count}} 个 compose 容器的进程总数",
 			"aggregateMemoryUsed_one": "{{count}} 个 compose 容器已用内存总量",
-			"aggregateMemoryLimit_one": "{{count}} 个 compose 容器报告的最高内存上限"
+			"aggregateMemoryUsed_other": "{{count}} 个 compose 容器已用内存总量",
+			"aggregateMemoryLimit_one": "{{count}} 个 compose 容器报告的最高内存上限",
+			"aggregateMemoryLimit_other": "{{count}} 个 compose 容器报告的最高内存上限"
 		},
 		"githubRepo": "GitHub 仓库",
 		"readOnly": {
@@ -239,7 +239,8 @@
 			"title": "错误",
 			"viewDetails": "查看详情",
 			"clearAllConfirm": "再次点击以确认",
-			"titleTooltip": "最近 {{hours}} 小时内最多 {{limit}} 条服务器错误"
+			"titleTooltip_one": "最近 {{count}} 小时内最多 {{limit}} 条服务器错误",
+			"titleTooltip_other": "最近 {{count}} 小时内最多 {{limit}} 条服务器错误"
 		},
 		"ha": {
 			"primary": "主节点",

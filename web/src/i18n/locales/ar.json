@@ -291,7 +291,12 @@
 			"title": "الأخطاء",
 			"viewDetails": "عرض التفاصيل",
 			"clearAllConfirm": "انقر مرة أخرى للتأكيد",
-			"titleTooltip": "حتى {{limit}} من أخطاء الخادم الأخيرة خلال آخر {{hours}} ساعة"
+			"titleTooltip_zero": "حتى {{limit}} من أخطاء الخادم الأخيرة خلال آخر {{count}} ساعة",
+			"titleTooltip_one": "حتى {{limit}} من أخطاء الخادم الأخيرة خلال آخر {{count}} ساعة",
+			"titleTooltip_two": "حتى {{limit}} من أخطاء الخادم الأخيرة خلال آخر {{count}} ساعتين",
+			"titleTooltip_few": "حتى {{limit}} من أخطاء الخادم الأخيرة خلال آخر {{count}} ساعات",
+			"titleTooltip_many": "حتى {{limit}} من أخطاء الخادم الأخيرة خلال آخر {{count}} ساعة",
+			"titleTooltip_other": "حتى {{limit}} من أخطاء الخادم الأخيرة خلال آخر {{count}} ساعة"
 		},
 		"ha": {
 			"primary": "أساسي",

@@ -55,6 +55,7 @@ export function PillStrip({
 					onToggle={toggle}
 					expandTitle={t("common.expandNamed", { name: label })}
 					collapseTitle={t("common.collapseNamed", { name: label })}
+					ariaLabel={label}
 					iconStyle="double"
 					size={12}
 					className="ui-icon-btn p-0.5 rounded-md shrink-0"
@@ -72,7 +73,7 @@ export function PillStrip({
 						data-dimmed={anyActive && !p.active ? "" : undefined}
 						{...(p.icon ? { "aria-label": p.label, title: p.label } : {})}
 						onClick={p.onToggle}
-						className={`${p.icon ? OUTPUT_ICON_BADGE : "ui-badge inline-flex items-center px-1.5 py-0.5 text-[10px] font-medium border"} transition-[color,background-color,border-color,filter] ${p.className}${anyActive && !p.active ? " grayscale hover:grayscale-0" : ""}`}
+						className={`${p.icon ? OUTPUT_ICON_BADGE : "ui-badge inline-flex items-center px-1.5 py-0.5 text-[10px] font-medium border"} transition-[color,background-color,border-color,filter] data-dimmed:grayscale data-dimmed:hover:grayscale-0 ${p.className}`}
 					>
 						{p.icon ? <OutputIcon meta={p.icon} /> : p.label}
 					</button>

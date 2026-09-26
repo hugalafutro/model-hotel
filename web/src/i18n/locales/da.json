@@ -239,7 +239,8 @@
 			"title": "Fejl",
 			"viewDetails": "Se detaljer",
 			"clearAllConfirm": "Klik igen for at bekræfte",
-			"titleTooltip": "Op til {{limit}} nylige serverfejl fra de seneste {{hours}} timer"
+			"titleTooltip_one": "Op til {{limit}} nylige serverfejl fra den seneste {{count}} time",
+			"titleTooltip_other": "Op til {{limit}} nylige serverfejl fra de seneste {{count}} timer"
 		},
 		"ha": {
 			"primary": "Primær",

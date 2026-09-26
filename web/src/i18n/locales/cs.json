@@ -265,7 +265,10 @@
 			"title": "Chyby",
 			"viewDetails": "Zobrazit podrobnosti",
 			"clearAllConfirm": "Klikněte znovu pro potvrzení",
-			"titleTooltip": "Až {{limit}} nedávných chyb serveru za posledních {{hours}} hodin"
+			"titleTooltip_one": "Až {{limit}} nedávných chyb serveru za poslední {{count}} hodinu",
+			"titleTooltip_few": "Až {{limit}} nedávných chyb serveru za poslední {{count}} hodiny",
+			"titleTooltip_many": "Až {{limit}} nedávných chyb serveru za posledních {{count}} hodiny",
+			"titleTooltip_other": "Až {{limit}} nedávných chyb serveru za posledních {{count}} hodin"
 		},
 		"ha": {
 			"primary": "Primární",

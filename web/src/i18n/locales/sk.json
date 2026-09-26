@@ -265,7 +265,10 @@
 			"title": "Chyby",
 			"viewDetails": "Zobraziť podrobnosti",
 			"clearAllConfirm": "Kliknite znovu na potvrdenie",
-			"titleTooltip": "Až {{limit}} nedávnych chýb servera za posledných {{hours}} hodín"
+			"titleTooltip_one": "Až {{limit}} nedávnych chýb servera za poslednú {{count}} hodinu",
+			"titleTooltip_few": "Až {{limit}} nedávnych chýb servera za posledné {{count}} hodiny",
+			"titleTooltip_many": "Až {{limit}} nedávnych chýb servera za posledných {{count}} hodiny",
+			"titleTooltip_other": "Až {{limit}} nedávnych chýb servera za posledných {{count}} hodín"
 		},
 		"ha": {
 			"primary": "Primárny",

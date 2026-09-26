@@ -265,7 +265,10 @@
 			"title": "Ошибки",
 			"viewDetails": "Просмотреть подробности",
 			"clearAllConfirm": "Нажмите еще раз для подтверждения",
-			"titleTooltip": "До {{limit}} недавних ошибок сервера за последние {{hours}} часа"
+			"titleTooltip_one": "До {{limit}} недавних ошибок сервера за последний {{count}} час",
+			"titleTooltip_few": "До {{limit}} недавних ошибок сервера за последние {{count}} часа",
+			"titleTooltip_many": "До {{limit}} недавних ошибок сервера за последние {{count}} часов",
+			"titleTooltip_other": "До {{limit}} недавних ошибок сервера за последние {{count}} часа"
 		},
 		"ha": {
 			"primary": "Основной",

@@ -239,7 +239,8 @@
 			"title": "Hatalar",
 			"viewDetails": "Ayrıntıları görüntüle",
 			"clearAllConfirm": "Onaylamak için tekrar tıklayın",
-			"titleTooltip": "Son {{hours}} saatteki en fazla {{limit}} yeni sunucu hatası"
+			"titleTooltip_one": "Son {{count}} saatteki en fazla {{limit}} yeni sunucu hatası",
+			"titleTooltip_other": "Son {{count}} saatteki en fazla {{limit}} yeni sunucu hatası"
 		},
 		"ha": {
 			"primary": "Birincil",

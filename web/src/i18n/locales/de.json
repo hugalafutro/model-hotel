@@ -239,7 +239,8 @@
 			"title": "Fehler",
 			"viewDetails": "Details anzeigen",
 			"clearAllConfirm": "Klicken Sie erneut, um zu bestätigen",
-			"titleTooltip": "Bis zu {{limit}} aktuelle Serverfehler aus den letzten {{hours}} Stunden"
+			"titleTooltip_one": "Bis zu {{limit}} aktuelle Serverfehler aus der letzten {{count}} Stunde",
+			"titleTooltip_other": "Bis zu {{limit}} aktuelle Serverfehler aus den letzten {{count}} Stunden"
 		},
 		"ha": {
 			"primary": "Primär",

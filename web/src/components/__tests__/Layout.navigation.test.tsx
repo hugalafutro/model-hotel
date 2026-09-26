@@ -343,6 +343,23 @@ describe("Layout", () => {
 			expect(screen.getByTestId("test-content")).toBeInTheDocument();
 		});
 
+		it.each(["/dashboard", "/models", "/logs", "/settings"])(
+			"renders %s inside the shared content column",
+			(route) => {
+				renderWithProviders(
+					<Layout>
+						<div data-testid="test-content" />
+					</Layout>,
+					{ initialEntries: [route] },
+				);
+
+				const column = screen
+					.getByRole("main")
+					.querySelector('[data-layout="content"]');
+				expect(column).toContainElement(screen.getByTestId("test-content"));
+			},
+		);
+
 		it("has proper main landmark", () => {
 			renderWithProviders(<Layout>{mockChildren}</Layout>);
 

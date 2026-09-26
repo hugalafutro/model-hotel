@@ -252,7 +252,9 @@
 			"title": "שגיאות",
 			"viewDetails": "הצג פרטים",
 			"clearAllConfirm": "לחץ שוב כדי לאשר",
-			"titleTooltip": "עד {{limit}} שגיאות שרת אחרונות מ-{{hours}} השעות האחרונות"
+			"titleTooltip_one": "עד {{limit}} שגיאות שרת אחרונות מ-{{count}} השעה האחרונה",
+			"titleTooltip_two": "עד {{limit}} שגיאות שרת אחרונות מ-{{count}} השעות האחרונות",
+			"titleTooltip_other": "עד {{limit}} שגיאות שרת אחרונות מ-{{count}} השעות האחרונות"
 		},
 		"ha": {
 			"primary": "ראשי",

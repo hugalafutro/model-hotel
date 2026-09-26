@@ -239,7 +239,8 @@
 			"title": "Foute",
 			"viewDetails": "Bekyk besonderhede",
 			"clearAllConfirm": "Klik weer om te bevestig",
-			"titleTooltip": "Tot {{limit}} onlangse bedienerfoute uit die afgelope {{hours}} uur"
+			"titleTooltip_one": "Tot {{limit}} onlangse bedienerfoute uit die afgelope {{count}} uur",
+			"titleTooltip_other": "Tot {{limit}} onlangse bedienerfoute uit die afgelope {{count}} uur"
 		},
 		"ha": {
 			"primary": "Primêr",

@@ -252,7 +252,9 @@
 			"title": "Errors",
 			"viewDetails": "Veure detalls",
 			"clearAllConfirm": "Feu clic de nou per confirmar",
-			"titleTooltip": "Fins a {{limit}} errors recents del servidor de les últimes {{hours}} hores"
+			"titleTooltip_one": "Fins a {{limit}} errors recents del servidor de l'última {{count}} hora",
+			"titleTooltip_many": "Fins a {{limit}} errors recents del servidor de les últimes {{count}} hores",
+			"titleTooltip_other": "Fins a {{limit}} errors recents del servidor de les últimes {{count}} hores"
 		},
 		"ha": {
 			"primary": "Primari",

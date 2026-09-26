@@ -9,6 +9,7 @@ import userEvent from "@testing-library/user-event";
 import { HttpResponse, http } from "msw";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import type { AuditEntry } from "../../../api/types";
+import i18n from "../../../i18n";
 import { server } from "../../../test/mocks/server";
 import { renderWithProviders } from "../../../test/utils";
 import { Audit } from "../index";
@@ -39,6 +40,29 @@ function mockLayout() {
 function scroller(rowText: string): HTMLElement {
 	return screen.getByText(rowText).closest('[tabindex="-1"]') as HTMLElement;
 }
+
+/**
+ * The footer status as a pattern: the start and end become digit groups, the
+ * end a back-reference to the start when `sameEnds` is set.
+ */
+function rangePattern(total: number, sameEnds = false): RegExp {
+	const text = i18n.t("common.showingRange", {
+		start: "\u0000S",
+		end: "\u0000E",
+		total: String(total),
+	});
+	const escaped = text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+	return new RegExp(
+		`^${escaped.replace("\u0000S", "(\\d+)").replace("\u0000E", sameEnds ? "\\1" : "(\\d+)")}$`,
+	);
+}
+
+const range = (start: number, end: number, total: number) =>
+	i18n.t("common.showingRange", {
+		start: String(start),
+		end: String(end),
+		total: String(total),
+	});
 
 function entry(overrides: Partial<AuditEntry>): AuditEntry {
 	return {
@@ -205,8 +229,11 @@ describe("Audit page", () => {
 		expect(await screen.findByText("/row-0")).toBeInTheDocument();
 
 		// A 600px box of 45px rows holds far fewer than the 30 loaded.
-		const status = screen.getByText(/^Showing 1–\d+ of 30$/);
-		const shown = Number(/–(\d+)/.exec(status.textContent ?? "")?.[1]);
+		const status = screen.getByText(rangePattern(30));
+		const [, first, last] =
+			rangePattern(30).exec(status.textContent ?? "") ?? [];
+		expect(first).toBe("1");
+		const shown = Number(last);
 		expect(shown).toBeGreaterThan(0);
 		expect(shown).toBeLessThan(30);
 
@@ -407,12 +434,12 @@ describe("Audit page", () => {
 		// Page one's row is still on screen, so the footer still describes it,
 		// not page two's offset applied to page one's rows.
 		expect(screen.getByText("/page-one")).toBeInTheDocument();
-		expect(screen.getByText("Showing 1–1 of 60")).toBeInTheDocument();
+		expect(screen.getByText(range(1, 1, 60))).toBeInTheDocument();
 
 		act(() => releasePageTwo());
 		expect(await screen.findByText("/page-two")).toBeInTheDocument();
-		expect(screen.queryByText("Showing 1–1 of 60")).toBeNull();
-		expect(screen.getByText(/^Showing (\d+)–\1 of 60$/)).toBeInTheDocument();
+		expect(screen.queryByText(range(1, 1, 60))).toBeNull();
+		expect(screen.getByText(rangePattern(60, true))).toBeInTheDocument();
 	});
 
 	it("purges after confirmation", async () => {

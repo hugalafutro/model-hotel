@@ -239,7 +239,8 @@
 			"title": "Virheet",
 			"viewDetails": "Näytä tiedot",
 			"clearAllConfirm": "Napsauta uudelleen vahvistaaksesi",
-			"titleTooltip": "Enintään {{limit}} viimeaikaista palvelinvirhettä viimeisen {{hours}} tunnin ajalta"
+			"titleTooltip_one": "Enintään {{limit}} viimeaikaista palvelinvirhettä viimeisen {{count}} tunnin ajalta",
+			"titleTooltip_other": "Enintään {{limit}} viimeaikaista palvelinvirhettä viimeisen {{count}} tunnin ajalta"
 		},
 		"ha": {
 			"primary": "Ensisijainen",

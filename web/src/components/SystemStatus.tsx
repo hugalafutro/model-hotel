@@ -268,7 +268,10 @@ export function SystemStatus() {
 					    below carry a row-level tooltip only while their figures
 					    are aggregates, which the row does not otherwise say;
 					    without Docker it would just repeat the visible label. */}
-					<div className="flex justify-between items-center text-(--text-tertiary)">
+					<div
+						className="flex justify-between items-center text-(--text-tertiary)"
+						data-testid="stat-cpu"
+					>
 						<span>{t("layout.stats.cpu")}</span>
 						<span className={`text-(--text-secondary) ${dc(cpuPct, 75, 90)}`}>
 							{cpuPct != null && cpuPct >= 0 ? (
@@ -315,6 +318,7 @@ export function SystemStatus() {
 					{/* Network */}
 					<div
 						className="flex justify-between items-center text-(--text-tertiary)"
+						data-testid="stat-network"
 						title={
 							useDocker
 								? t("layout.stats.aggregateNetwork", {
@@ -330,6 +334,7 @@ export function SystemStatus() {
 					{/* Disk I/O */}
 					<div
 						className="flex justify-between items-center text-(--text-tertiary)"
+						data-testid="stat-disk"
 						title={
 							useDocker
 								? t("layout.stats.aggregateDisk", {
@@ -345,6 +350,7 @@ export function SystemStatus() {
 					{/* Memory */}
 					<div
 						className="flex justify-between items-center text-(--text-tertiary)"
+						data-testid="stat-memory"
 						title={
 							dockerMem
 								? t("layout.stats.aggregateMemory", {

@@ -219,7 +219,8 @@
 			"copyError": "Copy error",
 			"viewDetails": "View details",
 			"acknowledge": "Dismiss",
-			"titleTooltip": "Up to {{limit}} recent server errors from the last {{hours}} hours"
+			"titleTooltip_one": "Up to {{limit}} recent server errors from the last {{count}} hour",
+			"titleTooltip_other": "Up to {{limit}} recent server errors from the last {{count}} hours"
 		},
 		"running": "Running {{running}}",
 		"runningLatest": "Running latest ({{running}})",
