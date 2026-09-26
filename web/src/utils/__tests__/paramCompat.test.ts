@@ -61,6 +61,9 @@ describe("normalizeToProviderType", () => {
 		expect(normalizeToProviderType("Anthropic (Messages API)")).toBe(
 			"anthropic-messages",
 		);
+		expect(normalizeToProviderType("Acme (Messages API)")).not.toBe(
+			"anthropic-messages",
+		);
 		expect(isParamHidden("custom", "reasoning_effort")).toBe(false);
 		expect(isParamHidden("Anthropic Messages", "reasoning_effort")).toBe(false);
 		expect(isParamHidden("Anthropic Messages", "top_p")).toBe(true);

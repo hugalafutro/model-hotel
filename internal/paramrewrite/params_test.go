@@ -3,6 +3,7 @@ package paramrewrite
 import (
 	"encoding/json"
 	"fmt"
+	"maps"
 	"os"
 	"regexp"
 	"slices"
@@ -190,18 +191,23 @@ func TestParseProviderParamError_EnumValueRefusalTeachesNothing(t *testing.T) {
 func TestParseProviderParamError_ParamRefusalStillLearned(t *testing.T) {
 	t.Parallel()
 
-	for _, tc := range []struct{ msg, param string }{
-		{`Unsupported value: 'temperature' does not support 0 with this model. Only the default (1) value is supported.`, "temperature"},
-		{`Unrecognized request argument supplied: 'reasoning_effort'`, "reasoning_effort"},
-		{`Unsupported parameter: 'reasoning_effort' is not supported with this model.`, "reasoning_effort"},
-		{`This model does not support 'reasoning_effort'.`, "reasoning_effort"},
-		{`Model does not support 'reasoning_effort' parameter`, "reasoning_effort"},
-		{`Unsupported parameter: 'reasoning_effort' is not supported with this model. Invalid value for 'top_p'. Supported values are: 1.`, "reasoning_effort"},
-		{`Invalid value for 'top_p'. Supported values are: 1.; Unsupported parameter: 'reasoning_effort' is not supported.`, "reasoning_effort"},
+	for _, tc := range []struct {
+		msg  string
+		want []string
+	}{
+		{`Unsupported value: 'temperature' does not support 0 with this model. Only the default (1) value is supported.`, []string{"temperature"}},
+		{`Unrecognized request argument supplied: 'reasoning_effort'`, []string{"reasoning_effort"}},
+		{`Unsupported parameter: 'reasoning_effort' is not supported with this model.`, []string{"reasoning_effort"}},
+		{`This model does not support 'reasoning_effort'.`, []string{"reasoning_effort"}},
+		{`Model does not support 'reasoning_effort' parameter`, []string{"reasoning_effort"}},
+		{`Unsupported parameter: 'reasoning_effort' is not supported with this model. Invalid value for 'top_p'. Supported values are: 1.`, []string{"reasoning_effort", "top_p"}},
+		{`Invalid value for 'top_p'. Supported values are: 1.; Unsupported parameter: 'reasoning_effort' is not supported.`, []string{"reasoning_effort", "top_p"}},
+		{`Unsupported parameter: 'reasoning_effort' is not supported. Invalid value for top_p. Supported values are: 1.`, []string{"reasoning_effort"}},
 	} {
 		body := []byte(`{"error":{"message":` + fmt.Sprintf("%q", tc.msg) + `}}`)
-		if rejected := ParseProviderParamError(body); !rejected[tc.param] {
-			t.Errorf("%q: learned %v, want %s", tc.msg, rejected, tc.param)
+		got := slices.Sorted(maps.Keys(ParseProviderParamError(body)))
+		if !slices.Equal(got, tc.want) {
+			t.Errorf("%q: learned %v, want %v", tc.msg, got, tc.want)
 		}
 	}
 }
@@ -229,7 +235,7 @@ func TestDashboardReasoningEffortMatchesStrips(t *testing.T) {
 	}
 	table := source[start : start+end]
 	dashboard := map[string]string{}
-	for _, m := range regexp.MustCompile(`(?m)^\t"?([a-z0-9-]+)"?: \{([^}]*)\}`).FindAllStringSubmatch(table, -1) {
+	for _, m := range regexp.MustCompile(`(?m)^\t"?([A-Za-z0-9_-]+)"?: \{([^}]*)\}`).FindAllStringSubmatch(table, -1) {
 		dashboard[m[1]] = m[2]
 	}
 	for typ := range ProviderUnsupportedParams {

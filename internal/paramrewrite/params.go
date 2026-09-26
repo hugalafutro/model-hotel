@@ -235,33 +235,30 @@ func isEnumValueComplaint(msg, param string) bool {
 }
 
 // paramWindows cuts msg into the stretches that can each be about one param:
-// at the separators providers join several errors with, and at every quoted
-// mention of another known param, which starts that param's own stretch.
+// at the separators providers join several errors with, and at every mention
+// of another known param, which starts that param's own stretch. A name with an
+// underscore ("top_p") is specific enough to count bare, so "Invalid value for
+// top_p. Supported values are: 1." after a reasoning_effort refusal is top_p's
+// stretch; a plain word ("stop", "n") counts only when quoted.
 func paramWindows(msg, param string) []string {
 	cuts := []int{0}
 	for _, sep := range []string{";", "\n", "}, {"} {
-		for i := 0; ; {
-			j := strings.Index(msg[i:], sep)
-			if j < 0 {
-				break
-			}
-			i += j + len(sep)
-			cuts = append(cuts, i)
+		for _, i := range occurrences(msg, sep) {
+			cuts = append(cuts, i+len(sep))
 		}
 	}
 	for _, other := range quotedParams {
-		if other == param {
-			continue
-		}
-		for _, q := range paramQuoteChars {
-			mention := string(q) + other + string(q)
-			for i := 0; ; {
-				j := strings.Index(msg[i:], mention)
-				if j < 0 {
-					break
+		switch {
+		case other == param:
+		case strings.Contains(other, "_"):
+			for _, i := range occurrences(msg, other) {
+				if !isWordByte(msg, i-1) && !isWordByte(msg, i+len(other)) {
+					cuts = append(cuts, i)
 				}
-				cuts = append(cuts, i+j)
-				i += j + len(mention)
+			}
+		default:
+			for _, q := range paramQuoteChars {
+				cuts = append(cuts, occurrences(msg, string(q)+other+string(q))...)
 			}
 		}
 	}
@@ -272,6 +269,28 @@ func paramWindows(msg, param string) []string {
 		windows = append(windows, msg[cuts[k-1]:cuts[k]])
 	}
 	return windows
+}
+
+// occurrences returns the start of every non-overlapping sub in s.
+func occurrences(s, sub string) []int {
+	var at []int
+	for i := 0; ; {
+		j := strings.Index(s[i:], sub)
+		if j < 0 {
+			return at
+		}
+		at = append(at, i+j)
+		i += j + len(sub)
+	}
+}
+
+// isWordByte reports whether s[i] is part of an identifier; out of range is not.
+func isWordByte(s string, i int) bool {
+	if i < 0 || i >= len(s) {
+		return false
+	}
+	c := s[i]
+	return c == '_' || c >= 'a' && c <= 'z' || c >= '0' && c <= '9'
 }
 
 // refusesValueOnly reports whether window, the lowercased text about param,

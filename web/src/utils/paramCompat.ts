@@ -109,13 +109,16 @@ export function normalizeToProviderType(providerName: string): string {
 	const lower = providerName.toLowerCase().replace(/\s+/g, "-");
 	if (Object.hasOwn(PROVIDER_PARAM_INCOMPATIBILITY, lower)) return lower;
 
+	// The Messages type, ahead of the substring rows where "anthropic" would
+	// take it. Both words are required: "Anthropic (Messages API)", the type's
+	// label in the add dialog and the name an operator is most likely to keep,
+	// qualifies; a custom "Acme (Messages API)" does not.
+	if (lower.includes("anthropic") && lower.includes("messages")) {
+		return "anthropic-messages";
+	}
+
 	// Substring heuristic: check if the provider name contains a known type
 	const typePatterns: Record<string, string[]> = {
-		// Before the bare "anthropic" row: every Messages name contains it too.
-		// "Anthropic (Messages API)" is the type's label in the add dialog, the
-		// name an operator is most likely to keep; it normalizes to
-		// "anthropic-(messages-api)".
-		"anthropic-messages": ["anthropic-messages", "messages-api", "(messages"],
 		anthropic: ["anthropic"],
 		openai: ["openai"],
 		google: ["google", "gemini", "generativelanguage"],
