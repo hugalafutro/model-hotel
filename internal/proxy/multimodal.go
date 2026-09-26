@@ -261,7 +261,7 @@ func (h *Handler) serveBufferedJSONPassthrough(w http.ResponseWriter, r *http.Re
 		// package's one classifier for that, and the streamed twin below asks it
 		// the same way: a caller that hung up, never this gateway's own
 		// per-attempt deadline, which is a provider that stalled.
-		abandoned := requestAbandoned(r.Context(), err)
+		kind, _, abandoned := abortKind(r.Context(), err)
 		// Nothing has been written to the client yet, so while a sibling remains
 		// this is failed over rather than answered. Same rule, same shared
 		// outcome, as the chat path.
@@ -275,8 +275,15 @@ func (h *Handler) serveBufferedJSONPassthrough(w http.ResponseWriter, r *http.Re
 		// pass: the warn line and the detail stored on the row.
 		fenced := fencedFrameMessage(logData.fence(), logData.masks(), errString(err))
 		debuglog.Warn("proxy: passthrough body read failed", "endpoint", logData.endpointType, "model", logData.modelID, "provider", logData.providerName, "error", fenced)
-		h.finalizePassthroughLog(st, resp.StatusCode, attempt, responseHeaderMs, 0, 0, "failed", "upstream body read error: "+fenced)
-		writeOpenAIError(w, "failed to read upstream response", http.StatusBadGateway)
+		// A caller that hung up is recorded as its disconnect, the 499 the
+		// chat path stores, not as the upstream's 200.
+		stored, answered := resp.StatusCode, http.StatusBadGateway
+		if abandoned {
+			logData.errorKind = kind
+			stored, answered = statusClientClosedRequest, statusClientClosedRequest
+		}
+		h.finalizePassthroughLog(st, stored, attempt, responseHeaderMs, 0, 0, "failed", "upstream body read error: "+fenced)
+		writeOpenAIError(w, "failed to read upstream response", answered)
 		return outcomeFatal
 	}
 	// The commit point is where the model has proved it is alive, so it is where

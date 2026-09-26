@@ -303,20 +303,20 @@ func (h *Handler) handleNonStreamingResponse(w http.ResponseWriter, r *http.Requ
 		logData.durationMs = totalDuration
 		logData.responseHeaderMs = responseHeaderMs
 		logMsg, detail, kind, reason := nonStreamingFailureDetail(r.Context(), resp, body, readErr, decodeErr, logData.modelID, logData.fence(), logData.masks())
-		// The full masker, not the key-shape layer alone: the exact pass over the
-		// attempt's own key and the held-secret union is what catches a
-		// credential that is not key-shaped (plain hex, a custom gateway token).
-		logData.errorMessage = string(logData.masks().mask([]byte(logMsg)))
+		// Masked by updateRequestLog, the one pass every terminal write goes
+		// through.
+		logData.errorMessage = logMsg
 		logData.errorKind = kind
 		logData.failoverAttempt = attempt
 		logData.state = "failed"
 		// Fire-and-forget: skip WaitForInsert so the error response is not
 		// blocked.
 		h.updateRequestLog(logData, updateLogOption{skipWaitForInsert: true})
-		// Asks the installed handler, as fencedDebugText does, rather than the
-		// level cached at Init: the gate exists to skip the mask when the line
-		// would not be written, and the handler is what decides that.
-		if slog.Default().Enabled(r.Context(), slog.LevelDebug) {
+		// Asks the installed handler and the proxy scope, as fencedDebugText
+		// does, rather than the level cached at Init: the gate exists to skip
+		// the mask when the line would not be written, and those two are what
+		// decide that.
+		if slog.Default().Enabled(r.Context(), slog.LevelDebug) && debuglog.ScopeEnabled("proxy") {
 			// detail left the fence above; masked here too, so the app log gets
 			// the same passes the row does.
 			debuglog.Debug("proxy: non-streaming error details", "status", resp.StatusCode, "error_kind", kind, "model", logData.modelID, "provider", logData.providerName, "error", string(logData.masks().mask([]byte(detail))), "duration_ms", totalDuration)

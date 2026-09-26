@@ -437,6 +437,13 @@ func TestOpenAIErrorType_404(t *testing.T) {
 	}
 }
 
+// A 499 is the caller hanging up, not an invalid request it sent.
+func TestOpenAIErrorType_499(t *testing.T) {
+	if got := OpenAIErrorType(499); got != "client_closed_request" {
+		t.Errorf("OpenAIErrorType(499) = %q, want %q", got, "client_closed_request")
+	}
+}
+
 func TestOpenAIErrorType_429(t *testing.T) {
 	result := OpenAIErrorType(429)
 	if result != "rate_limit_error" {

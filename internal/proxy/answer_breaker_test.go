@@ -613,10 +613,18 @@ func TestServeBufferedJSONPassthrough_AClientHangingUpIsNotCharged(t *testing.T)
 	cancel()
 	req := httptest.NewRequest("POST", "/v1/embeddings", http.NoBody).WithContext(ctx)
 
-	h.serveBufferedJSONPassthrough(httptest.NewRecorder(), req, st, candidate, resp, "application/json", 1, 5, false)
+	w := httptest.NewRecorder()
+	h.serveBufferedJSONPassthrough(w, req, st, candidate, resp, "application/json", 1, 5, false)
 
 	if h.circuitBreaker.GetState(providerID, "") == failover.StateOpen {
 		t.Error("an abandoned pass-through read was charged to the provider")
+	}
+	// And it is recorded as the disconnect it is, not as the upstream's 200.
+	if st.logData.statusCode != statusClientClosedRequest || st.logData.errorKind != KindClientDisconnect {
+		t.Errorf("row = %d %q, want 499 client_disconnect", st.logData.statusCode, st.logData.errorKind)
+	}
+	if w.Code != statusClientClosedRequest {
+		t.Errorf("answered %d, want 499", w.Code)
 	}
 }
 
@@ -990,23 +998,25 @@ func TestHandleNonStreamingResponse_ACompleteBodyBehindAnUncleanCloseIsServed(t 
 	}
 }
 
-// The native Anthropic path hard-coded provider_error for any body-read
-// failure, so the identical event — a caller hanging up, or this gateway's own
-// request_timeout, mid-read — logged provider_error on /v1/messages and the
-// interruption on /v1/chat/completions, decided by nothing but which dialect the
-// request came in on. The three kinds below are the ones the OpenAI-shaped twin
-// records for the same three events, deadline included: that one is a stall and
-// is provider_timeout on both.
+// The native Anthropic path classifies a body-read failure the way the
+// translated path does, so the identical event (a caller hanging up, or this
+// gateway's own request_timeout, mid-read) records the same kind on
+// /v1/messages as on /v1/chat/completions, whichever dialect the request came
+// in on. The three kinds below are the ones the OpenAI-shaped twin records for
+// the same three events, deadline included: that one is a stall and is
+// provider_timeout on both. The caller hanging up is also stored and answered
+// as a 499, as on the translated path.
 func TestHandleNativeNonStreaming_AnEndedReadIsClassified(t *testing.T) {
 	for _, tc := range []struct {
-		name     string
-		origin   string
-		readErr  error
-		wantKind ErrorKind
+		name       string
+		origin     string
+		readErr    error
+		wantKind   ErrorKind
+		wantStatus int
 	}{
-		{"the caller hung up", "", context.Canceled, KindClientDisconnect},
-		{"this gateway's request_timeout", "failover_timeout", context.DeadlineExceeded, KindProviderTimeout},
-		{"the provider broke", "", errors.New("connection reset by peer"), KindProviderError},
+		{"the caller hung up", "", context.Canceled, KindClientDisconnect, statusClientClosedRequest},
+		{"this gateway's request_timeout", "failover_timeout", context.DeadlineExceeded, KindProviderTimeout, http.StatusBadGateway},
+		{"the provider broke", "", errors.New("connection reset by peer"), KindProviderError, http.StatusBadGateway},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			h := newIntegrationHandler()
@@ -1025,10 +1035,16 @@ func TestHandleNativeNonStreaming_AnEndedReadIsClassified(t *testing.T) {
 			}
 			req := httptest.NewRequest("POST", "/v1/messages", http.NoBody).WithContext(ctx)
 
-			h.handleNativeNonStreaming(httptest.NewRecorder(), req, st, modelCandidate{}, anthropicNative, resp, 1, 5, false)
+			w := httptest.NewRecorder()
+			h.handleNativeNonStreaming(w, req, st, modelCandidate{}, anthropicNative, resp, 1, 5, false)
 
 			if logData.errorKind != tc.wantKind {
 				t.Errorf("errorKind = %q, want %q", logData.errorKind, tc.wantKind)
+			}
+			// A caller that hung up is stored and answered as the 499 every
+			// other disconnect is.
+			if logData.statusCode != tc.wantStatus || w.Code != tc.wantStatus {
+				t.Errorf("stored %d, answered %d, want %d", logData.statusCode, w.Code, tc.wantStatus)
 			}
 		})
 	}

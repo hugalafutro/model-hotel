@@ -10,6 +10,7 @@ import (
 	"net/http/httptest"
 	"sync"
 	"testing"
+	"testing/iotest"
 	"time"
 
 	"github.com/hugalafutro/model-hotel/internal/clientip"
@@ -72,6 +73,35 @@ func TestStreamingAwareTimeout_OversizedBodyIs413(t *testing.T) {
 	wrapped.ServeHTTP(rr, req)
 	if rr.Code != http.StatusRequestEntityTooLarge {
 		t.Fatalf("status = %d body = %s, want 413", rr.Code, rr.Body.String())
+	}
+}
+
+// A body read that fails because the caller left is their disconnect: 499.
+// The same failure on a live request is the 400 a broken read gets.
+func TestStreamingAwareTimeout_DisconnectedBodyReadIs499(t *testing.T) {
+	handler := http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) { w.WriteHeader(http.StatusOK) })
+	wrapped := streamingAwareTimeout(5 * time.Minute)(handler)
+	for _, tc := range []struct {
+		name string
+		gone bool
+		want int
+	}{
+		{"caller gone", true, httpx.StatusClientClosedRequest},
+		{"caller live", false, http.StatusBadRequest},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			ctx, cancel := context.WithCancel(context.Background())
+			defer cancel()
+			if tc.gone {
+				cancel()
+			}
+			req := httptest.NewRequest(http.MethodPost, "/v1/chat/completions", iotest.ErrReader(io.ErrUnexpectedEOF)).WithContext(ctx)
+			rr := httptest.NewRecorder()
+			wrapped.ServeHTTP(rr, req)
+			if rr.Code != tc.want {
+				t.Fatalf("status = %d, want %d", rr.Code, tc.want)
+			}
+		})
 	}
 }
 

@@ -2,9 +2,7 @@ package proxy
 
 import (
 	"cmp"
-	"context"
 	"encoding/json"
-	"errors"
 	"net/http"
 
 	"github.com/google/uuid"
@@ -36,15 +34,11 @@ func (h *Handler) ListModels(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		// The read carries the request's own context, so a cancel here is the
 		// caller hanging up: 499, the same answer terminalStatus gives a chat
-		// request that ends that way, rather than a 502-shaped server fault in
-		// the access log. debuglog.Error drops the line to Warn for a cancel on
-		// its own. Any other failure keeps the 500.
+		// request that ends that way, rather than a server fault in the access
+		// log. debuglog.Error drops the line to Warn for a cancel on its own.
+		// Any other failure keeps the 500.
 		debuglog.Error("proxy: failed to list models", "error", err)
-		status := http.StatusInternalServerError
-		if errors.Is(err, context.Canceled) && r.Context().Err() != nil {
-			status = statusClientClosedRequest
-		}
-		writeOpenAIError(w, "failed to list models", status)
+		writeOpenAIError(w, "failed to list models", cancelStatus(r, err, http.StatusInternalServerError))
 		return
 	}
 
@@ -76,11 +70,7 @@ func (h *Handler) ListModels(w http.ResponseWriter, r *http.Request) {
 		// listing instead, with the same two statuses the catalogue read above
 		// uses. debuglog.Error drops the line to Warn for a cancel on its own.
 		debuglog.Error("proxy: failed to list failover groups", "error", err)
-		status := http.StatusInternalServerError
-		if errors.Is(err, context.Canceled) && r.Context().Err() != nil {
-			status = statusClientClosedRequest
-		}
-		writeOpenAIError(w, "failed to list failover groups", status)
+		writeOpenAIError(w, "failed to list failover groups", cancelStatus(r, err, http.StatusInternalServerError))
 		return
 	}
 	for _, g := range groups {

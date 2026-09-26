@@ -88,6 +88,6 @@
   <text x="100" y="860" fill="#e2e8f0" font-size="11">Final candidates: [uuid1 with decrypted API key]</text>
   <text x="500" y="860" fill="#94a3b8" font-size="11">If non-empty: pass to failover loop</text>
   <text x="100" y="882" fill="#f87171" font-size="10">Empty: 502 "no available provider for hotel/X"; 429 + Retry-After if breaker skips emptied it (502 if failover_exhaustion_status_429 off)</text>
-  <text x="100" y="900" fill="#f87171" font-size="10">Every key failed to decrypt: 404 "all N candidate(s) failed key decryption (wrong master key?)"</text>
+  <text x="100" y="900" fill="#f87171" font-size="10">Every key failed to decrypt: 500 "could not resolve model" (the wrong-master-key detail goes to the app log only)</text>
 
 </svg>

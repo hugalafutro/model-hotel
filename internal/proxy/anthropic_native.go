@@ -91,13 +91,19 @@ func (h *Handler) handleNativeNonStreaming(w http.ResponseWriter, r *http.Reques
 		// A body past the cap is refused by THIS gateway, so it is reported the
 		// way the translated path reports its own refusal: a bad request the
 		// provider is not charged for, never a provider fault.
+		// A caller that hung up is answered, and recorded, as the 499 every
+		// other client disconnect is.
 		kind := KindProviderError
 		if aborted, isAbort, _ := abortKind(r.Context(), err); isAbort {
 			kind = aborted
 		} else if errors.Is(err, httpx.ErrBodyTooLarge) {
 			kind = KindProviderBadRequest
 		}
-		logData.statusCode = http.StatusBadGateway
+		status := http.StatusBadGateway
+		if kind == KindClientDisconnect {
+			status = statusClientClosedRequest
+		}
+		logData.statusCode = status
 		logData.durationMs = util.MillisSince(st.startTime)
 		logData.responseHeaderMs = responseHeaderMs
 		logData.failoverAttempt = attempt
@@ -105,7 +111,7 @@ func (h *Handler) handleNativeNonStreaming(w http.ResponseWriter, r *http.Reques
 		logData.errorMessage = "failed to read upstream response: " + fencedErr
 		logData.state = "failed"
 		h.updateRequestLog(logData, updateLogOption{skipWaitForInsert: true})
-		native.writeError(w, "failed to read upstream response", http.StatusBadGateway)
+		native.writeError(w, "failed to read upstream response", status)
 		return outcomeFatal
 	}
 	// Exact-key scrub only: this is a success body, content where the

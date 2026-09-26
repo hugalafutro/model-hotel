@@ -1,9 +1,11 @@
 package egress
 
 import (
+	"bytes"
 	"errors"
 	"fmt"
 	"io"
+	"log/slog"
 	"strings"
 	"testing"
 )
@@ -248,6 +250,23 @@ func TestStreamAdapter_TranslateFailurePoisonsStream(t *testing.T) {
 	}
 	if tr.finished != 0 {
 		t.Error("Finish must not be called over a corrupt upstream")
+	}
+}
+
+// The translate-failure line names the translator's error: every translator
+// names its fault by class, so the error is what an operator needs and quotes
+// nothing the upstream or the caller sent.
+func TestStreamAdapter_TranslateFailureLogsTheError(t *testing.T) {
+	var buf bytes.Buffer
+	original := slog.Default()
+	t.Cleanup(func() { slog.SetDefault(original) })
+	slog.SetDefault(slog.New(slog.NewTextHandler(&buf, nil)))
+
+	tr := &fakeTranslator{failOn: "bad"}
+	_, _ = io.ReadAll(NewStreamAdapter("test", &scriptedBody{script: []string{"data: bad\n\n"}}, tr))
+
+	if line := buf.String(); !strings.Contains(line, "test: stream event translate failed") || !strings.Contains(line, "bad payload") {
+		t.Fatalf("the translate-failure line does not carry the error: %q", line)
 	}
 }
 
