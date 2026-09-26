@@ -65,13 +65,15 @@ func TestRepository_SyncAllModels_ClearsFleetEchoOnlyOnChange(t *testing.T) {
 		t.Fatal("a new member joining an auto group must drop the echo")
 	}
 
+	// Undersize it and resync just this base (a whole-table scan here would race
+	// the other test shards that share the database and count our deletion).
 	seedFleetEcho(t)
 	for _, id := range []uuid.UUID{m1, m2} {
 		if _, err := testDB.Pool().Exec(ctx, `UPDATE models SET enabled = false WHERE id = $1`, id); err != nil {
 			t.Fatalf("disable model: %v", err)
 		}
 	}
-	if _, err := repo.SyncAllModels(ctx); err != nil {
+	if _, err := repo.SyncForModel(ctx, base); err != nil {
 		t.Fatalf("sync: %v", err)
 	}
 	if fleetEchoRows(t) != 0 {
