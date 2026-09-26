@@ -79,6 +79,16 @@ const (
 	// two ways: the model appearing (the next import pins it for real) or the
 	// operator unpinning it on the primary (the list no longer carries it).
 	keyFleetUnappliedModelEnables = "_fleet_unapplied_model_enables"
+	// keyFleetAutoFailoverGroups holds the auto-created failover groups the primary
+	// last sent, verbatim (the auto subset of the envelope's failover_groups). A
+	// member's export emits this in place of its own auto rows, for the reason the
+	// two markers above exist: a member's own auto groups can honestly differ from
+	// the primary's (its discovery ran ahead, or a provider lists a model for one
+	// key and not another), and a hash built from its rows would then read as a
+	// member that failed to converge. Whole section rather than a remainder because
+	// entry order is the intent being carried. Instance-local, rewritten by each
+	// import that carries the field, and ignored once this instance is the primary.
+	keyFleetAutoFailoverGroups = "_fleet_auto_failover_groups"
 	// keyFleetActiveMembers is the fleet-wide count of StateActive members,
 	// delivered by Front Desk's announce heartbeat. The rate limiters read it as a
 	// fair-share divisor. Instance-local like the other _fleet_* keys: written via

@@ -51,6 +51,21 @@ func (h *ConfigSyncHandler) applyFailoverGroups(ctx context.Context, groups []Ex
 	if err := tx.Commit(ctx); err != nil {
 		return groupApplyResult{}, err
 	}
+	// Remember the auto groups as sent, so this member's export can echo them; see
+	// keyFleetAutoFailoverGroups. Via Set, outside the allowlisted declarative
+	// replace like the other _fleet_* keys, and after the commit: a failure here
+	// costs one pass of hash mismatch, not the config.
+	sent := make([]ExportFailoverGroup, 0, len(groups))
+	for _, g := range groups {
+		if g.AutoCreated {
+			sent = append(sent, g)
+		}
+	}
+	if raw, err := json.Marshal(sent); err == nil {
+		if err := h.settings.Set(ctx, keyFleetAutoFailoverGroups, string(raw)); err != nil {
+			debuglog.Warn("configsync: failed to store the fleet auto-group echo", "error", err)
+		}
+	}
 	return res, nil
 }
 
@@ -430,13 +445,18 @@ func upsertFailoverGroups(ctx context.Context, tx pgx.Tx, groups []ExportFailove
 			priority = append(priority, id)
 			entryEnabled[id] = e.Enabled
 		}
+		// An auto group this member cannot fill, or can only fill in part, is its
+		// own discovery's to form or drop: neither is an operator error to alert on,
+		// so only custom groups are reported.
 		if len(priority) < 2 {
-			debuglog.Warn("configsync: skipping custom failover group with too few resolvable entries",
-				"group", g.DisplayModel, "resolved", len(priority), "wanted", len(g.Entries))
-			res.Skipped = append(res.Skipped, g.DisplayModel)
+			if !g.AutoCreated {
+				debuglog.Warn("configsync: skipping custom failover group with too few resolvable entries",
+					"group", g.DisplayModel, "resolved", len(priority), "wanted", len(g.Entries))
+				res.Skipped = append(res.Skipped, g.DisplayModel)
+			}
 			continue
 		}
-		if len(priority) < len(g.Entries) {
+		if !g.AutoCreated && len(priority) < len(g.Entries) {
 			// Routable, but across fewer providers than the primary routes it: this
 			// member holds fewer of the group's models. The group is written with what
 			// resolved, and named so the operator alert can say which is short.
@@ -455,14 +475,14 @@ func upsertFailoverGroups(ctx context.Context, tx pgx.Tx, groups []ExportFailove
 		if _, err := tx.Exec(ctx, `
 			INSERT INTO model_failover_groups
 				(display_model, priority_order, entry_enabled, group_enabled, display_name, description, auto_created)
-			VALUES ($1, $2, $3, $4, $5, $6, false)
+			VALUES ($1, $2, $3, $4, $5, $6, $7)
 			ON CONFLICT (display_model) DO UPDATE SET
 				priority_order = EXCLUDED.priority_order,
 				entry_enabled  = EXCLUDED.entry_enabled,
 				group_enabled  = EXCLUDED.group_enabled,
 				display_name   = EXCLUDED.display_name,
 				description    = EXCLUDED.description,
-				auto_created   = false,
+				auto_created   = EXCLUDED.auto_created,
 				-- Migration 062: auto_disabled_at is what separates "discovery
 				-- disabled this group" from "an operator switched it off", and the
 				-- clear is ONE-WAY. revalidateCustomGroups skips groups that are
@@ -484,7 +504,7 @@ func upsertFailoverGroups(ctx context.Context, tx pgx.Tx, groups []ExportFailove
 				-- claim is never invented either.
 				auto_disabled_at = CASE WHEN EXCLUDED.group_enabled THEN NULL ELSE model_failover_groups.auto_disabled_at END,
 				updated_at     = now()`,
-			g.DisplayModel, priorityJSON, entryEnabledJSON, g.GroupEnabled, g.DisplayName, g.Description); err != nil {
+			g.DisplayModel, priorityJSON, entryEnabledJSON, g.GroupEnabled, g.DisplayName, g.Description, g.AutoCreated); err != nil {
 			return res, err
 		}
 	}

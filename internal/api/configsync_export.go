@@ -338,11 +338,18 @@ func modelRefByUUID(ctx context.Context, q querier) (map[string]ExportModelRef, 
 	return out, rows.Err()
 }
 
-// exportFailoverGroups reads every CUSTOM (auto_created = false) failover group
-// and carries each as ordered (provider, model_id) entry refs. Auto-created
-// groups are skipped: they regenerate identically on each member. An entry whose
-// model UUID no longer resolves (model deleted) is dropped; the group is still
-// exported so the importer can decide whether enough entries survive.
+// exportFailoverGroups reads every failover group, custom and auto, and carries
+// each as ordered (provider, model_id) entry refs. An entry whose model UUID no
+// longer resolves (model deleted) is dropped; the group is still exported so the
+// importer can decide whether enough entries survive.
+//
+// On a member, the auto groups come from keyFleetAutoFailoverGroups (what the
+// primary last sent) instead of its own rows: its discovery may have formed a
+// group the primary has not seen yet, or found one more provider for one, and its
+// hash must still equal the primary's for Front Desk to count it converged. Same
+// primary-never-unions rule as exportModelRefs: a promoted member's export is what
+// its own rows say, and the echo is dropped on the floor until an import rewrites
+// it.
 func exportFailoverGroups(ctx context.Context, q querier, refByUUID map[string]ExportModelRef) ([]ExportFailoverGroup, error) {
 	// description is COALESCEd because the main app's failover Upsert lists the
 	// column with a *string value, so a nil description writes a SQL NULL (the
@@ -351,8 +358,8 @@ func exportFailoverGroups(ctx context.Context, q querier, refByUUID map[string]E
 	// NULL description fails the Scan into g.Description and kills the whole export.
 	rows, err := q.Query(ctx, `
 		SELECT display_model, display_name, COALESCE(description, ''), COALESCE(group_enabled, true),
-		       priority_order, COALESCE(entry_enabled, '{}')
-		FROM model_failover_groups WHERE auto_created = false ORDER BY display_model`)
+		       priority_order, COALESCE(entry_enabled, '{}'), COALESCE(auto_created, false)
+		FROM model_failover_groups ORDER BY display_model`)
 	if err != nil {
 		return nil, err
 	}
@@ -364,7 +371,7 @@ func exportFailoverGroups(ctx context.Context, q querier, refByUUID map[string]E
 		// scan into bytes and unmarshal (matching failover.GetByModel).
 		var priorityJSON, entryEnabledJSON []byte
 		if err := rows.Scan(&g.DisplayModel, &g.DisplayName, &g.Description, &g.GroupEnabled,
-			&priorityJSON, &entryEnabledJSON); err != nil {
+			&priorityJSON, &entryEnabledJSON, &g.AutoCreated); err != nil {
 			return nil, err
 		}
 		var priority []string
@@ -393,7 +400,40 @@ func exportFailoverGroups(ctx context.Context, q querier, refByUUID map[string]E
 		}
 		out = append(out, g)
 	}
-	return out, rows.Err()
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return echoFleetAutoGroups(ctx, q, out)
+}
+
+// echoFleetAutoGroups swaps a member's own auto groups for the ones the primary
+// last sent, when there are any and this instance is not the primary. Sorted by
+// display_model afterwards, the total order the version hash relies on.
+func echoFleetAutoGroups(ctx context.Context, q querier, own []ExportFailoverGroup) ([]ExportFailoverGroup, error) {
+	var raw string
+	if err := q.QueryRow(ctx, `SELECT value FROM settings WHERE key = $1`, keyFleetAutoFailoverGroups).Scan(&raw); err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return own, nil
+		}
+		return nil, err
+	}
+	if isFleetPrimary(ctx, q) {
+		return own, nil
+	}
+	var sent []ExportFailoverGroup
+	if err := json.Unmarshal([]byte(raw), &sent); err != nil {
+		debuglog.Warn("configsync: unparseable fleet auto-group echo; exporting own rows", "error", err)
+		return own, nil
+	}
+	out := make([]ExportFailoverGroup, 0, len(own)+len(sent))
+	for _, g := range own {
+		if !g.AutoCreated {
+			out = append(out, g)
+		}
+	}
+	out = append(out, sent...)
+	slices.SortFunc(out, func(a, b ExportFailoverGroup) int { return cmp.Compare(a.DisplayModel, b.DisplayModel) })
+	return out, nil
 }
 
 // providerIDToName maps provider UUID (text) -> name for translating a virtual

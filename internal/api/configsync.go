@@ -71,7 +71,12 @@ const (
 	// v4 adds quota_reserve_percent to providers. The field carries presence,
 	// so an envelope without it leaves each reserve alone; the bump marks the
 	// shape so both sides agree on what a stated value means.
-	configSchemaVersion = 4
+	//
+	// v5 carries auto-created failover groups, flagged auto_created. A v4 member
+	// decodes the flag away and would write every auto group as a custom one,
+	// which its discovery then never prunes or re-forms. The bump refuses the
+	// envelope until the member is upgraded too.
+	configSchemaVersion = 5
 
 	// maxConfigImportBody bounds an import payload. Fleet config is small (a
 	// handful of providers + keys); 8 MiB is generous and caps a hostile body.
@@ -374,14 +379,20 @@ type ExportVK struct {
 // ExportFailoverGroup is a CUSTOM (non-auto-created) failover group. Its
 // priority_order / entry_enabled reference instance-local model UUIDs, so it is
 // carried as ordered (provider name, model_id) entry refs, resolved back to this
-// member's model UUIDs on import. Auto-created groups are excluded: they
-// regenerate identically on every member from the synced providers.
+// member's model UUIDs on import. Auto-created groups travel too, flagged: each
+// member forms them on its own, but in its own provider-creation order, and the
+// order (and entry toggles) the operator set on the primary are fleet intent like
+// any other. A member's export echoes the auto groups it was last sent rather than
+// its own rows; see exportFailoverGroups.
 type ExportFailoverGroup struct {
-	DisplayModel string                `json:"display_model"`
-	DisplayName  *string               `json:"display_name,omitempty"`
-	Description  string                `json:"description,omitempty"`
-	GroupEnabled bool                  `json:"group_enabled"`
-	Entries      []ExportFailoverEntry `json:"entries"`
+	DisplayModel string  `json:"display_model"`
+	DisplayName  *string `json:"display_name,omitempty"`
+	Description  string  `json:"description,omitempty"`
+	GroupEnabled bool    `json:"group_enabled"`
+	// AutoCreated marks a group discovery formed. Written to the member's row
+	// as-is, so the member's discovery keeps owning the group's existence.
+	AutoCreated bool                  `json:"auto_created,omitempty"`
+	Entries     []ExportFailoverEntry `json:"entries"`
 }
 
 // ExportFailoverEntry is one member of a failover group, identified by the stable

@@ -313,17 +313,20 @@ own HA self-report and refuses a host that already is the primary.
 | Providers (including their encrypted keys) | Request logs, metering, events |
 | Virtual keys (matched by hash) | Backups, runtime stats |
 | Dashboard user accounts | Passkeys / TOTP (auth is per-instance) |
-| Custom failover groups | Auto-formed failover groups |
+| Failover groups, custom and auto-formed (entry order and toggles) | |
 | Models you switched off by hand | Discovered models themselves |
 | Syncable settings (discovery, timeouts, circuit breaker, hedging, backups, retention) | Alerting destination (apprise URL/targets) |
 | SSO email allowlists (who may log in, fleet-wide) | SSO provider config (enable flags, issuer, client credentials, callback base URL - each member chooses which IdPs it offers) |
 | Password policy (breached-password check) | Tab timeout (per-instance operator preference) |
 
-Model rows and auto-formed failover groups are **not** copied: each member
-rediscovers models from the synced providers and re-forms those groups on its own.
-What does travel is your intent about them. A custom failover group is carried as
-stable (provider, model) references and rebuilt against each member's own model
-IDs, and a model you disabled by hand is disabled fleet-wide.
+Model rows are **not** copied: each member rediscovers models from the synced
+providers on its own. What does travel is your intent about them. A failover group
+is carried as stable (provider, model) references and rebuilt against each member's
+own model IDs, so the entry order and toggles you set on the primary are the order
+and toggles on every member, auto-formed groups included. A member still forms and
+prunes auto groups from its own discovery: a model only it holds is appended after
+the primary's entries, and a group it cannot fill with two providers is not built.
+A model you disabled by hand is disabled fleet-wide.
 
 The other two ways a model can be switched off deliberately do **not** travel: one
 that discovery stopped seeing in a provider's listing, and one the proxy retired
