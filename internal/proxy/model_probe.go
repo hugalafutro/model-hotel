@@ -419,8 +419,9 @@ func judgeProbeFailure(resp *http.Response, candidate modelCandidate, endpointTy
 }
 
 // probeErrText is the form a probe's transport, read or dialect error takes in
-// the app log: masked for the candidate's own key and the held set, fenced and
-// cut the way the attempt path treats an upstream error. A transport error
+// the app log: masked for the candidate's own key and the held set, and cut,
+// the way the attempt path treats an upstream error. There is no request
+// fence to apply: the probe's request carries no caller content. A transport error
 // quotes the request URL, which can carry a credential, and a read or dialect
 // error can quote the provider's answer.
 func probeErrText(candidate modelCandidate, err error) string {

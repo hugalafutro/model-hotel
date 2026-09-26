@@ -176,7 +176,7 @@ func streamingAwareTimeout(maxNonStreamingDur time.Duration) func(http.Handler) 
 				switch {
 				case errors.As(err, &tooLarge):
 					status = http.StatusRequestEntityTooLarge
-				case r.Context().Err() != nil:
+				case errors.Is(r.Context().Err(), context.Canceled):
 					status = httpx.StatusClientClosedRequest
 				}
 				util.WriteOpenAIError(w, "failed to read request body", status)

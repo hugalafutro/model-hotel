@@ -323,9 +323,12 @@ func TestHandleNonStreamingResponse_AnEndedReadIsChargedOnlyWhenTheProviderStall
 		readErr    error
 		wantKind   ErrorKind
 		wantCharge bool
+		// The row keeps the upstream's 200 unless the caller hung up; the
+		// client is answered 502 unless the caller hung up.
+		wantStored, wantAnswered int
 	}{
-		{"the caller hung up", "", context.Canceled, KindClientDisconnect, false},
-		{"this gateway's request_timeout", "failover_timeout", context.DeadlineExceeded, KindProviderTimeout, true},
+		{"the caller hung up", "", context.Canceled, KindClientDisconnect, false, statusClientClosedRequest, statusClientClosedRequest},
+		{"this gateway's request_timeout", "failover_timeout", context.DeadlineExceeded, KindProviderTimeout, true, http.StatusOK, http.StatusBadGateway},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			h := newIntegrationHandler()
@@ -348,11 +351,15 @@ func TestHandleNonStreamingResponse_AnEndedReadIsChargedOnlyWhenTheProviderStall
 			}
 			req := withAuthContext(httptest.NewRequest("POST", "/v1/chat/completions", http.NoBody)).WithContext(ctx)
 
-			h.handleNonStreamingResponse(httptest.NewRecorder(), req, logData, resp, readNonStreamingBody(resp, logData.masker), time.Now(), 0, 0, resolveTimings{}, 0, "test-hash", 1)
+			w := httptest.NewRecorder()
+			h.handleNonStreamingResponse(w, req, logData, resp, readNonStreamingBody(resp, logData.masker), time.Now(), 0, 0, resolveTimings{}, 0, "test-hash", 1)
 			h.recordAnswerOutcome(st, candidate, logData, 200)
 
 			if logData.errorKind != tc.wantKind {
 				t.Errorf("errorKind = %q, want %q", logData.errorKind, tc.wantKind)
+			}
+			if logData.statusCode != tc.wantStored || w.Code != tc.wantAnswered {
+				t.Errorf("stored %d, answered %d, want %d and %d", logData.statusCode, w.Code, tc.wantStored, tc.wantAnswered)
 			}
 			// The threshold is one, so the circuit's state is the charge.
 			charged := h.circuitBreaker.GetState(providerID, "") == failover.StateOpen
@@ -625,6 +632,64 @@ func TestServeBufferedJSONPassthrough_AClientHangingUpIsNotCharged(t *testing.T)
 	}
 	if w.Code != statusClientClosedRequest {
 		t.Errorf("answered %d, want 499", w.Code)
+	}
+}
+
+// The streamed twin draws the same line on its first-byte read: a caller that
+// hung up is a 499 client_disconnect, stored and answered, and not charged.
+func TestServeStreamedPassthrough_AClientHangingUpIsA499(t *testing.T) {
+	h := newIntegrationHandler()
+	t.Cleanup(func() { stopUnitHandler(h) })
+	withBreakerThresholdOne(t, h)
+
+	providerID := uuid.New()
+	st := passthroughState(providerID)
+	st.logData.endpointType = endpointTypeTTS
+	candidate := modelCandidate{
+		model:    &model.Model{ID: uuid.New(), ModelID: "tts-1"},
+		provider: &provider.Provider{ID: providerID, Name: "p"},
+	}
+	resp := &http.Response{StatusCode: http.StatusOK, Body: io.NopCloser(&errorReader{err: errors.New("connection reset by peer")}), Header: make(http.Header)}
+	req := httptest.NewRequest("POST", "/v1/audio/speech", http.NoBody).WithContext(cancelledContext())
+
+	w := httptest.NewRecorder()
+	h.serveStreamedPassthrough(w, req, st, candidate, resp, "audio/mpeg", false, 1, 5, false)
+
+	if h.circuitBreaker.GetState(providerID, "") == failover.StateOpen {
+		t.Error("an abandoned pass-through read was charged to the provider")
+	}
+	if st.logData.statusCode != statusClientClosedRequest || st.logData.errorKind != KindClientDisconnect || w.Code != statusClientClosedRequest {
+		t.Errorf("row = %d %q, answered %d, want 499 client_disconnect", st.logData.statusCode, st.logData.errorKind, w.Code)
+	}
+	if !strings.HasPrefix(st.logData.errorMessage, "client disconnected: ") {
+		t.Errorf("row message = %q, want the disconnect wording", st.logData.errorMessage)
+	}
+}
+
+// A pass-through read cut by this gateway's own deadline is a stalled provider:
+// the row carries provider_timeout, keeps the upstream's status and the read
+// wording, and the client is answered 502.
+func TestServeBufferedJSONPassthrough_ADeadlineReadRecordsProviderTimeout(t *testing.T) {
+	h := newIntegrationHandler()
+	t.Cleanup(func() { stopUnitHandler(h) })
+
+	st := passthroughState(uuid.New())
+	candidate := modelCandidate{
+		model:    &model.Model{ID: uuid.New(), ModelID: "text-embedding-3-small"},
+		provider: &provider.Provider{ID: st.logData.providerID, Name: "p"},
+	}
+	resp := &http.Response{StatusCode: http.StatusOK, Body: io.NopCloser(&errorReader{err: context.DeadlineExceeded}), Header: make(http.Header)}
+	ctx := context.WithValue(context.Background(), ctxkeys.CancelOriginKey, "failover_timeout")
+	req := httptest.NewRequest("POST", "/v1/embeddings", http.NoBody).WithContext(ctx)
+
+	w := httptest.NewRecorder()
+	h.serveBufferedJSONPassthrough(w, req, st, candidate, resp, "application/json", 1, 5, false)
+
+	if st.logData.errorKind != KindProviderTimeout || st.logData.statusCode != http.StatusOK || w.Code != http.StatusBadGateway {
+		t.Errorf("row = %d %q, answered %d, want 200 provider_timeout answered 502", st.logData.statusCode, st.logData.errorKind, w.Code)
+	}
+	if !strings.HasPrefix(st.logData.errorMessage, "upstream body read error: ") {
+		t.Errorf("row message = %q, want the read wording", st.logData.errorMessage)
 	}
 }
 

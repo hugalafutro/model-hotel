@@ -77,20 +77,26 @@ func TestStreamingAwareTimeout_OversizedBodyIs413(t *testing.T) {
 }
 
 // A body read that fails because the caller left is their disconnect: 499.
-// The same failure on a live request is the 400 a broken read gets.
+// The same failure on a live request, or under an expired deadline, is the 400
+// a broken read gets.
 func TestStreamingAwareTimeout_DisconnectedBodyReadIs499(t *testing.T) {
 	handler := http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) { w.WriteHeader(http.StatusOK) })
 	wrapped := streamingAwareTimeout(5 * time.Minute)(handler)
+	expired, cancelExpired := context.WithDeadline(context.Background(), time.Now().Add(-time.Second))
+	defer cancelExpired()
 	for _, tc := range []struct {
 		name string
 		gone bool
+		base context.Context
 		want int
 	}{
-		{"caller gone", true, httpx.StatusClientClosedRequest},
-		{"caller live", false, http.StatusBadRequest},
+		{"caller gone", true, context.Background(), httpx.StatusClientClosedRequest},
+		{"caller live", false, context.Background(), http.StatusBadRequest},
+		// Only a cancel is the caller leaving; an expired deadline is not.
+		{"deadline expired", false, expired, http.StatusBadRequest},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			ctx, cancel := context.WithCancel(context.Background())
+			ctx, cancel := context.WithCancel(tc.base)
 			defer cancel()
 			if tc.gone {
 				cancel()

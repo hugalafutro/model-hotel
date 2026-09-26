@@ -89,11 +89,13 @@ func (h *Handler) rejectIngest(w http.ResponseWriter, logData *requestLogData, m
 }
 
 // rejectBodyRead refuses a request whose body would not read. A read that
-// failed with the request context already done is the caller leaving
+// failed with the request context already cancelled is the caller leaving
 // mid-upload: their disconnect, closed as a 499 client_disconnect. Any other
-// read fault is a malformed or oversized upload, the ingest's 400 refusal.
+// read fault is a malformed, oversized or too-slow upload, the ingest's 400
+// refusal; this gateway's own route deadline expiring is not the caller
+// leaving.
 func (h *Handler) rejectBodyRead(w http.ResponseWriter, r *http.Request, logData *requestLogData, startTime time.Time, parseMs float64) {
-	if r.Context().Err() == nil {
+	if bodyReadStatus(r) != statusClientClosedRequest {
 		h.rejectIngest(w, logData, "failed to read request body", startTime, parseMs)
 		return
 	}
@@ -101,11 +103,11 @@ func (h *Handler) rejectBodyRead(w http.ResponseWriter, r *http.Request, logData
 	writeOpenAIError(w, "client disconnected", statusClientClosedRequest)
 }
 
-// bodyReadStatus is the status a handler without a request-log row answers a
-// failed body read with, by rejectBodyRead's rule: 499 once the request context
-// is done, 400 otherwise.
+// bodyReadStatus is the status a failed body read is answered with, the rule
+// rejectBodyRead records by: 499 once the request context is cancelled, 400
+// otherwise, including when only a deadline expired.
 func bodyReadStatus(r *http.Request) int {
-	if r.Context().Err() != nil {
+	if errors.Is(r.Context().Err(), context.Canceled) {
 		return statusClientClosedRequest
 	}
 	return http.StatusBadRequest
@@ -279,22 +281,27 @@ func (h *Handler) newPendingRequestLog(r *http.Request, endpointType, modelID st
 }
 
 // failResolve closes the row and answers the caller for a model resolution
-// that failed. Only a notFoundError is the caller's unknown model, a 404 whose
-// text the resolver built from the request and configuration. A resolve the
-// caller abandoned is their disconnect, a 499 no breaker hears about (none is
-// charged anywhere on this path). Anything else is a fault on this side: the
+// that failed. A resolve the caller abandoned is their disconnect, a 499 no
+// breaker hears about (none is charged anywhere on this path), whatever the
+// resolver returned. Otherwise a notFoundError is the caller's unknown model, a
+// 404 whose text the resolver built from the request and configuration. Anything else is a fault on this side: the
 // raw error, which can be database text, goes to the app log only, and the row
 // and the wire get a fixed message.
 func (h *Handler) failResolve(w http.ResponseWriter, r *http.Request, st *requestState, err error, timings resolveTimings, cacheHits resolveCacheHits) {
 	var nf notFoundError
 	switch {
-	case errors.As(err, &nf):
-		h.failRequest(st.logData, http.StatusNotFound, KindValidation, nf.Error(), 0, st.startTime, st.parseMs, timings, cacheHits, 0)
-		writeOpenAIError(w, nf.Error(), http.StatusNotFound)
-	case cancelStatus(r, err, http.StatusInternalServerError) == statusClientClosedRequest:
+	// First, and whatever the resolver returned: the resolve runs on the
+	// request's own context, so a cancel there can only be the caller, and a
+	// cached answer (a disabled or empty group) reaches here with no cancel in
+	// err at all. This gateway's own deadline is DeadlineExceeded and stays
+	// on the 404 and 500 branches.
+	case errors.Is(r.Context().Err(), context.Canceled):
 		debuglog.Warn("proxy: model resolution abandoned, client gone", "model", st.reqModel)
 		h.failRequest(st.logData, statusClientClosedRequest, KindClientDisconnect, "client disconnected during model resolution", 0, st.startTime, st.parseMs, timings, cacheHits, 0)
 		writeOpenAIError(w, "client disconnected", statusClientClosedRequest)
+	case errors.As(err, &nf):
+		h.failRequest(st.logData, http.StatusNotFound, KindValidation, nf.Error(), 0, st.startTime, st.parseMs, timings, cacheHits, 0)
+		writeOpenAIError(w, nf.Error(), http.StatusNotFound)
 	default:
 		debuglog.Error("proxy: model resolution failed", "model", st.reqModel, "error", err)
 		h.failRequest(st.logData, http.StatusInternalServerError, KindInternal, resolveFailedMessage, 0, st.startTime, st.parseMs, timings, cacheHits, 0)

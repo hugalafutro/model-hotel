@@ -24,7 +24,10 @@ type Translator interface {
 	// Translate maps one event's payload (every "data:" field of that event,
 	// joined with newlines) to zero or more output bytes. A non-nil error
 	// means the upstream stream is corrupt or carried an error event, and
-	// poisons the adapter.
+	// poisons the adapter. The error must name its fault by class only
+	// (jsonfault.Describe, an allowlisted util.KnownToken or a fixed sentence)
+	// and never carry upstream or caller text: the adapter logs it, and this
+	// package has no content fence.
 	Translate(payload []byte) ([]byte, error)
 	// Finish returns the terminal chunk plus the [DONE] sentinel, or nothing
 	// when the translator already emitted them.

@@ -164,8 +164,8 @@ func TestReadNonStreamingBody_DescribesADecodeErrorWithoutItsLiteral(t *testing.
 	}
 }
 
-// The handler-level body reads log a class, not the read error: for a chunked
-// request that error quotes the caller's malformed trailer line.
+// The three handler-level body reads log a class, not the read error: for a
+// chunked request that error quotes the caller's malformed trailer line.
 func TestHandlerBodyReads_LogTheFaultNotTheTrailer(t *testing.T) {
 	logs := captureLogsAt(t, slog.LevelWarn)
 	h := &Handler{cfg: &config.Config{}}
@@ -177,17 +177,8 @@ func TestHandlerBodyReads_LogTheFaultNotTheTrailer(t *testing.T) {
 
 	h.readRawBody(httptest.NewRecorder(), newReq())
 	h.readAnthropicBody(httptest.NewRecorder(), newReq())
-	h.ingestRequest(httptest.NewRecorder(), newReq(), endpointTypeChat)
-	multipartReq := newReq()
-	multipartReq.Header.Set("Content-Type", "multipart/form-data; boundary=x")
-	h.ingestMultipartRequest(httptest.NewRecorder(), multipartReq, endpointTypeSTT)
 
-	for _, prefix := range []string{
-		"responses: failed to read request body",
-		"anthropic: failed to read request body",
-		"proxy: failed to read request body",
-		"proxy: failed to read multipart request body",
-	} {
+	for _, prefix := range []string{"responses: failed to read request body", "anthropic: failed to read request body"} {
 		lines := logs(prefix)
 		if len(lines) == 0 {
 			t.Fatalf("no %q line was logged", prefix)

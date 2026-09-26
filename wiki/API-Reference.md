@@ -1867,7 +1867,7 @@ Returns `200` with the body `OK` while the database answers, and `503` with the 
 }
 ```
 
-`code` repeats the HTTP status as a number. `type` is derived from that status and is one of exactly six values; messages are lowercase.
+`code` repeats the HTTP status as a number. `type` is derived from that status and is one of exactly seven values; messages are lowercase.
 
 | Status | `type` |
 |--------|--------|
@@ -1875,6 +1875,7 @@ Returns `200` with the body `OK` while the database answers, and `503` with the 
 | `403` | `permission_error` |
 | `404` | `not_found_error` |
 | `429` | `rate_limit_error` |
+| `499` | `client_closed_request` |
 | `500` and above | `server_error` |
 | anything else | `invalid_request_error` |
 
@@ -1892,7 +1893,8 @@ Returns `200` with the body `OK` while the database answers, and `503` with the 
 | `409` | Conflict | Duplicate resource, operation in progress |
 | `412` | Precondition Failed | Missing dependency (e.g. `pg_dump`) |
 | `429` | Too Many Requests | Rate limit exceeded |
-| `500` | Internal Server Error | Server error |
+| `499` | Client Closed Request | The caller hung up before the answer (nginx's non-standard code, recorded in the request log) |
+| `500` | Internal Server Error | Server error; on the proxy, `could not resolve model` when the model lookup itself failed (the database, not an unknown model) |
 | `502` | Bad Gateway | Upstream provider error |
 
 ### Proxy-Specific Errors

@@ -309,6 +309,14 @@ func (h *Handler) handleNonStreamingResponse(w http.ResponseWriter, r *http.Requ
 		logData.errorKind = kind
 		logData.failoverAttempt = attempt
 		logData.state = "failed"
+		// The row keeps resp.StatusCode, since what the upstream said is the
+		// diagnostic, and only what the CLIENT is told changes. A caller that
+		// hung up mid-body is the exception: the row and the answer are the 499
+		// every other client disconnect records, as on the native path.
+		clientStatus := nonCompletionClientStatus(resp.StatusCode)
+		if kind == KindClientDisconnect {
+			logData.statusCode, clientStatus = statusClientClosedRequest, statusClientClosedRequest
+		}
 		// Fire-and-forget: skip WaitForInsert so the error response is not
 		// blocked.
 		h.updateRequestLog(logData, updateLogOption{skipWaitForInsert: true})
@@ -321,9 +329,7 @@ func (h *Handler) handleNonStreamingResponse(w http.ResponseWriter, r *http.Requ
 			// the same passes the row does.
 			debuglog.Debug("proxy: non-streaming error details", "status", resp.StatusCode, "error_kind", kind, "model", logData.modelID, "provider", logData.providerName, "error", string(logData.masks().mask([]byte(detail))), "duration_ms", totalDuration)
 		}
-		// The row keeps resp.StatusCode above, since what the upstream said is
-		// the diagnostic. Only what the CLIENT is told changes.
-		writeOpenAIError(w, upstreamClientMessage(logData.providerName, resp.StatusCode, reason), nonCompletionClientStatus(resp.StatusCode))
+		writeOpenAIError(w, upstreamClientMessage(logData.providerName, resp.StatusCode, reason), clientStatus)
 	}
 }
 

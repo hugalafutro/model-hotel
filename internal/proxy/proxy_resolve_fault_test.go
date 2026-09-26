@@ -250,3 +250,42 @@ func TestResolveSpecificProvider_DisabledModelIsStillA404(t *testing.T) {
 		t.Errorf("wire message = %q", got)
 	}
 }
+
+// A caller who left while the resolver answered from its cache (a disabled
+// group, so no database call and no cancel in the error) is still their
+// disconnect, not a 404 validation row.
+func TestResolveHotelModel_CancelledCachedDisabledGroupIsAClientDisconnect(t *testing.T) {
+	env := newTestProxyHandler(t)
+	defer env.Handler.Close()
+
+	repo := failover.NewRepository(testDB.Pool())
+	group := "cached-disabled-" + uuid.NewString()[:8]
+	fg, err := repo.UpsertWithConfig(context.Background(), group, []uuid.UUID{env.ModelID},
+		map[string]bool{env.ModelID.String(): true}, nil, nil, nil, nil)
+	if err != nil {
+		t.Fatalf("create group: %v", err)
+	}
+	disabled := false
+	if _, err := repo.Update(context.Background(), fg.ID, fg.PriorityOrder, fg.EntryEnabled, &disabled, false, nil, nil, nil); err != nil {
+		t.Fatalf("disable group: %v", err)
+	}
+	// Warm the cache, so the cancelled request's lookup never reaches the pool.
+	if _, err := repo.GetByModel(context.Background(), group); err != nil {
+		t.Fatalf("warm cache: %v", err)
+	}
+	if !failover.IsCachedByModel(group) {
+		t.Fatal("precondition: the group must be served from the cache")
+	}
+
+	reqModel := "hotel/" + group
+	w := httptest.NewRecorder()
+	env.Handler.ChatCompletions(w, chatRequestFor(cancelledContext(), env.KeyHash, reqModel))
+
+	if w.Code != statusClientClosedRequest {
+		t.Fatalf("status = %d, want 499; body: %s", w.Code, w.Body.String())
+	}
+	row := closedRowFor(t, env.Handler, reqModel)
+	if row.status != statusClientClosedRequest || row.errorKind != string(KindClientDisconnect) {
+		t.Errorf("row = %+v, want 499 client_disconnect", row)
+	}
+}

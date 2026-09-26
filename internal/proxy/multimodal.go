@@ -275,16 +275,7 @@ func (h *Handler) serveBufferedJSONPassthrough(w http.ResponseWriter, r *http.Re
 		// pass: the warn line and the detail stored on the row.
 		fenced := fencedFrameMessage(logData.fence(), logData.masks(), errString(err))
 		debuglog.Warn("proxy: passthrough body read failed", "endpoint", logData.endpointType, "model", logData.modelID, "provider", logData.providerName, "error", fenced)
-		// A caller that hung up is recorded as its disconnect, the 499 the
-		// chat path stores, not as the upstream's 200.
-		stored, answered := resp.StatusCode, http.StatusBadGateway
-		if abandoned {
-			logData.errorKind = kind
-			stored, answered = statusClientClosedRequest, statusClientClosedRequest
-		}
-		h.finalizePassthroughLog(st, stored, attempt, responseHeaderMs, 0, 0, "failed", "upstream body read error: "+fenced)
-		writeOpenAIError(w, "failed to read upstream response", answered)
-		return outcomeFatal
+		return h.failPassthroughRead(w, st, kind, resp.StatusCode, attempt, responseHeaderMs, fenced, "failed to read upstream response")
 	}
 	// The commit point is where the model has proved it is alive, so it is where
 	// its gone-strike streak stops being current. Without it "three CONSECUTIVE
@@ -523,7 +514,7 @@ func (h *Handler) serveStreamedPassthrough(w http.ResponseWriter, r *http.Reques
 		// per-attempt deadline expired, and that is a provider that answered
 		// headers and then went silent, which is the case the sibling exists for.
 		// Same rule, same helper, as the buffered twin above.
-		abandoned := requestAbandoned(r.Context(), readErr)
+		kind, _, abandoned := abortKind(r.Context(), readErr)
 		if hasMoreCandidates && !abandoned {
 			return h.rejectUntranslatableBody(st, candidate, logData, "passthrough", resp.StatusCode, readErr, attempt, r)
 		}
@@ -535,9 +526,7 @@ func (h *Handler) serveStreamedPassthrough(w http.ResponseWriter, r *http.Reques
 		// stored detail share one masked, fenced string.
 		fencedErr := fencedFrameMessage(logData.fence(), logData.masks(), errString(readErr))
 		debuglog.Warn("proxy: passthrough first-byte read failed", "endpoint", logData.endpointType, "model", logData.modelID, "provider", logData.providerName, "error", fencedErr)
-		h.finalizePassthroughLog(st, resp.StatusCode, attempt, responseHeaderMs, 0, 0, "failed", "upstream body read error: "+fencedErr)
-		writeOpenAIError(w, "upstream produced no response data", http.StatusBadGateway)
-		return outcomeFatal
+		return h.failPassthroughRead(w, st, kind, resp.StatusCode, attempt, responseHeaderMs, fencedErr, "upstream produced no response data")
 	}
 	// Not for a bodiless success: see the buffered twin above for why crediting
 	// an empty 204 erases the chat path's charges on the same model.
@@ -648,6 +637,24 @@ func copyPassthroughHeaders(w http.ResponseWriter, resp *http.Response, contentT
 // finalizePassthroughLog writes the terminal request-log update for a
 // multimodal request (the pass-through counterpart of the chat handlers'
 // inline logData population).
+// failPassthroughRead closes a pass-through attempt whose upstream body read
+// failed, for both twins. The row carries abortKind's kind whenever there is
+// one. A caller that hung up is recorded and answered as the 499 disconnect the
+// chat path stores, not as the upstream's 200; anything else keeps the
+// upstream's status on the row and answers 502.
+func (h *Handler) failPassthroughRead(w http.ResponseWriter, st *requestState, kind ErrorKind, upstreamStatus, attempt int, responseHeaderMs float64, fenced, clientMsg string) candidateOutcome {
+	if kind != "" {
+		st.logData.errorKind = kind
+	}
+	stored, answered, msg := upstreamStatus, http.StatusBadGateway, "upstream body read error: "
+	if kind == KindClientDisconnect {
+		stored, answered, msg = statusClientClosedRequest, statusClientClosedRequest, "client disconnected: "
+	}
+	h.finalizePassthroughLog(st, stored, attempt, responseHeaderMs, 0, 0, "failed", msg+fenced)
+	writeOpenAIError(w, clientMsg, answered)
+	return outcomeFatal
+}
+
 func (h *Handler) finalizePassthroughLog(st *requestState, statusCode, attempt int, responseHeaderMs float64, promptTokens, completionTokens int, state, errMsg string) {
 	logData := st.logData
 	logData.statusCode = statusCode

@@ -8,6 +8,7 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/google/uuid"
 )
@@ -71,25 +72,51 @@ func TestIngest_BrokenBodyReadOnALiveRequestIsStillA400(t *testing.T) {
 	}
 }
 
-// The two handler reads with no row to close answer by the same rule.
+// The two handler reads with no row to close answer by the same rule. Only a
+// cancel is the caller leaving: this gateway's own deadline expiring under a
+// slow upload is still the 400.
 func TestHandlerBodyReads_DisconnectedReadAnswers499(t *testing.T) {
 	h := &Handler{}
+	expired, cancel := context.WithDeadline(context.Background(), time.Now().Add(-time.Second))
+	defer cancel()
 	for name, read := range map[string]func(http.ResponseWriter, *http.Request) ([]byte, bool){
 		"responses": h.readRawBody,
 		"anthropic": h.readAnthropicBody,
 	} {
-		for _, live := range []bool{true, false} {
-			ctx := cancelledContext()
-			want := statusClientClosedRequest
-			if live {
-				ctx, want = context.Background(), http.StatusBadRequest
-			}
+		for _, tc := range []struct {
+			ctx  context.Context
+			want int
+		}{
+			{cancelledContext(), statusClientClosedRequest},
+			{context.Background(), http.StatusBadRequest},
+			{expired, http.StatusBadRequest},
+		} {
 			w := httptest.NewRecorder()
-			read(w, bodyReadRequest(ctx, "k", "application/json"))
-			if w.Code != want {
-				t.Errorf("%s (live=%v): status = %d, want %d", name, live, w.Code, want)
+			read(w, bodyReadRequest(tc.ctx, "k", "application/json"))
+			if w.Code != tc.want {
+				t.Errorf("%s: status = %d, want %d", name, w.Code, tc.want)
 			}
 		}
+	}
+}
+
+// The ingest row follows the same rule: an expired route deadline is not a
+// client_disconnect.
+func TestIngest_DeadlineExpiredBodyReadIsNotADisconnect(t *testing.T) {
+	h := newIntegrationHandler()
+	defer stopUnitHandlerIntegration(h)
+	ctx, cancel := context.WithDeadline(context.Background(), time.Now().Add(-time.Second))
+	defer cancel()
+
+	keyName := "deadline-" + uuid.NewString()[:8]
+	w := httptest.NewRecorder()
+	h.ingestRequest(w, bodyReadRequest(ctx, keyName, "application/json"), endpointTypeChat)
+
+	if w.Code != http.StatusBadRequest {
+		t.Fatalf("status = %d, want 400", w.Code)
+	}
+	if row := closedRowWhere(t, h, "virtual_key_name", keyName); row.errorKind != string(KindValidation) {
+		t.Errorf("row = %+v, want the validation kind", row)
 	}
 }
 
