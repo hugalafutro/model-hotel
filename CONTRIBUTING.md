@@ -80,9 +80,10 @@ web), a separate **90% diff-coverage gate** on the lines your PR changes, the
 file-size ratchet above, **locale parity** via `make i18n-check` (fully
 offline), a **Biome format check** in each frontend (`pnpm run format`; fix
 drift with `pnpm run format:fix <files>`), and **Third-Party Notices** drift:
-any change to `go.mod`/`go.sum` or a frontend's `package.json`/lockfile fails
-unless you ran `make notices` and committed the regenerated
-`THIRD-PARTY-NOTICES.md`. If you add a user-facing string, add it to `en.json` and translate it
+when `go.mod`/`go.sum` or a frontend's `package.json`/lockfile changes, CI
+regenerates `THIRD-PARTY-NOTICES.md` and fails if it differs from the committed
+copy, so run `make notices` (run `pnpm install` in `web/` and `frontdesk/web/`
+first) and commit the result. If you add a user-facing string, add it to `en.json` and translate it
 into the other locales by hand. Intentional English goes in the allowlist for
 that app: `tools/i18n-translate/allow-english.json` for the dashboard,
 `allow-english-fd.json` for Front Desk, `allow-english-android.json` for
@@ -91,8 +92,10 @@ Bellhop.
 CI also runs, and a PR can fail on, Go Race (`go test -race`), Go Vulncheck
 (`govulncheck`), Docker Build, and CodeQL on every relevant change, plus
 Workflow Lint (actionlint) when `.github/` changes, CrowdSec Hubtest when
-`contrib/crowdsec/` changes, and the Android (Bellhop) build when `android/`
-changes.
+`contrib/crowdsec/` changes, the Android (Bellhop) build when `android/` or
+`testdata/quota-contract/` changes, a Bellhop Release dry run (build, sign,
+verify) when `android/.version` changes, and the `DOCKERHUB.md length` check
+(25000 chars) when `README.md` or `DOCKERHUB.md` changes.
 
 If your change touches `README.md`, mirror it in `DOCKERHUB.md`, since the two
 describe the same project to different audiences. When the change genuinely
@@ -112,8 +115,8 @@ your PATH (`PATH=$HOME/go/bin:$PATH git commit ...` if it reports `gci` not
 found), and `biome check --write` on staged `web/` TS/TSX/CSS files, which fails
 when `web/node_modules` is missing (run `pnpm install` in `web/`).
 
-On push, `scripts/pre-push` runs golangci-lint, `pnpm lint` and `tsc -b` (for
-`web/` and `web-shared/` changes only; `frontdesk/web/` is not linted or
+On push, `scripts/pre-push` runs golangci-lint on Go changes, and `pnpm lint` +
+`tsc -b` on `web/` and `web-shared/` changes (`frontdesk/web/` is not linted or
 type-checked there, so run those yourself), the vitest tests related to your
 changes, the diff-coverage gate, the README/DOCKERHUB.md sync check above, and
 a length guard that fails when `DOCKERHUB.md` exceeds Docker Hub's 25000-char

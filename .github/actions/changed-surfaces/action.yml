@@ -65,7 +65,7 @@ runs:
       # `set -e` IS in effect and cannot be opted out of here: `shell: bash` runs
       # this as `bash --noprofile --norc -e -o pipefail`, so -e arrives from the
       # shell directive rather than from the script. The line below adds -u and
-      # is deliberately not `set +e` — failing on an unhandled error beats
+      # is deliberately not `set +e`: failing on an unhandled error beats
       # continuing with a half-built output set that callers would read as
       # "nothing changed".
       #

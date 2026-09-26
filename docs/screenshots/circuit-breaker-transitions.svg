@@ -87,5 +87,5 @@
   <text x="80" y="912" fill="#f87171" font-size="10">• at least 2 of its model circuits are open (circuit_breaker_span_models), or</text>
   <text x="80" y="932" fill="#f59e0b" font-size="10">• an account-wide quota pin holds (a spent balance or plan answered for the account, or the quota poller measured the account spent)</text>
   <text x="60" y="956" fill="#64748b" font-size="9">All of this applies only while circuit_breaker_enabled is on. The 402 and exhausted-429 fast open follow circuit_breaker_open_on_exhaustion.</text>
-  <text x="60" y="990" fill="#64748b" font-size="9">* Backoff exceptions: after 3 opens in a row caused by 429s the cap rises to the quota-pin max; a probe that draws exhaustion under a response pin does not double it.</text>
+  <text x="60" y="990" fill="#64748b" font-size="9">* Backoff: 3 straight 429-caused opens lift the cap to the quota-pin max; a probe drawing exhaustion under a response or account pin with a probe interval set does not double it.</text>
 </svg>

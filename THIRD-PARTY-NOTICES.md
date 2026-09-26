@@ -6751,7 +6751,7 @@ THE SOFTWARE.
 
 The following declare a license in metadata but ship no license file in the package; consult the upstream repository for the full text.
 
-- `rehype-katex@7.0.1` — MIT ([https://github.com/remarkjs/remark-math/tree/main#readme](https://github.com/remarkjs/remark-math/tree/main#readme))
-- `remark-math@6.0.0` — MIT ([https://github.com/remarkjs/remark-math/tree/main#readme](https://github.com/remarkjs/remark-math/tree/main#readme))
-- `victory-vendor@37.3.6` — MIT AND ISC ([https://commerce.nearform.com/open-source/victory](https://commerce.nearform.com/open-source/victory))
+- `rehype-katex@7.0.1`: MIT ([https://github.com/remarkjs/remark-math/tree/main#readme](https://github.com/remarkjs/remark-math/tree/main#readme))
+- `remark-math@6.0.0`: MIT ([https://github.com/remarkjs/remark-math/tree/main#readme](https://github.com/remarkjs/remark-math/tree/main#readme))
+- `victory-vendor@37.3.6`: MIT AND ISC ([https://commerce.nearform.com/open-source/victory](https://commerce.nearform.com/open-source/victory))
 

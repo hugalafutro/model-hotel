@@ -151,7 +151,7 @@ func collectNPM(root string) ([]dep, error) {
 		cmd.Dir = filepath.Join(root, dir)
 		out, err := output(cmd)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("%s: %w", dir, err)
 		}
 		var part map[string][]pnpmPkg
 		if err := json.Unmarshal(out, &part); err != nil {
@@ -406,7 +406,7 @@ func writeGroupedTexts(b *strings.Builder, deps []dep) {
 		b.WriteString("The following declare a license in metadata but ship no license file in ")
 		b.WriteString("the package; consult the upstream repository for the full text.\n\n")
 		for _, d := range missing {
-			fmt.Fprintf(b, "- `%s@%s` — %s ([%s](%s))\n", d.Name, d.Version, d.License, d.Homepage, d.Homepage)
+			fmt.Fprintf(b, "- `%s@%s`: %s ([%s](%s))\n", d.Name, d.Version, d.License, d.Homepage, d.Homepage)
 		}
 		b.WriteString("\n")
 	}
