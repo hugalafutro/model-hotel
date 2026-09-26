@@ -1,5 +1,5 @@
 import { useId } from "react";
-import { useTranslation } from "react-i18next";
+import { Trans, useTranslation } from "react-i18next";
 
 interface ReasoningEffortSelectProps {
 	value: string | undefined;
@@ -51,7 +51,7 @@ export function ReasoningEffortSelect({
 	const id = useId();
 	const hintId = (key: string) => `${id}-${key}-hint`;
 	return (
-		<fieldset>
+		<fieldset className="min-w-0">
 			<legend className="ui-overline">
 				{t("components.reasoningEffortSelect.reasoningEffort")}
 			</legend>
@@ -84,11 +84,15 @@ export function ReasoningEffortSelect({
 				</div>
 			))}
 			{HINT_KEYS.map((key) => (
-				<p key={key} id={hintId(key)} className="ui-hint mt-0.5">
-					{t("components.reasoningEffortSelect.hintLine", {
-						label: t(`components.reasoningEffortSelect.${key}`),
-						hint: t(`components.reasoningEffortSelect.${key}Hint`),
-					})}
+				<p key={key} className="ui-hint mt-0.5">
+					<Trans
+						i18nKey="components.reasoningEffortSelect.hintLine"
+						values={{
+							label: t(`components.reasoningEffortSelect.${key}`),
+							hint: t(`components.reasoningEffortSelect.${key}Hint`),
+						}}
+						components={{ hint: <span id={hintId(key)} /> }}
+					/>
 				</p>
 			))}
 		</fieldset>

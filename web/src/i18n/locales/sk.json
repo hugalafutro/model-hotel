@@ -2631,7 +2631,7 @@
 			"none": "Žiadne",
 			"defaultHint": "Nechať rozhodnutie na poskytovateľovi",
 			"noneHint": "Úplne vypnúť uvažovanie",
-			"hintLine": "{{label}}: {{hint}}"
+			"hintLine": "{{label}}: <hint>{{hint}}</hint>"
 		},
 		"dataTable": {
 			"sortBy": "Zoradiť podľa {{label}}",
@@ -3358,9 +3358,6 @@
 			"reasoningEffort": "Nepodporované"
 		},
 		"lmstudio": {
-			"reasoningEffort": "Nepodporované"
-		},
-		"custom": {
 			"reasoningEffort": "Nepodporované"
 		}
 	},

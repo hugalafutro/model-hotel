@@ -161,23 +161,11 @@ describe("ReasoningEffortSelect", () => {
 		const key = "components.reasoningEffortSelect";
 		expect(
 			screen.getByRole("button", { name: i18n.t(`${key}.default`) }),
-		).toHaveAccessibleDescription(
-			i18n.t(`${key}.hintLine`, {
-				label: i18n.t(`${key}.default`),
-				hint: i18n.t(`${key}.defaultHint`),
-			}),
-		);
+		).toHaveAccessibleDescription(i18n.t(`${key}.defaultHint`));
 		expect(
 			screen.getByRole("button", { name: i18n.t(`${key}.none`) }),
-		).toHaveAccessibleDescription(
-			i18n.t(`${key}.hintLine`, {
-				label: i18n.t(`${key}.none`),
-				hint: i18n.t(`${key}.noneHint`),
-			}),
-		);
-		expect(
-			screen.getByText(i18n.t(`${key}.noneHint`), { exact: false }),
-		).toBeVisible();
+		).toHaveAccessibleDescription(i18n.t(`${key}.noneHint`));
+		expect(screen.getByText(i18n.t(`${key}.noneHint`))).toBeVisible();
 		expect(
 			screen.getByRole("button", { name: i18n.t(`${key}.low`) }),
 		).not.toHaveAttribute("aria-describedby");

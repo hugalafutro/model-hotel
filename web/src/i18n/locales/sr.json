@@ -2573,7 +2573,7 @@
 			"none": "Ниједан",
 			"defaultHint": "Препустите одлуку провајдеру",
 			"noneHint": "Потпуно искључите размишљање",
-			"hintLine": "{{label}}: {{hint}}"
+			"hintLine": "{{label}}: <hint>{{hint}}</hint>"
 		},
 		"dataTable": {
 			"sortBy": "Сортирај по {{label}}",
@@ -3290,9 +3290,6 @@
 			"reasoningEffort": "Није подржано"
 		},
 		"lmstudio": {
-			"reasoningEffort": "Није подржано"
-		},
-		"custom": {
 			"reasoningEffort": "Није подржано"
 		}
 	},

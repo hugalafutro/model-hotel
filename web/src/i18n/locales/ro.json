@@ -2573,7 +2573,7 @@
 			"none": "Niciunul",
 			"defaultHint": "Lasă furnizorul să decidă",
 			"noneHint": "Dezactivează complet raționamentul",
-			"hintLine": "{{label}}: {{hint}}"
+			"hintLine": "{{label}}: <hint>{{hint}}</hint>"
 		},
 		"dataTable": {
 			"sortBy": "Sortează după {{label}}",
@@ -3290,9 +3290,6 @@
 			"reasoningEffort": "Nu este suportat"
 		},
 		"lmstudio": {
-			"reasoningEffort": "Nu este suportat"
-		},
-		"custom": {
 			"reasoningEffort": "Nu este suportat"
 		}
 	},

@@ -2573,7 +2573,7 @@
 			"none": "Cap",
 			"defaultHint": "Deixa que decideixi el proveïdor",
 			"noneHint": "Desactiva el raonament del tot",
-			"hintLine": "{{label}}: {{hint}}"
+			"hintLine": "{{label}}: <hint>{{hint}}</hint>"
 		},
 		"dataTable": {
 			"sortBy": "Ordena per {{label}}",
@@ -3290,9 +3290,6 @@
 			"reasoningEffort": "No es permet"
 		},
 		"lmstudio": {
-			"reasoningEffort": "No es permet"
-		},
-		"custom": {
 			"reasoningEffort": "No es permet"
 		}
 	},

@@ -2515,7 +2515,7 @@
 			"none": "无",
 			"defaultHint": "由提供商决定",
 			"noneHint": "完全关闭思考",
-			"hintLine": "{{label}}：{{hint}}"
+			"hintLine": "{{label}}：<hint>{{hint}}</hint>"
 		},
 		"dataTable": {
 			"sortBy": "按 {{label}} 排序",
@@ -3222,9 +3222,6 @@
 			"reasoningEffort": "不支持"
 		},
 		"lmstudio": {
-			"reasoningEffort": "不支持"
-		},
-		"custom": {
 			"reasoningEffort": "不支持"
 		}
 	},

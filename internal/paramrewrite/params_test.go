@@ -165,27 +165,43 @@ func TestParseProviderParamError_ValueRangeComplaintTeachesNothing(t *testing.T)
 
 // Regression pin: a model that refuses one reasoning_effort value still takes
 // the others, so the refusal is handed back to the caller and nothing is
-// learned; a param the model does not take at all is still learned.
+// learned. Each phrasing below is recognised by a different arm of the rule.
 func TestParseProviderParamError_EnumValueRefusalTeachesNothing(t *testing.T) {
 	t.Parallel()
 
 	for _, msg := range []string{
-		`Unsupported value: 'reasoning_effort' does not support 'none' with this model. Supported values are: 'low', 'medium', and 'high'.`,
+		`Unsupported value: 'reasoning_effort' does not support 'none' with this model.`,
 		`Invalid value for 'reasoning_effort'. Supported values are: 'low' and 'high'.`,
+		"`reasoning_effort` must be one of [low, medium, high]",
+		`Invalid 'reasoning_effort': expected one of low, medium, high`,
+		`'reasoning_effort': Input should be 'low', 'medium' or 'high'`,
+		`[{'type': 'literal_error', 'loc': ('body', 'reasoning_effort'), 'input': 'none'}]`,
 	} {
 		body := []byte(`{"error":{"message":` + fmt.Sprintf("%q", msg) + `,"type":"invalid_request_error","param":"reasoning_effort","code":"unsupported_value"}}`)
 		if rejected := ParseProviderParamError(body); rejected["reasoning_effort"] {
 			t.Errorf("%q: learned reasoning_effort as a strip, want nothing", msg)
 		}
 	}
-	for _, msg := range []string{
-		`Unsupported value: 'temperature' does not support 0 with this model. Only the default (1) value is supported.`,
-		`Unrecognized request argument supplied: 'reasoning_effort'`,
-		`Unsupported parameter: 'reasoning_effort' is not supported with this model.`,
+}
+
+// Regression pin: a refusal of the param itself is still learned, including
+// one worded "does not support '<param>'" and one sharing a 400 with another
+// param's list of supported values; so is temperature's numeric refusal.
+func TestParseProviderParamError_ParamRefusalStillLearned(t *testing.T) {
+	t.Parallel()
+
+	for _, tc := range []struct{ msg, param string }{
+		{`Unsupported value: 'temperature' does not support 0 with this model. Only the default (1) value is supported.`, "temperature"},
+		{`Unrecognized request argument supplied: 'reasoning_effort'`, "reasoning_effort"},
+		{`Unsupported parameter: 'reasoning_effort' is not supported with this model.`, "reasoning_effort"},
+		{`This model does not support 'reasoning_effort'.`, "reasoning_effort"},
+		{`Model does not support 'reasoning_effort' parameter`, "reasoning_effort"},
+		{`Unsupported parameter: 'reasoning_effort' is not supported with this model. Invalid value for 'top_p'. Supported values are: 1.`, "reasoning_effort"},
+		{`Invalid value for 'top_p'. Supported values are: 1.; Unsupported parameter: 'reasoning_effort' is not supported.`, "reasoning_effort"},
 	} {
-		body := []byte(`{"error":{"message":` + fmt.Sprintf("%q", msg) + `}}`)
-		if rejected := ParseProviderParamError(body); len(rejected) != 1 {
-			t.Errorf("%q: learned %v, want the one named param", msg, rejected)
+		body := []byte(`{"error":{"message":` + fmt.Sprintf("%q", tc.msg) + `}}`)
+		if rejected := ParseProviderParamError(body); !rejected[tc.param] {
+			t.Errorf("%q: learned %v, want %s", tc.msg, rejected, tc.param)
 		}
 	}
 }
@@ -204,19 +220,28 @@ func TestDashboardReasoningEffortMatchesStrips(t *testing.T) {
 	}
 	source := string(raw)
 	start := strings.Index(source, "PROVIDER_PARAM_INCOMPATIBILITY")
-	end := strings.Index(source, "\n};")
-	if start < 0 || end < start {
+	end := -1
+	if start >= 0 {
+		end = strings.Index(source[start:], "\n};")
+	}
+	if end < 0 {
 		t.Fatalf("PROVIDER_PARAM_INCOMPATIBILITY not found in %s", tablePath)
 	}
-	table := source[start:end]
-	for typ, params := range ProviderUnsupportedParams {
-		entry := regexp.MustCompile(`(?m)^\t"?` + regexp.QuoteMeta(typ) + `"?: \{([^}]*)\}`).FindStringSubmatch(table)
-		if entry == nil {
+	table := source[start : start+end]
+	dashboard := map[string]string{}
+	for _, m := range regexp.MustCompile(`(?m)^\t"?([a-z0-9-]+)"?: \{([^}]*)\}`).FindAllStringSubmatch(table, -1) {
+		dashboard[m[1]] = m[2]
+	}
+	for typ := range ProviderUnsupportedParams {
+		if _, ok := dashboard[typ]; !ok {
 			t.Errorf("provider type %q has no entry in %s", typ, tablePath)
-			continue
 		}
-		strips := slices.Contains(params, "reasoning_effort")
-		hides := strings.Contains(entry[1], "reasoning_effort:")
+	}
+	// A type the backend has no list for strips nothing, so the dashboard
+	// must not hide reasoning_effort on it either.
+	for typ, rules := range dashboard {
+		strips := slices.Contains(ProviderUnsupportedParams[typ], "reasoning_effort")
+		hides := strings.Contains(rules, "reasoning_effort:")
 		if strips != hides {
 			t.Errorf("provider type %q: backend strips reasoning_effort = %v, dashboard hides it = %v", typ, strips, hides)
 		}

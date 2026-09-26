@@ -2515,7 +2515,7 @@
 			"none": "Ingen",
 			"defaultHint": "La leverandøren bestemme",
 			"noneHint": "Slå av tenking helt",
-			"hintLine": "{{label}}: {{hint}}"
+			"hintLine": "{{label}}: <hint>{{hint}}</hint>"
 		},
 		"dataTable": {
 			"sortBy": "Sorter etter {{label}}",
@@ -3222,9 +3222,6 @@
 			"reasoningEffort": "Støttes ikke"
 		},
 		"lmstudio": {
-			"reasoningEffort": "Støttes ikke"
-		},
-		"custom": {
 			"reasoningEffort": "Støttes ikke"
 		}
 	},

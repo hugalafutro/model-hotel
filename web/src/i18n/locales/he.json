@@ -2573,7 +2573,7 @@
 			"none": "ללא",
 			"defaultHint": "תן לספק להחליט",
 			"noneHint": "כבה את החשיבה לחלוטין",
-			"hintLine": "{{label}}: {{hint}}"
+			"hintLine": "{{label}}: <hint>{{hint}}</hint>"
 		},
 		"dataTable": {
 			"sortBy": "מיין לפי {{label}}",
@@ -3290,9 +3290,6 @@
 			"reasoningEffort": "לא נתמך"
 		},
 		"lmstudio": {
-			"reasoningEffort": "לא נתמך"
-		},
-		"custom": {
 			"reasoningEffort": "לא נתמך"
 		}
 	},

@@ -2515,7 +2515,7 @@
 			"none": "Ingen",
 			"defaultHint": "Låt leverantören bestämma",
 			"noneHint": "Stäng av tänkandet helt",
-			"hintLine": "{{label}}: {{hint}}"
+			"hintLine": "{{label}}: <hint>{{hint}}</hint>"
 		},
 		"dataTable": {
 			"sortBy": "Sortera efter {{label}}",
@@ -3222,9 +3222,6 @@
 			"reasoningEffort": "Stöds inte"
 		},
 		"lmstudio": {
-			"reasoningEffort": "Stöds inte"
-		},
-		"custom": {
 			"reasoningEffort": "Stöds inte"
 		}
 	},

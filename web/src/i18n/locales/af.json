@@ -2515,7 +2515,7 @@
 			"none": "Geen",
 			"defaultHint": "Laat die verskaffer besluit",
 			"noneHint": "Skakel denke heeltemal af",
-			"hintLine": "{{label}}: {{hint}}"
+			"hintLine": "{{label}}: <hint>{{hint}}</hint>"
 		},
 		"dataTable": {
 			"sortBy": "Sorteer volgens {{label}}",
@@ -3222,9 +3222,6 @@
 			"reasoningEffort": "Nie ondersteun nie"
 		},
 		"lmstudio": {
-			"reasoningEffort": "Nie ondersteun nie"
-		},
-		"custom": {
 			"reasoningEffort": "Nie ondersteun nie"
 		}
 	},

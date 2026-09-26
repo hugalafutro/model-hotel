@@ -2515,7 +2515,7 @@
 			"none": "Ei mitään",
 			"defaultHint": "Anna palveluntarjoajan päättää",
 			"noneHint": "Kytke ajattelu kokonaan pois",
-			"hintLine": "{{label}}: {{hint}}"
+			"hintLine": "{{label}}: <hint>{{hint}}</hint>"
 		},
 		"dataTable": {
 			"sortBy": "Järjestä {{label}} mukaan",
@@ -3222,9 +3222,6 @@
 			"reasoningEffort": "Ei tuettu"
 		},
 		"lmstudio": {
-			"reasoningEffort": "Ei tuettu"
-		},
-		"custom": {
 			"reasoningEffort": "Ei tuettu"
 		}
 	},

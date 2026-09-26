@@ -83,9 +83,8 @@ export const PROVIDER_PARAM_INCOMPATIBILITY: Record<
 	lmstudio: {
 		reasoning_effort: "paramCompat.lmstudio.reasoningEffort",
 	},
-	custom: {
-		reasoning_effort: "paramCompat.custom.reasoningEffort",
-	},
+	// The backend forwards reasoning_effort to a custom endpoint untouched.
+	custom: {},
 };
 
 /**
@@ -113,7 +112,10 @@ export function normalizeToProviderType(providerName: string): string {
 	// Substring heuristic: check if the provider name contains a known type
 	const typePatterns: Record<string, string[]> = {
 		// Before the bare "anthropic" row: every Messages name contains it too.
-		"anthropic-messages": ["anthropic-messages"],
+		// "Anthropic (Messages API)" is the type's label in the add dialog, the
+		// name an operator is most likely to keep; it normalizes to
+		// "anthropic-(messages-api)".
+		"anthropic-messages": ["anthropic-messages", "messages-api", "(messages"],
 		anthropic: ["anthropic"],
 		openai: ["openai"],
 		google: ["google", "gemini", "generativelanguage"],
