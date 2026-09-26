@@ -16,6 +16,7 @@ import (
 	otptotp "github.com/pquerna/otp/totp"
 
 	"github.com/hugalafutro/model-hotel/internal/authcookie"
+	"github.com/hugalafutro/model-hotel/internal/httpx"
 	totpsvc "github.com/hugalafutro/model-hotel/internal/totp"
 	"github.com/hugalafutro/model-hotel/internal/user"
 	"github.com/hugalafutro/model-hotel/internal/webauthn"
@@ -800,6 +801,41 @@ func TestTotpLogin_HappyPath(t *testing.T) {
 	mw.ServeHTTP(pw, protectedReq)
 	if pw.Code != http.StatusOK {
 		t.Errorf("session token should pass AuthMiddleware, got %d", pw.Code)
+	}
+}
+
+// TestTotpLogin_SessionCreationFailure: once both factors pass, a session
+// store that cannot mint the token is this server's failure and a 500, unless
+// the caller hung up while it ran, which is a 499 kept off the error lines.
+// hangUpOnCreate cancels the request from inside CreateSession, after the
+// code check that also watches the context.
+func TestTotpLogin_SessionCreationFailure(t *testing.T) {
+	for _, hungUp := range []bool{false, true} {
+		t.Run(fmt.Sprintf("caller hung up=%v", hungUp), func(t *testing.T) {
+			shim, th := newTotpTestHandler(t)
+			secret, _ := doEnrollVerify(t, th)
+
+			ctx, cancel := context.WithCancel(t.Context())
+			defer cancel()
+			var sessions webauthn.SessionStore = hangUpOnCreate{newMemStore(), cancel}
+			want := httpx.StatusClientClosedRequest
+			if !hungUp {
+				failing := newMemStore()
+				failing.createErr = errors.New("session store down")
+				sessions, want = failing, http.StatusInternalServerError
+			}
+			login := NewTotpHandler(shim.repo, shim.adminMgr, webauthn.NewSessionManager(sessions), mockIPLimiter{}, false,
+				shim.TotpEnabled, shim.RefreshTotpEnabled, "auto", true, authcookie.Dashboard)
+
+			body := []byte(`{"token":"admin-token","code":"` + validCode(t, secret) + `"}`)
+			req := httptest.NewRequestWithContext(ctx, http.MethodPost, "/totp/login", bytes.NewReader(body))
+			req.Header.Set("Content-Type", "application/json")
+			w := httptest.NewRecorder()
+			serveTotpRouter(login).ServeHTTP(w, req)
+			if w.Code != want {
+				t.Fatalf("status = %d, want %d; body %s", w.Code, want, w.Body.String())
+			}
+		})
 	}
 }
 

@@ -1280,7 +1280,8 @@ func TestDeleteModel_DBLookupError(t *testing.T) {
 	}
 
 	// A cancelled context is the caller hanging up (499); an expired one is
-	// this server's own timeout, a genuine failure (500). Neither is ErrNoRows.
+	// this server's own timeout, a genuine failure (500, a regression pin: it
+	// held before the 499 rule too). Neither is ErrNoRows.
 	for _, tc := range []struct {
 		name string
 		ctx  context.Context

@@ -3,6 +3,7 @@ package api
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"net/http"
 
 	"github.com/google/uuid"
@@ -112,11 +113,11 @@ func (h *Handler) spentFor(ctx context.Context, s *budget.Subject) *float64 {
 // httpx.RespondError answers for any caller that hung up: a peer that
 // cancelled reads no status at all, and a 5xx here would put the abandoned
 // push on the dashboard error shelf through the access log. Only the caller's
-// cancel counts (httpx.StatusForRequestError): this member's own route timeout
-// surfaces as context.DeadlineExceeded and is a failure here. Reports whether
-// it answered.
+// cancel counts, so the error and the request's own context must both be
+// Canceled: this member's own route timeout surfaces as
+// context.DeadlineExceeded and is a failure here. Reports whether it answered.
 func respondAbandoned(w http.ResponseWriter, r *http.Request, what string, err error) bool {
-	if httpx.StatusForRequestError(r, err, 0) != httpx.StatusClientClosedRequest {
+	if !errors.Is(err, context.Canceled) || !errors.Is(r.Context().Err(), context.Canceled) {
 		return false
 	}
 	debuglog.Warn(logComponent+": "+what+" abandoned by the caller before it completed", "error", err)

@@ -1267,9 +1267,9 @@ func fillRing(rb *ringBuffer, source string, n int) {
 // A DELETE the database refused used to answer 200 with a count taken from the
 // ring buffer it had already emptied, so the operator saw a purge that never
 // happened and lost the live view on top of it. A delete that failed on this
-// side (here the route's own deadline expiring) is a 500; one the caller
-// abandoned by hanging up is a 499. Either way the ring is left holding what
-// the rows still hold.
+// side (here the route's own deadline expiring) is a 500, a regression pin;
+// one the caller abandoned by hanging up is a 499. Either way the ring is left
+// holding what the rows still hold.
 func TestClearAppLogs_FailedDeleteKeepsRing(t *testing.T) {
 	for _, tc := range []struct {
 		name string

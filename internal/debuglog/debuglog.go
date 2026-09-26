@@ -271,20 +271,21 @@ func Error(msg string, args ...any) {
 }
 
 // hasCanceled reports whether any arg is an error wrapping context.Canceled,
-// looking inside a slog.Attr, including the attrs of a slog.Group, as well as
-// at a bare value.
+// looking at a bare value, inside a slog.Attr or slog.Value, and through the
+// attrs of a group (a slog.Group attr or a group Value passed as a value).
 func hasCanceled(args []any) bool {
 	for _, a := range args {
+		v := slog.AnyValue(a) // a slog.Value passes through unchanged
 		if attr, ok := a.(slog.Attr); ok {
-			if attr.Value.Kind() == slog.KindGroup {
-				if groupHasCanceled(attr.Value.Group()) {
-					return true
-				}
-				continue
-			}
-			a = attr.Value.Any()
+			v = attr.Value
 		}
-		if err, ok := a.(error); ok && errors.Is(err, context.Canceled) {
+		if v.Kind() == slog.KindGroup {
+			if groupHasCanceled(v.Group()) {
+				return true
+			}
+			continue
+		}
+		if err, isErr := v.Any().(error); isErr && errors.Is(err, context.Canceled) {
 			return true
 		}
 	}

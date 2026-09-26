@@ -52,7 +52,8 @@ func TestFailoverUpdateHelperDBErrors(t *testing.T) {
 	})
 
 	// The same lookups failing on this side (the route's own deadline
-	// expiring, not the caller hanging up) are a genuine 500.
+	// expiring, not the caller hanging up) are a genuine 500. Regression pins:
+	// they held before the 499 rule too.
 	t.Run("uniqueness_check_times_out", func(t *testing.T) {
 		rec := httptest.NewRecorder()
 		req := httptest.NewRequestWithContext(expiredCtx(t), http.MethodPatch, "/", http.NoBody)

@@ -1074,7 +1074,8 @@ func TestGetAppLogs_HistoryCountFailure(t *testing.T) {
 	t.Cleanup(invalidateAppLogCountCache)
 
 	// The COUNT query cannot run on a dead context: a cancelled one is the
-	// caller hanging up (499), an expired one this server's own timeout (500).
+	// caller hanging up (499), an expired one this server's own timeout (500,
+	// a regression pin: it held before the 499 rule too).
 	for _, tc := range []struct {
 		name string
 		ctx  context.Context

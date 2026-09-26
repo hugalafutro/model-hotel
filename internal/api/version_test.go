@@ -21,6 +21,7 @@ import (
 func resetVersionCache() {
 	vCache.mu.Lock()
 	vCache.tag = ""
+	vCache.lastErr = nil
 	vCache.freshUntil = time.Time{}
 	vCache.mu.Unlock()
 }
@@ -294,6 +295,63 @@ func TestGetLatestVersion_SharedFailureLogsOnce(t *testing.T) {
 		}
 		if n, _ := countRecords(capt, "api: failed to fetch latest version"); n != 0 {
 			t.Errorf("per-visitor failure lines = %d, want none", n)
+		}
+	})
+}
+
+// A flight that starts just after another one filled the cache reuses that
+// answer, a held failure included, instead of calling GitHub again.
+func TestRefreshLatestTag_ReusesAFreshAnswer(t *testing.T) {
+	resetVersionCache()
+	t.Cleanup(resetVersionCache)
+	held := errors.New("GitHub returned status 500")
+	vCache.mu.Lock()
+	vCache.lastErr = held
+	vCache.freshUntil = time.Now().Add(time.Minute)
+	vCache.mu.Unlock()
+	calls := failingGitHub(t, nil)
+
+	if _, err := refreshLatestTag(context.Background(), "https://gh.test/releases", "https://gh.test/tags"); !errors.Is(err, held) {
+		t.Errorf("err = %v, want the held failure", err)
+	}
+	if got := calls.Load(); got != 0 {
+		t.Errorf("GitHub calls = %d, want none inside the window", got)
+	}
+}
+
+// During a GitHub outage on a fresh install there is no tag to serve, but the
+// failure is still held for versionRetryTTL: the loads inside the window
+// answer 502 from the cache without calling GitHub or logging again.
+func TestGetLatestVersion_NoTagFailureHoldsForTheWindow(t *testing.T) {
+	synctest.Test(t, func(t *testing.T) {
+		resetVersionCache()
+		capt := captureLogs(t)
+		calls := failingGitHub(t, nil)
+		r := versionRouter()
+
+		load := func() {
+			t.Helper()
+			w := httptest.NewRecorder()
+			r.ServeHTTP(w, httptest.NewRequest(http.MethodGet, "/version/latest", http.NoBody))
+			if w.Code != http.StatusBadGateway {
+				t.Fatalf("status = %d, want 502 with no tag to serve", w.Code)
+			}
+		}
+
+		for range 3 {
+			load()
+		}
+		if got := calls.Load(); got != 1 {
+			t.Errorf("GitHub calls = %d, want 1 within the retry window", got)
+		}
+		if n, _ := countRecords(capt, "version: all GitHub lookups failed"); n != 1 {
+			t.Errorf("error lines = %d, want exactly one per window", n)
+		}
+
+		time.Sleep(versionRetryTTL)
+		load()
+		if got := calls.Load(); got != 2 {
+			t.Errorf("GitHub calls = %d, want a retry once the window passed", got)
 		}
 	})
 }

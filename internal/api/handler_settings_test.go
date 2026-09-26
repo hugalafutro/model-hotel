@@ -878,7 +878,8 @@ func TestUpdateSettings_BeginTxError(t *testing.T) {
 
 	h := newTestHandler(t)
 	// A cancelled context is the caller hanging up (499); an expired one is
-	// this server's own timeout, a genuine failure (500).
+	// this server's own timeout, a genuine failure (500, a regression pin: it
+	// held before the 499 rule too).
 	for _, tc := range []struct {
 		name string
 		ctx  context.Context

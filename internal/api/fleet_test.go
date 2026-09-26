@@ -182,10 +182,10 @@ func TestFleetAnnounce_WriteFailureIs500(t *testing.T) {
 	}
 }
 
-// TestFleetAnnounce_AbandonedByCallerIs499 pins that an announce cancelled by
-// the caller hanging up (Front Desk's timeout) answers 499 with a warning
-// rather than a 5xx the access log would file on the error shelf, whichever of its store touches sees the cancel: nothing
-// on this member failed.
+// TestFleetAnnounce_AbandonedByCallerIs499 pins that an announce the caller
+// cancelled (Front Desk's timeout) answers 499 and a Warn line, whichever of
+// its store touches sees the cancel. Nothing on this member failed, so it must
+// not be a 5xx, which the access log would put on the error shelf.
 func TestFleetAnnounce_AbandonedByCallerIs499(t *testing.T) {
 	abandoned := fmt.Errorf("store: %w", context.Canceled)
 	for name, arm := range map[string]func(fs *fakeFleetSettings){

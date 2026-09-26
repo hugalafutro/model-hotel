@@ -136,7 +136,13 @@ func (h *ConfigSyncHandler) Import(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, msg, http.StatusBadRequest)
 		return
 	case err != nil:
-		debuglog.Error("configsync: apply import", "error", util.RedactURLUserinfo(err.Error()))
+		// The error is logged as a redacted string, which debuglog.Error cannot
+		// see a cancel inside, so the caller-hung-up case picks Warn here.
+		logf := debuglog.Error
+		if errors.Is(err, context.Canceled) {
+			logf = debuglog.Warn
+		}
+		logf("configsync: apply import", "error", util.RedactURLUserinfo(err.Error()))
 		http.Error(w, "could not apply config", httpx.StatusForRequestError(r, err, http.StatusInternalServerError))
 		return
 	}

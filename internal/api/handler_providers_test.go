@@ -1484,7 +1484,8 @@ func TestListProviders_ScanErrorWithCancelledCtx(t *testing.T) {
 	defer testDB.Close()
 
 	h := testHandler(&mockProviderStore{
-		listFn: func(ctx context.Context) ([]*provider.Provider, error) {
+		// Ignores ctx on purpose: the cancel must reach the model-count query.
+		listFn: func(context.Context) ([]*provider.Provider, error) {
 			return []*provider.Provider{{ID: uuid.New(), Name: "test", BaseURL: "https://api.example.com", Enabled: true}}, nil
 		},
 	}, nil, nil, &mockAdminAuth{validateFn: func(string) bool { return true }}, testDB)
@@ -1499,9 +1500,12 @@ func TestListProviders_ScanErrorWithCancelledCtx(t *testing.T) {
 	h.ListProviders(w, req)
 
 	// The context is cancelled before the call, so the model-count query
-	// never runs: the caller abandoned it.
+	// never runs: the caller abandoned it. A regression pin for the 499.
 	if w.Code != statusClientClosed {
 		t.Errorf("expected 499, got %d; body: %s", w.Code, w.Body.String())
+	}
+	if !strings.Contains(w.Body.String(), "failed to query model counts") {
+		t.Errorf("body = %q, want the model-count failure", w.Body.String())
 	}
 }
 
@@ -1531,7 +1535,8 @@ func TestListProviders_TokenRowCountScanError(t *testing.T) {
 	}()
 
 	h := testHandler(&mockProviderStore{
-		listFn: func(ctx context.Context) ([]*provider.Provider, error) {
+		// Ignores ctx on purpose: the cancel must reach the model-count query.
+		listFn: func(context.Context) ([]*provider.Provider, error) {
 			return []*provider.Provider{{ID: provID, Name: "test-lp-provider", BaseURL: "https://api.example.com", Enabled: true}}, nil
 		},
 	}, nil, nil, &mockAdminAuth{validateFn: func(string) bool { return true }}, testDB)
@@ -1544,9 +1549,12 @@ func TestListProviders_TokenRowCountScanError(t *testing.T) {
 	h.ListProviders(w, req)
 
 	// The context is cancelled before the call, so the first query never runs:
-	// the caller abandoned it.
+	// the caller abandoned it. A regression pin for the 499.
 	if w.Code != statusClientClosed {
 		t.Errorf("expected 499, got %d; body: %s", w.Code, w.Body.String())
+	}
+	if !strings.Contains(w.Body.String(), "failed to query model counts") {
+		t.Errorf("body = %q, want the model-count failure", w.Body.String())
 	}
 }
 
