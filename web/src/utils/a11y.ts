@@ -39,8 +39,8 @@ export function moveOptionFocus(
 	const inText =
 		current instanceof HTMLInputElement ||
 		current instanceof HTMLTextAreaElement;
-	// biome-ignore lint/complexity/useIndexOf: current is Element | null, indexOf would need a cast
-	const idx = options.findIndex((o) => o === current);
+	// A non-option (or null) current is simply absent from options: -1.
+	const idx = options.indexOf(current as HTMLElement);
 	let next: number;
 	switch (key) {
 		case "ArrowDown":

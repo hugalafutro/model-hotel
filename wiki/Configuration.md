@@ -314,15 +314,15 @@ User preferences are stored in `localStorage` (client-side only, never sent to t
 
 | Key | Description |
 |-----|-------------|
-| `adminToken` | Admin authentication token (used for API calls) |
-| `theme` | dark/light |
-| `accentColor` | Hex color string |
+| `theme` | dark, light or system (default dark) |
+| `accentColor` | Hex color string (unset: the UI style's default accent) |
 | `uiStyle` | clean-saas (default), cyber-terminal, or glassmorphism-lite |
 | `toastPosition` | Toast notification position |
 | `toastTimeout` | Toast display duration (ms) |
+| `toastFuse` | Whether a toast shows the burning outline that counts down its display time (default `true`) |
 | `persistChat` | Whether to persist chat state across sessions |
 | `persistConversation` | Whether to persist conversation state |
-| `persistArena` | Whether to persist arena state and history |
+| `persistArena` | Whether to persist arena state |
 | `arenaHistoryEnabled` | Whether to persist arena battle history across sessions |
 | `arenaHistoryLimit` | Maximum number of arena history entries to keep (default: 25) |
 | `sidebarChatSubMode` | chat/conversation |
@@ -330,6 +330,7 @@ User preferences are stored in `localStorage` (client-side only, never sent to t
 | `sidebarLogsSubMode` | request/app |
 | `sidebarQuotaDisabled` | Whether to hide the quotas pill in sidebar (inverted: `true` = hidden). The refresh interval beside it is a database setting (`quota_refresh_interval_min`), not a localStorage key. |
 | `dashboardRefreshSec` | Dashboard refresh interval in seconds |
+| `i18nextLng` | Interface language chosen in the language picker (read by the language detector) |
 
 ### Settings Page Sections
 

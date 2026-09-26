@@ -65,7 +65,7 @@ runs:
       # `set -e` IS in effect and cannot be opted out of here: `shell: bash` runs
       # this as `bash --noprofile --norc -e -o pipefail`, so -e arrives from the
       # shell directive rather than from the script. The line below adds -u and
-      # is deliberately not `set +e` — failing on an unhandled error beats
+      # is deliberately not `set +e`: failing on an unhandled error beats
       # continuing with a half-built output set that callers would read as
       # "nothing changed".
       #
@@ -157,7 +157,7 @@ runs:
         workflows=$(match '^\.github/')
         # THIRD-PARTY-NOTICES.md is generated FROM these, so a hand-edit to the
         # committed file must be caught by regenerating it.
-        deps=$(match '^go\.(mod|sum)$|^web/(package\.json|pnpm-lock\.yaml|pnpm-workspace\.yaml)$|^tools/gen-notices/|^THIRD-PARTY-NOTICES\.md$')
+        deps=$(match '^go\.(mod|sum)$|^(frontdesk/)?web/(package\.json|pnpm-lock\.yaml|pnpm-workspace\.yaml)$|^tools/gen-notices/|^THIRD-PARTY-NOTICES\.md$')
         # The locale gate reads both apps' sources, not just their catalogs: it
         # verifies every literal t("...") key resolves in en.json.
         i18n=$(match '^web/|^frontdesk/web/|^tools/i18n-translate/|^Makefile$')
