@@ -53,7 +53,11 @@ describe("MembersPage fleet circuit reset", () => {
 				]),
 			),
 			http.get("/api/fleet/autosync", () =>
-				HttpResponse.json({ enabled: false, primary_id: "m1" }),
+				HttpResponse.json({
+					enabled: false,
+					primary_id: "m1",
+					effective_primary_id: "m1",
+				}),
 			),
 			http.get("/api/fleet/failover-groups", ({ request }) => {
 				expect(new URL(request.url).searchParams.get("primary_id")).toBe("m1");
@@ -125,7 +129,11 @@ describe("MembersPage fleet circuit reset", () => {
 				]),
 			),
 			http.get("/api/fleet/autosync", () =>
-				HttpResponse.json({ enabled: false, primary_id: "m1" }),
+				HttpResponse.json({
+					enabled: false,
+					primary_id: "m1",
+					effective_primary_id: "m1",
+				}),
 			),
 		);
 		render(
