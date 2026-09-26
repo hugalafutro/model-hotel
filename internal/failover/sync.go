@@ -24,11 +24,16 @@ import (
 const FleetAutoGroupsEchoKey = "_fleet_auto_failover_groups"
 
 // ClearFleetAutoEcho drops the fleet auto-group echo; see FleetAutoGroupsEchoKey.
-// Best-effort: a failure costs one convergence pass, so it is logged, not returned.
+// A failure is logged, not returned, and remembered: a stale echo would keep
+// certifying rows that changed, so every later scan retries the delete until one
+// succeeds, whether or not that scan changes anything itself.
 func (r *Repository) ClearFleetAutoEcho(ctx context.Context) {
 	if _, err := r.pool.Exec(ctx, `DELETE FROM settings WHERE key = $1`, FleetAutoGroupsEchoKey); err != nil {
-		debuglog.Warn("failover: failed to clear the fleet auto-group echo", "error", err)
+		r.echoClearPending.Store(true)
+		debuglog.Warn("failover: failed to clear the fleet auto-group echo; will retry on the next scan", "error", err)
+		return
 	}
+	r.echoClearPending.Store(false)
 }
 
 // DeletedGroupInfo describes a failover group that was deleted during sync.
@@ -288,7 +293,9 @@ func (r *Repository) SyncAllModels(ctx context.Context) (*SyncResult, error) {
 			result.SyncErrors = append(result.SyncErrors, fmt.Sprintf("%s: %v", base, err))
 			continue
 		}
-		if existing == nil || !slices.Equal(existing.PriorityOrder, order) {
+		// A scan re-enables an auto group (upsertAutoGroup writes group_enabled
+		// true), so one the primary sent disabled counts as changed too.
+		if existing == nil || !existing.GroupEnabled || !slices.Equal(existing.PriorityOrder, order) {
 			autoChanged = true
 		}
 	}
@@ -345,7 +352,7 @@ func (r *Repository) SyncAllModels(ctx context.Context) (*SyncResult, error) {
 
 	debuglog.Info("failover: synced groups", "synced", len(syncedBases), "deleted", len(result.DeletedGroups))
 
-	if autoChanged || len(result.DeletedGroups) > 0 {
+	if autoChanged || len(result.DeletedGroups) > 0 || r.echoClearPending.Load() {
 		r.ClearFleetAutoEcho(ctx)
 	}
 	return result, nil
@@ -390,7 +397,7 @@ func (r *Repository) SyncForModel(ctx context.Context, modelID string) (*SyncRes
 
 	if len(currentIDs) <= 1 {
 		r.deleteUndersizedAutoGroup(ctx, base, len(currentIDs), []string{}, result)
-		if len(result.DeletedGroups) > 0 {
+		if len(result.DeletedGroups) > 0 || r.echoClearPending.Load() {
 			r.ClearFleetAutoEcho(ctx)
 		}
 		return result, nil
@@ -410,6 +417,10 @@ func (r *Repository) SyncForModel(ctx context.Context, modelID string) (*SyncRes
 			RemovedModelIDs: removed,
 			AddedModelIDs:   added,
 		})
+	}
+	// Same rule as SyncAllModels: membership moved, the group was re-enabled by
+	// this upsert, or an earlier clear is still owed.
+	if len(result.UpdatedGroups) > 0 || (existing != nil && !existing.GroupEnabled) || r.echoClearPending.Load() {
 		r.ClearFleetAutoEcho(ctx)
 	}
 

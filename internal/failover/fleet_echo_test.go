@@ -118,3 +118,78 @@ func TestRepository_SyncForModel_ClearsFleetEcho(t *testing.T) {
 	cancel()
 	repo.ClearFleetAutoEcho(canceled)
 }
+
+// A scan re-enables an auto group the primary sent disabled (upsertAutoGroup
+// always writes group_enabled true), so that flip counts as a change and drops
+// the echo, on both scan paths.
+func TestRepository_Sync_ReenablingADisabledAutoGroupClearsFleetEcho(t *testing.T) {
+	repo := newTestRepo(t)
+	ctx := context.Background()
+	base := "echo-off-" + uuid.New().String()[:8]
+	seedProviderModel(ctx, t, base, true, true)
+	seedProviderModel(ctx, t, base, true, true)
+	if _, err := repo.SyncAllModels(ctx); err != nil {
+		t.Fatalf("sync: %v", err)
+	}
+	disable := func() {
+		t.Helper()
+		if _, err := testDB.Pool().Exec(ctx, `UPDATE model_failover_groups SET group_enabled = false WHERE display_model = $1`, base); err != nil {
+			t.Fatalf("disable group: %v", err)
+		}
+		InvalidateFailoverCache()
+	}
+
+	disable()
+	seedFleetEcho(t)
+	if _, err := repo.SyncAllModels(ctx); err != nil {
+		t.Fatalf("sync: %v", err)
+	}
+	if fleetEchoRows(t) != 0 {
+		t.Fatal("SyncAllModels re-enabling a disabled auto group must drop the echo")
+	}
+
+	disable()
+	seedFleetEcho(t)
+	if _, err := repo.SyncForModel(ctx, base); err != nil {
+		t.Fatalf("sync: %v", err)
+	}
+	if fleetEchoRows(t) != 0 {
+		t.Fatal("SyncForModel re-enabling a disabled auto group must drop the echo")
+	}
+}
+
+// A clear that failed is retried by the next scan even when that scan changes
+// nothing, so a stale echo cannot outlive the change it hides.
+func TestRepository_Sync_RetriesAFailedFleetEchoClear(t *testing.T) {
+	repo := newTestRepo(t)
+	ctx := context.Background()
+	base := "echo-retry-" + uuid.New().String()[:8]
+	seedProviderModel(ctx, t, base, true, true)
+	seedProviderModel(ctx, t, base, true, true)
+	if _, err := repo.SyncAllModels(ctx); err != nil {
+		t.Fatalf("sync: %v", err)
+	}
+
+	seedFleetEcho(t)
+	canceled, cancel := context.WithCancel(ctx)
+	cancel()
+	repo.ClearFleetAutoEcho(canceled) // fails: the echo stays, the retry is owed
+	if fleetEchoRows(t) != 1 {
+		t.Fatal("precondition: the failed clear must leave the echo in place")
+	}
+	if _, err := repo.SyncAllModels(ctx); err != nil {
+		t.Fatalf("sync: %v", err)
+	}
+	if fleetEchoRows(t) != 0 {
+		t.Fatal("an unchanged scan must retry the owed clear")
+	}
+
+	seedFleetEcho(t)
+	repo.ClearFleetAutoEcho(canceled)
+	if _, err := repo.SyncForModel(ctx, base); err != nil {
+		t.Fatalf("sync: %v", err)
+	}
+	if fleetEchoRows(t) != 0 {
+		t.Fatal("an unchanged per-model sync must retry the owed clear")
+	}
+}
