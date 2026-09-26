@@ -2819,6 +2819,13 @@ html[data-ui-style="cyber-terminal"] .ui-tab-active:hover {
 	color: var(--text-tertiary);
 }
 
+/* A secondary figure set beside a label (a quota bar's used/total). */
+.ui-figure-muted {
+	font-size: var(--text-sm);
+	line-height: var(--text-sm--line-height);
+	color: var(--text-tertiary);
+}
+
 /* Tiny uppercase caption above a value. */
 .ui-overline {
 	font-size: 10px;

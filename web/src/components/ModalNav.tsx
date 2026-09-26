@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { ChevronLeft, ChevronRight } from "@/lib/icons";
 
@@ -19,6 +19,12 @@ export interface ModalNavProps {
 	onNext: () => void;
 }
 
+/** What a detail modal hands Modal: the list position plus a short phrase
+ * naming the open row (its time and subject), read out after each step. */
+export interface ModalNavConfig extends ModalNavProps {
+	rowLabel: string;
+}
+
 /**
  * Prev/next stepper for a detail modal opened from a list row, so a run of
  * rows can be read without closing the dialog between each one. Rendered by
@@ -33,10 +39,11 @@ export interface ModalNavProps {
 export function ModalNav({
 	index,
 	total,
+	rowLabel,
 	lastStep,
 	onPrev,
 	onNext,
-}: ModalNavProps & {
+}: ModalNavConfig & {
 	/** The step the reader last took, from Modal, or null before they do. */
 	lastStep: StepAnnouncement | null;
 }) {
@@ -45,6 +52,22 @@ export function ModalNav({
 	const canNext = index < total - 1;
 	const prevRef = useRef<HTMLButtonElement>(null);
 	const nextRef = useRef<HTMLButtonElement>(null);
+
+	// What a step announces: the row it landed on, and whether that row is an
+	// end of the loaded list. Fixed when the step is taken, so a live update
+	// that moves the row away from an end does not re-announce it. A stepper
+	// remounted after a step (see pulsedSeq below) has nothing new to say.
+	const [said, setSaid] = useState(
+		lastStep ? { seq: lastStep.seq, text: "" } : null,
+	);
+	if (lastStep && said?.seq !== lastStep.seq) {
+		const text = !canPrev
+			? t("common.rowStepFirst", { row: rowLabel })
+			: !canNext
+				? t("common.rowStepLast", { row: rowLabel })
+				: rowLabel;
+		setSaid({ seq: lastStep.seq, text });
+	}
 
 	// Every step, clicked or from an arrow key, plays a press on the arrow it
 	// went through: the body swaps in place, so without it a keyboard step
@@ -95,14 +118,11 @@ export function ModalNav({
 			</button>
 			{/* Stepping swaps the dialog's body while its title and the focused
 			    arrow stay the same, so a screen reader would otherwise hear
-			    nothing. The announcement is keyed by the step, so it is a new
-			    node each time and is read even when the words repeat. */}
+			    nothing. The announcement names the row the step landed on, and
+			    is keyed by the step, so it is a new node each time and is read
+			    even when the words repeat. */}
 			<span aria-live="polite" className="sr-only">
-				{lastStep && (
-					<span key={lastStep.seq}>
-						{t(lastStep.dir === "prev" ? "common.prevRow" : "common.nextRow")}
-					</span>
-				)}
+				{said && <span key={said.seq}>{said.text}</span>}
 			</span>
 			<button
 				ref={nextRef}

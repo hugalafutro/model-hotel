@@ -79,7 +79,10 @@
 		"prevRow": "Попередній рядок",
 		"nextRow": "Наступний рядок",
 		"expandNamed": "Розгорнути: {{name}}",
-		"collapseNamed": "Згорнути: {{name}}"
+		"collapseNamed": "Згорнути: {{name}}",
+		"rowStepLabel": "{{subject}}, {{time}}",
+		"rowStepFirst": "{{row}}, перший рядок",
+		"rowStepLast": "{{row}}, останній рядок"
 	},
 	"layout": {
 		"title": "Model Hotel",
@@ -3036,7 +3039,8 @@
 			"attemptKindRetryTimeout": "тайм-аут повтору",
 			"attemptKindInternal": "помилка шлюзу",
 			"attemptKindValidation": "недійсний запит",
-			"attemptKindAuth": "не авторизовано"
+			"attemptKindAuth": "не авторизовано",
+			"notReported": "не повідомлено"
 		},
 		"statusBadge": {
 			"streaming": "Трансляція",

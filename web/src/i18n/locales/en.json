@@ -79,7 +79,10 @@
 		"prevRow": "Previous row",
 		"nextRow": "Next row",
 		"expandNamed": "Expand: {{name}}",
-		"collapseNamed": "Collapse: {{name}}"
+		"collapseNamed": "Collapse: {{name}}",
+		"rowStepLabel": "{{subject}}, {{time}}",
+		"rowStepFirst": "{{row}}, first row",
+		"rowStepLast": "{{row}}, last row"
 	},
 	"layout": {
 		"title": "Model Hotel",
@@ -2890,7 +2893,8 @@
 			"attemptSuperseded": "superseded",
 			"cost": "Cost",
 			"unpriced": "Unpriced",
-			"searchUnits": "Search Units"
+			"searchUnits": "Search Units",
+			"notReported": "not reported"
 		},
 		"statusBadge": {
 			"streaming": "Streaming",

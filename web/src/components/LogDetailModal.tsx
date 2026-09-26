@@ -40,7 +40,15 @@ function AppLogDetail({
 	return (
 		<Modal
 			title={t("components.appLogDetail.title")}
-			nav={nav}
+			nav={
+				nav && {
+					...nav,
+					rowLabel: t("common.rowStepLabel", {
+						time: formatLogTimestamp(log.timestamp),
+						subject: log.level.toUpperCase(),
+					}),
+				}
+			}
 			onClose={onClose}
 			maxWidth="max-w-lg"
 			scrollable

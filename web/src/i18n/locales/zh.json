@@ -79,7 +79,10 @@
 		"prevRow": "上一行",
 		"nextRow": "下一行",
 		"expandNamed": "展开：{{name}}",
-		"collapseNamed": "收起：{{name}}"
+		"collapseNamed": "收起：{{name}}",
+		"rowStepLabel": "{{subject}}，{{time}}",
+		"rowStepFirst": "{{row}}，第一行",
+		"rowStepLast": "{{row}}，最后一行"
 	},
 	"layout": {
 		"title": "Model Hotel",
@@ -2890,7 +2893,8 @@
 			"attemptKindRetryTimeout": "重试超时",
 			"attemptKindInternal": "网关错误",
 			"attemptKindValidation": "无效请求",
-			"attemptKindAuth": "未授权"
+			"attemptKindAuth": "未授权",
+			"notReported": "未报告"
 		},
 		"statusBadge": {
 			"streaming": "流式传输",

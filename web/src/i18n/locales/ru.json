@@ -79,7 +79,10 @@
 		"prevRow": "Предыдущая строка",
 		"nextRow": "Следующая строка",
 		"expandNamed": "Развернуть: {{name}}",
-		"collapseNamed": "Свернуть: {{name}}"
+		"collapseNamed": "Свернуть: {{name}}",
+		"rowStepLabel": "{{subject}}, {{time}}",
+		"rowStepFirst": "{{row}}, первая строка",
+		"rowStepLast": "{{row}}, последняя строка"
 	},
 	"layout": {
 		"title": "Model Hotel",
@@ -3036,7 +3039,8 @@
 			"attemptKindRetryTimeout": "тайм-аут повтора",
 			"attemptKindInternal": "ошибка шлюза",
 			"attemptKindValidation": "недопустимый запрос",
-			"attemptKindAuth": "не авторизовано"
+			"attemptKindAuth": "не авторизовано",
+			"notReported": "не сообщается"
 		},
 		"statusBadge": {
 			"streaming": "Стриминг",

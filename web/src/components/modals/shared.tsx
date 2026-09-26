@@ -144,7 +144,7 @@ export function QuotaBar({
 		<div>
 			<div className="flex justify-between items-center mb-1">
 				<span className="ui-label">{label}</span>
-				<span className="ui-subtitle">{rightText}</span>
+				<span className="ui-figure-muted">{rightText}</span>
 			</div>
 			<div
 				{...(dataTestId ? { "data-testid": dataTestId } : {})}

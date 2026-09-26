@@ -179,7 +179,7 @@ export function AttemptTrail({
 						data-testid="attempt-trail-row"
 					>
 						<span className="font-mono text-xs text-(--text-tertiary)">
-							{a.attempt < 0 ? "–" : a.attempt + 1}
+							{a.attempt < 0 ? "-" : a.attempt + 1}
 						</span>
 						<span
 							className="font-medium text-(--text-primary) truncate"

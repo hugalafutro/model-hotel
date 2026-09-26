@@ -79,7 +79,10 @@
 		"prevRow": "Vorige ry",
 		"nextRow": "Volgende ry",
 		"expandNamed": "Uitbrei: {{name}}",
-		"collapseNamed": "Vou in: {{name}}"
+		"collapseNamed": "Vou in: {{name}}",
+		"rowStepLabel": "{{subject}}, {{time}}",
+		"rowStepFirst": "{{row}}, eerste ry",
+		"rowStepLast": "{{row}}, laaste ry"
 	},
 	"layout": {
 		"title": "Model Hotel",
@@ -2890,7 +2893,8 @@
 			"attemptKindRetryTimeout": "herprobeer-uitteltyd",
 			"attemptKindInternal": "gateway-fout",
 			"attemptKindValidation": "ongeldige versoek",
-			"attemptKindAuth": "nie gemagtig nie"
+			"attemptKindAuth": "nie gemagtig nie",
+			"notReported": "nie gerapporteer nie"
 		},
 		"statusBadge": {
 			"streaming": "Stroom",

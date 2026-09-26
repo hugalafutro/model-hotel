@@ -79,7 +79,10 @@
 		"prevRow": "Edellinen rivi",
 		"nextRow": "Seuraava rivi",
 		"expandNamed": "Laajenna: {{name}}",
-		"collapseNamed": "Kutista: {{name}}"
+		"collapseNamed": "Kutista: {{name}}",
+		"rowStepLabel": "{{subject}}, {{time}}",
+		"rowStepFirst": "{{row}}, ensimmäinen rivi",
+		"rowStepLast": "{{row}}, viimeinen rivi"
 	},
 	"layout": {
 		"title": "Model Hotel",
@@ -2890,7 +2893,8 @@
 			"attemptKindRetryTimeout": "uudelleenyrityksen aikakatkaisu",
 			"attemptKindInternal": "yhdyskäytävän virhe",
 			"attemptKindValidation": "virheellinen pyyntö",
-			"attemptKindAuth": "ei valtuutusta"
+			"attemptKindAuth": "ei valtuutusta",
+			"notReported": "ei ilmoitettu"
 		},
 		"statusBadge": {
 			"streaming": "Suoratoistaminen",

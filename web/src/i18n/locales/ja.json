@@ -79,7 +79,10 @@
 		"prevRow": "前の行",
 		"nextRow": "次の行",
 		"expandNamed": "展開：{{name}}",
-		"collapseNamed": "折りたたむ：{{name}}"
+		"collapseNamed": "折りたたむ：{{name}}",
+		"rowStepLabel": "{{subject}}、{{time}}",
+		"rowStepFirst": "{{row}}、最初の行",
+		"rowStepLast": "{{row}}、最後の行"
 	},
 	"layout": {
 		"title": "Model Hotel",
@@ -2890,7 +2893,8 @@
 			"attemptKindRetryTimeout": "再試行のタイムアウト",
 			"attemptKindInternal": "ゲートウェイエラー",
 			"attemptKindValidation": "無効なリクエスト",
-			"attemptKindAuth": "認可されていません"
+			"attemptKindAuth": "認可されていません",
+			"notReported": "報告なし"
 		},
 		"statusBadge": {
 			"streaming": "ストリーミング",

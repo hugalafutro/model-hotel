@@ -79,7 +79,10 @@
 		"prevRow": "Föregående rad",
 		"nextRow": "Nästa rad",
 		"expandNamed": "Expandera: {{name}}",
-		"collapseNamed": "Komprimera: {{name}}"
+		"collapseNamed": "Komprimera: {{name}}",
+		"rowStepLabel": "{{subject}}, {{time}}",
+		"rowStepFirst": "{{row}}, första raden",
+		"rowStepLast": "{{row}}, sista raden"
 	},
 	"layout": {
 		"title": "Model Hotel",
@@ -2890,7 +2893,8 @@
 			"attemptKindRetryTimeout": "timeout vid nytt försök",
 			"attemptKindInternal": "gateway-fel",
 			"attemptKindValidation": "ogiltig förfrågan",
-			"attemptKindAuth": "inte behörig"
+			"attemptKindAuth": "inte behörig",
+			"notReported": "inte rapporterat"
 		},
 		"statusBadge": {
 			"streaming": "Strömning",

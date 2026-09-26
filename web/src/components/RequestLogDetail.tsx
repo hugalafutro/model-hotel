@@ -55,10 +55,25 @@ export function RequestLogDetail({
 	// Reasoning is part of completion, not on top of it.
 	const totalTokens = requestLog.tokens_prompt + requestLog.tokens_completion;
 	const searchUnits = requestLog.search_units ?? 0;
+	// Prompt and completion are always recorded, so their 0 is a real count.
+	// Reasoning stores 0 when the provider reported none. Cache hit and miss
+	// are recorded as a pair whenever either is non-zero, so a 0 beside a
+	// non-zero partner is a real count and only 0 and 0 means not reported.
+	const noCacheCounts =
+		requestLog.tokens_prompt_cache_hit === 0 &&
+		requestLog.tokens_prompt_cache_miss === 0;
 
 	return (
 		<Modal
-			nav={nav}
+			nav={
+				nav && {
+					...nav,
+					rowLabel: t("common.rowStepLabel", {
+						time: formatLogTimestamp(requestLog.created_at),
+						subject: requestLog.model_id,
+					}),
+				}
+			}
 			header={
 				<div className="flex items-center gap-3 flex-wrap mb-4">
 					<h2 className="ui-modal-title">
@@ -187,7 +202,7 @@ export function RequestLogDetail({
 					/>
 					{requestLog.model_id.startsWith("hotel/") &&
 						requestLog.resolved_model_id && (
-							<span className="text-xs text-gray-500 ml-1">
+							<span className="text-xs text-gray-500 ms-1">
 								({t("components.requestLogDetail.resolved")}{" "}
 								<span className="text-(--accent) font-mono">
 									{requestLog.resolved_model_id}
@@ -251,52 +266,58 @@ export function RequestLogDetail({
 						{[
 							{
 								labelKey: "components.requestLogDetail.prompt",
-								optional: false,
+								absent: false,
 								value: requestLog.tokens_prompt,
 								color: "text-(--text-primary)",
 							},
 							{
 								labelKey: "components.requestLogDetail.completion",
-								optional: false,
+								absent: false,
 								value: requestLog.tokens_completion,
 								color: "text-(--text-primary)",
 							},
 							{
 								labelKey: "components.requestLogDetail.reasoning",
-								optional: true,
+								absent: requestLog.tokens_completion_reasoning === 0,
 								value: requestLog.tokens_completion_reasoning,
 								color: "text-purple-400",
 							},
 							{
 								labelKey: "components.requestLogDetail.cacheHit",
-								optional: true,
+								absent: noCacheCounts,
 								value: requestLog.tokens_prompt_cache_hit,
 								color: "text-green-400",
 							},
 							{
 								labelKey: "components.requestLogDetail.cacheMiss",
-								optional: true,
+								absent: noCacheCounts,
 								value: requestLog.tokens_prompt_cache_miss,
 								color: "text-orange-400",
 							},
-						].map(({ labelKey, value, color, optional }) => {
-							// Prompt and completion are always recorded, so their 0 is a real
-							// count; the rest store 0 when the provider reported nothing.
-							const absent = optional && value === 0;
-							return (
-								<div key={labelKey}>
-									<div className="text-[11px] uppercase text-(--text-tertiary)">
-										{t(labelKey)}
-									</div>
-									{/* An absent count is a grey dash, so the grid keeps its shape. */}
-									<div
-										className={`text-sm font-mono ${absent ? "text-(--text-tertiary)" : color}`}
-									>
-										{absent ? "-" : value.toLocaleString()}
-									</div>
+						].map(({ labelKey, value, color, absent }) => (
+							<div key={labelKey}>
+								<div className="text-[11px] uppercase text-(--text-tertiary)">
+									{t(labelKey)}
 								</div>
-							);
-						})}
+								{/* An absent count is a grey dash, so the grid keeps its shape;
+								    a screen reader hears that it was not reported. */}
+								<div
+									className={`text-sm font-mono ${absent ? "text-(--text-tertiary)" : color}`}
+									data-absent={absent || undefined}
+								>
+									{absent ? (
+										<>
+											<span aria-hidden="true">-</span>
+											<span className="sr-only">
+												{t("components.requestLogDetail.notReported")}
+											</span>
+										</>
+									) : (
+										value.toLocaleString()
+									)}
+								</div>
+							</div>
+						))}
 					</div>
 				</div>
 			)}
@@ -318,7 +339,7 @@ export function RequestLogDetail({
 								tooltip={t("components.requestLogDetail.expandForBreakdown")}
 							/>
 						)}
-						<span className="ml-auto font-mono text-(--accent)">
+						<span className="ms-auto font-mono text-(--accent)">
 							{formatMs(totalOverheadMs, 3)}
 						</span>
 						<span className="ui-icon-btn ui-icon-btn-in-group p-1.5 rounded-md">
@@ -458,7 +479,7 @@ export function RequestLogDetail({
 							text={requestLog.error_message}
 							displayText={t("common.copy")}
 							tooltip={t("components.requestLogDetail.copyErrorMessage")}
-							className="ml-auto"
+							className="ms-auto"
 							textClassName="text-[11px] uppercase tracking-wider text-red-400/70"
 							iconClassName="w-3 h-3 text-red-400/50 hover:text-red-300"
 						/>

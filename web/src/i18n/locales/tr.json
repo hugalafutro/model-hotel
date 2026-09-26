@@ -79,7 +79,10 @@
 		"prevRow": "Önceki satır",
 		"nextRow": "Sonraki satır",
 		"expandNamed": "Genişlet: {{name}}",
-		"collapseNamed": "Daralt: {{name}}"
+		"collapseNamed": "Daralt: {{name}}",
+		"rowStepLabel": "{{subject}}, {{time}}",
+		"rowStepFirst": "{{row}}, ilk satır",
+		"rowStepLast": "{{row}}, son satır"
 	},
 	"layout": {
 		"title": "Model Hotel",
@@ -2890,7 +2893,8 @@
 			"attemptKindRetryTimeout": "yeniden deneme zaman aşımı",
 			"attemptKindInternal": "ağ geçidi hatası",
 			"attemptKindValidation": "geçersiz istek",
-			"attemptKindAuth": "yetkisiz"
+			"attemptKindAuth": "yetkisiz",
+			"notReported": "bildirilmedi"
 		},
 		"statusBadge": {
 			"streaming": "Akış",
