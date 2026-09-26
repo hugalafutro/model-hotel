@@ -215,6 +215,8 @@ export function Audit() {
 
 			{entries.length > 0 ? (
 				<div className="relative flex flex-col flex-1 min-h-0">
+					{/* Ahead of the scroller so it is one tab stop in, not after every row. */}
+					{isScroll && <ScrollTopButton scrollEl={scrollEl} />}
 					<div
 						ref={isScroll ? scrollRef : undefined}
 						// Focus target for ScrollTopButton, so returning to the top does
@@ -278,7 +280,6 @@ export function Audit() {
 							</tbody>
 						</table>
 					</div>
-					{isScroll && <ScrollTopButton scrollEl={scrollEl} />}
 
 					<TableFooter
 						start={isScroll ? startIndex : shownOffset + 1}
@@ -341,7 +342,7 @@ function AuditCells({ entry: e }: { entry: AuditEntry }) {
 			<td className="px-4 py-3 text-sm text-gray-200 truncate">
 				<span title={e.actor}>{e.actor}</span>
 				{e.actor_role === "admin" && (
-					<span className="ml-1.5 text-xs text-gray-500">
+					<span className="ms-1.5 text-xs text-gray-500">
 						{t("users.role.admin")}
 					</span>
 				)}
@@ -366,7 +367,7 @@ function AuditCells({ entry: e }: { entry: AuditEntry }) {
 						{e.entity_id}
 					</span>
 				) : (
-					"—"
+					"-"
 				)}
 			</td>
 			<td

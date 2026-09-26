@@ -2605,6 +2605,12 @@ html[data-ui-style="glassmorphism-lite"].dark .ui-table-header-text {
 	white-space: nowrap;
 }
 
+/* A badge holding a single icon (the output modalities): the text padding
+   would leave the glyph floating in a wide pill. */
+[data-ui-style] .ui-badge-icon {
+	padding-inline: 0.25rem;
+}
+
 html[data-ui-style="cyber-terminal"] .ui-badge {
 	border-radius: 0;
 	font-family: var(--font-mono);

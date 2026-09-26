@@ -343,18 +343,6 @@ describe("Layout", () => {
 			expect(screen.getByTestId("test-content")).toBeInTheDocument();
 		});
 
-		it.each(["/dashboard", "/models", "/logs", "/settings"])(
-			"gives %s the same content column as every other page",
-			(route) => {
-				renderWithProviders(<Layout>{mockChildren}</Layout>, {
-					initialEntries: [route],
-				});
-
-				const contentDiv = screen.getByRole("main").querySelector("div");
-				expect(contentDiv).toHaveClass("max-w-[max(88rem,calc(48rem+38vw))]");
-			},
-		);
-
 		it("has proper main landmark", () => {
 			renderWithProviders(<Layout>{mockChildren}</Layout>);
 

@@ -257,6 +257,8 @@ export function VirtualModelTable({
 					)}
 				</div>
 			</div>
+			{/* Ahead of the scroller so it is one tab stop in, not after every row. */}
+			<ScrollTopButton scrollEl={scrollEl} />
 			<div
 				ref={scrollRef}
 				// Focus target for ScrollTopButton, so returning to the top does
@@ -371,7 +373,6 @@ export function VirtualModelTable({
 					</tbody>
 				</table>
 			</div>
-			<ScrollTopButton scrollEl={scrollEl} />
 			<TableFooter
 				start={startIndex}
 				end={entries.length > 0 ? endIndex : 0}

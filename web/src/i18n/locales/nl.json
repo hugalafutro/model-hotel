@@ -77,7 +77,9 @@
 			"opencode": "OpenCode"
 		},
 		"prevRow": "Vorige rij",
-		"nextRow": "Volgende rij"
+		"nextRow": "Volgende rij",
+		"expandNamed": "Uitklappen: {{name}}",
+		"collapseNamed": "Samenvouwen: {{name}}"
 	},
 	"layout": {
 		"title": "Model Hotel",
@@ -129,17 +131,19 @@
 			"db": "DB",
 			"procs_one": "proc",
 			"procs_other": "procs",
-			"aggregateCpu": "Totale CPU over {{count}} compose-containers",
-			"aggregateNetwork": "Netwerk samenvoegen tussen {{count}} containers",
-			"aggregateDisk": "Disk I/O samenvoegen tussen {{count}} containers",
-			"aggregateMemory": "Geheugen samenvoegen tussen {{count}} containers",
 			"heap": "heap",
 			"hit": "Hit",
 			"conn": "verb.",
 			"txPerSec": "tx/s",
 			"requestsTodayAll": "Verz. vandaag (alle)",
 			"requestsTodayOwn": "Verz. vandaag (die van u)",
-			"requestsToday": "Verz. vandaag"
+			"requestsToday": "Verz. vandaag",
+			"aggregateNetwork_one": "Totaal netwerk in {{count}} compose-container",
+			"aggregateNetwork_other": "Totaal netwerk in {{count}} compose-containers",
+			"aggregateDisk_one": "Totale schijf-I/O in {{count}} compose-container",
+			"aggregateDisk_other": "Totale schijf-I/O in {{count}} compose-containers",
+			"aggregateMemory_one": "Totaal geheugen in {{count}} compose-container",
+			"aggregateMemory_other": "Totaal geheugen in {{count}} compose-containers"
 		},
 		"toast": {
 			"copiedToClipboard": "Gekopieerd naar klembord",
@@ -208,13 +212,17 @@
 			"requestsToday": "Aantal proxied LLM aanvragen sinds middernacht lokale tijd vandaag",
 			"cpu": "Processor die de server nu gebruikt",
 			"procs": "Processen die draaien in de controlegroep van de server",
-			"aggregateProcs": "Processen in {{count}} compose-containers",
 			"memoryUsed": "Geheugen dat de server nu gebruikt",
 			"memoryLimit": "Geheugenlimiet die de server mag bereiken voordat hij wordt beëindigd",
-			"aggregateMemoryUsed": "Geheugen dat in {{count}} compose-containers wordt gebruikt",
-			"aggregateMemoryLimit": "Hoogste geheugenlimiet gemeld door {{count}} compose-containers",
 			"memoryHeap": "Go-heap die nu is toegewezen; voor deze server is geen geheugenlimiet ingesteld",
-			"aggregateCpu": "Processor die in {{count}} compose-containers wordt gebruikt"
+			"aggregateCpu_one": "Processor gebruikt in {{count}} compose-container",
+			"aggregateCpu_other": "Processor gebruikt in {{count}} compose-containers",
+			"aggregateProcs_one": "Processen in {{count}} compose-container",
+			"aggregateProcs_other": "Processen in {{count}} compose-containers",
+			"aggregateMemoryUsed_one": "Geheugen gebruikt in {{count}} compose-container",
+			"aggregateMemoryUsed_other": "Geheugen gebruikt in {{count}} compose-containers",
+			"aggregateMemoryLimit_one": "Hoogste geheugenlimiet gemeld door {{count}} compose-container",
+			"aggregateMemoryLimit_other": "Hoogste geheugenlimiet gemeld door {{count}} compose-containers"
 		},
 		"githubRepo": "GitHub-repository",
 		"readOnly": {
@@ -231,7 +239,7 @@
 			"title": "Fouten",
 			"viewDetails": "Bekijk details",
 			"clearAllConfirm": "Klik nogmaals om te bevestigen",
-			"titleTooltip": "De {{limit}} meest recente fouten, geen ouder dan {{hours}} uur"
+			"titleTooltip": "Maximaal {{limit}} recente serverfouten uit de afgelopen {{hours}} uur"
 		},
 		"ha": {
 			"primary": "Primair",

@@ -2,6 +2,7 @@ import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { api } from "../../api/client";
 import type { Model, Provider } from "../../api/types";
+import i18n from "../../i18n";
 import { renderWithProviders } from "../../test/utils";
 import { formatDate } from "../../utils/format";
 import { VirtualModelTable } from "../VirtualModelTable";
@@ -110,6 +111,13 @@ function setupWithEntries(
 	mockGetTotalSize.mockReturnValue(entries.length * 45);
 	setupTable({ entries, total: entries.length, ...extra });
 }
+
+/** A pill strip's expand or collapse toggle, named for its column. */
+const stripToggle = (dir: "expand" | "collapse", column: string) => ({
+	name: i18n.t(`common.${dir}Named`, {
+		name: i18n.t(`models.table.${column}`),
+	}),
+});
 
 describe("VirtualModelTable", () => {
 	beforeEach(() => {
@@ -413,9 +421,13 @@ describe("VirtualModelTable", () => {
 			}
 			expect(screen.queryByRole("button", { name: "PDF" })).toBeNull();
 
-			fireEvent.click(screen.getByRole("button", { name: "Capabilities" }));
+			fireEvent.click(
+				screen.getByRole("button", stripToggle("expand", "capabilities")),
+			);
 			fireEvent.click(screen.getByRole("button", { name: "PDF" }));
-			fireEvent.click(screen.getByRole("button", { name: "Capabilities" }));
+			fireEvent.click(
+				screen.getByRole("button", stripToggle("collapse", "capabilities")),
+			);
 
 			// Rolled in shows only the first three, even with PDF set; the clear
 			// button still says a filter is active.
@@ -434,7 +446,9 @@ describe("VirtualModelTable", () => {
 			}
 			expect(screen.queryByRole("button", { name: "Video out" })).toBeNull();
 
-			fireEvent.click(screen.getByRole("button", { name: "Outputs" }));
+			fireEvent.click(
+				screen.getByRole("button", stripToggle("expand", "outputs")),
+			);
 
 			expect(
 				screen.getByRole("button", { name: "Video out" }),
@@ -447,12 +461,12 @@ describe("VirtualModelTable", () => {
 			renderWithProviders(<VirtualModelTable />);
 			const reasoning = screen.getByRole("button", { name: "Reasoning" });
 			const tools = screen.getByRole("button", { name: "Tools" });
-			expect(tools.className).not.toContain("grayscale");
+			expect(tools).not.toHaveAttribute("data-dimmed");
 
 			fireEvent.click(reasoning);
 
-			expect(tools.className).toContain("grayscale");
-			expect(reasoning.className).not.toContain("grayscale");
+			expect(tools).toHaveAttribute("data-dimmed");
+			expect(reasoning).not.toHaveAttribute("data-dimmed");
 		});
 
 		it("offers capability filter pills even when no loaded row has that cap", () => {
@@ -462,7 +476,9 @@ describe("VirtualModelTable", () => {
 			const entries = [createModel({ id: "model-plain", capabilities: "{}" })];
 			setupWithEntries(entries);
 			renderWithProviders(<VirtualModelTable />);
-			fireEvent.click(screen.getByRole("button", { name: "Capabilities" }));
+			fireEvent.click(
+				screen.getByRole("button", stripToggle("expand", "capabilities")),
+			);
 
 			const pdfPill = screen.getByText("PDF");
 			expect(pdfPill.tagName).toBe("BUTTON");

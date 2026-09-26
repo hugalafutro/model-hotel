@@ -77,7 +77,9 @@
 			"opencode": "OpenCode"
 		},
 		"prevRow": "Предыдущая строка",
-		"nextRow": "Следующая строка"
+		"nextRow": "Следующая строка",
+		"expandNamed": "Развернуть: {{name}}",
+		"collapseNamed": "Свернуть: {{name}}"
 	},
 	"layout": {
 		"title": "Model Hotel",
@@ -141,17 +143,25 @@
 			"procs_few": "процесса",
 			"procs_many": "процессов",
 			"procs_other": "процесса",
-			"aggregateCpu": "Суммарный ЦП по {{count}} контейнерам compose",
-			"aggregateNetwork": "Суммарный сетевой трафик по {{count}} контейнерам compose",
-			"aggregateDisk": "Суммарный дисковый I/O по {{count}} контейнерам compose",
-			"aggregateMemory": "Суммарная память по {{count}} контейнерам compose",
 			"heap": "куча",
 			"hit": "Попадание",
 			"conn": "соед.",
 			"txPerSec": "tx/s",
 			"requestsTodayAll": "Запр. сегодня (все)",
 			"requestsTodayOwn": "Запр. сегодня (ваши)",
-			"requestsToday": "Запр. сегодня"
+			"requestsToday": "Запр. сегодня",
+			"aggregateNetwork_one": "Суммарный сетевой трафик по {{count}} контейнеру compose",
+			"aggregateNetwork_few": "Суммарный сетевой трафик по {{count}} контейнерам compose",
+			"aggregateNetwork_many": "Суммарный сетевой трафик по {{count}} контейнерам compose",
+			"aggregateNetwork_other": "Суммарный сетевой трафик по {{count}} контейнера compose",
+			"aggregateDisk_one": "Суммарный дисковый I/O по {{count}} контейнеру compose",
+			"aggregateDisk_few": "Суммарный дисковый I/O по {{count}} контейнерам compose",
+			"aggregateDisk_many": "Суммарный дисковый I/O по {{count}} контейнерам compose",
+			"aggregateDisk_other": "Суммарный дисковый I/O по {{count}} контейнера compose",
+			"aggregateMemory_one": "Суммарная память по {{count}} контейнеру compose",
+			"aggregateMemory_few": "Суммарная память по {{count}} контейнерам compose",
+			"aggregateMemory_many": "Суммарная память по {{count}} контейнерам compose",
+			"aggregateMemory_other": "Суммарная память по {{count}} контейнера compose"
 		},
 		"toast": {
 			"copiedToClipboard": "Скопировано в буфер обмена",
@@ -220,13 +230,25 @@
 			"requestsToday": "Количество проксируемых запросов LLM с полуночи местного времени сегодня",
 			"cpu": "Процессор, используемый сервером сейчас",
 			"procs": "Процессы, работающие в контрольной группе сервера",
-			"aggregateProcs": "Процессы в {{count}} контейнерах compose",
 			"memoryUsed": "Память, используемая сервером сейчас",
 			"memoryLimit": "Предел памяти, которого сервер может достичь до принудительной остановки",
-			"aggregateMemoryUsed": "Память, используемая в {{count}} контейнерах compose",
-			"aggregateMemoryLimit": "Наибольший предел памяти, указанный для {{count}} контейнеров compose",
 			"memoryHeap": "Текущая выделенная куча Go; предел памяти для этого сервера не задан",
-			"aggregateCpu": "Процессор, используемый в {{count}} контейнерах compose"
+			"aggregateCpu_one": "Процессор, используемый в {{count}} контейнере compose",
+			"aggregateCpu_few": "Процессор, используемый в {{count}} контейнерах compose",
+			"aggregateCpu_many": "Процессор, используемый в {{count}} контейнерах compose",
+			"aggregateCpu_other": "Процессор, используемый в {{count}} контейнерах compose",
+			"aggregateProcs_one": "Процессы в {{count}} контейнере compose",
+			"aggregateProcs_few": "Процессы в {{count}} контейнерах compose",
+			"aggregateProcs_many": "Процессы в {{count}} контейнерах compose",
+			"aggregateProcs_other": "Процессы в {{count}} контейнерах compose",
+			"aggregateMemoryUsed_one": "Память, используемая в {{count}} контейнере compose",
+			"aggregateMemoryUsed_few": "Память, используемая в {{count}} контейнерах compose",
+			"aggregateMemoryUsed_many": "Память, используемая в {{count}} контейнерах compose",
+			"aggregateMemoryUsed_other": "Память, используемая в {{count}} контейнерах compose",
+			"aggregateMemoryLimit_one": "Наибольший предел памяти, указанный для {{count}} контейнера compose",
+			"aggregateMemoryLimit_few": "Наибольший предел памяти, указанный для {{count}} контейнеров compose",
+			"aggregateMemoryLimit_many": "Наибольший предел памяти, указанный для {{count}} контейнеров compose",
+			"aggregateMemoryLimit_other": "Наибольший предел памяти, указанный для {{count}} контейнера compose"
 		},
 		"githubRepo": "Репозиторий GitHub",
 		"readOnly": {
@@ -243,7 +265,7 @@
 			"title": "Ошибки",
 			"viewDetails": "Просмотреть подробности",
 			"clearAllConfirm": "Нажмите еще раз для подтверждения",
-			"titleTooltip": "{{limit}} последних ошибок, не старше {{hours}} часов"
+			"titleTooltip": "До {{limit}} недавних ошибок сервера за последние {{hours}} часа"
 		},
 		"ha": {
 			"primary": "Основной",

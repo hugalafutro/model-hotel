@@ -77,7 +77,9 @@
 			"opencode": "OpenCode"
 		},
 		"prevRow": "Előző sor",
-		"nextRow": "Következő sor"
+		"nextRow": "Következő sor",
+		"expandNamed": "Kibontás: {{name}}",
+		"collapseNamed": "Összecsukás: {{name}}"
 	},
 	"layout": {
 		"title": "Model Hotel",
@@ -129,17 +131,19 @@
 			"db": "AB",
 			"procs_one": "proc",
 			"procs_other": "procs",
-			"aggregateCpu": "A CPU-terhelés összesítése {{count}} compose konténerben",
-			"aggregateNetwork": "A hálózat összesítése a {{count}} compose konténerek között",
-			"aggregateDisk": "A lemez-I/O-műveletek összesítése {{count}} compose konténerben",
-			"aggregateMemory": "A memória összesítése a {{count}} compose konténerek között",
 			"heap": "heap",
 			"hit": "Találat",
 			"conn": "kapcs.",
 			"txPerSec": "tx/s",
 			"requestsTodayAll": "Mai kérések (összes)",
 			"requestsTodayOwn": "Mai kérések (sajátok)",
-			"requestsToday": "Mai kérések"
+			"requestsToday": "Mai kérések",
+			"aggregateNetwork_one": "Összesített hálózat {{count}} compose-tárolóban",
+			"aggregateNetwork_other": "Összesített hálózat {{count}} compose-tárolóban",
+			"aggregateDisk_one": "Összesített lemez-I/O {{count}} compose-tárolóban",
+			"aggregateDisk_other": "Összesített lemez-I/O {{count}} compose-tárolóban",
+			"aggregateMemory_one": "Összesített memória {{count}} compose-tárolóban",
+			"aggregateMemory_other": "Összesített memória {{count}} compose-tárolóban"
 		},
 		"toast": {
 			"copiedToClipboard": "A vágólapra másolva",
@@ -208,13 +212,17 @@
 			"requestsToday": "A mai nap helyi idő szerint éjfél óta továbbított LLM-kérelmek száma",
 			"cpu": "A kiszolgáló által jelenleg használt processzor",
 			"procs": "A kiszolgáló vezérlőcsoportjában futó folyamatok",
-			"aggregateProcs": "Folyamatok {{count}} compose-tárolóban",
 			"memoryUsed": "A kiszolgáló által jelenleg használt memória",
 			"memoryLimit": "Az a memóriakorlát, amelyet a kiszolgáló elérhet, mielőtt leállítják",
-			"aggregateMemoryUsed": "{{count}} compose-tárolóban használt memória",
-			"aggregateMemoryLimit": "A(z) {{count}} compose-tároló által jelentett legmagasabb memóriakorlát",
 			"memoryHeap": "A jelenleg lefoglalt Go-kupac; ehhez a kiszolgálóhoz nincs memóriakorlát beállítva",
-			"aggregateCpu": "{{count}} compose-tárolóban használt processzor"
+			"aggregateCpu_one": "{{count}} compose-tárolóban használt processzor",
+			"aggregateCpu_other": "{{count}} compose-tárolóban használt processzor",
+			"aggregateProcs_one": "Folyamatok {{count}} compose-tárolóban",
+			"aggregateProcs_other": "Folyamatok {{count}} compose-tárolóban",
+			"aggregateMemoryUsed_one": "{{count}} compose-tárolóban használt memória",
+			"aggregateMemoryUsed_other": "{{count}} compose-tárolóban használt memória",
+			"aggregateMemoryLimit_one": "A(z) {{count}} compose-tároló által jelentett legmagasabb memóriakorlát",
+			"aggregateMemoryLimit_other": "A(z) {{count}} compose-tároló által jelentett legmagasabb memóriakorlát"
 		},
 		"githubRepo": "GitHub-tároló",
 		"readOnly": {
@@ -231,7 +239,7 @@
 			"title": "Hibák",
 			"viewDetails": "Részletek megtekintése",
 			"clearAllConfirm": "Kattintson újra a megerősítéshez",
-			"titleTooltip": "A {{limit}} legutóbbi hiba, egyik sem régebbi {{hours}} óránál"
+			"titleTooltip": "Legfeljebb {{limit}} friss szerverhiba az elmúlt {{hours}} órából"
 		},
 		"ha": {
 			"primary": "Elsődleges",

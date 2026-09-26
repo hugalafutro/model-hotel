@@ -270,6 +270,12 @@ export function ModelPicker({
 								key={m.key}
 								type="button"
 								disabled={isDisabled}
+								// Greyed while another pill filters, so the selection stands out.
+								data-dimmed={
+									!isActive && !isDisabled && capFilter.size > 0
+										? ""
+										: undefined
+								}
 								onClick={() => {
 									setCapFilter((prev) => toggleInSet(prev, m.key));
 								}}

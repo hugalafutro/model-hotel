@@ -77,7 +77,9 @@
 			"opencode": "OpenCode"
 		},
 		"prevRow": "השורה הקודמת",
-		"nextRow": "השורה הבאה"
+		"nextRow": "השורה הבאה",
+		"expandNamed": "הרחב: {{name}}",
+		"collapseNamed": "לכווץ: {{name}}"
 	},
 	"layout": {
 		"title": "Model Hotel",
@@ -135,17 +137,22 @@
 			"procs_one": "proc",
 			"procs_two": "תהליכים",
 			"procs_other": "תהליכים",
-			"aggregateCpu": "סיכום משאבי המעבד בכל קונטיינרי ה-compose ב- {{count}}",
-			"aggregateNetwork": "רשת מאוחדת על פני {{count}} מכולות compose",
-			"aggregateDisk": "סיכום פעולות קלט/פלט דיסק בכל קונטיינרי ה-compose של {{count}}",
-			"aggregateMemory": "זיכרון מצטבר בכל {{count}} מכולות ה-compose",
 			"heap": "heap",
 			"hit": "פגיעה",
 			"conn": "חיבור",
 			"txPerSec": "tx/s",
 			"requestsTodayAll": "בקשות היום (הכול)",
 			"requestsTodayOwn": "בקשות היום (שלך)",
-			"requestsToday": "בקשות היום"
+			"requestsToday": "בקשות היום",
+			"aggregateNetwork_one": "רשת מצטברת ב-{{count}} מכולת compose",
+			"aggregateNetwork_two": "רשת מצטברת ב-{{count}} מכולות compose",
+			"aggregateNetwork_other": "רשת מצטברת ב-{{count}} מכולות compose",
+			"aggregateDisk_one": "קלט/פלט דיסק מצטבר ב-{{count}} מכולת compose",
+			"aggregateDisk_two": "קלט/פלט דיסק מצטבר ב-{{count}} מכולות compose",
+			"aggregateDisk_other": "קלט/פלט דיסק מצטבר ב-{{count}} מכולות compose",
+			"aggregateMemory_one": "זיכרון מצטבר ב-{{count}} מכולת compose",
+			"aggregateMemory_two": "זיכרון מצטבר ב-{{count}} מכולות compose",
+			"aggregateMemory_other": "זיכרון מצטבר ב-{{count}} מכולות compose"
 		},
 		"toast": {
 			"copiedToClipboard": "הועתק ללוח",
@@ -214,13 +221,21 @@
 			"requestsToday": "מספר בקשות ה-LLM שהועברו באמצעות פרוקסי מאז חצות, לפי השעה המקומית",
 			"cpu": "מעבד שהשרת משתמש בו כעת",
 			"procs": "תהליכים הפועלים בקבוצת הבקרה של השרת",
-			"aggregateProcs": "תהליכים ב-{{count}} מכולות compose",
 			"memoryUsed": "זיכרון שהשרת משתמש בו כעת",
 			"memoryLimit": "מגבלת הזיכרון שהשרת רשאי להגיע אליה לפני שיופסק",
-			"aggregateMemoryUsed": "זיכרון בשימוש ב-{{count}} מכולות compose",
-			"aggregateMemoryLimit": "מגבלת הזיכרון הגבוהה ביותר שדווחה על ידי {{count}} מכולות compose",
 			"memoryHeap": "ערימת Go שהוקצתה כעת; לא הוגדרה מגבלת זיכרון לשרת הזה",
-			"aggregateCpu": "מעבד בשימוש ב-{{count}} מכולות compose"
+			"aggregateCpu_one": "מעבד בשימוש ב-{{count}} מכולת compose",
+			"aggregateCpu_two": "מעבד בשימוש ב-{{count}} מכולות compose",
+			"aggregateCpu_other": "מעבד בשימוש ב-{{count}} מכולות compose",
+			"aggregateProcs_one": "תהליכים ב-{{count}} מכולת compose",
+			"aggregateProcs_two": "תהליכים ב-{{count}} מכולות compose",
+			"aggregateProcs_other": "תהליכים ב-{{count}} מכולות compose",
+			"aggregateMemoryUsed_one": "זיכרון בשימוש ב-{{count}} מכולת compose",
+			"aggregateMemoryUsed_two": "זיכרון בשימוש ב-{{count}} מכולות compose",
+			"aggregateMemoryUsed_other": "זיכרון בשימוש ב-{{count}} מכולות compose",
+			"aggregateMemoryLimit_one": "מגבלת הזיכרון הגבוהה ביותר שדווחה על ידי {{count}} מכולת compose",
+			"aggregateMemoryLimit_two": "מגבלת הזיכרון הגבוהה ביותר שדווחה על ידי {{count}} מכולות compose",
+			"aggregateMemoryLimit_other": "מגבלת הזיכרון הגבוהה ביותר שדווחה על ידי {{count}} מכולות compose"
 		},
 		"githubRepo": "מאגר GitHub",
 		"readOnly": {
@@ -237,7 +252,7 @@
 			"title": "שגיאות",
 			"viewDetails": "הצג פרטים",
 			"clearAllConfirm": "לחץ שוב כדי לאשר",
-			"titleTooltip": "‏{{limit}} השגיאות האחרונות, אף אחת לא ישנה מ-{{hours}} שעות"
+			"titleTooltip": "עד {{limit}} שגיאות שרת אחרונות מ-{{hours}} השעות האחרונות"
 		},
 		"ha": {
 			"primary": "ראשי",

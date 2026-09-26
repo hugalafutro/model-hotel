@@ -77,7 +77,9 @@
 			"opencode": "OpenCode"
 		},
 		"prevRow": "Ligne précédente",
-		"nextRow": "Ligne suivante"
+		"nextRow": "Ligne suivante",
+		"expandNamed": "Agrandir: {{name}}",
+		"collapseNamed": "Réduire: {{name}}"
 	},
 	"layout": {
 		"title": "Model Hotel",
@@ -135,17 +137,22 @@
 			"procs_one": "proc",
 			"procs_many": "procs",
 			"procs_other": "procs",
-			"aggregateCpu": "Agréger le CPU à travers les conteneurs de composition {{count}}",
-			"aggregateNetwork": "Aggréger le réseau à travers les conteneurs de composition {{count}}",
-			"aggregateDisk": "Agréger les E/S disque à travers les conteneurs de composition {{count}}",
-			"aggregateMemory": "Agréger la mémoire à travers les conteneurs de composition {{count}}",
 			"heap": "tas",
 			"hit": "Hit",
 			"conn": "conn.",
 			"txPerSec": "tx/s",
 			"requestsTodayAll": "Req. auj. (toutes)",
 			"requestsTodayOwn": "Req. auj. (les vôtres)",
-			"requestsToday": "Req. auj."
+			"requestsToday": "Req. auj.",
+			"aggregateNetwork_one": "Réseau agrégé sur {{count}} conteneur compose",
+			"aggregateNetwork_many": "Réseau agrégé sur {{count}} conteneurs compose",
+			"aggregateNetwork_other": "Réseau agrégé sur {{count}} conteneurs compose",
+			"aggregateDisk_one": "E/S disque agrégées sur {{count}} conteneur compose",
+			"aggregateDisk_many": "E/S disque agrégées sur {{count}} conteneurs compose",
+			"aggregateDisk_other": "E/S disque agrégées sur {{count}} conteneurs compose",
+			"aggregateMemory_one": "Mémoire agrégée sur {{count}} conteneur compose",
+			"aggregateMemory_many": "Mémoire agrégée sur {{count}} conteneurs compose",
+			"aggregateMemory_other": "Mémoire agrégée sur {{count}} conteneurs compose"
 		},
 		"toast": {
 			"copiedToClipboard": "Copié dans le presse-papiers",
@@ -214,13 +221,21 @@
 			"requestsToday": "Nombre de requêtes LLM mandatées depuis minuit heure locale aujourd'hui",
 			"cpu": "Processeur actuellement utilisé par le serveur",
 			"procs": "Processus exécutés dans le groupe de contrôle du serveur",
-			"aggregateProcs": "Processus répartis sur {{count}} conteneurs compose",
 			"memoryUsed": "Mémoire actuellement utilisée par le serveur",
 			"memoryLimit": "Limite de mémoire que le serveur peut atteindre avant d'être arrêté",
-			"aggregateMemoryUsed": "Mémoire utilisée sur {{count}} conteneurs compose",
-			"aggregateMemoryLimit": "Limite de mémoire la plus élevée signalée par {{count}} conteneurs compose",
 			"memoryHeap": "Tas Go actuellement alloué ; aucune limite de mémoire n'est définie pour ce serveur",
-			"aggregateCpu": "Processeur utilisé sur {{count}} conteneurs compose"
+			"aggregateCpu_one": "Processeur utilisé sur {{count}} conteneur compose",
+			"aggregateCpu_many": "Processeur utilisé sur {{count}} conteneurs compose",
+			"aggregateCpu_other": "Processeur utilisé sur {{count}} conteneurs compose",
+			"aggregateProcs_one": "Processus répartis sur {{count}} conteneur compose",
+			"aggregateProcs_many": "Processus répartis sur {{count}} conteneurs compose",
+			"aggregateProcs_other": "Processus répartis sur {{count}} conteneurs compose",
+			"aggregateMemoryUsed_one": "Mémoire utilisée sur {{count}} conteneur compose",
+			"aggregateMemoryUsed_many": "Mémoire utilisée sur {{count}} conteneurs compose",
+			"aggregateMemoryUsed_other": "Mémoire utilisée sur {{count}} conteneurs compose",
+			"aggregateMemoryLimit_one": "Limite de mémoire la plus élevée signalée par {{count}} conteneur compose",
+			"aggregateMemoryLimit_many": "Limite de mémoire la plus élevée signalée par {{count}} conteneurs compose",
+			"aggregateMemoryLimit_other": "Limite de mémoire la plus élevée signalée par {{count}} conteneurs compose"
 		},
 		"githubRepo": "Dépôt GitHub",
 		"readOnly": {
@@ -237,7 +252,7 @@
 			"title": "Erreurs",
 			"viewDetails": "Afficher les détails",
 			"clearAllConfirm": "Cliquez à nouveau pour confirmer",
-			"titleTooltip": "Les {{limit}} erreurs les plus récentes, aucune datant de plus de {{hours}} heures"
+			"titleTooltip": "Jusqu'à {{limit}} erreurs serveur récentes des dernières {{hours}} heures"
 		},
 		"ha": {
 			"primary": "Principal",

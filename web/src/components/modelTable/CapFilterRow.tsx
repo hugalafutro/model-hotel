@@ -21,8 +21,10 @@ export interface FilterPill {
 
 /**
  * A filter pill strip shared by both model tables' capability and output
- * cells. Starts collapsed to the first three pills behind an expand toggle,
- * on one line; expanded, the rest start on a new line below them. A filter
+ * cells. Starts collapsed to the first three pills behind an expand toggle;
+ * expanded, the rest start on a new line below them. The strip wraps in both
+ * states, so a locale with long labels grows the header row downwards instead
+ * of spilling into the next column. A filter
  * set on a hidden pill still shows the clear button. Unselected pills go grey
  * once any is set, so the set ones stand out.
  */
@@ -34,7 +36,7 @@ export function PillStrip({
 	onClear,
 }: {
 	pills: FilterPill[];
-	/** Names the toggle (its column), so each strip's toggle is told apart. */
+	/** The column, named in the toggle's label so each strip's toggle is told apart. */
 	label: string;
 	/** Where the expanded/collapsed choice persists. */
 	storageKey: string;
@@ -46,15 +48,13 @@ export function PillStrip({
 	const anyActive = pills.some((p) => p.active);
 	const visible = collapsed ? pills.slice(0, COLLAPSED_PILLS) : pills;
 	return (
-		<span
-			className={`flex items-center gap-1 ${collapsed ? "flex-nowrap" : "flex-wrap"}`}
-		>
+		<span className="flex flex-wrap items-center gap-1">
 			{pills.length > COLLAPSED_PILLS && (
 				<CollapsibleToggle
 					collapsed={collapsed}
 					onToggle={toggle}
-					expandTitle={label}
-					collapseTitle={label}
+					expandTitle={t("common.expandNamed", { name: label })}
+					collapseTitle={t("common.collapseNamed", { name: label })}
 					iconStyle="double"
 					size={12}
 					className="ui-icon-btn p-0.5 rounded-md shrink-0"
@@ -69,6 +69,7 @@ export function PillStrip({
 						type="button"
 						disabled={p.disabled}
 						aria-pressed={p.active}
+						data-dimmed={anyActive && !p.active ? "" : undefined}
 						{...(p.icon ? { "aria-label": p.label, title: p.label } : {})}
 						onClick={p.onToggle}
 						className={`${p.icon ? OUTPUT_ICON_BADGE : "ui-badge inline-flex items-center px-1.5 py-0.5 text-[10px] font-medium border"} transition-[color,background-color,border-color,filter] ${p.className}${anyActive && !p.active ? " grayscale hover:grayscale-0" : ""}`}

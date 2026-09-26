@@ -1,4 +1,10 @@
-import { act, fireEvent, screen, waitFor } from "@testing-library/react";
+import {
+	act,
+	fireEvent,
+	screen,
+	waitFor,
+	within,
+} from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { HttpResponse, http } from "msw";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
@@ -106,6 +112,9 @@ describe("Audit page", () => {
 		expect(
 			screen.queryByText("22222222-2222-4333-8444-555555555555"),
 		).not.toBeInTheDocument();
+		// Regression pin: a row with no entity shows the shared "-" placeholder.
+		const aliceRow = screen.getByText("alice").closest("tr") as HTMLElement;
+		expect(within(aliceRow).getByText("-")).toBeInTheDocument();
 	});
 
 	it("opens the detail modal on row click", async () => {
@@ -213,7 +222,12 @@ describe("Audit page", () => {
 		});
 		box.scrollTop = 700;
 		fireEvent.scroll(box);
-		expect(await screen.findByTestId("scroll-top-button")).toBeInTheDocument();
+		const toTop = await screen.findByTestId("scroll-top-button");
+		// Regression pin: the button precedes the scroller in DOM order, so the
+		// keyboard reaches it before tabbing through every row.
+		expect(
+			toTop.compareDocumentPosition(box) & Node.DOCUMENT_POSITION_FOLLOWING,
+		).toBeTruthy();
 	});
 
 	it("does not fetch the next page on a scroll away from the foot", async () => {

@@ -43,9 +43,16 @@ function serveSystem(body: Record<string, unknown>) {
 	);
 }
 
-/** The element a given tooltip is attached to. */
+/**
+ * The element a given tooltip is attached to. A title is not an accessible
+ * description, so the same text has to reach the figure as its description
+ * too, or keyboard and screen-reader users get nothing.
+ */
 function tipped(key: string, opts?: Record<string, unknown>) {
-	return screen.getByTitle(i18n.t(key, opts ?? {}) as string);
+	const hint = i18n.t(key, opts ?? {}) as string;
+	const el = screen.getByTitle(hint);
+	expect(el).toHaveAccessibleDescription(hint);
+	return el;
 }
 
 describe("SystemStatus stat tooltips", () => {
@@ -115,18 +122,63 @@ describe("SystemStatus stat tooltips", () => {
 		expect(
 			tipped("layout.tooltips.aggregateMemoryLimit", { count: 3 }),
 		).toHaveTextContent("1.0");
+		// Regression pin: the CPU figure names the containers itself, so its
+		// row carries no second tooltip saying the same thing.
+		const cpuRow = screen.getByText(i18n.t("layout.stats.cpu")).parentElement;
+		expect(cpuRow).not.toHaveAttribute("title");
+	});
+
+	it("Regression pin: phrases the container count through plural forms", async () => {
+		serveSystem({
+			app: APP,
+			docker: {
+				available: true,
+				cpu_percent: 25.5,
+				procs: 10,
+				memory_usage_bytes: 536870912,
+				memory_limit_bytes: 1073741824,
+				net_rx_bytes_sec: 2000,
+				net_tx_bytes_sec: 1000,
+				disk_read_bytes_sec: 400,
+				disk_write_bytes_sec: 200,
+				container_count: 1,
+			},
+			db: DB,
+		});
+
+		await waitFor(() => {
+			expect(
+				screen.getByTitle(i18n.t("layout.tooltips.aggregateCpu", { count: 1 })),
+			).toBeInTheDocument();
+		});
+		// "1 compose containers" came from a bare {{count}} key; every
+		// count-taking key has to be a plural family in the active language.
+		for (const key of [
+			"layout.tooltips.aggregateCpu",
+			"layout.tooltips.aggregateProcs",
+			"layout.tooltips.aggregateMemoryUsed",
+			"layout.tooltips.aggregateMemoryLimit",
+			"layout.stats.aggregateNetwork",
+			"layout.stats.aggregateDisk",
+			"layout.stats.aggregateMemory",
+		]) {
+			expect(i18n.exists(`${key}_other`)).toBe(true);
+			expect(i18n.exists(key)).toBe(false);
+		}
 	});
 
 	it("gives the plain rows no tooltip that just repeats their label", async () => {
 		serveSystem({ app: APP, docker: { available: false }, db: DB });
 
 		await waitFor(() => {
-			expect(screen.getByText("Uptime")).toBeInTheDocument();
+			expect(
+				screen.getByText(i18n.t("layout.stats.uptime")),
+			).toBeInTheDocument();
 		});
 		// Without Docker aggregates there is nothing a row-level tooltip could
 		// add over the label already on screen, so these rows carry none.
-		for (const label of ["CPU", "Network", "Disk", "Memory"]) {
-			const row = screen.getByText(label).closest("div");
+		for (const key of ["cpu", "network", "disk", "memory"]) {
+			const row = screen.getByText(i18n.t(`layout.stats.${key}`)).parentElement;
 			expect(row).not.toHaveAttribute("title");
 		}
 	});
@@ -135,7 +187,9 @@ describe("SystemStatus stat tooltips", () => {
 		serveSystem({ app: APP, docker: { available: false }, db: DB });
 
 		await waitFor(() => {
-			expect(screen.getByText(/heap/)).toBeInTheDocument();
+			expect(
+				screen.getByTitle(i18n.t("layout.tooltips.memoryHeap")),
+			).toBeInTheDocument();
 		});
 		expect(tipped("layout.tooltips.memoryHeap")).toHaveTextContent("100");
 	});

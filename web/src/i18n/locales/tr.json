@@ -77,7 +77,9 @@
 			"opencode": "OpenCode"
 		},
 		"prevRow": "Önceki satır",
-		"nextRow": "Sonraki satır"
+		"nextRow": "Sonraki satır",
+		"expandNamed": "Genişlet: {{name}}",
+		"collapseNamed": "Daralt: {{name}}"
 	},
 	"layout": {
 		"title": "Model Hotel",
@@ -129,17 +131,19 @@
 			"db": "VT",
 			"procs_one": "işlem",
 			"procs_other": "işlemler",
-			"aggregateCpu": "{{count}} compose konteynerinde toplam CPU",
-			"aggregateNetwork": "{{count}} compose konteynerinde toplam ağ",
-			"aggregateDisk": "{{count}} compose konteynerinde toplam disk I/O",
-			"aggregateMemory": "{{count}} compose konteynerinde toplam bellek",
 			"heap": "heap",
 			"hit": "İsabet",
 			"conn": "bağl.",
 			"txPerSec": "tx/s",
 			"requestsTodayAll": "Bugün istek (tümü)",
 			"requestsTodayOwn": "Bugün istek (sizin)",
-			"requestsToday": "Bugün istek"
+			"requestsToday": "Bugün istek",
+			"aggregateNetwork_one": "{{count}} compose kapsayıcısında toplam ağ",
+			"aggregateNetwork_other": "{{count}} compose kapsayıcısında toplam ağ",
+			"aggregateDisk_one": "{{count}} compose kapsayıcısında toplam disk I/O",
+			"aggregateDisk_other": "{{count}} compose kapsayıcısında toplam disk I/O",
+			"aggregateMemory_one": "{{count}} compose kapsayıcısında toplam bellek",
+			"aggregateMemory_other": "{{count}} compose kapsayıcısında toplam bellek"
 		},
 		"toast": {
 			"copiedToClipboard": "Panoya kopyalandı",
@@ -208,13 +212,17 @@
 			"requestsToday": "Bugün yerel saatle gece yarısından bu yana proxy üzerinden gönderilen LLM isteklerinin sayısı",
 			"cpu": "Sunucunun şu anda kullandığı işlemci",
 			"procs": "Sunucunun denetim grubunda çalışan süreçler",
-			"aggregateProcs": "{{count}} compose kapsayıcısındaki süreçler",
 			"memoryUsed": "Sunucunun şu anda kullandığı bellek",
 			"memoryLimit": "Sunucunun sonlandırılmadan önce ulaşabileceği bellek sınırı",
-			"aggregateMemoryUsed": "{{count}} compose kapsayıcısında kullanılan bellek",
-			"aggregateMemoryLimit": "{{count}} compose kapsayıcısının bildirdiği en yüksek bellek sınırı",
 			"memoryHeap": "Şu anda ayrılmış Go yığını; bu sunucu için bellek sınırı ayarlanmamış",
-			"aggregateCpu": "{{count}} compose kapsayıcısında kullanılan işlemci"
+			"aggregateCpu_one": "{{count}} compose kapsayıcısında kullanılan işlemci",
+			"aggregateCpu_other": "{{count}} compose kapsayıcısında kullanılan işlemci",
+			"aggregateProcs_one": "{{count}} compose kapsayıcısındaki süreçler",
+			"aggregateProcs_other": "{{count}} compose kapsayıcısındaki süreçler",
+			"aggregateMemoryUsed_one": "{{count}} compose kapsayıcısında kullanılan bellek",
+			"aggregateMemoryUsed_other": "{{count}} compose kapsayıcısında kullanılan bellek",
+			"aggregateMemoryLimit_one": "{{count}} compose kapsayıcısının bildirdiği en yüksek bellek sınırı",
+			"aggregateMemoryLimit_other": "{{count}} compose kapsayıcısının bildirdiği en yüksek bellek sınırı"
 		},
 		"githubRepo": "GitHub deposu",
 		"readOnly": {
@@ -231,7 +239,7 @@
 			"title": "Hatalar",
 			"viewDetails": "Ayrıntıları görüntüle",
 			"clearAllConfirm": "Onaylamak için tekrar tıklayın",
-			"titleTooltip": "En son {{limit}} hata, {{hours}} saatten eskisi yok"
+			"titleTooltip": "Son {{hours}} saatteki en fazla {{limit}} yeni sunucu hatası"
 		},
 		"ha": {
 			"primary": "Birincil",

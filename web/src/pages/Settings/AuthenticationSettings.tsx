@@ -66,7 +66,10 @@ export function AuthenticationSettings({
 			collapsed={collapsed}
 			onToggle={onToggle}
 		>
-			<div className="grid grid-cols-2 gap-x-6 gap-y-5 [align-items:start]">
+			<div
+				className="grid grid-cols-2 gap-x-6 gap-y-5 [align-items:start]"
+				data-testid="auth-columns"
+			>
 				<div className="space-y-5">
 					<SettingsGroup title={t("settings.passkeys.title")}>
 						<PasskeyPanel />

@@ -1,10 +1,11 @@
 import { useTranslation } from "react-i18next";
-import { formatCompact } from "../utils/format";
+import { formatCompact, formatNumber } from "../utils/format";
 
 /**
  * The status line under every data table (models, request and app logs,
- * audit): "Showing 1–45 of 1.1K" on the left, compact numbers with the exact
- * figures in its tooltip; on the right, what is still
+ * audit): "Showing 1–45 of 1.1K" on the left, the row range grouped in the
+ * active locale and the total compact, with the exact total in its tooltip;
+ * on the right, what is still
  * loading and any extra controls (a spinner, pagination). One component so
  * every table ends the same way: a small gap under the table, the line, a
  * slightly larger gap to the bottom of the page.
@@ -28,17 +29,17 @@ export function TableFooter({
 	children?: React.ReactNode;
 }) {
 	const { t } = useTranslation();
-	const status = (fmt: (n: number) => string) =>
+	const status = (fmtTotal: (n: number) => string) =>
 		end > 0
 			? t("common.showingRange", {
-					start: fmt(start),
-					end: fmt(end),
-					total: fmt(total),
+					start: formatNumber(start),
+					end: formatNumber(end),
+					total: fmtTotal(total),
 				})
-			: t("common.showingNone", { total: fmt(total) });
+			: t("common.showingNone", { total: fmtTotal(total) });
 	return (
 		<div className="flex items-center justify-between gap-3 px-1 pt-1.5 pb-1 text-sm text-gray-500 shrink-0">
-			<span title={status(String)}>{status(formatCompact)}</span>
+			<span title={status(formatNumber)}>{status(formatCompact)}</span>
 			<span className="flex items-center gap-2">
 				{isLoadingBefore && (
 					<span className="text-(--accent)">{t("common.loadingNewer")}</span>

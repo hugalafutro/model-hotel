@@ -77,7 +77,9 @@
 			"opencode": "OpenCode"
 		},
 		"prevRow": "Vorige ry",
-		"nextRow": "Volgende ry"
+		"nextRow": "Volgende ry",
+		"expandNamed": "Uitbrei: {{name}}",
+		"collapseNamed": "Vou in: {{name}}"
 	},
 	"layout": {
 		"title": "Model Hotel",
@@ -129,17 +131,19 @@
 			"db": "DB",
 			"procs_one": "proses",
 			"procs_other": "prosesse",
-			"aggregateCpu": "Saamgevoegde CPU oor {{count}} Compose-houers",
-			"aggregateNetwork": "Saamgevoegde netwerk oor {{count}} Compose-houers",
-			"aggregateDisk": "Saamgevoegde skyf-I/O oor {{count}} Compose-houers",
-			"aggregateMemory": "Saamgevoegde geheue oor {{count}} Compose-houers",
 			"heap": "hoop",
 			"hit": "Treffer",
 			"conn": "verb.",
 			"txPerSec": "tx/s",
 			"requestsTodayAll": "Versoeke vandag (almal)",
 			"requestsTodayOwn": "Versoeke vandag (joune)",
-			"requestsToday": "Versoeke vandag"
+			"requestsToday": "Versoeke vandag",
+			"aggregateNetwork_one": "Saamgevoegde netwerk oor {{count}} compose-houer",
+			"aggregateNetwork_other": "Saamgevoegde netwerk oor {{count}} compose-houers",
+			"aggregateDisk_one": "Saamgevoegde skyf-I/O oor {{count}} compose-houer",
+			"aggregateDisk_other": "Saamgevoegde skyf-I/O oor {{count}} compose-houers",
+			"aggregateMemory_one": "Saamgevoegde geheue oor {{count}} compose-houer",
+			"aggregateMemory_other": "Saamgevoegde geheue oor {{count}} compose-houers"
 		},
 		"toast": {
 			"copiedToClipboard": "Na die knipbord gekopieer",
@@ -208,13 +212,17 @@
 			"requestsToday": "Aantal LLM-versoeke via proxy sedert middernag plaaslike tyd vandag",
 			"cpu": "SVE wat die bediener tans gebruik",
 			"procs": "Prosesse wat in die bediener se beheergroep loop",
-			"aggregateProcs": "Prosesse oor {{count}} compose-houers",
 			"memoryUsed": "Geheue wat die bediener tans gebruik",
 			"memoryLimit": "Geheuegrens wat die bediener mag bereik voordat dit doodgemaak word",
-			"aggregateMemoryUsed": "Geheue wat oor {{count}} compose-houers gebruik word",
-			"aggregateMemoryLimit": "Hoogste geheuegrens wat deur {{count}} compose-houers gerapporteer is",
 			"memoryHeap": "Go-hoop wat tans toegewys is; geen geheuegrens is vir hierdie bediener gestel nie",
-			"aggregateCpu": "SVE wat oor {{count}} compose-houers gebruik word"
+			"aggregateCpu_one": "SVE wat oor {{count}} compose-houer gebruik word",
+			"aggregateCpu_other": "SVE wat oor {{count}} compose-houers gebruik word",
+			"aggregateProcs_one": "Prosesse oor {{count}} compose-houer",
+			"aggregateProcs_other": "Prosesse oor {{count}} compose-houers",
+			"aggregateMemoryUsed_one": "Geheue wat oor {{count}} compose-houer gebruik word",
+			"aggregateMemoryUsed_other": "Geheue wat oor {{count}} compose-houers gebruik word",
+			"aggregateMemoryLimit_one": "Hoogste geheuegrens wat deur {{count}} compose-houer gerapporteer is",
+			"aggregateMemoryLimit_other": "Hoogste geheuegrens wat deur {{count}} compose-houers gerapporteer is"
 		},
 		"githubRepo": "GitHub-bewaarplek",
 		"readOnly": {
@@ -231,7 +239,7 @@
 			"title": "Foute",
 			"viewDetails": "Bekyk besonderhede",
 			"clearAllConfirm": "Klik weer om te bevestig",
-			"titleTooltip": "Die {{limit}} mees onlangse foute, niks ouer as {{hours}} uur nie"
+			"titleTooltip": "Tot {{limit}} onlangse bedienerfoute uit die afgelope {{hours}} uur"
 		},
 		"ha": {
 			"primary": "Primêr",

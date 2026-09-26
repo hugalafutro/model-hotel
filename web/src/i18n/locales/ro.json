@@ -77,7 +77,9 @@
 			"opencode": "OpenCode"
 		},
 		"prevRow": "Rândul anterior",
-		"nextRow": "Rândul următor"
+		"nextRow": "Rândul următor",
+		"expandNamed": "Extinde: {{name}}",
+		"collapseNamed": "Restrânge: {{name}}"
 	},
 	"layout": {
 		"title": "Model Hotel",
@@ -135,17 +137,22 @@
 			"procs_one": "proc.",
 			"procs_few": "proc.",
 			"procs_other": "proc.",
-			"aggregateCpu": "CPU agregat pe {{count}} containere compose",
-			"aggregateNetwork": "Rețea agregată pe {{count}} containere compose",
-			"aggregateDisk": "I/O disc agregat pe {{count}} containere compose",
-			"aggregateMemory": "Memorie agregată pe {{count}} containere compose",
 			"heap": "heap",
 			"hit": "Hit",
 			"conn": "con.",
 			"txPerSec": "tx/s",
 			"requestsTodayAll": "Cereri azi (toate)",
 			"requestsTodayOwn": "Cereri azi (ale tale)",
-			"requestsToday": "Cereri azi"
+			"requestsToday": "Cereri azi",
+			"aggregateNetwork_one": "Rețea agregată pe {{count}} container compose",
+			"aggregateNetwork_few": "Rețea agregată pe {{count}} containere compose",
+			"aggregateNetwork_other": "Rețea agregată pe {{count}} de containere compose",
+			"aggregateDisk_one": "I/O disc agregat pe {{count}} container compose",
+			"aggregateDisk_few": "I/O disc agregat pe {{count}} containere compose",
+			"aggregateDisk_other": "I/O disc agregat pe {{count}} de containere compose",
+			"aggregateMemory_one": "Memorie agregată pe {{count}} container compose",
+			"aggregateMemory_few": "Memorie agregată pe {{count}} containere compose",
+			"aggregateMemory_other": "Memorie agregată pe {{count}} de containere compose"
 		},
 		"toast": {
 			"copiedToClipboard": "Copiat în clipboard",
@@ -214,13 +221,21 @@
 			"requestsToday": "Numărul de cereri LLM proxied de la miezul nopții locale astăzi",
 			"cpu": "Procesorul folosit în acest moment de server",
 			"procs": "Procese care rulează în grupul de control al serverului",
-			"aggregateProcs": "Procese în {{count}} containere compose",
 			"memoryUsed": "Memoria folosită în acest moment de server",
 			"memoryLimit": "Limita de memorie pe care serverul o poate atinge înainte de a fi oprit",
-			"aggregateMemoryUsed": "Memoria folosită în {{count}} containere compose",
-			"aggregateMemoryLimit": "Cea mai mare limită de memorie raportată de {{count}} containere compose",
 			"memoryHeap": "Heapul Go alocat în acest moment; pentru acest server nu este setată nicio limită de memorie",
-			"aggregateCpu": "Procesorul folosit în {{count}} containere compose"
+			"aggregateCpu_one": "Procesor folosit în {{count}} container compose",
+			"aggregateCpu_few": "Procesor folosit în {{count}} containere compose",
+			"aggregateCpu_other": "Procesor folosit în {{count}} de containere compose",
+			"aggregateProcs_one": "Procese în {{count}} container compose",
+			"aggregateProcs_few": "Procese în {{count}} containere compose",
+			"aggregateProcs_other": "Procese în {{count}} de containere compose",
+			"aggregateMemoryUsed_one": "Memorie folosită în {{count}} container compose",
+			"aggregateMemoryUsed_few": "Memorie folosită în {{count}} containere compose",
+			"aggregateMemoryUsed_other": "Memorie folosită în {{count}} de containere compose",
+			"aggregateMemoryLimit_one": "Cea mai mare limită de memorie raportată de {{count}} container compose",
+			"aggregateMemoryLimit_few": "Cea mai mare limită de memorie raportată de {{count}} containere compose",
+			"aggregateMemoryLimit_other": "Cea mai mare limită de memorie raportată de {{count}} de containere compose"
 		},
 		"githubRepo": "Depozit GitHub",
 		"readOnly": {
@@ -237,7 +252,7 @@
 			"title": "Erori",
 			"viewDetails": "Vizualizați detaliile",
 			"clearAllConfirm": "Faceți clic din nou pentru a confirma",
-			"titleTooltip": "Cele mai recente {{limit}} erori, niciuna mai veche de {{hours}} ore"
+			"titleTooltip": "Până la {{limit}} erori recente de server din ultimele {{hours}} ore"
 		},
 		"ha": {
 			"primary": "Primar",

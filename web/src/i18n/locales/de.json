@@ -77,7 +77,9 @@
 			"opencode": "OpenCode"
 		},
 		"prevRow": "Vorherige Zeile",
-		"nextRow": "Nächste Zeile"
+		"nextRow": "Nächste Zeile",
+		"expandNamed": "Erweitern: {{name}}",
+		"collapseNamed": "Einklappen: {{name}}"
 	},
 	"layout": {
 		"title": "Model Hotel",
@@ -129,17 +131,19 @@
 			"db": "DB",
 			"procs_one": "proc",
 			"procs_other": "Proz.",
-			"aggregateCpu": "Aggregierte CPU über {{count}} Compose-Container",
-			"aggregateNetwork": "Aggregiertes Netzwerk über {{count}} Compose-Container",
-			"aggregateDisk": "Aggregierte Festplatten-I/O über {{count}} Compose-Container",
-			"aggregateMemory": "Aggregierter Arbeitsspeicher über {{count}} Compose-Container",
 			"heap": "Heap",
 			"hit": "Treffer",
 			"conn": "Verb.",
 			"txPerSec": "tx/s",
 			"requestsTodayAll": "Anfr. heute (alle)",
 			"requestsTodayOwn": "Anfr. heute (Ihre)",
-			"requestsToday": "Anfr. heute"
+			"requestsToday": "Anfr. heute",
+			"aggregateNetwork_one": "Aggregiertes Netzwerk über {{count}} Compose-Container",
+			"aggregateNetwork_other": "Aggregiertes Netzwerk über {{count}} Compose-Container",
+			"aggregateDisk_one": "Aggregierte Festplatten-I/O über {{count}} Compose-Container",
+			"aggregateDisk_other": "Aggregierte Festplatten-I/O über {{count}} Compose-Container",
+			"aggregateMemory_one": "Aggregierter Arbeitsspeicher über {{count}} Compose-Container",
+			"aggregateMemory_other": "Aggregierter Arbeitsspeicher über {{count}} Compose-Container"
 		},
 		"toast": {
 			"copiedToClipboard": "In Zwischenablage kopiert",
@@ -208,13 +212,17 @@
 			"requestsToday": "Anzahl der proxiierten LLM-Anfragen seit Mitternacht Ortszeit heute",
 			"cpu": "Aktuell vom Server genutzte CPU",
 			"procs": "Prozesse, die in der Kontrollgruppe des Servers laufen",
-			"aggregateProcs": "Prozesse über {{count}} Compose-Container hinweg",
 			"memoryUsed": "Aktuell vom Server genutzter Arbeitsspeicher",
 			"memoryLimit": "Speichergrenze, die der Server erreichen darf, bevor er beendet wird",
-			"aggregateMemoryUsed": "Über {{count}} Compose-Container hinweg genutzter Arbeitsspeicher",
-			"aggregateMemoryLimit": "Höchstes von {{count}} Compose-Containern gemeldetes Speicherlimit",
 			"memoryHeap": "Aktuell belegter Go-Heap; für diesen Server ist keine Speichergrenze gesetzt",
-			"aggregateCpu": "Über {{count}} Compose-Container hinweg genutzte CPU"
+			"aggregateCpu_one": "Über {{count}} Compose-Container hinweg genutzte CPU",
+			"aggregateCpu_other": "Über {{count}} Compose-Container hinweg genutzte CPU",
+			"aggregateProcs_one": "Prozesse über {{count}} Compose-Container hinweg",
+			"aggregateProcs_other": "Prozesse über {{count}} Compose-Container hinweg",
+			"aggregateMemoryUsed_one": "Über {{count}} Compose-Container hinweg genutzter Arbeitsspeicher",
+			"aggregateMemoryUsed_other": "Über {{count}} Compose-Container hinweg genutzter Arbeitsspeicher",
+			"aggregateMemoryLimit_one": "Höchstes von {{count}} Compose-Container gemeldetes Speicherlimit",
+			"aggregateMemoryLimit_other": "Höchstes von {{count}} Compose-Containern gemeldetes Speicherlimit"
 		},
 		"githubRepo": "GitHub-Repository",
 		"readOnly": {
@@ -231,7 +239,7 @@
 			"title": "Fehler",
 			"viewDetails": "Details anzeigen",
 			"clearAllConfirm": "Klicken Sie erneut, um zu bestätigen",
-			"titleTooltip": "Die {{limit}} neuesten Fehler, keiner älter als {{hours}} Stunden"
+			"titleTooltip": "Bis zu {{limit}} aktuelle Serverfehler aus den letzten {{hours}} Stunden"
 		},
 		"ha": {
 			"primary": "Primär",

@@ -353,17 +353,17 @@ describe("ModelPicker", () => {
 			);
 			const reasoning = () =>
 				screen.getByText("Reasoning").closest("button") as HTMLElement;
-			expect(reasoning().className).not.toContain("grayscale");
+			expect(reasoning()).not.toHaveAttribute("data-dimmed");
 
 			await user.click(
 				screen.getByText("Vision").closest("button") as HTMLElement,
 			);
 
 			expect(reasoning()).toBeEnabled();
-			expect(reasoning().className).toContain("grayscale");
+			expect(reasoning()).toHaveAttribute("data-dimmed");
 			expect(
-				(screen.getByText("Vision").closest("button") as HTMLElement).className,
-			).not.toContain("grayscale");
+				screen.getByText("Vision").closest("button") as HTMLElement,
+			).not.toHaveAttribute("data-dimmed");
 		});
 
 		it("disables a capability pill when adding it to the active filter yields no models", async () => {

@@ -77,7 +77,9 @@
 			"opencode": "OpenCode"
 		},
 		"prevRow": "Previous row",
-		"nextRow": "Next row"
+		"nextRow": "Next row",
+		"expandNamed": "Expand: {{name}}",
+		"collapseNamed": "Collapse: {{name}}"
 	},
 	"layout": {
 		"title": "Model Hotel",
@@ -142,17 +144,19 @@
 			"db": "DB",
 			"procs_one": "proc",
 			"procs_other": "procs",
-			"aggregateCpu": "Aggregate CPU across {{count}} compose containers",
-			"aggregateNetwork": "Aggregate network across {{count}} compose containers",
-			"aggregateDisk": "Aggregate disk I/O across {{count}} compose containers",
-			"aggregateMemory": "Aggregate memory across {{count}} compose containers",
 			"heap": "heap",
 			"hit": "Hit",
 			"conn": "conn",
 			"txPerSec": "tx/s",
 			"requestsTodayAll": "Req Today (all)",
 			"requestsTodayOwn": "Req Today (yours)",
-			"requestsToday": "Req Today"
+			"requestsToday": "Req Today",
+			"aggregateNetwork_one": "Aggregate network across {{count}} compose container",
+			"aggregateNetwork_other": "Aggregate network across {{count}} compose containers",
+			"aggregateDisk_one": "Aggregate disk I/O across {{count}} compose container",
+			"aggregateDisk_other": "Aggregate disk I/O across {{count}} compose containers",
+			"aggregateMemory_one": "Aggregate memory across {{count}} compose container",
+			"aggregateMemory_other": "Aggregate memory across {{count}} compose containers"
 		},
 		"toast": {
 			"copiedToClipboard": "Copied to clipboard",
@@ -215,7 +219,7 @@
 			"copyError": "Copy error",
 			"viewDetails": "View details",
 			"acknowledge": "Dismiss",
-			"titleTooltip": "The {{limit}} most recent errors, none older than {{hours}} hours"
+			"titleTooltip": "Up to {{limit}} recent server errors from the last {{hours}} hours"
 		},
 		"running": "Running {{running}}",
 		"runningLatest": "Running latest ({{running}})",
@@ -234,13 +238,17 @@
 			"requestsToday": "Number of proxied LLM requests since midnight local time today",
 			"cpu": "CPU currently used by the server",
 			"procs": "Processes running in the server's control group",
-			"aggregateProcs": "Processes across {{count}} compose containers",
 			"memoryUsed": "Memory currently used by the server",
 			"memoryLimit": "Memory limit the server is allowed to reach before it is killed",
-			"aggregateMemoryUsed": "Memory used across {{count}} compose containers",
-			"aggregateMemoryLimit": "Highest memory limit reported by {{count}} compose containers",
 			"memoryHeap": "Go heap currently allocated; no memory limit is set for this server",
-			"aggregateCpu": "CPU used across {{count}} compose containers"
+			"aggregateCpu_one": "CPU used across {{count}} compose container",
+			"aggregateCpu_other": "CPU used across {{count}} compose containers",
+			"aggregateProcs_one": "Processes across {{count}} compose container",
+			"aggregateProcs_other": "Processes across {{count}} compose containers",
+			"aggregateMemoryUsed_one": "Memory used across {{count}} compose container",
+			"aggregateMemoryUsed_other": "Memory used across {{count}} compose containers",
+			"aggregateMemoryLimit_one": "Highest memory limit reported by {{count}} compose container",
+			"aggregateMemoryLimit_other": "Highest memory limit reported by {{count}} compose containers"
 		},
 		"githubRepo": "GitHub repository",
 		"readOnly": {
