@@ -77,7 +77,9 @@
 			"opencode": "OpenCode"
 		},
 		"prevRow": "Fila anterior",
-		"nextRow": "Fila següent"
+		"nextRow": "Fila següent",
+		"expandNamed": "Expandir: {{name}}",
+		"collapseNamed": "Replega: {{name}}"
 	},
 	"layout": {
 		"title": "Model Hotel",
@@ -135,17 +137,22 @@
 			"procs_one": "procés",
 			"procs_many": "processos",
 			"procs_other": "processos",
-			"aggregateCpu": "CPU agregada de {{count}} contenidors de compose",
-			"aggregateNetwork": "Xarxa agregada de {{count}} contenidors de compose",
-			"aggregateDisk": "E/S de disc agregades de {{count}} contenidors de compose",
-			"aggregateMemory": "Memòria agregada de {{count}} contenidors de compose",
 			"heap": "heap",
 			"hit": "Encert",
 			"conn": "con.",
 			"txPerSec": "tx/s",
 			"requestsTodayAll": "Sol·l. avui (totes)",
 			"requestsTodayOwn": "Sol·l. avui (teves)",
-			"requestsToday": "Sol·l. avui"
+			"requestsToday": "Sol·l. avui",
+			"aggregateNetwork_one": "Xarxa agregada de {{count}} contenidor de compose",
+			"aggregateNetwork_many": "Xarxa agregada de {{count}} contenidors de compose",
+			"aggregateNetwork_other": "Xarxa agregada de {{count}} contenidors de compose",
+			"aggregateDisk_one": "E/S de disc agregades de {{count}} contenidor de compose",
+			"aggregateDisk_many": "E/S de disc agregades de {{count}} contenidors de compose",
+			"aggregateDisk_other": "E/S de disc agregades de {{count}} contenidors de compose",
+			"aggregateMemory_one": "Memòria agregada de {{count}} contenidor de compose",
+			"aggregateMemory_many": "Memòria agregada de {{count}} contenidors de compose",
+			"aggregateMemory_other": "Memòria agregada de {{count}} contenidors de compose"
 		},
 		"toast": {
 			"copiedToClipboard": "Copiat al porta-retalls",
@@ -214,13 +221,21 @@
 			"requestsToday": "Nombre de sol·licituds a LLM gestionades per proxy des de la mitjanit hora local d'avui",
 			"cpu": "CPU que el servidor utilitza actualment",
 			"procs": "Processos en execució al grup de control del servidor",
-			"aggregateProcs": "Processos en {{count}} contenidors de compose",
 			"memoryUsed": "Memòria que el servidor utilitza actualment",
 			"memoryLimit": "Límit de memòria que el servidor pot assolir abans que es tanqui",
-			"aggregateMemoryUsed": "Memòria utilitzada en {{count}} contenidors de compose",
-			"aggregateMemoryLimit": "Límit de memòria més alt informat per {{count}} contenidors de compose",
 			"memoryHeap": "Memòria dinàmica de Go assignada ara; aquest servidor no té cap límit de memòria",
-			"aggregateCpu": "CPU utilitzada en {{count}} contenidors de compose"
+			"aggregateCpu_one": "CPU utilitzada en {{count}} contenidor de compose",
+			"aggregateCpu_many": "CPU utilitzada en {{count}} contenidors de compose",
+			"aggregateCpu_other": "CPU utilitzada en {{count}} contenidors de compose",
+			"aggregateProcs_one": "Processos en {{count}} contenidor de compose",
+			"aggregateProcs_many": "Processos en {{count}} contenidors de compose",
+			"aggregateProcs_other": "Processos en {{count}} contenidors de compose",
+			"aggregateMemoryUsed_one": "Memòria utilitzada en {{count}} contenidor de compose",
+			"aggregateMemoryUsed_many": "Memòria utilitzada en {{count}} contenidors de compose",
+			"aggregateMemoryUsed_other": "Memòria utilitzada en {{count}} contenidors de compose",
+			"aggregateMemoryLimit_one": "Límit de memòria més alt informat per {{count}} contenidor de compose",
+			"aggregateMemoryLimit_many": "Límit de memòria més alt informat per {{count}} contenidors de compose",
+			"aggregateMemoryLimit_other": "Límit de memòria més alt informat per {{count}} contenidors de compose"
 		},
 		"githubRepo": "Dipòsit de GitHub",
 		"readOnly": {
@@ -237,7 +252,9 @@
 			"title": "Errors",
 			"viewDetails": "Veure detalls",
 			"clearAllConfirm": "Feu clic de nou per confirmar",
-			"titleTooltip": "Els {{limit}} errors més recents, cap més antic de {{hours}} hores"
+			"titleTooltip_one": "Fins a {{limit}} errors recents del servidor de l'última {{count}} hora",
+			"titleTooltip_many": "Fins a {{limit}} errors recents del servidor de les últimes {{count}} hores",
+			"titleTooltip_other": "Fins a {{limit}} errors recents del servidor de les últimes {{count}} hores"
 		},
 		"ha": {
 			"primary": "Primari",

@@ -77,7 +77,9 @@
 			"opencode": "OpenCode"
 		},
 		"prevRow": "Попередній рядок",
-		"nextRow": "Наступний рядок"
+		"nextRow": "Наступний рядок",
+		"expandNamed": "Розгорнути: {{name}}",
+		"collapseNamed": "Згорнути: {{name}}"
 	},
 	"layout": {
 		"title": "Model Hotel",
@@ -141,17 +143,25 @@
 			"procs_few": "процеси",
 			"procs_many": "процесів",
 			"procs_other": "процесу",
-			"aggregateCpu": "Сукупний процесор через контейнери {{count}}",
-			"aggregateNetwork": "Сукупна мережа {{count}} контейнерів compose",
-			"aggregateDisk": "Сукупний дисковий ввід/вивід {{count}} контейнерів compose",
-			"aggregateMemory": "Сукупна пам'ять у складі контейнерів {{count}}",
 			"heap": "купа",
 			"hit": "Влучання",
 			"conn": "з'єдн.",
 			"txPerSec": "tx/s",
 			"requestsTodayAll": "Запитів сьогодні (усі)",
 			"requestsTodayOwn": "Запитів сьогодні (ваші)",
-			"requestsToday": "Запитів сьогодні"
+			"requestsToday": "Запитів сьогодні",
+			"aggregateNetwork_one": "Сукупний мережевий трафік {{count}} контейнера compose",
+			"aggregateNetwork_few": "Сукупний мережевий трафік {{count}} контейнерів compose",
+			"aggregateNetwork_many": "Сукупний мережевий трафік {{count}} контейнерів compose",
+			"aggregateNetwork_other": "Сукупний мережевий трафік {{count}} контейнера compose",
+			"aggregateDisk_one": "Сукупний дисковий ввід/вивід {{count}} контейнера compose",
+			"aggregateDisk_few": "Сукупний дисковий ввід/вивід {{count}} контейнерів compose",
+			"aggregateDisk_many": "Сукупний дисковий ввід/вивід {{count}} контейнерів compose",
+			"aggregateDisk_other": "Сукупний дисковий ввід/вивід {{count}} контейнера compose",
+			"aggregateMemory_one": "Сукупна пам'ять {{count}} контейнера compose",
+			"aggregateMemory_few": "Сукупна пам'ять {{count}} контейнерів compose",
+			"aggregateMemory_many": "Сукупна пам'ять {{count}} контейнерів compose",
+			"aggregateMemory_other": "Сукупна пам'ять {{count}} контейнера compose"
 		},
 		"toast": {
 			"copiedToClipboard": "Скопійовано до буферу обміну",
@@ -220,13 +230,25 @@
 			"requestsToday": "Кількість проксованих LLM-запитів від опівночі за місцевим часом",
 			"cpu": "Процесор, який сервер використовує зараз",
 			"procs": "Процеси, що виконуються в контрольній групі сервера",
-			"aggregateProcs": "Процеси в {{count}} контейнерах compose",
 			"memoryUsed": "Пам'ять, яку сервер використовує зараз",
 			"memoryLimit": "Межа пам'яті, якої сервер може досягти до примусового завершення",
-			"aggregateMemoryUsed": "Пам'ять, що використовується в {{count}} контейнерах compose",
-			"aggregateMemoryLimit": "Найвища межа пам'яті, повідомлена {{count}} контейнерами compose",
 			"memoryHeap": "Наразі виділена купа Go; межу пам'яті для цього сервера не задано",
-			"aggregateCpu": "Процесор, що використовується в {{count}} контейнерах compose"
+			"aggregateCpu_one": "Процесор, що використовується в {{count}} контейнері compose",
+			"aggregateCpu_few": "Процесор, що використовується в {{count}} контейнерах compose",
+			"aggregateCpu_many": "Процесор, що використовується в {{count}} контейнерах compose",
+			"aggregateCpu_other": "Процесор, що використовується в {{count}} контейнерах compose",
+			"aggregateProcs_one": "Процеси в {{count}} контейнері compose",
+			"aggregateProcs_few": "Процеси в {{count}} контейнерах compose",
+			"aggregateProcs_many": "Процеси в {{count}} контейнерах compose",
+			"aggregateProcs_other": "Процеси в {{count}} контейнерах compose",
+			"aggregateMemoryUsed_one": "Пам'ять, що використовується в {{count}} контейнері compose",
+			"aggregateMemoryUsed_few": "Пам'ять, що використовується в {{count}} контейнерах compose",
+			"aggregateMemoryUsed_many": "Пам'ять, що використовується в {{count}} контейнерах compose",
+			"aggregateMemoryUsed_other": "Пам'ять, що використовується в {{count}} контейнерах compose",
+			"aggregateMemoryLimit_one": "Найвища межа пам'яті, повідомлена {{count}} контейнером compose",
+			"aggregateMemoryLimit_few": "Найвища межа пам'яті, повідомлена {{count}} контейнерами compose",
+			"aggregateMemoryLimit_many": "Найвища межа пам'яті, повідомлена {{count}} контейнерами compose",
+			"aggregateMemoryLimit_other": "Найвища межа пам'яті, повідомлена {{count}} контейнерами compose"
 		},
 		"githubRepo": "Репозиторій GitHub",
 		"readOnly": {
@@ -243,7 +265,10 @@
 			"title": "Помилки",
 			"viewDetails": "Переглянути деталі",
 			"clearAllConfirm": "Натисніть ще раз, щоб підтвердити",
-			"titleTooltip": "{{limit}} останніх помилок, жодної старішої за {{hours}} годин"
+			"titleTooltip_one": "До {{limit}} нещодавніх помилок сервера за останню {{count}} годину",
+			"titleTooltip_few": "До {{limit}} нещодавніх помилок сервера за останні {{count}} години",
+			"titleTooltip_many": "До {{limit}} нещодавніх помилок сервера за останні {{count}} годин",
+			"titleTooltip_other": "До {{limit}} нещодавніх помилок сервера за останні {{count}} години"
 		},
 		"ha": {
 			"primary": "Основний",

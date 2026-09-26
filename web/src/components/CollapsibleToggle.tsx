@@ -17,6 +17,12 @@ interface CollapsibleToggleProps {
 	collapseTitle?: string;
 	/** Icon style: "single" uses ChevronUp/Down, "double" uses ChevronsUpDown/DownUp. Default "single" */
 	iconStyle?: "single" | "double";
+	/**
+	 * A fixed accessible name. aria-expanded already says the state, so a
+	 * name that also flips its verb would announce it twice; with this set,
+	 * the verb lives only in the title.
+	 */
+	ariaLabel?: string;
 	/** Icon size in px. Default 14 */
 	size?: number;
 	/** Override the default className entirely */
@@ -28,6 +34,7 @@ export function CollapsibleToggle({
 	onToggle,
 	expandTitle,
 	collapseTitle,
+	ariaLabel,
 	iconStyle = "single",
 	size = 14,
 	className: overrideClassName,
@@ -45,7 +52,7 @@ export function CollapsibleToggle({
 			onClick={onToggle}
 			className={className}
 			title={label}
-			aria-label={label}
+			aria-label={ariaLabel ?? label}
 			aria-expanded={!collapsed}
 		>
 			<CollapsibleIcon

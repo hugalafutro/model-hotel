@@ -77,7 +77,9 @@
 			"opencode": "OpenCode"
 		},
 		"prevRow": "Předchozí řádek",
-		"nextRow": "Další řádek"
+		"nextRow": "Další řádek",
+		"expandNamed": "Rozbalit: {{name}}",
+		"collapseNamed": "Sbalit: {{name}}"
 	},
 	"layout": {
 		"title": "Model Hotel",
@@ -141,17 +143,25 @@
 			"procs_few": "procesy",
 			"procs_many": "procesu",
 			"procs_other": "procesů",
-			"aggregateCpu": "Souhrnné využití CPU napříč kontejnery {{count}} Compose",
-			"aggregateNetwork": "Sdružená síť napříč kontejnery {{count}} Compose",
-			"aggregateDisk": "Souhrnné údaje o diskových operacích I/O napříč kontejnery {{count}} Compose",
-			"aggregateMemory": "Souhrnná paměť napříč {{count}} compose kontejnery",
 			"heap": "halda",
 			"hit": "Zásah",
 			"conn": "připojení",
 			"txPerSec": "tx/s",
 			"requestsTodayAll": "Pož. dnes (vše)",
 			"requestsTodayOwn": "Pož. dnes (vaše)",
-			"requestsToday": "Pož. dnes"
+			"requestsToday": "Pož. dnes",
+			"aggregateNetwork_one": "Souhrnná síť napříč {{count}} kontejnerem compose",
+			"aggregateNetwork_few": "Souhrnná síť napříč {{count}} kontejnery compose",
+			"aggregateNetwork_many": "Souhrnná síť napříč {{count}} kontejnery compose",
+			"aggregateNetwork_other": "Souhrnná síť napříč {{count}} kontejnery compose",
+			"aggregateDisk_one": "Souhrnné diskové I/O napříč {{count}} kontejnerem compose",
+			"aggregateDisk_few": "Souhrnné diskové I/O napříč {{count}} kontejnery compose",
+			"aggregateDisk_many": "Souhrnné diskové I/O napříč {{count}} kontejnery compose",
+			"aggregateDisk_other": "Souhrnné diskové I/O napříč {{count}} kontejnery compose",
+			"aggregateMemory_one": "Souhrnná paměť napříč {{count}} kontejnerem compose",
+			"aggregateMemory_few": "Souhrnná paměť napříč {{count}} kontejnery compose",
+			"aggregateMemory_many": "Souhrnná paměť napříč {{count}} kontejnery compose",
+			"aggregateMemory_other": "Souhrnná paměť napříč {{count}} kontejnery compose"
 		},
 		"toast": {
 			"copiedToClipboard": "Zkopírováno do schránky",
@@ -220,13 +230,25 @@
 			"requestsToday": "Počet požadavků na LLM zpracovaných prostřednictvím proxy od dnešní půlnoci místního času",
 			"cpu": "Procesor aktuálně využívaný serverem",
 			"procs": "Procesy běžící v kontrolní skupině serveru",
-			"aggregateProcs": "Procesy napříč {{count}} kontejnery compose",
 			"memoryUsed": "Paměť aktuálně využívaná serverem",
 			"memoryLimit": "Limit paměti, který server smí dosáhnout, než bude ukončen",
-			"aggregateMemoryUsed": "Paměť využívaná napříč {{count}} kontejnery compose",
-			"aggregateMemoryLimit": "Nejvyšší limit paměti hlášený {{count}} kontejnery compose",
 			"memoryHeap": "Aktuálně alokovaná halda Go; pro tento server není nastaven limit paměti",
-			"aggregateCpu": "Procesor využívaný napříč {{count}} kontejnery compose"
+			"aggregateCpu_one": "Procesor využívaný napříč {{count}} kontejnerem compose",
+			"aggregateCpu_few": "Procesor využívaný napříč {{count}} kontejnery compose",
+			"aggregateCpu_many": "Procesor využívaný napříč {{count}} kontejnery compose",
+			"aggregateCpu_other": "Procesor využívaný napříč {{count}} kontejnery compose",
+			"aggregateProcs_one": "Procesy napříč {{count}} kontejnerem compose",
+			"aggregateProcs_few": "Procesy napříč {{count}} kontejnery compose",
+			"aggregateProcs_many": "Procesy napříč {{count}} kontejnery compose",
+			"aggregateProcs_other": "Procesy napříč {{count}} kontejnery compose",
+			"aggregateMemoryUsed_one": "Paměť využívaná napříč {{count}} kontejnerem compose",
+			"aggregateMemoryUsed_few": "Paměť využívaná napříč {{count}} kontejnery compose",
+			"aggregateMemoryUsed_many": "Paměť využívaná napříč {{count}} kontejnery compose",
+			"aggregateMemoryUsed_other": "Paměť využívaná napříč {{count}} kontejnery compose",
+			"aggregateMemoryLimit_one": "Nejvyšší limit paměti hlášený {{count}} kontejnerem compose",
+			"aggregateMemoryLimit_few": "Nejvyšší limit paměti hlášený {{count}} kontejnery compose",
+			"aggregateMemoryLimit_many": "Nejvyšší limit paměti hlášený {{count}} kontejnery compose",
+			"aggregateMemoryLimit_other": "Nejvyšší limit paměti hlášený {{count}} kontejnery compose"
 		},
 		"githubRepo": "repozitář GitHub",
 		"readOnly": {
@@ -243,7 +265,10 @@
 			"title": "Chyby",
 			"viewDetails": "Zobrazit podrobnosti",
 			"clearAllConfirm": "Klikněte znovu pro potvrzení",
-			"titleTooltip": "{{limit}} nejnovějších chyb, žádná starší než {{hours}} hodin"
+			"titleTooltip_one": "Až {{limit}} nedávných chyb serveru za poslední {{count}} hodinu",
+			"titleTooltip_few": "Až {{limit}} nedávných chyb serveru za poslední {{count}} hodiny",
+			"titleTooltip_many": "Až {{limit}} nedávných chyb serveru za posledních {{count}} hodiny",
+			"titleTooltip_other": "Až {{limit}} nedávných chyb serveru za posledních {{count}} hodin"
 		},
 		"ha": {
 			"primary": "Primární",

@@ -77,7 +77,9 @@
 			"opencode": "OpenCode"
 		},
 		"prevRow": "前の行",
-		"nextRow": "次の行"
+		"nextRow": "次の行",
+		"expandNamed": "展開：{{name}}",
+		"collapseNamed": "折りたたむ：{{name}}"
 	},
 	"layout": {
 		"title": "Model Hotel",
@@ -129,17 +131,19 @@
 			"db": "DB",
 			"procs_one": "proc",
 			"procs_other": "procs",
-			"aggregateCpu": "{{count}} 個の Compose コンテナ全体の CPU 合計",
-			"aggregateNetwork": "{{count}} 個の Compose コンテナ全体のネットワーク合計",
-			"aggregateDisk": "{{count}} 個の Compose コンテナ全体のディスク I/O 合計",
-			"aggregateMemory": "{{count}} 個の Compose コンテナ全体のメモリ合計",
 			"heap": "ヒープ",
 			"hit": "ヒット",
 			"conn": "接続",
 			"txPerSec": "tx/s",
 			"requestsTodayAll": "本日のリクエスト（全体）",
 			"requestsTodayOwn": "本日のリクエスト（自分）",
-			"requestsToday": "本日のリクエスト"
+			"requestsToday": "本日のリクエスト",
+			"aggregateNetwork_one": "{{count}} 個の Compose コンテナ全体のネットワーク合計",
+			"aggregateNetwork_other": "{{count}} 個の Compose コンテナ全体のネットワーク合計",
+			"aggregateDisk_one": "{{count}} 個の Compose コンテナ全体のディスク I/O 合計",
+			"aggregateDisk_other": "{{count}} 個の Compose コンテナ全体のディスク I/O 合計",
+			"aggregateMemory_one": "{{count}} 個の Compose コンテナ全体のメモリ合計",
+			"aggregateMemory_other": "{{count}} 個の Compose コンテナ全体のメモリ合計"
 		},
 		"toast": {
 			"copiedToClipboard": "クリップボードにコピーしました",
@@ -208,13 +212,17 @@
 			"requestsToday": "本日深夜0時以降のプロキシ付きLLMリクエストの数",
 			"cpu": "サーバーが現在使用している CPU",
 			"procs": "サーバーのコントロールグループで実行中のプロセス",
-			"aggregateProcs": "{{count}} 個の compose コンテナ全体のプロセス",
 			"memoryUsed": "サーバーが現在使用しているメモリ",
 			"memoryLimit": "サーバーが強制終了される前に到達できるメモリ上限",
-			"aggregateMemoryUsed": "{{count}} 個の compose コンテナ全体で使用中のメモリ",
-			"aggregateMemoryLimit": "{{count}} 個の compose コンテナから報告された最大メモリ上限",
 			"memoryHeap": "現在割り当てられている Go ヒープ。このサーバーにはメモリ上限が設定されていません",
-			"aggregateCpu": "{{count}} 個の compose コンテナ全体で使用中の CPU"
+			"aggregateCpu_one": "{{count}} 個の compose コンテナ全体で使用中の CPU",
+			"aggregateCpu_other": "{{count}} 個の compose コンテナ全体で使用中の CPU",
+			"aggregateProcs_one": "{{count}} 個の compose コンテナ全体のプロセス",
+			"aggregateProcs_other": "{{count}} 個の compose コンテナ全体のプロセス",
+			"aggregateMemoryUsed_one": "{{count}} 個の compose コンテナ全体で使用中のメモリ",
+			"aggregateMemoryUsed_other": "{{count}} 個の compose コンテナ全体で使用中のメモリ",
+			"aggregateMemoryLimit_one": "{{count}} 個の compose コンテナから報告された最大メモリ上限",
+			"aggregateMemoryLimit_other": "{{count}} 個の compose コンテナから報告された最大メモリ上限"
 		},
 		"githubRepo": "GitHubリポジトリ",
 		"readOnly": {
@@ -231,7 +239,8 @@
 			"title": "エラー",
 			"viewDetails": "詳細を表示",
 			"clearAllConfirm": "再度クリックして確認してください",
-			"titleTooltip": "最新 {{limit}} 件のエラー（{{hours}} 時間以内のもののみ）"
+			"titleTooltip_one": "過去 {{count}} 時間の最近のサーバーエラー（最大 {{limit}} 件）",
+			"titleTooltip_other": "過去 {{count}} 時間の最近のサーバーエラー（最大 {{limit}} 件）"
 		},
 		"ha": {
 			"primary": "プライマリ",

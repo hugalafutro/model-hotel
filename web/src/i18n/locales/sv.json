@@ -77,7 +77,9 @@
 			"opencode": "OpenCode"
 		},
 		"prevRow": "Föregående rad",
-		"nextRow": "Nästa rad"
+		"nextRow": "Nästa rad",
+		"expandNamed": "Expandera: {{name}}",
+		"collapseNamed": "Komprimera: {{name}}"
 	},
 	"layout": {
 		"title": "Model Hotel",
@@ -129,17 +131,19 @@
 			"db": "DB",
 			"procs_one": "proc",
 			"procs_other": "procs",
-			"aggregateCpu": "Aggregerad CPU över {{count}} compose-containrar",
-			"aggregateNetwork": "Aggregerat nätverk över {{count}} compose-containrar",
-			"aggregateDisk": "Aggregerad disk-I/O över {{count}} compose-containrar",
-			"aggregateMemory": "Aggregerat minne över {{count}} compose-containrar",
 			"heap": "heap",
 			"hit": "Träff",
 			"conn": "anslutn.",
 			"txPerSec": "tx/s",
 			"requestsTodayAll": "Förfr. idag (alla)",
 			"requestsTodayOwn": "Förfr. idag (dina)",
-			"requestsToday": "Förfr. idag"
+			"requestsToday": "Förfr. idag",
+			"aggregateNetwork_one": "Aggregerat nätverk över {{count}} compose-container",
+			"aggregateNetwork_other": "Aggregerat nätverk över {{count}} compose-containrar",
+			"aggregateDisk_one": "Aggregerad disk-I/O över {{count}} compose-container",
+			"aggregateDisk_other": "Aggregerad disk-I/O över {{count}} compose-containrar",
+			"aggregateMemory_one": "Aggregerat minne över {{count}} compose-container",
+			"aggregateMemory_other": "Aggregerat minne över {{count}} compose-containrar"
 		},
 		"toast": {
 			"copiedToClipboard": "Kopierad till urklipp",
@@ -208,13 +212,17 @@
 			"requestsToday": "Antal proxierade LLM-förfrågningar sedan midnatt lokal tid idag",
 			"cpu": "Processor som servern använder just nu",
 			"procs": "Processer som körs i serverns kontrollgrupp",
-			"aggregateProcs": "Processer i {{count}} compose-containrar",
 			"memoryUsed": "Minne som servern använder just nu",
 			"memoryLimit": "Minnesgränsen servern får nå innan den avslutas",
-			"aggregateMemoryUsed": "Minne som används i {{count}} compose-containrar",
-			"aggregateMemoryLimit": "Högsta minnesgräns rapporterad av {{count}} compose-containrar",
 			"memoryHeap": "Go-heap som är allokerad just nu; ingen minnesgräns är satt för den här servern",
-			"aggregateCpu": "Processor som används i {{count}} compose-containrar"
+			"aggregateCpu_one": "Processor som används i {{count}} compose-container",
+			"aggregateCpu_other": "Processor som används i {{count}} compose-containrar",
+			"aggregateProcs_one": "Processer i {{count}} compose-container",
+			"aggregateProcs_other": "Processer i {{count}} compose-containrar",
+			"aggregateMemoryUsed_one": "Minne som används i {{count}} compose-container",
+			"aggregateMemoryUsed_other": "Minne som används i {{count}} compose-containrar",
+			"aggregateMemoryLimit_one": "Högsta minnesgräns rapporterad av {{count}} compose-container",
+			"aggregateMemoryLimit_other": "Högsta minnesgräns rapporterad av {{count}} compose-containrar"
 		},
 		"githubRepo": "GitHub-repo",
 		"readOnly": {
@@ -231,7 +239,8 @@
 			"title": "Fel",
 			"viewDetails": "Visa detaljer",
 			"clearAllConfirm": "Klicka igen för att bekräfta",
-			"titleTooltip": "De {{limit}} senaste felen, inget äldre än {{hours}} timmar"
+			"titleTooltip_one": "Upp till {{limit}} senaste serverfel från den senaste {{count}} timmen",
+			"titleTooltip_other": "Upp till {{limit}} senaste serverfel från de senaste {{count}} timmarna"
 		},
 		"ha": {
 			"primary": "Primär",

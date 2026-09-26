@@ -50,10 +50,13 @@ export interface UseBidirectionalFetchReturn<
 	hasBefore: boolean;
 	hasAfter: boolean;
 	/**
-	 * Changes whenever the rows are replaced wholesale (a fresh first page, a
-	 * reset, a failed refetch), never on a prepend, append or merge. A filter
-	 * change keeps the old rows on screen until the new page lands, so the
-	 * scroller uses this, not an empty list, as its cue to return to the top.
+	 * The fetch generation that produced the rows on screen. It changes when
+	 * rows from a new generation land (the first page after a filter or sort
+	 * change, a reset, a failed refetch after one), never on a prepend, append
+	 * or merge, and not when fetchInitial() is called again without a
+	 * generation change. A filter change keeps the old rows on screen until
+	 * the new page lands, so the scroller uses this, not an empty list, as its
+	 * cue to return to the top.
 	 */
 	listVersion: number;
 	isLoadingInitial: boolean;

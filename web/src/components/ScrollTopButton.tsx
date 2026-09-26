@@ -67,7 +67,7 @@ export function ScrollTopButton({
 			title={label}
 			aria-label={label}
 			data-testid="scroll-top-button"
-			className="ui-btn ui-btn-secondary ui-btn-icon absolute bottom-12 right-6 z-20 shadow-lg"
+			className="ui-btn ui-btn-secondary ui-btn-icon absolute bottom-12 end-6 z-20 shadow-lg"
 			onClick={scrollToTop}
 		>
 			<ArrowUpFromLine size={16} />

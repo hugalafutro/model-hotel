@@ -121,9 +121,7 @@ describe("AuthenticationSettings breached-password toggle", () => {
 		// Card-wide: outside both the password-policy group and the two-column
 		// grid, so it cannot drift back into a column as a footnote.
 		expect(note.closest(".ui-settings-group")).toBeNull();
-		// (.grid-cols-2, not .grid: CollapseBody wraps the whole section body in
-		// a grid to animate its height.)
-		expect(note.closest(".grid-cols-2")).toBeNull();
+		expect(note.closest('[data-testid="auth-columns"]')).toBeNull();
 		// One live region per page announces the fleet state: this note is not
 		// a second one.
 		expect(note).not.toHaveAttribute("role");

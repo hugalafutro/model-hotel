@@ -321,7 +321,7 @@ export function ModelTable({
 			</div>
 
 			<div ref={wheelPagingRef} className="ui-card overflow-x-auto">
-				<table className="min-w-full table-fixed ui-table min-w-250">
+				<table className="w-full table-fixed ui-table min-w-250">
 					<colgroup>
 						{(showProviderCol
 							? MODEL_COL_WIDTHS_WITH_PROVIDER

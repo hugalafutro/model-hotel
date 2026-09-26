@@ -77,7 +77,9 @@
 			"opencode": "OpenCode"
 		},
 		"prevRow": "Poprzedni wiersz",
-		"nextRow": "Następny wiersz"
+		"nextRow": "Następny wiersz",
+		"expandNamed": "Rozwiń: {{name}}",
+		"collapseNamed": "Zwiń: {{name}}"
 	},
 	"layout": {
 		"title": "Model Hotel",
@@ -141,17 +143,25 @@
 			"procs_few": "procesy",
 			"procs_many": "procesów",
 			"procs_other": "procesu",
-			"aggregateCpu": "Zsumowanie CPU przez {{count}} tworzy kontenery",
-			"aggregateNetwork": "Zbiorcza sieć w {{count}} tworzy kontenery",
-			"aggregateDisk": "Zbiorcze I/O dysku przez {{count}} tworzą kontenery",
-			"aggregateMemory": "Zbiorcza pamięć w {{count}} tworzy kontenery",
 			"heap": "sterta",
 			"hit": "Trafienie",
 			"conn": "poł.",
 			"txPerSec": "tx/s",
 			"requestsTodayAll": "Żąd. dziś (wszystkie)",
 			"requestsTodayOwn": "Żąd. dziś (twoje)",
-			"requestsToday": "Żąd. dziś"
+			"requestsToday": "Żąd. dziś",
+			"aggregateNetwork_one": "Łączny ruch sieciowy w {{count}} kontenerze compose",
+			"aggregateNetwork_few": "Łączny ruch sieciowy w {{count}} kontenerach compose",
+			"aggregateNetwork_many": "Łączny ruch sieciowy w {{count}} kontenerach compose",
+			"aggregateNetwork_other": "Łączny ruch sieciowy w {{count}} kontenerach compose",
+			"aggregateDisk_one": "Łączne I/O dysku w {{count}} kontenerze compose",
+			"aggregateDisk_few": "Łączne I/O dysku w {{count}} kontenerach compose",
+			"aggregateDisk_many": "Łączne I/O dysku w {{count}} kontenerach compose",
+			"aggregateDisk_other": "Łączne I/O dysku w {{count}} kontenerach compose",
+			"aggregateMemory_one": "Łączna pamięć w {{count}} kontenerze compose",
+			"aggregateMemory_few": "Łączna pamięć w {{count}} kontenerach compose",
+			"aggregateMemory_many": "Łączna pamięć w {{count}} kontenerach compose",
+			"aggregateMemory_other": "Łączna pamięć w {{count}} kontenerach compose"
 		},
 		"toast": {
 			"copiedToClipboard": "Skopiowano do schowka",
@@ -220,13 +230,25 @@
 			"requestsToday": "Liczba żądań programu LLM proxy od północy czasu lokalnego dzisiaj",
 			"cpu": "Procesor używany obecnie przez serwer",
 			"procs": "Procesy działające w grupie kontrolnej serwera",
-			"aggregateProcs": "Procesy w {{count}} kontenerach compose",
 			"memoryUsed": "Pamięć używana obecnie przez serwer",
 			"memoryLimit": "Limit pamięci, który serwer może osiągnąć, zanim zostanie zakończony",
-			"aggregateMemoryUsed": "Pamięć używana w {{count}} kontenerach compose",
-			"aggregateMemoryLimit": "Najwyższy limit pamięci zgłoszony przez {{count}} kontenerów compose",
 			"memoryHeap": "Aktualnie przydzielona sterta Go; dla tego serwera nie ustawiono limitu pamięci",
-			"aggregateCpu": "Procesor używany w {{count}} kontenerach compose"
+			"aggregateCpu_one": "Procesor używany w {{count}} kontenerze compose",
+			"aggregateCpu_few": "Procesor używany w {{count}} kontenerach compose",
+			"aggregateCpu_many": "Procesor używany w {{count}} kontenerach compose",
+			"aggregateCpu_other": "Procesor używany w {{count}} kontenerach compose",
+			"aggregateProcs_one": "Procesy w {{count}} kontenerze compose",
+			"aggregateProcs_few": "Procesy w {{count}} kontenerach compose",
+			"aggregateProcs_many": "Procesy w {{count}} kontenerach compose",
+			"aggregateProcs_other": "Procesy w {{count}} kontenerach compose",
+			"aggregateMemoryUsed_one": "Pamięć używana w {{count}} kontenerze compose",
+			"aggregateMemoryUsed_few": "Pamięć używana w {{count}} kontenerach compose",
+			"aggregateMemoryUsed_many": "Pamięć używana w {{count}} kontenerach compose",
+			"aggregateMemoryUsed_other": "Pamięć używana w {{count}} kontenerach compose",
+			"aggregateMemoryLimit_one": "Najwyższy limit pamięci zgłoszony przez {{count}} kontener compose",
+			"aggregateMemoryLimit_few": "Najwyższy limit pamięci zgłoszony przez {{count}} kontenery compose",
+			"aggregateMemoryLimit_many": "Najwyższy limit pamięci zgłoszony przez {{count}} kontenerów compose",
+			"aggregateMemoryLimit_other": "Najwyższy limit pamięci zgłoszony przez {{count}} kontenera compose"
 		},
 		"githubRepo": "Repozytorium GitHub",
 		"readOnly": {
@@ -243,7 +265,10 @@
 			"title": "Błędy",
 			"viewDetails": "Zobacz szczegóły",
 			"clearAllConfirm": "Kliknij ponownie, aby potwierdzić",
-			"titleTooltip": "{{limit}} najnowszych błędów, żaden starszy niż {{hours}} godzin"
+			"titleTooltip_one": "Do {{limit}} ostatnich błędów serwera z ostatniej {{count}} godziny",
+			"titleTooltip_few": "Do {{limit}} ostatnich błędów serwera z ostatnich {{count}} godzin",
+			"titleTooltip_many": "Do {{limit}} ostatnich błędów serwera z ostatnich {{count}} godzin",
+			"titleTooltip_other": "Do {{limit}} ostatnich błędów serwera z ostatnich {{count}} godziny"
 		},
 		"ha": {
 			"primary": "Podstawowy",

@@ -77,7 +77,9 @@
 			"opencode": "OpenCode"
 		},
 		"prevRow": "Forrige rad",
-		"nextRow": "Neste rad"
+		"nextRow": "Neste rad",
+		"expandNamed": "Utvid: {{name}}",
+		"collapseNamed": "Skjul: {{name}}"
 	},
 	"layout": {
 		"title": "Model Hotel",
@@ -129,17 +131,19 @@
 			"db": "DB",
 			"procs_one": "prosess",
 			"procs_other": "Prosesser",
-			"aggregateCpu": "Samlet CPU over {{count}} Compose-containere",
-			"aggregateNetwork": "Samlet nettverk over {{count}} Compose-containere",
-			"aggregateDisk": "Samlet disk-I/O over {{count}} Compose-containere",
-			"aggregateMemory": "Samlet minne over {{count}} Compose-containere",
 			"heap": "heap",
 			"hit": "Treff",
 			"conn": "tilk.",
 			"txPerSec": "tx/s",
 			"requestsTodayAll": "Foresp. i dag (alle)",
 			"requestsTodayOwn": "Foresp. i dag (dine)",
-			"requestsToday": "Foresp. i dag"
+			"requestsToday": "Foresp. i dag",
+			"aggregateNetwork_one": "Samlet nettverk på tvers av {{count}} compose-container",
+			"aggregateNetwork_other": "Samlet nettverk på tvers av {{count}} compose-containere",
+			"aggregateDisk_one": "Samlet disk-I/O på tvers av {{count}} compose-container",
+			"aggregateDisk_other": "Samlet disk-I/O på tvers av {{count}} compose-containere",
+			"aggregateMemory_one": "Samlet minne på tvers av {{count}} compose-container",
+			"aggregateMemory_other": "Samlet minne på tvers av {{count}} compose-containere"
 		},
 		"toast": {
 			"copiedToClipboard": "Kopiert til utklippstavle",
@@ -208,13 +212,17 @@
 			"requestsToday": "Antall proxyede LLM-forespørsler siden midnatt lokal tid i dag",
 			"cpu": "Prosessor som serveren bruker nå",
 			"procs": "Prosesser som kjører i serverens kontrollgruppe",
-			"aggregateProcs": "Prosesser på tvers av {{count}} compose-containere",
 			"memoryUsed": "Minne som serveren bruker nå",
 			"memoryLimit": "Minnegrensen serveren kan nå før den avsluttes",
-			"aggregateMemoryUsed": "Minne brukt på tvers av {{count}} compose-containere",
-			"aggregateMemoryLimit": "Høyeste minnegrense rapportert av {{count}} compose-containere",
 			"memoryHeap": "Go-heap som er allokert nå; det er ikke satt noen minnegrense for denne serveren",
-			"aggregateCpu": "Prosessor brukt på tvers av {{count}} compose-containere"
+			"aggregateCpu_one": "Prosessor brukt på tvers av {{count}} compose-container",
+			"aggregateCpu_other": "Prosessor brukt på tvers av {{count}} compose-containere",
+			"aggregateProcs_one": "Prosesser på tvers av {{count}} compose-container",
+			"aggregateProcs_other": "Prosesser på tvers av {{count}} compose-containere",
+			"aggregateMemoryUsed_one": "Minne brukt på tvers av {{count}} compose-container",
+			"aggregateMemoryUsed_other": "Minne brukt på tvers av {{count}} compose-containere",
+			"aggregateMemoryLimit_one": "Høyeste minnegrense rapportert av {{count}} compose-container",
+			"aggregateMemoryLimit_other": "Høyeste minnegrense rapportert av {{count}} compose-containere"
 		},
 		"githubRepo": "GitHub-repositorium",
 		"readOnly": {
@@ -231,7 +239,8 @@
 			"title": "Feil",
 			"viewDetails": "Vis detaljer",
 			"clearAllConfirm": "Klikk igjen for å bekrefte",
-			"titleTooltip": "De {{limit}} nyeste feilene, ingen eldre enn {{hours}} timer"
+			"titleTooltip_one": "Opptil {{limit}} nylige serverfeil fra den siste {{count}} timen",
+			"titleTooltip_other": "Opptil {{limit}} nylige serverfeil fra de siste {{count}} timene"
 		},
 		"ha": {
 			"primary": "Primær",

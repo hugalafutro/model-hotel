@@ -77,7 +77,9 @@
 			"opencode": "OpenCode"
 		},
 		"prevRow": "Προηγούμενη γραμμή",
-		"nextRow": "Επόμενη γραμμή"
+		"nextRow": "Επόμενη γραμμή",
+		"expandNamed": "Ανάπτυξη: {{name}}",
+		"collapseNamed": "Σύμπτυξη: {{name}}"
 	},
 	"layout": {
 		"title": "Model Hotel",
@@ -129,17 +131,19 @@
 			"db": "ΒΔ",
 			"procs_one": "proc",
 			"procs_other": "procs",
-			"aggregateCpu": "Συγκεντρωτική CPU σε {{count}} compose containers",
-			"aggregateNetwork": "Συγκεντρωτικό δίκτυο σε {{count}} compose containers",
-			"aggregateDisk": "Συγκεντρωτικό I/O δίσκου σε {{count}} compose containers",
-			"aggregateMemory": "Συγκεντρωτική μνήμη σε όλα τα κοντέινερ του {{count}}",
 			"heap": "heap",
 			"hit": "Επιτυχία",
 			"conn": "συνδ.",
 			"txPerSec": "tx/s",
 			"requestsTodayAll": "Αιτ. σήμερα (όλες)",
 			"requestsTodayOwn": "Αιτ. σήμερα (δικές σας)",
-			"requestsToday": "Αιτ. σήμερα"
+			"requestsToday": "Αιτ. σήμερα",
+			"aggregateNetwork_one": "Συγκεντρωτικό δίκτυο σε {{count}} κοντέινερ compose",
+			"aggregateNetwork_other": "Συγκεντρωτικό δίκτυο σε {{count}} κοντέινερ compose",
+			"aggregateDisk_one": "Συγκεντρωτικό I/O δίσκου σε {{count}} κοντέινερ compose",
+			"aggregateDisk_other": "Συγκεντρωτικό I/O δίσκου σε {{count}} κοντέινερ compose",
+			"aggregateMemory_one": "Συγκεντρωτική μνήμη σε {{count}} κοντέινερ compose",
+			"aggregateMemory_other": "Συγκεντρωτική μνήμη σε {{count}} κοντέινερ compose"
 		},
 		"toast": {
 			"copiedToClipboard": "Αντιγράφηκε στο πρόχειρο",
@@ -208,13 +212,17 @@
 			"requestsToday": "Αριθμός αιτήσεων από τα μεσάνυχτα της τοπικής ώρας σήμερα",
 			"cpu": "Επεξεργαστής που χρησιμοποιεί αυτήν τη στιγμή ο διακομιστής",
 			"procs": "Διεργασίες που εκτελούνται στην ομάδα ελέγχου του διακομιστή",
-			"aggregateProcs": "Διεργασίες σε {{count}} κοντέινερ compose",
 			"memoryUsed": "Μνήμη που χρησιμοποιεί αυτήν τη στιγμή ο διακομιστής",
 			"memoryLimit": "Όριο μνήμης που επιτρέπεται να φτάσει ο διακομιστής πριν τερματιστεί",
-			"aggregateMemoryUsed": "Μνήμη που χρησιμοποιείται σε {{count}} κοντέινερ compose",
-			"aggregateMemoryLimit": "Υψηλότερο όριο μνήμης που αναφέρθηκε από {{count}} κοντέινερ compose",
 			"memoryHeap": "Σωρός Go που έχει δεσμευτεί αυτήν τη στιγμή· δεν έχει οριστεί όριο μνήμης για αυτόν τον διακομιστή",
-			"aggregateCpu": "Επεξεργαστής που χρησιμοποιείται σε {{count}} κοντέινερ compose"
+			"aggregateCpu_one": "Επεξεργαστής που χρησιμοποιείται σε {{count}} κοντέινερ compose",
+			"aggregateCpu_other": "Επεξεργαστής που χρησιμοποιείται σε {{count}} κοντέινερ compose",
+			"aggregateProcs_one": "Διεργασίες σε {{count}} κοντέινερ compose",
+			"aggregateProcs_other": "Διεργασίες σε {{count}} κοντέινερ compose",
+			"aggregateMemoryUsed_one": "Μνήμη που χρησιμοποιείται σε {{count}} κοντέινερ compose",
+			"aggregateMemoryUsed_other": "Μνήμη που χρησιμοποιείται σε {{count}} κοντέινερ compose",
+			"aggregateMemoryLimit_one": "Υψηλότερο όριο μνήμης που αναφέρθηκε από {{count}} κοντέινερ compose",
+			"aggregateMemoryLimit_other": "Υψηλότερο όριο μνήμης που αναφέρθηκε από {{count}} κοντέινερ compose"
 		},
 		"githubRepo": "Αποθετήριο GitHub",
 		"readOnly": {
@@ -231,7 +239,8 @@
 			"title": "Σφάλματα",
 			"viewDetails": "Προβολή λεπτομερειών",
 			"clearAllConfirm": "Κάντε ξανά κλικ για επιβεβαίωση",
-			"titleTooltip": "Τα {{limit}} πιο πρόσφατα σφάλματα, κανένα παλαιότερο από {{hours}} ώρες"
+			"titleTooltip_one": "Έως {{limit}} πρόσφατα σφάλματα διακομιστή από την τελευταία {{count}} ώρα",
+			"titleTooltip_other": "Έως {{limit}} πρόσφατα σφάλματα διακομιστή από τις τελευταίες {{count}} ώρες"
 		},
 		"ha": {
 			"primary": "Κύριος",

@@ -77,7 +77,9 @@
 			"opencode": "OpenCode"
 		},
 		"prevRow": "Riga precedente",
-		"nextRow": "Riga successiva"
+		"nextRow": "Riga successiva",
+		"expandNamed": "Espandi: {{name}}",
+		"collapseNamed": "Comprimi: {{name}}"
 	},
 	"layout": {
 		"title": "Model Hotel",
@@ -135,17 +137,22 @@
 			"procs_one": "proc",
 			"procs_many": "procs",
 			"procs_other": "procs",
-			"aggregateCpu": "CPU aggregata su {{count}} container Compose",
-			"aggregateNetwork": "Rete aggregata su {{count}} container Compose",
-			"aggregateDisk": "I/O disco aggregato su {{count}} container Compose",
-			"aggregateMemory": "Memoria aggregata su {{count}} container Compose",
 			"heap": "heap",
 			"hit": "Hit",
 			"conn": "conn.",
 			"txPerSec": "tx/s",
 			"requestsTodayAll": "Rich. oggi (tutte)",
 			"requestsTodayOwn": "Rich. oggi (tue)",
-			"requestsToday": "Rich. oggi"
+			"requestsToday": "Rich. oggi",
+			"aggregateNetwork_one": "Rete aggregata su {{count}} container compose",
+			"aggregateNetwork_many": "Rete aggregata su {{count}} container compose",
+			"aggregateNetwork_other": "Rete aggregata su {{count}} container compose",
+			"aggregateDisk_one": "I/O disco aggregato su {{count}} container compose",
+			"aggregateDisk_many": "I/O disco aggregato su {{count}} container compose",
+			"aggregateDisk_other": "I/O disco aggregato su {{count}} container compose",
+			"aggregateMemory_one": "Memoria aggregata su {{count}} container compose",
+			"aggregateMemory_many": "Memoria aggregata su {{count}} container compose",
+			"aggregateMemory_other": "Memoria aggregata su {{count}} container compose"
 		},
 		"toast": {
 			"copiedToClipboard": "Copiato negli appunti",
@@ -214,13 +221,21 @@
 			"requestsToday": "Numero di richieste LLM proxy a partire dalla mezzanotte ora locale oggi",
 			"cpu": "CPU attualmente usata dal server",
 			"procs": "Processi in esecuzione nel gruppo di controllo del server",
-			"aggregateProcs": "Processi su {{count}} container compose",
 			"memoryUsed": "Memoria attualmente usata dal server",
 			"memoryLimit": "Limite di memoria che il server può raggiungere prima di essere terminato",
-			"aggregateMemoryUsed": "Memoria usata su {{count}} container compose",
-			"aggregateMemoryLimit": "Limite di memoria più alto segnalato da {{count}} container compose",
 			"memoryHeap": "Heap Go attualmente allocato; per questo server non è impostato alcun limite di memoria",
-			"aggregateCpu": "CPU usata su {{count}} container compose"
+			"aggregateCpu_one": "CPU usata su {{count}} container compose",
+			"aggregateCpu_many": "CPU usata su {{count}} container compose",
+			"aggregateCpu_other": "CPU usata su {{count}} container compose",
+			"aggregateProcs_one": "Processi su {{count}} container compose",
+			"aggregateProcs_many": "Processi su {{count}} container compose",
+			"aggregateProcs_other": "Processi su {{count}} container compose",
+			"aggregateMemoryUsed_one": "Memoria usata su {{count}} container compose",
+			"aggregateMemoryUsed_many": "Memoria usata su {{count}} container compose",
+			"aggregateMemoryUsed_other": "Memoria usata su {{count}} container compose",
+			"aggregateMemoryLimit_one": "Limite di memoria più alto segnalato da {{count}} container compose",
+			"aggregateMemoryLimit_many": "Limite di memoria più alto segnalato da {{count}} container compose",
+			"aggregateMemoryLimit_other": "Limite di memoria più alto segnalato da {{count}} container compose"
 		},
 		"githubRepo": "Repository GitHub",
 		"readOnly": {
@@ -237,7 +252,9 @@
 			"title": "Errori",
 			"viewDetails": "Visualizza i dettagli",
 			"clearAllConfirm": "Fare nuovamente clic per confermare",
-			"titleTooltip": "I {{limit}} errori più recenti, nessuno più vecchio di {{hours}} ore"
+			"titleTooltip_one": "Fino a {{limit}} errori recenti del server nell'ultima {{count}} ora",
+			"titleTooltip_many": "Fino a {{limit}} errori recenti del server nelle ultime {{count}} ore",
+			"titleTooltip_other": "Fino a {{limit}} errori recenti del server nelle ultime {{count}} ore"
 		},
 		"ha": {
 			"primary": "Primario",

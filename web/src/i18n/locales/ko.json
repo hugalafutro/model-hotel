@@ -77,7 +77,9 @@
 			"opencode": "OpenCode"
 		},
 		"prevRow": "이전 행",
-		"nextRow": "다음 행"
+		"nextRow": "다음 행",
+		"expandNamed": "펼치기: {{name}}",
+		"collapseNamed": "접기: {{name}}"
 	},
 	"layout": {
 		"title": "Model Hotel",
@@ -129,17 +131,19 @@
 			"db": "DB",
 			"procs_one": "proc",
 			"procs_other": "프로세스",
-			"aggregateCpu": "{{count}} 의 컴포즈 컨테이너 전체에 걸쳐 CPU 합계",
-			"aggregateNetwork": "{{count}} 의 컴포즈 컨테이너 전반에 걸친 네트워크 통합",
-			"aggregateDisk": "{{count}} 의 Compose 컨테이너 전체에 걸친 디스크 I/O 합계",
-			"aggregateMemory": "{{count}} 의 컴포즈 컨테이너 간 메모리 통합",
 			"heap": "힙",
 			"hit": "적중",
 			"conn": "연결",
 			"txPerSec": "tx/s",
 			"requestsTodayAll": "오늘 요청(전체)",
 			"requestsTodayOwn": "오늘 요청(내 요청)",
-			"requestsToday": "오늘 요청"
+			"requestsToday": "오늘 요청",
+			"aggregateNetwork_one": "compose 컨테이너 {{count}}개 전체의 네트워크 합계",
+			"aggregateNetwork_other": "compose 컨테이너 {{count}}개 전체의 네트워크 합계",
+			"aggregateDisk_one": "compose 컨테이너 {{count}}개 전체의 디스크 I/O 합계",
+			"aggregateDisk_other": "compose 컨테이너 {{count}}개 전체의 디스크 I/O 합계",
+			"aggregateMemory_one": "compose 컨테이너 {{count}}개 전체의 메모리 합계",
+			"aggregateMemory_other": "compose 컨테이너 {{count}}개 전체의 메모리 합계"
 		},
 		"toast": {
 			"copiedToClipboard": "클립보드에 복사됨",
@@ -208,13 +212,17 @@
 			"requestsToday": "오늘 현지 시간 자정 이후 프록시를 통해 전송된 LLM 요청 건수",
 			"cpu": "서버가 현재 사용 중인 CPU",
 			"procs": "서버 제어 그룹에서 실행 중인 프로세스",
-			"aggregateProcs": "compose 컨테이너 {{count}}개 전체의 프로세스",
 			"memoryUsed": "서버가 현재 사용 중인 메모리",
 			"memoryLimit": "서버가 종료되기 전까지 도달할 수 있는 메모리 한도",
-			"aggregateMemoryUsed": "compose 컨테이너 {{count}}개 전체에서 사용 중인 메모리",
-			"aggregateMemoryLimit": "compose 컨테이너 {{count}}개가 보고한 가장 높은 메모리 한도",
 			"memoryHeap": "현재 할당된 Go 힙. 이 서버에는 메모리 한도가 설정되어 있지 않습니다",
-			"aggregateCpu": "compose 컨테이너 {{count}}개 전체에서 사용 중인 CPU"
+			"aggregateCpu_one": "compose 컨테이너 {{count}}개 전체에서 사용 중인 CPU",
+			"aggregateCpu_other": "compose 컨테이너 {{count}}개 전체에서 사용 중인 CPU",
+			"aggregateProcs_one": "compose 컨테이너 {{count}}개 전체의 프로세스",
+			"aggregateProcs_other": "compose 컨테이너 {{count}}개 전체의 프로세스",
+			"aggregateMemoryUsed_one": "compose 컨테이너 {{count}}개 전체에서 사용 중인 메모리",
+			"aggregateMemoryUsed_other": "compose 컨테이너 {{count}}개 전체에서 사용 중인 메모리",
+			"aggregateMemoryLimit_one": "compose 컨테이너 {{count}}개가 보고한 가장 높은 메모리 한도",
+			"aggregateMemoryLimit_other": "compose 컨테이너 {{count}}개가 보고한 가장 높은 메모리 한도"
 		},
 		"githubRepo": "GitHub 저장소",
 		"readOnly": {
@@ -231,7 +239,8 @@
 			"title": "오류",
 			"viewDetails": "상세 정보 보기",
 			"clearAllConfirm": "확인을 위해 다시 클릭하세요",
-			"titleTooltip": "최근 오류 {{limit}}개, {{hours}}시간 이내의 항목만"
+			"titleTooltip_one": "최근 {{count}}시간 동안의 서버 오류 최대 {{limit}}개",
+			"titleTooltip_other": "최근 {{count}}시간 동안의 서버 오류 최대 {{limit}}개"
 		},
 		"ha": {
 			"primary": "기본",

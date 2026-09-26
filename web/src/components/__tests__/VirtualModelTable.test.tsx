@@ -2,6 +2,7 @@ import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { api } from "../../api/client";
 import type { Model, Provider } from "../../api/types";
+import i18n from "../../i18n";
 import { renderWithProviders } from "../../test/utils";
 import { formatDate } from "../../utils/format";
 import { VirtualModelTable } from "../VirtualModelTable";
@@ -111,6 +112,22 @@ function setupWithEntries(
 	setupTable({ entries, total: entries.length, ...extra });
 }
 
+/** A pill strip's expand or collapse toggle, named for its column. */
+function stripToggle(dir: "expand" | "collapse", column: string) {
+	const name = i18n.t(`models.table.${column}`);
+	// The name stays the column's; aria-expanded carries the state and only
+	// the title names the action.
+	const toggle = screen.getByRole("button", {
+		name,
+		expanded: dir === "collapse",
+	});
+	expect(toggle).toHaveAttribute(
+		"title",
+		i18n.t(`common.${dir}Named`, { name }),
+	);
+	return toggle;
+}
+
 describe("VirtualModelTable", () => {
 	beforeEach(() => {
 		document.cookie = "mh_csrf=test-csrf; path=/";
@@ -130,10 +147,12 @@ describe("VirtualModelTable", () => {
 			expect(screen.getByText("No models found")).toBeInTheDocument();
 		});
 
-		it("renders 'Showing 0 of 0' in footer when entries empty", () => {
+		it("says nothing is shown in the footer when entries are empty", () => {
 			setupTable({ entries: [], total: 0 });
 			renderWithProviders(<VirtualModelTable />);
-			expect(screen.getByText("Showing 0 of 0")).toBeInTheDocument();
+			expect(
+				screen.getByText(i18n.t("common.showingNone", { total: "0" })),
+			).toBeInTheDocument();
 		});
 
 		it("renders loading indicator when isLoadingInitial", () => {
@@ -413,9 +432,9 @@ describe("VirtualModelTable", () => {
 			}
 			expect(screen.queryByRole("button", { name: "PDF" })).toBeNull();
 
-			fireEvent.click(screen.getByRole("button", { name: "Capabilities" }));
+			fireEvent.click(stripToggle("expand", "capabilities"));
 			fireEvent.click(screen.getByRole("button", { name: "PDF" }));
-			fireEvent.click(screen.getByRole("button", { name: "Capabilities" }));
+			fireEvent.click(stripToggle("collapse", "capabilities"));
 
 			// Rolled in shows only the first three, even with PDF set; the clear
 			// button still says a filter is active.
@@ -434,7 +453,7 @@ describe("VirtualModelTable", () => {
 			}
 			expect(screen.queryByRole("button", { name: "Video out" })).toBeNull();
 
-			fireEvent.click(screen.getByRole("button", { name: "Outputs" }));
+			fireEvent.click(stripToggle("expand", "outputs"));
 
 			expect(
 				screen.getByRole("button", { name: "Video out" }),
@@ -447,12 +466,12 @@ describe("VirtualModelTable", () => {
 			renderWithProviders(<VirtualModelTable />);
 			const reasoning = screen.getByRole("button", { name: "Reasoning" });
 			const tools = screen.getByRole("button", { name: "Tools" });
-			expect(tools.className).not.toContain("grayscale");
+			expect(tools).not.toHaveAttribute("data-dimmed");
 
 			fireEvent.click(reasoning);
 
-			expect(tools.className).toContain("grayscale");
-			expect(reasoning.className).not.toContain("grayscale");
+			expect(tools).toHaveAttribute("data-dimmed");
+			expect(reasoning).not.toHaveAttribute("data-dimmed");
 		});
 
 		it("offers capability filter pills even when no loaded row has that cap", () => {
@@ -462,7 +481,7 @@ describe("VirtualModelTable", () => {
 			const entries = [createModel({ id: "model-plain", capabilities: "{}" })];
 			setupWithEntries(entries);
 			renderWithProviders(<VirtualModelTable />);
-			fireEvent.click(screen.getByRole("button", { name: "Capabilities" }));
+			fireEvent.click(stripToggle("expand", "capabilities"));
 
 			const pdfPill = screen.getByText("PDF");
 			expect(pdfPill.tagName).toBe("BUTTON");
@@ -608,7 +627,11 @@ describe("VirtualModelTable", () => {
 			const entries = [createModel()];
 			setupWithEntries(entries, { total: 1 });
 			renderWithProviders(<VirtualModelTable />);
-			expect(screen.getByText("Showing 1–1 of 1")).toBeInTheDocument();
+			expect(
+				screen.getByText(
+					i18n.t("common.showingRange", { start: "1", end: "1", total: "1" }),
+				),
+			).toBeInTheDocument();
 		});
 
 		it("calls onModelClick when model row is clicked", () => {

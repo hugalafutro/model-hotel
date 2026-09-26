@@ -77,7 +77,9 @@
 			"opencode": "OpenCode"
 		},
 		"prevRow": "Linha anterior",
-		"nextRow": "Próxima linha"
+		"nextRow": "Próxima linha",
+		"expandNamed": "Expandir: {{name}}",
+		"collapseNamed": "Recolher: {{name}}"
 	},
 	"layout": {
 		"title": "Model Hotel",
@@ -135,17 +137,22 @@
 			"procs_one": "processo",
 			"procs_many": "processos",
 			"procs_other": "processos",
-			"aggregateCpu": "Agregar CPU entre contêineres {{count}}",
-			"aggregateNetwork": "Agregar a rede entre contêineres {{count}}",
-			"aggregateDisk": "Agregar disco I/O entre contêineres {{count}}",
-			"aggregateMemory": "Memória agregada dos {{count}} contêineres do compose",
 			"heap": "heap",
 			"hit": "Acerto",
 			"conn": "lig.",
 			"txPerSec": "tx/s",
 			"requestsTodayAll": "Pedidos hoje (todos)",
 			"requestsTodayOwn": "Pedidos hoje (seus)",
-			"requestsToday": "Pedidos hoje"
+			"requestsToday": "Pedidos hoje",
+			"aggregateNetwork_one": "Rede agregada em {{count}} contentor de compose",
+			"aggregateNetwork_many": "Rede agregada em {{count}} contentores de compose",
+			"aggregateNetwork_other": "Rede agregada em {{count}} contentores de compose",
+			"aggregateDisk_one": "E/S de disco agregada em {{count}} contentor de compose",
+			"aggregateDisk_many": "E/S de disco agregada em {{count}} contentores de compose",
+			"aggregateDisk_other": "E/S de disco agregada em {{count}} contentores de compose",
+			"aggregateMemory_one": "Memória agregada em {{count}} contentor de compose",
+			"aggregateMemory_many": "Memória agregada em {{count}} contentores de compose",
+			"aggregateMemory_other": "Memória agregada em {{count}} contentores de compose"
 		},
 		"toast": {
 			"copiedToClipboard": "Copiado para o clipboard",
@@ -214,13 +221,21 @@
 			"requestsToday": "Número de pedidos LLM de proxy desde a meia-noite local de hoje",
 			"cpu": "CPU usada neste momento pelo servidor",
 			"procs": "Processos em execução no grupo de controlo do servidor",
-			"aggregateProcs": "Processos em {{count}} contentores de compose",
 			"memoryUsed": "Memória usada neste momento pelo servidor",
 			"memoryLimit": "Limite de memória que o servidor pode atingir antes de ser terminado",
-			"aggregateMemoryUsed": "Memória usada em {{count}} contentores de compose",
-			"aggregateMemoryLimit": "Limite de memória mais alto comunicado por {{count}} contentores de compose",
 			"memoryHeap": "Monte de Go atribuído neste momento; este servidor não tem limite de memória definido",
-			"aggregateCpu": "CPU usada em {{count}} contentores de compose"
+			"aggregateCpu_one": "CPU usada em {{count}} contentor de compose",
+			"aggregateCpu_many": "CPU usada em {{count}} contentores de compose",
+			"aggregateCpu_other": "CPU usada em {{count}} contentores de compose",
+			"aggregateProcs_one": "Processos em {{count}} contentor de compose",
+			"aggregateProcs_many": "Processos em {{count}} contentores de compose",
+			"aggregateProcs_other": "Processos em {{count}} contentores de compose",
+			"aggregateMemoryUsed_one": "Memória usada em {{count}} contentor de compose",
+			"aggregateMemoryUsed_many": "Memória usada em {{count}} contentores de compose",
+			"aggregateMemoryUsed_other": "Memória usada em {{count}} contentores de compose",
+			"aggregateMemoryLimit_one": "Limite de memória mais alto comunicado por {{count}} contentor de compose",
+			"aggregateMemoryLimit_many": "Limite de memória mais alto comunicado por {{count}} contentores de compose",
+			"aggregateMemoryLimit_other": "Limite de memória mais alto comunicado por {{count}} contentores de compose"
 		},
 		"githubRepo": "Repositório do GitHub",
 		"readOnly": {
@@ -237,7 +252,9 @@
 			"title": "Erros",
 			"viewDetails": "Ver detalhes",
 			"clearAllConfirm": "Clique novamente para confirmar",
-			"titleTooltip": "Os {{limit}} erros mais recentes, nenhum com mais de {{hours}} horas"
+			"titleTooltip_one": "Até {{limit}} erros recentes do servidor da última {{count}} hora",
+			"titleTooltip_many": "Até {{limit}} erros recentes do servidor das últimas {{count}} horas",
+			"titleTooltip_other": "Até {{limit}} erros recentes do servidor das últimas {{count}} horas"
 		},
 		"ha": {
 			"primary": "Primário",

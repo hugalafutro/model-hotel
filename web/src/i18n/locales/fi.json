@@ -77,7 +77,9 @@
 			"opencode": "OpenCode"
 		},
 		"prevRow": "Edellinen rivi",
-		"nextRow": "Seuraava rivi"
+		"nextRow": "Seuraava rivi",
+		"expandNamed": "Laajenna: {{name}}",
+		"collapseNamed": "Kutista: {{name}}"
 	},
 	"layout": {
 		"title": "Model Hotel",
@@ -129,17 +131,19 @@
 			"db": "Tietokanta",
 			"procs_one": "prok",
 			"procs_other": "prosessit",
-			"aggregateCpu": "Suorittimen yhteiskäyttö {{count}} compose-kontissa",
-			"aggregateNetwork": "Verkon yhteiskäyttö {{count}} compose-kontissa",
-			"aggregateDisk": "Levyn I/O yhteensä {{count}} compose-kontissa",
-			"aggregateMemory": "Muistin käyttö yhteensä {{count}} compose-kontissa",
 			"heap": "keko",
 			"hit": "Osuma",
 			"conn": "yht.",
 			"txPerSec": "tx/s",
 			"requestsTodayAll": "Pyyntöjä tänään (kaikki)",
 			"requestsTodayOwn": "Pyyntöjä tänään (omat)",
-			"requestsToday": "Pyyntöjä tänään"
+			"requestsToday": "Pyyntöjä tänään",
+			"aggregateNetwork_one": "Verkkoliikenne yhteensä {{count}} compose-säiliössä",
+			"aggregateNetwork_other": "Verkkoliikenne yhteensä {{count}} compose-säiliössä",
+			"aggregateDisk_one": "Levyn I/O yhteensä {{count}} compose-säiliössä",
+			"aggregateDisk_other": "Levyn I/O yhteensä {{count}} compose-säiliössä",
+			"aggregateMemory_one": "Muistin käyttö yhteensä {{count}} compose-säiliössä",
+			"aggregateMemory_other": "Muistin käyttö yhteensä {{count}} compose-säiliössä"
 		},
 		"toast": {
 			"copiedToClipboard": "Kopioitu leikepöydälle",
@@ -208,13 +212,17 @@
 			"requestsToday": "Määrä proxied LLM pyyntöjä keskiyön paikallinen aika tänään",
 			"cpu": "Palvelimen tällä hetkellä käyttämä suoritin",
 			"procs": "Palvelimen hallintaryhmässä käynnissä olevat prosessit",
-			"aggregateProcs": "Prosessit {{count}} compose-säiliössä",
 			"memoryUsed": "Palvelimen tällä hetkellä käyttämä muisti",
 			"memoryLimit": "Muistiraja, jonka palvelin saa saavuttaa ennen kuin se lopetetaan",
-			"aggregateMemoryUsed": "Muisti, jota käytetään {{count}} compose-säiliössä",
-			"aggregateMemoryLimit": "Korkein {{count}} compose-säiliön ilmoittama muistiraja",
 			"memoryHeap": "Tällä hetkellä varattu Go-keko; tälle palvelimelle ei ole asetettu muistirajaa",
-			"aggregateCpu": "Suoritin, jota käytetään {{count}} compose-säiliössä"
+			"aggregateCpu_one": "Suoritin, jota käytetään {{count}} compose-säiliössä",
+			"aggregateCpu_other": "Suoritin, jota käytetään {{count}} compose-säiliössä",
+			"aggregateProcs_one": "Prosessit {{count}} compose-säiliössä",
+			"aggregateProcs_other": "Prosessit {{count}} compose-säiliössä",
+			"aggregateMemoryUsed_one": "Muisti, jota käytetään {{count}} compose-säiliössä",
+			"aggregateMemoryUsed_other": "Muisti, jota käytetään {{count}} compose-säiliössä",
+			"aggregateMemoryLimit_one": "Korkein {{count}} compose-säiliön ilmoittama muistiraja",
+			"aggregateMemoryLimit_other": "Korkein {{count}} compose-säiliön ilmoittama muistiraja"
 		},
 		"githubRepo": "GitHub-repositorio",
 		"readOnly": {
@@ -231,7 +239,8 @@
 			"title": "Virheet",
 			"viewDetails": "Näytä tiedot",
 			"clearAllConfirm": "Napsauta uudelleen vahvistaaksesi",
-			"titleTooltip": "{{limit}} uusinta virhettä, ei yhtään yli {{hours}} tuntia vanhaa"
+			"titleTooltip_one": "Enintään {{limit}} viimeaikaista palvelinvirhettä viimeisen {{count}} tunnin ajalta",
+			"titleTooltip_other": "Enintään {{limit}} viimeaikaista palvelinvirhettä viimeisen {{count}} tunnin ajalta"
 		},
 		"ha": {
 			"primary": "Ensisijainen",

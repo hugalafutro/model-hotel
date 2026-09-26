@@ -49,7 +49,7 @@ export function OutputIcon({ meta }: { meta: OutputMeta }) {
 
 /** Base classes for an icon badge; callers add the meta's colour classes. */
 export const OUTPUT_ICON_BADGE =
-	"ui-badge inline-flex items-center !px-1 border";
+	"ui-badge ui-badge-icon inline-flex items-center border";
 
 /**
  * The models tables' Output cell: one icon per declared output modality, text

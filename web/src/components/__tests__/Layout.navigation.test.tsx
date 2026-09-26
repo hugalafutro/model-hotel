@@ -344,14 +344,19 @@ describe("Layout", () => {
 		});
 
 		it.each(["/dashboard", "/models", "/logs", "/settings"])(
-			"gives %s the same content column as every other page",
+			"renders %s inside the shared content column",
 			(route) => {
-				renderWithProviders(<Layout>{mockChildren}</Layout>, {
-					initialEntries: [route],
-				});
+				renderWithProviders(
+					<Layout>
+						<div data-testid="test-content" />
+					</Layout>,
+					{ initialEntries: [route] },
+				);
 
-				const contentDiv = screen.getByRole("main").querySelector("div");
-				expect(contentDiv).toHaveClass("max-w-[max(88rem,calc(48rem+38vw))]");
+				const column = screen
+					.getByRole("main")
+					.querySelector('[data-layout="content"]');
+				expect(column).toContainElement(screen.getByTestId("test-content"));
 			},
 		);
 

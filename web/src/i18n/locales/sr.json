@@ -77,7 +77,9 @@
 			"opencode": "OpenCode"
 		},
 		"prevRow": "Претходни ред",
-		"nextRow": "Следећи ред"
+		"nextRow": "Следећи ред",
+		"expandNamed": "Прошири: {{name}}",
+		"collapseNamed": "Скупи: {{name}}"
 	},
 	"layout": {
 		"title": "Model Hotel",
@@ -135,17 +137,22 @@
 			"procs_one": "процес",
 			"procs_few": "процеса",
 			"procs_other": "процеса",
-			"aggregateCpu": "Укупан CPU кроз {{count}} compose контејнера",
-			"aggregateNetwork": "Укупан мрежни саобраћај кроз {{count}} compose контејнера",
-			"aggregateDisk": "Укупан диск I/O кроз {{count}} compose контејнера",
-			"aggregateMemory": "Укупна меморија кроз {{count}} compose контејнера",
 			"heap": "heap",
 			"hit": "Погодак",
 			"conn": "веза",
 			"txPerSec": "tx/s",
 			"requestsTodayAll": "Захтева данас (сви)",
 			"requestsTodayOwn": "Захтева данас (ваши)",
-			"requestsToday": "Захтева данас"
+			"requestsToday": "Захтева данас",
+			"aggregateNetwork_one": "Укупан мрежни саобраћај кроз {{count}} compose контејнер",
+			"aggregateNetwork_few": "Укупан мрежни саобраћај кроз {{count}} compose контејнера",
+			"aggregateNetwork_other": "Укупан мрежни саобраћај кроз {{count}} compose контејнера",
+			"aggregateDisk_one": "Укупан диск I/O кроз {{count}} compose контејнер",
+			"aggregateDisk_few": "Укупан диск I/O кроз {{count}} compose контејнера",
+			"aggregateDisk_other": "Укупан диск I/O кроз {{count}} compose контејнера",
+			"aggregateMemory_one": "Укупна меморија кроз {{count}} compose контејнер",
+			"aggregateMemory_few": "Укупна меморија кроз {{count}} compose контејнера",
+			"aggregateMemory_other": "Укупна меморија кроз {{count}} compose контејнера"
 		},
 		"toast": {
 			"copiedToClipboard": "Копирано у међуспречник",
@@ -214,13 +221,21 @@
 			"requestsToday": "Број LLM захтева посредованих проксијем од поноћи по локалном времену данас",
 			"cpu": "Процесор који сервер тренутно користи",
 			"procs": "Процеси који се извршавају у контролној групи сервера",
-			"aggregateProcs": "Процеси у {{count}} compose контејнера",
 			"memoryUsed": "Меморија коју сервер тренутно користи",
 			"memoryLimit": "Ограничење меморије које сервер сме да достигне пре него што буде прекинут",
-			"aggregateMemoryUsed": "Меморија у употреби у {{count}} compose контејнера",
-			"aggregateMemoryLimit": "Највише ограничење меморије које је пријавило {{count}} compose контејнера",
 			"memoryHeap": "Тренутно заузета Go гомила; за овај сервер није постављено ограничење меморије",
-			"aggregateCpu": "Процесор у употреби у {{count}} compose контејнера"
+			"aggregateCpu_one": "Процесор у употреби у {{count}} compose контејнеру",
+			"aggregateCpu_few": "Процесор у употреби у {{count}} compose контејнера",
+			"aggregateCpu_other": "Процесор у употреби у {{count}} compose контејнера",
+			"aggregateProcs_one": "Процеси у {{count}} compose контејнеру",
+			"aggregateProcs_few": "Процеси у {{count}} compose контејнера",
+			"aggregateProcs_other": "Процеси у {{count}} compose контејнера",
+			"aggregateMemoryUsed_one": "Меморија у употреби у {{count}} compose контејнеру",
+			"aggregateMemoryUsed_few": "Меморија у употреби у {{count}} compose контејнера",
+			"aggregateMemoryUsed_other": "Меморија у употреби у {{count}} compose контејнера",
+			"aggregateMemoryLimit_one": "Највише ограничење меморије које је пријавио {{count}} compose контејнер",
+			"aggregateMemoryLimit_few": "Највише ограничење меморије које су пријавила {{count}} compose контејнера",
+			"aggregateMemoryLimit_other": "Највише ограничење меморије које је пријавило {{count}} compose контејнера"
 		},
 		"githubRepo": "GitHub репозиторијум",
 		"readOnly": {
@@ -237,7 +252,9 @@
 			"title": "Грешке",
 			"viewDetails": "Прикажи детаље",
 			"clearAllConfirm": "Кликните поново да бисте потврдили",
-			"titleTooltip": "Најновијих {{limit}} грешака, ниједна старија од {{hours}} сати"
+			"titleTooltip_one": "До {{limit}} недавних грешака сервера из последњег {{count}} сата",
+			"titleTooltip_few": "До {{limit}} недавних грешака сервера из последња {{count}} сата",
+			"titleTooltip_other": "До {{limit}} недавних грешака сервера из последњих {{count}} сати"
 		},
 		"ha": {
 			"primary": "Примарни",

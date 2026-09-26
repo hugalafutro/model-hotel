@@ -77,7 +77,9 @@
 			"opencode": "OpenCode"
 		},
 		"prevRow": "Hàng trước",
-		"nextRow": "Hàng tiếp theo"
+		"nextRow": "Hàng tiếp theo",
+		"expandNamed": "Mở rộng: {{name}}",
+		"collapseNamed": "Thu gọn: {{name}}"
 	},
 	"layout": {
 		"title": "Model Hotel",
@@ -129,17 +131,19 @@
 			"db": "CSDL",
 			"procs_one": "proc",
 			"procs_other": "procs",
-			"aggregateCpu": "Tổng hợp tài nguyên CPU trên các container Compose của {{count}}",
-			"aggregateNetwork": "Mạng tổng hợp trên các container compose tại {{count}}",
-			"aggregateDisk": "Tổng hợp hoạt động I/O đĩa trên các container Compose của {{count}}",
-			"aggregateMemory": "Tổng hợp bộ nhớ trên các container compose trong {{count}}",
 			"heap": "heap",
 			"hit": "Trúng",
 			"conn": "k.nối",
 			"txPerSec": "tx/s",
 			"requestsTodayAll": "Yêu cầu hôm nay (tất cả)",
 			"requestsTodayOwn": "Yêu cầu hôm nay (của bạn)",
-			"requestsToday": "Yêu cầu hôm nay"
+			"requestsToday": "Yêu cầu hôm nay",
+			"aggregateNetwork_one": "Tổng mạng trên {{count}} vùng chứa compose",
+			"aggregateNetwork_other": "Tổng mạng trên {{count}} vùng chứa compose",
+			"aggregateDisk_one": "Tổng I/O đĩa trên {{count}} vùng chứa compose",
+			"aggregateDisk_other": "Tổng I/O đĩa trên {{count}} vùng chứa compose",
+			"aggregateMemory_one": "Tổng bộ nhớ trên {{count}} vùng chứa compose",
+			"aggregateMemory_other": "Tổng bộ nhớ trên {{count}} vùng chứa compose"
 		},
 		"toast": {
 			"copiedToClipboard": "Đã sao chép vào khay nhớ tạm",
@@ -208,13 +212,17 @@
 			"requestsToday": "Số lượng yêu cầu LLM được chuyển tiếp kể từ nửa đêm theo giờ địa phương hôm nay",
 			"cpu": "CPU máy chủ đang dùng",
 			"procs": "Tiến trình đang chạy trong nhóm điều khiển của máy chủ",
-			"aggregateProcs": "Tiến trình trên {{count}} vùng chứa compose",
 			"memoryUsed": "Bộ nhớ máy chủ đang dùng",
 			"memoryLimit": "Giới hạn bộ nhớ máy chủ được phép đạt tới trước khi bị dừng",
-			"aggregateMemoryUsed": "Bộ nhớ đang dùng trên {{count}} vùng chứa compose",
-			"aggregateMemoryLimit": "Giới hạn bộ nhớ cao nhất do {{count}} vùng chứa compose báo cáo",
 			"memoryHeap": "Vùng nhớ heap của Go đang cấp phát; máy chủ này không đặt giới hạn bộ nhớ",
-			"aggregateCpu": "CPU đang dùng trên {{count}} vùng chứa compose"
+			"aggregateCpu_one": "CPU đang dùng trên {{count}} vùng chứa compose",
+			"aggregateCpu_other": "CPU đang dùng trên {{count}} vùng chứa compose",
+			"aggregateProcs_one": "Tiến trình trên {{count}} vùng chứa compose",
+			"aggregateProcs_other": "Tiến trình trên {{count}} vùng chứa compose",
+			"aggregateMemoryUsed_one": "Bộ nhớ đang dùng trên {{count}} vùng chứa compose",
+			"aggregateMemoryUsed_other": "Bộ nhớ đang dùng trên {{count}} vùng chứa compose",
+			"aggregateMemoryLimit_one": "Giới hạn bộ nhớ cao nhất do {{count}} vùng chứa compose báo cáo",
+			"aggregateMemoryLimit_other": "Giới hạn bộ nhớ cao nhất do {{count}} vùng chứa compose báo cáo"
 		},
 		"githubRepo": "Kho lưu trữ GitHub",
 		"readOnly": {
@@ -231,7 +239,8 @@
 			"title": "Lỗi",
 			"viewDetails": "Xem chi tiết",
 			"clearAllConfirm": "Nhấp lại để xác nhận",
-			"titleTooltip": "{{limit}} lỗi gần nhất, không có lỗi nào cũ hơn {{hours}} giờ"
+			"titleTooltip_one": "Tối đa {{limit}} lỗi máy chủ gần đây trong {{count}} giờ qua",
+			"titleTooltip_other": "Tối đa {{limit}} lỗi máy chủ gần đây trong {{count}} giờ qua"
 		},
 		"ha": {
 			"primary": "Chính",

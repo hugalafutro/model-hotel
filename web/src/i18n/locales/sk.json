@@ -77,7 +77,9 @@
 			"opencode": "OpenCode"
 		},
 		"prevRow": "Predchádzajúci riadok",
-		"nextRow": "Ďalší riadok"
+		"nextRow": "Ďalší riadok",
+		"expandNamed": "Rozbaliť: {{name}}",
+		"collapseNamed": "Zbaliť: {{name}}"
 	},
 	"layout": {
 		"title": "Model Hotel",
@@ -141,17 +143,25 @@
 			"procs_few": "procesy",
 			"procs_many": "procesu",
 			"procs_other": "procesov",
-			"aggregateCpu": "Súhrnné využitie CPU v {{count}} kontajneroch compose",
-			"aggregateNetwork": "Súhrnná sieťová prevádzka v {{count}} kontajneroch compose",
-			"aggregateDisk": "Súhrnné diskové I/O v {{count}} kontajneroch compose",
-			"aggregateMemory": "Súhrnná pamäť v {{count}} kontajneroch compose",
 			"heap": "halda",
 			"hit": "Zásah",
 			"conn": "prip.",
 			"txPerSec": "tx/s",
 			"requestsTodayAll": "Žiad. dnes (všetky)",
 			"requestsTodayOwn": "Žiad. dnes (vaše)",
-			"requestsToday": "Žiad. dnes"
+			"requestsToday": "Žiad. dnes",
+			"aggregateNetwork_one": "Súhrnná sieťová prevádzka v {{count}} kontajneri compose",
+			"aggregateNetwork_few": "Súhrnná sieťová prevádzka v {{count}} kontajneroch compose",
+			"aggregateNetwork_many": "Súhrnná sieťová prevádzka v {{count}} kontajneroch compose",
+			"aggregateNetwork_other": "Súhrnná sieťová prevádzka v {{count}} kontajneroch compose",
+			"aggregateDisk_one": "Súhrnné diskové I/O v {{count}} kontajneri compose",
+			"aggregateDisk_few": "Súhrnné diskové I/O v {{count}} kontajneroch compose",
+			"aggregateDisk_many": "Súhrnné diskové I/O v {{count}} kontajneroch compose",
+			"aggregateDisk_other": "Súhrnné diskové I/O v {{count}} kontajneroch compose",
+			"aggregateMemory_one": "Súhrnná pamäť v {{count}} kontajneri compose",
+			"aggregateMemory_few": "Súhrnná pamäť v {{count}} kontajneroch compose",
+			"aggregateMemory_many": "Súhrnná pamäť v {{count}} kontajneroch compose",
+			"aggregateMemory_other": "Súhrnná pamäť v {{count}} kontajneroch compose"
 		},
 		"toast": {
 			"copiedToClipboard": "Skopírované do schránky",
@@ -220,13 +230,25 @@
 			"requestsToday": "Počet požiadaviek na LLM sprostredkovaných prostredníctvom proxy od dnešnej polnoci miestneho času",
 			"cpu": "Procesor, ktorý server práve využíva",
 			"procs": "Procesy bežiace v kontrolnej skupine servera",
-			"aggregateProcs": "Procesy naprieč {{count}} kontajnermi compose",
 			"memoryUsed": "Pamäť, ktorú server práve využíva",
 			"memoryLimit": "Limit pamäte, ktorý server smie dosiahnuť, kým nebude ukončený",
-			"aggregateMemoryUsed": "Pamäť využívaná naprieč {{count}} kontajnermi compose",
-			"aggregateMemoryLimit": "Najvyšší limit pamäte hlásený {{count}} kontajnermi compose",
 			"memoryHeap": "Aktuálne alokovaná halda Go; pre tento server nie je nastavený limit pamäte",
-			"aggregateCpu": "Procesor využívaný naprieč {{count}} kontajnermi compose"
+			"aggregateCpu_one": "Procesor využívaný naprieč {{count}} kontajnerom compose",
+			"aggregateCpu_few": "Procesor využívaný naprieč {{count}} kontajnermi compose",
+			"aggregateCpu_many": "Procesor využívaný naprieč {{count}} kontajnermi compose",
+			"aggregateCpu_other": "Procesor využívaný naprieč {{count}} kontajnermi compose",
+			"aggregateProcs_one": "Procesy naprieč {{count}} kontajnerom compose",
+			"aggregateProcs_few": "Procesy naprieč {{count}} kontajnermi compose",
+			"aggregateProcs_many": "Procesy naprieč {{count}} kontajnermi compose",
+			"aggregateProcs_other": "Procesy naprieč {{count}} kontajnermi compose",
+			"aggregateMemoryUsed_one": "Pamäť využívaná naprieč {{count}} kontajnerom compose",
+			"aggregateMemoryUsed_few": "Pamäť využívaná naprieč {{count}} kontajnermi compose",
+			"aggregateMemoryUsed_many": "Pamäť využívaná naprieč {{count}} kontajnermi compose",
+			"aggregateMemoryUsed_other": "Pamäť využívaná naprieč {{count}} kontajnermi compose",
+			"aggregateMemoryLimit_one": "Najvyšší limit pamäte hlásený {{count}} kontajnerom compose",
+			"aggregateMemoryLimit_few": "Najvyšší limit pamäte hlásený {{count}} kontajnermi compose",
+			"aggregateMemoryLimit_many": "Najvyšší limit pamäte hlásený {{count}} kontajnermi compose",
+			"aggregateMemoryLimit_other": "Najvyšší limit pamäte hlásený {{count}} kontajnermi compose"
 		},
 		"githubRepo": "Repozitár GitHub",
 		"readOnly": {
@@ -243,7 +265,10 @@
 			"title": "Chyby",
 			"viewDetails": "Zobraziť podrobnosti",
 			"clearAllConfirm": "Kliknite znovu na potvrdenie",
-			"titleTooltip": "{{limit}} najnovších chýb, žiadna staršia než {{hours}} hodín"
+			"titleTooltip_one": "Až {{limit}} nedávnych chýb servera za poslednú {{count}} hodinu",
+			"titleTooltip_few": "Až {{limit}} nedávnych chýb servera za posledné {{count}} hodiny",
+			"titleTooltip_many": "Až {{limit}} nedávnych chýb servera za posledných {{count}} hodiny",
+			"titleTooltip_other": "Až {{limit}} nedávnych chýb servera za posledných {{count}} hodín"
 		},
 		"ha": {
 			"primary": "Primárny",

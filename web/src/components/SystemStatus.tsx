@@ -1,4 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
+import { type ReactNode, useId } from "react";
 import { useTranslation } from "react-i18next";
 import { api } from "../api/client";
 import { useIdentity } from "../context/IdentityContext";
@@ -14,6 +15,26 @@ import {
 	formatUptime,
 	unitClass,
 } from "./systemStatusFormat";
+
+/**
+ * One figure with its own explanation. The title serves pointer users; a title
+ * is not an accessible description, so the same text also sits in an sr-only
+ * span right after the figure, which a screen reader reads in line and names
+ * as the figure's description.
+ */
+function StatHint({ hint, children }: { hint: string; children: ReactNode }) {
+	const id = useId();
+	return (
+		<>
+			<span title={hint} aria-describedby={id}>
+				{children}
+			</span>
+			<span id={id} className="sr-only">
+				{hint}
+			</span>
+		</>
+	);
+}
 
 // SystemStatus is the collapsible health pill at the top of the sidebar:
 // API reachability plus the live process / Docker / database gauges.
@@ -130,8 +151,8 @@ export function SystemStatus() {
 	// the rendered line is unchanged.
 	const memPair = (usedMB: number, limitMB: number) => (
 		<>
-			<span
-				title={
+			<StatHint
+				hint={
 					dockerMem
 						? t("layout.tooltips.aggregateMemoryUsed", {
 								count: docker.container_count,
@@ -140,10 +161,10 @@ export function SystemStatus() {
 				}
 			>
 				{formatMemoryMB(usedMB)}
-			</span>{" "}
+			</StatHint>{" "}
 			/{" "}
-			<span
-				title={
+			<StatHint
+				hint={
 					dockerMem
 						? t("layout.tooltips.aggregateMemoryLimit", {
 								count: docker.container_count,
@@ -152,7 +173,7 @@ export function SystemStatus() {
 				}
 			>
 				{formatMemoryMB(limitMB)}
-			</span>
+			</StatHint>
 		</>
 	);
 	const appMem = dockerMem ? (
@@ -166,10 +187,10 @@ export function SystemStatus() {
 			app.memory_limit_bytes / 1024 / 1024,
 		)
 	) : app ? (
-		<span title={t("layout.tooltips.memoryHeap")}>
+		<StatHint hint={t("layout.tooltips.memoryHeap")}>
 			{formatMemoryMB(app.heap_alloc_mb)}
 			<span className={unitClass}> {t("layout.stats.heap")}</span>
-		</span>
+		</StatHint>
 	) : (
 		"-"
 	);
@@ -241,28 +262,22 @@ export function SystemStatus() {
 						</span>
 					</div>
 
-					{/* CPU + Processes. This row and the Network, Disk and Memory
-					    rows below carry a row-level tooltip only while the figures
-					    are aggregates over the compose containers, which is
-					    something the row does not otherwise say. Without Docker it
-					    would just repeat the visible label, so there is none and
-					    each value speaks for itself. */}
+					{/* CPU + Processes. Each figure describes itself, naming the
+					    compose containers when it is an aggregate, so the row has
+					    no tooltip of its own. The Network, Disk and Memory rows
+					    below carry a row-level tooltip only while their figures
+					    are aggregates, which the row does not otherwise say;
+					    without Docker it would just repeat the visible label. */}
 					<div
 						className="flex justify-between items-center text-(--text-tertiary)"
-						title={
-							useDocker
-								? t("layout.stats.aggregateCpu", {
-										count: docker.container_count,
-									})
-								: undefined
-						}
+						data-testid="stat-cpu"
 					>
 						<span>{t("layout.stats.cpu")}</span>
 						<span className={`text-(--text-secondary) ${dc(cpuPct, 75, 90)}`}>
 							{cpuPct != null && cpuPct >= 0 ? (
 								<>
-									<span
-										title={
+									<StatHint
+										hint={
 											useDocker
 												? t("layout.tooltips.aggregateCpu", {
 														count: docker.container_count,
@@ -272,12 +287,12 @@ export function SystemStatus() {
 									>
 										{cpuPct.toFixed(1)}
 										<span className={unitClass}>%</span>
-									</span>
+									</StatHint>
 									{procs != null && procs > 0 && (
 										<>
 											<span className="text-(--text-secondary) mx-1">|</span>
-											<span
-												title={
+											<StatHint
+												hint={
 													useDocker
 														? t("layout.tooltips.aggregateProcs", {
 																count: docker.container_count,
@@ -290,7 +305,7 @@ export function SystemStatus() {
 													{" "}
 													{t("layout.stats.procs", { count: procs })}
 												</span>
-											</span>
+											</StatHint>
 										</>
 									)}
 								</>
@@ -303,6 +318,7 @@ export function SystemStatus() {
 					{/* Network */}
 					<div
 						className="flex justify-between items-center text-(--text-tertiary)"
+						data-testid="stat-network"
 						title={
 							useDocker
 								? t("layout.stats.aggregateNetwork", {
@@ -318,6 +334,7 @@ export function SystemStatus() {
 					{/* Disk I/O */}
 					<div
 						className="flex justify-between items-center text-(--text-tertiary)"
+						data-testid="stat-disk"
 						title={
 							useDocker
 								? t("layout.stats.aggregateDisk", {
@@ -333,6 +350,7 @@ export function SystemStatus() {
 					{/* Memory */}
 					<div
 						className="flex justify-between items-center text-(--text-tertiary)"
+						data-testid="stat-memory"
 						title={
 							dockerMem
 								? t("layout.stats.aggregateMemory", {

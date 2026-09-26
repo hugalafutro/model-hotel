@@ -40,7 +40,7 @@ export function ErrorShelf() {
 	const { unacked, ack, ackAll } = useErrorShelf();
 	const retention = t("layout.errorShelf.titleTooltip", {
 		limit: ERROR_SHELF_LIMIT,
-		hours: ERROR_SHELF_MAX_AGE_MS / 3_600_000,
+		count: ERROR_SHELF_MAX_AGE_MS / 3_600_000,
 	});
 	const [expanded, setExpanded] = useState(false);
 	// Two-step Clear all: first click arms (shows a confirm hint), second
