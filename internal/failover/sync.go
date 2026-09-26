@@ -2,15 +2,108 @@ package failover
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
+	"slices"
 	"strings"
+	"sync/atomic"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 
 	"github.com/hugalafutro/model-hotel/internal/debuglog"
 )
+
+// FleetAutoGroupsEchoKey is the settings row where the config-sync import stores
+// the auto-created groups the fleet primary last sent (internal/api's
+// keyFleetAutoFailoverGroups). A member's config export echoes that row in place
+// of its own auto groups so its hash can equal the primary's. Discovery clears the
+// row whenever it changes an auto group here: the member's export then shows its
+// own rows, its hash stops matching, and Front Desk re-applies the primary's order
+// on top of what discovery found. A scan that changes nothing leaves it alone, so
+// a fleet at rest is not re-imported on every scan.
+const FleetAutoGroupsEchoKey = "_fleet_auto_failover_groups"
+
+// echoClearPending is set when ClearFleetAutoEcho could not delete the fleet
+// auto-group echo, so the next scan retries the delete even if it changes
+// nothing. Process-wide like the group cache: the config-sync import, which
+// holds no Repository, resets it through MarkFleetAutoEchoWritten.
+var echoClearPending atomic.Bool
+
+// ClearFleetAutoEcho drops the fleet auto-group echo; see FleetAutoGroupsEchoKey.
+// A failure is logged, not returned, and remembered: a stale echo would keep
+// certifying rows that changed, so every later scan retries the delete until one
+// succeeds or an import writes a fresh echo, whether or not that scan changes
+// anything itself.
+func (r *Repository) ClearFleetAutoEcho(ctx context.Context) {
+	if _, err := r.pool.Exec(ctx, `DELETE FROM settings WHERE key = $1`, FleetAutoGroupsEchoKey); err != nil {
+		echoClearPending.Store(true)
+		debuglog.Warn("failover: failed to clear the fleet auto-group echo; will retry on the next scan", "error", err)
+		return
+	}
+	echoClearPending.Store(false)
+}
+
+// echoedBases lists the display models the fleet echo carries. An empty set
+// means no echo (never imported, dropped, or this instance is the primary), in
+// which case there is nothing a scan could stale. known is false when the read
+// itself failed: the caller must then assume the worst rather than skip a clear.
+func (r *Repository) echoedBases(ctx context.Context) (bases map[string]struct{}, known bool) {
+	var raw string
+	err := r.pool.QueryRow(ctx, `SELECT value FROM settings WHERE key = $1`, FleetAutoGroupsEchoKey).Scan(&raw)
+	if errors.Is(err, pgx.ErrNoRows) || (err == nil && raw == "") {
+		return nil, true
+	}
+	if err != nil {
+		return nil, false
+	}
+	var sent []struct {
+		DisplayModel string `json:"display_model"`
+	}
+	if err := json.Unmarshal([]byte(raw), &sent); err != nil {
+		return nil, true // unparseable: the export ignores it too
+	}
+	out := make(map[string]struct{}, len(sent))
+	for _, g := range sent {
+		out[g.DisplayModel] = struct{}{}
+	}
+	return out, true
+}
+
+// clearFleetAutoEchoIfStaled drops the echo when any of the auto groups a scan
+// changed or deleted is one the echo carries, or a clear is still owed. A change
+// to a group only this member holds cannot be re-synced over, so it is not worth
+// an amber badge and a full re-import.
+func (r *Repository) clearFleetAutoEchoIfStaled(ctx context.Context, changed map[string]struct{}) {
+	if echoClearPending.Load() {
+		r.ClearFleetAutoEcho(ctx)
+		return
+	}
+	if len(changed) == 0 {
+		return
+	}
+	echoed, known := r.echoedBases(ctx)
+	if !known {
+		// Cannot tell whether the echo covers the change: clear anyway. The
+		// delete most likely fails the same way, and then the clear is owed.
+		r.ClearFleetAutoEcho(ctx)
+		return
+	}
+	for base := range changed {
+		if _, ok := echoed[base]; ok {
+			r.ClearFleetAutoEcho(ctx)
+			return
+		}
+	}
+}
+
+// MarkFleetAutoEchoWritten tells the scans a fresh echo was just stored by an
+// import, so a clear owed from before it is no longer owed: deleting the new echo
+// would only make Front Desk import the same config once more.
+func MarkFleetAutoEchoWritten() {
+	echoClearPending.Store(false)
+}
 
 // DeletedGroupInfo describes a failover group that was deleted during sync.
 type DeletedGroupInfo struct {
@@ -247,6 +340,7 @@ func (r *Repository) SyncAllModels(ctx context.Context) (*SyncResult, error) {
 	}
 
 	syncedBases := make(map[string]bool)
+	changed := map[string]struct{}{}
 	for base, models := range baseToModels {
 		if len(models) <= 1 {
 			providerNames := make([]string, 0, len(models))
@@ -263,9 +357,15 @@ func (r *Repository) SyncAllModels(ctx context.Context) (*SyncResult, error) {
 		}
 
 		syncedBases[base] = true
-		if _, _, err := r.upsertAutoGroup(ctx, base, currentIDs); err != nil {
+		existing, order, err := r.upsertAutoGroup(ctx, base, currentIDs)
+		if err != nil {
 			result.SyncErrors = append(result.SyncErrors, fmt.Sprintf("%s: %v", base, err))
 			continue
+		}
+		// A scan re-enables an auto group (upsertAutoGroup writes group_enabled
+		// true), so one the primary sent disabled counts as changed too.
+		if existing == nil || !existing.GroupEnabled || !slices.Equal(existing.PriorityOrder, order) {
+			changed[base] = struct{}{}
 		}
 	}
 
@@ -321,6 +421,10 @@ func (r *Repository) SyncAllModels(ctx context.Context) (*SyncResult, error) {
 
 	debuglog.Info("failover: synced groups", "synced", len(syncedBases), "deleted", len(result.DeletedGroups))
 
+	for _, dg := range result.DeletedGroups {
+		changed[dg.DisplayModel] = struct{}{}
+	}
+	r.clearFleetAutoEchoIfStaled(ctx, changed)
 	return result, nil
 }
 
@@ -363,6 +467,11 @@ func (r *Repository) SyncForModel(ctx context.Context, modelID string) (*SyncRes
 
 	if len(currentIDs) <= 1 {
 		r.deleteUndersizedAutoGroup(ctx, base, len(currentIDs), []string{}, result)
+		changed := map[string]struct{}{}
+		if len(result.DeletedGroups) > 0 {
+			changed[base] = struct{}{}
+		}
+		r.clearFleetAutoEchoIfStaled(ctx, changed)
 		return result, nil
 	}
 
@@ -381,6 +490,13 @@ func (r *Repository) SyncForModel(ctx context.Context, modelID string) (*SyncRes
 			AddedModelIDs:   added,
 		})
 	}
+	// Same rule as SyncAllModels: membership moved, the group was re-enabled by
+	// this upsert, or an earlier clear is still owed.
+	changed := map[string]struct{}{}
+	if len(result.UpdatedGroups) > 0 || (existing != nil && !existing.GroupEnabled) {
+		changed[base] = struct{}{}
+	}
+	r.clearFleetAutoEchoIfStaled(ctx, changed)
 
 	debuglog.Info("failover: synced group", "display_model", base, "providers", len(priorityOrder))
 	return result, nil

@@ -96,7 +96,7 @@ func TestConfigSyncApply_FailedStatementAbortsTheApply(t *testing.T) {
 		}
 	})
 	t.Run("applyFailoverGroups", func(t *testing.T) {
-		if _, err := h.applyFailoverGroups(cctx, []ExportFailoverGroup{}); err == nil {
+		if _, err := h.applyFailoverGroups(cctx, []ExportFailoverGroup{}, true); err == nil {
 			t.Fatal("expected an error from the cancelled context")
 		}
 	})

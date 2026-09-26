@@ -315,21 +315,29 @@ func (h *ConfigSyncHandler) computeDiff(ctx context.Context, env ConfigEnvelope)
 	d.Settings = diffKeyed(curSyncable, syncableWant,
 		func(k string) (string, string) { return k, k }, true)
 
-	// Custom failover groups, scoped to auto_created = false to match the apply
-	// side (auto groups regenerate per member and are never synced). The counts
-	// reflect intent: a group the importer later skips for too few resolvable
-	// entries on this member still shows as added/updated here.
+	// Failover groups, custom and auto alike, matching what apply upserts. The
+	// counts reflect intent: a group the importer later skips for too few
+	// resolvable entries on this member still shows as added/updated here.
 	//
 	// Removals mirror applyFailoverGroups: a nil slice means the field was absent,
 	// which apply leaves untouched, so report no removals. An explicit empty array
-	// reconciles to zero, so its removals are real.
-	curGroups, err := nameSet(ctx, pool, `SELECT display_model FROM model_failover_groups WHERE auto_created = false`)
+	// reconciles the custom groups to zero, so its removals are real; auto groups
+	// absent from the envelope are the member's own discovery's to keep or drop,
+	// so they are not counted as removed.
+	groupAuto, err := stringMap(ctx, pool, `SELECT display_model, COALESCE(auto_created, false)::text FROM model_failover_groups`)
 	if err != nil {
 		return d, err
 	}
-	d.FailoverGroups = diffKeyed(identLabels(curGroups), env.Config.FailoverGroups,
+	curGroups := make(map[string]string, len(groupAuto))
+	for name := range groupAuto {
+		curGroups[name] = name
+	}
+	d.FailoverGroups = diffKeyed(curGroups, env.Config.FailoverGroups,
 		func(g ExportFailoverGroup) (string, string) { return g.DisplayModel, g.DisplayModel },
 		env.Config.FailoverGroups != nil)
+	d.FailoverGroups.Removed = slices.DeleteFunc(d.FailoverGroups.Removed, func(name string) bool {
+		return groupAuto[name] == "true"
+	})
 
 	// Users, keyed by username, with the same nil-guard as failover groups: a nil
 	// slice means the envelope omits the field and apply leaves users alone, so

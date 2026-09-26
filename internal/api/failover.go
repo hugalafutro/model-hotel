@@ -585,6 +585,12 @@ func (h *FailoverHandler) Update(w http.ResponseWriter, r *http.Request) {
 	if req.DisplayModel != nil && *req.DisplayModel != existing.DisplayModel {
 		failover.InvalidateFailoverCacheKey(existing.DisplayModel)
 	}
+	// An auto group edited on a fleet member no longer matches what the primary
+	// sent: drop the echo so the member's export shows its own rows and Front
+	// Desk re-applies the primary's. A no-op on the primary and standalone.
+	if existing.AutoCreated {
+		h.failoverRepo.ClearFleetAutoEcho(r.Context())
+	}
 
 	resp, err := h.buildGroupResponse(r.Context(), group)
 	if err != nil {
@@ -602,9 +608,20 @@ func (h *FailoverHandler) Delete(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Read before delete so the echo is only dropped for an auto group (same as
+	// Update); deleting a custom group is nothing the echo describes. A row that
+	// is already gone deletes as a no-op below, as before.
+	existing, err := h.failoverRepo.GetByID(r.Context(), id)
+	if err != nil && !errors.Is(err, pgx.ErrNoRows) {
+		respondError(w, "failed to load failover group", err, http.StatusInternalServerError)
+		return
+	}
 	if err := h.failoverRepo.DeleteByID(r.Context(), id); err != nil {
 		respondError(w, fmt.Sprintf("failed to delete failover group %s", id), err, http.StatusInternalServerError)
 		return
+	}
+	if existing != nil && existing.AutoCreated {
+		h.failoverRepo.ClearFleetAutoEcho(r.Context())
 	}
 
 	w.WriteHeader(http.StatusNoContent)

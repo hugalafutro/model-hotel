@@ -313,17 +313,20 @@ own HA self-report and refuses a host that already is the primary.
 | Providers (including their encrypted keys) | Request logs, metering, events |
 | Virtual keys (matched by hash) | Backups, runtime stats |
 | Dashboard user accounts | Passkeys / TOTP (auth is per-instance) |
-| Custom failover groups | Auto-formed failover groups |
+| Failover groups, custom and auto-formed (entry order and toggles) | |
 | Models you switched off by hand | Discovered models themselves |
 | Syncable settings (discovery, timeouts, circuit breaker, hedging, backups, retention) | Alerting destination (apprise URL/targets) |
 | SSO email allowlists (who may log in, fleet-wide) | SSO provider config (enable flags, issuer, client credentials, callback base URL - each member chooses which IdPs it offers) |
 | Password policy (breached-password check) | Tab timeout (per-instance operator preference) |
 
-Model rows and auto-formed failover groups are **not** copied: each member
-rediscovers models from the synced providers and re-forms those groups on its own.
-What does travel is your intent about them. A custom failover group is carried as
-stable (provider, model) references and rebuilt against each member's own model
-IDs, and a model you disabled by hand is disabled fleet-wide.
+Model rows are **not** copied: each member rediscovers models from the synced
+providers on its own. What does travel is your intent about them. A failover group
+is carried as stable (provider, model) references and rebuilt against each member's
+own model IDs, so the entry order and toggles you set on the primary are the order
+and toggles on every member, auto-formed groups included. A member still forms and
+prunes auto groups from its own discovery: a model only it holds is appended after
+the primary's entries, and a group it cannot fill with two providers is not built.
+A model you disabled by hand is disabled fleet-wide.
 
 The other two ways a model can be switched off deliberately do **not** travel: one
 that discovery stopped seeing in a provider's listing, and one the proxy retired
@@ -380,7 +383,12 @@ What makes this safe to leave running:
 
 - **Convergence is measured, not assumed.** Every 15 seconds Front Desk reads each
   member's own config hash and compares it with the primary's, so a member is only
-  counted in sync when it demonstrably serves the same config. A member that does
+  counted in sync when it demonstrably serves the same config. For auto-formed
+  failover groups the member hashes the order and toggles it was last sent rather
+  than its own rows (a provider can list a model for one member's key and not
+  another's); the moment its own discovery or an operator changes one of those
+  groups, that record is dropped, the hash stops matching, and the primary's order
+  is applied again on top of what changed. A member that does
   not is pushed to again, at most once every 10 minutes so a member that cannot
   converge never re-imports on every tick; one that still does not match after a
   push is badged amber and raises `config.sync_incomplete`.

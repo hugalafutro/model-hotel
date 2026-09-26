@@ -1,0 +1,283 @@
+package failover
+
+import (
+	"context"
+	"encoding/json"
+	"testing"
+
+	"github.com/google/uuid"
+)
+
+// fleetEchoRows counts the fleet auto-group echo row; see FleetAutoGroupsEchoKey.
+func fleetEchoRows(t *testing.T) int {
+	t.Helper()
+	var n int
+	if err := testDB.Pool().QueryRow(context.Background(),
+		`SELECT count(*) FROM settings WHERE key = $1`, FleetAutoGroupsEchoKey).Scan(&n); err != nil {
+		t.Fatalf("count echo: %v", err)
+	}
+	return n
+}
+
+// echoTestBase names a fresh base model for one echo test and removes the auto
+// group it forms when the test ends: an orphaned auto group would be deleted by
+// the next SyncAllModels in this process and miscount another test's deletions.
+func echoTestBase(t *testing.T, prefix string) string {
+	t.Helper()
+	base := prefix + uuid.New().String()[:8]
+	t.Cleanup(func() {
+		_, _ = testDB.Pool().Exec(context.Background(), `DELETE FROM model_failover_groups WHERE display_model = $1`, base)
+		InvalidateFailoverCache()
+	})
+	return base
+}
+
+// seedFleetEcho stores an echo that names the given bases, as an import would.
+func seedFleetEcho(t *testing.T, bases ...string) {
+	t.Helper()
+	sent := make([]map[string]string, 0, len(bases))
+	for _, b := range bases {
+		sent = append(sent, map[string]string{"display_model": b})
+	}
+	raw, _ := json.Marshal(sent)
+	if _, err := testDB.Pool().Exec(context.Background(),
+		`INSERT INTO settings (key, value, updated_at) VALUES ($1, $2, now())
+		 ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value`, FleetAutoGroupsEchoKey, string(raw)); err != nil {
+		t.Fatalf("seed echo: %v", err)
+	}
+	t.Cleanup(func() {
+		_, _ = testDB.Pool().Exec(context.Background(), `DELETE FROM settings WHERE key = $1`, FleetAutoGroupsEchoKey)
+		MarkFleetAutoEchoWritten()
+	})
+}
+
+// A scan drops the fleet echo only when it changes an auto group the echo
+// carries: forming one, changing its membership, or deleting an undersized one.
+// A scan that finds everything as it was, or that only changes a group the
+// primary never sent, leaves the echo alone, so a fleet at rest is not
+// re-imported on every scan.
+func TestRepository_SyncAllModels_ClearsFleetEchoOnlyOnChange(t *testing.T) {
+	repo := newTestRepo(t)
+	ctx := context.Background()
+	base := echoTestBase(t, "echo-sync-")
+	_, m1 := seedProviderModel(ctx, t, base, true, true)
+	_, m2 := seedProviderModel(ctx, t, base, true, true)
+
+	seedFleetEcho(t, base)
+	if _, err := repo.SyncAllModels(ctx); err != nil {
+		t.Fatalf("sync: %v", err)
+	}
+	if fleetEchoRows(t) != 0 {
+		t.Fatal("forming an auto group must drop the echo")
+	}
+
+	seedFleetEcho(t, base)
+	if _, err := repo.SyncAllModels(ctx); err != nil {
+		t.Fatalf("sync: %v", err)
+	}
+	if fleetEchoRows(t) != 1 {
+		t.Fatal("a scan that changes nothing must leave the echo alone")
+	}
+
+	// A group only this member holds is not in the echo; forming it is no news.
+	mine := echoTestBase(t, "echo-mine-")
+	seedProviderModel(ctx, t, mine, true, true)
+	seedProviderModel(ctx, t, mine, true, true)
+	if _, err := repo.SyncAllModels(ctx); err != nil {
+		t.Fatalf("sync: %v", err)
+	}
+	if fleetEchoRows(t) != 1 {
+		t.Fatal("forming a group the primary never sent must leave the echo alone")
+	}
+
+	seedProviderModel(ctx, t, base, true, true)
+	if _, err := repo.SyncAllModels(ctx); err != nil {
+		t.Fatalf("sync: %v", err)
+	}
+	if fleetEchoRows(t) != 0 {
+		t.Fatal("a new member joining an auto group must drop the echo")
+	}
+
+	// Undersize it and resync just this base.
+	seedFleetEcho(t, base)
+	for _, id := range []uuid.UUID{m1, m2} {
+		if _, err := testDB.Pool().Exec(ctx, `UPDATE models SET enabled = false WHERE id = $1`, id); err != nil {
+			t.Fatalf("disable model: %v", err)
+		}
+	}
+	if _, err := repo.SyncForModel(ctx, base); err != nil {
+		t.Fatalf("sync: %v", err)
+	}
+	if fleetEchoRows(t) != 0 {
+		t.Fatal("deleting an undersized auto group must drop the echo")
+	}
+}
+
+// The per-model resync follows the same rule on both of its paths.
+func TestRepository_SyncForModel_ClearsFleetEcho(t *testing.T) {
+	repo := newTestRepo(t)
+	ctx := context.Background()
+	base := echoTestBase(t, "echo-one-")
+	_, m1 := seedProviderModel(ctx, t, base, true, true)
+	seedProviderModel(ctx, t, base, true, true)
+
+	seedFleetEcho(t, base)
+	if _, err := repo.SyncForModel(ctx, base); err != nil {
+		t.Fatalf("sync: %v", err)
+	}
+	if fleetEchoRows(t) != 0 {
+		t.Fatal("forming the group must drop the echo")
+	}
+
+	seedFleetEcho(t, base)
+	if _, err := repo.SyncForModel(ctx, base); err != nil {
+		t.Fatalf("sync: %v", err)
+	}
+	if fleetEchoRows(t) != 1 {
+		t.Fatal("an unchanged group must leave the echo alone")
+	}
+
+	if _, err := testDB.Pool().Exec(ctx, `UPDATE models SET enabled = false WHERE id = $1`, m1); err != nil {
+		t.Fatalf("disable model: %v", err)
+	}
+	if _, err := repo.SyncForModel(ctx, base); err != nil {
+		t.Fatalf("sync: %v", err)
+	}
+	if fleetEchoRows(t) != 0 {
+		t.Fatal("deleting the undersized group must drop the echo")
+	}
+
+	// Best-effort: a failed clear is logged, never returned or panicked on.
+	canceled, cancel := context.WithCancel(ctx)
+	cancel()
+	repo.ClearFleetAutoEcho(canceled)
+}
+
+// A scan re-enables an auto group the primary sent disabled (upsertAutoGroup
+// always writes group_enabled true), so that flip counts as a change and drops
+// the echo, on both scan paths.
+func TestRepository_Sync_ReenablingADisabledAutoGroupClearsFleetEcho(t *testing.T) {
+	repo := newTestRepo(t)
+	ctx := context.Background()
+	base := echoTestBase(t, "echo-off-")
+	seedProviderModel(ctx, t, base, true, true)
+	seedProviderModel(ctx, t, base, true, true)
+	if _, err := repo.SyncAllModels(ctx); err != nil {
+		t.Fatalf("sync: %v", err)
+	}
+	disable := func() {
+		t.Helper()
+		if _, err := testDB.Pool().Exec(ctx, `UPDATE model_failover_groups SET group_enabled = false WHERE display_model = $1`, base); err != nil {
+			t.Fatalf("disable group: %v", err)
+		}
+		InvalidateFailoverCache()
+	}
+
+	disable()
+	seedFleetEcho(t, base)
+	if _, err := repo.SyncAllModels(ctx); err != nil {
+		t.Fatalf("sync: %v", err)
+	}
+	if fleetEchoRows(t) != 0 {
+		t.Fatal("SyncAllModels re-enabling a disabled auto group must drop the echo")
+	}
+
+	disable()
+	seedFleetEcho(t, base)
+	if _, err := repo.SyncForModel(ctx, base); err != nil {
+		t.Fatalf("sync: %v", err)
+	}
+	if fleetEchoRows(t) != 0 {
+		t.Fatal("SyncForModel re-enabling a disabled auto group must drop the echo")
+	}
+}
+
+// A clear that failed is retried by the next scan even when that scan changes
+// nothing, so a stale echo cannot outlive the change it hides.
+func TestRepository_Sync_RetriesAFailedFleetEchoClear(t *testing.T) {
+	repo := newTestRepo(t)
+	ctx := context.Background()
+	base := echoTestBase(t, "echo-retry-")
+	seedProviderModel(ctx, t, base, true, true)
+	seedProviderModel(ctx, t, base, true, true)
+	if _, err := repo.SyncAllModels(ctx); err != nil {
+		t.Fatalf("sync: %v", err)
+	}
+
+	seedFleetEcho(t, base)
+	canceled, cancel := context.WithCancel(ctx)
+	cancel()
+	repo.ClearFleetAutoEcho(canceled) // fails: the echo stays, the retry is owed
+	if fleetEchoRows(t) != 1 {
+		t.Fatal("precondition: the failed clear must leave the echo in place")
+	}
+	if _, err := repo.SyncAllModels(ctx); err != nil {
+		t.Fatalf("sync: %v", err)
+	}
+	if fleetEchoRows(t) != 0 {
+		t.Fatal("an unchanged scan must retry the owed clear")
+	}
+
+	seedFleetEcho(t, base)
+	repo.ClearFleetAutoEcho(canceled)
+	if _, err := repo.SyncForModel(ctx, base); err != nil {
+		t.Fatalf("sync: %v", err)
+	}
+	if fleetEchoRows(t) != 0 {
+		t.Fatal("an unchanged per-model sync must retry the owed clear")
+	}
+}
+
+// An import that stores a fresh echo settles any clear owed from before it: the
+// next unchanged scan must not delete the echo that import just wrote, or Front
+// Desk would import the same config once more for nothing.
+func TestRepository_Sync_FreshEchoSettlesAnOwedClear(t *testing.T) {
+	repo := newTestRepo(t)
+	ctx := context.Background()
+	base := echoTestBase(t, "echo-settle-")
+	seedProviderModel(ctx, t, base, true, true)
+	seedProviderModel(ctx, t, base, true, true)
+	if _, err := repo.SyncAllModels(ctx); err != nil {
+		t.Fatalf("sync: %v", err)
+	}
+
+	canceled, cancel := context.WithCancel(ctx)
+	cancel()
+	repo.ClearFleetAutoEcho(canceled) // fails: a clear is owed
+	seedFleetEcho(t, base)            // the import then writes a fresh echo...
+	MarkFleetAutoEchoWritten()        // ...and says so
+	if _, err := repo.SyncAllModels(ctx); err != nil {
+		t.Fatalf("sync: %v", err)
+	}
+	if fleetEchoRows(t) != 1 {
+		t.Fatal("an unchanged scan after a fresh import must keep the new echo")
+	}
+}
+
+// When the scan cannot read the echo to tell whether its change is covered, it
+// clears anyway; if that delete fails too, the clear is owed and the next scan
+// retries it. A read failure must never turn into a skipped clear.
+func TestRepository_Sync_UnreadableEchoIsClearedNotSkipped(t *testing.T) {
+	repo := newTestRepo(t)
+	ctx := context.Background()
+	base := echoTestBase(t, "echo-unread-")
+	seedProviderModel(ctx, t, base, true, true)
+	seedProviderModel(ctx, t, base, true, true)
+	if _, err := repo.SyncAllModels(ctx); err != nil {
+		t.Fatalf("sync: %v", err)
+	}
+	seedFleetEcho(t, base)
+
+	canceled, cancel := context.WithCancel(ctx)
+	cancel()
+	repo.clearFleetAutoEchoIfStaled(canceled, map[string]struct{}{base: {}}) // read fails, delete fails: owed
+	if fleetEchoRows(t) != 1 {
+		t.Fatal("precondition: the failed clear leaves the echo in place")
+	}
+	if _, err := repo.SyncAllModels(ctx); err != nil {
+		t.Fatalf("sync: %v", err)
+	}
+	if fleetEchoRows(t) != 0 {
+		t.Fatal("the owed clear must be retried by the next scan")
+	}
+}
