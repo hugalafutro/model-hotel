@@ -307,6 +307,26 @@ class DashboardViewModelTest {
         }
 
     @Test
+    fun badgesTheEffectivePrimaryWithTheDesignationAsFallback() =
+        runBlocking {
+            val client =
+                FakeFleetClient(
+                    membersResult = FetchResult.Success(listOf(member)),
+                    autoSyncResult =
+                        FetchResult.Success(AutoSyncConfig(enabled = false, primaryId = "", effectivePrimaryId = "m1")),
+                )
+            val vm = viewModel(client, linkedStore(), "http://fd:1")
+
+            vm.refreshOnce()
+
+            // A one-member fleet has no designation but Front Desk names its member.
+            assertEquals("m1", vm.state.value.badgePrimaryId)
+            assertEquals("", vm.state.value.primaryId)
+            // An older Front Desk omits the field: the designation badges.
+            assertEquals("m2", DashboardUiState(primaryId = "m2").badgePrimaryId)
+        }
+
+    @Test
     fun eachCardGetsItsOwnMembersNewestEvent() =
         runBlocking {
             val m2 = member.copy(id = "m2", name = "hotel-2")

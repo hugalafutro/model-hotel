@@ -877,6 +877,11 @@ func TestDeleteMemberOrDisband_StatementFailures(t *testing.T) {
 		if err := s.SetFleetSyncState(ctx, ids[0], "m0", time.Now()); err != nil {
 			t.Fatalf("seed fleet sync state: %v", err)
 		}
+		// A live designation elsewhere, so the marker is a ghost rather than the
+		// effective primary the delete refuses.
+		if err := s.SetAutoSync(ctx, true, ids[1]); err != nil {
+			t.Fatalf("designate: %v", err)
+		}
 		breakWith(t, s, `CREATE TRIGGER boom BEFORE UPDATE ON fleet_sync_state BEGIN SELECT RAISE(ABORT, 'boom'); END`)
 		wantErr(t, s, ids[0], "clear ghost fleet state")
 	})
@@ -976,7 +981,8 @@ func TestDeleteMemberClearsGhostFleetState(t *testing.T) {
 	}
 	// Two more members so deleting the ghost is a plain removal, not a
 	// two-member disband (see TestDeleteMemberOrDisband_TwoMemberFleet).
-	if _, err := s.CreateMember(ctx, "keep", "https://k.example.com", ""); err != nil {
+	keep, err := s.CreateMember(ctx, "keep", "https://k.example.com", "")
+	if err != nil {
 		t.Fatalf("create keep: %v", err)
 	}
 	if _, err := s.CreateMember(ctx, "keep2", "https://k2.example.com", ""); err != nil {
@@ -984,6 +990,11 @@ func TestDeleteMemberClearsGhostFleetState(t *testing.T) {
 	}
 	if err := s.SetFleetSyncState(ctx, gm.ID, "ghost", time.Now()); err != nil {
 		t.Fatalf("seed fleet sync state: %v", err)
+	}
+	// The live designation names another member, so the marker is a ghost, not
+	// the effective primary (which the delete would refuse).
+	if err := s.SetAutoSync(ctx, true, keep.ID); err != nil {
+		t.Fatalf("designate: %v", err)
 	}
 
 	if outcome, _, err := s.DeleteMemberOrDisband(ctx, gm.ID); err != nil || outcome != DeleteApplied {

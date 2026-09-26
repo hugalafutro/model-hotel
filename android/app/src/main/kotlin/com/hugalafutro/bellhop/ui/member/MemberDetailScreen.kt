@@ -98,7 +98,13 @@ import java.util.Locale
 @Composable
 fun MemberDetailScreen(
     member: FleetMember,
+    // Badges the member as the fleet primary (Front Desk's effective primary).
     isPrimary: Boolean,
+    // Whether the member is the designated primary, the only source a fleet sync
+    // accepts, so it alone gets the Sync action. It differs from [isPrimary] when
+    // Front Desk names a primary nothing designated (a fleet grown from one).
+    // Required so no caller can expose the Sync action by omission.
+    isDesignated: Boolean,
     onBack: () -> Unit,
     modifier: Modifier = Modifier,
     ui: MemberDetailUiState = MemberDetailUiState(),
@@ -208,7 +214,7 @@ fun MemberDetailScreen(
                         item {
                             OperatorControls(
                                 member = member,
-                                isPrimary = isPrimary,
+                                isPrimary = isDesignated,
                                 action = ui.action,
                                 lastFleetSyncAt = ui.lastFleetSyncAt,
                                 onSetState = onSetState,
@@ -945,6 +951,7 @@ private fun MemberDetailScreenPreview() {
                         ),
                 ),
             isPrimary = true,
+            isDesignated = true,
             onBack = {},
             ui =
                 MemberDetailUiState(

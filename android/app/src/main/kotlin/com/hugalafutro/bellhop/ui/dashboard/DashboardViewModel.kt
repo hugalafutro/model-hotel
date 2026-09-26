@@ -48,6 +48,9 @@ data class DashboardUiState(
     val loading: Boolean = true,
     val members: List<FleetMember> = emptyList(),
     val primaryId: String = "",
+    // The member Front Desk treats as primary (effective_primary_id); empty on
+    // an older Front Desk or when none resolves. See badgePrimaryId.
+    val effectivePrimaryId: String = "",
     // Auto-sync master toggle, from GET /api/fleet/autosync. Drives the pause/
     // resume operator control, which is only shown once a primary is configured.
     val autoSyncEnabled: Boolean = false,
@@ -92,7 +95,11 @@ data class DashboardUiState(
     // the tap would have looked exactly like a refresh that found no change.
     // Cleared by the next successful quota read, so it can't outlive the problem.
     val refreshError: String? = null,
-)
+) {
+    // The member the dashboard badges as primary: Front Desk's effective primary,
+    // or the designation when it sends none.
+    val badgePrimaryId: String get() = effectivePrimaryId.ifEmpty { primaryId }
+}
 
 /**
  * AutoSyncAction is the pause/resume operator control's UI state, the fleet-wide
@@ -523,6 +530,8 @@ class DashboardViewModel(
                         loading = false,
                         members = result.data,
                         primaryId = autoSync?.data?.primaryId ?: it.primaryId,
+                        effectivePrimaryId =
+                            autoSync?.data?.let { cfg -> cfg.effectivePrimaryId.orEmpty() } ?: it.effectivePrimaryId,
                         autoSyncEnabled = liveEnabled,
                         fleetState = autoSync?.data?.fleetState ?: it.fleetState,
                         fleetStateReasons = autoSync?.data?.fleetStateReasons ?: it.fleetStateReasons,

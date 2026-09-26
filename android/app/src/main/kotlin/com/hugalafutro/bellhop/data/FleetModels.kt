@@ -68,14 +68,18 @@ data class HealthStatus(
  * AutoSyncConfig is GET/PUT /api/fleet/autosync: the auto-sync toggle, the
  * designated primary member (empty when none is chosen), and Front Desk's
  * computed [stale] flag (auto-sync off and the fleet unsynced for over a day, so
- * the replicas may be drifting). The dashboard uses primaryId for the Primary
- * badge and enabled for the pause/unpause control; the background monitor reads
- * stale to raise a drift notification.
+ * the replicas may be drifting). The dashboard badges effectivePrimaryId (the
+ * member Front Desk treats as primary, which is the sole member of a one-member
+ * fleet even without a designation), falling back to primaryId on an older Front
+ * Desk that omits it; primaryId stays the designation the pause/unpause control
+ * and fleet sync act on. The background monitor reads stale to raise a drift
+ * notification.
  */
 @Serializable
 data class AutoSyncConfig(
     val enabled: Boolean = false,
     @SerialName("primary_id") val primaryId: String = "",
+    @SerialName("effective_primary_id") val effectivePrimaryId: String? = null,
     val stale: Boolean = false,
     // When a sync (manual or automatic) last actually wrote config to any
     // member; empty until one has. Member detail shows it under the fleet-sync

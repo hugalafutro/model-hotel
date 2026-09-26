@@ -111,7 +111,8 @@ func TestCreateMemberErrorsCarryCodes(t *testing.T) {
 	// The same stale report naming a DIFFERENT Front Desk is refused. That desk
 	// may only be unreachable for the moment, and its member adopts a new owner
 	// as soon as the old one's heartbeat goes stale - so enrolling it here would
-	// quietly take a live fleet's config source away from it.
+	// quietly take a live fleet's config source away from it. Regression pin:
+	// another desk's stale primary is refused without the admin token.
 	t.Run("another desk's stale primary is refused", func(t *testing.T) {
 		srv, store := newTestServer(t)
 		host := fleetIdentityStub(t, `{"state":"warning","is_primary":true,"frontdesk_id":"fd-somewhere-else"}`, "iid-theirs")
@@ -140,8 +141,54 @@ func TestCreateMemberErrorsCarryCodes(t *testing.T) {
 		if members, _ := store.ListMembers(t.Context()); len(members) != 1 {
 			t.Errorf("members = %d after the confirmed add, want 1", len(members))
 		}
+		// The takeover is recorded on the member.added event with the id of the
+		// desk it was taken from, so it is never silent.
+		evs, _, err := store.ListEvents(t.Context(), EventFilter{Type: "member.added"})
+		if err != nil || len(evs) != 1 {
+			t.Fatalf("member.added events = %d (err %v), want 1", len(evs), err)
+		}
+		if got := evs[0].Metadata["taken_over_from"]; got != "fd-that-is-gone" {
+			t.Errorf("member.added taken_over_from = %v, want fd-that-is-gone", got)
+		}
 	})
-	// A wrong token is no confirmation at all: the refusal stands.
+	// Within 90s of this desk removing its own primary (or disbanding) the host
+	// still reports the live "primary" state, because nothing announces the
+	// demotion. It names this desk and is not in the roster, so an immediate
+	// re-add goes through like the stale own-desk case above.
+	t.Run("own just-dropped live primary is addable", func(t *testing.T) {
+		srv, store := newTestServer(t)
+		ownID, err := store.EnsureFrontdeskID(t.Context())
+		if err != nil {
+			t.Fatalf("frontdesk id: %v", err)
+		}
+		host := fleetIdentityStub(t, `{"state":"primary","is_primary":true,"frontdesk_id":"`+ownID+`"}`, "iid-just-dropped")
+
+		rec := do(t, srv, http.MethodPost, "/api/members", `{"name":"back","url":"`+host.URL+`","token":"tok"}`, true)
+		if rec.Code != http.StatusCreated {
+			t.Fatalf("re-add of our just-dropped primary = %d code=%q, want 201", rec.Code, codeOf(t, rec))
+		}
+	})
+	// The same live report for a host that IS still in the roster is this
+	// fleet's primary reached under a second address: the instance dedup
+	// refuses it.
+	t.Run("own live primary still in the roster is refused", func(t *testing.T) {
+		srv, store := newTestServer(t)
+		ownID, err := store.EnsureFrontdeskID(t.Context())
+		if err != nil {
+			t.Fatalf("frontdesk id: %v", err)
+		}
+		first := systemMemberServerID(t, false, "iid-ours")
+		if rec := do(t, srv, http.MethodPost, "/api/members", `{"name":"p","url":"`+first.URL+`","token":"tok"}`, true); rec.Code != http.StatusCreated {
+			t.Fatalf("first add = %d, want 201", rec.Code)
+		}
+		again := fleetIdentityStub(t, `{"state":"primary","is_primary":true,"frontdesk_id":"`+ownID+`"}`, "iid-ours")
+		rec := do(t, srv, http.MethodPost, "/api/members", `{"name":"p-lan","url":"`+again.URL+`","token":"tok"}`, true)
+		if rec.Code != http.StatusConflict || codeOf(t, rec) != "already_member" {
+			t.Fatalf("got %d code=%q, want 409 already_member", rec.Code, codeOf(t, rec))
+		}
+	})
+	// A wrong token is no confirmation at all. Regression pin: a wrong admin
+	// token leaves the primary_elsewhere refusal standing.
 	t.Run("another desk's stale primary refuses a wrong admin token", func(t *testing.T) {
 		srv, _ := newTestServer(t)
 		host := fleetIdentityStub(t, `{"state":"warning","is_primary":true,"frontdesk_id":"fd-that-is-gone"}`, "iid-nope")
@@ -166,6 +213,7 @@ func TestCreateMemberErrorsCarryCodes(t *testing.T) {
 	})
 	// A stale ex-MEMBER (never a primary) is addable whoever managed it: the
 	// ownership question only arises for the one host a fleet cannot do without.
+	// Regression pin: a stale non-primary host is addable whoever managed it.
 	t.Run("another desk's stale member is addable", func(t *testing.T) {
 		srv, _ := newTestServer(t)
 		host := fleetIdentityStub(t, `{"state":"warning","is_primary":false,"frontdesk_id":"fd-somewhere-else"}`, "iid-plain")

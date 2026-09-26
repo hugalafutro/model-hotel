@@ -46,32 +46,39 @@ func (s *Server) RunQuotaDistribute(ctx context.Context) {
 	}
 }
 
-// DistributeQuotaOnce fetches the designated primary's quota snapshots and posts
-// them to every other member, so members do not each poll the same upstream
-// account. It mirrors the FD-orchestrated config-sync path (autoSyncOnce): the
-// primary is the read source, Front Desk only relays the snapshots (they carry
-// no key material), and members apply them with skip-if-newer so an older fleet
-// write never clobbers a fresher local one.
+// DistributeQuotaOnce fetches the fleet primary's quota snapshots
+// (effectivePrimary) and posts them to every other member, so members do not
+// each poll the same upstream account. It mirrors the FD-orchestrated
+// config-sync path (autoSyncOnce): the primary is the read source, Front Desk
+// only relays the snapshots (they carry no key material), and members apply
+// them with skip-if-newer so an older fleet write never clobbers a fresher
+// local one.
 //
 // Best-effort and error-free: the primary or any member being unreachable is
 // logged at debug and skipped, and those members fall back to their own
-// self-poll. It is a no-op when no primary is designated (standalone or a fleet
-// that has not been set up yet), which is what the receiving member's suppression
-// relies on: a node Front Desk is not feeding has no recent fleet snapshot and
-// keeps self-polling.
+// self-poll. It is a no-op when no primary resolves or the primary is the only
+// member (standalone or a fleet that has not been set up yet), which is what
+// the receiving member's suppression relies on: a node Front Desk is not
+// feeding has no recent fleet snapshot and keeps self-polling.
+//
+// It also needs the operator to have chosen the source: a designation or a
+// recorded sync run. A primary named only by lonePrimaryMarker's no-run marker
+// (a fleet grown from one member) is nobody's explicit choice yet, and since
+// members match snapshots by provider name, relaying from it could hand a
+// member the quota of a same-named provider on a different account.
 func (s *Server) DistributeQuotaOnce(ctx context.Context) {
-	cfg, err := s.store.GetAutoSync(ctx)
+	primaryID, members, cfg, ran, err := s.effectivePrimary(ctx)
 	if err != nil {
-		debuglog.Warn("frontdesk: quota distribute: read auto-sync config", "error", err)
+		debuglog.Warn("frontdesk: quota distribute: resolve primary", "error", err)
 		return
 	}
-	if cfg.PrimaryID == "" {
-		return // no primary designated: nothing to distribute from
+	if primaryID == "" || len(members) < 2 || (cfg.PrimaryID == "" && !ran) {
+		return // no primary, nobody else to feed, or a fleet never set up
 	}
 
-	primary, primaryToken, err := s.memberTokenOrErr(ctx, cfg.PrimaryID)
+	primary, primaryToken, err := s.memberTokenOrErr(ctx, primaryID)
 	if err != nil {
-		// The designated primary was removed or lost its token; retry next tick.
+		// The primary was removed or lost its token; retry next tick.
 		debuglog.Debug("frontdesk: quota distribute: primary unavailable", "error", err)
 		return
 	}
@@ -82,13 +89,8 @@ func (s *Server) DistributeQuotaOnce(ctx context.Context) {
 		return
 	}
 
-	members, err := s.store.ListMembers(ctx)
-	if err != nil {
-		debuglog.Warn("frontdesk: quota distribute: list members", "error", err)
-		return
-	}
 	for _, m := range members {
-		if m.ID == cfg.PrimaryID {
+		if m.ID == primaryID {
 			continue // the primary is the source, not a destination
 		}
 		_, token, err := s.memberTokenOrErr(ctx, m.ID)

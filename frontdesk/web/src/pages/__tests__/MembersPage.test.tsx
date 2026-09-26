@@ -39,10 +39,10 @@ function renderPage() {
 
 beforeEach(() => {
 	server.use(sseHandler());
-	// Default: no primary designated. The page derives the primary from
-	// /api/fleet/autosync (primary_id), the single source of truth;
-	// tests that care override this with a non-empty primary_id. The last-sync
-	// endpoint is left mocked for any other consumer but no longer drives the badge.
+	// Default: no primary. The page reads the primary from /api/fleet/autosync
+	// (effective_primary_id, which the server omits when none resolves, as
+	// here); tests that care override it. The last-sync endpoint is left mocked for any other consumer
+	// but does not drive the badge.
 	server.use(
 		http.get("/api/fleet/autosync", () =>
 			HttpResponse.json({ enabled: false, primary_id: "" }),
@@ -585,14 +585,17 @@ describe("MembersPage", () => {
 		let autosyncCalls = 0;
 		server.use(
 			http.get("/api/members", () =>
-				HttpResponse.json([member({ id: "1", name: "hotel-1" })]),
+				HttpResponse.json([
+					member({ id: "1", name: "hotel-1" }),
+					member({ id: "2", name: "hotel-2" }),
+				]),
 			),
 			http.get("/api/fleet/autosync", () => {
 				autosyncCalls += 1;
 				return HttpResponse.json(
 					autosyncCalls === 1
 						? { enabled: false, primary_id: "" }
-						: { enabled: true, primary_id: "1" },
+						: { enabled: true, primary_id: "1", effective_primary_id: "1" },
 				);
 			}),
 			sseEmitting([
@@ -710,7 +713,11 @@ describe("MembersPage", () => {
 				]),
 			),
 			http.get("/api/fleet/autosync", () =>
-				HttpResponse.json({ enabled: true, primary_id: "2" }),
+				HttpResponse.json({
+					enabled: true,
+					primary_id: "2",
+					effective_primary_id: "2",
+				}),
 			),
 		);
 		renderPage();
@@ -864,7 +871,11 @@ describe("MembersPage", () => {
 				]),
 			),
 			http.get("/api/fleet/autosync", () =>
-				HttpResponse.json({ enabled: true, primary_id: "1" }),
+				HttpResponse.json({
+					enabled: true,
+					primary_id: "1",
+					effective_primary_id: "1",
+				}),
 			),
 		);
 		renderPage();
@@ -918,7 +929,11 @@ describe("MembersPage", () => {
 				]),
 			),
 			http.get("/api/fleet/autosync", () =>
-				HttpResponse.json({ enabled: true, primary_id: "1" }),
+				HttpResponse.json({
+					enabled: true,
+					primary_id: "1",
+					effective_primary_id: "1",
+				}),
 			),
 		);
 		renderPage();
@@ -984,7 +999,11 @@ describe("MembersPage", () => {
 				]),
 			),
 			http.get("/api/fleet/autosync", () =>
-				HttpResponse.json({ enabled: true, primary_id: "1" }),
+				HttpResponse.json({
+					enabled: true,
+					primary_id: "1",
+					effective_primary_id: "1",
+				}),
 			),
 		);
 		renderPage();
@@ -1032,7 +1051,11 @@ describe("MembersPage", () => {
 				]),
 			),
 			http.get("/api/fleet/autosync", () =>
-				HttpResponse.json({ enabled: true, primary_id: "2" }),
+				HttpResponse.json({
+					enabled: true,
+					primary_id: "2",
+					effective_primary_id: "2",
+				}),
 			),
 		);
 		renderPage();
@@ -1105,7 +1128,11 @@ describe("MembersPage", () => {
 				),
 			),
 			http.get("/api/fleet/autosync", () =>
-				HttpResponse.json({ enabled: true, primary_id: "2" }),
+				HttpResponse.json({
+					enabled: true,
+					primary_id: "2",
+					effective_primary_id: "2",
+				}),
 			),
 			http.delete("/api/members/1", () => {
 				deleted = true;
@@ -1208,7 +1235,11 @@ describe("MembersPage", () => {
 			// Legacy state from before the two-member floor: the sole row is the
 			// designated primary. It must still be removable via disband.
 			http.get("/api/fleet/autosync", () =>
-				HttpResponse.json({ enabled: false, primary_id: "1" }),
+				HttpResponse.json({
+					enabled: false,
+					primary_id: "1",
+					effective_primary_id: "1",
+				}),
 			),
 		);
 		renderPage();
@@ -1222,6 +1253,134 @@ describe("MembersPage", () => {
 		expect(
 			within(dialog).getByText(/disbands the whole fleet/i),
 		).toBeInTheDocument();
+	});
+
+	// A fresh one-member fleet has no designation (the wizard refuses one below
+	// two members) but the server names its sole member the primary. The page
+	// badges it from effective_primary_id and keeps the disband Remove.
+	it("badges a lone undesignated member the server names primary, and keeps its Remove", async () => {
+		server.use(
+			http.get("/api/members", () =>
+				HttpResponse.json([member({ id: "1", name: "hotel-1" })]),
+			),
+			http.get("/api/fleet/autosync", () =>
+				HttpResponse.json({
+					enabled: false,
+					primary_id: "",
+					effective_primary_id: "1",
+				}),
+			),
+		);
+		renderPage();
+		await screen.findByTestId("primary-badge");
+
+		const row = screen.getByText("hotel-1").closest("tr") as HTMLElement;
+		await userEvent.click(
+			within(row).getByRole("button", { name: /^Remove$/i }),
+		);
+		const dialog = await screen.findByRole("dialog");
+		expect(
+			within(dialog).getByText(/disbands the whole fleet/i),
+		).toBeInTheDocument();
+	});
+
+	// A fleet that grew from one member keeps that member as primary through the
+	// last-sync marker until the wizard designates one. The page follows the
+	// server's answer, not the empty designation.
+	it("badges the primary the server names when none is designated", async () => {
+		server.use(
+			http.get("/api/members", () =>
+				HttpResponse.json([
+					member({ id: "1", name: "hotel-1" }),
+					member({ id: "2", name: "hotel-2" }),
+				]),
+			),
+			http.get("/api/fleet/autosync", () =>
+				HttpResponse.json({
+					enabled: false,
+					primary_id: "",
+					effective_primary_id: "2",
+				}),
+			),
+		);
+		renderPage();
+		const badge = await screen.findByTestId("primary-badge");
+		expect(badge.closest("tr")).toHaveTextContent("hotel-2");
+	});
+
+	// A dormant designation the marker outranks is still refused by the backend
+	// delete guard, so its row offers no Remove either.
+	it("gives a dormant designated member no Remove button", async () => {
+		server.use(
+			http.get("/api/members", () =>
+				HttpResponse.json([
+					member({ id: "1", name: "hotel-1" }),
+					member({ id: "2", name: "hotel-2" }),
+					member({ id: "3", name: "hotel-3" }),
+				]),
+			),
+			http.get("/api/fleet/autosync", () =>
+				HttpResponse.json({
+					enabled: false,
+					primary_id: "2",
+					effective_primary_id: "1",
+				}),
+			),
+		);
+		renderPage();
+		await screen.findByTestId("primary-badge");
+		const row = (name: string) =>
+			screen.getByText(name).closest("tr") as HTMLElement;
+		expect(
+			within(row("hotel-2")).queryByRole("button", { name: /^Remove$/i }),
+		).not.toBeInTheDocument();
+		expect(
+			within(row("hotel-3")).getByRole("button", { name: /^Remove$/i }),
+		).toBeInTheDocument();
+	});
+
+	// At two members removing the dormant designation disbands the fleet, which
+	// the backend allows, so only the effective primary's row lacks Remove.
+	it("keeps Remove on a dormant designation of a two-member fleet", async () => {
+		server.use(
+			http.get("/api/members", () =>
+				HttpResponse.json([
+					member({ id: "1", name: "hotel-1" }),
+					member({ id: "2", name: "hotel-2" }),
+				]),
+			),
+			http.get("/api/fleet/autosync", () =>
+				HttpResponse.json({
+					enabled: false,
+					primary_id: "2",
+					effective_primary_id: "1",
+				}),
+			),
+		);
+		renderPage();
+		await screen.findByTestId("primary-badge");
+		const row = (name: string) =>
+			screen.getByText(name).closest("tr") as HTMLElement;
+		expect(
+			within(row("hotel-1")).queryByRole("button", { name: /^Remove$/i }),
+		).not.toBeInTheDocument();
+		expect(
+			within(row("hotel-2")).getByRole("button", { name: /^Remove$/i }),
+		).toBeInTheDocument();
+	});
+
+	// Regression pin: the page never infers the primary from the roster size. A
+	// lone row the server names no primary for (its status read degraded) shows
+	// no badge.
+	it("does not infer a primary from a lone row", async () => {
+		server.use(
+			http.get("/api/members", () =>
+				HttpResponse.json([member({ id: "1", name: "hotel-1" })]),
+			),
+		);
+		renderPage();
+		await screen.findByText("hotel-1");
+		expect(screen.queryByTestId("primary-badge")).not.toBeInTheDocument();
 	});
 
 	it("surfaces the membership-changed refusal and refetches the roster", async () => {

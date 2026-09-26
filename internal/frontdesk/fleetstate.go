@@ -232,7 +232,7 @@ func (s *Server) fleetStateNow(ctx context.Context) (FleetState, []string, bool,
 	if err != nil {
 		return "", nil, false, err
 	}
-	state, reasons := s.fleetStateFrom(ctx, members, cfg, syncState.LastRunAt, haveSync)
+	state, reasons := s.fleetStateFrom(ctx, members, cfg, syncState, haveSync)
 	return state, reasons, s.fleetInputsWarm(ctx, members), nil
 }
 
@@ -275,7 +275,7 @@ func fleetStateSeverity(st FleetState) int {
 // version-skew hold set and the incomplete-apply set. Callers that already hold
 // those reads pass them in so the polled /api/fleet/autosync endpoint does not
 // re-query the store.
-func (s *Server) fleetStateFrom(ctx context.Context, members []*Member, cfg AutoSyncConfig, lastSync time.Time, haveSync bool) (FleetState, []string) {
+func (s *Server) fleetStateFrom(ctx context.Context, members []*Member, cfg AutoSyncConfig, syncState FleetSyncState, haveSync bool) (FleetState, []string) {
 	// Holds first, then the poller. The two snapshots are taken at different
 	// instants, and this order keeps the only possible skew in the safe
 	// direction: the primary build can be newer than the holds (which reads
@@ -285,10 +285,12 @@ func (s *Server) fleetStateFrom(ctx context.Context, members []*Member, cfg Auto
 	statuses := s.poller.Snapshot()
 	incomplete := s.incompleteSnapshot()
 	facts := make([]memberFleetFacts, 0, len(members))
-	// The build the primary is running right now, as last read by the poller.
-	// A hold judged against a different one has not been re-checked since, so it
-	// cannot say anything about the current primary; see memberFleetFacts.
-	primarySt := statuses[cfg.PrimaryID]
+	// The build the primary (effectivePrimaryID) is running right now, as last
+	// read by the poller. A hold judged against a different one has not been
+	// re-checked since, so it cannot say anything about the current primary; see
+	// memberFleetFacts.
+	primaryID := effectivePrimaryID(members, cfg, syncState.PrimaryID)
+	primarySt := statuses[primaryID]
 	primaryBuild := buildOf(primarySt).key()
 	for _, m := range members {
 		st := statuses[m.ID]
@@ -297,13 +299,13 @@ func (s *Server) fleetStateFrom(ctx context.Context, members []*Member, cfg Auto
 			Known:       st.Health.Known,
 			Healthy:     st.Health.Healthy,
 			Drained:     m.State == StateDrained,
-			Syncable:    m.HasToken && m.ID != cfg.PrimaryID,
+			Syncable:    m.HasToken && m.ID != primaryID,
 			Held:        wasHeld,
 			HeldCurrent: wasHeld && heldAgainst == primaryBuild,
 			Incomplete:  incomplete[m.ID],
 		})
 	}
-	lastSync, haveSync = fleetLastSync(members, lastSync, haveSync)
+	lastSync, haveSync := fleetLastSync(members, syncState.LastRunAt, haveSync)
 	return computeFleetState(fleetStateInput{
 		Members:      facts,
 		AutoSyncTier: autoSyncStaleTier(cfg, lastSync, haveSync, time.Now().UTC()),

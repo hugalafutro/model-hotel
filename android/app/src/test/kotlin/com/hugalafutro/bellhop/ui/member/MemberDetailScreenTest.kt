@@ -66,6 +66,7 @@ class MemberDetailScreenTest {
                 MemberDetailScreen(
                     member = member,
                     isPrimary = true,
+                    isDesignated = true,
                     onBack = {},
                     ui = MemberDetailUiState(loading = false, traffic = reachableTraffic),
                 )
@@ -88,6 +89,7 @@ class MemberDetailScreenTest {
                 MemberDetailScreen(
                     member = member,
                     isPrimary = false,
+                    isDesignated = false,
                     onBack = {},
                     ui =
                         MemberDetailUiState(
@@ -125,6 +127,7 @@ class MemberDetailScreenTest {
                                 ),
                         ),
                     isPrimary = false,
+                    isDesignated = false,
                     onBack = {},
                     ui = MemberDetailUiState(loading = false, traffic = reachableTraffic),
                 )
@@ -154,6 +157,7 @@ class MemberDetailScreenTest {
                 MemberDetailScreen(
                     member = member,
                     isPrimary = false,
+                    isDesignated = false,
                     onBack = {},
                     ui =
                         MemberDetailUiState(
@@ -183,6 +187,7 @@ class MemberDetailScreenTest {
                 MemberDetailScreen(
                     member = member,
                     isPrimary = false,
+                    isDesignated = false,
                     onBack = {},
                     ui =
                         MemberDetailUiState(
@@ -226,6 +231,7 @@ class MemberDetailScreenTest {
                 MemberDetailScreen(
                     member = member,
                     isPrimary = false,
+                    isDesignated = false,
                     onBack = {},
                     holdToCopy = true,
                     ui =
@@ -257,6 +263,7 @@ class MemberDetailScreenTest {
                 MemberDetailScreen(
                     member = member,
                     isPrimary = false,
+                    isDesignated = false,
                     onBack = {},
                     holdToCopy = false,
                     ui =
@@ -285,6 +292,7 @@ class MemberDetailScreenTest {
                 MemberDetailScreen(
                     member = member,
                     isPrimary = false,
+                    isDesignated = false,
                     onBack = {},
                     ui = MemberDetailUiState(loading = false, traffic = reachableTraffic, events = emptyList()),
                 )
@@ -304,6 +312,7 @@ class MemberDetailScreenTest {
                 MemberDetailScreen(
                     member = member,
                     isPrimary = false,
+                    isDesignated = false,
                     onBack = { backs++ },
                     ui = MemberDetailUiState(loading = false, traffic = reachableTraffic),
                 )
@@ -317,7 +326,7 @@ class MemberDetailScreenTest {
     fun firstLoadShowsSpinnerInsideTrafficCard() {
         composeTestRule.setContent {
             BellhopTheme {
-                MemberDetailScreen(member = member, isPrimary = false, onBack = {})
+                MemberDetailScreen(member = member, isPrimary = false, isDesignated = false, onBack = {})
             }
         }
         composeTestRule.onNodeWithTag("member-traffic-loading").assertIsDisplayed()
@@ -330,6 +339,7 @@ class MemberDetailScreenTest {
                 MemberDetailScreen(
                     member = member,
                     isPrimary = false,
+                    isDesignated = false,
                     onBack = {},
                     ui =
                         MemberDetailUiState(
@@ -349,6 +359,7 @@ class MemberDetailScreenTest {
                 MemberDetailScreen(
                     member = member,
                     isPrimary = false,
+                    isDesignated = false,
                     onBack = {},
                     ui =
                         MemberDetailUiState(
@@ -368,6 +379,7 @@ class MemberDetailScreenTest {
                 MemberDetailScreen(
                     member = member,
                     isPrimary = false,
+                    isDesignated = false,
                     onBack = {},
                     ui =
                         MemberDetailUiState(
@@ -402,6 +414,7 @@ class MemberDetailScreenTest {
                 MemberDetailScreen(
                     member = member,
                     isPrimary = false,
+                    isDesignated = false,
                     onBack = {},
                     ui = MemberDetailUiState(loading = false, traffic = reachableTraffic),
                 )
@@ -420,6 +433,7 @@ class MemberDetailScreenTest {
                 MemberDetailScreen(
                     member = member,
                     isPrimary = false,
+                    isDesignated = false,
                     onBack = {},
                     ui =
                         MemberDetailUiState(
@@ -441,6 +455,7 @@ class MemberDetailScreenTest {
                 MemberDetailScreen(
                     member = member,
                     isPrimary = false,
+                    isDesignated = false,
                     onBack = {},
                     ui = MemberDetailUiState(loading = false, revoked = true),
                 )
@@ -456,6 +471,7 @@ class MemberDetailScreenTest {
                 MemberDetailScreen(
                     member = member,
                     isPrimary = false,
+                    isDesignated = false,
                     onBack = {},
                     ui = MemberDetailUiState(loading = false, traffic = reachableTraffic),
                     canOperate = false,
@@ -475,6 +491,7 @@ class MemberDetailScreenTest {
                 MemberDetailScreen(
                     member = member,
                     isPrimary = false,
+                    isDesignated = false,
                     onBack = {},
                     ui = MemberDetailUiState(loading = false, traffic = reachableTraffic),
                     canOperate = true,
@@ -497,6 +514,7 @@ class MemberDetailScreenTest {
                 MemberDetailScreen(
                     member = member.copy(state = "drained"),
                     isPrimary = false,
+                    isDesignated = false,
                     onBack = {},
                     ui = MemberDetailUiState(loading = false, traffic = reachableTraffic),
                     canOperate = true,
@@ -518,6 +536,7 @@ class MemberDetailScreenTest {
                 MemberDetailScreen(
                     member = member,
                     isPrimary = false,
+                    isDesignated = false,
                     onBack = {},
                     ui =
                         MemberDetailUiState(
@@ -542,6 +561,7 @@ class MemberDetailScreenTest {
                 MemberDetailScreen(
                     member = member,
                     isPrimary = false,
+                    isDesignated = false,
                     onBack = {},
                     ui =
                         MemberDetailUiState(
@@ -571,6 +591,7 @@ class MemberDetailScreenTest {
                 MemberDetailScreen(
                     member = member,
                     isPrimary = true,
+                    isDesignated = true,
                     onBack = {},
                     ui = MemberDetailUiState(loading = false, traffic = reachableTraffic),
                     canOperate = true,
@@ -585,6 +606,29 @@ class MemberDetailScreenTest {
         assertTrue(synced)
     }
 
+    // A primary Front Desk names without a designation (a fleet grown from one
+    // member) is badged, but a fleet sync only accepts a designated source, so
+    // it gets no Sync action.
+    @Test
+    fun undesignatedPrimaryIsBadgedWithoutSync() {
+        composeTestRule.setContent {
+            BellhopTheme {
+                MemberDetailScreen(
+                    member = member,
+                    isPrimary = true,
+                    isDesignated = false,
+                    onBack = {},
+                    ui = MemberDetailUiState(loading = false, traffic = reachableTraffic),
+                    canOperate = true,
+                )
+            }
+        }
+        composeTestRule.onNodeWithTag("member-detail-primary", useUnmergedTree = true).assertIsDisplayed()
+        assertTrue(
+            composeTestRule.onAllNodesWithTag("member-op-sync").fetchSemanticsNodes().isEmpty(),
+        )
+    }
+
     @Test
     fun syncButtonAbsentOnNonPrimary() {
         composeTestRule.setContent {
@@ -592,6 +636,7 @@ class MemberDetailScreenTest {
                 MemberDetailScreen(
                     member = member,
                     isPrimary = false,
+                    isDesignated = false,
                     onBack = {},
                     ui = MemberDetailUiState(loading = false, traffic = reachableTraffic),
                     canOperate = true,
@@ -611,6 +656,7 @@ class MemberDetailScreenTest {
                 MemberDetailScreen(
                     member = member,
                     isPrimary = false,
+                    isDesignated = false,
                     onBack = {},
                     ui =
                         MemberDetailUiState(
@@ -638,6 +684,7 @@ class MemberDetailScreenTest {
                 MemberDetailScreen(
                     member = member,
                     isPrimary = false,
+                    isDesignated = false,
                     onBack = {},
                     ui = MemberDetailUiState(loading = false, traffic = reachableTraffic),
                 )
@@ -660,6 +707,7 @@ class MemberDetailScreenTest {
                 MemberDetailScreen(
                     member = member,
                     isPrimary = true,
+                    isDesignated = true,
                     onBack = {},
                     ui =
                         MemberDetailUiState(
@@ -685,6 +733,7 @@ class MemberDetailScreenTest {
                 MemberDetailScreen(
                     member = member,
                     isPrimary = false,
+                    isDesignated = false,
                     onBack = {},
                     ui = MemberDetailUiState(loading = false, traffic = reachableTraffic),
                     onRange = { picked = it },
@@ -705,6 +754,7 @@ class MemberDetailScreenTest {
                 MemberDetailScreen(
                     member = member,
                     isPrimary = false,
+                    isDesignated = false,
                     onBack = {},
                     ui =
                         MemberDetailUiState(
@@ -738,6 +788,7 @@ class MemberDetailScreenTest {
                 MemberDetailScreen(
                     member = member,
                     isPrimary = false,
+                    isDesignated = false,
                     onBack = {},
                     ui =
                         MemberDetailUiState(
@@ -770,6 +821,7 @@ class MemberDetailScreenTest {
                 MemberDetailScreen(
                     member = member,
                     isPrimary = false,
+                    isDesignated = false,
                     onBack = {},
                     ui =
                         MemberDetailUiState(
@@ -797,6 +849,7 @@ class MemberDetailScreenTest {
                 MemberDetailScreen(
                     member = member,
                     isPrimary = false,
+                    isDesignated = false,
                     onBack = {},
                     ui =
                         MemberDetailUiState(
@@ -824,6 +877,7 @@ class MemberDetailScreenTest {
                 MemberDetailScreen(
                     member = member,
                     isPrimary = true,
+                    isDesignated = true,
                     onBack = {},
                     ui =
                         MemberDetailUiState(
@@ -849,6 +903,7 @@ class MemberDetailScreenTest {
                 MemberDetailScreen(
                     member = member,
                     isPrimary = false,
+                    isDesignated = false,
                     onBack = {},
                     ui =
                         MemberDetailUiState(
@@ -876,6 +931,7 @@ class MemberDetailScreenTest {
                 MemberDetailScreen(
                     member = member,
                     isPrimary = false,
+                    isDesignated = false,
                     onBack = {},
                     ui =
                         MemberDetailUiState(

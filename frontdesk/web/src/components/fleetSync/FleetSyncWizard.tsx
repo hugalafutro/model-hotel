@@ -185,6 +185,17 @@ export function FleetSyncWizard({
 					setView("resting");
 					void refresh(cfg.primary_id);
 				} else {
+					// No designation yet, but the server may already treat a member
+					// as primary (a fleet grown from one member keeps it through
+					// the last-sync marker): start the wizard on that member so
+					// the config it holds is the default source, not overwritten.
+					// refresh never rejects: a failed probe (say the member was
+					// removed meanwhile) toasts and leaves the status empty, which
+					// keeps every step gated exactly as after a manual pick.
+					if (cfg.effective_primary_id) {
+						setPrimaryId(cfg.effective_primary_id);
+						void refresh(cfg.effective_primary_id);
+					}
 					setView("wizard");
 				}
 			})
