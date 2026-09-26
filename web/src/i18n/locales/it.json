@@ -2572,7 +2572,8 @@
 			"default": "Predefinito",
 			"none": "Nessuno",
 			"defaultHint": "Lascia decidere al provider",
-			"noneHint": "Disattiva completamente il ragionamento"
+			"noneHint": "Disattiva completamente il ragionamento",
+			"hintLine": "{{label}}: <hint>{{hint}}</hint>"
 		},
 		"dataTable": {
 			"sortBy": "Ordina per {{label}}",
@@ -3289,9 +3290,6 @@
 			"reasoningEffort": "Non supportato"
 		},
 		"lmstudio": {
-			"reasoningEffort": "Non supportato"
-		},
-		"custom": {
 			"reasoningEffort": "Non supportato"
 		}
 	},

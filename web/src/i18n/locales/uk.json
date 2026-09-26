@@ -2630,7 +2630,8 @@
 			"default": "За умовчанням",
 			"none": "Немає",
 			"defaultHint": "Залишити рішення провайдеру",
-			"noneHint": "Повністю вимкнути міркування"
+			"noneHint": "Повністю вимкнути міркування",
+			"hintLine": "{{label}}: <hint>{{hint}}</hint>"
 		},
 		"dataTable": {
 			"sortBy": "Сортувати за {{label}}",
@@ -3357,9 +3358,6 @@
 			"reasoningEffort": "Не підтримується"
 		},
 		"lmstudio": {
-			"reasoningEffort": "Не підтримується"
-		},
-		"custom": {
 			"reasoningEffort": "Не підтримується"
 		}
 	},

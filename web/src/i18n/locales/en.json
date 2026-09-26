@@ -2514,7 +2514,8 @@
 			"default": "Default",
 			"none": "None",
 			"defaultHint": "Let the provider decide",
-			"noneHint": "Switch thinking off entirely"
+			"noneHint": "Switch thinking off entirely",
+			"hintLine": "{{label}}: <hint>{{hint}}</hint>"
 		},
 		"dataTable": {
 			"sortBy": "Sort by {{label}}",
@@ -3221,9 +3222,6 @@
 			"reasoningEffort": "Not supported"
 		},
 		"lmstudio": {
-			"reasoningEffort": "Not supported"
-		},
-		"custom": {
 			"reasoningEffort": "Not supported"
 		}
 	},

@@ -2630,7 +2630,8 @@
 			"default": "Výchozí",
 			"none": "Žádné",
 			"defaultHint": "Rozhodnutí nechat na poskytovateli",
-			"noneHint": "Úplně vypnout uvažování"
+			"noneHint": "Úplně vypnout uvažování",
+			"hintLine": "{{label}}: <hint>{{hint}}</hint>"
 		},
 		"dataTable": {
 			"sortBy": "Seřadit podle {{label}}",
@@ -3357,9 +3358,6 @@
 			"reasoningEffort": "Není podporováno"
 		},
 		"lmstudio": {
-			"reasoningEffort": "Není podporováno"
-		},
-		"custom": {
 			"reasoningEffort": "Není podporováno"
 		}
 	},

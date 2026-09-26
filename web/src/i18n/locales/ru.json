@@ -2630,7 +2630,8 @@
 			"default": "По умолчанию",
 			"none": "Нет",
 			"defaultHint": "Оставить решение провайдеру",
-			"noneHint": "Полностью отключить рассуждение"
+			"noneHint": "Полностью отключить рассуждение",
+			"hintLine": "{{label}}: <hint>{{hint}}</hint>"
 		},
 		"dataTable": {
 			"sortBy": "Сортировать по {{label}}",
@@ -3357,9 +3358,6 @@
 			"reasoningEffort": "Не поддерживается"
 		},
 		"lmstudio": {
-			"reasoningEffort": "Не поддерживается"
-		},
-		"custom": {
 			"reasoningEffort": "Не поддерживается"
 		}
 	},

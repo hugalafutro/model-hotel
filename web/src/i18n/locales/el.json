@@ -2514,7 +2514,8 @@
 			"default": "Προεπιλογή",
 			"none": "Καμία",
 			"defaultHint": "Αφήστε τον πάροχο να αποφασίσει",
-			"noneHint": "Απενεργοποίηση της σκέψης εντελώς"
+			"noneHint": "Απενεργοποίηση της σκέψης εντελώς",
+			"hintLine": "{{label}}: <hint>{{hint}}</hint>"
 		},
 		"dataTable": {
 			"sortBy": "Ταξινόμηση κατά {{label}}",
@@ -3221,9 +3222,6 @@
 			"reasoningEffort": "Δεν υποστηρίζεται"
 		},
 		"lmstudio": {
-			"reasoningEffort": "Δεν υποστηρίζεται"
-		},
-		"custom": {
 			"reasoningEffort": "Δεν υποστηρίζεται"
 		}
 	},

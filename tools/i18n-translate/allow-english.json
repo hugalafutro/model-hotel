@@ -1666,6 +1666,33 @@
 	"components.quotaBadge.zaiCodingUsed": [
 		"ja"
 	],
+	"components.reasoningEffortSelect.hintLine": [
+		"af",
+		"ar",
+		"ca",
+		"cs",
+		"da",
+		"de",
+		"el",
+		"es",
+		"fi",
+		"he",
+		"hu",
+		"it",
+		"ko",
+		"nl",
+		"no",
+		"pl",
+		"pt",
+		"ro",
+		"ru",
+		"sk",
+		"sr",
+		"sv",
+		"tr",
+		"uk",
+		"vi"
+	],
 	"components.requestLogDetail.attempt": [
 		"ja"
 	],

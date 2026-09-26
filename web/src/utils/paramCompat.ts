@@ -3,7 +3,10 @@ import type { GenerationParams } from "../api/types";
 /**
  * Maps provider type → param key → human-readable reason the param is incompatible.
  * Provider type keys must match the backend's provider-type vocabulary
- * (internal/provider/types.go) and the ProviderBrand keys.
+ * (internal/provider/types.go) and the ProviderBrand keys. Whether a type hides
+ * reasoning_effort follows ProviderUnsupportedParams in
+ * internal/paramrewrite/params.go, which TestDashboardReasoningEffortMatchesStrips
+ * checks against this table.
  */
 export const PROVIDER_PARAM_INCOMPATIBILITY: Record<
 	string,
@@ -15,6 +18,14 @@ export const PROVIDER_PARAM_INCOMPATIBILITY: Record<
 		presence_penalty: "paramCompat.anthropic.presencePenalty",
 		min_p: "paramCompat.anthropic.minP",
 		reasoning_effort: "paramCompat.anthropic.reasoningEffort",
+	},
+	// The Messages type keeps reasoning_effort and turns it into a thinking
+	// request, so the reasoning control (None included) stays visible there.
+	"anthropic-messages": {
+		top_p: "paramCompat.anthropic.topP",
+		frequency_penalty: "paramCompat.anthropic.frequencyPenalty",
+		presence_penalty: "paramCompat.anthropic.presencePenalty",
+		min_p: "paramCompat.anthropic.minP",
 	},
 	google: {
 		frequency_penalty: "paramCompat.google.frequencyPenalty",
@@ -72,9 +83,8 @@ export const PROVIDER_PARAM_INCOMPATIBILITY: Record<
 	lmstudio: {
 		reasoning_effort: "paramCompat.lmstudio.reasoningEffort",
 	},
-	custom: {
-		reasoning_effort: "paramCompat.custom.reasoningEffort",
-	},
+	// The backend forwards reasoning_effort to a custom endpoint untouched.
+	custom: {},
 };
 
 /**
@@ -98,6 +108,14 @@ export function normalizeToProviderType(providerName: string): string {
 	// Case-insensitive match against known type keys
 	const lower = providerName.toLowerCase().replace(/\s+/g, "-");
 	if (Object.hasOwn(PROVIDER_PARAM_INCOMPATIBILITY, lower)) return lower;
+
+	// The Messages type, ahead of the substring rows where "anthropic" would
+	// take it. Both words are required: "Anthropic (Messages API)", the type's
+	// label in the add dialog and the name an operator is most likely to keep,
+	// qualifies; a custom "Acme (Messages API)" does not.
+	if (lower.includes("anthropic") && lower.includes("messages")) {
+		return "anthropic-messages";
+	}
 
 	// Substring heuristic: check if the provider name contains a known type
 	const typePatterns: Record<string, string[]> = {

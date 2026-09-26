@@ -2514,7 +2514,8 @@
 			"default": "Varsayılan",
 			"none": "Yok",
 			"defaultHint": "Kararı sağlayıcıya bırak",
-			"noneHint": "Düşünmeyi tamamen kapat"
+			"noneHint": "Düşünmeyi tamamen kapat",
+			"hintLine": "{{label}}: <hint>{{hint}}</hint>"
 		},
 		"dataTable": {
 			"sortBy": "Şu kriterlere göre sırala {{label}}",
@@ -3221,9 +3222,6 @@
 			"reasoningEffort": "Desteklenmiyor"
 		},
 		"lmstudio": {
-			"reasoningEffort": "Desteklenmiyor"
-		},
-		"custom": {
 			"reasoningEffort": "Desteklenmiyor"
 		}
 	},

@@ -2630,7 +2630,8 @@
 			"default": "Domyślny",
 			"none": "Brak",
 			"defaultHint": "Pozostaw decyzję dostawcy",
-			"noneHint": "Całkowicie wyłącz rozumowanie"
+			"noneHint": "Całkowicie wyłącz rozumowanie",
+			"hintLine": "{{label}}: <hint>{{hint}}</hint>"
 		},
 		"dataTable": {
 			"sortBy": "Sortuj według {{label}}",
@@ -3357,9 +3358,6 @@
 			"reasoningEffort": "Nie obsługiwane"
 		},
 		"lmstudio": {
-			"reasoningEffort": "Nie obsługiwane"
-		},
-		"custom": {
 			"reasoningEffort": "Nie obsługiwane"
 		}
 	},

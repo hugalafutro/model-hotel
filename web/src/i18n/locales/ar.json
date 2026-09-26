@@ -2746,7 +2746,8 @@
 			"default": "افتراضي",
 			"none": "لا شيء",
 			"defaultHint": "اترك القرار للمزوّد",
-			"noneHint": "إيقاف التفكير تمامًا"
+			"noneHint": "إيقاف التفكير تمامًا",
+			"hintLine": "{{label}}: <hint>{{hint}}</hint>"
 		},
 		"dataTable": {
 			"sortBy": "الترتيب حسب {{label}}",
@@ -3493,9 +3494,6 @@
 			"reasoningEffort": "غير مدعوم"
 		},
 		"lmstudio": {
-			"reasoningEffort": "غير مدعوم"
-		},
-		"custom": {
 			"reasoningEffort": "غير مدعوم"
 		}
 	},

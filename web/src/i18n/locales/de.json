@@ -2514,7 +2514,8 @@
 			"default": "Standard",
 			"none": "Keine",
 			"defaultHint": "Den Anbieter entscheiden lassen",
-			"noneHint": "Denken vollständig abschalten"
+			"noneHint": "Denken vollständig abschalten",
+			"hintLine": "{{label}}: <hint>{{hint}}</hint>"
 		},
 		"dataTable": {
 			"sortBy": "Nach {{label}} sortieren",
@@ -3221,9 +3222,6 @@
 			"reasoningEffort": "Nicht unterstützt"
 		},
 		"lmstudio": {
-			"reasoningEffort": "Nicht unterstützt"
-		},
-		"custom": {
 			"reasoningEffort": "Nicht unterstützt"
 		}
 	},

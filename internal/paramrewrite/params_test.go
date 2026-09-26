@@ -3,6 +3,11 @@ package paramrewrite
 import (
 	"encoding/json"
 	"fmt"
+	"maps"
+	"os"
+	"regexp"
+	"slices"
+	"strings"
 	"sync"
 	"testing"
 )
@@ -27,7 +32,7 @@ func TestParseProviderParamError_GoogleArrayWrappedReasoning(t *testing.T) {
 		t.Errorf("expected \"reasoning\" to be learned as rejected, got %v", rejected)
 	}
 	if rejected["reasoning_effort"] {
-		t.Error("\"reasoning\" must not also strip reasoning_effort — they are separate params")
+		t.Error("\"reasoning\" must not also strip reasoning_effort; they are separate params")
 	}
 }
 
@@ -86,7 +91,7 @@ func TestLearnedCacheKey_ScopedPerProviderNotPerType(t *testing.T) {
 		t.Error("provider A taught us it rejects top_p, so its own requests must drop it")
 	}
 	if _, present := rawB["top_p"]; !present {
-		t.Error("provider B never rejected top_p — another openai-typed endpoint's 400 " +
+		t.Error("provider B never rejected top_p; another openai-typed endpoint's 400 " +
 			"must not strip it here")
 	}
 }
@@ -156,5 +161,95 @@ func TestParseProviderParamError_ValueRangeComplaintTeachesNothing(t *testing.T)
 	body := []byte(`{"error":{"message":"Unsupported value: 'temperature' does not support 0 with this model. Only the default (1) value is supported."}}`)
 	if rejected := ParseProviderParamError(body); !rejected["temperature"] {
 		t.Errorf("unsupported-value refusal no longer learned: %v", rejected)
+	}
+}
+
+// Regression pin: a model that refuses one reasoning_effort value still takes
+// the others, so the refusal is handed back to the caller and nothing is
+// learned. Each phrasing below is recognised by a different arm of the rule.
+func TestParseProviderParamError_EnumValueRefusalTeachesNothing(t *testing.T) {
+	t.Parallel()
+
+	for _, msg := range []string{
+		`Unsupported value: 'reasoning_effort' does not support 'none' with this model.`,
+		`Invalid value for 'reasoning_effort'. Supported values are: 'low' and 'high'.`,
+		"`reasoning_effort` must be one of [low, medium, high]",
+		`Invalid 'reasoning_effort': expected one of low, medium, high`,
+		`'reasoning_effort': Input should be 'low', 'medium' or 'high'`,
+		`[{'type': 'literal_error', 'loc': ('body', 'reasoning_effort'), 'input': 'none'}]`,
+	} {
+		body := []byte(`{"error":{"message":` + fmt.Sprintf("%q", msg) + `,"type":"invalid_request_error","param":"reasoning_effort","code":"unsupported_value"}}`)
+		if rejected := ParseProviderParamError(body); rejected["reasoning_effort"] {
+			t.Errorf("%q: learned reasoning_effort as a strip, want nothing", msg)
+		}
+	}
+}
+
+// Regression pin: a refusal of the param itself is still learned, including
+// one worded "does not support '<param>'" and one sharing a 400 with another
+// param's list of supported values; so is temperature's numeric refusal.
+func TestParseProviderParamError_ParamRefusalStillLearned(t *testing.T) {
+	t.Parallel()
+
+	for _, tc := range []struct {
+		msg  string
+		want []string
+	}{
+		{`Unsupported value: 'temperature' does not support 0 with this model. Only the default (1) value is supported.`, []string{"temperature"}},
+		{`Unrecognized request argument supplied: 'reasoning_effort'`, []string{"reasoning_effort"}},
+		{`Unsupported parameter: 'reasoning_effort' is not supported with this model.`, []string{"reasoning_effort"}},
+		{`This model does not support 'reasoning_effort'.`, []string{"reasoning_effort"}},
+		{`Model does not support 'reasoning_effort' parameter`, []string{"reasoning_effort"}},
+		{`Unsupported parameter: 'reasoning_effort' is not supported with this model. Invalid value for 'top_p'. Supported values are: 1.`, []string{"reasoning_effort", "top_p"}},
+		{`Invalid value for 'top_p'. Supported values are: 1.; Unsupported parameter: 'reasoning_effort' is not supported.`, []string{"reasoning_effort", "top_p"}},
+		{`Unsupported parameter: 'reasoning_effort' is not supported. Invalid value for top_p. Supported values are: 1.`, []string{"reasoning_effort"}},
+	} {
+		body := []byte(`{"error":{"message":` + fmt.Sprintf("%q", tc.msg) + `}}`)
+		got := slices.Sorted(maps.Keys(ParseProviderParamError(body)))
+		if !slices.Equal(got, tc.want) {
+			t.Errorf("%q: learned %v, want %v", tc.msg, got, tc.want)
+		}
+	}
+}
+
+// The dashboard hides the reasoning control on a provider type whose
+// PROVIDER_PARAM_INCOMPATIBILITY entry names reasoning_effort. Hiding it where
+// the backend forwards the param makes None unreachable on the one type that
+// honours it; showing it where the backend strips the param offers a switch
+// that does nothing. Every type this package strips for must have an entry
+// there that agrees.
+func TestDashboardReasoningEffortMatchesStrips(t *testing.T) {
+	const tablePath = "../../web/src/utils/paramCompat.ts"
+	raw, err := os.ReadFile(tablePath)
+	if err != nil {
+		t.Fatalf("read %s: %v", tablePath, err)
+	}
+	source := string(raw)
+	start := strings.Index(source, "PROVIDER_PARAM_INCOMPATIBILITY")
+	end := -1
+	if start >= 0 {
+		end = strings.Index(source[start:], "\n};")
+	}
+	if end < 0 {
+		t.Fatalf("PROVIDER_PARAM_INCOMPATIBILITY not found in %s", tablePath)
+	}
+	table := source[start : start+end]
+	dashboard := map[string]string{}
+	for _, m := range regexp.MustCompile(`(?m)^\t"?([A-Za-z0-9_-]+)"?: \{([^}]*)\}`).FindAllStringSubmatch(table, -1) {
+		dashboard[m[1]] = m[2]
+	}
+	for typ := range ProviderUnsupportedParams {
+		if _, ok := dashboard[typ]; !ok {
+			t.Errorf("provider type %q has no entry in %s", typ, tablePath)
+		}
+	}
+	// A type the backend has no list for strips nothing, so the dashboard
+	// must not hide reasoning_effort on it either.
+	for typ, rules := range dashboard {
+		strips := slices.Contains(ProviderUnsupportedParams[typ], "reasoning_effort")
+		hides := strings.Contains(rules, "reasoning_effort:")
+		if strips != hides {
+			t.Errorf("provider type %q: backend strips reasoning_effort = %v, dashboard hides it = %v", typ, strips, hides)
+		}
 	}
 }

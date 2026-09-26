@@ -2514,7 +2514,8 @@
 			"default": "Standard",
 			"none": "Ingen",
 			"defaultHint": "Lad udbyderen bestemme",
-			"noneHint": "Slå tænkning helt fra"
+			"noneHint": "Slå tænkning helt fra",
+			"hintLine": "{{label}}: <hint>{{hint}}</hint>"
 		},
 		"dataTable": {
 			"sortBy": "Sorter efter {{label}}",
@@ -3221,9 +3222,6 @@
 			"reasoningEffort": "Ikke understøttet"
 		},
 		"lmstudio": {
-			"reasoningEffort": "Ikke understøttet"
-		},
-		"custom": {
 			"reasoningEffort": "Ikke understøttet"
 		}
 	},

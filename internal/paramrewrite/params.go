@@ -139,7 +139,7 @@ func cachedRenames(cache *sync.Map, cacheKey string) map[string]string {
 
 // ParseProviderParamRename parses 400 error bodies for params the upstream wants
 // renamed rather than dropped. Unlike a rejected param (which we strip), a
-// renamed param carries a value we must preserve under the new name — stripping
+// renamed param carries a value we must preserve under the new name; stripping
 // it would silently discard the caller's intent (e.g. their token budget).
 //
 // The only case in the wild today: OpenAI's gpt-5 and o-series models reject the
@@ -159,7 +159,7 @@ func ParseProviderParamRename(body []byte) map[string]string {
 	// require the old name, the new name, AND the "use X instead" wording. This
 	// excludes value-validation errors that merely mention max_completion_tokens
 	// (e.g. "max_completion_tokens must not exceed 4096"), which would otherwise
-	// poison the rename cache and force every max_tokens request to be renamed —
+	// poison the rename cache and force every max_tokens request to be renamed,
 	// breaking a sibling model on the same key that natively accepts max_tokens.
 	if strings.Contains(msg, "max_tokens") &&
 		strings.Contains(msg, "max_completion_tokens") &&
@@ -203,6 +203,125 @@ func isValueRangeComplaint(msg string) bool {
 	return false
 }
 
+// enumValuePhrases are how providers word a refusal of one value of an enum
+// param while naming the values it does take: OpenAI's "Supported values are:
+// 'low', 'medium', and 'high'", pydantic/vLLM's literal_error "Input should be
+// 'low', 'medium' or 'high'", and the "must be one of" / "expected one of"
+// forms. None of them fits a refusal of the param itself.
+var enumValuePhrases = []string{
+	"supported values", "must be one of", "expected one of",
+	"input should be '", "literal_error",
+}
+
+// isEnumValueComplaint reports whether msg refuses one value of the enum param
+// while the param itself stands, e.g. OpenAI's "Unsupported value:
+// 'reasoning_effort' does not support 'none' with this model. Supported values
+// are: 'low', 'medium', and 'high'." Only the text about param is read: a
+// compound 400 that refuses the param outright and lists supported values for
+// another one still refuses the param. Every stretch naming param has to be a
+// value complaint, and at least one must name it.
+func isEnumValueComplaint(msg, param string) bool {
+	named := false
+	for _, window := range paramWindows(strings.ToLower(msg), param) {
+		if !paramIsQuoted(window, param) {
+			continue
+		}
+		named = true
+		if !refusesValueOnly(window, param) {
+			return false
+		}
+	}
+	return named
+}
+
+// paramWindows cuts msg into the stretches that can each be about one param:
+// at the separators providers join several errors with, and at every mention
+// of another known param, which starts that param's own stretch. A name with an
+// underscore ("top_p") is specific enough to count bare, so "Invalid value for
+// top_p. Supported values are: 1." after a reasoning_effort refusal is top_p's
+// stretch; a plain word ("stop", "n") counts only when quoted.
+func paramWindows(msg, param string) []string {
+	cuts := []int{0}
+	for _, sep := range []string{";", "\n", "}, {"} {
+		for _, i := range occurrences(msg, sep) {
+			cuts = append(cuts, i+len(sep))
+		}
+	}
+	for _, other := range quotedParams {
+		switch {
+		case other == param:
+		case strings.Contains(other, "_"):
+			for _, i := range occurrences(msg, other) {
+				if !isWordByte(msg, i-1) && !isWordByte(msg, i+len(other)) {
+					cuts = append(cuts, i)
+				}
+			}
+		default:
+			for _, q := range paramQuoteChars {
+				cuts = append(cuts, occurrences(msg, string(q)+other+string(q))...)
+			}
+		}
+	}
+	slices.Sort(cuts)
+	cuts = append(cuts, len(msg))
+	windows := make([]string, 0, len(cuts)-1)
+	for k := 1; k < len(cuts); k++ {
+		windows = append(windows, msg[cuts[k-1]:cuts[k]])
+	}
+	return windows
+}
+
+// occurrences returns the start of every non-overlapping sub in s.
+func occurrences(s, sub string) []int {
+	var at []int
+	for i := 0; ; {
+		j := strings.Index(s[i:], sub)
+		if j < 0 {
+			return at
+		}
+		at = append(at, i+j)
+		i += j + len(sub)
+	}
+}
+
+// isWordByte reports whether s[i] is part of an identifier; out of range is not.
+func isWordByte(s string, i int) bool {
+	if i < 0 || i >= len(s) {
+		return false
+	}
+	c := s[i]
+	return c == '_' || c >= 'a' && c <= 'z' || c >= '0' && c <= '9'
+}
+
+// refusesValueOnly reports whether window, the lowercased text about param,
+// refuses a value rather than the param. A "does not support '<token>'" counts
+// only when the quoted token is a value: "This model does not support
+// 'reasoning_effort'" refuses the param and stays learnable. So does a numeric
+// refusal such as "'temperature' does not support 0", since the model then
+// takes only its default.
+func refusesValueOnly(window, param string) bool {
+	for _, phrase := range enumValuePhrases {
+		if strings.Contains(window, phrase) {
+			return true
+		}
+	}
+	const refusal = "does not support '"
+	for rest := window; ; {
+		i := strings.Index(rest, refusal)
+		if i < 0 {
+			return false
+		}
+		rest = rest[i+len(refusal):]
+		if !strings.HasPrefix(rest, param+"'") {
+			return true
+		}
+	}
+}
+
+// enumParams are the params whose value is a word from a fixed set, so a
+// refusal of one value says nothing about the others.
+var enumParams = []string{"reasoning_effort"}
+
 // paramQuoteChars are the quote styles providers wrap a parameter name in when
 // they name it in a 400. Anchoring on a quote is what keeps short names like
 // "n" and "stop" from matching unrelated prose.
@@ -225,9 +344,31 @@ func paramIsQuoted(msg, param string) bool {
 	return false
 }
 
+// quotedParams are the sampling/optional params providers commonly reject,
+// learned when a 400 names one wrapped in backticks or quotes (paramIsQuoted)
+// to avoid false positives from substring matching. Short/common words like
+// "n", "stop", "seed" are NOT matched loosely because they appear in many
+// unrelated error messages.
+var quotedParams = []string{
+	"temperature", "top_p", "top_k", "top_a",
+	"frequency_penalty", "presence_penalty",
+	"logprobs", "top_logprobs",
+	"max_tokens", "stream_options", "reasoning_effort",
+	// "reasoning" is an OpenAI-dialect field callers send that Google AI
+	// Studio rejects outright ("Unknown name \"reasoning\": Cannot find
+	// field."), failing the whole request. The quote/backtick anchoring
+	// keeps it from matching "reasoning_effort", which is a
+	// separate param with its own entry.
+	"reasoning",
+	// "stop", "n" and "seed" are too common as substrings to match
+	// loosely; paramIsQuoted is what makes them safe here, as it does for
+	// every name above.
+	"stop", "n", "seed",
+}
+
 // ParseProviderParamError parses 400 error bodies for rejected sampling/param names.
 // Any LLM API mentioning these param names in a 400 error can only be referring
-// to the request parameter — there is no other meaning in this context.
+// to the request parameter; there is no other meaning in this context.
 // This works universally across all providers, not just Anthropic.
 func ParseProviderParamError(body []byte) map[string]bool {
 	msg := util.ErrorEnvelopeMessage(body)
@@ -245,34 +386,22 @@ func ParseProviderParamError(body []byte) map[string]bool {
 	}
 	rejected := make(map[string]bool)
 
-	// "cannot both be specified" — strip top_p, keep temperature
+	// "cannot both be specified": strip top_p, keep temperature
 	if strings.Contains(msg, "cannot both be specified") {
 		rejected["top_p"] = true
 	}
-	// Known sampling/optional params that providers commonly reject.
-	// We match against backtick-wrapped names (e.g. `top_p`) and quote-wrapped
-	// names (e.g. "top_p") to avoid false positives from substring matching.
-	// Short/common words like "n", "stop", "seed" are NOT matched loosely
-	// because they appear in many unrelated error messages.
-	matchParams := []string{
-		"temperature", "top_p", "top_k", "top_a",
-		"frequency_penalty", "presence_penalty",
-		"logprobs", "top_logprobs",
-		"max_tokens", "stream_options", "reasoning_effort",
-		// "reasoning" is an OpenAI-dialect field callers send that Google AI
-		// Studio rejects outright ("Unknown name \"reasoning\": Cannot find
-		// field."), failing the whole request. The quote/backtick anchoring
-		// below keeps it from matching "reasoning_effort", which is a
-		// separate param with its own entry.
-		"reasoning",
-		// "stop", "n" and "seed" are too common as substrings to match
-		// loosely; paramIsQuoted is what makes them safe here, as it does for
-		// every name above.
-		"stop", "n", "seed",
-	}
-	for _, p := range matchParams {
+	for _, p := range quotedParams {
 		if paramIsQuoted(msg, p) {
 			rejected[p] = true
+		}
+	}
+	// One refused enum value is the caller's choice, not the model's verdict on
+	// the param: learning it as a strip would turn every later low/medium/high
+	// request to the model into a request with no reasoning_effort at all. The
+	// 400 goes back to the caller who picked the value.
+	for _, p := range enumParams {
+		if isEnumValueComplaint(msg, p) {
+			delete(rejected, p)
 		}
 	}
 	// chat_template_args is a non-standard field model-hotel injects for some
@@ -280,7 +409,7 @@ func ParseProviderParamError(body []byte) map[string]bool {
 	// reject it with varying message formats and quote styles, e.g. vLLM's
 	// "Extra inputs are not permitted, field: 'chat_template_args'" (single
 	// quotes) or OpenAI's "Unrecognized request argument: chat_template_args"
-	// (bare). The token is specific enough that a bare substring match is safe —
+	// (bare). The token is specific enough that a bare substring match is safe:
 	// it has no other meaning in an error message. Stripping it on retry trades
 	// reasoning output for a successful completion on models that reject it.
 	if strings.Contains(msg, "chat_template_args") {

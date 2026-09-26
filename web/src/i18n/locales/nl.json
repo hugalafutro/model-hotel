@@ -2514,7 +2514,8 @@
 			"default": "Standaard",
 			"none": "Geen",
 			"defaultHint": "Laat de provider beslissen",
-			"noneHint": "Schakel denken volledig uit"
+			"noneHint": "Schakel denken volledig uit",
+			"hintLine": "{{label}}: <hint>{{hint}}</hint>"
 		},
 		"dataTable": {
 			"sortBy": "Sorteren op {{label}}",
@@ -3221,9 +3222,6 @@
 			"reasoningEffort": "Niet ondersteund"
 		},
 		"lmstudio": {
-			"reasoningEffort": "Niet ondersteund"
-		},
-		"custom": {
 			"reasoningEffort": "Niet ondersteund"
 		}
 	},

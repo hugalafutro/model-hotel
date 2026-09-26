@@ -2572,7 +2572,8 @@
 			"default": "Par défaut",
 			"none": "Aucun",
 			"defaultHint": "Laisser le fournisseur décider",
-			"noneHint": "Désactiver entièrement le raisonnement"
+			"noneHint": "Désactiver entièrement le raisonnement",
+			"hintLine": "{{label}} : <hint>{{hint}}</hint>"
 		},
 		"dataTable": {
 			"sortBy": "Trier par {{label}}",
@@ -3289,9 +3290,6 @@
 			"reasoningEffort": "Non pris en charge"
 		},
 		"lmstudio": {
-			"reasoningEffort": "Non pris en charge"
-		},
-		"custom": {
 			"reasoningEffort": "Non pris en charge"
 		}
 	},
