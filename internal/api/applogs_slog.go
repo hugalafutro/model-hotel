@@ -81,6 +81,11 @@ func textLine(line string, msgLen int) string {
 		return line
 	}
 	_, rest := debuglog.SplitSource(head)
+	if rest == "" {
+		// Nothing after the prefix: the quote or control character is in the
+		// prefix itself, and quoting an empty remainder would only append "".
+		return line
+	}
 	prefix := head[:len(head)-len(rest)]
 	return prefix + strconv.Quote(rest) + line[msgLen:]
 }

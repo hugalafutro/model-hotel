@@ -773,3 +773,53 @@ func TestNew_HoldsTheFirstBootTokenForTheLogMasker(t *testing.T) {
 		t.Fatalf("the first-boot token was not held: %q", got)
 	}
 }
+
+// Regression pin: held was set even when HoldSecret ignored a token under
+// CredentialMinLen, so nothing was held and nothing ever retried. held now
+// follows what HoldSecret reports, and each accepted request tries again.
+func TestValidate_ShortTokenIsNotMarkedHeld(t *testing.T) {
+	const short = "tiny123" // under util.CredentialMinLen
+	mgr, _, err := New(t.TempDir(), short)
+	if err != nil {
+		t.Fatalf("New() failed: %v", err)
+	}
+	if mgr.held.Load() {
+		t.Fatal("a token too short to hold was marked held")
+	}
+	for range 2 {
+		if !mgr.Validate(short) {
+			t.Fatal("the short token did not validate")
+		}
+		if mgr.held.Load() {
+			t.Fatal("Validate marked a token it could not hold as held")
+		}
+	}
+}
+
+// On a restart the file keeps only the hash; an ADMIN_TOKEN that matches it
+// is the plaintext, so it is held from startup. One that does not match is
+// still held (it is a secret) but leaves Validate to supply the real token.
+func TestNew_RestartHoldsAMatchingAdminToken(t *testing.T) {
+	token := "restart-admin-" + uuid.NewString()
+	dir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(dir, "admin-token"), []byte(sha256Prefix+util.SHA256Hex(token)), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	mgr, _, err := New(dir, token)
+	if err != nil {
+		t.Fatalf("New() failed: %v", err)
+	}
+	if !mgr.held.Load() {
+		t.Fatal("a matching ADMIN_TOKEN on restart was not marked held")
+	}
+	if got := util.MaskCredentials(nil, "leak "+token); got != "leak [redacted]" {
+		t.Fatalf("the matching ADMIN_TOKEN was not held: %q", got)
+	}
+	other, _, err := New(dir, "stale-env-"+uuid.NewString())
+	if err != nil {
+		t.Fatalf("New() failed: %v", err)
+	}
+	if other.held.Load() {
+		t.Fatal("an ADMIN_TOKEN that does not match the file was taken for the token")
+	}
+}

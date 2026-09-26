@@ -46,13 +46,14 @@ var unambiguousKeyShape = regexp.MustCompile(`\bAIza[0-9A-Za-z_-]{30,}|\bAKIA[A-
 // secretParamShape is a credential passed by name in a query string or a form
 // body ("?api_key=...", "&client_secret=..."), whatever format the value has:
 // the name says what it is, so no key shape is needed. The name must start a
-// parameter (the text start, "?", "&", whitespace, a quote, "(", "," or ";")
-// and be one of the credential names, so "max_token=5", "has_secret=true" and
-// "prompt_token=3" are left alone. A bare "key=" is not one: the gateway logs
-// a virtual key's NAME under that attribute. The value stops at the next
-// parameter or separator (&,;) or whitespace, a quote or a backslash, so the
-// rest of the line survives and a JSON body stays valid.
-var secretParamShape = regexp.MustCompile(`(?i)(^|[?&\s"'(,;])((?:client_|refresh_|access_|auth_)?(?:token|secret|password)|(?:api|access|secret|client)[_-]?key)=[^&,;)\s"'\\<>]+`)
+// parameter (the text start, "?", "&", whitespace, a quote, ":", an opening
+// bracket, "," or ";") and be one of the credential names, so "max_token=5",
+// "has_secret=true" and "prompt_token=3" are left alone. A bare "key=" is not
+// one: the gateway logs a virtual key's NAME under that attribute. The value
+// stops at the next separator (& , ;), a closing bracket, whitespace, a quote
+// or a backslash, so the rest of the line survives and a JSON body stays
+// valid.
+var secretParamShape = regexp.MustCompile(`(?i)(^|[?&\s"':(\[{,;])((?:client_|refresh_|access_|auth_)?(?:token|secret|password)|(?:api|access|secret|client)[_-]?key)=[^&,;)\]}\s"'\\<>]+`)
 
 // CredentialMinLen is the shortest provider key the exact-value mask will
 // redact. Keyless local providers carry an empty key and a handful of test or

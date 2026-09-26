@@ -96,6 +96,9 @@ func TestAppSlogHandler_QuotesAMessageHoldingANewlineOrQuote(t *testing.T) {
 	if got := textLine(`msg "q"`, 99); got != `"msg \"q\""` {
 		t.Errorf("textLine with an out-of-range length = %q", got)
 	}
+	if got := textLine(`[a"b] k=v`, 6); got != `[a"b] k=v` {
+		t.Errorf("textLine with nothing after the prefix = %q, want the line unchanged", got)
+	}
 
 	// A message with neither stays bare, the shape the parser classifies on.
 	stderr.Reset()

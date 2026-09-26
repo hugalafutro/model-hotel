@@ -291,6 +291,10 @@ func TestMaskCredentials_MasksNamedParametersAndURLUserinfo(t *testing.T) {
 		{"bad token=abc,model=gpt-4o) here", "bad token=[redacted],model=gpt-4o) here"},
 		{"key owner disabled key=prod-key", "key owner disabled key=prod-key"},
 		{"GET /v1?api_key=abc", "GET /v1?api_key=[redacted]"},
+		{"authorization:token=abc", "authorization:token=[redacted]"},
+		{`{"token=abc"}`, `{"token=[redacted]"}`},
+		{"{token=abc}", "{token=[redacted]}"},
+		{"[secret=abc]", "[secret=[redacted]]"},
 	} {
 		if got := MaskCredentials(nil, tc.in); got != tc.want {
 			t.Errorf("MaskCredentials(%q) = %q, want %q", tc.in, got, tc.want)

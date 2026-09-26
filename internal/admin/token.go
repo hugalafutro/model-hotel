@@ -52,12 +52,15 @@ func New(dataDir, initialToken string) (*Manager, bool, error) {
 	m.tokenHash = tokenHash
 	m.plainToken = plainToken
 	// No key-shape rule matches an admin token, so the log masker catches one
-	// only as a held secret. The plaintext exists here on first boot, and
-	// ADMIN_TOKEN is held whatever the file says; after that, the first
-	// request Validate accepts supplies it (HoldSecret ignores "").
-	util.HoldSecret(initialToken)
-	util.HoldSecret(plainToken)
-	m.held.Store(plainToken != "")
+	// only as a held secret. The plaintext exists here on first boot, and on a
+	// restart ADMIN_TOKEN is it when it matches the stored hash; otherwise the
+	// first request Validate accepts supplies it. ADMIN_TOKEN is held either
+	// way, being a secret whatever the file says. held stays false while no
+	// qualifying plaintext was held (HoldSecret ignores one under
+	// CredentialMinLen), so Validate keeps trying.
+	envHeld := util.HoldSecret(initialToken)
+	m.held.Store(util.HoldSecret(plainToken) ||
+		(envHeld && util.SHA256Hex(initialToken) == tokenHash))
 
 	if isNew {
 		debuglog.Info("admin: generated new admin token", "data_dir", dataDir)
@@ -82,8 +85,7 @@ func (m *Manager) Validate(token string) bool {
 	}
 	// A restarted process keeps only the hash, so an accepted token is the
 	// one steady-state source of the plaintext for the log masker.
-	if !m.held.Load() {
-		util.HoldSecret(token)
+	if !m.held.Load() && util.HoldSecret(token) {
 		m.held.Store(true)
 	}
 	return true

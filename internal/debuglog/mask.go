@@ -1,6 +1,7 @@
 package debuglog
 
 import (
+	"cmp"
 	"context"
 	"encoding"
 	"encoding/json"
@@ -211,22 +212,25 @@ func maskSlice(fn func(string) string, rv reflect.Value, depth int) (any, bool) 
 // keys. Two keys that render or mask to the same name (two credentials both
 // masked to "[redacted]") keep both entries: the later one gets a "#2", "#3"
 // suffix rather than overwriting the first. Entries are taken in the order of
-// their rendered keys, not map order, so the same map gets the same suffixes
-// on every record.
+// their masked keys, ties broken by the keys as rendered before masking, not
+// map order, so the same map gets the same suffixes on every record.
 func maskMap(fn func(string) string, rv reflect.Value, depth int) (any, bool) {
 	type entry struct {
-		key string
-		val any
+		key, masked string
+		val         any
 	}
 	entries := make([]entry, 0, rv.Len())
 	for iter := rv.MapRange(); iter.Next(); {
-		entries = append(entries, entry{fmt.Sprint(iter.Key().Interface()), iter.Value().Interface()})
+		k := fmt.Sprint(iter.Key().Interface())
+		entries = append(entries, entry{k, fn(k), iter.Value().Interface()})
 	}
-	slices.SortFunc(entries, func(a, b entry) int { return strings.Compare(a.key, b.key) })
+	slices.SortFunc(entries, func(a, b entry) int {
+		return cmp.Or(strings.Compare(a.masked, b.masked), strings.Compare(a.key, b.key))
+	})
 	out := make(map[string]any, len(entries))
 	changed := false
 	for _, e := range entries {
-		mk := fn(e.key)
+		mk := e.masked
 		if mk != e.key {
 			changed = true
 		}
