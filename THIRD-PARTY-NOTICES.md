@@ -28,7 +28,7 @@ The web UI embeds the JetBrains Mono, Onest, and Schibsted Grotesk typefaces, an
 | [github.com/go-logr/logr](https://github.com/go-logr/logr) | v1.4.4 | Go | Apache-2.0 |
 | [github.com/go-logr/stdr](https://github.com/go-logr/stdr) | v1.2.2 | Go | Apache-2.0 |
 | [github.com/go-viper/mapstructure/v2](https://github.com/go-viper/mapstructure/v2) | v2.5.0 | Go | MIT |
-| [github.com/go-webauthn/webauthn](https://github.com/go-webauthn/webauthn) | v0.18.1 | Go | BSD-3-Clause |
+| [github.com/go-webauthn/webauthn](https://github.com/go-webauthn/webauthn) | v0.18.2 | Go | BSD-3-Clause |
 | [github.com/go-webauthn/x](https://github.com/go-webauthn/x) | v0.3.1 | Go | BSD-3-Clause |
 | [github.com/golang-jwt/jwt/v5](https://github.com/golang-jwt/jwt/v5) | v5.3.1 | Go | MIT |
 | [github.com/google/go-tpm](https://github.com/google/go-tpm) | v0.9.8 | Go | Apache-2.0 |
@@ -97,8 +97,8 @@ The web UI embeds the JetBrains Mono, Onest, and Schibsted Grotesk typefaces, an
 | [@simplewebauthn/browser](https://github.com/MasterKale/SimpleWebAuthn/tree/master/packages/browser#readme) | 14.0.0 | npm | MIT |
 | [@standard-schema/spec](https://standardschema.dev) | 1.1.0 | npm | MIT |
 | [@standard-schema/utils](https://github.com/standard-schema/standard-schema#readme) | 0.3.0 | npm | MIT |
-| [@tanstack/query-core](https://tanstack.com/query) | 5.103.1 | npm | MIT |
-| [@tanstack/react-query](https://tanstack.com/query) | 5.103.1 | npm | MIT |
+| [@tanstack/query-core](https://tanstack.com/query) | 5.103.2 | npm | MIT |
+| [@tanstack/react-query](https://tanstack.com/query) | 5.103.2 | npm | MIT |
 | [@tanstack/react-virtual](https://tanstack.com/virtual) | 3.14.13 | npm | MIT |
 | [@tanstack/virtual-core](https://tanstack.com/virtual) | 3.17.11 | npm | MIT |
 | [@types/d3-array](https://github.com/DefinitelyTyped/DefinitelyTyped/tree/master/types/d3-array) | 3.2.2 | npm | MIT |
@@ -196,7 +196,7 @@ The web UI embeds the JetBrains Mono, Onest, and Schibsted Grotesk typefaces, an
 | [is-hexadecimal](https://github.com/wooorm/is-hexadecimal#readme) | 2.0.1 | npm | MIT |
 | [is-plain-obj](https://github.com/sindresorhus/is-plain-obj#readme) | 4.1.0 | npm | MIT |
 | [katex](https://katex.org) | 0.16.47 | npm | MIT |
-| [katex](https://katex.org) | 0.18.7 | npm | MIT |
+| [katex](https://katex.org) | 0.18.9 | npm | MIT |
 | [locate-path](https://github.com/sindresorhus/locate-path#readme) | 5.0.0 | npm | MIT |
 | [longest-streak](https://github.com/wooorm/longest-streak#readme) | 3.1.0 | npm | MIT |
 | [markdown-table](https://github.com/wooorm/markdown-table#readme) | 3.0.4 | npm | MIT |
@@ -261,7 +261,7 @@ The web UI embeds the JetBrains Mono, Onest, and Schibsted Grotesk typefaces, an
 | [react](https://react.dev/) | 19.3.0 | npm | MIT |
 | [react-colorful](https://omgovich.github.io/react-colorful) | 5.8.1 | npm | MIT |
 | [react-dom](https://react.dev/) | 19.3.0 | npm | MIT |
-| [react-i18next](https://github.com/i18next/react-i18next) | 17.0.14 | npm | MIT |
+| [react-i18next](https://github.com/i18next/react-i18next) | 17.0.15 | npm | MIT |
 | [react-is](https://react.dev/) | 19.2.6 | npm | MIT |
 | [react-is](https://react.dev/) | 19.2.7 | npm | MIT |
 | [react-markdown](https://github.com/remarkjs/react-markdown#readme) | 10.1.0 | npm | MIT |
@@ -1075,7 +1075,7 @@ SOFTWARE.
 
 Copyright (c) 2021-present Tanner Linsley
 
-Applies to: `@tanstack/query-core@5.103.1`, `@tanstack/react-query@5.103.1`, `@tanstack/react-virtual@3.14.13`, `@tanstack/virtual-core@3.17.11`
+Applies to: `@tanstack/query-core@5.103.2`, `@tanstack/react-query@5.103.2`, `@tanstack/react-virtual@3.14.13`, `@tanstack/virtual-core@3.17.11`
 
 ```
 MIT License
@@ -1375,7 +1375,7 @@ SOFTWARE.
 
 Copyright (c) 2013-2020 Khan Academy and other contributors
 
-Applies to: `katex@0.16.47`, `katex@0.18.7`
+Applies to: `katex@0.16.47`, `katex@0.18.9`
 
 ```
 The MIT License (MIT)
@@ -2191,7 +2191,7 @@ THE SOFTWARE.
 
 Copyright (c) 2025 github.com/go-webauthn/webauthn authors.
 
-Applies to: `github.com/go-webauthn/webauthn@v0.18.1`
+Applies to: `github.com/go-webauthn/webauthn@v0.18.2`
 
 ```
 Copyright (c) 2025 github.com/go-webauthn/webauthn authors.
@@ -6260,7 +6260,7 @@ SOFTWARE.
 
 Copyright (c) 2015-present i18next
 
-Applies to: `react-i18next@17.0.14`
+Applies to: `react-i18next@17.0.15`
 
 ```
 The MIT License (MIT)
