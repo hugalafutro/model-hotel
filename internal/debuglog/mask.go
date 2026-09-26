@@ -1,10 +1,15 @@
 package debuglog
 
 import (
+	"cmp"
 	"context"
+	"encoding"
+	"encoding/json"
 	"fmt"
 	"log/slog"
 	"reflect"
+	"slices"
+	"strings"
 	"sync/atomic"
 )
 
@@ -88,11 +93,8 @@ func (h maskingHandler) WithGroup(name string) slog.Handler {
 	return maskingHandler{h.next.WithGroup(name)}
 }
 
-// maskAttr masks the text an attribute will render as. Strings, errors and
-// Stringers are masked as the string both the text and the JSON handler render
-// them to; the slices and maps a call site assembles are walked, so a
-// []string of error texts or a metadata map is masked element by element.
-// Anything else keeps its structure: there is no text in it to scrub.
+// maskAttr masks the text an attribute will render as (see maskAny). An
+// attribute the mask leaves unchanged keeps its value as given.
 func maskAttr(fn func(string) string, a slog.Attr) slog.Attr {
 	v := a.Value.Resolve()
 	switch v.Kind() {
@@ -122,18 +124,23 @@ const maskDepth = 8
 // masker, and no real log line nests that deep.
 const depthMarker = "[omitted: nested past the log masker's depth]"
 
-// maskAny masks one KindAny value, reporting whether it changed anything the
-// handler renders. A nil or typed-nil value is left alone: calling Error or
-// String on one panics, where slog itself renders "<nil>", and this handler
-// sits in front of every record in the binary, so a (*T)(nil) error logged
-// from a background goroutine must not become a crash.
+// maskAny masks one KindAny value, reporting whether the mask changed anything
+// a handler renders. Nothing that masks to itself is replaced, so a value with
+// no credential in it keeps its own type and every sink renders it exactly as
+// before. A nil or typed-nil value is left alone: calling Error or String on
+// one panics, where slog itself renders "<nil>", and this handler sits in front
+// of every record in the binary, so a (*T)(nil) error logged from a background
+// goroutine must not become a crash.
 //
 // Collections are walked by kind, not by exact type, so a map[string]string, a
-// []error, an array and a named slice or map type are masked as well as the
-// []any a call site might assemble. Anything else that carries text (a struct,
-// a named string type) is rendered as the handlers would render it and masked;
-// it keeps its own value unless the mask actually changed something, so a
-// struct without a credential in it is logged exactly as before.
+// []error, an array and a named slice or map type are masked element by
+// element (map keys included) and keep their structure. Everything else that
+// carries text (a struct, a pointer, an error, a Stringer, a type with its own
+// MarshalJSON or MarshalText) is rendered the way each sink renders it (see
+// maskRendered) and, when any rendering masks differently, replaced by the
+// masked text. That replacement is a string in every sink, so a value with a
+// MarshalJSON that masks differently reaches the JSON sink as a JSON string,
+// not the object it marshals to.
 func maskAny(fn func(string) string, x any) (any, bool) {
 	return maskAnyDepth(fn, x, maskDepth)
 }
@@ -144,21 +151,18 @@ func maskAnyDepth(fn func(string) string, x any, depth int) (any, bool) {
 	}
 	switch v := x.(type) {
 	case string:
-		return fn(v), true
+		m := fn(v)
+		return m, m != v
 	case []byte:
 		// Masked as the text it holds, and kept a []byte so each handler
 		// renders it exactly as before.
-		return []byte(fn(string(v))), true
-	case error:
-		if s, ok := safeText(v.Error); ok {
-			return fn(s), true
+		if m := fn(string(v)); m != string(v) {
+			return []byte(m), true
 		}
 		return nil, false
-	case fmt.Stringer:
-		if s, ok := safeText(v.String); ok {
-			return fn(s), true
-		}
-		return nil, false
+	case json.Marshaler, encoding.TextMarshaler, error, fmt.Stringer:
+		// The type decides its own rendering, so its elements are not walked.
+		return maskRendered(fn, x)
 	}
 	rv := reflect.ValueOf(x)
 	switch rv.Kind() {
@@ -169,57 +173,139 @@ func maskAnyDepth(fn func(string) string, x any, depth int) (any, bool) {
 		return nil, false
 	case reflect.String:
 		// A named string type: the switch above matched only string itself.
-		return fn(rv.String()), true
+		s := rv.String()
+		m := fn(s)
+		return m, m != s
 	}
 	if depth == 0 {
 		return depthMarker, true
 	}
 	switch rv.Kind() {
 	case reflect.Slice, reflect.Array:
-		out := make([]any, rv.Len())
-		for i := range out {
-			out[i] = maskElem(fn, rv.Index(i).Interface(), depth-1)
-		}
-		return out, true
+		return maskSlice(fn, rv, depth-1)
 	case reflect.Map:
-		// Keys are kept as field names, rendered to strings for a map with
-		// non-string keys; they are not masked, since two keys masked to the
-		// same "[redacted]" would silently drop an entry.
-		out := make(map[string]any, rv.Len())
-		for iter := rv.MapRange(); iter.Next(); {
-			out[fmt.Sprint(iter.Key().Interface())] = maskElem(fn, iter.Value().Interface(), depth-1)
-		}
-		return out, true
+		return maskMap(fn, rv, depth-1)
 	}
-	// A struct, a pointer to one, an interface: rendered the way the text
-	// handler prints it, and replaced by the masked rendering only if that
-	// differs. fmt recovers a panicking String, Error or Format method itself
-	// (it prints "%!v(PANIC=...)"), so no guard is needed here.
-	rendered := fmt.Sprintf("%+v", x)
-	if masked := fn(rendered); masked != rendered {
-		return masked, true
+	return maskRendered(fn, x)
+}
+
+// maskSlice masks each element, rebuilding the slice only when one changed.
+func maskSlice(fn func(string) string, rv reflect.Value, depth int) (any, bool) {
+	out := make([]any, rv.Len())
+	changed := false
+	for i := range out {
+		e := rv.Index(i).Interface()
+		if m, ok := maskAnyDepth(fn, e, depth); ok {
+			out[i], changed = m, true
+			continue
+		}
+		out[i] = e
+	}
+	if !changed {
+		return nil, false
+	}
+	return out, true
+}
+
+// maskMap masks each key and value, rebuilding the map only when one changed.
+// Keys become field names, rendered to strings for a map with non-string
+// keys. Two keys that render or mask to the same name (two credentials both
+// masked to "[redacted]") keep both entries: the later one gets a "#2", "#3"
+// suffix rather than overwriting the first. Entries are taken in the order of
+// their masked keys, ties broken by the keys as rendered before masking, not
+// map order, so the same map gets the same suffixes on every record.
+func maskMap(fn func(string) string, rv reflect.Value, depth int) (any, bool) {
+	type entry struct {
+		key, masked string
+		val         any
+	}
+	entries := make([]entry, 0, rv.Len())
+	for iter := rv.MapRange(); iter.Next(); {
+		k := fmt.Sprint(iter.Key().Interface())
+		entries = append(entries, entry{k, fn(k), iter.Value().Interface()})
+	}
+	slices.SortFunc(entries, func(a, b entry) int {
+		return cmp.Or(strings.Compare(a.masked, b.masked), strings.Compare(a.key, b.key))
+	})
+	out := make(map[string]any, len(entries))
+	changed := false
+	for _, e := range entries {
+		mk := e.masked
+		if mk != e.key {
+			changed = true
+		}
+		if _, taken := out[mk]; taken {
+			changed = true
+			for n := 2; ; n++ {
+				cand := fmt.Sprintf("%s#%d", mk, n)
+				if _, taken := out[cand]; !taken {
+					mk = cand
+					break
+				}
+			}
+		}
+		v := e.val
+		if m, ok := maskAnyDepth(fn, v, depth); ok {
+			v, changed = m, true
+		}
+		out[mk] = v
+	}
+	if !changed {
+		return nil, false
+	}
+	return out, true
+}
+
+// maskRendered masks a value through every text a sink renders it as, and
+// replaces it with the first masked rendering that differs. Checking one
+// rendering is not enough: the text handler prints a struct's nested pointer
+// as an address where the JSON sink prints the string behind it, and a type's
+// own MarshalJSON or MarshalText can emit text neither %+v nor String shows.
+// The text rendering is masked only when it differs from the JSON one, which
+// for an error or a Stringer it almost never does.
+func maskRendered(fn func(string) string, x any) (any, bool) {
+	js, jsOK := jsonRendering(x)
+	if jsOK {
+		if m := fn(js); m != js {
+			return m, true
+		}
+	}
+	if ts, ok := textRendering(x); ok && (!jsOK || ts != js) {
+		if m := fn(ts); m != ts {
+			return m, true
+		}
 	}
 	return nil, false
 }
 
-// maskElem masks one element of a collection, leaving it unchanged when it
-// carries no text.
-func maskElem(fn func(string) string, e any, depth int) any {
-	if masked, ok := maskAnyDepth(fn, e, depth); ok {
-		return masked
-	}
-	return e
-}
-
-// safeText calls an Error or String method, reporting false when it panics.
-// isTypedNil catches the common case, but an error whose Error dereferences a
-// nil field inside a non-nil value (a *url.Error with a nil Err) panics too,
-// and slog recovers exactly that for the handlers behind this one.
-func safeText(render func() string) (s string, ok bool) {
+// jsonRendering is the text the JSON sink and the app-log fields render x as
+// (jsonValue), reporting false when rendering it fails or panics. The
+// encoder ends a pointer cycle itself, with an error.
+func jsonRendering(x any) (s string, ok bool) {
 	defer func() {
 		if recover() != nil {
 			s, ok = "", false
 		}
 	}()
-	return render(), true
+	v := jsonValue(slog.AnyValue(x))
+	if raw, isRaw := v.(json.RawMessage); isRaw {
+		return string(raw), true
+	}
+	return fmt.Sprint(v), true
+}
+
+// textRendering is the text slog's text handler renders a KindAny value as:
+// MarshalText for a TextMarshaler, %+v for anything else. fmt recovers a
+// panicking String, Error or Format method itself; MarshalText is guarded.
+func textRendering(x any) (s string, ok bool) {
+	defer func() {
+		if recover() != nil {
+			s, ok = "", false
+		}
+	}()
+	if tm, isTM := x.(encoding.TextMarshaler); isTM {
+		b, err := tm.MarshalText()
+		return string(b), err == nil
+	}
+	return fmt.Sprintf("%+v", x), true
 }

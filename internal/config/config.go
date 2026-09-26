@@ -222,7 +222,7 @@ func Load() (*Config, error) {
 	// keep booting (rotating MASTER_KEY would invalidate all encrypted keys),
 	// while operators are nudged toward a stronger value.
 	if WeakMasterKey(cfg.MasterKey) {
-		debuglog.Warn("config: MASTER_KEY is shorter than recommended — a low-entropy key weakens at-rest encryption of provider credentials; generate a strong one with `openssl rand -base64 32`",
+		debuglog.Warn("config: MASTER_KEY is shorter than recommended: a low-entropy key weakens at-rest encryption of provider credentials; generate a strong one with `openssl rand -base64 32`",
 			"length", len(cfg.MasterKey), "recommended_min", RecommendedMasterKeyLength)
 	}
 

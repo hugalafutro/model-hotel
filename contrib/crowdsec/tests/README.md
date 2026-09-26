@@ -20,14 +20,14 @@ overflows, and a scenario test sets `ignore_parsers: true` and asserts nothing a
 
 ## What each test covers
 
-`model-hotel-logs` is the parser test. Its 33 lines carry one example of every `sub_type` the
+`model-hotel-logs` is the parser test. Its 37 lines carry one example of every `sub_type` the
 parser can emit (`vk_invalid`, `admin_token`, `login`, `sso`, `csrf`, `forbidden`,
 `backup_signature`), three throttling lines, all three log shapes Model Hotel and Front Desk emit
 (Model Hotel text, `LOG_FORMAT=json`, Front Desk slog text), one address that still carries a TCP
 port the way pre-#674 builds logged it, and one info level line the parser has to refuse. Both
 binaries write a `forbidden` line, so both are here: the gateway's, which names the user, and Front
 Desk refusing a paired device that reached above its role, which names the device and no user at
-all and therefore pins `target_user` absent. The last line is a refused Traefik config poll, the
+all and therefore pins `target_user` absent. Line 33 is a refused Traefik config poll, the
 third subject the shared bearer gate writes under: each gate keeps its own wording, so each needs
 its own entry in the parser's `admin_token` rule and this is the one that proves it. The
 asserts pin `log_type`, `sub_type`, `source_ip`, `log_format`, `service`, and where the line
@@ -50,13 +50,20 @@ lines start naming strangers. Remove the `[^"]*` confinement from that same chec
 lines lose their `source_ip` instead, which is the suppression side: appending `remote_addr=` to a
 request path would keep an attacker's own failures out of every bucket.
 
-Lines 26 to 33, the last eight, are Front Desk's own, in its slog framing: an access record, the two
-admin-gate rejections and the CSRF rejection its control plane emits, a rejected passkey assertion,
-one admin rejection whose path carries an injected address, and the role refusal and the refused
-Traefik config poll described above. They pin that Front Desk reaches the same `admin_token`,
-`csrf`, `login` and `forbidden` buckets as the gateway with the same messages, that its access
-record is refused by the main parser (it belongs to the opt-in access parser instead), and that its
-quoted path still resolves to the real client.
+Lines 26 to 35 are Front Desk's own, in its slog framing: an access record, the two admin-gate
+rejections and the CSRF rejection its control plane emits, a rejected passkey assertion, one admin
+rejection whose path carries an injected address in each form (quoted, then bare), the role refusal
+and the refused Traefik config poll described above, and a message that interpolates a member name
+holding a forged address. They pin that Front Desk reaches the same `admin_token`, `csrf`, `login`
+and `forbidden` buckets as the gateway with the same messages, that its access record is refused by
+the main parser (it belongs to the opt-in access parser instead), that its quoted path still
+resolves to the real client, and that nothing inside the quoted message can supply one.
+
+Lines 36 and 37 pin how the alert context is read. On line 36 the username holds ` path=/x`: the
+path and username rules read the attribute tail past every quoted value, as the address rule does,
+so `http_path` is the real `/api/providers` and not the `/x"` a leftmost match on the line finds.
+On line 37 the path holds an escaped quote, and the quoted read walks the escape instead of
+stopping at it, so `http_path` is the whole `/a\"b c` rather than `/a\`.
 
 `model-hotel-access-logs` covers the opt-in parser that is deliberately left out of the collection.
 It pins the mapping onto the generic `http_access-log` contract for all three shapes (Model Hotel
@@ -74,8 +81,14 @@ proves those three sub types share one bucket rather than filling three.
 ## Running them
 
 CI runs all five on every change under `contrib/crowdsec/` (the `CrowdSec Hubtest` job in
-`.github/workflows/ci.yml`), against a pinned hub commit and a pinned engine tag. Run them locally
-the same way before pushing a parser change.
+`.github/workflows/ci.yml`), against a pinned hub commit and an engine image pinned by digest. Run
+them locally the same way before pushing a parser change.
+
+A new parser or scenario file needs no hub-pin bump. The job copies the files into the hub without
+regenerating its `.index.json`, and the pinned hub's index lists none of this collection's items at
+all, yet every fixture passes: `cscli hubtest` loads an item a `config.yaml` names by a `./` path
+straight from that path, index or not. Verified locally against the pinned commit and engine. A
+fixture must therefore name its own collection's items by `./` path, never by hub name.
 
 `cscli hubtest` needs a hub checkout, because `config.yaml` resolves the collection's own items by
 a path relative to the hub root.
@@ -137,8 +150,10 @@ a bucket, and the test would fail in a way that looks like a parser bug.
 Log lines are copied byte for byte from what the two binaries actually write. The Model Hotel text
 shape uses local time `2006/01/02 15:04:05` with no zone and no `T`, and its level word is
 `WARNING` or `ERROR`, never `WARN`. Front Desk uses stdlib slog, so it is `WARN` and an RFC3339
-`time=`. Attribute values are never quoted on the Model Hotel side, which is why
-`reason=nonce mismatch` appears unquoted and why only `nonce` survives into `Unmarshaled`.
+`time=`. Both binaries quote an attribute value that holds a space, a quote, an `=` or a backslash
+(logfmt), and attributes appear in the order the call site logs them. The Model Hotel message is
+bare, and quoted whole only when it holds a quote or a control character, which none of the
+classified messages do.
 
 Nothing is asserted that changes between runs. The line timestamps are fixed in the fixtures and
 drive the leaky buckets, but no assertion reads a wall clock value.

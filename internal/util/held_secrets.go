@@ -48,25 +48,32 @@ var (
 	heldList []string // longest first, so a secret that is a prefix of another is masked whole
 )
 
-// HoldSecret registers a decrypted secret with the exact layer. Values under
-// CredentialMinLen are ignored, for the reason given there.
-func HoldSecret(secret string) {
+// HoldSecret registers a decrypted secret with the exact layer, together with
+// its URL-escaped forms (escapedForms), built once here rather than on every
+// pass. Values under CredentialMinLen are ignored, for the reason given there.
+// It reports whether secret is held once it returns (newly or already), false
+// only for a value it ignored.
+func HoldSecret(secret string) bool {
 	if len(secret) < CredentialMinLen {
-		return
+		return false
 	}
 	heldMu.Lock()
 	defer heldMu.Unlock()
 	if _, ok := heldSet[secret]; ok {
-		return
+		return true
 	}
 	heldSet[secret] = struct{}{}
+	for _, form := range escapedForms(secret) {
+		heldSet[form] = struct{}{}
+	}
 	heldList = slices.SortedFunc(maps.Keys(heldSet), func(a, b string) int {
 		return cmp.Or(cmp.Compare(len(b), len(a)), cmp.Compare(a, b))
 	})
+	return true
 }
 
-// HeldSecrets returns the held set, longest first. The slice is shared and
-// must not be modified.
+// HeldSecrets returns the held set (each secret and its escaped forms),
+// longest first. The slice is shared and must not be modified.
 func HeldSecrets() []string {
 	heldMu.RLock()
 	defer heldMu.RUnlock()

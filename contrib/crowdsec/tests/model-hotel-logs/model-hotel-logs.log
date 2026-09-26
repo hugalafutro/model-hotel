@@ -6,7 +6,7 @@
 2026/08/18 04:15:07 level=WARNING userlogin: invalid TOTP code remote_addr=203.0.113.9
 2026/08/18 04:15:08 level=WARNING oidc: callback failed reason="nonce mismatch" remote_addr=203.0.113.10
 2026/08/18 04:15:09 level=WARNING auth: CSRF check failed remote_addr=203.0.113.11 path=/api/providers
-2026/08/18 04:15:10 level=WARNING auth: insufficient permissions username=alice remote_addr=203.0.113.12 path=/api/providers
+2026/08/18 04:15:10 level=WARNING auth: insufficient permissions remote_addr=203.0.113.12 username=alice path=/api/providers
 2026/08/18 04:15:11 level=ERROR backup: restore rejected, signature mismatch remote_addr=203.0.113.13
 2026/08/18 04:15:12 level=WARNING ratelimit-ip: throttling started ip=192.0.2.44 rps=30 burst=60
 2026/08/18 04:15:13 level=WARNING auth: admin request with invalid token remote_addr=192.0.2.55:53110 path=/api/providers
@@ -33,3 +33,5 @@ time=2026-08-18T04:15:33.123Z level=WARN msg="auth: insufficient permissions" re
 time=2026-08-18T04:15:34.123Z level=WARN msg="frontdesk: traefik config poll with invalid token" remote_addr=203.0.113.29
 time=2026-08-18T04:15:34.123Z level=WARN msg="auth: admin request with invalid token" remote_addr=203.0.113.30 path=/x remote_addr=203.0.113.77
 time=2026-08-18T04:15:35.123Z level=ERROR msg="frontdesk: metrics scrape with invalid token remote_addr=203.0.113.77 is unreachable after 3 checks" member=7f3a9c21
+2026/08/18 04:15:36 level=WARNING auth: insufficient permissions remote_addr=203.0.113.31 username="bob path=/x" path=/api/providers
+2026/08/18 04:15:37 level=WARNING auth: admin request with invalid token remote_addr=203.0.113.32 path="/a\"b c"
