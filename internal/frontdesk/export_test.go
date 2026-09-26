@@ -22,3 +22,17 @@ func (s *Store) SetAutoSync(ctx context.Context, enabled bool, primaryID string)
 	}
 	return nil
 }
+
+// SetFleetPrimaryMarker writes the no-run marker naming primaryID directly, the
+// state CreateVerifiedMember leaves when an add grows a one-member fleet
+// (lonePrimaryMarker), so tests can arrange it without driving an add.
+func (s *Store) SetFleetPrimaryMarker(ctx context.Context, primaryID, primaryName string) error {
+	_, err := s.db.ExecContext(ctx,
+		`INSERT INTO fleet_sync_state (id, last_run_at, primary_id, primary_name) VALUES (1, 0, ?, ?)`+noRunMarkerUpsert,
+		primaryID, primaryName,
+	)
+	if err != nil {
+		return fmt.Errorf("frontdesk: set fleet primary marker: %w", err)
+	}
+	return nil
+}

@@ -25,7 +25,7 @@ type FleetSyncState struct {
 
 // GetFleetSyncState returns the recorded last-run marker. found is false (with a
 // nil error) when the wizard has never recorded a successful run. A row written
-// by SetFleetPrimaryMarker names a primary without a run: its PrimaryID and
+// by a no-run marker write (lonePrimaryMarker) names a primary without a run: its PrimaryID and
 // PrimaryName are returned with found false and a zero LastRunAt.
 func (s *Store) GetFleetSyncState(ctx context.Context) (state FleetSyncState, found bool, err error) {
 	var at int64
@@ -45,24 +45,26 @@ func (s *Store) GetFleetSyncState(ctx context.Context) (state FleetSyncState, fo
 	return state, true, nil
 }
 
-// SetFleetPrimaryMarker records primaryID as the fleet's primary without
-// claiming a sync ran (last_run_at 0, which GetFleetSyncState reports as no run
-// recorded). It is how a fleet that grows from one member keeps naming that
-// member its primary (effectivePrimaryID) until the operator designates one. A
-// row that already names primaryID is left alone, recorded run time included.
-func (s *Store) SetFleetPrimaryMarker(ctx context.Context, primaryID, primaryName string) error {
-	_, err := s.db.ExecContext(ctx,
-		`INSERT INTO fleet_sync_state (id, last_run_at, primary_id, primary_name) VALUES (1, 0, ?, ?)
-		 ON CONFLICT(id) DO UPDATE SET last_run_at = 0,
+// noRunMarkerUpsert is the conflict tail of every no-run marker write: the
+// marker names a primary without claiming a sync ran (last_run_at 0, which
+// GetFleetSyncState reports as no run recorded), and a row that already names
+// the same member is left alone, recorded run time included.
+const noRunMarkerUpsert = ` ON CONFLICT(id) DO UPDATE SET last_run_at = 0,
 		   primary_id = excluded.primary_id, primary_name = excluded.primary_name
-		 WHERE primary_id <> excluded.primary_id`,
-		primaryID, primaryName,
-	)
-	if err != nil {
-		return fmt.Errorf("frontdesk: set fleet primary marker: %w", err)
-	}
-	return nil
-}
+		 WHERE primary_id <> excluded.primary_id`
+
+// lonePrimaryMarker records, inside the transaction that inserted newID, the
+// fleet's former lone member as the no-run marker when that insert made the
+// roster two. On one member effectivePrimaryID names the sole member with
+// nothing stored behind it, so without the record the two-member roster would
+// resolve to nobody: the former lone member would be announced as a managed
+// member, and the config it held while alone would be overwritten unannounced
+// if the wizard then picked the newcomer. The marker keeps the resolver naming
+// it, and the wizard preselecting it, until the operator designates a primary
+// (SetAutoSyncGuarded then clears it). Sharing the insert's transaction means
+// concurrent adds serialize on it: exactly one of them sees the roster at two.
+const lonePrimaryMarker = `INSERT INTO fleet_sync_state (id, last_run_at, primary_id, primary_name)
+		 SELECT 1, 0, id, name FROM members WHERE id <> ? AND (SELECT COUNT(*) FROM members) = 2` + noRunMarkerUpsert
 
 // SetFleetSyncState upserts the single-row last-run marker.
 func (s *Store) SetFleetSyncState(ctx context.Context, primaryID, primaryName string, at time.Time) error {

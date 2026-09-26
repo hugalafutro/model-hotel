@@ -585,6 +585,29 @@ class MemberDetailScreenTest {
         assertTrue(synced)
     }
 
+    // A primary Front Desk names without a designation (a fleet grown from one
+    // member) is badged, but a fleet sync only accepts a designated source, so
+    // it gets no Sync action.
+    @Test
+    fun undesignatedPrimaryIsBadgedWithoutSync() {
+        composeTestRule.setContent {
+            BellhopTheme {
+                MemberDetailScreen(
+                    member = member,
+                    isPrimary = true,
+                    isDesignated = false,
+                    onBack = {},
+                    ui = MemberDetailUiState(loading = false, traffic = reachableTraffic),
+                    canOperate = true,
+                )
+            }
+        }
+        composeTestRule.onNodeWithTag("member-detail-primary", useUnmergedTree = true).assertIsDisplayed()
+        assertTrue(
+            composeTestRule.onAllNodesWithTag("member-op-sync").fetchSemanticsNodes().isEmpty(),
+        )
+    }
+
     @Test
     fun syncButtonAbsentOnNonPrimary() {
         composeTestRule.setContent {

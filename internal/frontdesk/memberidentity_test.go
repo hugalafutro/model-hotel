@@ -112,7 +112,7 @@ func TestCreateMemberErrorsCarryCodes(t *testing.T) {
 	// may only be unreachable for the moment, and its member adopts a new owner
 	// as soon as the old one's heartbeat goes stale - so enrolling it here would
 	// quietly take a live fleet's config source away from it. Regression pin:
-	// this refusal predates the own-desk carve-out and passes without it.
+	// another desk's stale primary is refused without the admin token.
 	t.Run("another desk's stale primary is refused", func(t *testing.T) {
 		srv, store := newTestServer(t)
 		host := fleetIdentityStub(t, `{"state":"warning","is_primary":true,"frontdesk_id":"fd-somewhere-else"}`, "iid-theirs")
@@ -187,8 +187,8 @@ func TestCreateMemberErrorsCarryCodes(t *testing.T) {
 			t.Fatalf("got %d code=%q, want 409 already_member", rec.Code, codeOf(t, rec))
 		}
 	})
-	// A wrong token is no confirmation at all: the refusal stands. Regression
-	// pin: it passes on code without the confirm-token override too.
+	// A wrong token is no confirmation at all. Regression pin: a wrong admin
+	// token leaves the primary_elsewhere refusal standing.
 	t.Run("another desk's stale primary refuses a wrong admin token", func(t *testing.T) {
 		srv, _ := newTestServer(t)
 		host := fleetIdentityStub(t, `{"state":"warning","is_primary":true,"frontdesk_id":"fd-that-is-gone"}`, "iid-nope")
@@ -213,7 +213,7 @@ func TestCreateMemberErrorsCarryCodes(t *testing.T) {
 	})
 	// A stale ex-MEMBER (never a primary) is addable whoever managed it: the
 	// ownership question only arises for the one host a fleet cannot do without.
-	// Regression pin: a non-primary host was always addable.
+	// Regression pin: a stale non-primary host is addable whoever managed it.
 	t.Run("another desk's stale member is addable", func(t *testing.T) {
 		srv, _ := newTestServer(t)
 		host := fleetIdentityStub(t, `{"state":"warning","is_primary":false,"frontdesk_id":"fd-somewhere-else"}`, "iid-plain")

@@ -38,22 +38,23 @@ func writeQuotaUnreachable(w http.ResponseWriter, msg string) {
 
 // effectivePrimary reads the roster, the auto-sync row and the fleet sync-state
 // marker and resolves the fleet primary through effectivePrimaryID, returning
-// the roster and the auto-sync row too for callers that need them. id is ""
-// when no member resolves.
-func (s *Server) effectivePrimary(ctx context.Context) (id string, members []*Member, cfg AutoSyncConfig, err error) {
+// the roster and the auto-sync row too for callers that need them, and ran,
+// whether a real sync run is recorded (a marker from lonePrimaryMarker alone is
+// not one). id is "" when no member resolves.
+func (s *Server) effectivePrimary(ctx context.Context) (id string, members []*Member, cfg AutoSyncConfig, ran bool, err error) {
 	members, err = s.store.ListMembers(ctx)
 	if err != nil {
-		return "", nil, cfg, err
+		return "", nil, cfg, false, err
 	}
 	cfg, err = s.store.GetAutoSync(ctx)
 	if err != nil {
-		return "", nil, cfg, err
+		return "", nil, cfg, false, err
 	}
-	state, _, err := s.store.GetFleetSyncState(ctx)
+	state, ran, err := s.store.GetFleetSyncState(ctx)
 	if err != nil {
-		return "", nil, cfg, err
+		return "", nil, cfg, false, err
 	}
-	return effectivePrimaryID(members, cfg, state.PrimaryID), members, cfg, nil
+	return effectivePrimaryID(members, cfg, state.PrimaryID), members, cfg, ran, nil
 }
 
 // quotaPrimary resolves the member both quota handlers proxy to: the fleet
@@ -63,7 +64,7 @@ func (s *Server) effectivePrimary(ctx context.Context) (id string, members []*Me
 // primary to ask -- none resolves and none is designated -- or an error status
 // for every failure to reach a primary that exists.
 func (s *Server) quotaPrimary(w http.ResponseWriter, r *http.Request, none any) (*Member, string, bool) {
-	primaryID, _, cfg, err := s.effectivePrimary(r.Context())
+	primaryID, _, cfg, _, err := s.effectivePrimary(r.Context())
 	if err != nil {
 		// Front Desk's own store is unreadable. That is our failure, not the
 		// primary's, so it maps to 500 rather than 502 -- but it is still an

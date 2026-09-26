@@ -1,7 +1,6 @@
 package frontdesk
 
 import (
-	"context"
 	"errors"
 	"fmt"
 	"net/http"
@@ -163,7 +162,8 @@ func (s *Server) createMember(w http.ResponseWriter, r *http.Request) {
 	// the operator means (the stale own-desk case below). Such a host falls
 	// through to the instance_id dedup, which refuses it as already_member when
 	// it is in fact still in the roster under another address. Without an
-	// instance id that dedup cannot run, so the refusal stands.
+	// instance id that dedup cannot run, so the refusal stands; and a roster
+	// row the dedup could not identify refuses the add further down.
 	if ident.State == "primary" && (ident.FrontdeskID != ownID || ident.InstanceID == "") {
 		fail("already_primary", "This host is already the fleet primary (the config source of truth), reached under a different address. It cannot also be added as a member.", http.StatusConflict)
 		return
@@ -223,16 +223,30 @@ func (s *Server) createMember(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
+	// A host admitted by the own-desk carve-out above claims to be this fleet's
+	// primary; the dedup clears it only if every roster row is identified. A
+	// row still without an instance_id (a legacy row whose probe failed, or one
+	// with no token) could be this very host under its old address, so refuse
+	// until it answers or is removed rather than enrol the primary twice.
+	if ident.State == "primary" {
+		members, merr := s.store.ListMembers(r.Context())
+		if merr != nil {
+			fail("verify_failed", "Front Desk could not verify whether this host is already a member. Try again.", http.StatusInternalServerError)
+			return
+		}
+		for _, m := range members {
+			if m.InstanceID == "" {
+				fail("identity_unverified", "This host reports being this fleet's primary, and member "+m.Name+" could not be identified to rule out that it is the same host. Try again once that member answers, or remove it first.", http.StatusBadRequest)
+				return
+			}
+		}
+	}
 
 	// Verified: insert, with the learned identity in the same statement so
 	// future adds dedup against this member without re-probing it. The unique
 	// indexes re-check both the URL and the instance id, so two adds racing on
 	// the same host (same URL, or the same instance under two URLs, which the
 	// scan above cannot catch while neither row exists) still end with one row.
-	if err := s.recordLonePrimary(r.Context()); err != nil {
-		writeError(w, err)
-		return
-	}
 	m, err := s.store.CreateVerifiedMember(r.Context(), name, memberURL, req.Token, instanceID)
 	if err != nil {
 		writeMemberValidationError(w, err)
@@ -253,24 +267,6 @@ func (s *Server) createMember(w http.ResponseWriter, r *http.Request) {
 		Metadata: addedMetadata,
 	})
 	writeJSON(w, http.StatusCreated, memberResponse{Member: m})
-}
-
-// recordLonePrimary keeps a one-member fleet's primary when a second member
-// joins. On one member effectivePrimaryID names the sole member with nothing
-// stored behind it, so without a record the two-member roster would resolve to
-// nobody: the former lone member would be announced as a managed member, and
-// the config it held while alone would be overwritten unannounced if the wizard
-// then picked the newcomer. Recording it as the sync-state marker keeps the
-// resolver naming it, and the wizard preselecting it, until the operator
-// designates a primary. It runs before the insert, so the first announce that
-// sees two rows already sees the marker; a failed insert leaves a marker that
-// names the same member the one-member rule already does.
-func (s *Server) recordLonePrimary(ctx context.Context) error {
-	_, members, _, err := s.effectivePrimary(ctx)
-	if err != nil || len(members) != 1 {
-		return err
-	}
-	return s.store.SetFleetPrimaryMarker(ctx, members[0].ID, members[0].Name)
 }
 
 // writeMemberValidationError maps the two validation failures the add form

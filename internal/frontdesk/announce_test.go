@@ -542,9 +542,9 @@ func TestPollAnnounceOnce_FlagsTheLoneMemberAsPrimary(t *testing.T) {
 
 // TestPollAnnounceOnce_SecondMemberEndsTheLonePrimary: the lone-roster answer is
 // recomputed per poll from the roster alone and is not itself stored. The rows
-// here are written straight to the store, past the add handler that records the
-// lone member as the marker (TestCreateMemberKeepsTheLonePrimary), so once a
-// second row exists nothing names a primary and the flag drops.
+// here come from CreateMember, which writes the row alone (the verified add
+// also records the lone member as the marker, TestCreateMemberKeepsTheLonePrimary),
+// so once a second row exists nothing names a primary and the flag drops.
 func TestPollAnnounceOnce_SecondMemberEndsTheLonePrimary(t *testing.T) {
 	p, store, _ := newTestPoller(t, "")
 	ctx := context.Background()
@@ -640,6 +640,6 @@ func TestCreateMemberKeepsTheLonePrimary(t *testing.T) {
 	add("third")
 	members, _ = store.ListMembers(ctx)
 	if _, name, _ := srv.poller.fleetPrimary(ctx, members); name != "original" {
-		t.Errorf("fleet primary after a third add = %q, want original", name)
+		t.Fatalf("fleet primary after a third add = %q, want original", name)
 	}
 }

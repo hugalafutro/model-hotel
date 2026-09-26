@@ -351,7 +351,7 @@ fun DashboardScreen(
                             items(ui.members) { member ->
                                 MemberCard(
                                     member = member,
-                                    isPrimary = member.id == ui.primaryId,
+                                    isPrimary = member.id == ui.badgePrimaryId,
                                     traffic = ui.traffic[member.id],
                                     recentEvent = ui.recentEvents[member.id],
                                     // Auto-sync is a property of the primary, so it

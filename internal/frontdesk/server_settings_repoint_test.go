@@ -94,9 +94,13 @@ func TestRepointTargetsCurrentPrimary_NoCollisionToFind(t *testing.T) {
 }
 
 // Once the current primary's announces fail for more than 90s its live state
-// decays to "warning" while is_primary lingers. If the flag names this desk the
-// host is still this fleet's primary, so a second row for it must be caught;
-// the same lingering flag naming another desk, or not flagged at all, is not.
+// decays to "warning" while is_primary lingers. If the flag names this desk and
+// the candidate is the designated primary's own host (same instance_id) under
+// a second URL, it is still caught. The same lingering flag on a DIFFERENT host
+// (a former primary this desk repointed away from) is stale and the repoint is
+// allowed, as it is when the designation has no row left. A flag naming another
+// desk, or none, never counts (regression pins: neither makes the candidate the
+// current primary).
 func TestRepointTargetsCurrentPrimary_LingeringOwnFlag(t *testing.T) {
 	srv, store := newTestServer(t)
 	ctx := context.Background()
@@ -104,23 +108,31 @@ func TestRepointTargetsCurrentPrimary_LingeringOwnFlag(t *testing.T) {
 	if err != nil {
 		t.Fatalf("EnsureFrontdeskID: %v", err)
 	}
-	cur := AutoSyncConfig{Enabled: true, PrimaryID: "current-primary-row"}
+	designated, err := store.CreateVerifiedMember(ctx, "designated", "http://127.0.0.1:9/designated", "tok", "iid-designated")
+	if err != nil {
+		t.Fatalf("CreateVerifiedMember: %v", err)
+	}
+	cur := AutoSyncConfig{Enabled: true, PrimaryID: designated.ID}
+	own := `{"state":"warning","is_primary":true,"frontdesk_id":"` + ownID + `"}`
 	cases := []struct {
-		name, fleet string
-		want        bool
+		name, fleet, instanceID string
+		cur                     AutoSyncConfig
+		want                    bool
 	}{
-		{"own lingering flag", `{"state":"warning","is_primary":true,"frontdesk_id":"` + ownID + `"}`, true},
-		{"another desk's lingering flag", `{"state":"warning","is_primary":true,"frontdesk_id":"fd-elsewhere"}`, false},
-		{"not flagged", `{"state":"warning","is_primary":false,"frontdesk_id":"` + ownID + `"}`, false},
+		{"designated host under a second URL", own, "iid-designated", cur, true},
+		{"former primary with a stale flag", own, "iid-former", cur, false},
+		{"designation with no row left", own, "iid-designated", AutoSyncConfig{Enabled: true, PrimaryID: "gone"}, false},
+		{"another desk's lingering flag", `{"state":"warning","is_primary":true,"frontdesk_id":"fd-elsewhere"}`, "iid-designated", cur, false},
+		{"not flagged", `{"state":"warning","is_primary":false,"frontdesk_id":"` + ownID + `"}`, "iid-designated", cur, false},
 	}
 	for i, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			host := fleetIdentityStub(t, tc.fleet, "iid-linger")
+			host := fleetIdentityStub(t, tc.fleet, tc.instanceID)
 			m, err := store.CreateMember(ctx, "candidate-"+strconv.Itoa(i), host.URL, "tok")
 			if err != nil {
 				t.Fatalf("CreateMember: %v", err)
 			}
-			same, err := srv.repointTargetsCurrentPrimary(ctx, cur, m)
+			same, err := srv.repointTargetsCurrentPrimary(ctx, tc.cur, m)
 			if err != nil || same != tc.want {
 				t.Fatalf("repointTargetsCurrentPrimary = (%v, %v), want (%v, nil)", same, err, tc.want)
 			}

@@ -40,8 +40,8 @@ function renderPage() {
 beforeEach(() => {
 	server.use(sseHandler());
 	// Default: no primary. The page reads the primary from /api/fleet/autosync
-	// (effective_primary_id), the server's single answer; tests that care
-	// override it. The last-sync endpoint is left mocked for any other consumer
+	// (effective_primary_id, which the server omits when none resolves, as
+	// here); tests that care override it. The last-sync endpoint is left mocked for any other consumer
 	// but does not drive the badge.
 	server.use(
 		http.get("/api/fleet/autosync", () =>
@@ -585,7 +585,10 @@ describe("MembersPage", () => {
 		let autosyncCalls = 0;
 		server.use(
 			http.get("/api/members", () =>
-				HttpResponse.json([member({ id: "1", name: "hotel-1" })]),
+				HttpResponse.json([
+					member({ id: "1", name: "hotel-1" }),
+					member({ id: "2", name: "hotel-2" }),
+				]),
 			),
 			http.get("/api/fleet/autosync", () => {
 				autosyncCalls += 1;
@@ -1303,6 +1306,56 @@ describe("MembersPage", () => {
 		renderPage();
 		const badge = await screen.findByTestId("primary-badge");
 		expect(badge.closest("tr")).toHaveTextContent("hotel-2");
+	});
+
+	// An older backend sends no effective_primary_id: the designation still
+	// badges its member.
+	it("falls back to the designation when the server sends no effective primary", async () => {
+		server.use(
+			http.get("/api/members", () =>
+				HttpResponse.json([
+					member({ id: "1", name: "hotel-1" }),
+					member({ id: "2", name: "hotel-2" }),
+				]),
+			),
+			http.get("/api/fleet/autosync", () =>
+				HttpResponse.json({ enabled: true, primary_id: "2" }),
+			),
+		);
+		renderPage();
+		const badge = await screen.findByTestId("primary-badge");
+		expect(badge.closest("tr")).toHaveTextContent("hotel-2");
+	});
+
+	// A dormant designation the marker outranks is still refused by the backend
+	// delete guard, so its row offers no Remove either.
+	it("gives a dormant designated member no Remove button", async () => {
+		server.use(
+			http.get("/api/members", () =>
+				HttpResponse.json([
+					member({ id: "1", name: "hotel-1" }),
+					member({ id: "2", name: "hotel-2" }),
+					member({ id: "3", name: "hotel-3" }),
+				]),
+			),
+			http.get("/api/fleet/autosync", () =>
+				HttpResponse.json({
+					enabled: false,
+					primary_id: "2",
+					effective_primary_id: "1",
+				}),
+			),
+		);
+		renderPage();
+		await screen.findByTestId("primary-badge");
+		const row = (name: string) =>
+			screen.getByText(name).closest("tr") as HTMLElement;
+		expect(
+			within(row("hotel-2")).queryByRole("button", { name: /^Remove$/i }),
+		).not.toBeInTheDocument();
+		expect(
+			within(row("hotel-3")).getByRole("button", { name: /^Remove$/i }),
+		).toBeInTheDocument();
 	});
 
 	// Regression pin: the page never infers the primary from the roster size. A

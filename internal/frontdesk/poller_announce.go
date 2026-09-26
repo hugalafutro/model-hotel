@@ -85,7 +85,7 @@ func activeMemberCount(members []*Member) int {
 // member" and refuses every synced-entity edit, pointing the operator at a
 // primary that cannot be designated. It is the only instance in the fleet, so it
 // is the config source of truth by definition. When a second member joins, the
-// add records the lone member as the marker (recordLonePrimary), so this answer
+// add records the lone member as the marker (lonePrimaryMarker), so this answer
 // carries over to the two-member roster until the operator designates one.
 //
 // Nothing resolving on a larger roster means no member is flagged primary.

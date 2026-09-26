@@ -5,6 +5,9 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"slices"
+	"strconv"
+	"strings"
+	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -69,8 +72,11 @@ func TestHandleQuota_LoneMemberIsAsked(t *testing.T) {
 	}
 }
 
-// Distribution needs a destination: a lone primary is not read at all, while a
-// fleet whose primary is named only by the marker is fed from that member.
+// Distribution needs a destination and a fleet that has been set up: a lone
+// primary is not read at all, a fleet that only grew from one member (the
+// no-run marker) is not fed either, since its same-named providers may be
+// different accounts, and once a real sync run is recorded against the marker
+// member the fleet is fed from it.
 func TestDistributeQuotaOnce_UsesTheEffectivePrimary(t *testing.T) {
 	srv, store := newTestServer(t)
 	ctx := t.Context()
@@ -93,8 +99,81 @@ func TestDistributeQuotaOnce_UsesTheEffectivePrimary(t *testing.T) {
 		t.Fatalf("SetFleetPrimaryMarker: %v", err)
 	}
 	srv.DistributeQuotaOnce(ctx)
+	if primaryHits.Load() != 0 || otherHits.Load() != 0 {
+		t.Fatalf("no-run marker: primary reads=%d, other pushes=%d, want 0 and 0", primaryHits.Load(), otherHits.Load())
+	}
+
+	if err := store.SetFleetSyncState(ctx, pm.ID, pm.Name, time.Now()); err != nil {
+		t.Fatalf("SetFleetSyncState: %v", err)
+	}
+	srv.DistributeQuotaOnce(ctx)
 	if primaryHits.Load() != 1 || otherHits.Load() != 1 {
-		t.Errorf("marker primary reads=%d, other pushes=%d, want 1 and 1", primaryHits.Load(), otherHits.Load())
+		t.Errorf("recorded run: primary reads=%d, other pushes=%d, want 1 and 1", primaryHits.Load(), otherHits.Load())
+	}
+}
+
+// Designating a primary supersedes the no-run marker a 1->2 add leaves, so
+// pausing auto-sync afterwards cannot hand the primary back to the marker
+// member.
+func TestDesignationSupersedesTheNoRunMarker(t *testing.T) {
+	srv, store := newTestServer(t)
+	ctx := t.Context()
+	for _, name := range []string{"a", "b"} {
+		host := systemMemberServer(t, false)
+		if rec := do(t, srv, http.MethodPost, "/api/members", `{"name":"`+name+`","url":"`+host.URL+`","token":"tok"}`, true); rec.Code != http.StatusCreated {
+			t.Fatalf("add %s = %d, want 201", name, rec.Code)
+		}
+	}
+	members, err := store.ListMembers(ctx)
+	if err != nil {
+		t.Fatalf("ListMembers: %v", err)
+	}
+	var b *Member
+	for _, m := range members {
+		if m.Name == "b" {
+			b = m
+		}
+	}
+	for _, enabled := range []bool{true, false} {
+		if ok, err := store.SetAutoSyncGuarded(ctx, enabled, b.ID, false); err != nil || !ok {
+			t.Fatalf("SetAutoSyncGuarded(%v, b) = (%v, %v), want applied", enabled, ok, err)
+		}
+	}
+	if _, name, _ := srv.poller.fleetPrimary(ctx, members); name != "b" {
+		t.Fatalf("primary after pausing auto-sync = %q, want b (the designation)", name)
+	}
+}
+
+// The marker clear shares the designation's transaction: if it fails, the
+// designation is not written either.
+func TestSetAutoSyncGuarded_MarkerClearFailure(t *testing.T) {
+	store := newTestStore(t)
+	ctx := t.Context()
+	var ids []string
+	for _, name := range []string{"a", "b"} {
+		m, err := store.CreateMember(ctx, name, "http://127.0.0.1:9/"+name, "tok")
+		if err != nil {
+			t.Fatalf("CreateMember: %v", err)
+		}
+		ids = append(ids, m.ID)
+	}
+	if _, err := store.db.ExecContext(ctx, `CREATE TRIGGER boom BEFORE DELETE ON fleet_sync_state BEGIN SELECT RAISE(ABORT, 'boom'); END`); err != nil {
+		t.Fatalf("trigger: %v", err)
+	}
+	if err := store.SetFleetPrimaryMarker(ctx, ids[0], "a"); err != nil {
+		t.Fatalf("SetFleetPrimaryMarker: %v", err)
+	}
+	if _, err := store.SetAutoSyncGuarded(ctx, true, ids[1], false); err == nil {
+		t.Fatal("SetAutoSyncGuarded succeeded although the marker clear failed")
+	}
+	if cfg, _ := store.GetAutoSync(ctx); cfg.PrimaryID != "" {
+		t.Errorf("designation = %q after the failed write, want none", cfg.PrimaryID)
+	}
+	if err := store.Close(); err != nil {
+		t.Fatalf("Close: %v", err)
+	}
+	if _, err := store.SetAutoSyncGuarded(ctx, true, ids[1], false); err == nil {
+		t.Error("SetAutoSyncGuarded succeeded on a closed store")
 	}
 }
 
@@ -199,7 +278,8 @@ func TestCreateMember_LonePrimaryMarkerWriteFailure(t *testing.T) {
 }
 
 // Both checks that ask whose primary role a host holds need this desk's own
-// id; failing to read it is an error, never a guess.
+// id; failing to read it is an error, never a guess. Regression pin for the
+// add: it refuses with 500 when the id cannot be read.
 func TestOwnFrontdeskIDFailure(t *testing.T) {
 	srv, store := newTestServer(t)
 	ctx := t.Context()
@@ -225,27 +305,72 @@ func TestOwnFrontdeskIDFailure(t *testing.T) {
 	}
 }
 
-// The marker write never claims a run, and never erases one recorded against
-// the member it names.
-func TestSetFleetPrimaryMarker(t *testing.T) {
-	store := newTestStore(t)
+// The lone-primary marker rides the add that grows the roster to two: it never
+// claims a run, never erases one recorded against the member it names, and a
+// later add leaves it alone.
+func TestCreateVerifiedMember_LonePrimaryMarker(t *testing.T) {
 	ctx := t.Context()
-	at := time.Date(2026, 9, 1, 12, 0, 0, 0, time.UTC)
-	if err := store.SetFleetSyncState(ctx, "a", "hotel-a", at); err != nil {
-		t.Fatalf("SetFleetSyncState: %v", err)
-	}
-	if err := store.SetFleetPrimaryMarker(ctx, "a", "hotel-a"); err != nil {
-		t.Fatalf("SetFleetPrimaryMarker(a): %v", err)
-	}
-	if st, found, err := store.GetFleetSyncState(ctx); err != nil || !found || !st.LastRunAt.Equal(at) {
-		t.Fatalf("same member: (%+v, found %v, err %v), want the recorded run kept", st, found, err)
-	}
-	if err := store.SetFleetPrimaryMarker(ctx, "b", "hotel-b"); err != nil {
-		t.Fatalf("SetFleetPrimaryMarker(b): %v", err)
-	}
-	if st, found, err := store.GetFleetSyncState(ctx); err != nil || found || st.PrimaryID != "b" || !st.LastRunAt.IsZero() {
-		t.Fatalf("other member: (%+v, found %v, err %v), want b with no run", st, found, err)
-	}
+	t.Run("keeps a run recorded against the lone member", func(t *testing.T) {
+		store := newTestStore(t)
+		a, err := store.CreateMember(ctx, "a", "http://127.0.0.1:9/a", "tok")
+		if err != nil {
+			t.Fatalf("CreateMember: %v", err)
+		}
+		at := time.Date(2026, 9, 1, 12, 0, 0, 0, time.UTC)
+		if err := store.SetFleetSyncState(ctx, a.ID, "a", at); err != nil {
+			t.Fatalf("SetFleetSyncState: %v", err)
+		}
+		if _, err := store.CreateVerifiedMember(ctx, "b", "http://127.0.0.1:9/b", "tok", "iid-b"); err != nil {
+			t.Fatalf("CreateVerifiedMember: %v", err)
+		}
+		if st, found, err := store.GetFleetSyncState(ctx); err != nil || !found || st.PrimaryID != a.ID || !st.LastRunAt.Equal(at) {
+			t.Fatalf("(%+v, found %v, err %v), want a with the recorded run", st, found, err)
+		}
+	})
+	t.Run("replaces a ghost and survives a third add", func(t *testing.T) {
+		store := newTestStore(t)
+		if err := store.SetFleetSyncState(ctx, "ghost", "ghost", time.Now()); err != nil {
+			t.Fatalf("SetFleetSyncState: %v", err)
+		}
+		a, err := store.CreateMember(ctx, "a", "http://127.0.0.1:9/a", "tok")
+		if err != nil {
+			t.Fatalf("CreateMember: %v", err)
+		}
+		for _, n := range []string{"b", "c"} {
+			if _, err := store.CreateVerifiedMember(ctx, n, "http://127.0.0.1:9/"+n, "tok", "iid-"+n); err != nil {
+				t.Fatalf("CreateVerifiedMember(%s): %v", n, err)
+			}
+		}
+		if st, found, err := store.GetFleetSyncState(ctx); err != nil || found || st.PrimaryID != a.ID || !st.LastRunAt.IsZero() {
+			t.Fatalf("(%+v, found %v, err %v), want a with no run", st, found, err)
+		}
+	})
+	// Two adds racing on a one-member roster serialize on the insert's
+	// transaction: whichever lands second sees three rows, so the marker names
+	// the original member either way.
+	t.Run("concurrent adds keep the original member", func(t *testing.T) {
+		store := newTestStore(t)
+		a, err := store.CreateMember(ctx, "a", "http://127.0.0.1:9/a", "tok")
+		if err != nil {
+			t.Fatalf("CreateMember: %v", err)
+		}
+		var wg sync.WaitGroup
+		errs := make([]error, 2)
+		for i, n := range []string{"b", "c"} {
+			wg.Go(func() {
+				_, errs[i] = store.CreateVerifiedMember(ctx, n, "http://127.0.0.1:9/"+n, "tok", "iid-"+n)
+			})
+		}
+		wg.Wait()
+		for _, err := range errs {
+			if err != nil {
+				t.Fatalf("CreateVerifiedMember: %v", err)
+			}
+		}
+		if st, _, err := store.GetFleetSyncState(ctx); err != nil || st.PrimaryID != a.ID {
+			t.Fatalf("marker = (%+v, err %v), want a", st, err)
+		}
+	})
 }
 
 // The delete guard follows the resolver: on a 3-member fleet whose primary is
@@ -274,6 +399,8 @@ func TestDeleteMember_RefusesTheMarkerPrimary(t *testing.T) {
 }
 
 // A primary that cannot be resolved refuses the delete rather than guessing.
+// Only the auto-sync flag column is removed, which nothing else on the delete
+// path reads, so the refusal comes from the primary resolution alone.
 func TestDeleteMember_PrimaryReadFailure(t *testing.T) {
 	srv, store := newTestServer(t)
 	ctx := t.Context()
@@ -285,13 +412,108 @@ func TestDeleteMember_PrimaryReadFailure(t *testing.T) {
 		}
 		last = m.ID
 	}
-	if _, err := store.db.ExecContext(ctx, `DROP TABLE fleet_sync_state`); err != nil {
-		t.Fatalf("drop: %v", err)
+	if _, err := store.db.ExecContext(ctx, `ALTER TABLE settings DROP COLUMN auto_sync_enabled`); err != nil {
+		t.Fatalf("drop column: %v", err)
 	}
 	if rec := do(t, srv, http.MethodDelete, "/api/members/"+last, "", true); rec.Code != http.StatusInternalServerError {
 		t.Errorf("DELETE = %d, want 500", rec.Code)
 	}
 	if members, _ := store.ListMembers(ctx); len(members) != 3 {
 		t.Errorf("members = %d, want 3", len(members))
+	}
+}
+
+// On a two-member fleet grown from one, the marker-only primary is refused
+// like a designated one; removing the other member disbands as before.
+func TestDeleteMember_TwoMemberMarkerPrimary(t *testing.T) {
+	srv, store := newTestServer(t)
+	ctx := t.Context()
+	var ids []string
+	for _, name := range []string{"a", "b"} {
+		m, err := store.CreateVerifiedMember(ctx, name, "http://127.0.0.1:9/"+name, "tok", "iid-"+name)
+		if err != nil {
+			t.Fatalf("CreateVerifiedMember: %v", err)
+		}
+		ids = append(ids, m.ID)
+	}
+	if rec := do(t, srv, http.MethodDelete, "/api/members/"+ids[0], "", true); rec.Code != http.StatusConflict {
+		t.Fatalf("DELETE marker primary = %d, want 409", rec.Code)
+	}
+	if rec := do(t, srv, http.MethodDelete, "/api/members/"+ids[1], "", true); rec.Code != http.StatusNoContent {
+		t.Fatalf("DELETE other member = %d, want 204", rec.Code)
+	}
+	if members, _ := store.ListMembers(ctx); len(members) != 0 {
+		t.Errorf("members = %d after the disband, want 0", len(members))
+	}
+}
+
+// Adds and a disband, in every order, starting from a one-member fleet: each
+// is one transaction, so after every step the fleet is either empty or has an
+// effective primary, never two members with nobody named.
+func TestLonePrimaryMarker_SurvivesAddDisbandInterleavings(t *testing.T) {
+	orders := [][]string{
+		{"add", "add", "disband"}, {"add", "disband", "add"}, {"disband", "add", "add"},
+	}
+	for _, order := range orders {
+		t.Run(strings.Join(order, "-"), func(t *testing.T) {
+			store := newTestStore(t)
+			ctx := t.Context()
+			if _, err := store.CreateVerifiedMember(ctx, "orig", "http://127.0.0.1:9/orig", "tok", "iid-orig"); err != nil {
+				t.Fatalf("seed: %v", err)
+			}
+			for i, op := range order {
+				members, err := store.ListMembers(ctx)
+				if err != nil {
+					t.Fatalf("ListMembers: %v", err)
+				}
+				switch op {
+				case "add":
+					n := "m" + strconv.Itoa(i)
+					if _, err := store.CreateVerifiedMember(ctx, n, "http://127.0.0.1:9/"+n, "tok", "iid-"+n); err != nil {
+						t.Fatalf("add: %v", err)
+					}
+				case "disband":
+					// The newest row is never the primary, so removing it disbands a
+					// fleet of up to two and plainly removes one from three.
+					if _, _, err := store.DeleteMemberOrDisband(ctx, members[len(members)-1].ID); err != nil {
+						t.Fatalf("disband: %v", err)
+					}
+				}
+				members, _ = store.ListMembers(ctx)
+				cfg, _ := store.GetAutoSync(ctx)
+				st, _, _ := store.GetFleetSyncState(ctx)
+				if len(members) > 0 && effectivePrimaryID(members, cfg, st.PrimaryID) == "" {
+					t.Fatalf("after %s: %d members and no effective primary", op, len(members))
+				}
+			}
+		})
+	}
+}
+
+// A host claiming to be this fleet's primary (own desk id) is refused while a
+// roster row cannot be identified: that row may be the same host under an
+// address that no longer answers.
+func TestCreateMember_OwnPrimaryRefusedBesideAnUnidentifiedRow(t *testing.T) {
+	srv, store := newTestServer(t)
+	ctx := t.Context()
+	ownID, err := store.EnsureFrontdeskID(ctx)
+	if err != nil {
+		t.Fatalf("EnsureFrontdeskID: %v", err)
+	}
+	// A legacy row: no instance_id stored, and its address does not answer.
+	if _, err := store.CreateMember(ctx, "legacy", "http://127.0.0.1:9", "tok"); err != nil {
+		t.Fatalf("CreateMember: %v", err)
+	}
+	host := fleetIdentityStub(t, `{"state":"primary","is_primary":true,"frontdesk_id":"`+ownID+`"}`, "iid-primary")
+	rec := do(t, srv, http.MethodPost, "/api/members", `{"name":"again","url":"`+host.URL+`","token":"tok"}`, true)
+	var body struct {
+		Code string `json:"code"`
+	}
+	_ = json.Unmarshal(rec.Body.Bytes(), &body)
+	if rec.Code != http.StatusBadRequest || body.Code != "identity_unverified" {
+		t.Fatalf("add = %d %q, want 400 identity_unverified", rec.Code, body.Code)
+	}
+	if members, _ := store.ListMembers(ctx); len(members) != 1 {
+		t.Errorf("members = %d, want 1", len(members))
 	}
 }

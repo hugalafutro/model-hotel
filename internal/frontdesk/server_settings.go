@@ -239,7 +239,22 @@ func (s *Server) repointTargetsCurrentPrimary(ctx context.Context, cur AutoSyncC
 	if err != nil {
 		return false, err
 	}
-	return ident.FrontdeskID == ownID, nil
+	if ident.FrontdeskID != ownID {
+		return false, nil
+	}
+	// The flag also lingers on a FORMER primary of this desk (repointed away
+	// from, then unreachable), so it only counts when the candidate is the host
+	// the designation names: a known instance_id on both sides that differs
+	// makes the flag stale and the repoint legitimate. A designation with no row
+	// left is no host to collide with.
+	current, err := s.store.GetMember(ctx, cur.PrimaryID)
+	if errors.Is(err, ErrNotFound) {
+		return false, nil
+	}
+	if err != nil {
+		return false, err
+	}
+	return ident.InstanceID == "" || current.InstanceID == "" || ident.InstanceID == current.InstanceID, nil
 }
 
 // instanceAlreadyMember reports whether instanceID belongs to a member other

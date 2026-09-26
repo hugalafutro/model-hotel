@@ -87,13 +87,12 @@ export function MembersPage() {
 	// example, restore the badge on a primary that was just removed. Mirrors the
 	// guard useMembers already uses for its own refetch.
 	const latestPrimary = useLatestRequest();
-	// The fleet primary (GET /api/fleet/autosync -> effective_primary_id) is the
-	// server's single answer to "who is primary": the member the announces flag,
-	// which is the sole member of a one-member fleet and otherwise the
-	// designation or last-sync marker resolved against the live roster. The page
-	// never infers it itself. The response also carries the server's fleet-state
-	// verdict for the header badge. Refreshed below on the events that can
-	// change either.
+	// The fleet primary is the server's answer (GET /api/fleet/autosync ->
+	// effective_primary_id: the sole member of a one-member fleet, otherwise the
+	// designation or last-sync marker resolved against the roster), falling back
+	// to the raw designation when it is absent (an older backend, or none
+	// resolves). The page never infers it from the roster. The response also
+	// carries the fleet-state verdict for the header badge; both refresh below.
 	const refreshPrimary = useCallback(() => {
 		const seq = latestPrimary.next();
 		api
@@ -103,7 +102,8 @@ export function MembersPage() {
 			})
 			.catch(() => {});
 	}, [latestPrimary]);
-	const primaryId = autoSync?.effective_primary_id || null;
+	const primaryId =
+		autoSync?.effective_primary_id || autoSync?.primary_id || null;
 	// useMembers owns the page's single SSE subscription; piggyback on it to
 	// refresh the auto-sync status when membership, a sync, health, a fleet /
 	// Traefik signal, or a settings change lands, rather than opening a second
@@ -166,16 +166,13 @@ export function MembersPage() {
 		}
 	};
 
-	// Only non-primary members are removable (the primary row has no Remove
-	// button, and the backend refuses deleting the designated primary with 409).
-	// The primary is the config source of truth; it is changed only by
-	// re-running the Fleet Sync wizard. A fleet is never allowed to shrink to a
-	// single member: at two members (or a lone just-added row) the same Remove
-	// disbands the whole fleet, primary included, and the confirm modal says
-	// so. A lone row is always the primary (the server names the sole member),
-	// and it is the one place the primary gets a Remove button: with nothing to
-	// sync it protects nothing, and disbanding is the only way to empty the
-	// fleet.
+	// Only non-primary members are removable: neither the effective primary
+	// nor the raw designation gets a Remove button, matching the backend, which
+	// refuses deleting either with 409 (the wizard changes the primary). A fleet never shrinks
+	// to one member: at two members (or a lone row) Remove disbands the whole
+	// fleet and the confirm modal says so. A lone row keeps its Remove even when
+	// badged primary: with nothing to sync it protects nothing, and disbanding
+	// is the only way to empty the fleet.
 	const disbandOnRemove = members.length <= 2;
 	const loneRow = members.length === 1;
 	const confirmRemove = async () => {
@@ -274,6 +271,7 @@ export function MembersPage() {
 									groupBuild={primaryId ? null : groupBuild}
 									primaryBuild={primaryBuild}
 									isPrimary={m.id === primaryId}
+									isDesignated={m.id === autoSync?.primary_id}
 									soleActive={soleActive}
 									disbandOnRemove={disbandOnRemove}
 									loneRow={loneRow}
@@ -334,6 +332,7 @@ function MemberRow({
 	groupBuild,
 	primaryBuild,
 	isPrimary,
+	isDesignated,
 	soleActive,
 	disbandOnRemove,
 	loneRow,
@@ -348,6 +347,8 @@ function MemberRow({
 	// compare" - so it anchors the badge too.
 	primaryBuild: Build | null;
 	isPrimary: boolean;
+	// The raw designation, which the backend refuses to delete even when dormant.
+	isDesignated: boolean;
 	// True when the fleet has at most one active member. The drain control is
 	// disabled for the active member in that case: draining the last active member
 	// would empty the routing pool (the backend refuses it with a 409).
@@ -553,11 +554,10 @@ function MemberRow({
 							{t("members.activate")}
 						</button>
 					)}
-					{/* The primary is the config source of truth and cannot be removed
-					    here; it is changed only by re-running the Fleet Sync wizard.
-					    Exception: a lone row protects nothing, so it is removable
-					    (disband) even while a stale designation names it. */}
-					{(!isPrimary || loneRow) && (
+					{/* The primary (effective or designated) cannot be removed here;
+					    the Fleet Sync wizard changes it. A lone row protects nothing,
+					    so it is removable (disband) whatever names it. */}
+					{(!(isPrimary || isDesignated) || loneRow) && (
 						<button
 							type="button"
 							className="ui-btn ui-btn-sm ui-btn-danger"

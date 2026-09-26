@@ -936,7 +936,8 @@ private fun LinkedContent(
             LaunchedEffect(graphRangeMinutes) { detailVm.setGraphRange(graphRangeMinutes) }
             MemberDetailScreen(
                 member = selected,
-                isPrimary = selected.id == ui.primaryId,
+                isPrimary = selected.id == ui.badgePrimaryId,
+                isDesignated = selected.id == ui.primaryId,
                 ui = detailUi,
                 onBack = { selectedMemberId = null },
                 // Role-hint UI: an operator device gets the controls, a monitor

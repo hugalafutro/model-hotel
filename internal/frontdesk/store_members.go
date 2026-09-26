@@ -61,7 +61,7 @@ func validMemberName(name string) (string, error) {
 // lowercased, trailing slash trimmed) and deduped. token is optional; when set
 // it is encrypted at rest with the store master key.
 func (s *Store) CreateMember(ctx context.Context, name, rawURL, token string) (*Member, error) {
-	return s.CreateVerifiedMember(ctx, name, rawURL, token, "")
+	return s.insertMember(ctx, name, rawURL, token, "", false)
 }
 
 // CreateVerifiedMember inserts a member together with the instance id its
@@ -71,8 +71,16 @@ func (s *Store) CreateMember(ctx context.Context, name, rawURL, token string) (*
 // that another row already holds is refused by the members_instance_id_unique
 // index (ErrDuplicateInstance): that is the guarantee two adds racing on the
 // same host under different URLs rely on, since both can pass the scan the
-// handler runs before inserting.
+// handler runs before inserting. The same transaction records the former lone
+// member as the fleet primary when this add makes the roster two
+// (lonePrimaryMarker).
 func (s *Store) CreateVerifiedMember(ctx context.Context, name, rawURL, token, instanceID string) (*Member, error) {
+	return s.insertMember(ctx, name, rawURL, token, instanceID, true)
+}
+
+// insertMember is the insert behind CreateMember (the row alone) and
+// CreateVerifiedMember (the row plus the lone-primary marker).
+func (s *Store) insertMember(ctx context.Context, name, rawURL, token, instanceID string, keepLonePrimary bool) (*Member, error) {
 	name, err := validMemberName(name)
 	if err != nil {
 		return nil, err
@@ -89,7 +97,12 @@ func (s *Store) CreateVerifiedMember(ctx context.Context, name, rawURL, token, i
 
 	id := uuid.NewString()
 	now := time.Now().UTC().UnixNano()
-	_, err = s.db.ExecContext(ctx,
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return nil, fmt.Errorf("frontdesk: begin insert member: %w", err)
+	}
+	defer tx.Rollback() //nolint:errcheck // rollback after a successful commit is a no-op
+	_, err = tx.ExecContext(ctx,
 		`INSERT INTO members (id, name, url, state, token_cipher, token_nonce, token_salt, instance_id, created_at, updated_at)
 		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 		id, name, normURL, string(StateActive), cipher, nonce, salt, instanceID, now, now,
@@ -102,6 +115,14 @@ func (s *Store) CreateVerifiedMember(ctx context.Context, name, rawURL, token, i
 			return nil, ErrDuplicateURL
 		}
 		return nil, fmt.Errorf("frontdesk: insert member: %w", err)
+	}
+	if keepLonePrimary {
+		if _, err := tx.ExecContext(ctx, lonePrimaryMarker, id); err != nil {
+			return nil, fmt.Errorf("frontdesk: record lone primary: %w", err)
+		}
+	}
+	if err := commitTx(tx, "commit insert member"); err != nil {
+		return nil, err
 	}
 	return s.GetMember(ctx, id)
 }
@@ -293,10 +314,11 @@ type RemovedMember struct{ ID, Name string }
 // DeleteMemberOrDisband removes a member by id, enforcing the fleet-size
 // invariant that a fleet never shrinks to a single member: removal from a
 // two-member fleet (or of a lone just-added row) disbands the whole fleet,
-// primary included, returning Front Desk to its pristine no-fleet state. In a
-// fleet of three or more it removes just the target, still refusing the
-// fleet primary (effectivePrimaryID) and the last active member (the routing
-// pool must never empty while a fleet exists). The primary is resolved inside
+// primary included, returning Front Desk to its pristine no-fleet state; only
+// the non-primary side of a two-member fleet may start that. In a fleet of
+// three or more it removes just the target. Both refuse the fleet primary
+// (effectivePrimaryID) and a three-plus fleet also refuses the last active
+// member (the routing pool must never empty while a fleet exists). The primary is resolved inside
 // the delete's transaction and the other guards are re-checked inside the
 // DELETE statement itself, so a concurrent add, drain or repoint cannot slip
 // between the roster read and the write.
@@ -323,6 +345,20 @@ func (s *Store) DeleteMemberOrDisband(ctx context.Context, id string) (DeleteOut
 	}
 	if !found {
 		return 0, nil, ErrNotFound
+	}
+
+	// The effective primary (effectivePrimaryID, the member the announces flag
+	// and the Members page badges) is refused like a designated one, whether
+	// named by the designation or only by the sync-state marker. It is resolved
+	// from this transaction's snapshot, which the DELETE below writes against,
+	// so no concurrent write can split the decision from the delete. A lone row
+	// is exempt: disbanding is the only way to empty a one-member fleet.
+	primaryID, err := effectivePrimaryInTx(ctx, tx, roster)
+	if err != nil {
+		return 0, nil, err
+	}
+	if len(roster) > 1 && primaryID == id {
+		return DeleteRefusedPrimary, nil, nil
 	}
 
 	if len(roster) <= 2 {
@@ -376,20 +412,6 @@ func (s *Store) DeleteMemberOrDisband(ctx context.Context, id string) (DeleteOut
 			return 0, nil, err
 		}
 		return DeleteDisbanded, roster, nil
-	}
-
-	// Three or more members: the effective primary (effectivePrimaryID, the
-	// member the announces flag and the Members page badges) is refused here
-	// too, not only a designated one, so a primary named by the sync-state marker
-	// cannot be deleted from under the fleet. It is resolved from the same
-	// transaction's snapshot the DELETE below writes against, so no concurrent
-	// write can split the decision from the delete.
-	primaryID, err := effectivePrimaryInTx(ctx, tx, roster)
-	if err != nil {
-		return 0, nil, err
-	}
-	if primaryID == id {
-		return DeleteRefusedPrimary, nil, nil
 	}
 
 	// Three or more members: remove just the target. Delete only if the member
@@ -472,9 +494,6 @@ func commitTx(tx *sql.Tx, what string) error {
 	return nil
 }
 
-// rosterSnapshot reads every member's id and name inside the caller's
-// transaction, so disband events and state cleanup describe exactly the rows
-// the delete saw.
 // effectivePrimaryInTx resolves effectivePrimaryID from the auto-sync row and
 // sync-state marker as tx sees them, against the roster tx already read.
 func effectivePrimaryInTx(ctx context.Context, tx *sql.Tx, roster []RemovedMember) (string, error) {
@@ -498,6 +517,9 @@ func effectivePrimaryInTx(ctx context.Context, tx *sql.Tx, roster []RemovedMembe
 	return effectivePrimaryID(members, cfg, marker), nil
 }
 
+// rosterSnapshot reads every member's id and name inside the caller's
+// transaction, so disband events and state cleanup describe exactly the rows
+// the delete saw.
 func rosterSnapshot(ctx context.Context, tx *sql.Tx) ([]RemovedMember, error) {
 	rows, err := tx.QueryContext(ctx, `SELECT id, name FROM members ORDER BY created_at ASC`)
 	if err != nil {
