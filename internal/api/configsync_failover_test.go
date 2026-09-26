@@ -1528,3 +1528,33 @@ func TestFailoverGroup_EditOrDeleteOfAnAutoGroupDropsTheFleetEcho(t *testing.T) 
 		t.Error("deleting an auto group must drop the fleet echo")
 	}
 }
+
+// A member auto row whose stored order is not a JSON array fails the group
+// apply, which the import reports as incomplete rather than committing a
+// half-built set on top of it.
+func TestConfigSync_ImportReportsCorruptMemberAutoGroup(t *testing.T) {
+	cleanConfigTables(t)
+	openai := seedProvider(t, "openai", "sk-secret", configSyncMasterKey)
+	azure := seedProvider(t, "azure", "sk-secret", configSyncMasterKey)
+	seedFailoverGroup(t, "gpt-4o", seedSharedModel(t, "gpt-4o", openai, azure), nil, true)
+	env := doExport(t, newConfigSyncRouter(t, configSyncMasterKey))
+
+	cleanConfigTables(t)
+	rOpenai := seedProvider(t, "openai", "sk-secret", configSyncMasterKey)
+	rAzure := seedProvider(t, "azure", "sk-secret", configSyncMasterKey)
+	seedSharedModel(t, "gpt-4o", rOpenai, rAzure)
+	if _, err := apiTestDB.Pool().Exec(context.Background(),
+		`INSERT INTO model_failover_groups (display_model, priority_order, entry_enabled, group_enabled, auto_created)
+		 VALUES ('gpt-4o', '"nope"'::jsonb, '{}'::jsonb, true, true)`); err != nil {
+		t.Fatalf("seed corrupt row: %v", err)
+	}
+	rec := doImport(t, newConfigSyncRouter(t, configSyncMasterKey), env, "")
+	if rec.Code != http.StatusOK {
+		t.Fatalf("import status = %d, body %s", rec.Code, rec.Body.String())
+	}
+	var resp importResponse
+	_ = json.Unmarshal(rec.Body.Bytes(), &resp)
+	if !resp.Incomplete {
+		t.Errorf("resp = %+v, want incomplete: the group apply failed", resp)
+	}
+}
