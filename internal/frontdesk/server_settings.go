@@ -135,6 +135,13 @@ type autoSyncStatus struct {
 	// and an internal error omits them rather than failing the status read.
 	FleetState        FleetState `json:"fleet_state,omitempty"`
 	FleetStateReasons []string   `json:"fleet_state_reasons,omitempty"`
+	// EffectivePrimaryID is the member the fleet treats as its primary right
+	// now (effectivePrimaryID), which differs from the stored primary_id
+	// designation on a one-member fleet and on one whose primary is only named
+	// by the sync-state marker. The Members page reads it; primary_id stays the
+	// raw designation the wizard edits. Empty when none resolves or the roster
+	// could not be read.
+	EffectivePrimaryID string `json:"effective_primary_id,omitempty"`
 }
 
 // autoSyncStatusNow reads the auto-sync config and last-sync marker and folds in
@@ -161,7 +168,8 @@ func (s *Server) autoSyncStatusNow(ctx context.Context) (autoSyncStatus, error) 
 	if members, err := s.store.ListMembers(ctx); err == nil {
 		latestSync, haveLatest := fleetLastSync(members, state.LastRunAt, found)
 		status.Stale = autoSyncStale(cfg, latestSync, haveLatest, time.Now().UTC())
-		status.FleetState, status.FleetStateReasons = s.fleetStateFrom(ctx, members, cfg, state.LastRunAt, found)
+		status.FleetState, status.FleetStateReasons = s.fleetStateFrom(ctx, members, cfg, state, found)
+		status.EffectivePrimaryID = effectivePrimaryID(members, cfg, state.PrimaryID)
 		var lastSync time.Time
 		for _, m := range members {
 			if m.LastConfigSyncAt != nil && m.LastConfigSyncAt.After(lastSync) {
@@ -216,10 +224,22 @@ func (s *Server) repointTargetsCurrentPrimary(ctx context.Context, cur AutoSyncC
 	if !ok {
 		return false, nil
 	}
-	// The live state, not the lingering flag: a candidate that merely used to be
-	// the primary of a fleet that no longer announces is not "already primary".
 	ident, determined := s.memberIdentity(ctx, m.URL, token)
-	return determined && ident.State == "primary", nil
+	if !determined || ident.State == "primary" {
+		return determined, nil
+	}
+	// Past the 90s announce window the state decays to "warning" while the flag
+	// lingers. A lingering flag naming another desk, or none, belongs to a fleet
+	// that no longer announces and is not "already primary". One naming this
+	// desk is this fleet's primary whose announces are failing: the same host.
+	if !ident.IsPrimary {
+		return false, nil
+	}
+	ownID, err := s.store.EnsureFrontdeskID(ctx)
+	if err != nil {
+		return false, err
+	}
+	return ident.FrontdeskID == ownID, nil
 }
 
 // instanceAlreadyMember reports whether instanceID belongs to a member other

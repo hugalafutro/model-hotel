@@ -57,8 +57,12 @@ func activeMemberCount(members []*Member) int {
 	return n
 }
 
-// fleetPrimary resolves which member the fleet's primary is, for the announce,
-// and returns its current name from the live roster.
+// effectivePrimaryID is the single answer to "which member is the fleet
+// primary", shared by the announce, the quota proxy and distribution, the fleet
+// state machine and the auto-sync status payload the Members page reads. members
+// is the live roster, cfg the auto-sync row and marker the fleet sync-state
+// record's primary id (empty when there is none). It returns "" when nothing
+// resolves.
 //
 // Two sources can name a primary, and which one is authoritative depends on
 // whether auto-sync is running. While it is, the operator's designation is the
@@ -72,61 +76,64 @@ func activeMemberCount(members []*Member) int {
 // designation left pointing at a removed member would otherwise beat a marker that
 // still names a real one, and every member would be told there is no primary.
 //
-// A one-member roster is the primary by itself, whatever the two sources say. No
-// designation can exist there (the wizard and SetAutoSyncGuarded both refuse one
-// below two members, the fleet-size floor), so without this the sole member would
-// be announced as a non-primary member: its own state machine reads a fresh
-// heartbeat plus is_primary=false as "managed member" and refuses every
-// synced-entity edit, pointing the operator at a primary that cannot be
-// designated. It is the only instance in the fleet, so it is the config source of
-// truth by definition.
+// A one-member roster is the primary by itself, whatever the two sources say.
+// The only designation that can exist there is a legacy one from before the
+// fleet-size floor (the wizard and SetAutoSyncGuarded refuse a new one below
+// two members), and it can only name this same member. Without the rule the sole
+// member of a fresh fleet would be announced as a non-primary member: its own
+// state machine reads a fresh heartbeat plus is_primary=false as "managed
+// member" and refuses every synced-entity edit, pointing the operator at a
+// primary that cannot be designated. It is the only instance in the fleet, so it
+// is the config source of truth by definition. When a second member joins, the
+// add records the lone member as the marker (recordLonePrimary), so this answer
+// carries over to the two-member roster until the operator designates one.
 //
-// Nothing resolving on a larger roster means no member is flagged primary. The
-// membership signal is still worth sending, so the caller continues without one
-// rather than aborting; a read error is treated the same way.
-func (p *Poller) fleetPrimary(ctx context.Context, members []*Member) (id, name string, ok bool) {
-	// Answered before either source is read: on a one-member roster both can only
-	// name this same member or nobody, so there is nothing for them to decide.
+// Nothing resolving on a larger roster means no member is flagged primary.
+func effectivePrimaryID(members []*Member, cfg AutoSyncConfig, marker string) string {
 	if len(members) == 1 {
-		return members[0].ID, members[0].Name, true
+		return members[0].ID
 	}
-	cfg, cfgErr := p.store.GetAutoSync(ctx)
-	if cfgErr != nil {
-		debuglog.Warn("frontdesk: poll announce: read auto-sync config", "error", cfgErr)
-	}
-	designated := ""
-	if cfgErr == nil {
-		designated = cfg.PrimaryID
-	}
-	state, hasMarker, stateErr := p.store.GetFleetSyncState(ctx)
-	if stateErr != nil {
-		debuglog.Warn("frontdesk: poll announce: fleet sync state", "error", stateErr)
-		hasMarker = false
-	}
-	marked := ""
-	if hasMarker {
-		marked = state.PrimaryID
-	}
-
-	// designated is empty unless the read succeeded, so the error case needs no arm
-	// of its own here: it simply contributes no candidate.
 	var candidates []string
-	if designated != "" && cfg.Enabled {
-		candidates = append(candidates, designated)
+	if cfg.PrimaryID != "" && cfg.Enabled {
+		candidates = append(candidates, cfg.PrimaryID)
 	}
-	if marked != "" {
-		candidates = append(candidates, marked)
+	if marker != "" {
+		candidates = append(candidates, marker)
 	}
 	// A designation with auto-sync off still beats naming nobody.
-	if designated != "" && !cfg.Enabled {
-		candidates = append(candidates, designated)
+	if cfg.PrimaryID != "" && !cfg.Enabled {
+		candidates = append(candidates, cfg.PrimaryID)
 	}
-
 	for _, want := range candidates {
 		for _, m := range members {
 			if m.ID == want {
-				return m.ID, m.Name, true
+				return m.ID
 			}
+		}
+	}
+	return ""
+}
+
+// fleetPrimary resolves the fleet primary for the announce (effectivePrimaryID)
+// and returns its current name from the live roster. A source that cannot be
+// read contributes no candidate rather than aborting: the membership signal is
+// still worth sending, so the caller continues without a primary if nothing
+// resolves.
+func (p *Poller) fleetPrimary(ctx context.Context, members []*Member) (id, name string, ok bool) {
+	cfg, cfgErr := p.store.GetAutoSync(ctx)
+	if cfgErr != nil {
+		debuglog.Warn("frontdesk: poll announce: read auto-sync config", "error", cfgErr)
+		cfg = AutoSyncConfig{}
+	}
+	// PrimaryID is empty when the read fails or no record exists.
+	state, _, stateErr := p.store.GetFleetSyncState(ctx)
+	if stateErr != nil {
+		debuglog.Warn("frontdesk: poll announce: fleet sync state", "error", stateErr)
+	}
+	want := effectivePrimaryID(members, cfg, state.PrimaryID)
+	for _, m := range members {
+		if m.ID == want {
+			return m.ID, m.Name, true
 		}
 	}
 	return "", "", false

@@ -1,6 +1,7 @@
 package frontdesk
 
 import (
+	"context"
 	"encoding/json"
 	"net/http"
 )
@@ -35,13 +36,34 @@ func writeQuotaUnreachable(w http.ResponseWriter, msg string) {
 	writeJSON(w, http.StatusBadGateway, map[string]string{"error": msg})
 }
 
-// quotaPrimary resolves the member both quota handlers proxy to. When it returns
-// ok=false it has already written the response, so the caller just returns:
-// either a 200 carrying none (the caller's "nothing to report" payload) for the
-// one steady state with no primary to ask -- none designated -- or an error
-// status for every failure to reach a primary that is designated.
+// effectivePrimary reads the roster, the auto-sync row and the fleet sync-state
+// marker and resolves the fleet primary through effectivePrimaryID, returning
+// the roster and the auto-sync row too for callers that need them. id is ""
+// when no member resolves.
+func (s *Server) effectivePrimary(ctx context.Context) (id string, members []*Member, cfg AutoSyncConfig, err error) {
+	members, err = s.store.ListMembers(ctx)
+	if err != nil {
+		return "", nil, cfg, err
+	}
+	cfg, err = s.store.GetAutoSync(ctx)
+	if err != nil {
+		return "", nil, cfg, err
+	}
+	state, _, err := s.store.GetFleetSyncState(ctx)
+	if err != nil {
+		return "", nil, cfg, err
+	}
+	return effectivePrimaryID(members, cfg, state.PrimaryID), members, cfg, nil
+}
+
+// quotaPrimary resolves the member both quota handlers proxy to: the fleet
+// primary (effectivePrimary). When it returns ok=false it has already written
+// the response, so the caller just returns: either a 200 carrying none (the
+// caller's "nothing to report" payload) for the one steady state with no
+// primary to ask -- none resolves and none is designated -- or an error status
+// for every failure to reach a primary that exists.
 func (s *Server) quotaPrimary(w http.ResponseWriter, r *http.Request, none any) (*Member, string, bool) {
-	cfg, err := s.store.GetAutoSync(r.Context())
+	primaryID, _, cfg, err := s.effectivePrimary(r.Context())
 	if err != nil {
 		// Front Desk's own store is unreadable. That is our failure, not the
 		// primary's, so it maps to 500 rather than 502 -- but it is still an
@@ -50,21 +72,26 @@ func (s *Server) quotaPrimary(w http.ResponseWriter, r *http.Request, none any) 
 		writeError(w, err)
 		return nil, "", false
 	}
-	if cfg.PrimaryID == "" {
+	if primaryID == "" && cfg.PrimaryID != "" {
+		// A designation no member row matches. DeleteMemberIfNotPrimary refuses
+		// to remove the designated primary and DeleteMember clears the pointer,
+		// so this means a cleanup failed, not that the fleet stopped having a
+		// primary: its quota is unknown rather than absent.
+		writeQuotaUnreachable(w, "could not reach the fleet primary")
+		return nil, "", false
+	}
+	if primaryID == "" {
 		// Standalone / not set up yet: there is no one to ask, and there never
 		// was. A steady state, so an empty payload is the truthful answer.
 		writeJSON(w, http.StatusOK, none)
 		return nil, "", false
 	}
-	primary, token, err := s.memberTokenOrErr(r.Context(), cfg.PrimaryID)
+	primary, token, err := s.memberTokenOrErr(r.Context(), primaryID)
 	if err != nil {
-		// A designated primary we cannot use: no stored admin token
-		// (ErrValidation), an undecryptable one, a store failure, or no member
-		// row at all (ErrNotFound). The dangling-id case is an anomaly rather
-		// than a steady state -- DeleteMemberIfNotPrimary refuses to remove the
-		// designated primary, and DeleteMember clears the pointer -- so it means
-		// a cleanup failed, not that the fleet stopped having a primary. Either
-		// way we could not ask, which is not the same as "nothing to report".
+		// A primary we cannot use: no stored admin token (ErrValidation), an
+		// undecryptable one, a store failure, or a row removed since the roster
+		// was read (ErrNotFound). Either way we could not ask, which is not the
+		// same as "nothing to report".
 		writeQuotaUnreachable(w, "could not reach the fleet primary")
 		return nil, "", false
 	}

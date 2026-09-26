@@ -541,10 +541,10 @@ func TestPollAnnounceOnce_FlagsTheLoneMemberAsPrimary(t *testing.T) {
 }
 
 // TestPollAnnounceOnce_SecondMemberEndsTheLonePrimary: the lone-roster answer is
-// recomputed per poll and must not linger as an implicit designation. The fleet
-// is polled while it holds one member, then again after a second joins: the flag
-// has to drop on its own, because from two members up the operator designates a
-// primary through the wizard, which is only permitted at that size.
+// recomputed per poll from the roster alone and is not itself stored. The rows
+// here are written straight to the store, past the add handler that records the
+// lone member as the marker (TestCreateMemberKeepsTheLonePrimary), so once a
+// second row exists nothing names a primary and the flag drops.
 func TestPollAnnounceOnce_SecondMemberEndsTheLonePrimary(t *testing.T) {
 	p, store, _ := newTestPoller(t, "")
 	ctx := context.Background()
@@ -583,8 +583,8 @@ func TestPollAnnounceOnce_SecondMemberEndsTheLonePrimary(t *testing.T) {
 func TestFleetPrimaryFailsOpenOnReadErrors(t *testing.T) {
 	p, store, _ := newTestPoller(t, "")
 	ctx := context.Background()
-	// Two members: a one-member roster is answered without reading either source
-	// at all, so it could not show what a failed read does.
+	// Two members: a one-member roster resolves to its member whatever the
+	// sources say, so it could not show what a failed read does.
 	m, err := store.CreateMember(ctx, "member", "http://127.0.0.1:9", "tok")
 	if err != nil {
 		t.Fatalf("create member: %v", err)
@@ -602,5 +602,44 @@ func TestFleetPrimaryFailsOpenOnReadErrors(t *testing.T) {
 
 	if ok || id != "" || name != "" {
 		t.Errorf("fleetPrimary() = (%q, %q, %v), want no primary when neither source can be read", id, name, ok)
+	}
+}
+
+// TestCreateMemberKeepsTheLonePrimary: adding a second member to a one-member
+// fleet records the lone member as the sync-state marker, so the announce keeps
+// naming it primary instead of demoting it to a managed member whose config
+// the wizard could then overwrite unannounced. A later add to the two-member
+// fleet leaves the marker alone.
+func TestCreateMemberKeepsTheLonePrimary(t *testing.T) {
+	srv, store := newTestServer(t)
+	ctx := t.Context()
+	add := func(name string) {
+		t.Helper()
+		host := systemMemberServer(t, false)
+		if rec := do(t, srv, http.MethodPost, "/api/members", `{"name":"`+name+`","url":"`+host.URL+`","token":"tok"}`, true); rec.Code != http.StatusCreated {
+			t.Fatalf("add %s = %d (%s), want 201", name, rec.Code, rec.Body.String())
+		}
+	}
+	add("original")
+	add("newcomer")
+
+	members, err := store.ListMembers(ctx)
+	if err != nil || len(members) != 2 {
+		t.Fatalf("members = %d (err %v), want 2", len(members), err)
+	}
+	_, name, ok := srv.poller.fleetPrimary(ctx, members)
+	if !ok || name != "original" {
+		t.Fatalf("fleet primary after the second add = (%q, %v), want original", name, ok)
+	}
+	// The marker names a primary without claiming a sync ran.
+	state, found, err := store.GetFleetSyncState(ctx)
+	if err != nil || found || state.PrimaryName != "original" {
+		t.Fatalf("sync state = (%+v, found %v, err %v), want original with no run", state, found, err)
+	}
+
+	add("third")
+	members, _ = store.ListMembers(ctx)
+	if _, name, _ := srv.poller.fleetPrimary(ctx, members); name != "original" {
+		t.Errorf("fleet primary after a third add = %q, want original", name)
 	}
 }

@@ -1,6 +1,7 @@
 package frontdesk
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"net/http"
@@ -143,10 +144,27 @@ func (s *Server) createMember(w http.ResponseWriter, r *http.Request) {
 		fail("identity_unverified", "Front Desk verified the admin token but could not read this host's fleet identity (/api/system) to confirm it is not the fleet primary or an existing member. Check the host and try again.", http.StatusBadRequest)
 		return
 	}
-	// Reject a live fleet primary re-added under a different URL. Only one
-	// primary exists, so a host whose state is "primary" is that primary reached
-	// under another address, announced to within the last 90 seconds.
-	if ident.State == "primary" {
+	// Only a host claiming the primary role needs this desk's own id, to tell
+	// whose role it is.
+	ownID := ""
+	if ident.State == "primary" || ident.IsPrimary {
+		id, idErr := s.store.EnsureFrontdeskID(r.Context())
+		if idErr != nil {
+			fail("identity_unverified", "Front Desk could not read its own fleet identity to check who manages this host. Try again.", http.StatusInternalServerError)
+			return
+		}
+		ownID = id
+	}
+	// Reject a live fleet primary re-added under a different URL: a host whose
+	// state is "primary" was announced to as the primary within the last 90
+	// seconds. The exception is a host naming THIS desk: removing it or
+	// disbanding announces nothing, so it keeps reporting the live state for up
+	// to 90s after this desk dropped it, and an immediate re-add is exactly what
+	// the operator means (the stale own-desk case below). Such a host falls
+	// through to the instance_id dedup, which refuses it as already_member when
+	// it is in fact still in the roster under another address. Without an
+	// instance id that dedup cannot run, so the refusal stands.
+	if ident.State == "primary" && (ident.FrontdeskID != ownID || ident.InstanceID == "") {
 		fail("already_primary", "This host is already the fleet primary (the config source of truth), reached under a different address. It cannot also be added as a member.", http.StatusConflict)
 		return
 	}
@@ -168,24 +186,24 @@ func (s *Server) createMember(w http.ResponseWriter, r *http.Request) {
 	//
 	// No id at all is treated as another desk's: only a member too old to report
 	// one answers that way, and refusing it is what this check has always done.
-	if ident.IsPrimary {
-		ownID, idErr := s.store.EnsureFrontdeskID(r.Context())
-		if idErr != nil {
-			fail("identity_unverified", "Front Desk could not read its own fleet identity to check who manages this host. Try again.", http.StatusInternalServerError)
-			return
-		}
-		// The other desk may also be gone for good rather than briefly away: it
-		// was replaced by this one, or rebuilt from an empty database and so no
-		// longer carries the id the member remembers. There is no way to tell
-		// from here, and waiting the host out takes until its role expires
-		// (fleetForgetTTL, 24h), so the operator settles it by re-supplying this
-		// Front Desk's admin token. That keeps the refusal in front of an
-		// accidental takeover while leaving a deliberate recovery one confirmed
-		// step away.
-		if ident.FrontdeskID != ownID && !s.adminMgr.Validate(strings.TrimSpace(req.ConfirmToken)) {
+	//
+	// The other desk may also be gone for good rather than briefly away: it was
+	// replaced by this one, or rebuilt from an empty database and so no longer
+	// carries the id the member remembers. There is no way to tell from here, and
+	// waiting the host out takes until its role expires (fleetForgetTTL, 24h), so
+	// the operator settles it by re-supplying this Front Desk's admin token. That
+	// keeps the refusal in front of an accidental takeover while leaving a
+	// deliberate recovery one confirmed step away, and the takeover is logged and
+	// carried on the member.added event so it is never silent.
+	takenOver := false
+	if ident.IsPrimary && ident.FrontdeskID != ownID {
+		if !s.adminMgr.Validate(strings.TrimSpace(req.ConfirmToken)) {
 			fail("primary_elsewhere", "Another Front Desk still names this host its fleet primary (the config source of truth). It may only be unreachable right now, and adding it here would take its fleet over. Remove it there first, or, if that Front Desk is gone for good, confirm this Front Desk's admin token to enrol it anyway.", http.StatusConflict)
 			return
 		}
+		takenOver = true
+		debuglog.Warn("frontdesk: confirmed enrolment of another Front Desk's primary",
+			"url", stripUserinfo(memberURL), "instance_id", ident.InstanceID, "frontdesk_id", ident.FrontdeskID)
 	}
 	instanceID := ident.InstanceID
 	// Reject a host that is already a member under a different URL: compare its
@@ -211,6 +229,10 @@ func (s *Server) createMember(w http.ResponseWriter, r *http.Request) {
 	// indexes re-check both the URL and the instance id, so two adds racing on
 	// the same host (same URL, or the same instance under two URLs, which the
 	// scan above cannot catch while neither row exists) still end with one row.
+	if err := s.recordLonePrimary(r.Context()); err != nil {
+		writeError(w, err)
+		return
+	}
 	m, err := s.store.CreateVerifiedMember(r.Context(), name, memberURL, req.Token, instanceID)
 	if err != nil {
 		writeMemberValidationError(w, err)
@@ -220,12 +242,35 @@ func (s *Server) createMember(w http.ResponseWriter, r *http.Request) {
 	// A newly added member with a valid token is stale relative to the primary;
 	// re-arm auto-sync so the next tick brings it in line (no-op when disabled).
 	s.rearmAutoSync(r.Context())
+	addedMetadata := map[string]any{"url": stripUserinfo(m.URL)}
+	if takenOver {
+		// The foreign desk's id; empty for a host too old to report one.
+		addedMetadata["taken_over_from"] = ident.FrontdeskID
+	}
 	s.emit(r.Context(), Event{
 		Type: "member.added", Severity: "info", Source: "frontdesk",
 		Message: m.Name + " added", MemberID: m.ID,
-		Metadata: map[string]any{"url": stripUserinfo(m.URL)},
+		Metadata: addedMetadata,
 	})
 	writeJSON(w, http.StatusCreated, memberResponse{Member: m})
+}
+
+// recordLonePrimary keeps a one-member fleet's primary when a second member
+// joins. On one member effectivePrimaryID names the sole member with nothing
+// stored behind it, so without a record the two-member roster would resolve to
+// nobody: the former lone member would be announced as a managed member, and
+// the config it held while alone would be overwritten unannounced if the wizard
+// then picked the newcomer. Recording it as the sync-state marker keeps the
+// resolver naming it, and the wizard preselecting it, until the operator
+// designates a primary. It runs before the insert, so the first announce that
+// sees two rows already sees the marker; a failed insert leaves a marker that
+// names the same member the one-member rule already does.
+func (s *Server) recordLonePrimary(ctx context.Context) error {
+	_, members, _, err := s.effectivePrimary(ctx)
+	if err != nil || len(members) != 1 {
+		return err
+	}
+	return s.store.SetFleetPrimaryMarker(ctx, members[0].ID, members[0].Name)
 }
 
 // writeMemberValidationError maps the two validation failures the add form

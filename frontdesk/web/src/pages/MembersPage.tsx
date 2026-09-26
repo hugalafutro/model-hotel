@@ -87,13 +87,13 @@ export function MembersPage() {
 	// example, restore the badge on a primary that was just removed. Mirrors the
 	// guard useMembers already uses for its own refetch.
 	const latestPrimary = useLatestRequest();
-	// The designated fleet primary (GET /api/fleet/autosync -> primary_id) is the
-	// single source of truth for "who is primary": the same value the backend
-	// delete-guard and the Fleet Sync wizard use. The response also carries the
-	// server's fleet-state verdict for the header badge. Refreshed below on the
-	// events that can change either. (This deliberately does NOT read
-	// /api/fleet/last-sync, whose primary_id is only a cosmetic "last run" marker
-	// and could name a since-removed host.)
+	// The fleet primary (GET /api/fleet/autosync -> effective_primary_id) is the
+	// server's single answer to "who is primary": the member the announces flag,
+	// which is the sole member of a one-member fleet and otherwise the
+	// designation or last-sync marker resolved against the live roster. The page
+	// never infers it itself. The response also carries the server's fleet-state
+	// verdict for the header badge. Refreshed below on the events that can
+	// change either.
 	const refreshPrimary = useCallback(() => {
 		const seq = latestPrimary.next();
 		api
@@ -103,7 +103,7 @@ export function MembersPage() {
 			})
 			.catch(() => {});
 	}, [latestPrimary]);
-	const primaryId = autoSync?.primary_id || null;
+	const primaryId = autoSync?.effective_primary_id || null;
 	// useMembers owns the page's single SSE subscription; piggyback on it to
 	// refresh the auto-sync status when membership, a sync, health, a fleet /
 	// Traefik signal, or a settings change lands, rather than opening a second
@@ -167,14 +167,15 @@ export function MembersPage() {
 	};
 
 	// Only non-primary members are removable (the primary row has no Remove
-	// button, and the backend refuses a primary delete with 409). The primary is
-	// the config source of truth; it is changed only by re-running the Fleet Sync
-	// wizard. A fleet is never allowed to shrink to a single member: at two
-	// members (or a lone just-added row) the same Remove disbands the whole
-	// fleet, primary included, and the confirm modal says so. A lone row is the
-	// one place even a (stale-)designated primary gets a Remove button: with
-	// nothing to sync it protects nothing, and disbanding is the only exit from
-	// that legacy state (the wizard refuses sub-two fleets, so it cannot recur).
+	// button, and the backend refuses deleting the designated primary with 409).
+	// The primary is the config source of truth; it is changed only by
+	// re-running the Fleet Sync wizard. A fleet is never allowed to shrink to a
+	// single member: at two members (or a lone just-added row) the same Remove
+	// disbands the whole fleet, primary included, and the confirm modal says
+	// so. A lone row is always the primary (the server names the sole member),
+	// and it is the one place the primary gets a Remove button: with nothing to
+	// sync it protects nothing, and disbanding is the only way to empty the
+	// fleet.
 	const disbandOnRemove = members.length <= 2;
 	const loneRow = members.length === 1;
 	const confirmRemove = async () => {

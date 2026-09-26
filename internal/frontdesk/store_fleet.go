@@ -24,7 +24,9 @@ type FleetSyncState struct {
 }
 
 // GetFleetSyncState returns the recorded last-run marker. found is false (with a
-// nil error) when the wizard has never recorded a successful run.
+// nil error) when the wizard has never recorded a successful run. A row written
+// by SetFleetPrimaryMarker names a primary without a run: its PrimaryID and
+// PrimaryName are returned with found false and a zero LastRunAt.
 func (s *Store) GetFleetSyncState(ctx context.Context) (state FleetSyncState, found bool, err error) {
 	var at int64
 	err = s.db.QueryRowContext(ctx,
@@ -36,8 +38,30 @@ func (s *Store) GetFleetSyncState(ctx context.Context) (state FleetSyncState, fo
 	if err != nil {
 		return FleetSyncState{}, false, fmt.Errorf("frontdesk: get fleet sync state: %w", err)
 	}
+	if at == 0 {
+		return state, false, nil
+	}
 	state.LastRunAt = time.Unix(0, at).UTC()
 	return state, true, nil
+}
+
+// SetFleetPrimaryMarker records primaryID as the fleet's primary without
+// claiming a sync ran (last_run_at 0, which GetFleetSyncState reports as no run
+// recorded). It is how a fleet that grows from one member keeps naming that
+// member its primary (effectivePrimaryID) until the operator designates one. A
+// row that already names primaryID is left alone, recorded run time included.
+func (s *Store) SetFleetPrimaryMarker(ctx context.Context, primaryID, primaryName string) error {
+	_, err := s.db.ExecContext(ctx,
+		`INSERT INTO fleet_sync_state (id, last_run_at, primary_id, primary_name) VALUES (1, 0, ?, ?)
+		 ON CONFLICT(id) DO UPDATE SET last_run_at = 0,
+		   primary_id = excluded.primary_id, primary_name = excluded.primary_name
+		 WHERE primary_id <> excluded.primary_id`,
+		primaryID, primaryName,
+	)
+	if err != nil {
+		return fmt.Errorf("frontdesk: set fleet primary marker: %w", err)
+	}
+	return nil
 }
 
 // SetFleetSyncState upserts the single-row last-run marker.

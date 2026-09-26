@@ -2,6 +2,7 @@ package frontdesk
 
 import (
 	"context"
+	"strconv"
 	"testing"
 )
 
@@ -89,5 +90,40 @@ func TestRepointTargetsCurrentPrimary_NoCollisionToFind(t *testing.T) {
 	}
 	if same, err := srv.repointTargetsCurrentPrimary(ctx, cur, m); err != nil || same {
 		t.Fatalf("same-row re-select = (%v, %v), want (false, nil)", same, err)
+	}
+}
+
+// Once the current primary's announces fail for more than 90s its live state
+// decays to "warning" while is_primary lingers. If the flag names this desk the
+// host is still this fleet's primary, so a second row for it must be caught;
+// the same lingering flag naming another desk, or not flagged at all, is not.
+func TestRepointTargetsCurrentPrimary_LingeringOwnFlag(t *testing.T) {
+	srv, store := newTestServer(t)
+	ctx := context.Background()
+	ownID, err := store.EnsureFrontdeskID(ctx)
+	if err != nil {
+		t.Fatalf("EnsureFrontdeskID: %v", err)
+	}
+	cur := AutoSyncConfig{Enabled: true, PrimaryID: "current-primary-row"}
+	cases := []struct {
+		name, fleet string
+		want        bool
+	}{
+		{"own lingering flag", `{"state":"warning","is_primary":true,"frontdesk_id":"` + ownID + `"}`, true},
+		{"another desk's lingering flag", `{"state":"warning","is_primary":true,"frontdesk_id":"fd-elsewhere"}`, false},
+		{"not flagged", `{"state":"warning","is_primary":false,"frontdesk_id":"` + ownID + `"}`, false},
+	}
+	for i, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			host := fleetIdentityStub(t, tc.fleet, "iid-linger")
+			m, err := store.CreateMember(ctx, "candidate-"+strconv.Itoa(i), host.URL, "tok")
+			if err != nil {
+				t.Fatalf("CreateMember: %v", err)
+			}
+			same, err := srv.repointTargetsCurrentPrimary(ctx, cur, m)
+			if err != nil || same != tc.want {
+				t.Fatalf("repointTargetsCurrentPrimary = (%v, %v), want (%v, nil)", same, err, tc.want)
+			}
+		})
 	}
 }

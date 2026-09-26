@@ -295,10 +295,11 @@ type RemovedMember struct{ ID, Name string }
 // two-member fleet (or of a lone just-added row) disbands the whole fleet,
 // primary included, returning Front Desk to its pristine no-fleet state. In a
 // fleet of three or more it removes just the target, still refusing the
-// designated primary and the last active member (the routing pool must never
-// empty while a fleet exists). Every guard is re-checked inside the DELETE
-// statement itself, so a concurrent add, drain or repoint cannot slip between
-// the roster read and the write.
+// fleet primary (effectivePrimaryID) and the last active member (the routing
+// pool must never empty while a fleet exists). The primary is resolved inside
+// the delete's transaction and the other guards are re-checked inside the
+// DELETE statement itself, so a concurrent add, drain or repoint cannot slip
+// between the roster read and the write.
 func (s *Store) DeleteMemberOrDisband(ctx context.Context, id string) (DeleteOutcome, []RemovedMember, error) {
 	// The delete and its designation/sync-state cleanup run in one transaction,
 	// so a crash mid-way can never leave a fleet_sync_state row or auto-sync
@@ -375,6 +376,20 @@ func (s *Store) DeleteMemberOrDisband(ctx context.Context, id string) (DeleteOut
 			return 0, nil, err
 		}
 		return DeleteDisbanded, roster, nil
+	}
+
+	// Three or more members: the effective primary (effectivePrimaryID, the
+	// member the announces flag and the Members page badges) is refused here
+	// too, not only a designated one, so a primary named by the sync-state marker
+	// cannot be deleted from under the fleet. It is resolved from the same
+	// transaction's snapshot the DELETE below writes against, so no concurrent
+	// write can split the decision from the delete.
+	primaryID, err := effectivePrimaryInTx(ctx, tx, roster)
+	if err != nil {
+		return 0, nil, err
+	}
+	if primaryID == id {
+		return DeleteRefusedPrimary, nil, nil
 	}
 
 	// Three or more members: remove just the target. Delete only if the member
@@ -460,6 +475,29 @@ func commitTx(tx *sql.Tx, what string) error {
 // rosterSnapshot reads every member's id and name inside the caller's
 // transaction, so disband events and state cleanup describe exactly the rows
 // the delete saw.
+// effectivePrimaryInTx resolves effectivePrimaryID from the auto-sync row and
+// sync-state marker as tx sees them, against the roster tx already read.
+func effectivePrimaryInTx(ctx context.Context, tx *sql.Tx, roster []RemovedMember) (string, error) {
+	var (
+		cfg     AutoSyncConfig
+		enabled int
+		marker  string
+	)
+	if err := tx.QueryRowContext(ctx,
+		`SELECT auto_sync_enabled, auto_sync_primary_id,
+		        COALESCE((SELECT primary_id FROM fleet_sync_state WHERE id = 1), '')
+		 FROM settings WHERE id = 1`,
+	).Scan(&enabled, &cfg.PrimaryID, &marker); err != nil {
+		return "", fmt.Errorf("frontdesk: read fleet primary: %w", err)
+	}
+	cfg.Enabled = enabled != 0
+	members := make([]*Member, len(roster))
+	for i, m := range roster {
+		members[i] = &Member{ID: m.ID}
+	}
+	return effectivePrimaryID(members, cfg, marker), nil
+}
+
 func rosterSnapshot(ctx context.Context, tx *sql.Tx) ([]RemovedMember, error) {
 	rows, err := tx.QueryContext(ctx, `SELECT id, name FROM members ORDER BY created_at ASC`)
 	if err != nil {

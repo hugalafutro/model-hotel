@@ -442,6 +442,35 @@ describe("FleetSyncWizard", () => {
 		expect(await screen.findByText("Auto-sync on")).toBeInTheDocument();
 	});
 
+	// A fleet grown from one member has no designation, but the server keeps its
+	// original member as the primary: the wizard starts on it so its config is
+	// the default source rather than something the newcomer overwrites.
+	it("preselects the server's effective primary when none is designated", async () => {
+		let probed = "";
+		server.use(
+			http.get("/api/fleet/autosync", () =>
+				HttpResponse.json({
+					enabled: false,
+					primary_id: "",
+					effective_primary_id: "2",
+				}),
+			),
+			http.get("/api/fleet/status", ({ request }) => {
+				probed = new URL(request.url).searchParams.get("primary") ?? "";
+				return HttpResponse.json({
+					primary_id: "2",
+					primary_reachable: true,
+					members: [primaryRow("2", "hotel-2")],
+				});
+			}),
+		);
+		renderWizard();
+		await waitFor(() =>
+			expect(screen.getByLabelText(/Primary/i)).toHaveValue("2"),
+		);
+		await waitFor(() => expect(probed).toBe("2"));
+	});
+
 	it("opens on the resting screen when a primary is already designated", async () => {
 		server.use(
 			http.get("/api/fleet/autosync", () =>

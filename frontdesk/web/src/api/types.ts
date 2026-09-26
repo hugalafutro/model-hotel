@@ -36,9 +36,14 @@ export type FleetState = "ok" | "degraded" | "faulty";
 // codes (member_down, all_members_down, member_drained, drained_to_single,
 // sync_held, all_sync_held, sync_incomplete, autosync_stale,
 // autosync_stale_long, traefik_config_stale) that the client translates.
+// effective_primary_id is the member the fleet treats as primary right now
+// (the server's effectivePrimaryID): on a one-member fleet it is that member,
+// and on a fleet whose primary is named only by the last-sync marker it is that
+// member, while primary_id stays the raw designation. Absent when none resolves.
 export interface AutoSyncConfig {
 	enabled: boolean;
 	primary_id: string;
+	effective_primary_id?: string;
 	stale?: boolean;
 	last_sync_at?: string;
 	fleet_state?: FleetState;
