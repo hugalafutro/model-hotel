@@ -57,8 +57,9 @@ export function RequestLogDetail({
 	const searchUnits = requestLog.search_units ?? 0;
 	// Prompt and completion are always recorded, so their 0 is a real count.
 	// Reasoning stores 0 when the provider reported none. Cache hit and miss
-	// are recorded as a pair whenever either is non-zero, so a 0 beside a
-	// non-zero partner is a real count and only 0 and 0 means not reported.
+	// are recorded as a pair only when the provider reports a cache read
+	// (hit > 0), so a 0 miss beside it is a real count and only 0 and 0 means
+	// not reported.
 	const noCacheCounts =
 		requestLog.tokens_prompt_cache_hit === 0 &&
 		requestLog.tokens_prompt_cache_miss === 0;

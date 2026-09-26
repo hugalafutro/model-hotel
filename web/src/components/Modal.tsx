@@ -34,8 +34,8 @@ interface ModalProps {
 	// Prev/next stepper drawn beside the close button, for a dialog opened from
 	// one row of a list. Absent for dialogs with no list behind them, and not
 	// combined with dismissible={false} by callers: stepping swaps the dialog's
-	// subject, which is the thing that flag exists to prevent. A dialog with a
-	// stepper always scrolls its body (see `scrollable` below).
+	// subject, which is the thing that flag exists to prevent. Callers pass
+	// scrollable with it: the stepper hangs the dialog from the top.
 	nav?: ModalNavConfig;
 	onClose: () => void;
 	maxWidth?: string;
@@ -106,16 +106,18 @@ export const Modal = forwardRef<ModalHandle, ModalProps>(function Modal(
 		nav,
 		onClose,
 		maxWidth = "max-w-md",
-		scrollable: scrollableProp = false,
+		scrollable = false,
 		children,
 		zIndex = "z-50",
 	}: ModalProps,
 	ref,
 ) {
 	const { t } = useTranslation();
-	// A stepper hangs the dialog from a fixed top edge (see placement below),
-	// which only fits the screen when the body scrolls inside a capped height.
-	const scrollable = scrollableProp || nav !== undefined;
+	// Whether this dialog has ever had a stepper. Placement and header room
+	// follow it rather than nav itself, so a live update that drops the open
+	// row from the list (and with it the stepper) does not jump the dialog.
+	const [stepped, setStepped] = useState(nav !== undefined);
+	if (nav && !stepped) setStepped(true);
 	const tierRem = MODAL_TIER_REM[maxWidth];
 	const dialogRef = useRef<HTMLDivElement>(null);
 	const headingId = useId();
@@ -284,15 +286,19 @@ export const Modal = forwardRef<ModalHandle, ModalProps>(function Modal(
 			// widgets that move a selection with them.
 			const target = e.target as HTMLElement | null;
 			if (target?.closest?.(ARROW_KEY_OWNERS)) return;
+			// The arrow pointing against the reading order goes back: left in a
+			// left-to-right page, right in a right-to-left one.
+			const back =
+				document.documentElement.dir === "rtl" ? "ArrowRight" : "ArrowLeft";
 			const step =
-				e.key === "ArrowLeft"
+				e.key === back
 					? nav.index > 0 && nav.onPrev
 					: nav.index < nav.total - 1 && nav.onNext;
 			if (!step) return;
 			// Consumed: the same press must not also scroll the dialog, and a
 			// listener further out can see the key was taken.
 			e.preventDefault();
-			stepTo(step, e.key === "ArrowLeft" ? "prev" : "next");
+			stepTo(step, e.key === back ? "prev" : "next");
 		};
 		document.addEventListener("keydown", onKeyDown);
 		return () => {
@@ -306,14 +312,14 @@ export const Modal = forwardRef<ModalHandle, ModalProps>(function Modal(
 
 	// Title and header keep clear of the corner controls: the close button
 	// alone, or the stepper's two arrows plus the close button.
-	const headerPadding = nav ? "pe-32" : "pe-10";
+	const headerPadding = stepped ? "pe-32" : "pe-10";
 	// A dialog with a stepper hangs from a fixed top edge instead of centring:
 	// rows differ in height, and a centred dialog would move its arrows up or
 	// down on every step, out from under a pointer clicking through the rows.
 	// dvh, not vh, here and in the scroll cap below: on a phone vh is the
 	// viewport with the browser toolbar retracted, which would put the
 	// dialog's bottom under the toolbar.
-	const placement = nav ? "top" : "center";
+	const placement = stepped ? "top" : "center";
 
 	// Portal to <body>: pages open modals from inside glassmorphism cards whose
 	// backdrop-filter would otherwise trap the overlay's blur (it could only

@@ -172,6 +172,22 @@ describe("ModalNav", () => {
 		expect(screen.getByText("row a")).toBeInTheDocument();
 	});
 
+	it("Regression pin: steps back with the right arrow in a right-to-left page", () => {
+		document.documentElement.dir = "rtl";
+		try {
+			renderWithProviders(<Harness />);
+
+			fireEvent.keyDown(document, { key: "ArrowRight" });
+			expect(screen.getByText("row a")).toBeInTheDocument();
+
+			fireEvent.keyDown(document, { key: "ArrowLeft" });
+			fireEvent.keyDown(document, { key: "ArrowLeft" });
+			expect(screen.getByText("row c")).toBeInTheDocument();
+		} finally {
+			document.documentElement.dir = "";
+		}
+	});
+
 	it("presses the arrow a step went through, clicked or keyed", async () => {
 		const pressed: Element[] = [];
 		const spy = vi

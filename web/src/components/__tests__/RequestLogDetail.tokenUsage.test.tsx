@@ -62,19 +62,19 @@ describe("RequestLogDetail token usage", () => {
 		expect(prompt).not.toHaveAttribute("data-absent");
 	});
 
-	it("Regression pin: a cold-cache request shows its cache hit as a recorded 0", () => {
-		// Hit and miss are recorded as a pair whenever either is non-zero, so
-		// a 0 hit beside a non-zero miss is a real count, not a missing one.
+	it("Regression pin: a fully cached prompt shows its cache miss as a recorded 0", () => {
+		// Hit and miss are recorded as a pair when the provider reports a cache
+		// read, so a 0 miss beside a non-zero hit is a real count.
 		renderWithProviders(
 			<RequestLogDetail
-				requestLog={{ ...log, tokens_prompt_cache_miss: 80 }}
+				requestLog={{ ...log, tokens_prompt_cache_hit: 80 }}
 				onClose={() => {}}
 			/>,
 		);
-		const hit = figure("cacheHit");
-		expect(hit).toHaveTextContent(/^0$/);
-		expect(hit).not.toHaveAttribute("data-absent");
-		expect(figure("cacheMiss")).toHaveTextContent(/^80$/);
+		const miss = figure("cacheMiss");
+		expect(miss).toHaveTextContent(/^0$/);
+		expect(miss).not.toHaveAttribute("data-absent");
+		expect(figure("cacheHit")).toHaveTextContent(/^80$/);
 		// Reasoning is not paired, so its 0 still reads as not reported.
 		expect(figure("reasoning")).toHaveAttribute("data-absent", "true");
 	});

@@ -114,7 +114,8 @@ export function ModalNav({
 				className="ui-icon-btn p-2"
 				aria-label={t("common.prevRow")}
 			>
-				<ChevronLeft size={18} />
+				{/* Mirrored in a right-to-left page, where back is to the right. */}
+				<ChevronLeft size={18} className="rtl:rotate-180" />
 			</button>
 			{/* Stepping swaps the dialog's body while its title and the focused
 			    arrow stay the same, so a screen reader would otherwise hear
@@ -132,7 +133,7 @@ export function ModalNav({
 				className="ui-icon-btn p-2"
 				aria-label={t("common.nextRow")}
 			>
-				<ChevronRight size={18} />
+				<ChevronRight size={18} className="rtl:rotate-180" />
 			</button>
 		</div>
 	);

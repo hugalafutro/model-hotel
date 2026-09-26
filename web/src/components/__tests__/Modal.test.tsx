@@ -46,18 +46,19 @@ describe("Modal", () => {
 		);
 	});
 
-	it("Regression pin: a dialog with a row stepper scrolls its body even without scrollable", () => {
-		// Hung from the top, an unscrolled body taller than the screen would
-		// run off its bottom edge.
-		render(
-			<Modal title="Stepper" nav={nav} onClose={onClose}>
+	it("Regression pin: stays hung from the top when a live update drops the stepper", () => {
+		// The open row left the list: the stepper goes, the dialog stays put.
+		const { rerender } = render(
+			<Modal title="Stepper" nav={nav} scrollable onClose={onClose}>
 				<p>row</p>
 			</Modal>,
 		);
-		const body = screen
-			.getByRole("dialog")
-			.querySelector("[data-modal-panel] > [data-modal-scroll]");
-		expect(body).toContainElement(screen.getByText("row"));
+		rerender(
+			<Modal title="Stepper" scrollable onClose={onClose}>
+				<p>row</p>
+			</Modal>,
+		);
+		expect(screen.getByRole("dialog")).toHaveAttribute("data-placement", "top");
 	});
 
 	it("renders children", () => {
