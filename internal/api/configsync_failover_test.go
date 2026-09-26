@@ -1231,3 +1231,57 @@ func TestConfigSync_CorruptAutoGroupEchoFallsBackToOwnRows(t *testing.T) {
 		t.Fatalf("groups = %+v, want the member's own auto group", got)
 	}
 }
+
+// Read failures on the export path surface as errors rather than as a shorter
+// list: a member whose export silently dropped its groups would hash as one that
+// holds none, and be re-synced to that. Both reads exportFailoverGroups makes
+// after its Query returned are driven to fail through the one-connection seam.
+func TestConfigSync_ExportFailoverGroupsReadFailures(t *testing.T) {
+	cleanConfigTables(t)
+	openai := seedProvider(t, "openai", "sk-secret", configSyncMasterKey)
+	azure := seedProvider(t, "azure", "sk-secret", configSyncMasterKey)
+	seedFailoverGroup(t, "gpt-4o", seedSharedModel(t, "gpt-4o", openai, azure), nil, true)
+	ctx := context.Background()
+
+	// rows.Err(): warm the prepared statement, then lock the groups table.
+	pool, lockGroups := lockedReadDB(t, "model_failover_groups")
+	if _, err := exportFailoverGroups(ctx, pool.Pool(), map[string]ExportModelRef{}); err != nil {
+		t.Fatalf("warm-up: %v", err)
+	}
+	unlock := lockGroups()
+	_, err := exportFailoverGroups(ctx, pool.Pool(), map[string]ExportModelRef{})
+	unlock()
+	if err == nil {
+		t.Fatal("locked groups table: want an error from rows.Err(), got none")
+	}
+
+	// The echo marker read: lock settings while the groups table is free.
+	_, lockSettings := lockedReadDB(t, "settings")
+	unlock = lockSettings()
+	_, err = exportFailoverGroups(ctx, pool.Pool(), map[string]ExportModelRef{})
+	unlock()
+	if err == nil {
+		t.Fatal("locked settings table: want the marker read to fail the export, got none")
+	}
+}
+
+// Storing the echo marker is best-effort: the groups are already committed, so a
+// failed Set costs one pass of hash mismatch and is logged, not returned.
+func TestConfigSync_ApplyFailoverGroupsToleratesEchoStoreFailure(t *testing.T) {
+	cleanConfigTables(t)
+	seamPool, lockSettings := lockedReadDB(t, "settings")
+	h := NewConfigSyncHandler(apiTestDB, settings.NewRepository(seamPool.Pool()), configSyncMasterKey, "v-test", nil, nil)
+
+	unlock := lockSettings()
+	res, err := h.applyFailoverGroups(context.Background(), []ExportFailoverGroup{})
+	unlock()
+	if err != nil || len(res.Skipped) != 0 {
+		t.Fatalf("apply = %+v, %v; want a clean result despite the marker write failing", res, err)
+	}
+	var n int
+	_ = apiTestDB.Pool().QueryRow(context.Background(),
+		`SELECT count(*) FROM settings WHERE key = $1`, keyFleetAutoFailoverGroups).Scan(&n)
+	if n != 0 {
+		t.Error("marker must not exist after a failed Set")
+	}
+}

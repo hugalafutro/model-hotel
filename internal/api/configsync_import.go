@@ -324,20 +324,19 @@ func (h *ConfigSyncHandler) computeDiff(ctx context.Context, env ConfigEnvelope)
 	// reconciles the custom groups to zero, so its removals are real; auto groups
 	// absent from the envelope are the member's own discovery's to keep or drop,
 	// so they are not counted as removed.
-	curGroups, err := nameSet(ctx, pool, `SELECT display_model FROM model_failover_groups`)
+	groupAuto, err := stringMap(ctx, pool, `SELECT display_model, auto_created::text FROM model_failover_groups`)
 	if err != nil {
 		return d, err
 	}
-	curAuto, err := nameSet(ctx, pool, `SELECT display_model FROM model_failover_groups WHERE auto_created = true`)
-	if err != nil {
-		return d, err
+	curGroups := make(map[string]string, len(groupAuto))
+	for name := range groupAuto {
+		curGroups[name] = name
 	}
-	d.FailoverGroups = diffKeyed(identLabels(curGroups), env.Config.FailoverGroups,
+	d.FailoverGroups = diffKeyed(curGroups, env.Config.FailoverGroups,
 		func(g ExportFailoverGroup) (string, string) { return g.DisplayModel, g.DisplayModel },
 		env.Config.FailoverGroups != nil)
 	d.FailoverGroups.Removed = slices.DeleteFunc(d.FailoverGroups.Removed, func(name string) bool {
-		_, auto := curAuto[name]
-		return auto
+		return groupAuto[name] == "true"
 	})
 
 	// Users, keyed by username, with the same nil-guard as failover groups: a nil
