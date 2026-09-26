@@ -1573,6 +1573,15 @@ func TestFailoverGroup_EditOrDeleteOfAnAutoGroupDropsTheFleetEcho(t *testing.T) 
 	if echoRows() != 1 {
 		t.Error("editing a custom group must leave the fleet echo alone")
 	}
+	req, w = newChiRequest(http.MethodDelete, "/failover-groups/"+groupID, http.NoBody)
+	req = setChiURLParam(req, "id", groupID)
+	h.Delete(w, req)
+	if w.Code != http.StatusNoContent {
+		t.Fatalf("delete custom status = %d body = %s", w.Code, w.Body.String())
+	}
+	if echoRows() != 1 {
+		t.Error("deleting a custom group must leave the fleet echo alone")
+	}
 }
 
 // A member auto row whose stored order is not a JSON array is overwritten by the

@@ -253,3 +253,31 @@ func TestRepository_Sync_FreshEchoSettlesAnOwedClear(t *testing.T) {
 		t.Fatal("an unchanged scan after a fresh import must keep the new echo")
 	}
 }
+
+// When the scan cannot read the echo to tell whether its change is covered, it
+// clears anyway; if that delete fails too, the clear is owed and the next scan
+// retries it. A read failure must never turn into a skipped clear.
+func TestRepository_Sync_UnreadableEchoIsClearedNotSkipped(t *testing.T) {
+	repo := newTestRepo(t)
+	ctx := context.Background()
+	base := echoTestBase(t, "echo-unread-")
+	seedProviderModel(ctx, t, base, true, true)
+	seedProviderModel(ctx, t, base, true, true)
+	if _, err := repo.SyncAllModels(ctx); err != nil {
+		t.Fatalf("sync: %v", err)
+	}
+	seedFleetEcho(t, base)
+
+	canceled, cancel := context.WithCancel(ctx)
+	cancel()
+	repo.clearFleetAutoEchoIfStaled(canceled, map[string]struct{}{base: {}}) // read fails, delete fails: owed
+	if fleetEchoRows(t) != 1 {
+		t.Fatal("precondition: the failed clear leaves the echo in place")
+	}
+	if _, err := repo.SyncAllModels(ctx); err != nil {
+		t.Fatalf("sync: %v", err)
+	}
+	if fleetEchoRows(t) != 0 {
+		t.Fatal("the owed clear must be retried by the next scan")
+	}
+}

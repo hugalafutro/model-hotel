@@ -608,12 +608,21 @@ func (h *FailoverHandler) Delete(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Read before delete so the echo is only dropped for an auto group (same as
+	// Update); deleting a custom group is nothing the echo describes. A row that
+	// is already gone deletes as a no-op below, as before.
+	existing, err := h.failoverRepo.GetByID(r.Context(), id)
+	if err != nil && !errors.Is(err, pgx.ErrNoRows) {
+		respondError(w, "failed to load failover group", err, http.StatusInternalServerError)
+		return
+	}
 	if err := h.failoverRepo.DeleteByID(r.Context(), id); err != nil {
 		respondError(w, fmt.Sprintf("failed to delete failover group %s", id), err, http.StatusInternalServerError)
 		return
 	}
-	// Same as Update: a deleted auto group is a change the echo would hide.
-	h.failoverRepo.ClearFleetAutoEcho(r.Context())
+	if existing != nil && existing.AutoCreated {
+		h.failoverRepo.ClearFleetAutoEcho(r.Context())
+	}
 
 	w.WriteHeader(http.StatusNoContent)
 }

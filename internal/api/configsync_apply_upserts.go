@@ -94,6 +94,10 @@ func (h *ConfigSyncHandler) applyFailoverGroups(ctx context.Context, groups []Ex
 	if err := tx.Commit(ctx); err != nil {
 		return groupApplyResult{}, err
 	}
+	// Drop the process cache now, not at the end of the import: a scan reading a
+	// cached pre-import row would write that order back over the one just
+	// committed and see no change to clear the echo for.
+	failover.InvalidateFailoverCache()
 	failover.MarkFleetAutoEchoWritten()
 	return res, nil
 }

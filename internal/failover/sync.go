@@ -47,23 +47,28 @@ func (r *Repository) ClearFleetAutoEcho(ctx context.Context) {
 
 // echoedBases lists the display models the fleet echo carries. An empty set
 // means no echo (never imported, dropped, or this instance is the primary), in
-// which case there is nothing a scan could stale.
-func (r *Repository) echoedBases(ctx context.Context) map[string]struct{} {
+// which case there is nothing a scan could stale. known is false when the read
+// itself failed: the caller must then assume the worst rather than skip a clear.
+func (r *Repository) echoedBases(ctx context.Context) (bases map[string]struct{}, known bool) {
 	var raw string
-	if err := r.pool.QueryRow(ctx, `SELECT value FROM settings WHERE key = $1`, FleetAutoGroupsEchoKey).Scan(&raw); err != nil || raw == "" {
-		return nil
+	err := r.pool.QueryRow(ctx, `SELECT value FROM settings WHERE key = $1`, FleetAutoGroupsEchoKey).Scan(&raw)
+	if errors.Is(err, pgx.ErrNoRows) || (err == nil && raw == "") {
+		return nil, true
+	}
+	if err != nil {
+		return nil, false
 	}
 	var sent []struct {
 		DisplayModel string `json:"display_model"`
 	}
 	if err := json.Unmarshal([]byte(raw), &sent); err != nil {
-		return nil
+		return nil, true // unparseable: the export ignores it too
 	}
 	out := make(map[string]struct{}, len(sent))
 	for _, g := range sent {
 		out[g.DisplayModel] = struct{}{}
 	}
-	return out
+	return out, true
 }
 
 // clearFleetAutoEchoIfStaled drops the echo when any of the auto groups a scan
@@ -78,7 +83,13 @@ func (r *Repository) clearFleetAutoEchoIfStaled(ctx context.Context, changed map
 	if len(changed) == 0 {
 		return
 	}
-	echoed := r.echoedBases(ctx)
+	echoed, known := r.echoedBases(ctx)
+	if !known {
+		// Cannot tell whether the echo covers the change: clear anyway. The
+		// delete most likely fails the same way, and then the clear is owed.
+		r.ClearFleetAutoEcho(ctx)
+		return
+	}
 	for base := range changed {
 		if _, ok := echoed[base]; ok {
 			r.ClearFleetAutoEcho(ctx)
