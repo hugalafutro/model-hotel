@@ -432,15 +432,14 @@ func echoFleetAutoGroups(ctx context.Context, q querier, own []ExportFailoverGro
 		slices.SortFunc(own, byName)
 		return own, nil
 	}
-	// display_model is unique per instance, so a custom row here that carries the
-	// name of an echoed auto group would export the name twice; the echo wins.
-	sentNames := make(map[string]struct{}, len(sent))
-	for _, g := range sent {
-		sentNames[g.DisplayModel] = struct{}{}
-	}
+	// A custom row here that carries the name of an echoed auto group exports the
+	// name twice, on purpose: no successful import leaves such a row (the upsert
+	// converts it or the declarative delete removes it), so one can only be a
+	// local edit, and hiding it would hide the edit. The hash differs and the
+	// next import removes the row.
 	out := make([]ExportFailoverGroup, 0, len(own)+len(sent))
 	for _, g := range own {
-		if _, echoed := sentNames[g.DisplayModel]; !g.AutoCreated && !echoed {
+		if !g.AutoCreated {
 			out = append(out, g)
 		}
 	}

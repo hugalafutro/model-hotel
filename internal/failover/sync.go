@@ -2,6 +2,7 @@ package failover
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"slices"
@@ -42,6 +43,48 @@ func (r *Repository) ClearFleetAutoEcho(ctx context.Context) {
 		return
 	}
 	echoClearPending.Store(false)
+}
+
+// echoedBases lists the display models the fleet echo carries. An empty set
+// means no echo (never imported, dropped, or this instance is the primary), in
+// which case there is nothing a scan could stale.
+func (r *Repository) echoedBases(ctx context.Context) map[string]struct{} {
+	var raw string
+	if err := r.pool.QueryRow(ctx, `SELECT value FROM settings WHERE key = $1`, FleetAutoGroupsEchoKey).Scan(&raw); err != nil || raw == "" {
+		return nil
+	}
+	var sent []struct {
+		DisplayModel string `json:"display_model"`
+	}
+	if err := json.Unmarshal([]byte(raw), &sent); err != nil {
+		return nil
+	}
+	out := make(map[string]struct{}, len(sent))
+	for _, g := range sent {
+		out[g.DisplayModel] = struct{}{}
+	}
+	return out
+}
+
+// clearFleetAutoEchoIfStaled drops the echo when any of the auto groups a scan
+// changed or deleted is one the echo carries, or a clear is still owed. A change
+// to a group only this member holds cannot be re-synced over, so it is not worth
+// an amber badge and a full re-import.
+func (r *Repository) clearFleetAutoEchoIfStaled(ctx context.Context, changed map[string]struct{}) {
+	if echoClearPending.Load() {
+		r.ClearFleetAutoEcho(ctx)
+		return
+	}
+	if len(changed) == 0 {
+		return
+	}
+	echoed := r.echoedBases(ctx)
+	for base := range changed {
+		if _, ok := echoed[base]; ok {
+			r.ClearFleetAutoEcho(ctx)
+			return
+		}
+	}
 }
 
 // MarkFleetAutoEchoWritten tells the scans a fresh echo was just stored by an
@@ -286,7 +329,7 @@ func (r *Repository) SyncAllModels(ctx context.Context) (*SyncResult, error) {
 	}
 
 	syncedBases := make(map[string]bool)
-	autoChanged := false
+	changed := map[string]struct{}{}
 	for base, models := range baseToModels {
 		if len(models) <= 1 {
 			providerNames := make([]string, 0, len(models))
@@ -311,7 +354,7 @@ func (r *Repository) SyncAllModels(ctx context.Context) (*SyncResult, error) {
 		// A scan re-enables an auto group (upsertAutoGroup writes group_enabled
 		// true), so one the primary sent disabled counts as changed too.
 		if existing == nil || !existing.GroupEnabled || !slices.Equal(existing.PriorityOrder, order) {
-			autoChanged = true
+			changed[base] = struct{}{}
 		}
 	}
 
@@ -367,9 +410,10 @@ func (r *Repository) SyncAllModels(ctx context.Context) (*SyncResult, error) {
 
 	debuglog.Info("failover: synced groups", "synced", len(syncedBases), "deleted", len(result.DeletedGroups))
 
-	if autoChanged || len(result.DeletedGroups) > 0 || echoClearPending.Load() {
-		r.ClearFleetAutoEcho(ctx)
+	for _, dg := range result.DeletedGroups {
+		changed[dg.DisplayModel] = struct{}{}
 	}
+	r.clearFleetAutoEchoIfStaled(ctx, changed)
 	return result, nil
 }
 
@@ -412,9 +456,11 @@ func (r *Repository) SyncForModel(ctx context.Context, modelID string) (*SyncRes
 
 	if len(currentIDs) <= 1 {
 		r.deleteUndersizedAutoGroup(ctx, base, len(currentIDs), []string{}, result)
-		if len(result.DeletedGroups) > 0 || echoClearPending.Load() {
-			r.ClearFleetAutoEcho(ctx)
+		changed := map[string]struct{}{}
+		if len(result.DeletedGroups) > 0 {
+			changed[base] = struct{}{}
 		}
+		r.clearFleetAutoEchoIfStaled(ctx, changed)
 		return result, nil
 	}
 
@@ -435,9 +481,11 @@ func (r *Repository) SyncForModel(ctx context.Context, modelID string) (*SyncRes
 	}
 	// Same rule as SyncAllModels: membership moved, the group was re-enabled by
 	// this upsert, or an earlier clear is still owed.
-	if len(result.UpdatedGroups) > 0 || (existing != nil && !existing.GroupEnabled) || echoClearPending.Load() {
-		r.ClearFleetAutoEcho(ctx)
+	changed := map[string]struct{}{}
+	if len(result.UpdatedGroups) > 0 || (existing != nil && !existing.GroupEnabled) {
+		changed[base] = struct{}{}
 	}
+	r.clearFleetAutoEchoIfStaled(ctx, changed)
 
 	debuglog.Info("failover: synced group", "display_model", base, "providers", len(priorityOrder))
 	return result, nil

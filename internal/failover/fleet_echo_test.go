@@ -2,6 +2,7 @@ package failover
 
 import (
 	"context"
+	"encoding/json"
 	"testing"
 
 	"github.com/google/uuid"
@@ -31,21 +32,29 @@ func echoTestBase(t *testing.T, prefix string) string {
 	return base
 }
 
-func seedFleetEcho(t *testing.T) {
+// seedFleetEcho stores an echo that names the given bases, as an import would.
+func seedFleetEcho(t *testing.T, bases ...string) {
 	t.Helper()
+	sent := make([]map[string]string, 0, len(bases))
+	for _, b := range bases {
+		sent = append(sent, map[string]string{"display_model": b})
+	}
+	raw, _ := json.Marshal(sent)
 	if _, err := testDB.Pool().Exec(context.Background(),
-		`INSERT INTO settings (key, value, updated_at) VALUES ($1, '[]', now())
-		 ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value`, FleetAutoGroupsEchoKey); err != nil {
+		`INSERT INTO settings (key, value, updated_at) VALUES ($1, $2, now())
+		 ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value`, FleetAutoGroupsEchoKey, string(raw)); err != nil {
 		t.Fatalf("seed echo: %v", err)
 	}
 	t.Cleanup(func() {
 		_, _ = testDB.Pool().Exec(context.Background(), `DELETE FROM settings WHERE key = $1`, FleetAutoGroupsEchoKey)
+		MarkFleetAutoEchoWritten()
 	})
 }
 
-// A scan drops the fleet echo only when it changes an auto group: forming one,
-// changing its membership, or deleting an undersized one. A scan that finds
-// everything as it was leaves the echo alone, so a fleet at rest is not
+// A scan drops the fleet echo only when it changes an auto group the echo
+// carries: forming one, changing its membership, or deleting an undersized one.
+// A scan that finds everything as it was, or that only changes a group the
+// primary never sent, leaves the echo alone, so a fleet at rest is not
 // re-imported on every scan.
 func TestRepository_SyncAllModels_ClearsFleetEchoOnlyOnChange(t *testing.T) {
 	repo := newTestRepo(t)
@@ -54,7 +63,7 @@ func TestRepository_SyncAllModels_ClearsFleetEchoOnlyOnChange(t *testing.T) {
 	_, m1 := seedProviderModel(ctx, t, base, true, true)
 	_, m2 := seedProviderModel(ctx, t, base, true, true)
 
-	seedFleetEcho(t)
+	seedFleetEcho(t, base)
 	if _, err := repo.SyncAllModels(ctx); err != nil {
 		t.Fatalf("sync: %v", err)
 	}
@@ -62,12 +71,23 @@ func TestRepository_SyncAllModels_ClearsFleetEchoOnlyOnChange(t *testing.T) {
 		t.Fatal("forming an auto group must drop the echo")
 	}
 
-	seedFleetEcho(t)
+	seedFleetEcho(t, base)
 	if _, err := repo.SyncAllModels(ctx); err != nil {
 		t.Fatalf("sync: %v", err)
 	}
 	if fleetEchoRows(t) != 1 {
 		t.Fatal("a scan that changes nothing must leave the echo alone")
+	}
+
+	// A group only this member holds is not in the echo; forming it is no news.
+	mine := echoTestBase(t, "echo-mine-")
+	seedProviderModel(ctx, t, mine, true, true)
+	seedProviderModel(ctx, t, mine, true, true)
+	if _, err := repo.SyncAllModels(ctx); err != nil {
+		t.Fatalf("sync: %v", err)
+	}
+	if fleetEchoRows(t) != 1 {
+		t.Fatal("forming a group the primary never sent must leave the echo alone")
 	}
 
 	seedProviderModel(ctx, t, base, true, true)
@@ -78,9 +98,8 @@ func TestRepository_SyncAllModels_ClearsFleetEchoOnlyOnChange(t *testing.T) {
 		t.Fatal("a new member joining an auto group must drop the echo")
 	}
 
-	// Undersize it and resync just this base (a whole-table scan here would race
-	// the other test shards that share the database and count our deletion).
-	seedFleetEcho(t)
+	// Undersize it and resync just this base.
+	seedFleetEcho(t, base)
 	for _, id := range []uuid.UUID{m1, m2} {
 		if _, err := testDB.Pool().Exec(ctx, `UPDATE models SET enabled = false WHERE id = $1`, id); err != nil {
 			t.Fatalf("disable model: %v", err)
@@ -102,7 +121,7 @@ func TestRepository_SyncForModel_ClearsFleetEcho(t *testing.T) {
 	_, m1 := seedProviderModel(ctx, t, base, true, true)
 	seedProviderModel(ctx, t, base, true, true)
 
-	seedFleetEcho(t)
+	seedFleetEcho(t, base)
 	if _, err := repo.SyncForModel(ctx, base); err != nil {
 		t.Fatalf("sync: %v", err)
 	}
@@ -110,7 +129,7 @@ func TestRepository_SyncForModel_ClearsFleetEcho(t *testing.T) {
 		t.Fatal("forming the group must drop the echo")
 	}
 
-	seedFleetEcho(t)
+	seedFleetEcho(t, base)
 	if _, err := repo.SyncForModel(ctx, base); err != nil {
 		t.Fatalf("sync: %v", err)
 	}
@@ -155,7 +174,7 @@ func TestRepository_Sync_ReenablingADisabledAutoGroupClearsFleetEcho(t *testing.
 	}
 
 	disable()
-	seedFleetEcho(t)
+	seedFleetEcho(t, base)
 	if _, err := repo.SyncAllModels(ctx); err != nil {
 		t.Fatalf("sync: %v", err)
 	}
@@ -164,7 +183,7 @@ func TestRepository_Sync_ReenablingADisabledAutoGroupClearsFleetEcho(t *testing.
 	}
 
 	disable()
-	seedFleetEcho(t)
+	seedFleetEcho(t, base)
 	if _, err := repo.SyncForModel(ctx, base); err != nil {
 		t.Fatalf("sync: %v", err)
 	}
@@ -185,7 +204,7 @@ func TestRepository_Sync_RetriesAFailedFleetEchoClear(t *testing.T) {
 		t.Fatalf("sync: %v", err)
 	}
 
-	seedFleetEcho(t)
+	seedFleetEcho(t, base)
 	canceled, cancel := context.WithCancel(ctx)
 	cancel()
 	repo.ClearFleetAutoEcho(canceled) // fails: the echo stays, the retry is owed
@@ -199,7 +218,7 @@ func TestRepository_Sync_RetriesAFailedFleetEchoClear(t *testing.T) {
 		t.Fatal("an unchanged scan must retry the owed clear")
 	}
 
-	seedFleetEcho(t)
+	seedFleetEcho(t, base)
 	repo.ClearFleetAutoEcho(canceled)
 	if _, err := repo.SyncForModel(ctx, base); err != nil {
 		t.Fatalf("sync: %v", err)
@@ -225,7 +244,7 @@ func TestRepository_Sync_FreshEchoSettlesAnOwedClear(t *testing.T) {
 	canceled, cancel := context.WithCancel(ctx)
 	cancel()
 	repo.ClearFleetAutoEcho(canceled) // fails: a clear is owed
-	seedFleetEcho(t)                  // the import then writes a fresh echo...
+	seedFleetEcho(t, base)            // the import then writes a fresh echo...
 	MarkFleetAutoEchoWritten()        // ...and says so
 	if _, err := repo.SyncAllModels(ctx); err != nil {
 		t.Fatalf("sync: %v", err)

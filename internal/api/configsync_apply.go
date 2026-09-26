@@ -37,7 +37,9 @@ type applyOutcome struct {
 	GroupApplyErr error
 	// DiscoveryErr is set when post-import discovery failed. Recorded for operators
 	// but does not itself mark the import incomplete: a provider outage is routine,
-	// and a discovery failure that matters shows up as skipped groups.
+	// and a custom-group failure that matters shows up as skipped groups. Auto
+	// groups report nothing, so the group apply withholds the echo instead: the
+	// member's hash then differs and the next push reruns discovery.
 	DiscoveryErr error
 	// UnappliedModels names the per-model intent this member could not apply because
 	// it holds no such model: the primary's disables and its manual-enable pins
@@ -626,7 +628,7 @@ func (h *ConfigSyncHandler) postImportRefresh(ctx context.Context, env ConfigEnv
 	// chance to create the models their entries reference. Best-effort for the
 	// same reason: a group that cannot resolve yet reconciles on the next sync.
 	groupCtx, groupCancel := context.WithTimeout(ctx, failoverApplyTimeout)
-	groupRes, err := h.applyFailoverGroups(groupCtx, env.Config.FailoverGroups)
+	groupRes, err := h.applyFailoverGroups(groupCtx, env.Config.FailoverGroups, out.DiscoveryErr == nil)
 	groupCancel()
 	out.SkippedGroups = groupRes.Skipped
 	out.PartialGroups = groupRes.Partial

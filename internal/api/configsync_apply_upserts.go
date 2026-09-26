@@ -27,7 +27,12 @@ import (
 // same transaction (keyFleetAutoFailoverGroups) so the rows and the echo that
 // certifies them can never come from different imports. It returns what the build
 // could not fully do.
-func (h *ConfigSyncHandler) applyFailoverGroups(ctx context.Context, groups []ExportFailoverGroup) (groupApplyResult, error) {
+//
+// storeEcho is false when this import's discovery failed: the auto groups it
+// could not resolve were skipped without a report, and an echo would certify
+// that gap as converged. Deleting the echo instead leaves the member's own rows
+// in its hash, so Front Desk keeps it amber and its re-push reruns discovery.
+func (h *ConfigSyncHandler) applyFailoverGroups(ctx context.Context, groups []ExportFailoverGroup, storeEcho bool) (groupApplyResult, error) {
 	// Distinguish "field absent" from "explicitly empty". A nil slice means the
 	// envelope carried no failover_groups key, so leave the member's own custom
 	// groups untouched rather than wiping them on the first sync of a rolling
@@ -76,10 +81,14 @@ func (h *ConfigSyncHandler) applyFailoverGroups(ctx context.Context, groups []Ex
 	if err != nil {
 		return groupApplyResult{}, err
 	}
-	if _, err := tx.Exec(ctx, `
+	echoSQL, echoArgs := `
 		INSERT INTO settings (key, value, updated_at) VALUES ($1, $2, now())
 		ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = now()`,
-		keyFleetAutoFailoverGroups, string(raw)); err != nil {
+		[]any{keyFleetAutoFailoverGroups, string(raw)}
+	if !storeEcho {
+		echoSQL, echoArgs = `DELETE FROM settings WHERE key = $1`, []any{keyFleetAutoFailoverGroups}
+	}
+	if _, err := tx.Exec(ctx, echoSQL, echoArgs...); err != nil {
 		return groupApplyResult{}, err
 	}
 	if err := tx.Commit(ctx); err != nil {
@@ -588,13 +597,18 @@ func readOwnAutoGroups(ctx context.Context, q querier) (map[string]ownAutoGroup,
 		if err := rows.Scan(&name, &priorityJSON, &enabledJSON); err != nil {
 			return nil, err
 		}
+		// A row this member cannot parse carries no extras worth keeping: the
+		// upsert below overwrites it with the primary's entries, which is the only
+		// repair a corrupt row gets (discovery's own read of it fails too).
 		var g ownAutoGroup
 		if err := json.Unmarshal(priorityJSON, &g.priority); err != nil {
-			return nil, fmt.Errorf("auto group %s: priority_order: %w", name, err)
+			debuglog.Warn("configsync: unparseable priority_order on an auto group; overwriting it", "group", name, "error", err)
+			continue
 		}
 		g.enabled = map[string]bool{}
 		if err := json.Unmarshal(enabledJSON, &g.enabled); err != nil {
-			return nil, fmt.Errorf("auto group %s: entry_enabled: %w", name, err)
+			debuglog.Warn("configsync: unparseable entry_enabled on an auto group; overwriting it", "group", name, "error", err)
+			continue
 		}
 		// entry_enabled absence means enabled (matches proxy/enabledEntryIDs).
 		for _, id := range g.priority {
