@@ -208,3 +208,29 @@ func TestRepository_Sync_RetriesAFailedFleetEchoClear(t *testing.T) {
 		t.Fatal("an unchanged per-model sync must retry the owed clear")
 	}
 }
+
+// An import that stores a fresh echo settles any clear owed from before it: the
+// next unchanged scan must not delete the echo that import just wrote, or Front
+// Desk would import the same config once more for nothing.
+func TestRepository_Sync_FreshEchoSettlesAnOwedClear(t *testing.T) {
+	repo := newTestRepo(t)
+	ctx := context.Background()
+	base := echoTestBase(t, "echo-settle-")
+	seedProviderModel(ctx, t, base, true, true)
+	seedProviderModel(ctx, t, base, true, true)
+	if _, err := repo.SyncAllModels(ctx); err != nil {
+		t.Fatalf("sync: %v", err)
+	}
+
+	canceled, cancel := context.WithCancel(ctx)
+	cancel()
+	repo.ClearFleetAutoEcho(canceled) // fails: a clear is owed
+	seedFleetEcho(t)                  // the import then writes a fresh echo...
+	MarkFleetAutoEchoWritten()        // ...and says so
+	if _, err := repo.SyncAllModels(ctx); err != nil {
+		t.Fatalf("sync: %v", err)
+	}
+	if fleetEchoRows(t) != 1 {
+		t.Fatal("an unchanged scan after a fresh import must keep the new echo")
+	}
+}

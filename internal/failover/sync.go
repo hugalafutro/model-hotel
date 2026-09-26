@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"slices"
 	"strings"
+	"sync/atomic"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
@@ -23,17 +24,31 @@ import (
 // a fleet at rest is not re-imported on every scan.
 const FleetAutoGroupsEchoKey = "_fleet_auto_failover_groups"
 
+// echoClearPending is set when ClearFleetAutoEcho could not delete the fleet
+// auto-group echo, so the next scan retries the delete even if it changes
+// nothing. Process-wide like the group cache: the config-sync import, which
+// holds no Repository, resets it through MarkFleetAutoEchoWritten.
+var echoClearPending atomic.Bool
+
 // ClearFleetAutoEcho drops the fleet auto-group echo; see FleetAutoGroupsEchoKey.
 // A failure is logged, not returned, and remembered: a stale echo would keep
 // certifying rows that changed, so every later scan retries the delete until one
-// succeeds, whether or not that scan changes anything itself.
+// succeeds or an import writes a fresh echo, whether or not that scan changes
+// anything itself.
 func (r *Repository) ClearFleetAutoEcho(ctx context.Context) {
 	if _, err := r.pool.Exec(ctx, `DELETE FROM settings WHERE key = $1`, FleetAutoGroupsEchoKey); err != nil {
-		r.echoClearPending.Store(true)
+		echoClearPending.Store(true)
 		debuglog.Warn("failover: failed to clear the fleet auto-group echo; will retry on the next scan", "error", err)
 		return
 	}
-	r.echoClearPending.Store(false)
+	echoClearPending.Store(false)
+}
+
+// MarkFleetAutoEchoWritten tells the scans a fresh echo was just stored by an
+// import, so a clear owed from before it is no longer owed: deleting the new echo
+// would only make Front Desk import the same config once more.
+func MarkFleetAutoEchoWritten() {
+	echoClearPending.Store(false)
 }
 
 // DeletedGroupInfo describes a failover group that was deleted during sync.
@@ -352,7 +367,7 @@ func (r *Repository) SyncAllModels(ctx context.Context) (*SyncResult, error) {
 
 	debuglog.Info("failover: synced groups", "synced", len(syncedBases), "deleted", len(result.DeletedGroups))
 
-	if autoChanged || len(result.DeletedGroups) > 0 || r.echoClearPending.Load() {
+	if autoChanged || len(result.DeletedGroups) > 0 || echoClearPending.Load() {
 		r.ClearFleetAutoEcho(ctx)
 	}
 	return result, nil
@@ -397,7 +412,7 @@ func (r *Repository) SyncForModel(ctx context.Context, modelID string) (*SyncRes
 
 	if len(currentIDs) <= 1 {
 		r.deleteUndersizedAutoGroup(ctx, base, len(currentIDs), []string{}, result)
-		if len(result.DeletedGroups) > 0 || r.echoClearPending.Load() {
+		if len(result.DeletedGroups) > 0 || echoClearPending.Load() {
 			r.ClearFleetAutoEcho(ctx)
 		}
 		return result, nil
@@ -420,7 +435,7 @@ func (r *Repository) SyncForModel(ctx context.Context, modelID string) (*SyncRes
 	}
 	// Same rule as SyncAllModels: membership moved, the group was re-enabled by
 	// this upsert, or an earlier clear is still owed.
-	if len(result.UpdatedGroups) > 0 || (existing != nil && !existing.GroupEnabled) || r.echoClearPending.Load() {
+	if len(result.UpdatedGroups) > 0 || (existing != nil && !existing.GroupEnabled) || echoClearPending.Load() {
 		r.ClearFleetAutoEcho(ctx)
 	}
 

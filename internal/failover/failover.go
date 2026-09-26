@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"strings"
-	"sync/atomic"
 	"time"
 
 	"github.com/google/uuid"
@@ -75,10 +74,6 @@ func scanFailoverGroup(row pgx.Row) (*FailoverGroup, error) {
 // Repository provides persistence for failover groups.
 type Repository struct {
 	pool *pgxpool.Pool
-	// echoClearPending is set when ClearFleetAutoEcho could not delete the fleet
-	// auto-group echo, so the next scan retries the delete even if it changes
-	// nothing; see FleetAutoGroupsEchoKey.
-	echoClearPending atomic.Bool
 }
 
 // NewRepository creates a new failover group repository.

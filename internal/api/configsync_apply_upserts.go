@@ -11,6 +11,7 @@ import (
 
 	"github.com/hugalafutro/model-hotel/internal/budget"
 	"github.com/hugalafutro/model-hotel/internal/debuglog"
+	"github.com/hugalafutro/model-hotel/internal/failover"
 	"github.com/hugalafutro/model-hotel/internal/provider"
 	"github.com/hugalafutro/model-hotel/internal/user"
 )
@@ -84,6 +85,7 @@ func (h *ConfigSyncHandler) applyFailoverGroups(ctx context.Context, groups []Ex
 	if err := tx.Commit(ctx); err != nil {
 		return groupApplyResult{}, err
 	}
+	failover.MarkFleetAutoEchoWritten()
 	return res, nil
 }
 
