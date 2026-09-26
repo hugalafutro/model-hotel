@@ -8,6 +8,8 @@ import (
 	"strconv"
 	"strings"
 	"unicode/utf8"
+
+	"github.com/hugalafutro/model-hotel/internal/httpx"
 )
 
 // scrubMargin is how far past maxLen SanitizeLogBody still scans for secrets.
@@ -345,6 +347,10 @@ func OpenAIErrorType(code int) string {
 		return "not_found_error"
 	case code == 429:
 		return "rate_limit_error"
+	case code == httpx.StatusClientClosedRequest:
+		// Nginx's non-standard 499 has no OpenAI type, and the caller that
+		// hung up sent nothing invalid: the type names what happened.
+		return "client_closed_request"
 	case code >= 500:
 		return "server_error"
 	default:

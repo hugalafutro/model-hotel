@@ -26,20 +26,14 @@ type multipartPart struct {
 	data        []byte
 }
 
-// parseMultipartParts decomposes a multipart body into its parts and returns
-// them together with the value of the `model` form field (empty if absent).
-// describeMultipartFault names why a multipart body would not read or parse,
-// without quoting any of it. net/textproto puts the offending line straight
+// describeMultipartFault names why a multipart body would not parse, without
+// quoting any of it. net/textproto puts the offending line straight
 // into its error ("malformed MIME header: missing colon: \"<the caller's
-// line>\""), and that error used to be logged verbatim, so a caller could write
-// a chosen string into the app log of a gateway that stores no request content.
+// line>\""), so logging that error verbatim would let a caller write a chosen
+// string into the app log of a gateway that stores no request content.
 // This is the same bargain jsonfault.Describe strikes on the JSON ingest paths:
 // the class of fault is what an operator acts on, and the bytes are the
-// caller's.
-//
-// It covers the body read as well as the parse, because a chunked upload's
-// trailers are MIME headers and a malformed one surfaces from io.ReadAll of the
-// request body, not from the multipart reader.
+// caller's. The body read before the parse is named by describeBodyReadFault.
 //
 // On this path ErrMessageTooLarge is NOT about the size of an uploaded part:
 // NextPart maps it from readMIMEHeader's own limits (mime/multipart's
@@ -62,6 +56,8 @@ func describeMultipartFault(err error) string {
 	return "the body is not a well-formed multipart form"
 }
 
+// parseMultipartParts decomposes a multipart body into its parts and returns
+// them together with the value of the `model` form field (empty if absent).
 func parseMultipartParts(body []byte, boundary string) ([]multipartPart, string, error) {
 	mr := multipart.NewReader(bytes.NewReader(body), boundary)
 	var parts []multipartPart
@@ -231,12 +227,13 @@ func (h *Handler) ingestMultipartRequest(w http.ResponseWriter, r *http.Request,
 	bodyBytes, err := io.ReadAll(r.Body)
 	_ = r.Body.Close()
 	if err != nil {
-		// Same fault classes as the parse below, and the same reason: a chunked
-		// upload's trailers are MIME headers too, so a malformed one comes back
-		// from the body read quoting the caller's line verbatim.
-		debuglog.Warn("proxy: failed to read multipart request body", "fault", describeMultipartFault(err))
+		// A chunked upload's trailers are MIME headers, so a malformed one comes
+		// back from the body read quoting the caller's line verbatim: named by
+		// class, as every other ingest read names it, which also tells an
+		// over-cap upload apart from a broken one.
+		debuglog.Warn("proxy: failed to read multipart request body", "fault", describeBodyReadFault(err))
 		publishRequestStartedEvent(logData)
-		h.rejectIngest(w, logData, "failed to read request body", startTime, 0)
+		h.rejectBodyRead(w, r, logData, startTime, 0)
 		return nil, nil, false
 	}
 

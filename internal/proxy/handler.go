@@ -391,7 +391,7 @@ func (h *Handler) ProxyKeyMiddleware(next http.Handler) http.Handler {
 			case errors.Is(err, virtualkey.ErrNotFound):
 				debuglog.Warn("auth: key not found", "remote_addr", clientip.From(r))
 				refuse("invalid virtual key")
-			case errors.Is(err, context.Canceled) && r.Context().Err() != nil:
+			case cancelStatus(r, err, http.StatusInternalServerError) == statusClientClosedRequest:
 				// The client left mid-lookup: not the database's fault, so
 				// not the Error stream, and 499 rather than a 500 that would
 				// bill the operator's dashboard for the caller's disconnect.
@@ -474,16 +474,13 @@ func (h *Handler) CapLedger() *provider.CapLedger {
 // only die after IdleConnTimeout) plus the SafeDialer's redirect guard, so a
 // redirect cannot walk a provider URL into the gateway's own network.
 //
-// A nil upstreamTransport is not filled in here: an unset Transport IS
-// http.DefaultTransport, which carries no DialContext and so no dial-time
-// guard. Callers that can be constructed without one check for it themselves.
+// A nil transport is passed through as the typed nil it is, never left unset
+// and never wrapped. An unset Transport IS http.DefaultTransport, which carries
+// no DialContext, so the SafeDialer's guard against a provider URL resolving
+// into the gateway's own network would be silently absent; the typed nil fails
+// loudly inside RoundTrip instead. Callers that can be constructed without a
+// transport check for it themselves (see model_probe.go).
 func (h *Handler) upstreamClient(ctx context.Context) *http.Client {
-	// A nil transport is passed through as the typed nil it is, never left
-	// unset and never wrapped. An unset Transport IS http.DefaultTransport,
-	// which carries no DialContext, so the SafeDialer's guard against a
-	// provider URL resolving into the gateway's own network would be silently
-	// absent; the typed nil fails loudly inside RoundTrip instead (see
-	// model_probe.go, and the nil check every caller makes before using this).
 	t := h.transportFor(ctx)
 	var rt http.RoundTripper = t
 	if t != nil {

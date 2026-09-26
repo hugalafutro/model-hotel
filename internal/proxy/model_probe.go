@@ -323,7 +323,7 @@ func (h *Handler) probeModel(ctx context.Context, candidate modelCandidate, endp
 		// A connection that never landed, a DNS failure or an expired deadline
 		// says nothing about the model. This branch is what keeps a network
 		// problem on the gateway's side from retiring a provider's whole catalog.
-		debuglog.Debug("proxy: retirement probe did not reach the provider", "endpoint", endpointType, "provider", candidate.provider.Name, "model", candidate.model.ModelID, "verdict", probeInconclusive.String(), "error", err)
+		debuglog.Debug("proxy: retirement probe did not reach the provider", "endpoint", endpointType, "provider", candidate.provider.Name, "model", candidate.model.ModelID, "verdict", probeInconclusive.String(), "error", probeErrText(candidate, err))
 		return probeInconclusive
 	}
 	// The cap goes on the body here, once, and everything past this line reads
@@ -398,7 +398,7 @@ func judgeProbeFailure(resp *http.Response, candidate modelCandidate, endpointTy
 	case err != nil:
 		// A body that could not be read to the end is not the provider saying
 		// anything, so it postpones like every other unproven case.
-		debuglog.Debug("proxy: retirement probe could not read the provider's answer", "endpoint", endpointType, "provider", candidate.provider.Name, "model", candidate.model.ModelID, "status", resp.StatusCode, "verdict", probeInconclusive.String(), "error", err)
+		debuglog.Debug("proxy: retirement probe could not read the provider's answer", "endpoint", endpointType, "provider", candidate.provider.Name, "model", candidate.model.ModelID, "status", resp.StatusCode, "verdict", probeInconclusive.String(), "error", probeErrText(candidate, err))
 		return probeInconclusive
 	case len(body) > goneProbeMaxBody:
 		// Over the cap: what is in hand is a prefix of an answer whose real
@@ -418,6 +418,16 @@ func judgeProbeFailure(resp *http.Response, candidate modelCandidate, endpointTy
 	return verdict
 }
 
+// probeErrText is the form a probe's transport, read or dialect error takes in
+// the app log: masked for the candidate's own key and the held set, and cut,
+// the way the attempt path treats an upstream error. There is no request
+// fence to apply: the probe's request carries no caller content. A transport error
+// quotes the request URL, which can carry a credential, and a read or dialect
+// error can quote the provider's answer.
+func probeErrText(candidate modelCandidate, err error) string {
+	return fencedFrameMessage(nil, newCredentialMasker(candidate.apiKey), errString(err))
+}
+
 // judgeProbeSuccess turns a success (any 2xx) probe response into a verdict.
 //
 // A success that carries nothing is NOT a success: a stream can open, emit
@@ -429,7 +439,7 @@ func judgeProbeSuccess(resp *http.Response, st *requestState, candidate modelCan
 	// chat-completions shape. An answer that cannot be translated is not a
 	// refusal, so it postpones.
 	if err := translateProbeDialect(resp, st, candidate.model.ModelID); err != nil {
-		debuglog.Debug("proxy: retirement probe could not read the provider's dialect", "endpoint", endpointType, "provider", candidate.provider.Name, "model", candidate.model.ModelID, "error", err)
+		debuglog.Debug("proxy: retirement probe could not read the provider's dialect", "endpoint", endpointType, "provider", candidate.provider.Name, "model", candidate.model.ModelID, "error", probeErrText(candidate, err))
 		return probeInconclusive
 	}
 

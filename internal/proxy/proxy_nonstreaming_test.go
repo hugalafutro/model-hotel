@@ -12,6 +12,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/google/uuid"
 )
 
 // Use testDB from proxy_test.go
@@ -539,9 +541,11 @@ func TestHandleNonStreamingResponse_Non2xxKeepsUpstreamErrorText(t *testing.T) {
 // masker, not only the key-shape layer. The Content-Type is the one upstream
 // value on this path that reaches the detail without the exact pass (it is
 // bounded and fenced, and SanitizeLogBody runs the key-shape regex only), so a
-// credential that is not key-shaped survived into both copies before. The body
-// here is pre-masked by readNonStreamingBody, which is why a non-2xx body
-// cannot test this: only the header path reaches the new passes unmasked.
+// credential that is not key-shaped would survive into both copies without
+// them. The body here is pre-masked by readNonStreamingBody, which is why a
+// non-2xx body cannot test this: only the header path reaches those passes
+// unmasked. The row's pass is updateRequestLog's, which runs only for an entry
+// that was inserted, so the entry carries an id.
 func TestHandleNonStreamingResponse_MasksTheAttemptsCredentialInRowAndDebugLine(t *testing.T) {
 	h := newIntegrationHandler()
 	defer stopUnitHandlerIntegration(h)
@@ -555,6 +559,7 @@ func TestHandleNonStreamingResponse_MasksTheAttemptsCredentialInRowAndDebugLine(
 	}
 	req := withAuthContext(httptest.NewRequest("POST", "/v1/chat/completions", http.NoBody))
 	logData := nonStreamingLogData()
+	logData.id = uuid.NewString()
 	logData.masker = newCredentialMasker(key)
 
 	h.handleNonStreamingResponse(httptest.NewRecorder(), req, logData, resp, readNonStreamingBody(resp, logData.masker), time.Now(), 0, 0, resolveTimings{}, 0, "", 1)

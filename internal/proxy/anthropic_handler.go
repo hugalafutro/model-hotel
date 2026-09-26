@@ -91,7 +91,7 @@ func (h *Handler) readAnthropicBody(w http.ResponseWriter, r *http.Request) ([]b
 	_ = r.Body.Close()
 	if err != nil {
 		debuglog.Warn("anthropic: failed to read request body", "fault", describeBodyReadFault(err))
-		writeAnthropicError(w, "failed to read request body", http.StatusBadRequest)
+		writeAnthropicError(w, "failed to read request body", bodyReadStatus(r))
 		return nil, false
 	}
 	return body, true

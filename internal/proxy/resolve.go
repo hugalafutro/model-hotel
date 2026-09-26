@@ -99,6 +99,19 @@ func (s *breakerSkipSummary) note(retryAt time.Time, pinned, ok bool) {
 	}
 }
 
+// notFoundError is a resolve failure that means the requested model names
+// nothing this gateway will serve: an unknown or disabled group, provider or
+// model. resolveCandidates answers it 404 with its own text, which is built from
+// the request and configuration only. Every other resolve error is a fault on
+// this side (or the caller hanging up) and never reaches the wire as text.
+type notFoundError struct{ msg string }
+
+func (e notFoundError) Error() string { return e.msg }
+
+func notFound(format string, a ...any) error {
+	return notFoundError{msg: fmt.Sprintf(format, a...)}
+}
+
 func (h *Handler) resolveHotelModel(ctx context.Context, displayModel string) ([]modelCandidate, resolveTimings, resolveCacheHits, breakerSkipSummary, error) {
 	debuglog.Debug("resolve: resolving hotel model", "model", displayModel)
 	var t resolveTimings
@@ -184,21 +197,21 @@ func (h *Handler) lookupFailoverGroup(ctx context.Context, displayModel string) 
 	if err != nil {
 		// A missing group reads as an unknown model, not a raw "no rows in
 		// result set" leaking from the DB layer. Other errors pass through
-		// unchanged.
+		// unchanged, for resolveCandidates to answer as a fault.
 		if errors.Is(err, pgx.ErrNoRows) {
-			return nil, false, fmt.Errorf("model not found: hotel/%s", displayModel)
+			return nil, false, notFound("model not found: hotel/%s", displayModel)
 		}
 		return nil, false, err
 	}
 
 	if !fg.GroupEnabled {
 		debuglog.Warn("resolve: failover group disabled", "model", displayModel)
-		return nil, false, fmt.Errorf("failover group disabled")
+		return nil, false, notFound("failover group disabled")
 	}
 
 	if len(fg.PriorityOrder) == 0 {
 		debuglog.Warn("resolve: empty failover group", "model", displayModel)
-		return nil, false, fmt.Errorf("no entries in failover group")
+		return nil, false, notFound("no entries in failover group")
 	}
 
 	return fg, failoverHit, nil
@@ -325,8 +338,13 @@ func (h *Handler) resolveSpecificProvider(ctx context.Context, providerName, mod
 
 	prov, err := h.providerRepo.GetByName(ctx, providerName)
 	if err != nil {
-		debuglog.Warn("resolve: provider not found", "provider", providerName, "error", err)
-		return nil, t, ch, fmt.Errorf("provider not found: %s", providerName)
+		// Only a genuine miss is an unknown provider. A cancel or a database
+		// fault is returned as itself, for resolveCandidates to answer as one.
+		if !errors.Is(err, pgx.ErrNoRows) {
+			return nil, t, ch, err
+		}
+		debuglog.Warn("resolve: provider not found", "provider", providerName)
+		return nil, t, ch, notFound("provider not found: %s", providerName)
 	}
 	debuglog.Debug("resolve: provider found", "provider", prov.Name, "provider_id", prov.ID, "enabled", prov.Enabled)
 
@@ -340,8 +358,11 @@ func (h *Handler) resolveSpecificProvider(ctx context.Context, providerName, mod
 
 	m, err := h.modelRepo.GetByProviderAndModelID(ctx, prov.ID, modelID)
 	if err != nil {
-		debuglog.Warn("resolve: model not found", "model", modelID, "provider", providerName, "error", err)
-		return nil, t, ch, fmt.Errorf("model not found: %s on provider %s", modelID, providerName)
+		if !errors.Is(err, pgx.ErrNoRows) {
+			return nil, t, ch, err
+		}
+		debuglog.Warn("resolve: model not found", "model", modelID, "provider", providerName)
+		return nil, t, ch, notFound("model not found: %s on provider %s", modelID, providerName)
 	}
 	debuglog.Debug("resolve: model found", "model", m.ModelID, "provider", prov.Name, "enabled", m.Enabled, "provider_enabled", m.ProviderEnabled)
 	ch.Model = &modelHit
@@ -354,7 +375,7 @@ func (h *Handler) resolveSpecificProvider(ctx context.Context, providerName, mod
 		debuglog.Info("resolve: provider disabled", "provider", providerName, "model", modelID)
 	}
 	if !m.Enabled || !prov.Enabled {
-		return nil, t, ch, fmt.Errorf("model or provider disabled")
+		return nil, t, ch, notFound("model or provider disabled")
 	}
 
 	apiKey, cached, kdMs, err := h.decryptProviderKey(prov, modelID)

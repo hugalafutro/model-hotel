@@ -41,7 +41,9 @@ Returns the model list in OpenAI-compatible format.
 
 The list is scoped to what the calling key may actually call: the key's own `allowed_providers` intersected with its owner account's provider cap, the same pair a chat request is routed through. A key restricted on neither side sees the whole catalogue, so this is a no-op unless an operator has deliberately restricted access. A `hotel/` failover group stays listed while any entry in its priority order sits on a provider the caller may reach, and is described by the entry that would actually serve the request.
 
-The listing is all-or-nothing: if either read behind it fails, the endpoint answers an error rather than a 200 that is missing rows. A partial catalogue is a discovery answer a client routes on, and nothing in the OpenAI-compatible body can mark it as incomplete. A caller that hangs up mid-read gets 499 (client closed request), which the access log records; model listings are not metered, so no request-log row is written either way.
+The listing is all-or-nothing: if either read behind it fails, the endpoint answers 500 rather than a 200 that is missing rows. A partial catalogue is a discovery answer a client routes on, and nothing in the OpenAI-compatible body can mark it as incomplete. A caller that hangs up mid-read gets 499 (client closed request), which the access log records; model listings are not metered, so no request-log row is written either way.
+
+Each id is what a request names to reach that model: `<provider>/<model>` for a direct model (the provider name normalized, spaces as dashes) and `hotel/<group>` for a failover group. `provider` is the provider's name, or `hotel` for a group, whose other fields describe the entry that would serve it. Optional fields (`context_length`, `max_output_tokens`, `name`, `description`, `modality` and more) appear when the catalogue knows them.
 
 **Response:**
 ```json
@@ -49,10 +51,18 @@ The listing is all-or-nothing: if either read behind it fails, the endpoint answ
   "object": "list",
   "data": [
     {
-      "id": "gpt-4o",
+      "id": "OpenAI/gpt-4o",
       "object": "model",
       "created": 1234567890,
-      "owned_by": "openai"
+      "owned_by": "openai",
+      "provider": "OpenAI"
+    },
+    {
+      "id": "hotel/gpt-4o",
+      "object": "model",
+      "created": 1234567890,
+      "owned_by": "openai",
+      "provider": "hotel"
     }
   ]
 }
@@ -1857,7 +1867,7 @@ Returns `200` with the body `OK` while the database answers, and `503` with the 
 }
 ```
 
-`code` repeats the HTTP status as a number. `type` is derived from that status and is one of exactly six values; messages are lowercase.
+`code` repeats the HTTP status as a number. `type` is derived from that status and is one of exactly seven values; messages are lowercase.
 
 | Status | `type` |
 |--------|--------|
@@ -1865,6 +1875,7 @@ Returns `200` with the body `OK` while the database answers, and `503` with the 
 | `403` | `permission_error` |
 | `404` | `not_found_error` |
 | `429` | `rate_limit_error` |
+| `499` | `client_closed_request` |
 | `500` and above | `server_error` |
 | anything else | `invalid_request_error` |
 
@@ -1882,7 +1893,8 @@ Returns `200` with the body `OK` while the database answers, and `503` with the 
 | `409` | Conflict | Duplicate resource, operation in progress |
 | `412` | Precondition Failed | Missing dependency (e.g. `pg_dump`) |
 | `429` | Too Many Requests | Rate limit exceeded |
-| `500` | Internal Server Error | Server error |
+| `499` | Client Closed Request | The caller hung up before the answer (nginx's non-standard code, recorded in the request log) |
+| `500` | Internal Server Error | Server error; on the proxy, `could not resolve model` when the model lookup itself failed (the database, not an unknown model) |
 | `502` | Bad Gateway | Upstream provider error |
 
 ### Proxy-Specific Errors

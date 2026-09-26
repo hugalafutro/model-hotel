@@ -53,8 +53,8 @@ func modelTooLong(model string) bool {
 // describeBodyReadFault names why a body could not be read, without quoting
 // it. It serves both directions. A chunked request's malformed trailer comes
 // back from a body read as a textproto.ProtocolError quoting the caller's line
-// verbatim, the leak describeMultipartFault closes on the multipart ingest; the
-// JSON routes read their bodies in streamingAwareTimeout today, so the
+// verbatim, which is why the multipart ingest's read uses this too; the JSON
+// routes read their bodies in streamingAwareTimeout today, so the
 // handler-level reads that log this only run for a route mounted without it,
 // and this keeps them from reopening the leak when one is. A response's
 // malformed trailer is already errMalformedTrailer by the time anything reads
@@ -80,6 +80,39 @@ func describeBodyReadFault(err error) string {
 	return "the body could not be read"
 }
 
+// rejectIngest refuses a request at the ingest guards: the failure is stamped
+// on the log row with the validation kind and the same message goes back as the
+// OpenAI error envelope, so the row and the client agree on what was wrong.
+func (h *Handler) rejectIngest(w http.ResponseWriter, logData *requestLogData, msg string, startTime time.Time, parseMs float64) {
+	h.failRequest(logData, http.StatusBadRequest, KindValidation, msg, 0, startTime, parseMs, resolveTimings{}, resolveCacheHits{}, 0)
+	writeOpenAIError(w, msg, http.StatusBadRequest)
+}
+
+// rejectBodyRead refuses a request whose body would not read. A read that
+// failed with the request context already cancelled is the caller leaving
+// mid-upload: their disconnect, closed as a 499 client_disconnect. Any other
+// read fault is a malformed, oversized or too-slow upload, the ingest's 400
+// refusal; this gateway's own route deadline expiring is not the caller
+// leaving.
+func (h *Handler) rejectBodyRead(w http.ResponseWriter, r *http.Request, logData *requestLogData, startTime time.Time, parseMs float64) {
+	if bodyReadStatus(r) != statusClientClosedRequest {
+		h.rejectIngest(w, logData, "failed to read request body", startTime, parseMs)
+		return
+	}
+	h.failRequest(logData, statusClientClosedRequest, KindClientDisconnect, "client disconnected while sending the request body", 0, startTime, parseMs, resolveTimings{}, resolveCacheHits{}, 0)
+	writeOpenAIError(w, "client disconnected", statusClientClosedRequest)
+}
+
+// bodyReadStatus is the status a failed body read is answered with, the rule
+// rejectBodyRead records by: 499 once the request context is cancelled, 400
+// otherwise, including when only a deadline expired.
+func bodyReadStatus(r *http.Request) int {
+	if errors.Is(r.Context().Err(), context.Canceled) {
+		return statusClientClosedRequest
+	}
+	return http.StatusBadRequest
+}
+
 // rejectOversizedModel is the one outcome every ingest path has for a model past
 // maxModelNameRunes: the pending row the caller already inserted is closed as a
 // validation failure carrying the excerpt rather than the field, subscribers see
@@ -89,15 +122,6 @@ func describeBodyReadFault(err error) string {
 // It takes the raw model and derives the excerpt itself, so no ingest path can
 // put the field on the row by forgetting to. The middleware-preparsed path must
 // still hand the excerpt to its own pending INSERT, which runs before this can.
-
-// rejectIngest refuses a request at the ingest guards: the failure is stamped
-// on the log row with the validation kind and the same message goes back as the
-// OpenAI error envelope, so the row and the client agree on what was wrong.
-func (h *Handler) rejectIngest(w http.ResponseWriter, logData *requestLogData, msg string, startTime time.Time, parseMs float64) {
-	h.failRequest(logData, http.StatusBadRequest, KindValidation, msg, 0, startTime, parseMs, resolveTimings{}, resolveCacheHits{}, 0)
-	writeOpenAIError(w, msg, http.StatusBadRequest)
-}
-
 func (h *Handler) rejectOversizedModel(w http.ResponseWriter, logData *requestLogData, model string, startTime time.Time, parseMs float64) {
 	logData.modelID = util.TruncateRunes(model, modelExcerptRunes)
 	publishRequestStartedEvent(logData)
@@ -154,7 +178,7 @@ func (h *Handler) ingestRequest(w http.ResponseWriter, r *http.Request, endpoint
 			if err != nil {
 				debuglog.Warn("proxy: failed to read request body", "fault", describeBodyReadFault(err))
 				publishRequestStartedEvent(logData)
-				h.rejectIngest(w, logData, "failed to read request body", startTime, parseMs)
+				h.rejectBodyRead(w, r, logData, startTime, parseMs)
 				return nil, false
 			}
 			_ = r.Body.Close()
@@ -256,6 +280,39 @@ func (h *Handler) newPendingRequestLog(r *http.Request, endpointType, modelID st
 	return logData, vkHash
 }
 
+// failResolve closes the row and answers the caller for a model resolution
+// that failed. A resolve the caller abandoned is their disconnect, a 499 no
+// breaker hears about (none is charged anywhere on this path), whatever the
+// resolver returned. Otherwise a notFoundError is the caller's unknown model, a
+// 404 whose text the resolver built from the request and configuration. Anything else is a fault on this side: the
+// raw error, which can be database text, goes to the app log only, and the row
+// and the wire get a fixed message.
+func (h *Handler) failResolve(w http.ResponseWriter, r *http.Request, st *requestState, err error, timings resolveTimings, cacheHits resolveCacheHits) {
+	var nf notFoundError
+	switch {
+	// First, and whatever the resolver returned: the resolve runs on the
+	// request's own context, so a cancel there can only be the caller, and a
+	// cached answer (a disabled or empty group) reaches here with no cancel in
+	// err at all. This gateway's own deadline is DeadlineExceeded and stays
+	// on the 404 and 500 branches.
+	case errors.Is(r.Context().Err(), context.Canceled):
+		debuglog.Warn("proxy: model resolution abandoned, client gone", "model", st.reqModel)
+		h.failRequest(st.logData, statusClientClosedRequest, KindClientDisconnect, "client disconnected during model resolution", 0, st.startTime, st.parseMs, timings, cacheHits, 0)
+		writeOpenAIError(w, "client disconnected", statusClientClosedRequest)
+	case errors.As(err, &nf):
+		h.failRequest(st.logData, http.StatusNotFound, KindValidation, nf.Error(), 0, st.startTime, st.parseMs, timings, cacheHits, 0)
+		writeOpenAIError(w, nf.Error(), http.StatusNotFound)
+	default:
+		debuglog.Error("proxy: model resolution failed", "model", st.reqModel, "error", err)
+		h.failRequest(st.logData, http.StatusInternalServerError, KindInternal, resolveFailedMessage, 0, st.startTime, st.parseMs, timings, cacheHits, 0)
+		writeOpenAIError(w, resolveFailedMessage, http.StatusInternalServerError)
+	}
+}
+
+// resolveFailedMessage is the whole of what a resolve fault on this side tells
+// the row and the caller.
+const resolveFailedMessage = "could not resolve model"
+
 // resolveCandidates performs phase B of ChatCompletions: resolve the request
 // model into an ordered candidate list (hotel failover group, specific
 // provider/model, or invalid-format), normalize the log entry's provider/model
@@ -288,8 +345,7 @@ func (h *Handler) resolveCandidates(w http.ResponseWriter, r *http.Request, st *
 		displayModel = hotelGroupName(st.reqModel)
 		candidates, timings, cacheHits, skips, err = h.resolveHotelModel(r.Context(), displayModel)
 		if err != nil {
-			h.failRequest(st.logData, 404, KindValidation, err.Error(), 0, st.startTime, st.parseMs, timings, cacheHits, 0)
-			writeOpenAIError(w, err.Error(), http.StatusNotFound)
+			h.failResolve(w, r, st, err, timings, cacheHits)
 			return nil, false
 		}
 		// The candidates the breaker refused lead the attempt trail, so an
@@ -309,8 +365,7 @@ func (h *Handler) resolveCandidates(w http.ResponseWriter, r *http.Request, st *
 		providerName, modelID, _ := strings.Cut(st.reqModel, "/")
 		candidates, timings, cacheHits, err = h.resolveSpecificProvider(r.Context(), providerName, modelID)
 		if err != nil {
-			h.failRequest(st.logData, 404, KindValidation, err.Error(), 0, st.startTime, st.parseMs, timings, cacheHits, 0)
-			writeOpenAIError(w, err.Error(), http.StatusNotFound)
+			h.failResolve(w, r, st, err, timings, cacheHits)
 			return nil, false
 		}
 	default:

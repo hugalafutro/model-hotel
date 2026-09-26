@@ -24,7 +24,10 @@ type Translator interface {
 	// Translate maps one event's payload (every "data:" field of that event,
 	// joined with newlines) to zero or more output bytes. A non-nil error
 	// means the upstream stream is corrupt or carried an error event, and
-	// poisons the adapter.
+	// poisons the adapter. The error must name its fault by class only
+	// (jsonfault.Describe, an allowlisted util.KnownToken or a fixed sentence)
+	// and never carry upstream or caller text: the adapter logs it, and this
+	// package has no content fence.
 	Translate(payload []byte) ([]byte, error)
 	// Finish returns the terminal chunk plus the [DONE] sentinel, or nothing
 	// when the translator already emitted them.
@@ -192,11 +195,12 @@ func (a *StreamAdapter) dispatchEvent() bool {
 	if err != nil {
 		// A malformed event or an upstream error event means the stream is
 		// dead; record it and stop translating so Read surfaces the failure.
-		// The error itself is not logged here: it names a provider-chosen
-		// field (an error type) that can echo the request, and this package
-		// has no content fence. It reaches the proxy as the stream's read
-		// error, where it is fenced before it is logged or stored.
-		debuglog.Warn(a.component + ": stream event translate failed")
+		// The error is safe to log although this package has no content
+		// fence: every translator error names its fault by class
+		// (jsonfault.Describe for a malformed event, an allowlisted
+		// util.KnownToken for an upstream error type, a fixed sentence
+		// otherwise) and quotes nothing the upstream or the caller sent.
+		debuglog.Warn(a.component+": stream event translate failed", "error", err)
 		a.transErr = err
 		return false
 	}

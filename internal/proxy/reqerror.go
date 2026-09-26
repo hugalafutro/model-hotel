@@ -351,3 +351,15 @@ func errString(err error) string {
 // admin surfaces' constant so the gateway and the dashboard cannot drift apart
 // on the number.
 const statusClientClosedRequest = httpx.StatusClientClosedRequest
+
+// cancelStatus is the status a failed read made on the request's own context
+// is answered with: 499 when the read was cancelled AND the request itself is
+// gone, which is the caller hanging up, and code otherwise. A cancel reported
+// while the request is still live came from this side, so the caller is owed
+// the failure status it would have got anyway.
+func cancelStatus(r *http.Request, err error, code int) int {
+	if r.Context().Err() == nil {
+		return code
+	}
+	return httpx.StatusForError(err, code)
+}

@@ -191,8 +191,6 @@ func toolArguments(input json.RawMessage) string {
 	return buf.String()
 }
 
-// upstreamError names the type of an Anthropic error envelope. Only the type
-// is named: error.message can echo request content.
 // anthropicErrorTypes is every error.type the Claude API documents
 // (platform.claude.com/docs/en/api/errors, checked 2026-09-23). The docs note
 // the set grows over time; a type added later reads "unknown" until listed.
@@ -203,6 +201,8 @@ var anthropicErrorTypes = map[string]bool{
 	"timeout_error": true, "overloaded_error": true,
 }
 
+// upstreamError names the type of an Anthropic error envelope. Only the type
+// is named: error.message can echo request content.
 func upstreamError(e *antRespError) error {
 	kind := "unknown"
 	if e != nil {

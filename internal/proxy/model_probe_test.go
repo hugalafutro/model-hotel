@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"log/slog"
 	"net"
 	"net/http"
 	"net/http/httptest"
@@ -1031,5 +1032,25 @@ func TestJudgeProbeSuccess_TranslatesResponsesDialect(t *testing.T) {
 	untranslated := newProbeState(candidate, endpointTypeChat, probeChatEndpoint)
 	if got := judgeProbeSuccess(plain, untranslated, candidate, endpointTypeChat); got != probeInconclusive {
 		t.Fatalf("verdict = %s, want inconclusive for an untranslated Responses object", got)
+	}
+}
+
+// The probe's failure lines take the attempt path's fence. A transport error
+// quotes the request URL, and a base URL that carries the provider's key as a
+// query parameter would otherwise put that key in the app log.
+func TestProbeModel_TransportErrorLineCarriesNoKey(t *testing.T) {
+	logs := captureLogsAt(t, slog.LevelDebug)
+	h := newProbeHandler(t)
+	candidate := probeCandidateFor("http://127.0.0.1:1/v1?key="+probeAPIKey, "gemini-2.0-flash")
+
+	if got := runProbe(t, h, candidate, endpointTypeChat); got != probeInconclusive {
+		t.Fatalf("verdict = %s, want inconclusive", got)
+	}
+	lines := logs("proxy: retirement probe did not reach the provider")
+	if len(lines) != 1 {
+		t.Fatalf("got %d transport lines, want 1", len(lines))
+	}
+	if strings.Contains(lines[0], probeAPIKey) {
+		t.Fatalf("the probe's transport line carried the provider key: %s", lines[0])
 	}
 }

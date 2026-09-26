@@ -15,6 +15,7 @@ import (
 
 	"github.com/hugalafutro/model-hotel/internal/config"
 	"github.com/hugalafutro/model-hotel/internal/ctxkeys"
+	"github.com/hugalafutro/model-hotel/internal/httpx"
 	"github.com/hugalafutro/model-hotel/internal/util"
 )
 
@@ -167,11 +168,16 @@ func streamingAwareTimeout(maxNonStreamingDur time.Duration) func(http.Handler) 
 			_ = r.Body.Close()
 			if err != nil {
 				// The size cap's own error is the caller's doing and has its
-				// own status; anything else is a read that broke.
+				// own status; a read that failed with the request context
+				// already done is the caller leaving mid-upload, 499; anything
+				// else is a read that broke.
 				status := http.StatusBadRequest
 				var tooLarge *http.MaxBytesError
-				if errors.As(err, &tooLarge) {
+				switch {
+				case errors.As(err, &tooLarge):
 					status = http.StatusRequestEntityTooLarge
+				case errors.Is(r.Context().Err(), context.Canceled):
+					status = httpx.StatusClientClosedRequest
 				}
 				util.WriteOpenAIError(w, "failed to read request body", status)
 				return
