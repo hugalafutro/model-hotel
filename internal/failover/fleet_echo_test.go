@@ -18,6 +18,19 @@ func fleetEchoRows(t *testing.T) int {
 	return n
 }
 
+// echoTestBase names a fresh base model for one echo test and removes the auto
+// group it forms when the test ends: an orphaned auto group would be deleted by
+// the next SyncAllModels in this process and miscount another test's deletions.
+func echoTestBase(t *testing.T, prefix string) string {
+	t.Helper()
+	base := prefix + uuid.New().String()[:8]
+	t.Cleanup(func() {
+		_, _ = testDB.Pool().Exec(context.Background(), `DELETE FROM model_failover_groups WHERE display_model = $1`, base)
+		InvalidateFailoverCache()
+	})
+	return base
+}
+
 func seedFleetEcho(t *testing.T) {
 	t.Helper()
 	if _, err := testDB.Pool().Exec(context.Background(),
@@ -37,7 +50,7 @@ func seedFleetEcho(t *testing.T) {
 func TestRepository_SyncAllModels_ClearsFleetEchoOnlyOnChange(t *testing.T) {
 	repo := newTestRepo(t)
 	ctx := context.Background()
-	base := "echo-sync-" + uuid.New().String()[:8]
+	base := echoTestBase(t, "echo-sync-")
 	_, m1 := seedProviderModel(ctx, t, base, true, true)
 	_, m2 := seedProviderModel(ctx, t, base, true, true)
 
@@ -85,7 +98,7 @@ func TestRepository_SyncAllModels_ClearsFleetEchoOnlyOnChange(t *testing.T) {
 func TestRepository_SyncForModel_ClearsFleetEcho(t *testing.T) {
 	repo := newTestRepo(t)
 	ctx := context.Background()
-	base := "echo-one-" + uuid.New().String()[:8]
+	base := echoTestBase(t, "echo-one-")
 	_, m1 := seedProviderModel(ctx, t, base, true, true)
 	seedProviderModel(ctx, t, base, true, true)
 
@@ -127,7 +140,7 @@ func TestRepository_SyncForModel_ClearsFleetEcho(t *testing.T) {
 func TestRepository_Sync_ReenablingADisabledAutoGroupClearsFleetEcho(t *testing.T) {
 	repo := newTestRepo(t)
 	ctx := context.Background()
-	base := "echo-off-" + uuid.New().String()[:8]
+	base := echoTestBase(t, "echo-off-")
 	seedProviderModel(ctx, t, base, true, true)
 	seedProviderModel(ctx, t, base, true, true)
 	if _, err := repo.SyncAllModels(ctx); err != nil {
@@ -165,7 +178,7 @@ func TestRepository_Sync_ReenablingADisabledAutoGroupClearsFleetEcho(t *testing.
 func TestRepository_Sync_RetriesAFailedFleetEchoClear(t *testing.T) {
 	repo := newTestRepo(t)
 	ctx := context.Background()
-	base := "echo-retry-" + uuid.New().String()[:8]
+	base := echoTestBase(t, "echo-retry-")
 	seedProviderModel(ctx, t, base, true, true)
 	seedProviderModel(ctx, t, base, true, true)
 	if _, err := repo.SyncAllModels(ctx); err != nil {
