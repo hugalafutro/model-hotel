@@ -10,6 +10,7 @@ import (
 
 	"github.com/hugalafutro/model-hotel/internal/budget"
 	"github.com/hugalafutro/model-hotel/internal/ctxkeys"
+	"github.com/hugalafutro/model-hotel/internal/endpointtype"
 	"github.com/hugalafutro/model-hotel/internal/model"
 	"github.com/hugalafutro/model-hotel/internal/provider"
 	"github.com/hugalafutro/model-hotel/internal/util"
@@ -85,34 +86,20 @@ const virtualKeyIDKey contextKey = "virtual_key_id"
 const VirtualKeyHashKey = ctxkeys.VirtualKeyHashKey
 
 // Endpoint families recorded in request_logs.endpoint_type: every request log
-// row is tagged with the family it came through.
+// row is tagged with the family it came through. The vocabulary lives in
+// internal/endpointtype, which the admin API's log filter validates against;
+// these short names only keep the call sites in this package terse, and
+// TestEndpointTypeConstantsComeFromTheLeaf keeps every one of them an alias.
 const (
-	endpointTypeChat       = "chat"
-	endpointTypeMessages   = "messages"
-	endpointTypeResponses  = "responses"
-	endpointTypeEmbeddings = "embeddings"
-	endpointTypeRerank     = "rerank"
-	endpointTypeImage      = "image"
-	endpointTypeTTS        = "tts"
-	endpointTypeSTT        = "stt"
+	endpointTypeChat       = endpointtype.Chat
+	endpointTypeMessages   = endpointtype.Messages
+	endpointTypeResponses  = endpointtype.Responses
+	endpointTypeEmbeddings = endpointtype.Embeddings
+	endpointTypeRerank     = endpointtype.Rerank
+	endpointTypeImage      = endpointtype.Image
+	endpointTypeTTS        = endpointtype.TTS
+	endpointTypeSTT        = endpointtype.STT
 )
-
-// EndpointTypes lists every family the constants above can stamp on a row, in
-// the order the dashboard offers them. The endpoint_type log filter in
-// internal/api validates against it rather than its own copy, so the filter
-// accepts exactly what this package writes and a family added here needs no
-// second list updated. An unrecognised filter value is ignored rather than
-// rejected, so a list that lags this one would silently return every row.
-var EndpointTypes = []string{
-	endpointTypeChat,
-	endpointTypeMessages,
-	endpointTypeResponses,
-	endpointTypeEmbeddings,
-	endpointTypeRerank,
-	endpointTypeImage,
-	endpointTypeTTS,
-	endpointTypeSTT,
-}
 
 type requestLogData struct {
 	// masker scrubs the attempt's provider credential from bodies bound for

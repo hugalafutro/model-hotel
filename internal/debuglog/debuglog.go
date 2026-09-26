@@ -257,6 +257,11 @@ func Warn(msg string, args ...any) {
 // at Error. The check walks the values because callers pass the error under
 // several keys ("error", "err", a per-query label); it runs only on the Error
 // path, where an extra type assertion per arg costs nothing.
+//
+// The downgrade is process-wide and keys only on the error, not on who logs
+// it: a background job whose own lifetime is cancelled (a poller stopped at
+// shutdown) and surfaces context.Canceled is logged at Warn too, wherever the
+// call sits.
 func Error(msg string, args ...any) {
 	if hasCanceled(args) {
 		slog.Warn(msg, args...)
@@ -266,17 +271,35 @@ func Error(msg string, args ...any) {
 }
 
 // hasCanceled reports whether any arg is an error wrapping context.Canceled,
-// looking inside a slog.Attr as well as at a bare value.
+// looking at a bare value, inside a slog.Attr or slog.Value, and through the
+// attrs of a group (a slog.Group attr or a group Value passed as a value).
 func hasCanceled(args []any) bool {
 	for _, a := range args {
+		v := slog.AnyValue(a) // a slog.Value passes through unchanged
 		if attr, ok := a.(slog.Attr); ok {
-			a = attr.Value.Any()
+			v = attr.Value
 		}
-		if err, ok := a.(error); ok && errors.Is(err, context.Canceled) {
+		if v.Kind() == slog.KindGroup {
+			if groupHasCanceled(v.Group()) {
+				return true
+			}
+			continue
+		}
+		if err, isErr := v.Any().(error); isErr && errors.Is(err, context.Canceled) {
 			return true
 		}
 	}
 	return false
+}
+
+// groupHasCanceled is hasCanceled over a slog.Group's attrs, nested groups
+// included.
+func groupHasCanceled(attrs []slog.Attr) bool {
+	args := make([]any, len(attrs))
+	for i, a := range attrs {
+		args[i] = a
+	}
+	return hasCanceled(args)
 }
 
 // Fatal logs at Error level and then exits the process with status 1. Unlike

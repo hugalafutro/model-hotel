@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"io"
+	"log/slog"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -20,7 +21,8 @@ import (
 func resetVersionCache() {
 	vCache.mu.Lock()
 	vCache.tag = ""
-	vCache.fetchedAt = time.Time{}
+	vCache.lastErr = nil
+	vCache.freshUntil = time.Time{}
 	vCache.mu.Unlock()
 }
 
@@ -51,7 +53,7 @@ func TestGetLatestVersion_CacheHit(t *testing.T) {
 
 	vCache.mu.Lock()
 	vCache.tag = "v1.2.3"
-	vCache.fetchedAt = time.Now()
+	vCache.freshUntil = time.Now().Add(versionCacheTTL)
 	vCache.mu.Unlock()
 
 	h := &Handler{
@@ -219,6 +221,185 @@ func TestGetLatestVersion_ConcurrentMissesShareOneLookup(t *testing.T) {
 	})
 }
 
+// countRecords reports how many captured records carry msg, and at what levels.
+func countRecords(capt *attrCaptureHandler, msg string) (n int, levels []slog.Level) {
+	capt.mu.Lock()
+	defer capt.mu.Unlock()
+	for _, rec := range capt.records {
+		if rec.msg == msg {
+			n++
+			levels = append(levels, rec.level)
+		}
+	}
+	return n, levels
+}
+
+// failingGitHub swaps githubClient for one whose every call answers 500 and
+// counts the calls.
+func failingGitHub(t *testing.T, release <-chan struct{}) *atomic.Int32 {
+	t.Helper()
+	var calls atomic.Int32
+	orig := githubClient
+	githubClient = &http.Client{Transport: roundTripFunc(func(*http.Request) (*http.Response, error) {
+		calls.Add(1)
+		if release != nil {
+			<-release
+		}
+		return &http.Response{StatusCode: http.StatusInternalServerError, Body: io.NopCloser(strings.NewReader(""))}, nil
+	})}
+	t.Cleanup(func() { githubClient = orig })
+	return &calls
+}
+
+func versionRouter() chi.Router {
+	h := &Handler{
+		ghReleasesURL: "https://gh.test/repos/hugalafutro/model-hotel/releases/latest",
+		ghTagsURL:     "https://gh.test/repos/hugalafutro/model-hotel/tags",
+	}
+	r := chi.NewRouter()
+	h.RegisterVersion(r)
+	return r
+}
+
+// A failed lookup shared by a burst of visitors is one failure, so it writes
+// one error line, not one per visitor waiting on the flight.
+func TestGetLatestVersion_SharedFailureLogsOnce(t *testing.T) {
+	synctest.Test(t, func(t *testing.T) {
+		resetVersionCache()
+		capt := captureLogs(t)
+		release := make(chan struct{})
+		calls := failingGitHub(t, release)
+		r := versionRouter()
+
+		const visitors = 5
+		var wg sync.WaitGroup
+		for range visitors {
+			wg.Go(func() {
+				w := httptest.NewRecorder()
+				r.ServeHTTP(w, httptest.NewRequest(http.MethodGet, "/version/latest", http.NoBody))
+				if w.Code != http.StatusBadGateway {
+					t.Errorf("status = %d, want 502 with no tag to serve", w.Code)
+				}
+			})
+		}
+		synctest.Wait()
+		close(release)
+		wg.Wait()
+
+		if got := calls.Load(); got != 1 {
+			t.Fatalf("GitHub calls = %d, want the burst to share one", got)
+		}
+		n, levels := countRecords(capt, "version: all GitHub lookups failed")
+		if n != 1 || levels[0] != slog.LevelError {
+			t.Errorf("failure lines = %d at %v, want exactly one error", n, levels)
+		}
+		if n, _ := countRecords(capt, "api: failed to fetch latest version"); n != 0 {
+			t.Errorf("per-visitor failure lines = %d, want none", n)
+		}
+	})
+}
+
+// A flight that starts just after another one filled the cache reuses that
+// answer, a held failure included, instead of calling GitHub again.
+func TestRefreshLatestTag_ReusesAFreshAnswer(t *testing.T) {
+	resetVersionCache()
+	t.Cleanup(resetVersionCache)
+	held := errors.New("GitHub returned status 500")
+	vCache.mu.Lock()
+	vCache.lastErr = held
+	vCache.freshUntil = time.Now().Add(time.Minute)
+	vCache.mu.Unlock()
+	calls := failingGitHub(t, nil)
+
+	if _, err := refreshLatestTag(context.Background(), "https://gh.test/releases", "https://gh.test/tags"); !errors.Is(err, held) {
+		t.Errorf("err = %v, want the held failure", err)
+	}
+	if got := calls.Load(); got != 0 {
+		t.Errorf("GitHub calls = %d, want none inside the window", got)
+	}
+}
+
+// During a GitHub outage on a fresh install there is no tag to serve, but the
+// failure is still held for versionRetryTTL: the loads inside the window
+// answer 502 from the cache without calling GitHub or logging again.
+func TestGetLatestVersion_NoTagFailureHoldsForTheWindow(t *testing.T) {
+	synctest.Test(t, func(t *testing.T) {
+		resetVersionCache()
+		capt := captureLogs(t)
+		calls := failingGitHub(t, nil)
+		r := versionRouter()
+
+		load := func() {
+			t.Helper()
+			w := httptest.NewRecorder()
+			r.ServeHTTP(w, httptest.NewRequest(http.MethodGet, "/version/latest", http.NoBody))
+			if w.Code != http.StatusBadGateway {
+				t.Fatalf("status = %d, want 502 with no tag to serve", w.Code)
+			}
+		}
+
+		for range 3 {
+			load()
+		}
+		if got := calls.Load(); got != 1 {
+			t.Errorf("GitHub calls = %d, want 1 within the retry window", got)
+		}
+		if n, _ := countRecords(capt, "version: all GitHub lookups failed"); n != 1 {
+			t.Errorf("error lines = %d, want exactly one per window", n)
+		}
+
+		time.Sleep(versionRetryTTL)
+		load()
+		if got := calls.Load(); got != 2 {
+			t.Errorf("GitHub calls = %d, want a retry once the window passed", got)
+		}
+	})
+}
+
+// During a GitHub outage with a stale tag on hand, a failed lookup serves the
+// tag, warns once, and holds it for versionRetryTTL: the dashboard loads that
+// follow neither call GitHub nor log again until the window passes.
+func TestGetLatestVersion_StaleTagHoldsThroughAnOutage(t *testing.T) {
+	synctest.Test(t, func(t *testing.T) {
+		resetVersionCache()
+		vCache.mu.Lock()
+		vCache.tag = "v1.0.0"
+		vCache.freshUntil = time.Now().Add(-time.Minute)
+		vCache.mu.Unlock()
+		capt := captureLogs(t)
+		calls := failingGitHub(t, nil)
+		r := versionRouter()
+
+		load := func() {
+			t.Helper()
+			w := httptest.NewRecorder()
+			r.ServeHTTP(w, httptest.NewRequest(http.MethodGet, "/version/latest", http.NoBody))
+			if w.Code != http.StatusOK || !strings.Contains(w.Body.String(), "v1.0.0") {
+				t.Fatalf("got %d %q, want the stale tag served", w.Code, w.Body.String())
+			}
+		}
+
+		for range 3 {
+			load()
+		}
+		if got := calls.Load(); got != 1 {
+			t.Errorf("GitHub calls = %d, want 1 within the retry window", got)
+		}
+		if n, _ := countRecords(capt, "version: all GitHub lookups failed"); n != 0 {
+			t.Errorf("error lines = %d, want none while a tag is served", n)
+		}
+		if n, levels := countRecords(capt, "version: GitHub lookup failed, serving the cached tag"); n != 1 || levels[0] != slog.LevelWarn {
+			t.Errorf("warn lines = %d at %v, want exactly one warning", n, levels)
+		}
+
+		time.Sleep(versionRetryTTL)
+		load()
+		if got := calls.Load(); got != 2 {
+			t.Errorf("GitHub calls = %d, want a retry once the window passed", got)
+		}
+	})
+}
+
 func TestGetLatestVersion_TagsFallback(t *testing.T) {
 	resetVersionCache()
 
@@ -269,7 +450,7 @@ func TestGetLatestVersion_StaleCacheFallback(t *testing.T) {
 
 	vCache.mu.Lock()
 	vCache.tag = "v1.0.0"
-	vCache.fetchedAt = time.Now().Add(-2 * time.Hour)
+	vCache.freshUntil = time.Now().Add(-90 * time.Minute)
 	vCache.mu.Unlock()
 
 	// Both endpoints return errors

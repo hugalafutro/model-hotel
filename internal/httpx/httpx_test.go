@@ -144,6 +144,34 @@ func TestRespondError(t *testing.T) {
 	})
 }
 
+// StatusForRequestError answers 499 only for the caller's own cancel: a
+// Canceled while the request is still live came from a context this server
+// owns, and a deadline is never the caller's.
+func TestStatusForRequestError(t *testing.T) {
+	gone, cancel := context.WithCancel(context.Background())
+	cancel()
+	canceled := fmt.Errorf("run: %w", context.Canceled)
+	tests := []struct {
+		name string
+		ctx  context.Context
+		err  error
+		want int
+	}{
+		{"caller hung up", gone, canceled, StatusClientClosedRequest},
+		{"cancel while the caller is connected", context.Background(), canceled, http.StatusServiceUnavailable},
+		{"ordinary failure after the caller left", gone, errors.New("db down"), http.StatusServiceUnavailable},
+		{"deadline after the caller left", gone, context.DeadlineExceeded, http.StatusServiceUnavailable},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			r := httptest.NewRequestWithContext(tt.ctx, http.MethodGet, "/", http.NoBody)
+			if got := StatusForRequestError(r, tt.err, http.StatusServiceUnavailable); got != tt.want {
+				t.Errorf("status = %d, want %d", got, tt.want)
+			}
+		})
+	}
+}
+
 func TestRespondLookupError(t *testing.T) {
 	notFound := errors.New("no rows")
 

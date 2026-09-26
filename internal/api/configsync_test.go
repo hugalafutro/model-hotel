@@ -5,11 +5,13 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"log/slog"
 	"net/http"
 	"net/http/httptest"
 	"slices"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/jackc/pgx/v5"
@@ -1030,43 +1032,102 @@ func cancelledCtx() context.Context {
 	return ctx
 }
 
-func TestConfigSync_ExportDBError(t *testing.T) {
-	cleanConfigTables(t)
-	r := newConfigSyncRouter(t, configSyncMasterKey)
-	rec := httptest.NewRecorder()
-	req := httptest.NewRequest(http.MethodGet, "/config/export", http.NoBody).WithContext(cancelledCtx())
-	r.ServeHTTP(rec, req)
-	if rec.Code != http.StatusInternalServerError {
-		t.Fatalf("export with DB error = %d, want 500", rec.Code)
+// expiredCtx returns a context whose deadline has already passed. A query run
+// on it fails with context.DeadlineExceeded, which is this server's own timeout
+// expiring rather than the caller hanging up, so it drives a handler's genuine
+// 500 branch where cancelledCtx drives its 499.
+func expiredCtx(t *testing.T) context.Context {
+	ctx, cancel := context.WithDeadline(context.Background(), time.Unix(0, 0))
+	t.Cleanup(cancel)
+	return ctx
+}
+
+// The config-sync reads answer 499 when the caller hung up and 500 when the
+// failure is this server's own (an expired deadline). The 500 cases are
+// regression pins for the status the flip to 499 must not swallow.
+func TestConfigSync_ReadFailureStatus(t *testing.T) {
+	for _, path := range []string{"/config/export", "/config/version"} {
+		for _, tc := range []struct {
+			name string
+			ctx  context.Context
+			want int
+		}{
+			{"caller hung up", cancelledCtx(), statusClientClosed},
+			{"deadline expired", expiredCtx(t), http.StatusInternalServerError},
+		} {
+			t.Run(path+" "+tc.name, func(t *testing.T) {
+				cleanConfigTables(t)
+				r := newConfigSyncRouter(t, configSyncMasterKey)
+				rec := httptest.NewRecorder()
+				r.ServeHTTP(rec, httptest.NewRequestWithContext(tc.ctx, http.MethodGet, path, http.NoBody))
+				if rec.Code != tc.want {
+					t.Fatalf("status = %d, want %d", rec.Code, tc.want)
+				}
+			})
+		}
 	}
 }
 
-func TestConfigSync_VersionDBError(t *testing.T) {
-	cleanConfigTables(t)
-	r := newConfigSyncRouter(t, configSyncMasterKey)
-	rec := httptest.NewRecorder()
-	req := httptest.NewRequest(http.MethodGet, "/config/version", http.NoBody).WithContext(cancelledCtx())
-	r.ServeHTTP(rec, req)
-	if rec.Code != http.StatusInternalServerError {
-		t.Fatalf("version with DB error = %d, want 500", rec.Code)
-	}
-}
-
-func TestConfigSync_ImportDBError(t *testing.T) {
-	cleanConfigTables(t)
-	r := newConfigSyncRouter(t, configSyncMasterKey)
-	// A valid, keyless envelope: it clears decode, schema, empty, and MASTER_KEY
-	// checks (no DB), so the failure surfaces in computeDiff's read.
-	env := ConfigEnvelope{
+// keylessImport is a valid envelope with no keys: it clears decode, schema,
+// empty and MASTER_KEY checks without the database.
+func keylessImport(t *testing.T) []byte {
+	t.Helper()
+	body, err := json.Marshal(ConfigEnvelope{
 		SchemaVersion: configSchemaVersion,
 		Config:        ConfigPayload{Providers: []ExportProvider{{Name: "ollama", BaseURL: "http://o"}}},
+	})
+	if err != nil {
+		t.Fatalf("marshal envelope: %v", err)
 	}
-	body, _ := json.Marshal(env)
+	return body
+}
+
+// An import whose computeDiff read fails answers 499 when the caller hung up
+// and 500 when the deadline expired (the 500 is a regression pin).
+func TestConfigSync_ImportDiffFailureStatus(t *testing.T) {
+	for _, tc := range []struct {
+		name string
+		ctx  context.Context
+		want int
+	}{
+		{"caller hung up", cancelledCtx(), statusClientClosed},
+		{"deadline expired", expiredCtx(t), http.StatusInternalServerError},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			cleanConfigTables(t)
+			r := newConfigSyncRouter(t, configSyncMasterKey)
+			rec := httptest.NewRecorder()
+			r.ServeHTTP(rec, httptest.NewRequestWithContext(tc.ctx, http.MethodPost, "/config/import", bytes.NewReader(keylessImport(t))))
+			if rec.Code != tc.want {
+				t.Fatalf("status = %d, want %d", rec.Code, tc.want)
+			}
+		})
+	}
+}
+
+// A caller that hangs up while apply is writing gets a 499 and a warning, not
+// an error line: the apply error is logged as a redacted string, which
+// debuglog.Error cannot see the cancel inside. The provider URL check runs
+// inside apply after computeDiff, so it is where the caller leaves.
+func TestConfigSync_ImportApplyAbandonedWarns(t *testing.T) {
+	cleanConfigTables(t)
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	h := NewConfigSyncHandler(apiTestDB, settings.NewRepository(apiTestDB.Pool()), configSyncMasterKey, "v-test", nil,
+		func(string) error { cancel(); return nil })
+	r := chi.NewRouter()
+	h.Register(r)
+	capt := captureLogs(t)
+
 	rec := httptest.NewRecorder()
-	req := httptest.NewRequest(http.MethodPost, "/config/import", bytes.NewReader(body)).WithContext(cancelledCtx())
-	r.ServeHTTP(rec, req)
-	if rec.Code != http.StatusInternalServerError {
-		t.Fatalf("import with DB error = %d, want 500", rec.Code)
+	r.ServeHTTP(rec, httptest.NewRequestWithContext(ctx, http.MethodPost, "/config/import", bytes.NewReader(keylessImport(t))))
+
+	if rec.Code != statusClientClosed {
+		t.Fatalf("status = %d, want 499; body %s", rec.Code, rec.Body.String())
+	}
+	level, _, found := capt.last("configsync: apply import")
+	if !found || level != slog.LevelWarn {
+		t.Errorf("apply log found=%v level=%v, want a warning", found, level)
 	}
 }
 

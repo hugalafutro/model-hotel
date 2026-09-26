@@ -38,11 +38,26 @@ const StatusClientClosedRequest = 499
 // navigation's worth of noise. Only the client's cancel counts: this server's
 // own route timeout surfaces as context.DeadlineExceeded and stays the failure
 // it is, and debuglog.Error draws the same line for the accompanying log
-// record. Any response mapper that writes its own status calls this so the
-// rule has one owner.
+// record. Canceled alone is enough for RespondError's callers because every
+// admin store call runs on the request context, which only the caller's
+// disconnect cancels (Shutdown does not, a statement_timeout is SQLSTATE
+// 57014 and a closed pool is its own error); a read that may run on a context
+// the caller does not own uses StatusForRequestError instead.
 func StatusForError(err error, code int) int {
 	if errors.Is(err, context.Canceled) {
 		return StatusClientClosedRequest
+	}
+	return code
+}
+
+// StatusForRequestError is StatusForError for an error that may come from a
+// context other than r's: it answers 499 only when err is Canceled AND r's own
+// context was cancelled, which is the caller hanging up. A Canceled from a
+// detached context (a run Shutdown ended) while the caller is still connected
+// is this server's interruption and keeps code.
+func StatusForRequestError(r *http.Request, err error, code int) int {
+	if errors.Is(r.Context().Err(), context.Canceled) {
+		return StatusForError(err, code)
 	}
 	return code
 }

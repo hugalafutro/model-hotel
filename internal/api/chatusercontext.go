@@ -7,6 +7,7 @@ import (
 
 	"github.com/hugalafutro/model-hotel/internal/ctxkeys"
 	"github.com/hugalafutro/model-hotel/internal/debuglog"
+	"github.com/hugalafutro/model-hotel/internal/httpx"
 	"github.com/hugalafutro/model-hotel/internal/user"
 )
 
@@ -97,7 +98,7 @@ func (h *Handler) ChatUserContextMiddleware(next http.Handler) http.Handler {
 			return
 		case err != nil:
 			debuglog.Error("auth: failed to read the chat caller's account limits", "username", id.Username, "error", err)
-			http.Error(w, "account limits could not be determined", http.StatusInternalServerError)
+			http.Error(w, "account limits could not be determined", httpx.StatusForRequestError(r, err, http.StatusInternalServerError))
 			return
 		}
 		// The cap is stored even when nil: a nil *[]string under this key is

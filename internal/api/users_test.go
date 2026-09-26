@@ -467,8 +467,12 @@ func TestUsersAPI_ErrorPaths(t *testing.T) {
 	}
 }
 
-// TestUsersAPI_RepositoryFailures drives each handler's generic 500 branch by
-// cancelling the request context so the underlying query fails.
+// TestUsersAPI_RepositoryFailures pins the status each handler answers when its
+// request context is dead: 499 for a caller who hung up, 500 for an expired
+// deadline (a regression pin). For most cases the failure is the repository
+// query. setpassword and create hash first, and the password hasher waits on
+// the same context, so for them the dead context may fail the hash instead of
+// the query; the status is the same either way.
 func TestUsersAPI_RepositoryFailures(t *testing.T) {
 	r, _, _ := setupUsersTest(t)
 	id := createUserViaAPI(t, r, "gina", "password123", "user", nil)
@@ -486,6 +490,13 @@ func TestUsersAPI_RepositoryFailures(t *testing.T) {
 	for _, tc := range cases {
 		if w := doJSONCtx(ctx, t, r, tc.method, tc.path, envAdminToken, tc.body); w.Code != statusClientClosed {
 			t.Errorf("%s with cancelled ctx: %d, want 499", tc.name, w.Code)
+		}
+	}
+	// The same failures on this side (the route's own deadline expiring, not
+	// the caller hanging up) are a genuine 500.
+	for _, tc := range cases {
+		if w := doJSONCtx(expiredCtx(t), t, r, tc.method, tc.path, envAdminToken, tc.body); w.Code != http.StatusInternalServerError {
+			t.Errorf("%s with expired ctx: %d, want 500", tc.name, w.Code)
 		}
 	}
 }

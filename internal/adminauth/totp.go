@@ -445,7 +445,7 @@ func (h *TotpHandler) Login(w http.ResponseWriter, r *http.Request) {
 	sessionToken, err := h.sessionMgr.CreateAuthToken(r.Context(), []byte("admin"), nil, webauthn.MetaFromRequest(r, h.ipLimiter))
 	if err != nil {
 		debuglog.Error("totp: login session creation failed", "error", err, "remote_addr", clientip.From(r))
-		http.Error(w, "failed to create session", http.StatusInternalServerError)
+		http.Error(w, "failed to create session", httpx.StatusForRequestError(r, err, http.StatusInternalServerError))
 		return
 	}
 	h.loginThrottle.RecordSuccess(throttleKey)

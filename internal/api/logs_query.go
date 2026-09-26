@@ -14,7 +14,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 
-	"github.com/hugalafutro/model-hotel/internal/proxy"
+	"github.com/hugalafutro/model-hotel/internal/endpointtype"
 )
 
 // logEntrySelectColumns is the shared 40-column request_logs projection plus the
@@ -287,12 +287,13 @@ func appendAttemptFilter(query string, args []any, argIndex int, attemptProvider
 }
 
 // isValidEndpointType reports whether s is a known endpoint family for the
-// endpoint_type log filter. The families come from internal/proxy, which stamps
-// the column, so the filter cannot accept less than what is written. Unknown
+// endpoint_type log filter. The families come from internal/endpointtype, the
+// vocabulary the proxy stamps the column from, so the filter cannot accept less
+// than what is written. Unknown
 // values are ignored (no filter applied) rather than rejected, matching the
 // other filters.
 func isValidEndpointType(s string) bool {
-	return slices.Contains(proxy.EndpointTypes, s)
+	return slices.Contains(endpointtype.All(), s)
 }
 
 // appendKeysetPredicate appends the (created_at, id) keyset comparison relative

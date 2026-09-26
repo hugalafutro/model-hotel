@@ -19,6 +19,7 @@ import (
 
 	"github.com/hugalafutro/model-hotel/internal/debuglog"
 	"github.com/hugalafutro/model-hotel/internal/events"
+	"github.com/hugalafutro/model-hotel/internal/httpx"
 	"github.com/hugalafutro/model-hotel/internal/user"
 	"github.com/hugalafutro/model-hotel/internal/util"
 )
@@ -41,7 +42,7 @@ func (h *ConfigSyncHandler) Export(w http.ResponseWriter, r *http.Request) {
 	env, err := h.buildEnvelope(r.Context())
 	if err != nil {
 		debuglog.Error("configsync: build export envelope", "error", err)
-		http.Error(w, "could not export config", http.StatusInternalServerError)
+		http.Error(w, "could not export config", httpx.StatusForRequestError(r, err, http.StatusInternalServerError))
 		return
 	}
 	writeJSON(w, env)
@@ -63,7 +64,7 @@ func (h *ConfigSyncHandler) Version(w http.ResponseWriter, r *http.Request) {
 	env, err := h.buildEnvelope(r.Context())
 	if err != nil {
 		debuglog.Error("configsync: build version envelope", "error", err)
-		http.Error(w, "could not read config", http.StatusInternalServerError)
+		http.Error(w, "could not read config", httpx.StatusForRequestError(r, err, http.StatusInternalServerError))
 		return
 	}
 	// Marshal only the Config payload. Every list is ordered by a column a unique

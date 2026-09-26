@@ -183,7 +183,7 @@ func (h *UserLoginHandler) Login(w http.ResponseWriter, r *http.Request) {
 	token, err := h.sessionMgr.CreateAuthToken(r.Context(), []byte(u.ID.String()), nil, webauthn.MetaFromRequest(r, h.ipLimiter))
 	if err != nil {
 		debuglog.Error("userlogin: session creation failed", "error", err, "remote_addr", clientip.From(r))
-		http.Error(w, "failed to create session", http.StatusInternalServerError)
+		http.Error(w, "failed to create session", httpx.StatusForRequestError(r, err, http.StatusInternalServerError))
 		return
 	}
 	h.throttle.RecordSuccess(throttleKey)

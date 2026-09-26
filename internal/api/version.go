@@ -19,6 +19,15 @@ const (
 	githubReleasesURL = "https://api.github.com/repos/hugalafutro/model-hotel/releases/latest"
 	githubTagsURL     = "https://api.github.com/repos/hugalafutro/model-hotel/tags?per_page=1"
 	versionCacheTTL   = 30 * time.Minute
+	// versionRetryTTL is how long a failed lookup keeps serving the stale tag
+	// before trying GitHub again, so an outage costs one lookup and one log
+	// line per window instead of one per dashboard load.
+	versionRetryTTL = 5 * time.Minute
+	// versionLookupTimeout bounds a whole lookup, both GitHub calls included.
+	// The lookup is detached from the visitor but still runs inside a handler,
+	// so it is kept under the 10s server.Shutdown drain in cmd/server: a
+	// lookup started just before shutdown ends before the drain gives up.
+	versionLookupTimeout = 8 * time.Second
 )
 
 // githubRelease matches the subset of GitHub's release API response we need.
@@ -31,11 +40,14 @@ type githubTag struct {
 	Name string `json:"name"`
 }
 
-// versionCache holds the cached latest release tag and expiry.
+// versionCache holds the cached latest release tag and when it goes stale.
+// A lookup that failed with no tag to serve leaves tag empty and holds its
+// error in lastErr until freshUntil, so the outage answers from the cache too.
 type versionCache struct {
-	mu        sync.Mutex
-	tag       string
-	fetchedAt time.Time
+	mu         sync.Mutex
+	tag        string
+	lastErr    error
+	freshUntil time.Time
 }
 
 var vCache versionCache
@@ -64,52 +76,61 @@ func (h *Handler) RegisterVersion(r chi.Router) {
 // This avoids CSP connect-src violations in the browser (the frontend fetches
 // /api/version/latest instead of api.github.com directly).
 func (h *Handler) GetLatestVersion(w http.ResponseWriter, r *http.Request) {
-	vCache.mu.Lock()
-	tag := vCache.tag
-	fetchedAt := vCache.fetchedAt
-	vCache.mu.Unlock()
-
-	if tag != "" && time.Since(fetchedAt) < versionCacheTTL {
-		writeJSON(w, map[string]string{"tag_name": tag})
+	if tag, fresh, err := cachedTag(); fresh {
+		writeTagOrFailure(w, tag, err)
 		return
 	}
 
 	// The lookup fills a cache every later visitor reads, so a visitor who
 	// leaves mid-fetch (reload, navigation) must not abort it and log a
-	// failure that is not one. githubClient's 10s timeout bounds each of its
-	// at most two calls.
-	ctx := context.WithoutCancel(r.Context())
+	// failure that is not one; versionLookupTimeout bounds it instead.
+	detached := context.WithoutCancel(r.Context())
 	v, err, _ := versionLookupGroup.Do(h.ghReleasesURL, func() (any, error) {
+		ctx, cancel := context.WithTimeout(detached, versionLookupTimeout)
+		defer cancel()
 		return refreshLatestTag(ctx, h.ghReleasesURL, h.ghTagsURL)
 	})
-	if err != nil {
-		debuglog.Error("version: all GitHub lookups failed", "error", err)
-		if tag != "" {
-			writeJSON(w, map[string]string{"tag_name": tag})
-			return
-		}
-		respondError(w, "failed to fetch latest version", err, http.StatusBadGateway)
-		return
-	}
 	tagName, _ := v.(string)
-
-	writeJSON(w, map[string]string{"tag_name": tagName})
+	writeTagOrFailure(w, tagName, err)
 }
 
-// refreshLatestTag fetches the latest tag and stores it in vCache. It first
-// rechecks the cache: a request that missed it just before another flight
-// finished filling it reuses that result instead of calling GitHub again.
+// cachedTag returns the cached answer and whether it is still inside its
+// window: a tag, or the error of a lookup that failed with no tag to serve.
+func cachedTag() (tag string, fresh bool, err error) {
+	vCache.mu.Lock()
+	defer vCache.mu.Unlock()
+	fresh = time.Now().Before(vCache.freshUntil) && (vCache.tag != "" || vCache.lastErr != nil)
+	return vCache.tag, fresh, vCache.lastErr
+}
+
+// writeTagOrFailure answers with the tag, or a 502 when the lookup failed with
+// no tag to serve. The failure is logged once inside the flight that met it,
+// not once per visitor sharing it or reading it from the cache.
+func writeTagOrFailure(w http.ResponseWriter, tag string, err error) {
+	if err != nil {
+		http.Error(w, "failed to fetch latest version", http.StatusBadGateway)
+		return
+	}
+	writeJSON(w, map[string]string{"tag_name": tag})
+}
+
+// refreshLatestTag fetches the latest tag and stores it in vCache, logging a
+// failure once for every visitor sharing the flight. It first rechecks the
+// cache: a request that missed it just before another flight finished filling
+// it reuses that result instead of calling GitHub again.
+//
+// A failed lookup keeps its answer for versionRetryTTL before GitHub is tried
+// again: with a stale tag on hand it serves that tag and warns; with none it
+// is an error, and the error is what the window serves.
 //
 // It tries the releases endpoint first. When the repo has tags but no formal
 // GitHub Releases, that endpoint returns 404; only then does it fall back to
 // the tags API. Other errors (5xx, timeout) skip the fallback to avoid
 // doubling worst-case latency.
 func refreshLatestTag(ctx context.Context, releasesURL, tagsURL string) (string, error) {
-	vCache.mu.Lock()
-	tag, fetchedAt := vCache.tag, vCache.fetchedAt
-	vCache.mu.Unlock()
-	if tag != "" && time.Since(fetchedAt) < versionCacheTTL {
-		return tag, nil
+	tag, fresh, cachedErr := cachedTag()
+	if fresh {
+		return tag, cachedErr
 	}
 
 	tagName, err := fetchLatestTag(ctx, releasesURL)
@@ -117,12 +138,26 @@ func refreshLatestTag(ctx context.Context, releasesURL, tagsURL string) (string,
 		tagName, err = fetchLatestTagFromTags(ctx, tagsURL)
 	}
 	if err != nil {
-		return "", err
+		if tag == "" {
+			debuglog.Error("version: all GitHub lookups failed", "error", err, "retry_in", versionRetryTTL)
+			vCache.mu.Lock()
+			vCache.lastErr = err
+			vCache.freshUntil = time.Now().Add(versionRetryTTL)
+			vCache.mu.Unlock()
+			return "", err
+		}
+		debuglog.Warn("version: GitHub lookup failed, serving the cached tag", "error", err, "tag", tag, "retry_in", versionRetryTTL)
+		tagName = tag
 	}
 
 	vCache.mu.Lock()
 	vCache.tag = tagName
-	vCache.fetchedAt = time.Now()
+	vCache.lastErr = nil
+	if err != nil {
+		vCache.freshUntil = time.Now().Add(versionRetryTTL)
+	} else {
+		vCache.freshUntil = time.Now().Add(versionCacheTTL)
+	}
 	vCache.mu.Unlock()
 	return tagName, nil
 }

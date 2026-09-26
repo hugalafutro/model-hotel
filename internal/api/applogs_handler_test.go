@@ -1061,9 +1061,10 @@ func TestGetAppLogs_HistoryWithDB(t *testing.T) {
 }
 
 // TestGetAppLogs_HistoryCountFailure covers the filtered-count error branch:
-// a filter forces a real COUNT query, and a cancelled request context makes it
-// fail. The handler answers 500 rather than an empty page, so the dashboard's
-// generic error handling applies instead of a success with no rows.
+// a filter forces a real COUNT query, and a dead request context makes it
+// fail. The handler answers an error (500, or 499 for a caller that hung up)
+// rather than an empty page, so the dashboard's generic error handling applies
+// instead of a success with no rows.
 func TestGetAppLogs_HistoryCountFailure(t *testing.T) {
 	_, r := newTestHandlerWithRouter(t)
 
@@ -1072,19 +1073,31 @@ func TestGetAppLogs_HistoryCountFailure(t *testing.T) {
 	// the rest of the TTL and skew any later test reading the unfiltered total.
 	t.Cleanup(invalidateAppLogCountCache)
 
-	ctx, cancel := context.WithCancel(context.Background())
-	cancel() // the COUNT query cannot run on a dead context
+	// The COUNT query cannot run on a dead context: a cancelled one is the
+	// caller hanging up (499), an expired one this server's own timeout (500,
+	// a regression pin: it held before the 499 rule too).
+	for _, tc := range []struct {
+		name string
+		ctx  context.Context
+		want int
+	}{
+		{"caller cancelled the count", cancelledCtx(), statusClientClosed},
+		{"count failed on this side", expiredCtx(t), http.StatusInternalServerError},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			invalidateAppLogCountCache()
+			rec := httptest.NewRecorder()
+			req := httptest.NewRequestWithContext(tc.ctx, http.MethodGet, "/logs/app?history=true&level=error", http.NoBody)
+			req.Header.Set("Authorization", "Bearer test-admin-token")
+			r.ServeHTTP(rec, req)
 
-	rec := httptest.NewRecorder()
-	req := httptest.NewRequest(http.MethodGet, "/logs/app?history=true&level=error", http.NoBody).WithContext(ctx)
-	req.Header.Set("Authorization", "Bearer test-admin-token")
-	r.ServeHTTP(rec, req)
-
-	if rec.Code != statusClientClosed {
-		t.Fatalf("status = %d, want 499: the caller cancelled the count", rec.Code)
-	}
-	if !strings.Contains(rec.Body.String(), "failed to count logs") {
-		t.Errorf("body = %q, want the count-failure error", rec.Body.String())
+			if rec.Code != tc.want {
+				t.Fatalf("status = %d, want %d", rec.Code, tc.want)
+			}
+			if !strings.Contains(rec.Body.String(), "failed to count logs") {
+				t.Errorf("body = %q, want the count-failure error", rec.Body.String())
+			}
+		})
 	}
 }
 

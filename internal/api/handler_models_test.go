@@ -1279,20 +1279,31 @@ func TestDeleteModel_DBLookupError(t *testing.T) {
 		adminMgr: &mockAdminAuth{validateFn: func(token string) bool { return token == "test-admin-token" }},
 	}
 
-	fakeID := uuid.New().String()
-	req := httptest.NewRequest(http.MethodDelete, "/models/"+fakeID, http.NoBody)
-	// Cancel context to cause query failure (not ErrNoRows)
-	ctx, cancel := context.WithCancel(req.Context())
-	cancel()
-	rctx := chi.NewRouteContext()
-	rctx.URLParams.Add("id", fakeID)
-	req = req.WithContext(context.WithValue(ctx, chi.RouteCtxKey, rctx))
+	// A cancelled context is the caller hanging up (499); an expired one is
+	// this server's own timeout, a genuine failure (500, a regression pin: it
+	// held before the 499 rule too). Neither is ErrNoRows.
+	for _, tc := range []struct {
+		name string
+		ctx  context.Context
+		want int
+	}{
+		{"caller abandoned the lookup", cancelledCtx(), statusClientClosed},
+		{"lookup failed on this side", expiredCtx(t), http.StatusInternalServerError},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			fakeID := uuid.New().String()
+			rctx := chi.NewRouteContext()
+			rctx.URLParams.Add("id", fakeID)
+			req := httptest.NewRequestWithContext(context.WithValue(tc.ctx, chi.RouteCtxKey, rctx),
+				http.MethodDelete, "/models/"+fakeID, http.NoBody)
 
-	w := httptest.NewRecorder()
-	h.DeleteModel(w, req)
+			w := httptest.NewRecorder()
+			h.DeleteModel(w, req)
 
-	if w.Code != statusClientClosed {
-		t.Errorf("expected 499 for a lookup the caller abandoned, got %d: %s", w.Code, w.Body.String())
+			if w.Code != tc.want {
+				t.Errorf("status = %d, want %d: %s", w.Code, tc.want, w.Body.String())
+			}
+		})
 	}
 }
 

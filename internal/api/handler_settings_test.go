@@ -877,18 +877,29 @@ func TestUpdateSettings_BeginTxError(t *testing.T) {
 	defer testDB.Close()
 
 	h := newTestHandler(t)
-	body := bytes.NewReader([]byte(`{"rate_limit_enabled":"true"}`))
-	req := httptest.NewRequest(http.MethodPut, "/settings", body)
-	req.Header.Set("Content-Type", "application/json")
-	ctx, cancel := context.WithCancel(req.Context())
-	cancel()
-	req = req.WithContext(ctx)
+	// A cancelled context is the caller hanging up (499); an expired one is
+	// this server's own timeout, a genuine failure (500, a regression pin: it
+	// held before the 499 rule too).
+	for _, tc := range []struct {
+		name string
+		ctx  context.Context
+		want int
+	}{
+		{"caller abandoned the write", cancelledCtx(), statusClientClosed},
+		{"begin failed on this side", expiredCtx(t), http.StatusInternalServerError},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			body := bytes.NewReader([]byte(`{"rate_limit_enabled":"true"}`))
+			req := httptest.NewRequestWithContext(tc.ctx, http.MethodPut, "/settings", body)
+			req.Header.Set("Content-Type", "application/json")
 
-	w := httptest.NewRecorder()
-	h.UpdateSettings(w, req)
+			w := httptest.NewRecorder()
+			h.UpdateSettings(w, req)
 
-	if w.Code != statusClientClosed {
-		t.Errorf("expected status %d, got %d; body: %s", statusClientClosed, w.Code, w.Body.String())
+			if w.Code != tc.want {
+				t.Errorf("expected status %d, got %d; body: %s", tc.want, w.Code, w.Body.String())
+			}
+		})
 	}
 }
 
