@@ -66,6 +66,7 @@ class MemberDetailScreenTest {
                 MemberDetailScreen(
                     member = member,
                     isPrimary = true,
+                    isDesignated = true,
                     onBack = {},
                     ui = MemberDetailUiState(loading = false, traffic = reachableTraffic),
                 )
@@ -88,6 +89,7 @@ class MemberDetailScreenTest {
                 MemberDetailScreen(
                     member = member,
                     isPrimary = false,
+                    isDesignated = false,
                     onBack = {},
                     ui =
                         MemberDetailUiState(
@@ -125,6 +127,7 @@ class MemberDetailScreenTest {
                                 ),
                         ),
                     isPrimary = false,
+                    isDesignated = false,
                     onBack = {},
                     ui = MemberDetailUiState(loading = false, traffic = reachableTraffic),
                 )
@@ -154,6 +157,7 @@ class MemberDetailScreenTest {
                 MemberDetailScreen(
                     member = member,
                     isPrimary = false,
+                    isDesignated = false,
                     onBack = {},
                     ui =
                         MemberDetailUiState(
@@ -183,6 +187,7 @@ class MemberDetailScreenTest {
                 MemberDetailScreen(
                     member = member,
                     isPrimary = false,
+                    isDesignated = false,
                     onBack = {},
                     ui =
                         MemberDetailUiState(
@@ -226,6 +231,7 @@ class MemberDetailScreenTest {
                 MemberDetailScreen(
                     member = member,
                     isPrimary = false,
+                    isDesignated = false,
                     onBack = {},
                     holdToCopy = true,
                     ui =
@@ -257,6 +263,7 @@ class MemberDetailScreenTest {
                 MemberDetailScreen(
                     member = member,
                     isPrimary = false,
+                    isDesignated = false,
                     onBack = {},
                     holdToCopy = false,
                     ui =
@@ -285,6 +292,7 @@ class MemberDetailScreenTest {
                 MemberDetailScreen(
                     member = member,
                     isPrimary = false,
+                    isDesignated = false,
                     onBack = {},
                     ui = MemberDetailUiState(loading = false, traffic = reachableTraffic, events = emptyList()),
                 )
@@ -304,6 +312,7 @@ class MemberDetailScreenTest {
                 MemberDetailScreen(
                     member = member,
                     isPrimary = false,
+                    isDesignated = false,
                     onBack = { backs++ },
                     ui = MemberDetailUiState(loading = false, traffic = reachableTraffic),
                 )
@@ -317,7 +326,7 @@ class MemberDetailScreenTest {
     fun firstLoadShowsSpinnerInsideTrafficCard() {
         composeTestRule.setContent {
             BellhopTheme {
-                MemberDetailScreen(member = member, isPrimary = false, onBack = {})
+                MemberDetailScreen(member = member, isPrimary = false, isDesignated = false, onBack = {})
             }
         }
         composeTestRule.onNodeWithTag("member-traffic-loading").assertIsDisplayed()
@@ -330,6 +339,7 @@ class MemberDetailScreenTest {
                 MemberDetailScreen(
                     member = member,
                     isPrimary = false,
+                    isDesignated = false,
                     onBack = {},
                     ui =
                         MemberDetailUiState(
@@ -349,6 +359,7 @@ class MemberDetailScreenTest {
                 MemberDetailScreen(
                     member = member,
                     isPrimary = false,
+                    isDesignated = false,
                     onBack = {},
                     ui =
                         MemberDetailUiState(
@@ -368,6 +379,7 @@ class MemberDetailScreenTest {
                 MemberDetailScreen(
                     member = member,
                     isPrimary = false,
+                    isDesignated = false,
                     onBack = {},
                     ui =
                         MemberDetailUiState(
@@ -402,6 +414,7 @@ class MemberDetailScreenTest {
                 MemberDetailScreen(
                     member = member,
                     isPrimary = false,
+                    isDesignated = false,
                     onBack = {},
                     ui = MemberDetailUiState(loading = false, traffic = reachableTraffic),
                 )
@@ -420,6 +433,7 @@ class MemberDetailScreenTest {
                 MemberDetailScreen(
                     member = member,
                     isPrimary = false,
+                    isDesignated = false,
                     onBack = {},
                     ui =
                         MemberDetailUiState(
@@ -441,6 +455,7 @@ class MemberDetailScreenTest {
                 MemberDetailScreen(
                     member = member,
                     isPrimary = false,
+                    isDesignated = false,
                     onBack = {},
                     ui = MemberDetailUiState(loading = false, revoked = true),
                 )
@@ -456,6 +471,7 @@ class MemberDetailScreenTest {
                 MemberDetailScreen(
                     member = member,
                     isPrimary = false,
+                    isDesignated = false,
                     onBack = {},
                     ui = MemberDetailUiState(loading = false, traffic = reachableTraffic),
                     canOperate = false,
@@ -475,6 +491,7 @@ class MemberDetailScreenTest {
                 MemberDetailScreen(
                     member = member,
                     isPrimary = false,
+                    isDesignated = false,
                     onBack = {},
                     ui = MemberDetailUiState(loading = false, traffic = reachableTraffic),
                     canOperate = true,
@@ -497,6 +514,7 @@ class MemberDetailScreenTest {
                 MemberDetailScreen(
                     member = member.copy(state = "drained"),
                     isPrimary = false,
+                    isDesignated = false,
                     onBack = {},
                     ui = MemberDetailUiState(loading = false, traffic = reachableTraffic),
                     canOperate = true,
@@ -518,6 +536,7 @@ class MemberDetailScreenTest {
                 MemberDetailScreen(
                     member = member,
                     isPrimary = false,
+                    isDesignated = false,
                     onBack = {},
                     ui =
                         MemberDetailUiState(
@@ -542,6 +561,7 @@ class MemberDetailScreenTest {
                 MemberDetailScreen(
                     member = member,
                     isPrimary = false,
+                    isDesignated = false,
                     onBack = {},
                     ui =
                         MemberDetailUiState(
@@ -571,6 +591,7 @@ class MemberDetailScreenTest {
                 MemberDetailScreen(
                     member = member,
                     isPrimary = true,
+                    isDesignated = true,
                     onBack = {},
                     ui = MemberDetailUiState(loading = false, traffic = reachableTraffic),
                     canOperate = true,
@@ -615,6 +636,7 @@ class MemberDetailScreenTest {
                 MemberDetailScreen(
                     member = member,
                     isPrimary = false,
+                    isDesignated = false,
                     onBack = {},
                     ui = MemberDetailUiState(loading = false, traffic = reachableTraffic),
                     canOperate = true,
@@ -634,6 +656,7 @@ class MemberDetailScreenTest {
                 MemberDetailScreen(
                     member = member,
                     isPrimary = false,
+                    isDesignated = false,
                     onBack = {},
                     ui =
                         MemberDetailUiState(
@@ -661,6 +684,7 @@ class MemberDetailScreenTest {
                 MemberDetailScreen(
                     member = member,
                     isPrimary = false,
+                    isDesignated = false,
                     onBack = {},
                     ui = MemberDetailUiState(loading = false, traffic = reachableTraffic),
                 )
@@ -683,6 +707,7 @@ class MemberDetailScreenTest {
                 MemberDetailScreen(
                     member = member,
                     isPrimary = true,
+                    isDesignated = true,
                     onBack = {},
                     ui =
                         MemberDetailUiState(
@@ -708,6 +733,7 @@ class MemberDetailScreenTest {
                 MemberDetailScreen(
                     member = member,
                     isPrimary = false,
+                    isDesignated = false,
                     onBack = {},
                     ui = MemberDetailUiState(loading = false, traffic = reachableTraffic),
                     onRange = { picked = it },
@@ -728,6 +754,7 @@ class MemberDetailScreenTest {
                 MemberDetailScreen(
                     member = member,
                     isPrimary = false,
+                    isDesignated = false,
                     onBack = {},
                     ui =
                         MemberDetailUiState(
@@ -761,6 +788,7 @@ class MemberDetailScreenTest {
                 MemberDetailScreen(
                     member = member,
                     isPrimary = false,
+                    isDesignated = false,
                     onBack = {},
                     ui =
                         MemberDetailUiState(
@@ -793,6 +821,7 @@ class MemberDetailScreenTest {
                 MemberDetailScreen(
                     member = member,
                     isPrimary = false,
+                    isDesignated = false,
                     onBack = {},
                     ui =
                         MemberDetailUiState(
@@ -820,6 +849,7 @@ class MemberDetailScreenTest {
                 MemberDetailScreen(
                     member = member,
                     isPrimary = false,
+                    isDesignated = false,
                     onBack = {},
                     ui =
                         MemberDetailUiState(
@@ -847,6 +877,7 @@ class MemberDetailScreenTest {
                 MemberDetailScreen(
                     member = member,
                     isPrimary = true,
+                    isDesignated = true,
                     onBack = {},
                     ui =
                         MemberDetailUiState(
@@ -872,6 +903,7 @@ class MemberDetailScreenTest {
                 MemberDetailScreen(
                     member = member,
                     isPrimary = false,
+                    isDesignated = false,
                     onBack = {},
                     ui =
                         MemberDetailUiState(
@@ -899,6 +931,7 @@ class MemberDetailScreenTest {
                 MemberDetailScreen(
                     member = member,
                     isPrimary = false,
+                    isDesignated = false,
                     onBack = {},
                     ui =
                         MemberDetailUiState(

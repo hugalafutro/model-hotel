@@ -165,11 +165,12 @@ export function MembersPage() {
 		}
 	};
 
-	// Only non-primary members are removable: neither the effective primary
-	// nor the raw designation gets a Remove button, matching the backend, which
-	// refuses deleting either with 409 (the wizard changes the primary). A
-	// fleet never shrinks to one member: at two members (or a lone row) Remove
-	// disbands the whole fleet and the confirm modal says so. A lone row keeps its Remove even when
+	// Only non-primary members are removable, matching the backend's 409s: the
+	// effective primary never gets a Remove button, and the raw designation
+	// gets none from three members up (at two, removing it disbands the fleet
+	// anyway). The wizard changes the primary. A fleet never shrinks to one
+	// member: at two members (or a lone row) Remove disbands the whole fleet
+	// and the confirm modal says so. A lone row keeps its Remove even when
 	// badged primary: with nothing to sync it protects nothing, and disbanding
 	// is the only way to empty the fleet.
 	const disbandOnRemove = members.length <= 2;
@@ -270,7 +271,9 @@ export function MembersPage() {
 									groupBuild={primaryId ? null : groupBuild}
 									primaryBuild={primaryBuild}
 									isPrimary={m.id === primaryId}
-									isDesignated={m.id === autoSync?.primary_id}
+									isDesignated={
+										m.id === autoSync?.primary_id && !disbandOnRemove
+									}
 									soleActive={soleActive}
 									disbandOnRemove={disbandOnRemove}
 									loneRow={loneRow}
@@ -346,7 +349,8 @@ function MemberRow({
 	// compare" - so it anchors the badge too.
 	primaryBuild: Build | null;
 	isPrimary: boolean;
-	// The raw designation, which the backend refuses to delete even when dormant.
+	// The raw designation on a fleet of three or more, which the backend refuses
+	// to delete even when dormant.
 	isDesignated: boolean;
 	// True when the fleet has at most one active member. The drain control is
 	// disabled for the active member in that case: draining the last active member

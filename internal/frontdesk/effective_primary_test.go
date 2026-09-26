@@ -593,3 +593,64 @@ func TestCreateVerifiedMember_StoreFailures(t *testing.T) {
 		t.Error("closed store: CreateVerifiedMember succeeded")
 	}
 }
+
+// A dormant designation B with the marker naming A: A is the effective primary
+// and refused on any fleet above one member, while B is refused only from
+// three members up. At two, removing B disbands, so the fleet can always be
+// emptied.
+func TestDeleteMember_DormantDesignationBesideTheMarkerPrimary(t *testing.T) {
+	setup := func(t *testing.T, n int) (*Server, []string) {
+		t.Helper()
+		srv, store := newTestServer(t)
+		ctx := t.Context()
+		var ids []string
+		for i := range n {
+			name := "m" + strconv.Itoa(i)
+			m, err := store.CreateMember(ctx, name, "http://127.0.0.1:9/"+name, "tok")
+			if err != nil {
+				t.Fatalf("CreateMember: %v", err)
+			}
+			ids = append(ids, m.ID)
+		}
+		if err := store.SetAutoSync(ctx, false, ids[1]); err != nil {
+			t.Fatalf("SetAutoSync: %v", err)
+		}
+		if err := store.SetFleetPrimaryMarker(ctx, ids[0], "m0"); err != nil {
+			t.Fatalf("SetFleetPrimaryMarker: %v", err)
+		}
+		return srv, ids
+	}
+	t.Run("two members", func(t *testing.T) {
+		srv, ids := setup(t, 2)
+		if rec := do(t, srv, http.MethodDelete, "/api/members/"+ids[0], "", true); rec.Code != http.StatusConflict {
+			t.Fatalf("DELETE marker primary = %d, want 409", rec.Code)
+		}
+		if rec := do(t, srv, http.MethodDelete, "/api/members/"+ids[1], "", true); rec.Code != http.StatusNoContent {
+			t.Fatalf("DELETE dormant designation = %d, want 204 (disband)", rec.Code)
+		}
+	})
+	t.Run("three members", func(t *testing.T) {
+		srv, ids := setup(t, 3)
+		if rec := do(t, srv, http.MethodDelete, "/api/members/"+ids[1], "", true); rec.Code != http.StatusConflict {
+			t.Fatalf("DELETE dormant designation = %d, want 409", rec.Code)
+		}
+	})
+}
+
+// A confirmed takeover of a host too old to report its desk id adds no empty
+// taken_over_from key to member.added (the takeover warning is still logged).
+func TestCreateMember_TakeoverWithoutADeskID(t *testing.T) {
+	srv, store := newTestServer(t)
+	host := fleetIdentityStub(t, `{"state":"warning","is_primary":true}`, "iid-old")
+	body := `{"name":"old","url":"` + host.URL + `","token":"tok","confirm_token":"` + testFrontdeskToken + `"}`
+	if rec := do(t, srv, http.MethodPost, "/api/members", body, true); rec.Code != http.StatusCreated {
+		t.Fatalf("confirmed add = %d, want 201", rec.Code)
+	}
+	evs, _, err := store.ListEvents(t.Context(), EventFilter{Type: "member.added"})
+	if err != nil || len(evs) != 1 {
+		t.Fatalf("member.added events = %d (err %v), want 1", len(evs), err)
+	}
+	if _, ok := evs[0].Metadata["taken_over_from"]; ok {
+		t.Errorf("taken_over_from present with no desk id: %v", evs[0].Metadata)
+	}
+}

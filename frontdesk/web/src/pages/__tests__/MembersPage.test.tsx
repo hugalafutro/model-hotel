@@ -1339,6 +1339,36 @@ describe("MembersPage", () => {
 		).toBeInTheDocument();
 	});
 
+	// At two members removing the dormant designation disbands the fleet, which
+	// the backend allows, so only the effective primary's row lacks Remove.
+	it("keeps Remove on a dormant designation of a two-member fleet", async () => {
+		server.use(
+			http.get("/api/members", () =>
+				HttpResponse.json([
+					member({ id: "1", name: "hotel-1" }),
+					member({ id: "2", name: "hotel-2" }),
+				]),
+			),
+			http.get("/api/fleet/autosync", () =>
+				HttpResponse.json({
+					enabled: false,
+					primary_id: "2",
+					effective_primary_id: "1",
+				}),
+			),
+		);
+		renderPage();
+		await screen.findByTestId("primary-badge");
+		const row = (name: string) =>
+			screen.getByText(name).closest("tr") as HTMLElement;
+		expect(
+			within(row("hotel-1")).queryByRole("button", { name: /^Remove$/i }),
+		).not.toBeInTheDocument();
+		expect(
+			within(row("hotel-2")).getByRole("button", { name: /^Remove$/i }),
+		).toBeInTheDocument();
+	});
+
 	// Regression pin: the page never infers the primary from the roster size. A
 	// lone row the server names no primary for (its status read degraded) shows
 	// no badge.

@@ -360,8 +360,8 @@ fun DashboardScreen(
                                     // so it rides that card's header alone, even
                                     // when Front Desk badges another member (a
                                     // fleet grown from one has nothing designated).
-                                    // Everyone sees the state; only an operator can
-                                    // open the lever.
+                                    // Every device sees the state on that card; only
+                                    // an operator can open the lever.
                                     autoSyncEnabled =
                                         if (designated) ui.autoSync.pendingEnabled ?: ui.autoSyncEnabled else null,
                                     onAutoSyncClick = if (canOperate && designated) ({ showAutoSync = true }) else null,

@@ -364,11 +364,17 @@ func (s *Store) deleteMemberOrDisband(ctx context.Context, id string) (DeleteOut
 	}
 
 	// The effective primary (effectivePrimaryID, the member the announces flag
-	// and the Members page badges) is refused like a designated one, whether
-	// named by the designation or only by the sync-state marker. It is resolved
-	// from this transaction's snapshot, which the DELETE below writes against,
-	// so no concurrent write can split the decision from the delete. A lone row
-	// is exempt: disbanding is the only way to empty a one-member fleet.
+	// and the Members page badges) is refused on any roster larger than one,
+	// whether the designation or only the sync-state marker names it. The raw
+	// designation is refused as well only on three or more (the DELETE below):
+	// at two, removing the other member disbands the fleet anyway, and refusing
+	// both a dormant designation and a marker-named primary would leave a
+	// two-member fleet nobody could disband. The primary is resolved from this
+	// transaction's snapshot, which the DELETE below writes against, so no
+	// concurrent write can split the decision from the delete (one that lands
+	// in between fails the write with SQLITE_BUSY_SNAPSHOT, mapped to
+	// ErrMembershipChanged). A lone row is exempt: disbanding is the only way to
+	// empty a one-member fleet.
 	primaryID, err := effectivePrimaryInTx(ctx, tx, roster)
 	if err != nil {
 		return 0, nil, err
@@ -379,16 +385,14 @@ func (s *Store) deleteMemberOrDisband(ctx context.Context, id string) (DeleteOut
 
 	if len(roster) <= 2 {
 		// Two members: only the non-primary side may pull the plug (changing the
-		// primary is the wizard's job). A lone row cannot be anyone's primary in
-		// a functioning fleet, so it is always removable; if a stale designation
-		// points at it anyway, disbanding clears it.
+		// primary is the wizard's job; the effective primary was refused above).
+		// A lone row is always removable; if a stale designation points at it,
+		// disbanding clears it.
 		res, err := tx.ExecContext(ctx, `
 			DELETE FROM members
 			WHERE (SELECT COUNT(*) FROM members) <= 2
-			  AND EXISTS (SELECT 1 FROM members WHERE id = ?)
-			  AND (? NOT IN (SELECT auto_sync_primary_id FROM settings WHERE id = 1)
-			       OR (SELECT COUNT(*) FROM members) = 1)`,
-			id, id)
+			  AND EXISTS (SELECT 1 FROM members WHERE id = ?)`,
+			id)
 		if err != nil {
 			return 0, nil, fmt.Errorf("frontdesk: disband fleet: %w", err)
 		}
@@ -397,20 +401,10 @@ func (s *Store) deleteMemberOrDisband(ctx context.Context, id string) (DeleteOut
 			return 0, nil, err
 		}
 		if n == 0 {
-			// The statement's own guards refused. The one steady-state refusal is
-			// the designated primary of a two-member fleet; anything else (the
-			// target vanished, or a concurrent add grew the roster past two) means
-			// the roster moved under the operator's confirmed action, so make them
-			// look again rather than guess.
-			var isPrimary bool
-			if err := tx.QueryRowContext(ctx,
-				`SELECT EXISTS(SELECT 1 FROM settings WHERE id = 1 AND auto_sync_primary_id = ?)`,
-				id).Scan(&isPrimary); err != nil {
-				return 0, nil, fmt.Errorf("frontdesk: disband primary check: %w", err)
-			}
-			if isPrimary {
-				return DeleteRefusedPrimary, nil, nil
-			}
+			// The statement's own guards refused: the target vanished, or a
+			// concurrent add grew the roster past two. The roster moved under the
+			// operator's confirmed action, so make them look again rather than
+			// guess.
 			return 0, nil, ErrMembershipChanged
 		}
 		// auto_sync_gen deliberately survives the disband: members keep their

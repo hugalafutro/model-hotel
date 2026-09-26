@@ -23,9 +23,11 @@ type FleetSyncState struct {
 	PrimaryName string    `json:"primary_name"`
 }
 
-// GetFleetSyncState returns the recorded last-run marker. found is false (with a
-// nil error) when the wizard has never recorded a successful run. A row written
-// by a no-run marker write (lonePrimaryMarker) names a primary without a run: its PrimaryID and
+// GetFleetSyncState returns the recorded last-run marker. found means exactly
+// "a real sync run is recorded", which is what every caller reads it as (the
+// staleness watchdog and fleet state, the last-sync endpoint's 204, and quota
+// distribution's setup gate). A row written by a no-run marker write
+// (lonePrimaryMarker) names a primary without a run: its PrimaryID and
 // PrimaryName are returned with found false and a zero LastRunAt.
 func (s *Store) GetFleetSyncState(ctx context.Context) (state FleetSyncState, found bool, err error) {
 	var at int64

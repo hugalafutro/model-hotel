@@ -125,10 +125,12 @@ func (p *Poller) fleetPrimary(ctx context.Context, members []*Member) (id, name 
 		debuglog.Warn("frontdesk: poll announce: read auto-sync config", "error", cfgErr)
 		cfg = AutoSyncConfig{}
 	}
-	// PrimaryID is empty when the read fails or no record exists.
+	// PrimaryID is empty when no record exists; a failed read is zeroed so it
+	// contributes no marker candidate.
 	state, _, stateErr := p.store.GetFleetSyncState(ctx)
 	if stateErr != nil {
 		debuglog.Warn("frontdesk: poll announce: fleet sync state", "error", stateErr)
+		state = FleetSyncState{}
 	}
 	want := effectivePrimaryID(members, cfg, state.PrimaryID)
 	for _, m := range members {

@@ -193,8 +193,9 @@ func (s *Server) createMember(w http.ResponseWriter, r *http.Request) {
 	// waiting the host out takes until its role expires (fleetForgetTTL, 24h), so
 	// the operator settles it by re-supplying this Front Desk's admin token. That
 	// keeps the refusal in front of an accidental takeover while leaving a
-	// deliberate recovery one confirmed step away, and the takeover is logged and
-	// carried on the member.added event so it is never silent.
+	// deliberate recovery one confirmed step away. The takeover is logged, and
+	// the foreign desk's id (when the host reports one) rides the member.added
+	// event, so it is never silent.
 	takenOver := false
 	if ident.IsPrimary && ident.FrontdeskID != ownID {
 		if !s.adminMgr.Validate(strings.TrimSpace(req.ConfirmToken)) {
@@ -247,8 +248,9 @@ func (s *Server) createMember(w http.ResponseWriter, r *http.Request) {
 	// re-arm auto-sync so the next tick brings it in line (no-op when disabled).
 	s.rearmAutoSync(r.Context())
 	addedMetadata := map[string]any{"url": stripUserinfo(m.URL)}
-	if takenOver {
-		// The foreign desk's id; empty for a host too old to report one.
+	if takenOver && ident.FrontdeskID != "" {
+		// The foreign desk's id. A host too old to report one leaves only the
+		// warning logged at the takeover.
 		addedMetadata["taken_over_from"] = ident.FrontdeskID
 	}
 	s.emit(r.Context(), Event{
