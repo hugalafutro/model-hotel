@@ -195,12 +195,12 @@ describe("ModelPicker", () => {
 			expect(screen.queryByText("GPT-4")).not.toBeInTheDocument();
 		});
 
-		it("filters models by provider name", async () => {
+		it("reads the model, not the provider name, so a provider called after a model family does not match it all", async () => {
 			const { user } = renderWithProviders(<ModelPicker {...defaultProps} />);
 			const searchInput = screen.getByPlaceholderText("Filter models…");
 			await user.type(searchInput, "anthropic");
-			expect(screen.getByText("Claude 3")).toBeInTheDocument();
-			expect(screen.queryByText("GPT-4")).not.toBeInTheDocument();
+			expect(screen.queryByText("Claude 3")).not.toBeInTheDocument();
+			expect(screen.getByText("No models match")).toBeInTheDocument();
 		});
 
 		it("shows no results message when no matches", async () => {
