@@ -201,7 +201,9 @@ export function ProviderFilter({
 						role="listbox"
 						aria-multiselectable="true"
 						aria-label={t("components.providerFilter.filterProviders")}
-						className="max-h-48 overflow-y-auto px-1"
+						// One row shorter than it was: at max-h-48 the open list just
+						// pushed the create-group modal into a scrollbar on a 1440p screen.
+						className="max-h-40 overflow-y-auto px-1"
 					>
 						{filtered.length === 0 ? (
 							<div className="px-2.5 py-3 text-xs text-(--text-muted) text-center">
