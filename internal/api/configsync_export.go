@@ -52,7 +52,7 @@ func (h *ConfigSyncHandler) Export(w http.ResponseWriter, r *http.Request) {
 // Front Desk's auto-sync poller can cheaply detect that the primary's config
 // changed without pulling and diffing the full export every tick. The hash
 // covers only the Config payload (providers, virtual keys, syncable settings,
-// custom failover groups, users), never the volatile envelope fields
+// failover groups, users), never the volatile envelope fields
 // (exported_at), so
 // it changes if and only if a synced entity changed. Same auth as Export.
 //
@@ -344,12 +344,15 @@ func modelRefByUUID(ctx context.Context, q querier) (map[string]ExportModelRef, 
 // importer can decide whether enough entries survive.
 //
 // On a member, the auto groups come from keyFleetAutoFailoverGroups (what the
-// primary last sent) instead of its own rows: its discovery may have formed a
-// group the primary has not seen yet, or found one more provider for one, and its
-// hash must still equal the primary's for Front Desk to count it converged. Same
-// primary-never-unions rule as exportModelRefs: a promoted member's export is what
-// its own rows say, and the echo is dropped on the floor until an import rewrites
-// it.
+// primary last sent) instead of its own rows: a provider can list a model for the
+// member's key and not the primary's, and the member's hash must still equal the
+// primary's for Front Desk to count it converged. Same primary-never-unions rule
+// as exportModelRefs: a promoted member's export is what its own rows say. The
+// echo is dropped whenever this instance changes an auto group itself (discovery
+// or an operator edit), so local drift does show, once, and is re-synced over.
+//
+// Sorted in Go on every path, never left to the database's ORDER BY: two members'
+// databases need not share a collation, and the echo could not reproduce one.
 func exportFailoverGroups(ctx context.Context, q querier, refByUUID map[string]ExportModelRef) ([]ExportFailoverGroup, error) {
 	// description is COALESCEd because the main app's failover Upsert lists the
 	// column with a *string value, so a nil description writes a SQL NULL (the
@@ -410,29 +413,39 @@ func exportFailoverGroups(ctx context.Context, q querier, refByUUID map[string]E
 // last sent, when there are any and this instance is not the primary. Sorted by
 // display_model afterwards, the total order the version hash relies on.
 func echoFleetAutoGroups(ctx context.Context, q querier, own []ExportFailoverGroup) ([]ExportFailoverGroup, error) {
+	byName := func(a, b ExportFailoverGroup) int { return cmp.Compare(a.DisplayModel, b.DisplayModel) }
 	var raw string
-	if err := q.QueryRow(ctx, `SELECT value FROM settings WHERE key = $1`, keyFleetAutoFailoverGroups).Scan(&raw); err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
-			return own, nil
-		}
+	err := q.QueryRow(ctx, `SELECT value FROM settings WHERE key = $1`, keyFleetAutoFailoverGroups).Scan(&raw)
+	noEcho := errors.Is(err, pgx.ErrNoRows)
+	if err != nil && !noEcho {
 		return nil, err
 	}
-	if isFleetPrimary(ctx, q) {
+	// No echo (never imported, or dropped: see FleetAutoGroupsEchoKey), or this
+	// instance leads the fleet: its own rows are the truth.
+	if noEcho || raw == "" || isFleetPrimary(ctx, q) {
+		slices.SortFunc(own, byName)
 		return own, nil
 	}
 	var sent []ExportFailoverGroup
 	if err := json.Unmarshal([]byte(raw), &sent); err != nil {
 		debuglog.Warn("configsync: unparseable fleet auto-group echo; exporting own rows", "error", err)
+		slices.SortFunc(own, byName)
 		return own, nil
+	}
+	// display_model is unique per instance, so a custom row here that carries the
+	// name of an echoed auto group would export the name twice; the echo wins.
+	sentNames := make(map[string]struct{}, len(sent))
+	for _, g := range sent {
+		sentNames[g.DisplayModel] = struct{}{}
 	}
 	out := make([]ExportFailoverGroup, 0, len(own)+len(sent))
 	for _, g := range own {
-		if !g.AutoCreated {
+		if _, echoed := sentNames[g.DisplayModel]; !g.AutoCreated && !echoed {
 			out = append(out, g)
 		}
 	}
 	out = append(out, sent...)
-	slices.SortFunc(out, func(a, b ExportFailoverGroup) int { return cmp.Compare(a.DisplayModel, b.DisplayModel) })
+	slices.SortFunc(out, byName)
 	return out, nil
 }
 

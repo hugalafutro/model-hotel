@@ -324,7 +324,7 @@ func (h *ConfigSyncHandler) computeDiff(ctx context.Context, env ConfigEnvelope)
 	// reconciles the custom groups to zero, so its removals are real; auto groups
 	// absent from the envelope are the member's own discovery's to keep or drop,
 	// so they are not counted as removed.
-	groupAuto, err := stringMap(ctx, pool, `SELECT display_model, auto_created::text FROM model_failover_groups`)
+	groupAuto, err := stringMap(ctx, pool, `SELECT display_model, COALESCE(auto_created, false)::text FROM model_failover_groups`)
 	if err != nil {
 		return d, err
 	}

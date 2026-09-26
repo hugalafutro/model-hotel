@@ -383,7 +383,12 @@ What makes this safe to leave running:
 
 - **Convergence is measured, not assumed.** Every 15 seconds Front Desk reads each
   member's own config hash and compares it with the primary's, so a member is only
-  counted in sync when it demonstrably serves the same config. A member that does
+  counted in sync when it demonstrably serves the same config. For auto-formed
+  failover groups the member hashes the order and toggles it was last sent rather
+  than its own rows (a provider can list a model for one member's key and not
+  another's); the moment its own discovery or an operator changes one of those
+  groups, that record is dropped, the hash stops matching, and the primary's order
+  is applied again on top of what changed. A member that does
   not is pushed to again, at most once every 10 minutes so a member that cannot
   converge never re-imports on every tick; one that still does not match after a
   push is badged amber and raises `config.sync_incomplete`.

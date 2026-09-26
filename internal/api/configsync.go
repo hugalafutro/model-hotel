@@ -228,7 +228,7 @@ type ConfigSyncHandler struct {
 	masterKey    string
 	appVersion   string
 	// discoverAll runs model discovery on this member after an import commits its
-	// providers, so custom failover groups can resolve. Nil disables it.
+	// providers, so failover groups can resolve. Nil disables it.
 	discoverAll func(context.Context) error
 	// validateProviderURL guards imported provider base_urls with the same SSRF
 	// check the interactive admin API applies on CreateProvider/UpdateProvider
@@ -376,7 +376,7 @@ type ExportVK struct {
 	OwnerUsername *string `json:"owner_username,omitempty"`
 }
 
-// ExportFailoverGroup is a CUSTOM (non-auto-created) failover group. Its
+// ExportFailoverGroup is one failover group, custom or auto-created. Its
 // priority_order / entry_enabled reference instance-local model UUIDs, so it is
 // carried as ordered (provider name, model_id) entry refs, resolved back to this
 // member's model UUIDs on import. Auto-created groups travel too, flagged: each

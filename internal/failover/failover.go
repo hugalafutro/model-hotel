@@ -136,7 +136,7 @@ func (r *Repository) UpsertWithConfig(ctx context.Context, displayModel string, 
 	// definition not a claim, and a stale stamp left behind would make the NEXT
 	// auto-disable read as an old one. The config-sync member import does NOT
 	// go through here; it clears conditionally on its own (see the ON CONFLICT
-	// clause in internal/api/configsync_apply.go).
+	// clause in internal/api/configsync_apply_upserts.go).
 	doSetClauses := []string{
 		"priority_order = $2",
 		"entry_enabled = $3",

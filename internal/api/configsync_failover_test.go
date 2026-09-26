@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"slices"
+	"strings"
 	"testing"
 	"time"
 
@@ -1085,6 +1086,18 @@ func TestConfigSync_ImportShortAutoGroupIsSilent(t *testing.T) {
 	if n != 0 {
 		t.Error("o3 resolved to one entry and must not be built")
 	}
+	// The echo still carries o3 as sent, so this member's hash can equal the
+	// primary's despite the gap.
+	setFleetPrimaryMarker(t, false)
+	var echoed *ExportFailoverGroup
+	for _, g := range doExport(t, newConfigSyncRouter(t, configSyncMasterKey)).Config.FailoverGroups {
+		if g.DisplayModel == "o3" {
+			echoed = &g
+		}
+	}
+	if echoed == nil || len(echoed.Entries) != 2 || !echoed.AutoCreated {
+		t.Errorf("echoed o3 = %+v, want the primary's two-entry auto group", echoed)
+	}
 }
 
 // The member's own discovery keeps the imported order and appends what it finds.
@@ -1118,9 +1131,10 @@ func TestConfigSync_ImportedAutoOrderSurvivesLocalDiscoverySync(t *testing.T) {
 	}
 }
 
-// A member's export echoes the auto groups it was last sent, whatever its own
-// discovery has formed since, so its hash can equal the primary's. Promoted, it
-// exports its own rows again.
+// A member's export echoes the auto groups it was last sent, so its config hash
+// equals the primary's; its own discovery changing an auto group drops the echo
+// (the hash then differs, and Front Desk re-imports), and the next import puts it
+// back while keeping what discovery found. Promoted, it exports its own rows.
 func TestConfigSync_MemberEchoesPrimaryAutoGroups(t *testing.T) {
 	cleanConfigTables(t)
 	openai := seedProvider(t, "openai", "sk-secret", configSyncMasterKey)
@@ -1129,7 +1143,9 @@ func TestConfigSync_MemberEchoesPrimaryAutoGroups(t *testing.T) {
 	seedFailoverGroup(t, "gpt-4o", []string{m[1], m[0]}, nil, true)
 	c := seedSharedModel(t, "o3", openai, azure)
 	seedFailoverGroup(t, "mine", c, nil, false)
-	env := doExport(t, newConfigSyncRouter(t, configSyncMasterKey))
+	rp := newConfigSyncRouter(t, configSyncMasterKey)
+	env := doExport(t, rp)
+	primaryVersion := doVersion(t, rp)
 
 	cleanConfigTables(t)
 	rOpenai := seedProvider(t, "openai", "sk-secret", configSyncMasterKey)
@@ -1140,38 +1156,64 @@ func TestConfigSync_MemberEchoesPrimaryAutoGroups(t *testing.T) {
 	if rec := doImport(t, r, env, ""); rec.Code != http.StatusOK {
 		t.Fatalf("import status = %d, body %s", rec.Code, rec.Body.String())
 	}
-	// The member's discovery then forms a group the primary has not seen yet, and
-	// finds a third provider for gpt-4o.
-	groq := seedProvider(t, "groq", "sk-secret", configSyncMasterKey)
-	seedModel(t, groq, "gpt-4o")
-	ahead := seedSharedModel(t, "gpt-5", rOpenai, rAzure)
-	seedFailoverGroup(t, "gpt-5", ahead, nil, true)
+	setFleetPrimaryMarker(t, false)
+	want, _ := json.Marshal(env.Config.FailoverGroups)
+	if got, _ := json.Marshal(doExport(t, r).Config.FailoverGroups); !bytes.Equal(got, want) {
+		t.Errorf("after import, failover groups = %s\nwant the primary's list verbatim: %s", got, want)
+	}
+	if v := doVersion(t, r); v != primaryVersion {
+		t.Errorf("after import, version = %s, want the primary's %s", v, primaryVersion)
+	}
+
+	// The member's discovery then forms groups the primary has not sent (gpt-5
+	// and o3 both share two providers here). That is a change the echo would
+	// hide, so the scan drops it and the member shows its own rows.
+	seedSharedModel(t, "gpt-5", rOpenai, rAzure)
 	if _, err := failover.NewRepository(apiTestDB.Pool()).SyncAllModels(context.Background()); err != nil {
 		t.Fatalf("sync: %v", err)
 	}
+	if got, _ := json.Marshal(doExport(t, r).Config.FailoverGroups); bytes.Equal(got, want) {
+		t.Fatal("after a scan that formed new auto groups, the export must show the member's own rows, not the stale echo")
+	}
+	// A scan that changes nothing leaves the state alone: still own rows.
+	if _, err := failover.NewRepository(apiTestDB.Pool()).SyncAllModels(context.Background()); err != nil {
+		t.Fatalf("sync: %v", err)
+	}
+	if names := groupNames(doExport(t, r).Config.FailoverGroups); !slices.Equal(names, []string{"gpt-4o", "gpt-5", "mine", "o3"}) {
+		t.Fatalf("own rows = %v, want gpt-4o gpt-5 mine o3", names)
+	}
 
-	setFleetPrimaryMarker(t, false)
-	asMember := doExport(t, r).Config.FailoverGroups
-	want, _ := json.Marshal(env.Config.FailoverGroups)
-	got, _ := json.Marshal(asMember)
-	if !bytes.Equal(got, want) {
-		t.Errorf("as a member, failover groups = %s\nwant the primary's list verbatim: %s", got, want)
+	// Front Desk sees the mismatch and imports again: the echo is back, the
+	// member-only groups survive, and the hashes meet.
+	if rec := doImport(t, r, env, ""); rec.Code != http.StatusOK {
+		t.Fatalf("re-import status = %d, body %s", rec.Code, rec.Body.String())
+	}
+	if got, _ := json.Marshal(doExport(t, r).Config.FailoverGroups); !bytes.Equal(got, want) {
+		t.Errorf("after re-import, failover groups = %s\nwant the primary's list verbatim: %s", got, want)
+	}
+	if v := doVersion(t, r); v != primaryVersion {
+		t.Errorf("after re-import, version = %s, want the primary's %s", v, primaryVersion)
+	}
+	for _, name := range []string{"gpt-5", "o3"} {
+		if p, _, auto := groupPriority(t, name); len(p) != 2 || !auto {
+			t.Errorf("member-only auto group %s = %v auto=%v, want kept intact", name, p, auto)
+		}
 	}
 
 	setFleetPrimaryMarker(t, true)
 	asPrimary := doExport(t, r).Config.FailoverGroups
-	names := make([]string, 0, len(asPrimary))
-	for _, g := range asPrimary {
-		names = append(names, g.DisplayModel)
-	}
-	// Its own rows: the auto groups its discovery formed (o3 shares two providers
-	// too) beside the custom one, not the primary's list.
-	if !slices.Equal(names, []string{"gpt-4o", "gpt-5", "mine", "o3"}) {
+	if names := groupNames(asPrimary); !slices.Equal(names, []string{"gpt-4o", "gpt-5", "mine", "o3"}) {
 		t.Fatalf("as the primary, groups = %v, want its own rows", names)
 	}
-	if len(asPrimary[0].Entries) != 3 {
-		t.Errorf("as the primary, gpt-4o = %+v, want the three entries its rows hold", asPrimary[0].Entries)
+}
+
+// groupNames lists exported groups by display_model, in export order.
+func groupNames(groups []ExportFailoverGroup) []string {
+	out := make([]string, 0, len(groups))
+	for _, g := range groups {
+		out = append(out, g.DisplayModel)
 	}
+	return out
 }
 
 // The echo is rewritten by every import that carries the field and left alone by
@@ -1265,23 +1307,224 @@ func TestConfigSync_ExportFailoverGroupsReadFailures(t *testing.T) {
 	}
 }
 
-// Storing the echo marker is best-effort: the groups are already committed, so a
-// failed Set costs one pass of hash mismatch and is logged, not returned.
-func TestConfigSync_ApplyFailoverGroupsToleratesEchoStoreFailure(t *testing.T) {
+// The echo commits with the rows it certifies: when its write fails, the group
+// rows from the same import are rolled back too, so rows and echo can never come
+// from different imports.
+func TestConfigSync_AutoGroupEchoCommitsWithTheGroups(t *testing.T) {
 	cleanConfigTables(t)
-	seamPool, lockSettings := lockedReadDB(t, "settings")
-	h := NewConfigSyncHandler(apiTestDB, settings.NewRepository(seamPool.Pool()), configSyncMasterKey, "v-test", nil, nil)
+	openai := seedProvider(t, "openai", "sk-secret", configSyncMasterKey)
+	azure := seedProvider(t, "azure", "sk-secret", configSyncMasterKey)
+	seedSharedModel(t, "gpt-4o", openai, azure)
+	h := NewConfigSyncHandler(apiTestDB, settings.NewRepository(apiTestDB.Pool()), configSyncMasterKey, "v-test", nil, nil)
+	_, lockSettings := lockedReadDB(t, "settings")
 
+	ctx, cancel := context.WithTimeout(context.Background(), 1500*time.Millisecond)
+	defer cancel()
 	unlock := lockSettings()
-	res, err := h.applyFailoverGroups(context.Background(), []ExportFailoverGroup{})
+	_, err := h.applyFailoverGroups(ctx, []ExportFailoverGroup{{
+		DisplayModel: "mine", GroupEnabled: true,
+		Entries: []ExportFailoverEntry{{ProviderName: "openai", ModelID: "gpt-4o", Enabled: true}, {ProviderName: "azure", ModelID: "gpt-4o", Enabled: true}},
+	}})
 	unlock()
-	if err != nil || len(res.Skipped) != 0 {
-		t.Fatalf("apply = %+v, %v; want a clean result despite the marker write failing", res, err)
+	if err == nil {
+		t.Fatal("apply with the settings table locked: want an error, got none")
 	}
 	var n int
 	_ = apiTestDB.Pool().QueryRow(context.Background(),
-		`SELECT count(*) FROM settings WHERE key = $1`, keyFleetAutoFailoverGroups).Scan(&n)
+		`SELECT count(*) FROM model_failover_groups WHERE display_model = 'mine'`).Scan(&n)
 	if n != 0 {
-		t.Error("marker must not exist after a failed Set")
+		t.Error("group row committed although the echo write failed")
+	}
+}
+
+// A member custom group that carries the name of a primary auto group is not kept
+// by that name: display_model is unique per instance, and the echo already
+// exports the name as the primary's auto group. Here the auto group is short on
+// the member, so the row is deleted rather than converted.
+func TestConfigSync_ImportDropsMemberCustomGroupNamedLikeAPrimaryAutoGroup(t *testing.T) {
+	cleanConfigTables(t)
+	openai := seedProvider(t, "openai", "sk-secret", configSyncMasterKey)
+	azure := seedProvider(t, "azure", "sk-secret", configSyncMasterKey)
+	seedFailoverGroup(t, "gpt-4o", seedSharedModel(t, "gpt-4o", openai, azure), nil, true)
+	env := doExport(t, newConfigSyncRouter(t, configSyncMasterKey))
+
+	cleanConfigTables(t)
+	rOpenai := seedProvider(t, "openai", "sk-secret", configSyncMasterKey)
+	rAzure := seedProvider(t, "azure", "sk-secret", configSyncMasterKey)
+	seedModel(t, rOpenai, "gpt-4o") // azure does not list it here: the auto group is short
+	seedFailoverGroup(t, "gpt-4o", seedSharedModel(t, "o3", rOpenai, rAzure), nil, false)
+	r := newConfigSyncRouter(t, configSyncMasterKey)
+	if rec := doImport(t, r, env, ""); rec.Code != http.StatusOK {
+		t.Fatalf("import status = %d, body %s", rec.Code, rec.Body.String())
+	}
+	var n int
+	_ = apiTestDB.Pool().QueryRow(context.Background(),
+		`SELECT count(*) FROM model_failover_groups WHERE display_model = 'gpt-4o'`).Scan(&n)
+	if n != 0 {
+		t.Error("member custom group named like the primary's auto group must be removed")
+	}
+	setFleetPrimaryMarker(t, false)
+	got := doExport(t, r).Config.FailoverGroups
+	if len(got) != 1 || got[0].DisplayModel != "gpt-4o" || !got[0].AutoCreated {
+		t.Fatalf("export = %+v, want exactly the echoed auto group", got)
+	}
+}
+
+// The dry-run diff never reports an auto group as removed: apply never deletes
+// one, and a removal that will not happen would mislead the operator.
+func TestConfigSync_DiffNeverReportsAnAutoGroupRemoved(t *testing.T) {
+	cleanConfigTables(t)
+	seedProvider(t, "openai", "sk-secret", configSyncMasterKey)
+	env := doExport(t, newConfigSyncRouter(t, configSyncMasterKey))
+	env.Config.FailoverGroups = []ExportFailoverGroup{}
+
+	cleanConfigTables(t)
+	rOpenai := seedProvider(t, "openai", "sk-secret", configSyncMasterKey)
+	rAzure := seedProvider(t, "azure", "sk-secret", configSyncMasterKey)
+	seedFailoverGroup(t, "gpt-4o", seedSharedModel(t, "gpt-4o", rOpenai, rAzure), nil, true)
+	seedFailoverGroup(t, "stale", seedSharedModel(t, "o3", rOpenai, rAzure), nil, false)
+	rec := doImport(t, newConfigSyncRouter(t, configSyncMasterKey), env, "")
+	if rec.Code != http.StatusOK {
+		t.Fatalf("import status = %d, body %s", rec.Code, rec.Body.String())
+	}
+	var resp importResponse
+	_ = json.Unmarshal(rec.Body.Bytes(), &resp)
+	if !slices.Equal(resp.Diff.FailoverGroups.Removed, []string{"stale"}) {
+		t.Errorf("removed = %v, want only the stale custom group", resp.Diff.FailoverGroups.Removed)
+	}
+	if p, _, auto := groupPriority(t, "gpt-4o"); len(p) != 2 || !auto {
+		t.Errorf("auto group after an empty list = %v auto=%v, want untouched", p, auto)
+	}
+}
+
+// An entry only this member's discovery knows (a provider listing the model for
+// this key alone) survives the import after the primary's entries, toggle and all:
+// the order discovery would produce itself, so the next scan changes nothing.
+func TestConfigSync_ImportKeepsMemberOnlyAutoEntries(t *testing.T) {
+	cleanConfigTables(t)
+	openai := seedProvider(t, "openai", "sk-secret", configSyncMasterKey)
+	azure := seedProvider(t, "azure", "sk-secret", configSyncMasterKey)
+	seedProvider(t, "groq", "sk-secret", configSyncMasterKey)
+	m := seedSharedModel(t, "gpt-4o", openai, azure)
+	seedFailoverGroup(t, "gpt-4o", []string{m[1], m[0]}, nil, true)
+	env := doExport(t, newConfigSyncRouter(t, configSyncMasterKey))
+
+	cleanConfigTables(t)
+	rOpenai := seedProvider(t, "openai", "sk-secret", configSyncMasterKey)
+	rAzure := seedProvider(t, "azure", "sk-secret", configSyncMasterKey)
+	rGroq := seedProvider(t, "groq", "sk-secret", configSyncMasterKey)
+	rm := seedSharedModel(t, "gpt-4o", rOpenai, rAzure, rGroq)
+	seedFailoverGroup(t, "gpt-4o", rm, map[string]bool{rm[2]: false}, true)
+	rec := doImport(t, newConfigSyncRouter(t, configSyncMasterKey), env, "")
+	if rec.Code != http.StatusOK {
+		t.Fatalf("import status = %d, body %s", rec.Code, rec.Body.String())
+	}
+	var resp importResponse
+	_ = json.Unmarshal(rec.Body.Bytes(), &resp)
+	if len(resp.Partial) != 0 {
+		t.Errorf("partial = %v, want none for an auto group", resp.Partial)
+	}
+	priority, entry, _ := groupPriority(t, "gpt-4o")
+	if want := []string{rm[1], rm[0], rm[2]}; !slices.Equal(priority, want) {
+		t.Fatalf("priority = %v, want the primary's order then the member-only entry: %v", priority, want)
+	}
+	if v, ok := entry[rm[2]]; !ok || v {
+		t.Errorf("entry_enabled[groq] = %v (ok=%v), want the member's toggle kept (false)", v, ok)
+	}
+	if _, err := failover.NewRepository(apiTestDB.Pool()).SyncAllModels(context.Background()); err != nil {
+		t.Fatalf("sync: %v", err)
+	}
+	if after, _, _ := groupPriority(t, "gpt-4o"); !slices.Equal(after, priority) {
+		t.Errorf("a scan after the import changed the order: %v -> %v", priority, after)
+	}
+}
+
+// Auto groups count enabled models only, as discovery does; a disabled one would
+// be pruned by the next scan, which would drop the echo and re-import forever.
+// Custom groups keep resolving disabled models (the router skips them, the UI
+// greys them).
+func TestConfigSync_ImportSkipsDisabledModelsInAutoGroupsOnly(t *testing.T) {
+	cleanConfigTables(t)
+	openai := seedProvider(t, "openai", "sk-secret", configSyncMasterKey)
+	azure := seedProvider(t, "azure", "sk-secret", configSyncMasterKey)
+	m := seedSharedModel(t, "gpt-4o", openai, azure)
+	seedFailoverGroup(t, "gpt-4o", m, nil, true)
+	seedFailoverGroup(t, "mine", m, nil, false)
+	env := doExport(t, newConfigSyncRouter(t, configSyncMasterKey))
+
+	cleanConfigTables(t)
+	rOpenai := seedProvider(t, "openai", "sk-secret", configSyncMasterKey)
+	rAzure := seedProvider(t, "azure", "sk-secret", configSyncMasterKey)
+	rm := seedSharedModel(t, "gpt-4o", rOpenai, rAzure)
+	if _, err := apiTestDB.Pool().Exec(context.Background(), `UPDATE models SET enabled = false WHERE id = $1`, rm[1]); err != nil {
+		t.Fatalf("disable model: %v", err)
+	}
+	rec := doImport(t, newConfigSyncRouter(t, configSyncMasterKey), env, "")
+	if rec.Code != http.StatusOK {
+		t.Fatalf("import status = %d, body %s", rec.Code, rec.Body.String())
+	}
+	var n int
+	_ = apiTestDB.Pool().QueryRow(context.Background(),
+		`SELECT count(*) FROM model_failover_groups WHERE display_model = 'gpt-4o'`).Scan(&n)
+	if n != 0 {
+		t.Error("auto group with one enabled model must not be built")
+	}
+	if p, _, _ := groupPriority(t, "mine"); len(p) != 2 {
+		t.Errorf("custom group = %v, want both models, disabled one included", p)
+	}
+}
+
+// An operator editing or deleting an auto group on a member drops the echo, so
+// the member's export shows the change and Front Desk syncs the primary's back.
+func TestFailoverGroup_EditOrDeleteOfAnAutoGroupDropsTheFleetEcho(t *testing.T) {
+	cleanConfigTables(t)
+	h := newIntegrationFailoverHandler()
+	openai := seedProvider(t, "openai", "sk-secret", configSyncMasterKey)
+	azure := seedProvider(t, "azure", "sk-secret", configSyncMasterKey)
+	m := seedSharedModel(t, "gpt-4o", openai, azure)
+	seedFailoverGroup(t, "gpt-4o", m, nil, true)
+	seedEcho := func() {
+		if _, err := apiTestDB.Pool().Exec(context.Background(),
+			`INSERT INTO settings (key, value, updated_at) VALUES ($1, '[]', now())
+			 ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value`, keyFleetAutoFailoverGroups); err != nil {
+			t.Fatalf("seed echo: %v", err)
+		}
+	}
+	echoRows := func() int {
+		var n int
+		_ = apiTestDB.Pool().QueryRow(context.Background(),
+			`SELECT count(*) FROM settings WHERE key = $1`, keyFleetAutoFailoverGroups).Scan(&n)
+		return n
+	}
+	// By SQL, not the repository: the process-wide group cache may still hold a
+	// "gpt-4o" from an earlier test with a different id.
+	var groupID string
+	if err := apiTestDB.Pool().QueryRow(context.Background(),
+		`SELECT id FROM model_failover_groups WHERE display_model = 'gpt-4o'`).Scan(&groupID); err != nil {
+		t.Fatalf("get group: %v", err)
+	}
+	failover.InvalidateFailoverCache()
+
+	seedEcho()
+	req, w := newChiRequest(http.MethodPut, "/failover-groups/"+groupID,
+		strings.NewReader(`{"priority_order":["`+m[1]+`","`+m[0]+`"],"entry_enabled":{"`+m[0]+`":true,"`+m[1]+`":true}}`))
+	req = setChiURLParam(req, "id", groupID)
+	h.Update(w, req)
+	if w.Code != http.StatusOK {
+		t.Fatalf("update status = %d body = %s", w.Code, w.Body.String())
+	}
+	if echoRows() != 0 {
+		t.Error("reordering an auto group must drop the fleet echo")
+	}
+
+	seedEcho()
+	req, w = newChiRequest(http.MethodDelete, "/failover-groups/"+groupID, http.NoBody)
+	req = setChiURLParam(req, "id", groupID)
+	h.Delete(w, req)
+	if w.Code != http.StatusNoContent {
+		t.Fatalf("delete status = %d body = %s", w.Code, w.Body.String())
+	}
+	if echoRows() != 0 {
+		t.Error("deleting an auto group must drop the fleet echo")
 	}
 }

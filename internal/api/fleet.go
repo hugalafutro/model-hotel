@@ -12,6 +12,7 @@ import (
 
 	"github.com/hugalafutro/model-hotel/internal/debuglog"
 	"github.com/hugalafutro/model-hotel/internal/events"
+	"github.com/hugalafutro/model-hotel/internal/failover"
 	"github.com/hugalafutro/model-hotel/internal/util"
 )
 
@@ -83,12 +84,15 @@ const (
 	// last sent, verbatim (the auto subset of the envelope's failover_groups). A
 	// member's export emits this in place of its own auto rows, for the reason the
 	// two markers above exist: a member's own auto groups can honestly differ from
-	// the primary's (its discovery ran ahead, or a provider lists a model for one
-	// key and not another), and a hash built from its rows would then read as a
-	// member that failed to converge. Whole section rather than a remainder because
-	// entry order is the intent being carried. Instance-local, rewritten by each
-	// import that carries the field, and ignored once this instance is the primary.
-	keyFleetAutoFailoverGroups = "_fleet_auto_failover_groups"
+	// the primary's (a provider lists a model for one key and not another), and a
+	// hash built from its rows would then read as a member that failed to converge.
+	// Whole section rather than a remainder because entry order is the intent
+	// being carried. Instance-local, written in the same transaction as the group
+	// rows it describes, ignored while this instance is the primary, and dropped
+	// (row deleted, or value emptied) whenever this instance changes an auto group
+	// itself or its fleet role flips, so the member's own rows show again and the
+	// next import re-applies the primary's order on top of them.
+	keyFleetAutoFailoverGroups = failover.FleetAutoGroupsEchoKey
 	// keyFleetActiveMembers is the fleet-wide count of StateActive members,
 	// delivered by Front Desk's announce heartbeat. The rate limiters read it as a
 	// fair-share divisor. Instance-local like the other _fleet_* keys: written via
@@ -350,6 +354,14 @@ func (h *FleetHandler) Announce(w http.ResponseWriter, r *http.Request) {
 		{keyFleetIsPrimary, strconv.FormatBool(req.IsPrimary)},
 		{keyFleetPrimaryName, req.PrimaryName},
 		{keyFleetFrontdeskID, req.FrontdeskID},
+	}
+	// A role flip invalidates the auto-group echo (keyFleetAutoFailoverGroups): a
+	// demoted primary may have changed its auto groups while it led, and an echo
+	// left over from before would certify it as converged without an import. In
+	// the same batched write; emptied rather than deleted because the store has
+	// no delete, and the export reads an empty value as no echo.
+	if wasPrimary, known, _ := h.settings.GetChecked(ctx, keyFleetIsPrimary); known && (wasPrimary == "true") != req.IsPrimary {
+		writes = append(writes, [2]string{keyFleetAutoFailoverGroups, ""})
 	}
 	// A legacy Front Desk omits active_members (decodes to 0). Only record a real
 	// count so an old control plane can never overwrite a live divisor with 0

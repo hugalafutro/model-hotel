@@ -587,7 +587,7 @@ func (h *ConfigSyncHandler) postImportRefresh(ctx context.Context, env ConfigEnv
 		h.settings.NotifyDeleted(k)
 	}
 
-	// Populate this member's models so custom failover groups can resolve. The
+	// Populate this member's models so failover groups can resolve. The
 	// "discover on provider creation" default is a dashboard action this raw import
 	// bypasses, and scheduled discovery may be off, so without this a freshly-synced
 	// member has providers but no models and hotel/<group> routes to nothing until a
@@ -595,7 +595,7 @@ func (h *ConfigSyncHandler) postImportRefresh(ctx context.Context, env ConfigEnv
 	// and groups reconcile on the next sync.
 	if h.discoverAll != nil {
 		if err := h.discoverAll(ctx); err != nil {
-			debuglog.Warn("configsync: post-import discovery failed; custom failover groups may not resolve until models exist", "error", err)
+			debuglog.Warn("configsync: post-import discovery failed; failover groups may not resolve until models exist", "error", err)
 			out.DiscoveryErr = err
 		}
 	}
@@ -622,8 +622,8 @@ func (h *ConfigSyncHandler) postImportRefresh(ctx context.Context, env ConfigEnv
 		out.ModelStateErr = errors.Join(out.ModelStateErr, err)
 	}
 
-	// Custom failover groups, in their own transaction now that discovery has had
-	// a chance to create the models their entries reference. Best-effort for the
+	// Failover groups, in their own transaction now that discovery has had a
+	// chance to create the models their entries reference. Best-effort for the
 	// same reason: a group that cannot resolve yet reconciles on the next sync.
 	groupCtx, groupCancel := context.WithTimeout(ctx, failoverApplyTimeout)
 	groupRes, err := h.applyFailoverGroups(groupCtx, env.Config.FailoverGroups)
@@ -631,7 +631,7 @@ func (h *ConfigSyncHandler) postImportRefresh(ctx context.Context, env ConfigEnv
 	out.SkippedGroups = groupRes.Skipped
 	out.PartialGroups = groupRes.Partial
 	if err != nil {
-		debuglog.Warn("configsync: failed to apply custom failover groups", "error", err)
+		debuglog.Warn("configsync: failed to apply failover groups", "error", err)
 		out.GroupApplyErr = err
 	}
 

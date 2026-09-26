@@ -15,13 +15,17 @@ import (
 	"github.com/hugalafutro/model-hotel/internal/user"
 )
 
-// applyFailoverGroups upserts the custom failover groups and declaratively
-// removes custom groups absent from the envelope, in a dedicated transaction.
-// It runs after the core-config commit and after discovery, so the models the
-// entries reference exist. Auto-created groups are never touched. The declarative
-// delete keeps a group still named in the envelope even if it was just skipped
-// for too few resolvable entries, so a transient model gap does not delete the
-// operator's group. It returns what the build could not fully do.
+// applyFailoverGroups upserts the envelope's failover groups, custom and auto,
+// and declaratively removes custom groups the envelope does not name as custom,
+// in a dedicated transaction. It runs after the core-config commit and after
+// discovery, so the models the entries reference exist. Auto-created groups are
+// upserted but never deleted: their existence is this member's discovery's call.
+// The declarative delete keeps a custom group still named in the envelope even if
+// it was just skipped for too few resolvable entries, so a transient model gap
+// does not delete the operator's group. The auto groups as sent are stored in the
+// same transaction (keyFleetAutoFailoverGroups) so the rows and the echo that
+// certifies them can never come from different imports. It returns what the build
+// could not fully do.
 func (h *ConfigSyncHandler) applyFailoverGroups(ctx context.Context, groups []ExportFailoverGroup) (groupApplyResult, error) {
 	// Distinguish "field absent" from "explicitly empty". A nil slice means the
 	// envelope carried no failover_groups key, so leave the member's own custom
@@ -42,29 +46,43 @@ func (h *ConfigSyncHandler) applyFailoverGroups(ctx context.Context, groups []Ex
 	if err != nil {
 		return groupApplyResult{}, err
 	}
-	groupNames := names(groups, func(g ExportFailoverGroup) string { return g.DisplayModel })
+	// Only the names the primary holds as CUSTOM keep a custom row here. A custom
+	// row that shares its name with a primary auto group is not kept by that name:
+	// if the auto group resolved, the upsert above already turned the row into it;
+	// if it was skipped, keeping the custom row would export the name beside the
+	// echoed auto group and the hashes could never meet.
+	var custom, sent []ExportFailoverGroup
+	for _, g := range groups {
+		if g.AutoCreated {
+			sent = append(sent, g)
+		} else {
+			custom = append(custom, g)
+		}
+	}
+	customNames := names(custom, func(g ExportFailoverGroup) string { return g.DisplayModel })
 	if _, err := tx.Exec(ctx,
 		`DELETE FROM model_failover_groups WHERE auto_created = false AND display_model <> ALL($1)`,
-		groupNames); err != nil {
+		customNames); err != nil {
+		return groupApplyResult{}, err
+	}
+	// The echo (keyFleetAutoFailoverGroups) rides the same transaction as the rows
+	// it certifies. Raw SQL, not the settings store: the store's transactional
+	// write enforces the syncable allowlist, which _fleet_* keys are outside of.
+	if sent == nil {
+		sent = []ExportFailoverGroup{}
+	}
+	raw, err := json.Marshal(sent)
+	if err != nil {
+		return groupApplyResult{}, err
+	}
+	if _, err := tx.Exec(ctx, `
+		INSERT INTO settings (key, value, updated_at) VALUES ($1, $2, now())
+		ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = now()`,
+		keyFleetAutoFailoverGroups, string(raw)); err != nil {
 		return groupApplyResult{}, err
 	}
 	if err := tx.Commit(ctx); err != nil {
 		return groupApplyResult{}, err
-	}
-	// Remember the auto groups as sent, so this member's export can echo them; see
-	// keyFleetAutoFailoverGroups. Via Set, outside the allowlisted declarative
-	// replace like the other _fleet_* keys, and after the commit: a failure here
-	// costs one pass of hash mismatch, not the config.
-	sent := make([]ExportFailoverGroup, 0, len(groups))
-	for _, g := range groups {
-		if g.AutoCreated {
-			sent = append(sent, g)
-		}
-	}
-	if raw, err := json.Marshal(sent); err == nil {
-		if err := h.settings.Set(ctx, keyFleetAutoFailoverGroups, string(raw)); err != nil {
-			debuglog.Warn("configsync: failed to store the fleet auto-group echo", "error", err)
-		}
 	}
 	return res, nil
 }
@@ -400,37 +418,58 @@ type groupApplyResult struct {
 	Partial []string
 }
 
-// upsertFailoverGroups re-creates each custom failover group on this member by
+// upsertFailoverGroups re-creates each failover group on this member by
 // resolving its (provider, model_id) entry refs back to local model UUIDs. An
 // entry whose model is not present here is dropped; a group left with fewer than
 // two routable entries is skipped (a one-member failover group is meaningless,
-// matching pruneStaleEntries), and one left with two or more but fewer than the
-// primary sent is written short and reported as partial. Always writes
-// auto_created = false.
+// matching pruneStaleEntries), and a custom one left with two or more but fewer
+// than the primary sent is written short and reported as partial. auto_created is
+// written as the envelope says.
+//
+// An auto group follows this member's discovery rules on top of the primary's
+// intent: only models that are enabled here count (discovery forms auto groups
+// from enabled models alone, so a disabled one would be pruned on the next scan,
+// and that prune would drop the echo and re-import the group, forever), and any
+// entry this member's own auto row already holds that the primary did not send
+// (a model only this member's provider lists) stays, after the primary's, with
+// its toggle. That is the order discovery would produce itself, so a scan after
+// the import changes nothing.
 func upsertFailoverGroups(ctx context.Context, tx pgx.Tx, groups []ExportFailoverGroup) (groupApplyResult, error) {
 	var res groupApplyResult
 	if len(groups) == 0 {
 		return res, nil
 	}
-	// (provider, model_id) -> local model UUID. Built inside the transaction so it
-	// reflects the just-synced provider set (deleted providers cascade-removed
-	// their models). Models themselves come from each member's discovery.
-	localUUID := map[string]string{}
+	// (provider, model_id) -> local model UUID, with the model's effective enabled
+	// state. Built inside the transaction so it reflects the just-synced provider
+	// set (deleted providers cascade-removed their models). Models themselves come
+	// from each member's discovery.
+	type localModel struct {
+		id      string
+		enabled bool
+	}
+	localUUID := map[string]localModel{}
+	enabledUUID := map[string]bool{}
 	rows, err := tx.Query(ctx,
-		`SELECT p.name, m.model_id, m.id FROM models m JOIN providers p ON m.provider_id = p.id`)
+		`SELECT p.name, m.model_id, m.id, (m.enabled AND p.enabled) FROM models m JOIN providers p ON m.provider_id = p.id`)
 	if err != nil {
 		return res, err
 	}
 	for rows.Next() {
 		var provider, modelID, id string
-		if err := rows.Scan(&provider, &modelID, &id); err != nil {
+		var enabled bool
+		if err := rows.Scan(&provider, &modelID, &id, &enabled); err != nil {
 			rows.Close()
 			return res, err
 		}
-		localUUID[provider+"\x00"+modelID] = id
+		localUUID[provider+"\x00"+modelID] = localModel{id: id, enabled: enabled}
+		enabledUUID[id] = enabled
 	}
 	rows.Close()
 	if err := rows.Err(); err != nil {
+		return res, err
+	}
+	ownAuto, err := readOwnAutoGroups(ctx, tx)
+	if err != nil {
 		return res, err
 	}
 
@@ -438,12 +477,21 @@ func upsertFailoverGroups(ctx context.Context, tx pgx.Tx, groups []ExportFailove
 		priority := make([]string, 0, len(g.Entries))
 		entryEnabled := map[string]bool{}
 		for _, e := range g.Entries {
-			id, ok := localUUID[e.ProviderName+"\x00"+e.ModelID]
-			if !ok {
+			m, ok := localUUID[e.ProviderName+"\x00"+e.ModelID]
+			if !ok || (g.AutoCreated && !m.enabled) {
 				continue // model absent on this member (not discovered yet, or removed)
 			}
-			priority = append(priority, id)
-			entryEnabled[id] = e.Enabled
+			priority = append(priority, m.id)
+			entryEnabled[m.id] = e.Enabled
+		}
+		if g.AutoCreated {
+			for _, id := range ownAuto[g.DisplayModel].priority {
+				if _, sent := entryEnabled[id]; sent || !enabledUUID[id] {
+					continue
+				}
+				priority = append(priority, id)
+				entryEnabled[id] = ownAuto[g.DisplayModel].enabled[id]
+			}
 		}
 		// An auto group this member cannot fill, or can only fill in part, is its
 		// own discovery's to form or drop: neither is an operator error to alert on,
@@ -502,13 +550,59 @@ func upsertFailoverGroups(ctx context.Context, tx pgx.Tx, groups []ExportFailove
 				-- state), so it must not erase a stamp this member's discovery
 				-- earned. A row inserted rather than updated starts at NULL, so a
 				-- claim is never invented either.
-				auto_disabled_at = CASE WHEN EXCLUDED.group_enabled THEN NULL ELSE model_failover_groups.auto_disabled_at END,
+				--
+				-- An auto row never carries the stamp (discovery deletes an undersized
+				-- auto group rather than disabling it), so an imported auto group
+				-- landing on a custom row that had one clears it outright.
+				auto_disabled_at = CASE WHEN EXCLUDED.group_enabled OR EXCLUDED.auto_created THEN NULL ELSE model_failover_groups.auto_disabled_at END,
 				updated_at     = now()`,
 			g.DisplayModel, priorityJSON, entryEnabledJSON, g.GroupEnabled, g.DisplayName, g.Description, g.AutoCreated); err != nil {
 			return res, err
 		}
 	}
 	return res, nil
+}
+
+// ownAutoGroup is what this member's discovery already holds for one auto group:
+// its entry order and toggles, keyed by local model UUID.
+type ownAutoGroup struct {
+	priority []string
+	enabled  map[string]bool
+}
+
+// readOwnAutoGroups reads every auto group this member holds, so an import can
+// keep the entries the primary did not send (see upsertFailoverGroups).
+func readOwnAutoGroups(ctx context.Context, q querier) (map[string]ownAutoGroup, error) {
+	rows, err := q.Query(ctx,
+		`SELECT display_model, priority_order, COALESCE(entry_enabled, '{}') FROM model_failover_groups WHERE auto_created = true`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	out := map[string]ownAutoGroup{}
+	for rows.Next() {
+		var name string
+		var priorityJSON, enabledJSON []byte
+		if err := rows.Scan(&name, &priorityJSON, &enabledJSON); err != nil {
+			return nil, err
+		}
+		var g ownAutoGroup
+		if err := json.Unmarshal(priorityJSON, &g.priority); err != nil {
+			return nil, fmt.Errorf("auto group %s: priority_order: %w", name, err)
+		}
+		g.enabled = map[string]bool{}
+		if err := json.Unmarshal(enabledJSON, &g.enabled); err != nil {
+			return nil, fmt.Errorf("auto group %s: entry_enabled: %w", name, err)
+		}
+		// entry_enabled absence means enabled (matches proxy/enabledEntryIDs).
+		for _, id := range g.priority {
+			if _, ok := g.enabled[id]; !ok {
+				g.enabled[id] = true
+			}
+		}
+		out[name] = g
+	}
+	return out, rows.Err()
 }
 
 func providerNameToID(ctx context.Context, q querier) (map[string]string, error) {

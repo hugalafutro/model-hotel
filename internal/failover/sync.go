@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"slices"
 	"strings"
 
 	"github.com/google/uuid"
@@ -11,6 +12,24 @@ import (
 
 	"github.com/hugalafutro/model-hotel/internal/debuglog"
 )
+
+// FleetAutoGroupsEchoKey is the settings row where the config-sync import stores
+// the auto-created groups the fleet primary last sent (internal/api's
+// keyFleetAutoFailoverGroups). A member's config export echoes that row in place
+// of its own auto groups so its hash can equal the primary's. Discovery clears the
+// row whenever it changes an auto group here: the member's export then shows its
+// own rows, its hash stops matching, and Front Desk re-applies the primary's order
+// on top of what discovery found. A scan that changes nothing leaves it alone, so
+// a fleet at rest is not re-imported on every scan.
+const FleetAutoGroupsEchoKey = "_fleet_auto_failover_groups"
+
+// ClearFleetAutoEcho drops the fleet auto-group echo; see FleetAutoGroupsEchoKey.
+// Best-effort: a failure costs one convergence pass, so it is logged, not returned.
+func (r *Repository) ClearFleetAutoEcho(ctx context.Context) {
+	if _, err := r.pool.Exec(ctx, `DELETE FROM settings WHERE key = $1`, FleetAutoGroupsEchoKey); err != nil {
+		debuglog.Warn("failover: failed to clear the fleet auto-group echo", "error", err)
+	}
+}
 
 // DeletedGroupInfo describes a failover group that was deleted during sync.
 type DeletedGroupInfo struct {
@@ -247,6 +266,7 @@ func (r *Repository) SyncAllModels(ctx context.Context) (*SyncResult, error) {
 	}
 
 	syncedBases := make(map[string]bool)
+	autoChanged := false
 	for base, models := range baseToModels {
 		if len(models) <= 1 {
 			providerNames := make([]string, 0, len(models))
@@ -263,9 +283,13 @@ func (r *Repository) SyncAllModels(ctx context.Context) (*SyncResult, error) {
 		}
 
 		syncedBases[base] = true
-		if _, _, err := r.upsertAutoGroup(ctx, base, currentIDs); err != nil {
+		existing, order, err := r.upsertAutoGroup(ctx, base, currentIDs)
+		if err != nil {
 			result.SyncErrors = append(result.SyncErrors, fmt.Sprintf("%s: %v", base, err))
 			continue
+		}
+		if existing == nil || !slices.Equal(existing.PriorityOrder, order) {
+			autoChanged = true
 		}
 	}
 
@@ -321,6 +345,9 @@ func (r *Repository) SyncAllModels(ctx context.Context) (*SyncResult, error) {
 
 	debuglog.Info("failover: synced groups", "synced", len(syncedBases), "deleted", len(result.DeletedGroups))
 
+	if autoChanged || len(result.DeletedGroups) > 0 {
+		r.ClearFleetAutoEcho(ctx)
+	}
 	return result, nil
 }
 
@@ -363,6 +390,9 @@ func (r *Repository) SyncForModel(ctx context.Context, modelID string) (*SyncRes
 
 	if len(currentIDs) <= 1 {
 		r.deleteUndersizedAutoGroup(ctx, base, len(currentIDs), []string{}, result)
+		if len(result.DeletedGroups) > 0 {
+			r.ClearFleetAutoEcho(ctx)
+		}
 		return result, nil
 	}
 
@@ -380,6 +410,7 @@ func (r *Repository) SyncForModel(ctx context.Context, modelID string) (*SyncRes
 			RemovedModelIDs: removed,
 			AddedModelIDs:   added,
 		})
+		r.ClearFleetAutoEcho(ctx)
 	}
 
 	debuglog.Info("failover: synced group", "display_model", base, "providers", len(priorityOrder))

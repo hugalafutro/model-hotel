@@ -585,6 +585,12 @@ func (h *FailoverHandler) Update(w http.ResponseWriter, r *http.Request) {
 	if req.DisplayModel != nil && *req.DisplayModel != existing.DisplayModel {
 		failover.InvalidateFailoverCacheKey(existing.DisplayModel)
 	}
+	// An auto group edited on a fleet member no longer matches what the primary
+	// sent: drop the echo so the member's export shows its own rows and Front
+	// Desk re-applies the primary's. A no-op on the primary and standalone.
+	if existing.AutoCreated {
+		h.failoverRepo.ClearFleetAutoEcho(r.Context())
+	}
 
 	resp, err := h.buildGroupResponse(r.Context(), group)
 	if err != nil {
@@ -606,6 +612,8 @@ func (h *FailoverHandler) Delete(w http.ResponseWriter, r *http.Request) {
 		respondError(w, fmt.Sprintf("failed to delete failover group %s", id), err, http.StatusInternalServerError)
 		return
 	}
+	// Same as Update: a deleted auto group is a change the echo would hide.
+	h.failoverRepo.ClearFleetAutoEcho(r.Context())
 
 	w.WriteHeader(http.StatusNoContent)
 }

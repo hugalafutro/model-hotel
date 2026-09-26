@@ -710,3 +710,39 @@ func TestComputeFleetStatus_ManagedWindowIsNotWidened(t *testing.T) {
 		t.Error("at fleetManagedTTL the member must drop to warning, not stay managed")
 	}
 }
+
+// A role flip empties the fleet auto-group echo in the same batched write: an
+// echo from before the flip would certify a demoted primary as converged without
+// an import. The first announce ever, and one that keeps the role, leave it alone.
+func TestFleetAnnounce_RoleFlipEmptiesTheAutoGroupEcho(t *testing.T) {
+	fs := newFakeFleetSettings()
+	h := NewFleetHandler(fs)
+	announce := func(isPrimary bool) {
+		t.Helper()
+		body := `{"is_primary":` + strconv.FormatBool(isPrimary) + `,"primary_name":"hotel-a","frontdesk_id":"fd-1"}`
+		rec := httptest.NewRecorder()
+		h.Announce(rec, httptest.NewRequest(http.MethodPost, "/fleet/announce", strings.NewReader(body)))
+		if rec.Code != http.StatusNoContent {
+			t.Fatalf("status = %d, want 204; body=%q", rec.Code, rec.Body.String())
+		}
+	}
+	fs.values[keyFleetAutoFailoverGroups] = `[{"display_model":"gpt-4o"}]`
+
+	announce(false) // first contact: no previous role, nothing to invalidate
+	if got := fs.values[keyFleetAutoFailoverGroups]; got == "" {
+		t.Fatal("first announce must not touch the echo")
+	}
+	announce(false) // same role: untouched
+	if got := fs.values[keyFleetAutoFailoverGroups]; got == "" {
+		t.Fatal("an announce that keeps the role must not touch the echo")
+	}
+	announce(true) // promoted: emptied
+	if got := fs.values[keyFleetAutoFailoverGroups]; got != "" {
+		t.Fatalf("after promotion the echo = %q, want emptied", got)
+	}
+	fs.values[keyFleetAutoFailoverGroups] = `[]`
+	announce(false) // demoted: emptied again
+	if got := fs.values[keyFleetAutoFailoverGroups]; got != "" {
+		t.Fatalf("after demotion the echo = %q, want emptied", got)
+	}
+}
