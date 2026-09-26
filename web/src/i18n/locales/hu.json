@@ -79,7 +79,10 @@
 		"prevRow": "Előző sor",
 		"nextRow": "Következő sor",
 		"expandNamed": "Kibontás: {{name}}",
-		"collapseNamed": "Összecsukás: {{name}}"
+		"collapseNamed": "Összecsukás: {{name}}",
+		"rowStepLabel": "{{subject}}, {{time}}",
+		"rowStepFirst": "{{row}}, első sor",
+		"rowStepLast": "{{row}}, utolsó sor"
 	},
 	"layout": {
 		"title": "Model Hotel",
@@ -2890,7 +2893,8 @@
 			"attemptKindRetryTimeout": "újrapróbálási időtúllépés",
 			"attemptKindInternal": "átjáróhiba",
 			"attemptKindValidation": "érvénytelen kérés",
-			"attemptKindAuth": "nem engedélyezett"
+			"attemptKindAuth": "nem engedélyezett",
+			"notReported": "nincs jelentve"
 		},
 		"statusBadge": {
 			"streaming": "Streaming",

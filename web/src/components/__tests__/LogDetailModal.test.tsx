@@ -2,8 +2,10 @@ import { fireEvent, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { AppLogEntry, LogEntry } from "../../api/types";
+import i18n from "../../i18n";
 import { getByDialogName } from "../../test/helpers";
 import { renderWithProviders } from "../../test/utils";
+import { formatLogTimestamp } from "../../utils/logBadgeUtils";
 import { LogDetailModal } from "../LogDetailModal";
 
 describe("LogDetailModal", () => {
@@ -97,6 +99,13 @@ describe("LogDetailModal", () => {
 			).toBeInTheDocument();
 			fireEvent.click(screen.getByRole("button", { name: "Previous row" }));
 			expect(onPrev).toHaveBeenCalledTimes(1);
+			// The step is announced by the row's model and time.
+			expect(document.querySelector("[aria-live='polite']")).toHaveTextContent(
+				i18n.t("common.rowStepLabel", {
+					subject: mockRequestLog.model_id,
+					time: formatLogTimestamp(mockRequestLog.created_at),
+				}),
+			);
 		});
 
 		it("displays status code badge for successful response", () => {
@@ -538,6 +547,15 @@ describe("LogDetailModal", () => {
 
 			fireEvent.click(screen.getByRole("button", { name: "Next row" }));
 			expect(onNext).toHaveBeenCalledTimes(1);
+			// The step is announced by the row's level and time.
+			expect(document.querySelector("[aria-live='polite']")).toHaveTextContent(
+				i18n.t("common.rowStepFirst", {
+					row: i18n.t("common.rowStepLabel", {
+						subject: "INFO",
+						time: formatLogTimestamp(mockAppLog.timestamp),
+					}),
+				}),
+			);
 		});
 
 		it("displays timestamp", () => {

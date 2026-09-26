@@ -14,7 +14,7 @@ import { useTranslation } from "react-i18next";
 import { X } from "@/lib/icons";
 import {
 	ModalNav,
-	type ModalNavProps,
+	type ModalNavConfig,
 	type StepAnnouncement,
 	type StepDirection,
 } from "./ModalNav";
@@ -34,8 +34,9 @@ interface ModalProps {
 	// Prev/next stepper drawn beside the close button, for a dialog opened from
 	// one row of a list. Absent for dialogs with no list behind them, and not
 	// combined with dismissible={false} by callers: stepping swaps the dialog's
-	// subject, which is the thing that flag exists to prevent.
-	nav?: ModalNavProps;
+	// subject, which is the thing that flag exists to prevent. Callers pass
+	// scrollable with it: the stepper hangs the dialog from the top.
+	nav?: ModalNavConfig;
 	onClose: () => void;
 	maxWidth?: string;
 	scrollable?: boolean;
@@ -112,6 +113,11 @@ export const Modal = forwardRef<ModalHandle, ModalProps>(function Modal(
 	ref,
 ) {
 	const { t } = useTranslation();
+	// Whether this dialog has ever had a stepper. Placement and header room
+	// follow it rather than nav itself, so a live update that drops the open
+	// row from the list (and with it the stepper) does not jump the dialog.
+	const [stepped, setStepped] = useState(nav !== undefined);
+	if (nav && !stepped) setStepped(true);
 	const tierRem = MODAL_TIER_REM[maxWidth];
 	const dialogRef = useRef<HTMLDivElement>(null);
 	const headingId = useId();
@@ -248,8 +254,8 @@ export const Modal = forwardRef<ModalHandle, ModalProps>(function Modal(
 	// Escape and the stepper's arrow keys are handled on the DOCUMENT, not on
 	// the dialog node.
 	//
-	// A control that unmounts while focused — dismissing the row whose button
-	// you just clicked — hands focus back to <body>, which is outside this
+	// A control that unmounts while focused (dismissing the row whose button
+	// you just clicked) hands focus back to <body>, which is outside this
 	// subtree. A dialog-scoped handler never sees the key from there, so the
 	// modal silently stops closing on Escape for the rest of its life.
 	//
@@ -280,15 +286,19 @@ export const Modal = forwardRef<ModalHandle, ModalProps>(function Modal(
 			// widgets that move a selection with them.
 			const target = e.target as HTMLElement | null;
 			if (target?.closest?.(ARROW_KEY_OWNERS)) return;
+			// The arrow pointing against the reading order goes back: left in a
+			// left-to-right page, right in a right-to-left one.
+			const back =
+				document.documentElement.dir === "rtl" ? "ArrowRight" : "ArrowLeft";
 			const step =
-				e.key === "ArrowLeft"
+				e.key === back
 					? nav.index > 0 && nav.onPrev
 					: nav.index < nav.total - 1 && nav.onNext;
 			if (!step) return;
 			// Consumed: the same press must not also scroll the dialog, and a
 			// listener further out can see the key was taken.
 			e.preventDefault();
-			stepTo(step, e.key === "ArrowLeft" ? "prev" : "next");
+			stepTo(step, e.key === back ? "prev" : "next");
 		};
 		document.addEventListener("keydown", onKeyDown);
 		return () => {
@@ -302,11 +312,14 @@ export const Modal = forwardRef<ModalHandle, ModalProps>(function Modal(
 
 	// Title and header keep clear of the corner controls: the close button
 	// alone, or the stepper's two arrows plus the close button.
-	const headerPadding = nav ? "pr-32" : "pr-10";
+	const headerPadding = stepped ? "pe-32" : "pe-10";
 	// A dialog with a stepper hangs from a fixed top edge instead of centring:
 	// rows differ in height, and a centred dialog would move its arrows up or
 	// down on every step, out from under a pointer clicking through the rows.
-	const placement = nav ? "items-start pt-[7.5vh]" : "items-center";
+	// dvh, not vh, here and in the scroll cap below: on a phone vh is the
+	// viewport with the browser toolbar retracted, which would put the
+	// dialog's bottom under the toolbar.
+	const placement = stepped ? "top" : "center";
 
 	// Portal to <body>: pages open modals from inside glassmorphism cards whose
 	// backdrop-filter would otherwise trap the overlay's blur (it could only
@@ -319,7 +332,9 @@ export const Modal = forwardRef<ModalHandle, ModalProps>(function Modal(
 			aria-modal="true"
 			aria-labelledby={title || header ? headingId : undefined}
 			tabIndex={-1}
-			className={`fixed inset-0 flex ${placement} justify-center ${zIndex} outline-none`}
+			data-placement={placement}
+			// px-4 keeps a narrow screen's card off the edges of the glass.
+			className={`fixed inset-0 flex ${placement === "top" ? "items-start pt-[7.5dvh]" : "items-center"} justify-center px-4 ${zIndex} outline-none`}
 			style={{
 				opacity,
 				transition: `opacity ${FADE_DURATION}ms ease`,
@@ -338,19 +353,21 @@ export const Modal = forwardRef<ModalHandle, ModalProps>(function Modal(
 			<div
 				className={`relative ui-card p-6 w-full ${maxWidth}${
 					tierRem ? " ui-modal-panel" : ""
-				}${scrollable ? " max-h-[85vh] flex flex-col" : ""}`}
+				}${scrollable ? " max-h-[85dvh] flex flex-col" : ""}`}
 				style={
 					tierRem
 						? ({ "--modal-w": tierRem } as React.CSSProperties)
 						: undefined
 				}
 				onClick={(e) => e.stopPropagation()}
+				data-modal-panel
 			>
-				<div className="absolute top-3 right-3 z-10 flex items-center gap-1">
+				<div className="absolute top-3 end-3 z-10 flex items-center gap-1">
 					{nav && (
 						<ModalNav
 							index={nav.index}
 							total={nav.total}
+							rowLabel={nav.rowLabel}
 							lastStep={lastStep}
 							onPrev={() => stepTo(nav.onPrev, "prev")}
 							onNext={() => stepTo(nav.onNext, "next")}
@@ -381,7 +398,7 @@ export const Modal = forwardRef<ModalHandle, ModalProps>(function Modal(
 					)
 				)}
 				{scrollable ? (
-					// pr-2 insets the content from the right edge so the scrollbar
+					// pe-2 insets the content from the trailing edge so the scrollbar
 					// can't draw over full-width content (chevrons, divider rules).
 					// No negative margin: .ui-card clips to its rounded shape
 					// (clip-path) in some themes, which would eat a bled-out gutter.
@@ -390,7 +407,7 @@ export const Modal = forwardRef<ModalHandle, ModalProps>(function Modal(
 					// discrepancy modal's return-to-top IntersectionObserver.
 					<div
 						ref={scrollRef}
-						className="min-h-0 overflow-y-auto pr-2"
+						className="min-h-0 overflow-y-auto pe-2"
 						data-modal-scroll
 					>
 						{children}

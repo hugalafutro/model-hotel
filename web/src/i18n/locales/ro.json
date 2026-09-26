@@ -79,7 +79,10 @@
 		"prevRow": "Rândul anterior",
 		"nextRow": "Rândul următor",
 		"expandNamed": "Extinde: {{name}}",
-		"collapseNamed": "Restrânge: {{name}}"
+		"collapseNamed": "Restrânge: {{name}}",
+		"rowStepLabel": "{{subject}}, {{time}}",
+		"rowStepFirst": "{{row}}, primul rând",
+		"rowStepLast": "{{row}}, ultimul rând"
 	},
 	"layout": {
 		"title": "Model Hotel",
@@ -2963,7 +2966,8 @@
 			"attemptKindRetryTimeout": "expirare a reîncercării",
 			"attemptKindInternal": "eroare a gateway-ului",
 			"attemptKindValidation": "cerere nevalidă",
-			"attemptKindAuth": "neautorizat"
+			"attemptKindAuth": "neautorizat",
+			"notReported": "neraportat"
 		},
 		"statusBadge": {
 			"streaming": "Streaming",

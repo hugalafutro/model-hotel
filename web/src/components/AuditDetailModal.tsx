@@ -41,7 +41,15 @@ export function AuditDetailModal({
 	return (
 		<Modal
 			title={t("components.auditDetail.title")}
-			nav={nav}
+			nav={
+				nav && {
+					...nav,
+					rowLabel: t("common.rowStepLabel", {
+						time: formatLogTimestamp(entry.created_at),
+						subject: `${entry.method} ${entry.path}`,
+					}),
+				}
+			}
 			onClose={onClose}
 			maxWidth="max-w-lg"
 			scrollable

@@ -79,7 +79,10 @@
 		"prevRow": "Hàng trước",
 		"nextRow": "Hàng tiếp theo",
 		"expandNamed": "Mở rộng: {{name}}",
-		"collapseNamed": "Thu gọn: {{name}}"
+		"collapseNamed": "Thu gọn: {{name}}",
+		"rowStepLabel": "{{subject}}, {{time}}",
+		"rowStepFirst": "{{row}}, hàng đầu tiên",
+		"rowStepLast": "{{row}}, hàng cuối cùng"
 	},
 	"layout": {
 		"title": "Model Hotel",
@@ -2890,7 +2893,8 @@
 			"attemptKindRetryTimeout": "thử lại hết thời gian chờ",
 			"attemptKindInternal": "lỗi cổng",
 			"attemptKindValidation": "yêu cầu không hợp lệ",
-			"attemptKindAuth": "không được ủy quyền"
+			"attemptKindAuth": "không được ủy quyền",
+			"notReported": "không được báo cáo"
 		},
 		"statusBadge": {
 			"streaming": "Phát trực tuyến",

@@ -16,17 +16,23 @@ describe("Modal", () => {
 		onClose.mockClear();
 	});
 
+	const nav = {
+		index: 0,
+		total: 2,
+		rowLabel: "row",
+		onPrev: () => {},
+		onNext: () => {},
+	};
+
 	it("hangs a dialog with a row stepper from the top, and centres the rest", () => {
 		// Rows differ in height: a centred stepper dialog would move its
 		// arrows out from under the pointer on every step.
-		const nav = { index: 0, total: 2, onPrev: () => {}, onNext: () => {} };
 		const { unmount } = render(
 			<Modal title="Stepper" nav={nav} onClose={onClose}>
 				<p>row</p>
 			</Modal>,
 		);
-		expect(screen.getByRole("dialog")).toHaveClass("items-start");
-		expect(screen.getByRole("dialog")).not.toHaveClass("items-center");
+		expect(screen.getByRole("dialog")).toHaveAttribute("data-placement", "top");
 		unmount();
 
 		render(
@@ -34,7 +40,25 @@ describe("Modal", () => {
 				<p>plain</p>
 			</Modal>,
 		);
-		expect(screen.getByRole("dialog")).toHaveClass("items-center");
+		expect(screen.getByRole("dialog")).toHaveAttribute(
+			"data-placement",
+			"center",
+		);
+	});
+
+	it("Regression pin: stays hung from the top when a live update drops the stepper", () => {
+		// The open row left the list: the stepper goes, the dialog stays put.
+		const { rerender } = render(
+			<Modal title="Stepper" nav={nav} scrollable onClose={onClose}>
+				<p>row</p>
+			</Modal>,
+		);
+		rerender(
+			<Modal title="Stepper" scrollable onClose={onClose}>
+				<p>row</p>
+			</Modal>,
+		);
+		expect(screen.getByRole("dialog")).toHaveAttribute("data-placement", "top");
 	});
 
 	it("renders children", () => {
@@ -340,7 +364,8 @@ describe("Modal", () => {
 				Content
 			</Modal>,
 		);
-		const panel = getByDialogName("Tier Test").querySelector(".max-w-lg");
+		const panel =
+			getByDialogName("Tier Test").querySelector("[data-modal-panel]");
 		expect(panel).toHaveClass("ui-modal-panel");
 		expect((panel as HTMLElement).style.getPropertyValue("--modal-w")).toBe(
 			"32",
@@ -354,7 +379,7 @@ describe("Modal", () => {
 			</Modal>,
 		);
 		const panel =
-			getByDialogName("Custom Width").querySelector(".max-w-\\[30rem\\]");
+			getByDialogName("Custom Width").querySelector("[data-modal-panel]");
 		expect(panel).not.toHaveClass("ui-modal-panel");
 		expect((panel as HTMLElement).style.getPropertyValue("--modal-w")).toBe("");
 	});
@@ -375,12 +400,12 @@ describe("Modal", () => {
 			</Modal>,
 		);
 		const dialog = getByDialogName("Scroll Test");
-		// The card caps its height and lays out as a flex column so the header
-		// stays pinned; the body lives in a separate scrollable region.
-		const card = dialog.querySelector(".max-h-\\[85vh\\].flex.flex-col");
-		expect(card).toBeInTheDocument();
-		const scrollArea = dialog.querySelector(".overflow-y-auto");
-		expect(scrollArea).toBeInTheDocument();
+		// The header stays pinned in the card; the body lives in a separate
+		// scrollable region.
+		const scrollArea = dialog.querySelector(
+			"[data-modal-panel] > [data-modal-scroll]",
+		);
+		expect(scrollArea).toHaveTextContent("Content");
 	});
 
 	it("applies custom zIndex", () => {
@@ -391,36 +416,5 @@ describe("Modal", () => {
 		);
 		const modal = getByDialogName("Z-Index Test");
 		expect(modal.className).toContain("z-60");
-	});
-
-	it("applies pr-10 padding to h2 when title prop is provided", () => {
-		render(
-			<Modal onClose={onClose} title="Padding Test">
-				Content
-			</Modal>,
-		);
-		const dialog = getByDialogName("Padding Test");
-		const titleElement = dialog.querySelector("h2");
-		expect(titleElement).toHaveClass("pr-10");
-	});
-
-	it("applies pr-10 padding to div when header prop is provided", () => {
-		render(
-			<Modal onClose={onClose} header={<h3>Custom Header</h3>}>
-				Content
-			</Modal>,
-		);
-		const dialog = getByDialogName("Custom Header");
-		const headerDiv = dialog.querySelector(
-			`div[id="${dialog.getAttribute("aria-labelledby")}"]`,
-		);
-		expect(headerDiv).toHaveClass("pr-10");
-	});
-
-	it("does not apply pr-10 padding when neither title nor header is provided", () => {
-		render(<Modal onClose={onClose}>Content</Modal>);
-		const dialog = screen.getByRole("dialog");
-		const pr10Element = dialog.querySelector(".pr-10");
-		expect(pr10Element).not.toBeInTheDocument();
 	});
 });

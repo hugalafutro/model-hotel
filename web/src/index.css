@@ -2812,8 +2812,10 @@ html[data-ui-style="cyber-terminal"] .ui-tab-active:hover {
 	color: var(--text-primary);
 }
 
-/* Line under a modal title. */
-.ui-subtitle {
+/* Line under a modal title (ui-subtitle), and a secondary figure set beside
+   a label, such as a quota bar's used/total (ui-figure-muted). */
+.ui-subtitle,
+.ui-figure-muted {
 	font-size: var(--text-sm);
 	line-height: var(--text-sm--line-height);
 	color: var(--text-tertiary);

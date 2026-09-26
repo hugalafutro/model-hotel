@@ -3,6 +3,7 @@ import userEvent from "@testing-library/user-event";
 import { useState } from "react";
 import { describe, expect, it, vi } from "vitest";
 import { useModalNav } from "../../hooks/useModalNav";
+import i18n from "../../i18n";
 import { renderWithProviders } from "../../test/utils";
 import { Modal } from "../Modal";
 
@@ -16,15 +17,22 @@ const ROWS: Row[] = [{ id: "a" }, { id: "b" }, { id: "c" }];
 function Harness({
 	rows = ROWS,
 	startId = "b",
+	label = (row) => `row ${row.id}`,
 }: {
 	rows?: Row[];
 	startId?: string;
+	label?: (row: Row) => string;
 }) {
 	const [selected, setSelected] = useState<Row | null>({ id: startId });
 	const nav = useModalNav(rows, selected, setSelected, (row) => row.id);
 	if (!selected) return null;
 	return (
-		<Modal title="Row" nav={nav} scrollable onClose={() => setSelected(null)}>
+		<Modal
+			title="Row"
+			nav={nav && { ...nav, rowLabel: label(selected) }}
+			scrollable
+			onClose={() => setSelected(null)}
+		>
 			<p>row {selected.id}</p>
 		</Modal>
 	);
@@ -78,25 +86,55 @@ describe("ModalNav", () => {
 			.querySelector("[role='dialog'] [aria-live='polite']")
 			?.textContent?.trim();
 
-	it("announces each step the reader takes, including repeats", async () => {
+	it("Regression pin: each step announces the row it landed on and whether it is an end", async () => {
 		const user = userEvent.setup();
-		renderWithProviders(<Harness rows={[...ROWS, { id: "d" }]} startId="a" />);
+		renderWithProviders(<Harness startId="a" />);
 		// Nothing on open: the dialog title already spoke.
 		expect(announced()).toBe("");
 
 		await user.click(nextButton());
+		expect(announced()).toBe("row b");
+
+		await user.click(nextButton());
+		expect(announced()).toBe(i18n.t("common.rowStepLast", { row: "row c" }));
+
+		fireEvent.keyDown(document, { key: "ArrowLeft" });
+		fireEvent.keyDown(document, { key: "ArrowLeft" });
+		expect(announced()).toBe(i18n.t("common.rowStepFirst", { row: "row a" }));
+	});
+
+	it("announces a repeated label again, as a new node", async () => {
+		const user = userEvent.setup();
+		renderWithProviders(
+			<Harness
+				rows={[...ROWS, { id: "d" }]}
+				startId="a"
+				label={() => "same"}
+			/>,
+		);
+
+		await user.click(nextButton());
 		const first = document.querySelector("[aria-live='polite'] > span");
-		expect(announced()).toBe("Next row");
+		expect(announced()).toBe("same");
 
 		// The same words again are a new node, so a screen reader reads them.
 		await user.click(nextButton());
-		expect(announced()).toBe("Next row");
+		expect(announced()).toBe("same");
 		expect(document.querySelector("[aria-live='polite'] > span")).not.toBe(
 			first,
 		);
+	});
 
-		fireEvent.keyDown(document, { key: "ArrowLeft" });
-		expect(announced()).toBe("Previous row");
+	it("keeps the step's announcement when a live update moves the row off an end", async () => {
+		const user = userEvent.setup();
+		const { rerender } = renderWithProviders(<Harness />);
+		await user.click(nextButton());
+		const said = i18n.t("common.rowStepLast", { row: "row c" });
+		expect(announced()).toBe(said);
+
+		// A row arriving after it is not a step: nothing new is read out.
+		rerender(<Harness rows={[...ROWS, { id: "d" }]} />);
+		expect(announced()).toBe(said);
 	});
 
 	it("stays quiet when a live update moves the row along", () => {
@@ -132,6 +170,22 @@ describe("ModalNav", () => {
 		// Already at the first row: the key is a no-op, not a wrap-around.
 		fireEvent.keyDown(document, { key: "ArrowLeft" });
 		expect(screen.getByText("row a")).toBeInTheDocument();
+	});
+
+	it("Regression pin: steps back with the right arrow in a right-to-left page", () => {
+		document.documentElement.dir = "rtl";
+		try {
+			renderWithProviders(<Harness />);
+
+			fireEvent.keyDown(document, { key: "ArrowRight" });
+			expect(screen.getByText("row a")).toBeInTheDocument();
+
+			fireEvent.keyDown(document, { key: "ArrowLeft" });
+			fireEvent.keyDown(document, { key: "ArrowLeft" });
+			expect(screen.getByText("row c")).toBeInTheDocument();
+		} finally {
+			document.documentElement.dir = "";
+		}
 	});
 
 	it("presses the arrow a step went through, clicked or keyed", async () => {
@@ -204,6 +258,8 @@ describe("ModalNav", () => {
 			rerender(<Harness />);
 			expect(nextButton()).toBeInTheDocument();
 			expect(pressed).toHaveLength(1);
+			// Nor re-read the last step: the remounted stepper has nothing new.
+			expect(announced()).toBe("");
 
 			// A new step still presses, on the remounted arrow.
 			fireEvent.keyDown(document, { key: "ArrowLeft" });

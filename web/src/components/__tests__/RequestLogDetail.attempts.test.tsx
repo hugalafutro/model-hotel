@@ -205,7 +205,7 @@ describe("RequestLogDetail attempt trail", () => {
 		expect(row).not.toHaveTextContent("refused connection");
 	});
 
-	it("puts the breaker verdict on the second line, under the provider", () => {
+	it("the verdict line is the row's last cell, after the provider", () => {
 		// The verdict belongs on the row's own second line, which starts in the
 		// provider column. Beside the timing it would widen the right-hand badge
 		// cluster and take width from the provider and model names.
@@ -230,9 +230,16 @@ describe("RequestLogDetail attempt trail", () => {
 			/>,
 		);
 		const line = screen.getByTestId("attempt-trail-meta");
-		// jsdom does no grid layout, so the class that places the line is the
-		// check: from the provider column to the row's end, at every width.
-		expect(line).toHaveClass("col-[2/-1]", "flex-wrap");
+		// The line is the row's own last cell, after the provider cell, so the
+		// row grid places it on a second line under the names.
+		const row = screen.getByTestId("attempt-trail-row");
+		expect(line.parentElement).toBe(row);
+		expect(row.lastElementChild).toBe(line);
+		const provider = within(row).getByTitle("Z.ai Coding Plan");
+		expect(provider.parentElement).toBe(row);
+		expect(
+			provider.compareDocumentPosition(line) & Node.DOCUMENT_POSITION_FOLLOWING,
+		).toBeTruthy();
 		expect(line.firstElementChild).toHaveAttribute("title");
 		// Every verdict names the breaker, and the served verdict reads as
 		// the circuit resetting, not as money being credited.

@@ -79,7 +79,10 @@
 		"prevRow": "Fila anterior",
 		"nextRow": "Fila següent",
 		"expandNamed": "Expandir: {{name}}",
-		"collapseNamed": "Replega: {{name}}"
+		"collapseNamed": "Replega: {{name}}",
+		"rowStepLabel": "{{subject}}, {{time}}",
+		"rowStepFirst": "{{row}}, primera fila",
+		"rowStepLast": "{{row}}, darrera fila"
 	},
 	"layout": {
 		"title": "Model Hotel",
@@ -2963,7 +2966,8 @@
 			"attemptKindRetryTimeout": "temps d'espera del reintent",
 			"attemptKindInternal": "error de la passarel·la",
 			"attemptKindValidation": "sol·licitud no vàlida",
-			"attemptKindAuth": "no autoritzat"
+			"attemptKindAuth": "no autoritzat",
+			"notReported": "no informat"
 		},
 		"statusBadge": {
 			"streaming": "Streaming",

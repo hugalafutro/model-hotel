@@ -79,7 +79,10 @@
 		"prevRow": "Předchozí řádek",
 		"nextRow": "Další řádek",
 		"expandNamed": "Rozbalit: {{name}}",
-		"collapseNamed": "Sbalit: {{name}}"
+		"collapseNamed": "Sbalit: {{name}}",
+		"rowStepLabel": "{{subject}}, {{time}}",
+		"rowStepFirst": "{{row}}, první řádek",
+		"rowStepLast": "{{row}}, poslední řádek"
 	},
 	"layout": {
 		"title": "Model Hotel",
@@ -3036,7 +3039,8 @@
 			"attemptKindRetryTimeout": "vypršel čas opakování",
 			"attemptKindInternal": "chyba brány",
 			"attemptKindValidation": "neplatný požadavek",
-			"attemptKindAuth": "neautorizováno"
+			"attemptKindAuth": "neautorizováno",
+			"notReported": "neuvedeno"
 		},
 		"statusBadge": {
 			"streaming": "Streamování",

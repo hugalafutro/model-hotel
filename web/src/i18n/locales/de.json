@@ -79,7 +79,10 @@
 		"prevRow": "Vorherige Zeile",
 		"nextRow": "Nächste Zeile",
 		"expandNamed": "Erweitern: {{name}}",
-		"collapseNamed": "Einklappen: {{name}}"
+		"collapseNamed": "Einklappen: {{name}}",
+		"rowStepLabel": "{{subject}}, {{time}}",
+		"rowStepFirst": "{{row}}, erste Zeile",
+		"rowStepLast": "{{row}}, letzte Zeile"
 	},
 	"layout": {
 		"title": "Model Hotel",
@@ -2890,7 +2893,8 @@
 			"attemptKindRetryTimeout": "Wiederholungs-Timeout",
 			"attemptKindInternal": "Gateway-Fehler",
 			"attemptKindValidation": "ungültige Anfrage",
-			"attemptKindAuth": "nicht autorisiert"
+			"attemptKindAuth": "nicht autorisiert",
+			"notReported": "nicht gemeldet"
 		},
 		"statusBadge": {
 			"streaming": "Streaming",

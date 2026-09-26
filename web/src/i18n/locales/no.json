@@ -79,7 +79,10 @@
 		"prevRow": "Forrige rad",
 		"nextRow": "Neste rad",
 		"expandNamed": "Utvid: {{name}}",
-		"collapseNamed": "Skjul: {{name}}"
+		"collapseNamed": "Skjul: {{name}}",
+		"rowStepLabel": "{{subject}}, {{time}}",
+		"rowStepFirst": "{{row}}, første rad",
+		"rowStepLast": "{{row}}, siste rad"
 	},
 	"layout": {
 		"title": "Model Hotel",
@@ -2890,7 +2893,8 @@
 			"attemptKindRetryTimeout": "tidsavbrudd ved nytt forsøk",
 			"attemptKindInternal": "gateway-feil",
 			"attemptKindValidation": "ugyldig forespørsel",
-			"attemptKindAuth": "ikke autorisert"
+			"attemptKindAuth": "ikke autorisert",
+			"notReported": "ikke rapportert"
 		},
 		"statusBadge": {
 			"streaming": "Strømming",

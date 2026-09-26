@@ -79,7 +79,10 @@
 		"prevRow": "Προηγούμενη γραμμή",
 		"nextRow": "Επόμενη γραμμή",
 		"expandNamed": "Ανάπτυξη: {{name}}",
-		"collapseNamed": "Σύμπτυξη: {{name}}"
+		"collapseNamed": "Σύμπτυξη: {{name}}",
+		"rowStepLabel": "{{subject}}, {{time}}",
+		"rowStepFirst": "{{row}}, πρώτη γραμμή",
+		"rowStepLast": "{{row}}, τελευταία γραμμή"
 	},
 	"layout": {
 		"title": "Model Hotel",
@@ -2890,7 +2893,8 @@
 			"attemptKindRetryTimeout": "λήξη χρόνου επανάληψης",
 			"attemptKindInternal": "σφάλμα πύλης",
 			"attemptKindValidation": "μη έγκυρο αίτημα",
-			"attemptKindAuth": "χωρίς εξουσιοδότηση"
+			"attemptKindAuth": "χωρίς εξουσιοδότηση",
+			"notReported": "δεν αναφέρθηκε"
 		},
 		"statusBadge": {
 			"streaming": "Ροή",

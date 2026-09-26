@@ -79,7 +79,10 @@
 		"prevRow": "השורה הקודמת",
 		"nextRow": "השורה הבאה",
 		"expandNamed": "הרחב: {{name}}",
-		"collapseNamed": "לכווץ: {{name}}"
+		"collapseNamed": "לכווץ: {{name}}",
+		"rowStepLabel": "{{subject}}, {{time}}",
+		"rowStepFirst": "{{row}}, שורה ראשונה",
+		"rowStepLast": "{{row}}, שורה אחרונה"
 	},
 	"layout": {
 		"title": "Model Hotel",
@@ -2963,7 +2966,8 @@
 			"attemptKindRetryTimeout": "פסק זמן של ניסיון חוזר",
 			"attemptKindInternal": "שגיאת שער",
 			"attemptKindValidation": "בקשה לא תקינה",
-			"attemptKindAuth": "לא מורשה"
+			"attemptKindAuth": "לא מורשה",
+			"notReported": "לא דווח"
 		},
 		"statusBadge": {
 			"streaming": "סטרימינג",

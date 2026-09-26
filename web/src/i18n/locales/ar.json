@@ -79,7 +79,10 @@
 		"prevRow": "الصف السابق",
 		"nextRow": "الصف التالي",
 		"expandNamed": "توسيع: {{name}}",
-		"collapseNamed": "تصغير: {{name}}"
+		"collapseNamed": "تصغير: {{name}}",
+		"rowStepLabel": "{{subject}}، {{time}}",
+		"rowStepFirst": "{{row}}، الصف الأول",
+		"rowStepLast": "{{row}}، الصف الأخير"
 	},
 	"layout": {
 		"title": "Model Hotel",
@@ -3182,7 +3185,8 @@
 			"attemptKindRetryTimeout": "انتهت مهلة إعادة المحاولة",
 			"attemptKindInternal": "خطأ في البوابة",
 			"attemptKindValidation": "طلب غير صالح",
-			"attemptKindAuth": "غير مصرَّح"
+			"attemptKindAuth": "غير مصرَّح",
+			"notReported": "لم يتم الإبلاغ عنه"
 		},
 		"statusBadge": {
 			"streaming": "البث",

@@ -79,7 +79,10 @@
 		"prevRow": "이전 행",
 		"nextRow": "다음 행",
 		"expandNamed": "펼치기: {{name}}",
-		"collapseNamed": "접기: {{name}}"
+		"collapseNamed": "접기: {{name}}",
+		"rowStepLabel": "{{subject}}, {{time}}",
+		"rowStepFirst": "{{row}}, 첫 번째 행",
+		"rowStepLast": "{{row}}, 마지막 행"
 	},
 	"layout": {
 		"title": "Model Hotel",
@@ -2890,7 +2893,8 @@
 			"attemptKindRetryTimeout": "재시도 시간 초과",
 			"attemptKindInternal": "게이트웨이 오류",
 			"attemptKindValidation": "잘못된 요청",
-			"attemptKindAuth": "권한 없음"
+			"attemptKindAuth": "권한 없음",
+			"notReported": "보고되지 않음"
 		},
 		"statusBadge": {
 			"streaming": "스트리밍",

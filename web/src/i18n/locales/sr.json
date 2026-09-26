@@ -79,7 +79,10 @@
 		"prevRow": "Претходни ред",
 		"nextRow": "Следећи ред",
 		"expandNamed": "Прошири: {{name}}",
-		"collapseNamed": "Скупи: {{name}}"
+		"collapseNamed": "Скупи: {{name}}",
+		"rowStepLabel": "{{subject}}, {{time}}",
+		"rowStepFirst": "{{row}}, први ред",
+		"rowStepLast": "{{row}}, последњи ред"
 	},
 	"layout": {
 		"title": "Model Hotel",
@@ -2963,7 +2966,8 @@
 			"attemptKindRetryTimeout": "истек времена поновног покушаја",
 			"attemptKindInternal": "грешка мрежног пролаза",
 			"attemptKindValidation": "неисправан захтев",
-			"attemptKindAuth": "није ауторизовано"
+			"attemptKindAuth": "није ауторизовано",
+			"notReported": "није пријављено"
 		},
 		"statusBadge": {
 			"streaming": "Стриминг",
