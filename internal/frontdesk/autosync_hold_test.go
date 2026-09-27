@@ -509,6 +509,31 @@ func TestAutoSync_UnknownPrimaryBuildIsColdThenLoud(t *testing.T) {
 	}
 }
 
+// TestAutoSync_ReadablePrimaryBuildResetsTheGrace: the grace counts consecutive
+// unread passes, so a build that reads once in between starts it over; two
+// separate blips never add up to a loud pass.
+func TestAutoSync_ReadablePrimaryBuildResetsTheGrace(t *testing.T) {
+	f := newHashFleet(t, func(r *stubAutoMember) { r.dryDiff = driftDiff })
+	blank := func(n int) {
+		setMemberVersion(f.srv, f.primaryM.ID, "")
+		for i := 0; i < n; i++ {
+			f.tick(t)
+		}
+	}
+	blank(unknownPrimaryGracePasses - 1)
+	setMemberVersion(f.srv, f.primaryM.ID, "dev")
+	f.tick(t)
+	blank(unknownPrimaryGracePasses - 1)
+
+	evs, _, err := f.store.ListEvents(t.Context(), EventFilter{Type: "config.sync_held"})
+	if err != nil {
+		t.Fatalf("ListEvents: %v", err)
+	}
+	if len(evs) != 0 {
+		t.Fatalf("config.sync_held after two short blips with a readable pass between = %d, want 0", len(evs))
+	}
+}
+
 // TestAutoSyncHoldsCommitSkewOnDevFleet: the skew the app version cannot see. A
 // self-built fleet reports the "dev" placeholder on every member (the
 // Dockerfile's ARG VERSION default), so version equality vouches for nothing;
