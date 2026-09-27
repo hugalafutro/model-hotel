@@ -397,6 +397,36 @@ func TestAutoSync_MemberWithAnUnknownVersionIsHeldNotMeasured(t *testing.T) {
 	}
 }
 
+// TestAutoSync_UnknownPrimaryBuildHoldsNobody: one blank version read of the
+// primary is not skew on every replica. The pass pushes nothing (the gate still
+// fails closed) but announces no hold and leaves the fleet state alone; on prod a
+// single missed poll of the primary held all three replicas and degraded the
+// fleet for fifteen seconds. Once the primary's build reads again the same
+// members sync as if nothing happened.
+func TestAutoSync_UnknownPrimaryBuildHoldsNobody(t *testing.T) {
+	f := newHashFleet(t, func(r *stubAutoMember) { r.dryDiff = driftDiff })
+	setMemberVersion(f.srv, f.primaryM.ID, "")
+
+	f.tick(t)
+
+	if f.replica.didRealSync() {
+		t.Fatal("a pass with an unknown primary build pushed to a replica; the gate must still fail closed")
+	}
+	evs, _, err := f.store.ListEvents(t.Context(), EventFilter{Type: "config.sync_held"})
+	if err != nil {
+		t.Fatalf("ListEvents: %v", err)
+	}
+	if len(evs) != 0 {
+		t.Fatalf("config.sync_held events = %d, want 0: an unread primary build is not skew on its replicas", len(evs))
+	}
+
+	setMemberVersion(f.srv, f.primaryM.ID, "dev")
+	f.tick(t)
+	if !f.replica.didRealSync() {
+		t.Error("replica was not synced once the primary's build read again")
+	}
+}
+
 // TestAutoSyncHoldsCommitSkewOnDevFleet: the skew the app version cannot see. A
 // self-built fleet reports the "dev" placeholder on every member (the
 // Dockerfile's ARG VERSION default), so version equality vouches for nothing;

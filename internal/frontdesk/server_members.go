@@ -470,10 +470,18 @@ func (s *Server) setMemberState(w http.ResponseWriter, r *http.Request) {
 		// poller records for a drained member, so the same type carries it.
 		// Both halves stay at info: this is the operator's action, not an
 		// observed recovery, and the poller's own "maintenance over" note
-		// reports the member answering again.
+		// reports the member answering again. The re-activation is worded as
+		// the end of the maintenance, not "for" it: this event is often a
+		// member's newest for hours (Bellhop's member pill, the events feed),
+		// where "set to active for maintenance" reads as a member still in
+		// maintenance.
 		ev.Type = "health.maintenance"
-		ev.Message += " for maintenance"
 		ev.Metadata["reason"] = stateReasonMaintenance
+		if req.State == StateActive {
+			ev.Message = m.Name + " back to active after maintenance"
+		} else {
+			ev.Message += " for maintenance"
+		}
 	case req.State == StateDrained:
 		ev.Severity = "warning"
 	}

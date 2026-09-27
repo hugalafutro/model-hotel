@@ -428,6 +428,19 @@ func (s *Server) applyAutoSync(ctx context.Context, primary *Member, primaryToke
 	}
 
 	primaryBuild := s.poller.memberBuildOf(primary.ID)
+	if primaryBuild.Version == "" {
+		// The primary's build could not be read this tick. The gate below fails
+		// closed on that, which is right for the push, but announcing it would
+		// hold every replica at once and drop the fleet state on a single missed
+		// poll: on prod, one blank read of the primary produced three
+		// config.sync_held warnings and a degraded fleet that recovered fifteen
+		// seconds later. So nothing is pushed and nothing is announced; a
+		// primary that stays unreadable is reported by the poller's own
+		// version.fetch_failed after its threshold, and holds already open keep
+		// counting against the last known build (see memberBuild.key).
+		debuglog.Debug("frontdesk: auto-sync: skipping pass, primary build unknown", "member", primary.Name)
+		return nil
+	}
 	s.warnIfBuildGateDegraded(primaryBuild)
 	for _, m := range members {
 		if m.ID == primary.ID {

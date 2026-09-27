@@ -411,6 +411,7 @@ type hashFleet struct {
 	primary  *stubAutoMember
 	replica  *stubAutoMember
 	replicaM *Member
+	primaryM *Member
 }
 
 // newHashFleet builds that fleet, running setup on the replica stub before it is
@@ -433,7 +434,7 @@ func newHashFleet(t *testing.T, setup func(replica *stubAutoMember)) *hashFleet 
 	}
 	enableAutoSync(t, store, pm.ID)
 	alignFleetVersions(t, srv, store, "dev")
-	return &hashFleet{srv: srv, store: store, primary: primary, replica: replica, replicaM: rm}
+	return &hashFleet{srv: srv, store: store, primary: primary, replica: replica, primaryM: pm, replicaM: rm}
 }
 
 // tick runs one settled convergence pass, the way the loop does once the primary's
