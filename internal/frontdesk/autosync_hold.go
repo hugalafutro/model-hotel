@@ -24,6 +24,11 @@ import (
 // Edge-triggered like the hold state it sits beside, because a pass runs on
 // every tick and a per-pass warning would bury itself.
 func (s *Server) warnIfBuildGateDegraded(primary memberBuild) {
+	if primary.Version == "" {
+		// Nothing read at all: the gate fails closed on every member, which is
+		// not "gated on the version alone", and the loud pass says so itself.
+		return
+	}
 	degraded := !stampedCommit(primary.Commit)
 	s.syncHeldMu.Lock()
 	repeat := degraded == s.ungatedCommitWarned

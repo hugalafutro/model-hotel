@@ -520,17 +520,37 @@ func TestAutoSync_ReadablePrimaryBuildResetsTheGrace(t *testing.T) {
 			f.tick(t)
 		}
 	}
+	held := func() int {
+		t.Helper()
+		evs, _, err := f.store.ListEvents(t.Context(), EventFilter{Type: "config.sync_held"})
+		if err != nil {
+			t.Fatalf("ListEvents: %v", err)
+		}
+		return len(evs)
+	}
+
 	blank(unknownPrimaryGracePasses - 1)
+	f.srv.autoSyncEvaluated.Store(false)
 	setMemberVersion(f.srv, f.primaryM.ID, "dev")
 	f.tick(t)
-	blank(unknownPrimaryGracePasses - 1)
-
-	evs, _, err := f.store.ListEvents(t.Context(), EventFilter{Type: "config.sync_held"})
-	if err != nil {
-		t.Fatalf("ListEvents: %v", err)
+	if !f.srv.autoSyncEvaluated.Load() {
+		t.Fatal("the readable tick in the middle did not run a pass")
 	}
-	if len(evs) != 0 {
-		t.Fatalf("config.sync_held after two short blips with a readable pass between = %d, want 0", len(evs))
+	blank(unknownPrimaryGracePasses - 1)
+	if got := held(); got != 0 {
+		t.Fatalf("config.sync_held after two short blips with a readable pass between = %d, want 0", got)
+	}
+
+	// Switching auto-sync off and on starts the grace over too: the next
+	// designation is a new question, not the tail of the old one's blips.
+	if err := f.store.SetAutoSync(t.Context(), false, ""); err != nil {
+		t.Fatalf("SetAutoSync off: %v", err)
+	}
+	f.tick(t)
+	enableAutoSync(t, f.store, f.primaryM.ID)
+	blank(unknownPrimaryGracePasses - 1)
+	if got := held(); got != 0 {
+		t.Fatalf("config.sync_held after a blip, a disable and a fresh blip = %d, want 0", got)
 	}
 }
 
