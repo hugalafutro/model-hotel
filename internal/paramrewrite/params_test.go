@@ -164,6 +164,35 @@ func TestParseProviderParamError_ValueRangeComplaintTeachesNothing(t *testing.T)
 	}
 }
 
+// A value of the wrong JSON type quotes the param the same way (Strix
+// ds41flash 2026-09-27): the model takes temperature, this caller sent it as a
+// string. Learning a strip from it would delete the param, or a caller's
+// max_tokens budget, from every later request to the model.
+func TestParseProviderParamError_ValueTypeComplaintTeachesNothing(t *testing.T) {
+	t.Parallel()
+
+	for _, msg := range []string{
+		`Invalid type for 'temperature': expected a number, but got a string instead.`,
+		`Invalid type for 'max_tokens': expected an integer, but got a string instead.`,
+		`Invalid type for 'top_p': expected a number, but got a string instead.`,
+		`'temperature' is not of type 'number'`,
+		`temperature: Input should be a valid number, unable to parse string as a number`,
+		`max_tokens: Input should be a valid integer`,
+		`Invalid value at 'generation_config.temperature' (TYPE_FLOAT), "warm"`,
+		`'max_tokens' must be an integer`,
+	} {
+		body := []byte(`{"error":{"message":` + fmt.Sprintf("%q", msg) + `,"type":"invalid_request_error"}}`)
+		if rejected := ParseProviderParamError(body); len(rejected) != 0 {
+			t.Errorf("%q: learned %v, want nothing", msg, rejected)
+		}
+	}
+	// The param itself refused is still learned.
+	body := []byte(`{"error":{"message":"Unsupported parameter: 'temperature' is not supported with this model."}}`)
+	if rejected := ParseProviderParamError(body); !rejected["temperature"] {
+		t.Errorf("param refusal no longer learned: %v", rejected)
+	}
+}
+
 // Regression pin: a model that refuses one reasoning_effort value still takes
 // the others, so the refusal is handed back to the caller and nothing is
 // learned. Each phrasing below is recognised by a different arm of the rule.

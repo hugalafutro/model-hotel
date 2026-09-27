@@ -173,14 +173,17 @@ func ParseProviderParamRename(body []byte) map[string]string {
 	return renames
 }
 
-// valueRangePhrases are how providers word a value that is the wrong size, as
-// opposed to a parameter the model does not take at all. OpenAI: "decimal
-// above maximum value", "integer below minimum value"; Anthropic (pydantic):
-// "Input should be less than or equal to 1", "greater than or equal to";
-// Google: "must be in the range". A phrase here has to describe the value's
-// magnitude, never its mere presence: OpenAI's "does not support 0 with this
-// model" is a value the model refuses outright and stays learnable.
-var valueRangePhrases = []string{
+// valueComplaintPhrases are how providers word a value that is the wrong size
+// or the wrong type, as opposed to a parameter the model does not take at all.
+// Size, OpenAI: "decimal above maximum value", "integer below minimum value";
+// Anthropic (pydantic): "Input should be less than or equal to 1", "greater
+// than or equal to"; Google: "must be in the range". Type, OpenAI: "Invalid
+// type for 'temperature': expected a number, but got a string instead";
+// pydantic: "Input should be a valid number"; JSON-schema validators: "is not
+// of type 'number'"; Google: "(TYPE_FLOAT)". A phrase here has to describe
+// the value, never the param's mere presence: OpenAI's "does not support 0
+// with this model" is a value the model refuses outright and stays learnable.
+var valueComplaintPhrases = []string{
 	"above maximum", "below minimum",
 	// pydantic's inclusive and exclusive bounds ("Input should be less than
 	// or equal to 1", "Input should be less than 2"), anchored on its lead-in
@@ -190,12 +193,18 @@ var valueRangePhrases = []string{
 	"must be less than", "must be greater than",
 	"must be between", "in the range", "out of range",
 	"must be at least", "must be at most", "must not exceed",
+	// The wrong JSON type: the param is taken, this caller's value is not.
+	"invalid type for", "is not of type", "input should be a valid",
+	"expected a number", "expected an integer", "expected a boolean",
+	"must be a number", "must be an integer", "must be a boolean",
+	"(type_",
 }
 
-// isValueRangeComplaint reports whether msg says a value was out of range.
-func isValueRangeComplaint(msg string) bool {
+// isValueComplaint reports whether msg says a value was out of range or of
+// the wrong type.
+func isValueComplaint(msg string) bool {
 	lower := strings.ToLower(msg)
-	for _, phrase := range valueRangePhrases {
+	for _, phrase := range valueComplaintPhrases {
 		if strings.Contains(lower, phrase) {
 			return true
 		}
@@ -375,13 +384,15 @@ func ParseProviderParamError(body []byte) map[string]bool {
 	if msg == "" {
 		return nil
 	}
-	// A value out of range names the param the same way an unsupported one
-	// does ("Invalid 'temperature': decimal above maximum value. Expected a
-	// value <= 2, but got 3 instead."). Learning that as a strip would drop
-	// the param from every later request to the model, for every caller, for
-	// the life of the process, over one caller's bad number. Nothing is
-	// learned from it: the 400 goes back to the caller who sent the value.
-	if isValueRangeComplaint(msg) {
+	// A value out of range or of the wrong type names the param the same way
+	// an unsupported one does ("Invalid 'temperature': decimal above maximum
+	// value. Expected a value <= 2, but got 3 instead.", "Invalid type for
+	// 'temperature': expected a number, but got a string instead."). Learning
+	// that as a strip would drop the param from every later request to the
+	// model, for every caller, for the life of the process, over one caller's
+	// bad value. Nothing is learned from it: the 400 goes back to the caller
+	// who sent the value.
+	if isValueComplaint(msg) {
 		return nil
 	}
 	rejected := make(map[string]bool)
