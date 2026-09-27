@@ -57,9 +57,23 @@ func TestServerMemberStateMaintenanceReason(t *testing.T) {
 	if len(got) != 2 {
 		t.Fatalf("health.maintenance events = %d, want 2 (drain + activate)", len(got))
 	}
+	// The activation reads as the end of the maintenance: it is often a member's
+	// newest event for hours, and "set to active for maintenance" would say the
+	// member is still in one.
+	wantMessage := map[string]string{
+		"drained": "hotel-1 set to drained for maintenance",
+		"active":  "hotel-1 back to active after maintenance",
+	}
 	for _, ev := range got {
 		if ev.Severity != "info" || ev.Metadata["reason"] != "maintenance" || ev.MemberID != first.ID {
 			t.Errorf("maintenance event = %+v", ev)
+		}
+		state, ok := ev.Metadata["state"].(string)
+		if !ok {
+			t.Fatalf("maintenance event carries no state: %+v", ev)
+		}
+		if ev.Message != wantMessage[state] {
+			t.Errorf("maintenance %s message = %q, want %q", state, ev.Message, wantMessage[state])
 		}
 	}
 	if paged := events("member.state_changed"); len(paged) != 0 {

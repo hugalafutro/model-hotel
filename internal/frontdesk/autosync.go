@@ -189,8 +189,10 @@ func (s *Server) autoSyncOnce(ctx context.Context, prev string) string {
 	if !cfg.Enabled || cfg.PrimaryID == "" {
 		// Disabled or no primary designated: nothing to do, but that IS this
 		// tick's verdict — no holds can exist, so the fleet state's sync inputs
-		// count as observed (fleetInputsWarm).
+		// count as observed (fleetInputsWarm). The unread-primary count starts
+		// over too: whatever primary is designated next is a new question.
 		s.autoSyncEvaluated.Store(true)
+		s.unknownPrimaryPasses.Store(0)
 		return ""
 	}
 
@@ -273,11 +275,66 @@ func (s *Server) primaryConfigHash(ctx context.Context, cfg AutoSyncConfig) (pri
 // on either side, or a hash that could not be read before the push) is counted
 // but carries no parenthetical.
 //
+// unknownPrimaryGracePasses is how many consecutive passes may find the primary's
+// build unread before the pass runs anyway and the build gate fails closed out
+// loud. Three passes at the 15 s tick (45 s) outlast one missed version poll,
+// which is the blip this grace exists for; the poller's own version.fetch_failed
+// lands sooner (three reads at the health interval), so a primary that stays
+// unreadable is already reported by the time the gate goes loud.
+const unknownPrimaryGracePasses = 3
+
+// skipForUnknownPrimaryBuild reports whether this pass should be skipped because
+// the primary's build cannot be read right now.
+//
+// The build gate fails closed on an unknown primary build, which is right for
+// the push, but announcing it holds every replica at once and drops the fleet
+// state on a single missed poll: on prod, one blank read of the primary produced
+// three config.sync_held warnings and a degraded fleet that recovered fifteen
+// seconds later. So for a few passes nothing is pushed and nothing is announced.
+// A primary that stays unreadable past the grace gets the old behaviour back:
+// the pass runs, every replica is held and announced, and the fleet degrades
+// (with two or more replicas it escalates to all_sync_held and reads faulty, as
+// it did before the grace existed), so a blank build is never a silent stop.
+// Open holds stay in syncHeld through the skipped passes and keep degrading the
+// fleet, but read as stale (they cannot escalate; see
+// memberFleetFacts.HeldCurrent) until a pass judges them again.
+//
+// The build it read is returned so the pass judges the same value it was
+// admitted on; a poll landing between two reads must not turn a pass that was
+// let through into one that gates every member on a blank.
+func (s *Server) skipForUnknownPrimaryBuild(primary *Member) (memberBuild, bool) {
+	build := s.poller.memberBuildOf(primary.ID)
+	if build.Version != "" {
+		s.unknownPrimaryPasses.Store(0)
+		return build, false
+	}
+	n := s.unknownPrimaryPasses.Add(1)
+	if n <= unknownPrimaryGracePasses {
+		debuglog.Debug("frontdesk: auto-sync: skipping pass, primary build unknown", "member", primary.Name)
+		return build, true
+	}
+	if n == unknownPrimaryGracePasses+1 {
+		// Once, on the way out of the grace; the holds it leads to are
+		// edge-triggered too, so a primary that stays unread is not a warning
+		// per tick.
+		debuglog.Warn("frontdesk: auto-sync: primary build still unknown, gating every member",
+			"member", primary.Name, "passes", n)
+	}
+	return build, false
+}
+
 // Nothing fleet-wide is recorded. Convergence is per member: the verified-in-sync
 // heartbeat when a member's hash matches, the diverged flag and amber badge when
 // it does not.
 func (s *Server) convergeFleet(ctx context.Context, primary *Member, primaryToken, hash string, primarySections map[string]string, reason string, gen int64) {
-	details := s.applyAutoSync(ctx, primary, primaryToken, hash, primarySections, reason, gen)
+	primaryBuild, skip := s.skipForUnknownPrimaryBuild(primary)
+	if skip {
+		// Not a verdict on any member: autoSyncEvaluated stays as it was, so a
+		// restart into a blank primary keeps the fleet inputs cold rather than
+		// reporting "no holds" from an empty in-memory set.
+		return
+	}
+	details := s.applyAutoSync(ctx, primary, primaryBuild, primaryToken, hash, primarySections, reason, gen)
 	// The pass has judged every member, so the version-skew hold and
 	// incomplete-apply sets now reflect observations, not a cold start.
 	s.autoSyncEvaluated.Store(true)
@@ -384,7 +441,7 @@ func describeSectionDetails(details []syncedMemberDetail) string {
 // now-stale config into a member the operator has just repointed away from. The
 // in-flight import call is the one window no pre-check can close; passCtx covers
 // it, and the rearm's own pass converges whatever is left.
-func (s *Server) applyAutoSync(ctx context.Context, primary *Member, primaryToken, hash string, primarySections map[string]string, reason string, gen int64) (applied []syncedMemberDetail) {
+func (s *Server) applyAutoSync(ctx context.Context, primary *Member, primaryBuild memberBuild, primaryToken, hash string, primarySections map[string]string, reason string, gen int64) (applied []syncedMemberDetail) {
 	// A read error reports "not stale": a transient DB failure must not abort an
 	// otherwise valid pass.
 	stale := func() bool {
@@ -427,7 +484,6 @@ func (s *Server) applyAutoSync(ctx context.Context, primary *Member, primaryToke
 		return nil
 	}
 
-	primaryBuild := s.poller.memberBuildOf(primary.ID)
 	s.warnIfBuildGateDegraded(primaryBuild)
 	for _, m := range members {
 		if m.ID == primary.ID {
