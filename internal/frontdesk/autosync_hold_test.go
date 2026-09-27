@@ -427,6 +427,48 @@ func TestAutoSync_UnknownPrimaryBuildHoldsNobody(t *testing.T) {
 	}
 }
 
+// TestAutoSync_UnknownPrimaryBuildKeepsAnOpenHold: a hold taken against a known
+// primary build neither closes nor re-announces while the primary's build cannot
+// be read. The skew it recorded is still the last thing known; only a build that
+// reads again, and matches, closes it.
+func TestAutoSync_UnknownPrimaryBuildKeepsAnOpenHold(t *testing.T) {
+	f := newHashFleet(t, func(r *stubAutoMember) { r.dryDiff = driftDiff })
+	setMemberVersion(f.srv, f.replicaM.ID, "v0.9.0")
+	f.tick(t)
+	count := func(typ string) int {
+		t.Helper()
+		evs, _, err := f.store.ListEvents(t.Context(), EventFilter{Type: typ})
+		if err != nil {
+			t.Fatalf("ListEvents %s: %v", typ, err)
+		}
+		return len(evs)
+	}
+	if got := count("config.sync_held"); got != 1 {
+		t.Fatalf("config.sync_held after the skewed pass = %d, want 1", got)
+	}
+
+	setMemberVersion(f.srv, f.primaryM.ID, "")
+	f.tick(t)
+	f.tick(t)
+
+	if got := count("config.sync_held"); got != 1 {
+		t.Errorf("config.sync_held after blank-primary passes = %d, want still 1 (neither re-announced nor cleared)", got)
+	}
+	if got := count("config.sync_recovered"); got != 0 {
+		t.Errorf("config.sync_recovered after blank-primary passes = %d, want 0: an unread primary build clears nothing", got)
+	}
+	if f.replica.didRealSync() {
+		t.Error("a held replica was pushed to while the primary's build was unknown")
+	}
+
+	// The build reads again and still differs: the hold stands, silently.
+	setMemberVersion(f.srv, f.primaryM.ID, "dev")
+	f.tick(t)
+	if got := count("config.sync_held"); got != 1 {
+		t.Errorf("config.sync_held once the primary reads again = %d, want 1", got)
+	}
+}
+
 // TestAutoSyncHoldsCommitSkewOnDevFleet: the skew the app version cannot see. A
 // self-built fleet reports the "dev" placeholder on every member (the
 // Dockerfile's ARG VERSION default), so version equality vouches for nothing;
