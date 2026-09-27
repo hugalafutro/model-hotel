@@ -1516,7 +1516,8 @@
 			"cacheInflated": "Navýšené zásahmi do cache výziev",
 			"keyDeleted": "Odstránené",
 			"ip": "IP",
-			"cost": "Cena"
+			"cost": "Cena",
+			"ttftNotStreamed": "Nemerané: odpoveď nebola streamovaná, takže nebol žiadny prvý token na načasovanie"
 		},
 		"tooltip": {
 			"timeDate": "Časová pečiatka požiadavky",
@@ -2970,7 +2971,7 @@
 			"headers": "Hlavičky",
 			"timeToReceiveHeaders": "Čas do prijatia prvých hlavičiek HTTP odpovede od poskytovateľa",
 			"ttft": "TTFT",
-			"timeToFirstToken": "Čas do prvého tokenu: oneskorenie medzi začiatkom požiadavky a prvým tokenom tela odpovede (prúdové prenosy) alebo úplnej odpovede (neprúdové prenosy)",
+			"timeToFirstToken": "Čas do prvého tokenu: oneskorenie medzi začiatkom požiadavky a prvým tokenom streamovanej odpovede. Pri nestreamovaných požiadavkách sa nemeria.",
 			"tokensPerSecond": "Tokenov za sekundu",
 			"outputTokensPerSecond": "Počet vygenerovaných tokenov za sekundu počas fázy generovania (nezahŕňa čas potrebný na vygenerovanie prvého tokenu). Ak je čas generovania zanedbateľný, zobrazuje sa ako „-“.",
 			"sumOfTokens": "Súčet tokenov promptu a dokončenia (uvažovanie je súčasťou dokončenia)",

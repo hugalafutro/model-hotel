@@ -1516,7 +1516,8 @@
 			"cacheInflated": "Zawyżone przez trafienia w pamięci podręcznej promptu",
 			"keyDeleted": "Usunięto",
 			"ip": "IP",
-			"cost": "Koszt"
+			"cost": "Koszt",
+			"ttftNotStreamed": "Nie zmierzono: odpowiedź nie była strumieniowana, więc nie było pierwszego tokenu do zmierzenia"
 		},
 		"tooltip": {
 			"timeDate": "Znacznik czasu wniosku",
@@ -2970,7 +2971,7 @@
 			"headers": "Nagłówki",
 			"timeToReceiveHeaders": "Czas na otrzymanie pierwszych nagłówków odpowiedzi HTTP od dostawcy wyższego szczebla",
 			"ttft": "TTFT",
-			"timeToFirstToken": "Czas do pierwszego tokena: opóźnienie między początkiem żądania a pierwszym tokenem treści odpowiedzi (streaming) lub pełną odpowiedzią (bez streamingu)",
+			"timeToFirstToken": "Czas do pierwszego tokenu: opóźnienie między rozpoczęciem żądania a pierwszym tokenem strumieniowanej odpowiedzi. Nie mierzone dla żądań bez strumieniowania.",
 			"tokensPerSecond": "Tokeny/s",
 			"outputTokensPerSecond": "Tokeny wyjściowe na sekundę podczas fazy generowania (wyłącza czas do pierwszego tokenu). Pokazane jako '-', gdy czas generowania jest nieistotny.",
 			"sumOfTokens": "Suma tokenów promptu i uzupełnienia (rozumowanie jest częścią uzupełnienia)",

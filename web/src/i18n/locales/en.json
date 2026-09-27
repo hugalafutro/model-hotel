@@ -1406,7 +1406,8 @@
 			"cacheInflated": "Inflated by prompt cache hits",
 			"keyDeleted": "Deleted",
 			"ip": "IP",
-			"cost": "Cost"
+			"cost": "Cost",
+			"ttftNotStreamed": "Not measured: the response was not streamed, so there was no first token to time"
 		},
 		"tooltip": {
 			"timeDate": "Timestamp of the request",
@@ -2825,7 +2826,7 @@
 			"headers": "Headers",
 			"timeToReceiveHeaders": "Time to receive the first HTTP response headers from the upstream provider",
 			"ttft": "TTFT",
-			"timeToFirstToken": "Time to First Token: delay between request start and the first token of the response body (streaming) or full response (non-streaming)",
+			"timeToFirstToken": "Time to First Token: delay between request start and the first token of a streamed response. Not measured for non-streaming requests.",
 			"tokensPerSecond": "Tokens/s",
 			"outputTokensPerSecond": "Output tokens per second during the generation phase (excludes time-to-first-token). Shown as '-' when generation time is negligible.",
 			"sumOfTokens": "Sum of prompt and completion tokens (reasoning is part of completion)",

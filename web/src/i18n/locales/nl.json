@@ -1406,7 +1406,8 @@
 			"cacheInflated": "Inflated by prompt cache hits",
 			"keyDeleted": "Verwijderd",
 			"ip": "IP",
-			"cost": "Kosten"
+			"cost": "Kosten",
+			"ttftNotStreamed": "Niet gemeten: het antwoord werd niet gestreamd, dus er was geen eerste token om te timen"
 		},
 		"tooltip": {
 			"timeDate": "Tijdstempel van de aanvraag",
@@ -2824,7 +2825,7 @@
 			"headers": "Kopteksten",
 			"timeToReceiveHeaders": "Tijd om de eerste HTTP response headers van de upstream provider te ontvangen",
 			"ttft": "TTFT",
-			"timeToFirstToken": "Tijd tot eerste token: vertraging tussen het begin van het verzoek en het eerste token van de response body (streaming) of het volledige antwoord (niet-streaming)",
+			"timeToFirstToken": "Tijd tot eerste token: vertraging tussen de start van het verzoek en het eerste token van een gestreamd antwoord. Niet gemeten voor niet-gestreamde verzoeken.",
 			"tokensPerSecond": "Tokens/s",
 			"outputTokensPerSecond": "Uitgangstokens per seconde tijdens de generatiefase (exclusief tijd tot eerste token). Wordt weergegeven als '-' wanneer de generatietijd verwaarloosbaar is.",
 			"sumOfTokens": "Som van prompt- en completion-tokens (redenering maakt deel uit van completion)",

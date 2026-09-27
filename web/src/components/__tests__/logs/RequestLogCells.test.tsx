@@ -66,6 +66,26 @@ describe("RequestLogCells", () => {
 		expect(plain.querySelector("span")?.className).toContain("text-gray-400");
 	});
 
+	it("explains the missing TTFT of a non-streamed request", () => {
+		// The whole body arrived at once, so there was no first token to time;
+		// a bare dash reads as a measurement that got lost.
+		const { container } = renderCells({ ttft_ms: 0, streaming: false });
+		const cell = container.querySelectorAll("td")[8];
+		expect(cell.textContent).toBe("-");
+		expect(cell.querySelector("span")?.getAttribute("title")).toBe(
+			"Not measured: the response was not streamed, so there was no first token to time",
+		);
+	});
+
+	it("leaves a streamed request's missing TTFT unexplained", () => {
+		// A stream that never produced a token (cancelled, or still waiting) has
+		// nothing to explain away.
+		const { container } = renderCells({ ttft_ms: 0, streaming: true });
+		const cell = container.querySelectorAll("td")[8];
+		expect(cell.textContent).toBe("-");
+		expect(cell.querySelector("span")?.hasAttribute("title")).toBe(false);
+	});
+
 	it("keeps header and TTFT timings on a cancelled request", () => {
 		// Both were measured before the client went away, so hiding them would
 		// throw away a real number.

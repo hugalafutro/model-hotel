@@ -868,7 +868,7 @@ describe("LogDetailModal", () => {
 			);
 
 			const tooltip = screen.getByTitle(
-				"Time to First Token: delay between request start and the first token of the response body (streaming) or full response (non-streaming)",
+				"Time to First Token: delay between request start and the first token of a streamed response. Not measured for non-streaming requests.",
 			);
 			expect(tooltip).toBeInTheDocument();
 			expect(tooltip.querySelector("svg")).toBeInTheDocument();

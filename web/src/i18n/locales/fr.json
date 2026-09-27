@@ -1461,7 +1461,8 @@
 			"cacheInflated": "Gonflé par les hits du cache d'invite",
 			"keyDeleted": "Supprimé",
 			"ip": "IP",
-			"cost": "Coût"
+			"cost": "Coût",
+			"ttftNotStreamed": "Non mesuré : la réponse n'a pas été diffusée en flux, il n'y avait donc pas de premier token à chronométrer"
 		},
 		"tooltip": {
 			"timeDate": "Horodatage de la demande",
@@ -2897,7 +2898,7 @@
 			"headers": "En-têtes",
 			"timeToReceiveHeaders": "Temps avant de recevoir les premiers en-têtes de réponse HTTP du fournisseur amont",
 			"ttft": "TTFT",
-			"timeToFirstToken": "Temps avant premier jeton : délai entre le début de la requête et le premier jeton du corps de la réponse (streaming) ou la réponse complète (non-streaming)",
+			"timeToFirstToken": "Temps jusqu'au premier token : délai entre le début de la requête et le premier token d'une réponse diffusée en flux. Non mesuré pour les requêtes sans flux.",
 			"tokensPerSecond": "Tokens/s",
 			"outputTokensPerSecond": "Jetons de sortie par seconde durant la phase de génération (exclut le temps de création du premier jeton). Affichés comme '-' lorsque le temps de génération est négligeable.",
 			"sumOfTokens": "Somme des jetons de prompt et de complétion (le raisonnement fait partie de la complétion)",

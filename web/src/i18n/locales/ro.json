@@ -1461,7 +1461,8 @@
 			"cacheInflated": "Umflat de accesările în cache ale promptului",
 			"keyDeleted": "Șters",
 			"ip": "IP",
-			"cost": "Cost"
+			"cost": "Cost",
+			"ttftNotStreamed": "Nemăsurat: răspunsul nu a fost transmis în flux, așa că nu a existat un prim token de cronometrat"
 		},
 		"tooltip": {
 			"timeDate": "Momentul cererii",
@@ -2897,7 +2898,7 @@
 			"headers": "Antete",
 			"timeToReceiveHeaders": "Timpul pentru a primi primul antet de răspuns HTTP de la furnizorul din amonte",
 			"ttft": "TTFT",
-			"timeToFirstToken": "Timpul până la primul Token: întârzierea între începerea solicitării și primul token al corpului de răspuns (streaming) sau răspuns complet (non-streaming)",
+			"timeToFirstToken": "Timp până la primul token: întârzierea dintre începutul cererii și primul token al unui răspuns transmis în flux. Nu se măsoară pentru cererile fără flux.",
 			"tokensPerSecond": "Token/s",
 			"outputTokensPerSecond": "Tokeni de ieșire pe secundă în timpul fazei de generare (exclude timpul până la primul token). Afișați ca \"-\" atunci când timpul de generare este neglijabil.",
 			"sumOfTokens": "Suma tokenilor de prompt și de completare (raționamentul face parte din completare)",

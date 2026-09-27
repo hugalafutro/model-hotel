@@ -1461,7 +1461,8 @@
 			"cacheInflated": "Inflado por aciertos de la caché de prompt",
 			"keyDeleted": "Eliminado",
 			"ip": "IP",
-			"cost": "Coste"
+			"cost": "Coste",
+			"ttftNotStreamed": "No medido: la respuesta no se transmitió en streaming, así que no hubo un primer token que cronometrar"
 		},
 		"tooltip": {
 			"timeDate": "Marca de tiempo de la solicitud",
@@ -2897,7 +2898,7 @@
 			"headers": "Encabezados",
 			"timeToReceiveHeaders": "Tiempo para recibir las primeras cabeceras de respuesta HTTP del proveedor principal",
 			"ttft": "TTFT",
-			"timeToFirstToken": "Tiempo hasta el primer token: retardo entre el inicio de la solicitud y el primer token del cuerpo de la respuesta (streaming) o la respuesta completa (no streaming)",
+			"timeToFirstToken": "Tiempo hasta el primer token: retraso entre el inicio de la petición y el primer token de una respuesta en streaming. No se mide en peticiones sin streaming.",
 			"tokensPerSecond": "Tokens/s",
 			"outputTokensPerSecond": "Tokens de salida por segundo durante la fase de generación (excluye el tiempo hasta el primer token). Se muestra como '-' cuando el tiempo de generación es insignificante.",
 			"sumOfTokens": "Suma de tokens de prompt y de completado (el razonamiento forma parte del completado)",

@@ -1406,7 +1406,8 @@
 			"cacheInflated": "Blåst opp av treff i prompt-bufferen",
 			"keyDeleted": "Slettet",
 			"ip": "IP",
-			"cost": "Kostnad"
+			"cost": "Kostnad",
+			"ttftNotStreamed": "Ikke målt: svaret ble ikke strømmet, så det var ingen første token å ta tiden på"
 		},
 		"tooltip": {
 			"timeDate": "Tidsstempel for anmodningen",
@@ -2824,7 +2825,7 @@
 			"headers": "Headere",
 			"timeToReceiveHeaders": "Tid for å motta de første HTTP-responsoverskriftene fra oppstrøms leverandør",
 			"ttft": "TTFT",
-			"timeToFirstToken": "Tid til første token: forsinkelsen mellom start på forespørselen og det første tokenet i svaret (strømming) eller hele svaret (uten strømming)",
+			"timeToFirstToken": "Tid til første token: forsinkelse mellom forespørselens start og det første tokenet i et strømmet svar. Måles ikke for ikke-strømmede forespørsler.",
 			"tokensPerSecond": "Tokens/s",
 			"outputTokensPerSecond": "Utdata-tokener per sekund i genereringsfasen (ekskluderer tid til første token). Vises som '-' når genereringstiden er ubetydelig.",
 			"sumOfTokens": "Sum av prompt- og completion-tokens (resonnering er en del av completion)",
