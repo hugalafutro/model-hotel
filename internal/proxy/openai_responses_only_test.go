@@ -732,9 +732,10 @@ func TestIssueParamRetry_RerouteMetricCountsIssuedRequests(t *testing.T) {
 	}
 }
 
-// A Responses 400 that taught the param learner to strip reasoning_effort for
-// this provider and model wins over the restore: the re-issue goes out
-// without the effort instead of drawing the same 400 on every attempt.
+// A learned strip of reasoning_effort for this provider and model (seeded
+// here straight into the cache, as a Responses 400 naming the param would
+// leave it) wins over the restore: the re-issue goes out without the effort
+// instead of drawing the same 400 on every attempt.
 func TestTranslateResponsesRequestBody_LearnedStripWinsOverRestore(t *testing.T) {
 	h := &Handler{}
 	cand := responsesTestCandidate("https://opencode.ai/zen/go/v1")
