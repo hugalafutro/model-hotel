@@ -52,10 +52,6 @@ func TestIsResponsesOnlyRejection(t *testing.T) {
 	if !IsResponsesOnlyRejection([]byte(yes)) {
 		t.Fatal("the pro-tier refusal was not recognised")
 	}
-	opencode := `{"type":"error","error":{"type":"ModelProtocolUnsupported","message":"Model does not support this protocol."}}`
-	if !IsResponsesOnlyRejection([]byte(opencode)) {
-		t.Fatal("the OpenCode protocol refusal was not recognised")
-	}
 	for name, body := range map[string]string{
 		"tools rejection":      `{"error":{"message":"Function tools with reasoning_effort are not supported in the Chat Completions API for this model. Please use the /v1/responses endpoint."}}`,
 		"model not found":      `{"error":{"message":"The model 'gpt-9' does not exist or you do not have access to it."}}`,
@@ -64,6 +60,30 @@ func TestIsResponsesOnlyRejection(t *testing.T) {
 	} {
 		if IsResponsesOnlyRejection([]byte(body)) {
 			t.Errorf("%s: recognised as the responses-only refusal", name)
+		}
+	}
+}
+
+// OpenCode's protocol refusal: matched on its error type, or on its message
+// when the type is missing, and on nothing that merely mentions a protocol.
+func TestIsOpenCodeProtocolRefusal(t *testing.T) {
+	for name, body := range map[string]string{
+		"typed":        `{"type":"error","error":{"type":"ModelProtocolUnsupported","message":"Model does not support this protocol."}}`,
+		"message only": `{"error":{"message":"Model does not support this protocol"}}`,
+	} {
+		if !IsOpenCodeProtocolRefusal([]byte(body)) {
+			t.Errorf("%s: not recognised as the OpenCode protocol refusal", name)
+		}
+	}
+	for name, body := range map[string]string{
+		"openai pro tier": `{"error":{"message":"This is not a chat model and thus not supported in the v1/chat/completions endpoint. Did you mean to use v1/completions?"}}`,
+		"other protocol":  `{"error":{"message":"Streaming does not support this protocol."}}`,
+		"other type":      `{"error":{"type":"invalid_request_error","message":"Unsupported parameter: 'temperature'"}}`,
+		"not an envelope": `Model does not support this protocol.`,
+		"empty":           ``,
+	} {
+		if IsOpenCodeProtocolRefusal([]byte(body)) {
+			t.Errorf("%s: recognised as the OpenCode protocol refusal", name)
 		}
 	}
 }

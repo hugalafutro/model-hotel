@@ -555,10 +555,11 @@ func (h *Handler) buildCandidateRequest(ctx context.Context, st *requestState, c
 		return h.buildGeminiTranscriptionRequest(ctx, st, candidate, providerType)
 	}
 
-	// OpenAI Responses re-route: a model learned (from a prior 400) to reject
-	// tools+reasoning over chat-completions is served via /v1/responses, with
-	// the request translated out and the response translated back by the
-	// dispatch.
+	// OpenAI Responses re-route: a model learned (from a prior refusal) to
+	// reject tools+reasoning over chat-completions, or to be served by
+	// /v1/responses alone (OpenAI's pro tier, OpenCode's GPT models), goes
+	// to /v1/responses, with the request translated out and the response
+	// translated back by the dispatch.
 	if h.shouldUseResponsesAttempt(st, candidate, providerType) {
 		st.responsesAttempt = true
 		return h.buildResponsesRequest(ctx, st, candidate, providerType)

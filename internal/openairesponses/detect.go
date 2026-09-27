@@ -40,20 +40,39 @@ func NeedsResponsesRouting(chatBody []byte) bool {
 	return len(probe.Tools) > 0 && probe.ReasoningEffort != "none"
 }
 
-// IsResponsesOnlyRejection reports the chat-completions refusal for a model
-// that is served by the Responses API alone; unlike the tools+reasoning
-// rejection it applies to every request for the model, tools or not. Two
-// wordings: OpenAI's own for the pro tier (o1-pro, o3-pro, gpt-5-pro and its
-// point releases), a 404 whose message misdirects to the legacy
-// /v1/completions; and OpenCode's for the GPT models on Zen and Go, a 400
-// "Model does not support this protocol." (type ModelProtocolUnsupported)
-// that names no forward path at all.
+// IsResponsesOnlyRejection reports the chat-completions refusal OpenAI
+// answers for a model that is served by the Responses API alone (the pro
+// tier: o1-pro, o3-pro, gpt-5-pro and its point releases). The message
+// misdirects, pointing at the legacy /v1/completions, and arrives as a 404
+// rather than a 400; unlike the tools+reasoning rejection it applies to
+// every request for the model, tools or not.
 func IsResponsesOnlyRejection(errBody []byte) bool {
 	m := strings.ToLower(util.ErrorEnvelopeMessage(errBody))
-	if strings.Contains(m, "not a chat model") && strings.Contains(m, "chat/completions") {
+	return strings.Contains(m, "not a chat model") && strings.Contains(m, "chat/completions")
+}
+
+// IsOpenCodeProtocolRefusal reports the 400 OpenCode Zen and Go answer on
+// chat-completions for a model they serve over another protocol:
+// {"type":"error","error":{"type":"ModelProtocolUnsupported","message":"Model
+// does not support this protocol."}}. The body names neither the model nor
+// the protocol it wants, so the caller decides what it means: for the GPT
+// models it is the Responses API. Matched on the error type first, the prose
+// as a fallback, so a reworded message still counts while a different error
+// that merely mentions a protocol does not.
+func IsOpenCodeProtocolRefusal(errBody []byte) bool {
+	var env struct {
+		Error struct {
+			Type    string `json:"type"`
+			Message string `json:"message"`
+		} `json:"error"`
+	}
+	if json.Unmarshal(errBody, &env) != nil {
+		return false
+	}
+	if env.Error.Type == "ModelProtocolUnsupported" {
 		return true
 	}
-	return strings.Contains(m, "does not support this protocol")
+	return strings.HasPrefix(strings.ToLower(env.Error.Message), "model does not support this protocol")
 }
 
 // ResponsesOnlyModel reports an OpenAI model id known to be served by the
