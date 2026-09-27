@@ -174,8 +174,8 @@ func TestParseProviderParamError_ValueRangeComplaintTeachesNothing(t *testing.T)
 // ds41flash 2026-09-27): the model takes temperature, this caller sent it as a
 // string. Learning a strip from it would delete the param, or a caller's
 // max_tokens budget, from every later request to the model. One wording per
-// phrase in valueComplaintPhrases, each quoting the param so that it IS
-// learned without its phrase.
+// wrong-type phrase in valueComplaintPhrases, each quoting the param so that
+// it IS learned without its phrase.
 func TestParseProviderParamError_ValueTypeComplaintTeachesNothing(t *testing.T) {
 	t.Parallel()
 
