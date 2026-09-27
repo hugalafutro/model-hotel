@@ -469,6 +469,46 @@ func TestAutoSync_UnknownPrimaryBuildKeepsAnOpenHold(t *testing.T) {
 	}
 }
 
+// TestAutoSync_UnknownPrimaryBuildIsColdThenLoud: a skipped pass is not a verdict,
+// so the fleet-state inputs stay cold through the grace (a restart into a blank
+// primary must not report "no holds" from an empty in-memory set), and a primary
+// whose build stays unread past the grace gets the old fail-closed gate back:
+// the pass runs, the replica is held and announced, and the inputs are warm.
+func TestAutoSync_UnknownPrimaryBuildIsColdThenLoud(t *testing.T) {
+	f := newHashFleet(t, func(r *stubAutoMember) { r.dryDiff = driftDiff })
+	setMemberVersion(f.srv, f.primaryM.ID, "")
+	f.srv.autoSyncEvaluated.Store(false)
+	held := func() int {
+		t.Helper()
+		evs, _, err := f.store.ListEvents(t.Context(), EventFilter{Type: "config.sync_held"})
+		if err != nil {
+			t.Fatalf("ListEvents: %v", err)
+		}
+		return len(evs)
+	}
+
+	for i := 0; i < unknownPrimaryGracePasses; i++ {
+		f.tick(t)
+		if f.srv.autoSyncEvaluated.Load() {
+			t.Fatalf("pass %d with an unread primary build marked the fleet inputs warm", i+1)
+		}
+		if got := held(); got != 0 {
+			t.Fatalf("pass %d with an unread primary build announced %d holds, want 0", i+1, got)
+		}
+	}
+
+	f.tick(t)
+	if !f.srv.autoSyncEvaluated.Load() {
+		t.Error("the pass past the grace ran without marking the fleet inputs warm")
+	}
+	if got := held(); got != 1 {
+		t.Errorf("config.sync_held once the grace is over = %d, want 1: a primary that stays unread must gate out loud", got)
+	}
+	if f.replica.didRealSync() {
+		t.Error("the replica was pushed to while the primary's build was unknown")
+	}
+}
+
 // TestAutoSyncHoldsCommitSkewOnDevFleet: the skew the app version cannot see. A
 // self-built fleet reports the "dev" placeholder on every member (the
 // Dockerfile's ARG VERSION default), so version equality vouches for nothing;
