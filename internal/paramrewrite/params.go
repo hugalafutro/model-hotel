@@ -204,17 +204,21 @@ var valueComplaintPhrases = []string{
 }
 
 // isValueComplaint reports whether msg complains about param's value, its
-// size or its type, rather than about the param: a stretch of msg that names
+// size or its type, rather than about the param: the sentence that names
 // param carries one of valueComplaintPhrases. Judged per param so that a
-// sibling refusal joined into the same 400 is still learned.
+// sibling refusal joined into the same 400 is still learned, and per
+// sentence because a window is cut AT the other param's name, which leaves
+// the lead-in of "Invalid type for 'temperature'" in the sibling's window.
 func isValueComplaint(msg, param string) bool {
 	for _, window := range paramWindows(strings.ToLower(msg), param) {
-		if !paramIsQuoted(window, param) {
-			continue
-		}
-		for _, phrase := range valueComplaintPhrases {
-			if strings.Contains(window, phrase) {
-				return true
+		for _, sentence := range strings.Split(window, ". ") {
+			if !paramIsQuoted(sentence, param) {
+				continue
+			}
+			for _, phrase := range valueComplaintPhrases {
+				if strings.Contains(sentence, phrase) {
+					return true
+				}
 			}
 		}
 	}
@@ -253,14 +257,15 @@ func isEnumValueComplaint(msg, param string) bool {
 }
 
 // paramWindows cuts msg into the stretches that can each be about one param:
-// at the separators providers join several errors with, and at every mention
+// at the separators providers join several errors with (pydantic's python
+// repr "}, {" and its JSON form "},{" among them), and at every mention
 // of another known param, which starts that param's own stretch. A name with an
 // underscore ("top_p") is specific enough to count bare, so "Invalid value for
 // top_p. Supported values are: 1." after a reasoning_effort refusal is top_p's
 // stretch; a plain word ("stop", "n") counts only when quoted.
 func paramWindows(msg, param string) []string {
 	cuts := []int{0}
-	for _, sep := range []string{";", "\n", "}, {"} {
+	for _, sep := range []string{";", "\n", "}, {", "},{"} {
 		for _, i := range occurrences(msg, sep) {
 			cuts = append(cuts, i+len(sep))
 		}

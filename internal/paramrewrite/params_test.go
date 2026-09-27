@@ -145,10 +145,10 @@ func TestParseProviderParamError_ValueRangeComplaintTeachesNothing(t *testing.T)
 	for _, msg := range []string{
 		`Invalid 'temperature': decimal above maximum value. Expected a value <= 2, but got 3 instead.`,
 		`Invalid 'n': integer below minimum value. Expected a value >= 1, but got 0 instead.`,
-		`temperature: Input should be less than or equal to 1`,
-		`top_p: Input should be greater than or equal to 0`,
-		`temperature: Input should be less than 2`,
-		`top_k: Input should be greater than 0`,
+		`[{'loc': ('body', 'temperature'), 'msg': 'Input should be less than or equal to 1'}]`,
+		`[{'loc': ('body', 'top_p'), 'msg': 'Input should be greater than or equal to 0'}]`,
+		`[{'loc': ('body', 'temperature'), 'msg': 'Input should be less than 2'}]`,
+		`[{'loc': ('body', 'top_k'), 'msg': 'Input should be greater than 0'}]`,
 		`'max_tokens' must be less than 8193`,
 		`Invalid value for 'max_tokens': must be between 1 and 8192.`,
 	} {
@@ -205,10 +205,18 @@ func TestParseProviderParamError_ValueTypeComplaintTeachesNothing(t *testing.T) 
 		t.Errorf("param refusal no longer learned: %v", rejected)
 	}
 	// Judged per param: a value complaint joined into the same 400 as a
-	// refusal of another param hides neither the refusal nor the value.
-	body = []byte(`{"error":{"message":"[{'type': 'float_parsing', 'loc': ('body', 'temperature'), 'msg': 'Input should be a valid number, unable to parse string as a number', 'input': 'warm'}, {'type': 'extra_forbidden', 'loc': ('body', 'top_k'), 'msg': 'Extra inputs are not permitted'}]"}}`)
-	if rejected := ParseProviderParamError(body); rejected["temperature"] || !rejected["top_k"] {
-		t.Errorf("joined 400: got %v, want top_k only", rejected)
+	// refusal of another param hides neither the refusal nor the value,
+	// whichever side of the refusal it sits on, in pydantic's python repr,
+	// its JSON form, or OpenAI's prose.
+	for _, tc := range []struct{ msg, want string }{
+		{`[{'type': 'float_parsing', 'loc': ('body', 'temperature'), 'msg': 'Input should be a valid number, unable to parse string as a number', 'input': 'warm'}, {'type': 'extra_forbidden', 'loc': ('body', 'top_k'), 'msg': 'Extra inputs are not permitted'}]`, "top_k"},
+		{`[{\"type\":\"extra_forbidden\",\"loc\":[\"body\",\"temperature\"],\"msg\":\"Extra inputs are not permitted\"},{\"type\":\"int_parsing\",\"loc\":[\"body\",\"max_completion_tokens\"],\"msg\":\"Input should be a valid integer\"}]`, "temperature"},
+		{`Unsupported parameter: 'top_p' is not supported with this model. Invalid type for 'temperature': expected a number, but got a string instead.`, "top_p"},
+	} {
+		body := []byte(`{"error":{"message":"` + tc.msg + `"}}`)
+		if rejected := ParseProviderParamError(body); len(rejected) != 1 || !rejected[tc.want] {
+			t.Errorf("joined 400 %q: got %v, want %s only", tc.msg, rejected, tc.want)
+		}
 	}
 }
 
