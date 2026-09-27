@@ -151,6 +151,12 @@ func TestParseProviderParamError_ValueRangeComplaintTeachesNothing(t *testing.T)
 		`[{'loc': ('body', 'top_k'), 'msg': 'Input should be greater than 0'}]`,
 		`'max_tokens' must be less than 8193`,
 		`Invalid value for 'max_tokens': must be between 1 and 8192.`,
+		// TGI (router/src/validation.rs)
+		"Input validation error: `temperature` must be strictly positive",
+		"Input validation error: `top_p` must be > 0.0 and < 1.0",
+		"Input validation error: `frequency_penalty` must be >= -2.0 and <= 2.0",
+		// vLLM
+		`'max_tokens' or 'max_completion_tokens' is too large: 32000. This model's maximum context length is 8192 tokens and your request has 20 input tokens (32000 > 8192 - 20).`,
 	} {
 		body := []byte(`{"error":{"message":` + fmt.Sprintf("%q", msg) + `,"type":"invalid_request_error"}}`)
 		if rejected := ParseProviderParamError(body); len(rejected) != 0 {
@@ -191,7 +197,8 @@ func TestParseProviderParamError_ValueTypeComplaintTeachesNothing(t *testing.T) 
 		`'temperature' must be a number`,
 		`'max_tokens' must be an integer`,
 		`'logprobs' must be a boolean`,
-		// Google's OpenAI-compatible endpoint
+		// Google, bare-name form (the native endpoint quotes the dotted
+		// 'generation_config.temperature', which is never a learnable name)
 		`Invalid value at 'temperature' (TYPE_FLOAT), "warm"`,
 	} {
 		body := []byte(`{"error":{"message":` + fmt.Sprintf("%q", msg) + `,"type":"invalid_request_error"}}`)

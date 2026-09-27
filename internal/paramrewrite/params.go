@@ -194,6 +194,10 @@ var valueComplaintPhrases = []string{
 	"must be less than", "must be greater than",
 	"must be between", "in the range", "out of range",
 	"must be at least", "must be at most", "must not exceed",
+	// TGI: "`temperature` must be strictly positive", "`top_p` must be > 0.0
+	// and < 1.0"; vLLM: "'max_tokens' or 'max_completion_tokens' is too
+	// large: 32000. This model's maximum context length is 8192 tokens".
+	"must be strictly positive", "must be >", "is too large",
 	// The wrong JSON type: the param is taken, this caller's value is not.
 	// OpenAI, JSON-schema validators, pydantic v2 (vLLM), pydantic v1, the
 	// "must be" form, Google's compat endpoint, in that order.
