@@ -195,20 +195,27 @@ var valueComplaintPhrases = []string{
 	"must be between", "in the range", "out of range",
 	"must be at least", "must be at most", "must not exceed",
 	// The wrong JSON type: the param is taken, this caller's value is not.
-	// OpenAI, JSON-schema validators, pydantic v2 (vLLM), pydantic v1,
-	// Groq-style "must be", Google's compat endpoint, in that order.
+	// OpenAI, JSON-schema validators, pydantic v2 (vLLM), pydantic v1, the
+	// "must be" form, Google's compat endpoint, in that order.
 	"invalid type for", "is not of type", "input should be a valid",
 	"is not a valid float", "is not a valid integer", "is not a valid number",
-	"must be a number", "must be an integer", "(type_",
+	"is not a valid list", "could not be parsed to a boolean", "type expected",
+	"must be a number", "must be an integer", "must be a boolean", "(type_",
 }
 
-// isValueComplaint reports whether msg says a value was out of range or of
-// the wrong type.
-func isValueComplaint(msg string) bool {
-	lower := strings.ToLower(msg)
-	for _, phrase := range valueComplaintPhrases {
-		if strings.Contains(lower, phrase) {
-			return true
+// isValueComplaint reports whether msg complains about param's value, its
+// size or its type, rather than about the param: a stretch of msg that names
+// param carries one of valueComplaintPhrases. Judged per param so that a
+// sibling refusal joined into the same 400 is still learned.
+func isValueComplaint(msg, param string) bool {
+	for _, window := range paramWindows(strings.ToLower(msg), param) {
+		if !paramIsQuoted(window, param) {
+			continue
+		}
+		for _, phrase := range valueComplaintPhrases {
+			if strings.Contains(window, phrase) {
+				return true
+			}
 		}
 	}
 	return false
@@ -386,17 +393,6 @@ func ParseProviderParamError(body []byte) map[string]bool {
 	if msg == "" {
 		return nil
 	}
-	// A value out of range or of the wrong type names the param the same way
-	// an unsupported one does ("Invalid 'temperature': decimal above maximum
-	// value. Expected a value <= 2, but got 3 instead.", "Invalid type for
-	// 'temperature': expected a number, but got a string instead."). Learning
-	// that as a strip would drop the param from every later request to the
-	// model, for every caller, for the life of the process, over one caller's
-	// bad value. Nothing is learned from it: the 400 goes back to the caller
-	// who sent the value.
-	if isValueComplaint(msg) {
-		return nil
-	}
 	rejected := make(map[string]bool)
 
 	// "cannot both be specified": strip top_p, keep temperature
@@ -442,6 +438,19 @@ func ParseProviderParamError(body []byte) map[string]bool {
 			if c >= 'a' && c <= 'z' && msg[idx+6] == q {
 				rejected[msg[idx+1:idx+6]] = true
 			}
+		}
+	}
+	// A value out of range or of the wrong type names the param the same way
+	// an unsupported one does ("Invalid 'temperature': decimal above maximum
+	// value. Expected a value <= 2, but got 3 instead.", "Invalid type for
+	// 'temperature': expected a number, but got a string instead."). Learning
+	// that as a strip would drop the param from every later request to the
+	// model, for every caller, for the life of the process, over one caller's
+	// bad value. Nothing is learned for that param: the 400 goes back to the
+	// caller who sent the value.
+	for p := range rejected {
+		if isValueComplaint(msg, p) {
+			delete(rejected, p)
 		}
 	}
 	if len(rejected) == 0 {

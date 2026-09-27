@@ -184,9 +184,13 @@ func TestParseProviderParamError_ValueTypeComplaintTeachesNothing(t *testing.T) 
 		`[{'loc': ('body', 'temperature'), 'msg': 'value is not a valid float', 'type': 'type_error.float'}]`,
 		`[{'loc': ('body', 'max_tokens'), 'msg': 'value is not a valid integer', 'type': 'type_error.integer'}]`,
 		`[{'loc': ('body', 'top_p'), 'msg': 'value is not a valid number', 'type': 'type_error.number'}]`,
+		`[{'loc': ('body', 'stop'), 'msg': 'value is not a valid list', 'type': 'type_error.list'}]`,
+		`[{'loc': ('body', 'logprobs'), 'msg': 'value could not be parsed to a boolean', 'type': 'type_error.bool'}]`,
+		`[{'loc': ('body', 'stop'), 'msg': 'str type expected', 'type': 'type_error.str'}]`,
 		// "must be"
 		`'temperature' must be a number`,
 		`'max_tokens' must be an integer`,
+		`'logprobs' must be a boolean`,
 		// Google's OpenAI-compatible endpoint
 		`Invalid value at 'temperature' (TYPE_FLOAT), "warm"`,
 	} {
@@ -199,6 +203,12 @@ func TestParseProviderParamError_ValueTypeComplaintTeachesNothing(t *testing.T) 
 	body := []byte(`{"error":{"message":"Unsupported parameter: 'temperature' is not supported with this model."}}`)
 	if rejected := ParseProviderParamError(body); !rejected["temperature"] {
 		t.Errorf("param refusal no longer learned: %v", rejected)
+	}
+	// Judged per param: a value complaint joined into the same 400 as a
+	// refusal of another param hides neither the refusal nor the value.
+	body = []byte(`{"error":{"message":"[{'type': 'float_parsing', 'loc': ('body', 'temperature'), 'msg': 'Input should be a valid number, unable to parse string as a number', 'input': 'warm'}, {'type': 'extra_forbidden', 'loc': ('body', 'top_k'), 'msg': 'Extra inputs are not permitted'}]"}}`)
+	if rejected := ParseProviderParamError(body); rejected["temperature"] || !rejected["top_k"] {
+		t.Errorf("joined 400: got %v, want top_k only", rejected)
 	}
 }
 
