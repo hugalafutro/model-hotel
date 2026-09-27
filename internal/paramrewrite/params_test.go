@@ -145,12 +145,18 @@ func TestParseProviderParamError_ValueRangeComplaintTeachesNothing(t *testing.T)
 	for _, msg := range []string{
 		`Invalid 'temperature': decimal above maximum value. Expected a value <= 2, but got 3 instead.`,
 		`Invalid 'n': integer below minimum value. Expected a value >= 1, but got 0 instead.`,
-		`temperature: Input should be less than or equal to 1`,
-		`top_p: Input should be greater than or equal to 0`,
-		`temperature: Input should be less than 2`,
-		`top_k: Input should be greater than 0`,
+		`[{'loc': ('body', 'temperature'), 'msg': 'Input should be less than or equal to 1'}]`,
+		`[{'loc': ('body', 'top_p'), 'msg': 'Input should be greater than or equal to 0'}]`,
+		`[{'loc': ('body', 'temperature'), 'msg': 'Input should be less than 2'}]`,
+		`[{'loc': ('body', 'top_k'), 'msg': 'Input should be greater than 0'}]`,
 		`'max_tokens' must be less than 8193`,
 		`Invalid value for 'max_tokens': must be between 1 and 8192.`,
+		// TGI (router/src/validation.rs)
+		"Input validation error: `temperature` must be strictly positive",
+		"Input validation error: `top_p` must be > 0.0 and < 1.0",
+		"Input validation error: `frequency_penalty` must be >= -2.0 and <= 2.0",
+		// vLLM
+		`'max_tokens' or 'max_completion_tokens' is too large: 32000. This model's maximum context length is 8192 tokens and your request has 20 input tokens (32000 > 8192 - 20).`,
 	} {
 		body := []byte(`{"error":{"message":` + fmt.Sprintf("%q", msg) + `,"type":"invalid_request_error"}}`)
 		if rejected := ParseProviderParamError(body); len(rejected) != 0 {
@@ -161,6 +167,63 @@ func TestParseProviderParamError_ValueRangeComplaintTeachesNothing(t *testing.T)
 	body := []byte(`{"error":{"message":"Unsupported value: 'temperature' does not support 0 with this model. Only the default (1) value is supported."}}`)
 	if rejected := ParseProviderParamError(body); !rejected["temperature"] {
 		t.Errorf("unsupported-value refusal no longer learned: %v", rejected)
+	}
+}
+
+// A value of the wrong JSON type quotes the param the same way (Strix
+// ds41flash 2026-09-27): the model takes temperature, this caller sent it as a
+// string. Learning a strip from it would delete the param, or a caller's
+// max_tokens budget, from every later request to the model. One wording per
+// wrong-type phrase in valueComplaintPhrases, each quoting the param so that
+// it IS learned without its phrase.
+func TestParseProviderParamError_ValueTypeComplaintTeachesNothing(t *testing.T) {
+	t.Parallel()
+
+	for _, msg := range []string{
+		// OpenAI
+		`Invalid type for 'temperature': expected a number, but got a string instead.`,
+		// JSON-schema validators
+		`'temperature' is not of type 'number'`,
+		// pydantic v2 (vLLM, Anthropic)
+		`[{'type': 'float_parsing', 'loc': ('body', 'temperature'), 'msg': 'Input should be a valid number, unable to parse string as a number', 'input': 'warm'}]`,
+		// pydantic v1
+		`[{'loc': ('body', 'temperature'), 'msg': 'value is not a valid float', 'type': 'type_error.float'}]`,
+		`[{'loc': ('body', 'max_tokens'), 'msg': 'value is not a valid integer', 'type': 'type_error.integer'}]`,
+		`[{'loc': ('body', 'top_p'), 'msg': 'value is not a valid number', 'type': 'type_error.number'}]`,
+		`[{'loc': ('body', 'stop'), 'msg': 'value is not a valid list', 'type': 'type_error.list'}]`,
+		`[{'loc': ('body', 'logprobs'), 'msg': 'value could not be parsed to a boolean', 'type': 'type_error.bool'}]`,
+		`[{'loc': ('body', 'stop'), 'msg': 'str type expected', 'type': 'type_error.str'}]`,
+		// "must be"
+		`'temperature' must be a number`,
+		`'max_tokens' must be an integer`,
+		`'logprobs' must be a boolean`,
+		// Google, bare-name form (the native endpoint quotes the dotted
+		// 'generation_config.temperature', which is never a learnable name)
+		`Invalid value at 'temperature' (TYPE_FLOAT), "warm"`,
+	} {
+		body := []byte(`{"error":{"message":` + fmt.Sprintf("%q", msg) + `,"type":"invalid_request_error"}}`)
+		if rejected := ParseProviderParamError(body); len(rejected) != 0 {
+			t.Errorf("%q: learned %v, want nothing", msg, rejected)
+		}
+	}
+	// The param itself refused is still learned.
+	body := []byte(`{"error":{"message":"Unsupported parameter: 'temperature' is not supported with this model."}}`)
+	if rejected := ParseProviderParamError(body); !rejected["temperature"] {
+		t.Errorf("param refusal no longer learned: %v", rejected)
+	}
+	// Judged per param: a value complaint joined into the same 400 as a
+	// refusal of another param hides neither the refusal nor the value,
+	// whichever side of the refusal it sits on, in pydantic's python repr,
+	// its JSON form, or OpenAI's prose.
+	for _, tc := range []struct{ msg, want string }{
+		{`[{'type': 'float_parsing', 'loc': ('body', 'temperature'), 'msg': 'Input should be a valid number, unable to parse string as a number', 'input': 'warm'}, {'type': 'extra_forbidden', 'loc': ('body', 'top_k'), 'msg': 'Extra inputs are not permitted'}]`, "top_k"},
+		{`[{\"type\":\"extra_forbidden\",\"loc\":[\"body\",\"temperature\"],\"msg\":\"Extra inputs are not permitted\"},{\"type\":\"int_parsing\",\"loc\":[\"body\",\"max_completion_tokens\"],\"msg\":\"Input should be a valid integer\"}]`, "temperature"},
+		{`Unsupported parameter: 'top_p' is not supported with this model. Invalid type for 'temperature': expected a number, but got a string instead.`, "top_p"},
+	} {
+		body := []byte(`{"error":{"message":"` + tc.msg + `"}}`)
+		if rejected := ParseProviderParamError(body); len(rejected) != 1 || !rejected[tc.want] {
+			t.Errorf("joined 400 %q: got %v, want %s only", tc.msg, rejected, tc.want)
+		}
 	}
 }
 

@@ -173,14 +173,18 @@ func ParseProviderParamRename(body []byte) map[string]string {
 	return renames
 }
 
-// valueRangePhrases are how providers word a value that is the wrong size, as
-// opposed to a parameter the model does not take at all. OpenAI: "decimal
-// above maximum value", "integer below minimum value"; Anthropic (pydantic):
-// "Input should be less than or equal to 1", "greater than or equal to";
-// Google: "must be in the range". A phrase here has to describe the value's
-// magnitude, never its mere presence: OpenAI's "does not support 0 with this
-// model" is a value the model refuses outright and stays learnable.
-var valueRangePhrases = []string{
+// valueComplaintPhrases are how providers word a value that is the wrong size
+// or the wrong type, as opposed to a parameter the model does not take at all.
+// Size, OpenAI: "decimal above maximum value", "integer below minimum value";
+// Anthropic (pydantic): "Input should be less than or equal to 1", "greater
+// than or equal to"; Google: "must be in the range". Type, OpenAI: "Invalid
+// type for 'temperature': expected a number, but got a string instead";
+// pydantic v2: "Input should be a valid number", v1: "value is not a valid
+// float"; JSON-schema validators: "is not of type 'number'"; Google:
+// "(TYPE_FLOAT)". A phrase here has to describe
+// the value, never the param's mere presence: OpenAI's "does not support 0
+// with this model" is a value the model refuses outright and stays learnable.
+var valueComplaintPhrases = []string{
 	"above maximum", "below minimum",
 	// pydantic's inclusive and exclusive bounds ("Input should be less than
 	// or equal to 1", "Input should be less than 2"), anchored on its lead-in
@@ -190,14 +194,36 @@ var valueRangePhrases = []string{
 	"must be less than", "must be greater than",
 	"must be between", "in the range", "out of range",
 	"must be at least", "must be at most", "must not exceed",
+	// TGI: "`temperature` must be strictly positive", "`top_p` must be > 0.0
+	// and < 1.0"; vLLM: "'max_tokens' or 'max_completion_tokens' is too
+	// large: 32000. This model's maximum context length is 8192 tokens".
+	"must be strictly positive", "must be >", "is too large",
+	// The wrong JSON type: the param is taken, this caller's value is not.
+	// OpenAI, JSON-schema validators, pydantic v2 (vLLM), pydantic v1, the
+	// "must be" form, Google's compat endpoint, in that order.
+	"invalid type for", "is not of type", "input should be a valid",
+	"is not a valid float", "is not a valid integer", "is not a valid number",
+	"is not a valid list", "could not be parsed to a boolean", "type expected",
+	"must be a number", "must be an integer", "must be a boolean", "(type_",
 }
 
-// isValueRangeComplaint reports whether msg says a value was out of range.
-func isValueRangeComplaint(msg string) bool {
-	lower := strings.ToLower(msg)
-	for _, phrase := range valueRangePhrases {
-		if strings.Contains(lower, phrase) {
-			return true
+// isValueComplaint reports whether msg complains about param's value, its
+// size or its type, rather than about the param: the sentence that names
+// param carries one of valueComplaintPhrases. Judged per param so that a
+// sibling refusal joined into the same 400 is still learned, and per
+// sentence because a window is cut AT the other param's name, which leaves
+// the lead-in of "Invalid type for 'temperature'" in the sibling's window.
+func isValueComplaint(msg, param string) bool {
+	for _, window := range paramWindows(strings.ToLower(msg), param) {
+		for _, sentence := range strings.Split(window, ". ") {
+			if !paramIsQuoted(sentence, param) {
+				continue
+			}
+			for _, phrase := range valueComplaintPhrases {
+				if strings.Contains(sentence, phrase) {
+					return true
+				}
+			}
 		}
 	}
 	return false
@@ -235,14 +261,15 @@ func isEnumValueComplaint(msg, param string) bool {
 }
 
 // paramWindows cuts msg into the stretches that can each be about one param:
-// at the separators providers join several errors with, and at every mention
+// at the separators providers join several errors with (pydantic's python
+// repr "}, {" and its JSON form "},{" among them), and at every mention
 // of another known param, which starts that param's own stretch. A name with an
 // underscore ("top_p") is specific enough to count bare, so "Invalid value for
 // top_p. Supported values are: 1." after a reasoning_effort refusal is top_p's
 // stretch; a plain word ("stop", "n") counts only when quoted.
 func paramWindows(msg, param string) []string {
 	cuts := []int{0}
-	for _, sep := range []string{";", "\n", "}, {"} {
+	for _, sep := range []string{";", "\n", "}, {", "},{"} {
 		for _, i := range occurrences(msg, sep) {
 			cuts = append(cuts, i+len(sep))
 		}
@@ -375,15 +402,6 @@ func ParseProviderParamError(body []byte) map[string]bool {
 	if msg == "" {
 		return nil
 	}
-	// A value out of range names the param the same way an unsupported one
-	// does ("Invalid 'temperature': decimal above maximum value. Expected a
-	// value <= 2, but got 3 instead."). Learning that as a strip would drop
-	// the param from every later request to the model, for every caller, for
-	// the life of the process, over one caller's bad number. Nothing is
-	// learned from it: the 400 goes back to the caller who sent the value.
-	if isValueRangeComplaint(msg) {
-		return nil
-	}
 	rejected := make(map[string]bool)
 
 	// "cannot both be specified": strip top_p, keep temperature
@@ -429,6 +447,19 @@ func ParseProviderParamError(body []byte) map[string]bool {
 			if c >= 'a' && c <= 'z' && msg[idx+6] == q {
 				rejected[msg[idx+1:idx+6]] = true
 			}
+		}
+	}
+	// A value out of range or of the wrong type names the param the same way
+	// an unsupported one does ("Invalid 'temperature': decimal above maximum
+	// value. Expected a value <= 2, but got 3 instead.", "Invalid type for
+	// 'temperature': expected a number, but got a string instead."). Learning
+	// that as a strip would drop the param from every later request to the
+	// model, for every caller, for the life of the process, over one caller's
+	// bad value. Nothing is learned for that param: the 400 goes back to the
+	// caller who sent the value.
+	for p := range rejected {
+		if isValueComplaint(msg, p) {
+			delete(rejected, p)
 		}
 	}
 	if len(rejected) == 0 {
