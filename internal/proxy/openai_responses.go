@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/url"
-	"strconv"
 	"strings"
 
 	"github.com/hugalafutro/model-hotel/internal/debuglog"
@@ -118,13 +117,22 @@ func (h *Handler) buildResponsesRequest(ctx context.Context, st *requestState, c
 // has its own streaming usage semantics), then chat to Responses translation.
 // The OpenCode types strip reasoning_effort on the chat route, where their
 // other models reject it; the GPT models behind /v1/responses take it, so the
-// client's effort is put back before translation.
+// client's effort is put back before translation, unless a Responses 400 from
+// this very provider and model has since taught the param learner to strip
+// it, in which case that lesson stands.
 func (h *Handler) translateResponsesRequestBody(st *requestState, candidate modelCandidate, providerType string) ([]byte, error) {
-	cleaned := paramrewrite.BuildNativeUpstreamBody(st.bodyBytes, providerType, candidate.model.ModelID, st.reqModel, &h.deprecationCache, &h.paramRenameCache, nil, learnedScopeFor(candidate))
-	if isOpenCodeType(providerType) {
+	scope := learnedScopeFor(candidate)
+	cleaned := paramrewrite.BuildNativeUpstreamBody(st.bodyBytes, providerType, candidate.model.ModelID, st.reqModel, &h.deprecationCache, &h.paramRenameCache, nil, scope)
+	if isOpenCodeType(providerType) && !h.learnedStrip(scope, candidate.model.ModelID, "reasoning_effort") {
 		cleaned = restoreReasoningEffort(cleaned, st.bodyBytes)
 	}
 	return openairesponses.TranslateChatToResponses(cleaned, candidate.model.ModelID)
+}
+
+// learnedStrip reports whether a 400 has taught the param learner to strip
+// param for this provider and model.
+func (h *Handler) learnedStrip(scope, modelID, param string) bool {
+	return paramrewrite.CachedRejectedParams(&h.deprecationCache, paramrewrite.LearnedCacheKey(scope, modelID))[param]
 }
 
 // isOpenCodeType reports the two OpenCode provider types, whose GPT models are
@@ -160,7 +168,11 @@ func restoreReasoningEffort(cleaned, original []byte) []byte {
 	if _, ok := m["reasoning_effort"]; ok {
 		return cleaned
 	}
-	m["reasoning_effort"] = json.RawMessage(strconv.Quote(want.ReasoningEffort))
+	effort, err := json.Marshal(want.ReasoningEffort)
+	if err != nil {
+		return cleaned
+	}
+	m["reasoning_effort"] = effort
 	out, err := json.Marshal(m)
 	if err != nil {
 		return cleaned
@@ -292,9 +304,5 @@ func translateResponsesResponseBody(resp *http.Response, model string) error {
 // since only such an attempt has a chat body to translate and an answer to
 // translate back.
 func (st *requestState) plainOpenAIChat(providerType string) bool {
-	switch providerType {
-	case "openai", "opencode-go", "opencode-zen":
-		return st.endpointPath == "" && st.makeUpstreamBody == nil
-	}
-	return false
+	return (providerType == "openai" || isOpenCodeType(providerType)) && st.endpointPath == "" && st.makeUpstreamBody == nil
 }

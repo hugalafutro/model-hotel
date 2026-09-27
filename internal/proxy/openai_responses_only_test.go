@@ -732,6 +732,26 @@ func TestIssueParamRetry_RerouteMetricCountsIssuedRequests(t *testing.T) {
 	}
 }
 
+// A Responses 400 that taught the param learner to strip reasoning_effort for
+// this provider and model wins over the restore: the re-issue goes out
+// without the effort instead of drawing the same 400 on every attempt.
+func TestTranslateResponsesRequestBody_LearnedStripWinsOverRestore(t *testing.T) {
+	h := &Handler{}
+	cand := responsesTestCandidate("https://opencode.ai/zen/go/v1")
+	cand.model.ModelID = "gpt-6-luna"
+	st := &requestState{bodyBytes: []byte(`{"model":"gpt-6-luna","reasoning_effort":"high","messages":[{"role":"user","content":"hi"}]}`)}
+	body, err := h.translateResponsesRequestBody(st, cand, "opencode-go")
+	if err != nil || !strings.Contains(string(body), `"effort":"high"`) {
+		t.Fatalf("before the lesson: err=%v body=%s, want the effort restored", err, body)
+	}
+	stripped := map[string]bool{"reasoning_effort": true}
+	h.deprecationCache.Store(paramrewrite.LearnedCacheKey(learnedScopeFor(cand), "gpt-6-luna"), &stripped)
+	body, err = h.translateResponsesRequestBody(st, cand, "opencode-go")
+	if err != nil || strings.Contains(string(body), `"effort"`) {
+		t.Fatalf("after the lesson: err=%v body=%s, want no effort", err, body)
+	}
+}
+
 // restoreReasoningEffort puts the client's effort back only when the strip
 // took it: an unparsable body on either side, an original without the field
 // and a cleaned body that still carries it are all left as they are.

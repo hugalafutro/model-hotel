@@ -56,9 +56,9 @@ func IsResponsesOnlyRejection(errBody []byte) bool {
 // {"type":"error","error":{"type":"ModelProtocolUnsupported","message":"Model
 // does not support this protocol."}}. The body names neither the model nor
 // the protocol it wants, so the caller decides what it means: for the GPT
-// models it is the Responses API. Matched on the error type first, the prose
-// as a fallback, so a reworded message still counts while a different error
-// that merely mentions a protocol does not.
+// models it is the Responses API. Matched on the error type first, the
+// message's opening words as a fallback for a body that carries no type,
+// while a different error that merely mentions a protocol does not count.
 func IsOpenCodeProtocolRefusal(errBody []byte) bool {
 	var env struct {
 		Error struct {
