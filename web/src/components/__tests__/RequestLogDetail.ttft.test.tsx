@@ -40,8 +40,7 @@ const baseLog: LogEntry = {
 	endpoint_type: "chat",
 };
 
-const notStreamed =
-	"Not measured: the response was not streamed, so there was no first token to time";
+const notStreamed = "Not measured for non-streaming requests";
 
 // The TTFT tile's dash: explained on a non-streamed request (there was no
 // first token to time), bare on a streamed one that never produced a token.

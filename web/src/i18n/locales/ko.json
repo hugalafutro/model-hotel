@@ -1407,7 +1407,7 @@
 			"keyDeleted": "삭제됨",
 			"ip": "IP",
 			"cost": "비용",
-			"ttftNotStreamed": "측정되지 않음: 응답이 스트리밍되지 않아 시간을 잴 첫 토큰이 없었습니다"
+			"ttftNotStreamed": "비스트리밍 요청에서는 측정되지 않습니다"
 		},
 		"tooltip": {
 			"timeDate": "요청의 타임스탬프",

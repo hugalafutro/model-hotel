@@ -1407,7 +1407,7 @@
 			"keyDeleted": "Deleted",
 			"ip": "IP",
 			"cost": "Cost",
-			"ttftNotStreamed": "Not measured: the response was not streamed, so there was no first token to time"
+			"ttftNotStreamed": "Not measured for non-streaming requests"
 		},
 		"tooltip": {
 			"timeDate": "Timestamp of the request",

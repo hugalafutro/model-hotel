@@ -1462,7 +1462,7 @@
 			"keyDeleted": "Eliminat",
 			"ip": "IP",
 			"cost": "Cost",
-			"ttftNotStreamed": "No mesurat: la resposta no s'ha transmès en flux, així que no hi havia cap primer token per cronometrar"
+			"ttftNotStreamed": "No es mesura per a peticions sense flux"
 		},
 		"tooltip": {
 			"timeDate": "Segell de temps de la sol·licitud",

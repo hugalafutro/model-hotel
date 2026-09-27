@@ -1407,7 +1407,7 @@
 			"keyDeleted": "Törölve",
 			"ip": "IP",
 			"cost": "Költség",
-			"ttftNotStreamed": "Nincs mérve: a válasz nem streamelve érkezett, így nem volt első token, amit időzíteni lehetett volna"
+			"ttftNotStreamed": "Nem streamelt kéréseknél nincs mérve"
 		},
 		"tooltip": {
 			"timeDate": "A kérés időbélyege",

@@ -29,6 +29,7 @@ const base = {
 	virtual_key_id: "vk1",
 	virtual_key_deleted: false,
 	client_ip: "10.0.0.1",
+	streaming: false,
 	error_message: "",
 } as unknown as LogEntry;
 
@@ -73,7 +74,7 @@ describe("RequestLogCells", () => {
 		const cell = container.querySelectorAll("td")[8];
 		expect(cell.textContent).toBe("-");
 		expect(cell.querySelector("span")?.getAttribute("title")).toBe(
-			"Not measured: the response was not streamed, so there was no first token to time",
+			"Not measured for non-streaming requests",
 		);
 	});
 

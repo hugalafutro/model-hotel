@@ -1407,7 +1407,7 @@
 			"keyDeleted": "Đã xóa",
 			"ip": "IP",
 			"cost": "Chi phí",
-			"ttftNotStreamed": "Không đo được: phản hồi không được truyền theo luồng nên không có token đầu tiên để tính giờ"
+			"ttftNotStreamed": "Không đo với các yêu cầu không truyền luồng"
 		},
 		"tooltip": {
 			"timeDate": "Dấu thời gian của yêu cầu",

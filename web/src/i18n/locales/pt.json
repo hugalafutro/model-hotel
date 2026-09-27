@@ -1462,7 +1462,7 @@
 			"keyDeleted": "Excluído",
 			"ip": "IP",
 			"cost": "Custo",
-			"ttftNotStreamed": "Não medido: a resposta não foi transmitida em streaming, por isso não houve um primeiro token para cronometrar"
+			"ttftNotStreamed": "Não medido em pedidos sem streaming"
 		},
 		"tooltip": {
 			"timeDate": "Carimbo de tempo do pedido",

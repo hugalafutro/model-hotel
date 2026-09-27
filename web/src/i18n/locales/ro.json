@@ -1462,7 +1462,7 @@
 			"keyDeleted": "Șters",
 			"ip": "IP",
 			"cost": "Cost",
-			"ttftNotStreamed": "Nemăsurat: răspunsul nu a fost transmis în flux, așa că nu a existat un prim token de cronometrat"
+			"ttftNotStreamed": "Nu se măsoară pentru cererile fără flux"
 		},
 		"tooltip": {
 			"timeDate": "Momentul cererii",

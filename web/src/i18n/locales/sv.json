@@ -1407,7 +1407,7 @@
 			"keyDeleted": "Borttagen",
 			"ip": "IP",
 			"cost": "Kostnad",
-			"ttftNotStreamed": "Inte uppmätt: svaret strömmades inte, så det fanns ingen första token att ta tid på"
+			"ttftNotStreamed": "Mäts inte för icke-strömmade begäranden"
 		},
 		"tooltip": {
 			"timeDate": "Tidsstämpel för begäran",

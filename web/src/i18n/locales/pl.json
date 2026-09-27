@@ -1517,7 +1517,7 @@
 			"keyDeleted": "Usunięto",
 			"ip": "IP",
 			"cost": "Koszt",
-			"ttftNotStreamed": "Nie zmierzono: odpowiedź nie była strumieniowana, więc nie było pierwszego tokenu do zmierzenia"
+			"ttftNotStreamed": "Nie mierzone dla żądań bez strumieniowania"
 		},
 		"tooltip": {
 			"timeDate": "Znacznik czasu wniosku",

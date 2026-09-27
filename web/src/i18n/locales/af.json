@@ -1407,7 +1407,7 @@
 			"keyDeleted": "Verwyder",
 			"ip": "IP",
 			"cost": "Koste",
-			"ttftNotStreamed": "Nie gemeet nie: die antwoord is nie gestroom nie, dus was daar geen eerste token om te tyd nie"
+			"ttftNotStreamed": "Nie gemeet vir nie-stroom versoeke nie"
 		},
 		"tooltip": {
 			"timeDate": "Tydstempel van die versoek",

@@ -1407,7 +1407,7 @@
 			"keyDeleted": "已删除",
 			"ip": "IP",
 			"cost": "费用",
-			"ttftNotStreamed": "未测量：响应未以流式传输，因此没有可计时的首个 token"
+			"ttftNotStreamed": "非流式请求不测量"
 		},
 		"tooltip": {
 			"timeDate": "请求的时间戳",

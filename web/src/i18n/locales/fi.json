@@ -1407,7 +1407,7 @@
 			"keyDeleted": "Poistettu",
 			"ip": "IP",
 			"cost": "Hinta",
-			"ttftNotStreamed": "Ei mitattu: vastausta ei suoratoistettu, joten ensimmäistä tokenia ei ollut ajastettavana"
+			"ttftNotStreamed": "Ei mitata pyynnöille ilman suoratoistoa"
 		},
 		"tooltip": {
 			"timeDate": "Pyyntöön liittyvä aikaleima",

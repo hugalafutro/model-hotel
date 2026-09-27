@@ -1462,7 +1462,7 @@
 			"keyDeleted": "Eliminado",
 			"ip": "IP",
 			"cost": "Coste",
-			"ttftNotStreamed": "No medido: la respuesta no se transmitió en streaming, así que no hubo un primer token que cronometrar"
+			"ttftNotStreamed": "No se mide en peticiones sin streaming"
 		},
 		"tooltip": {
 			"timeDate": "Marca de tiempo de la solicitud",

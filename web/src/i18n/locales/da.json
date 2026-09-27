@@ -1407,7 +1407,7 @@
 			"keyDeleted": "Slettet",
 			"ip": "IP",
 			"cost": "Pris",
-			"ttftNotStreamed": "Ikke målt: svaret blev ikke streamet, så der var ingen første token at tage tid på"
+			"ttftNotStreamed": "Måles ikke for ikke-streamede anmodninger"
 		},
 		"tooltip": {
 			"timeDate": "Tidsstempel for anmodningen",

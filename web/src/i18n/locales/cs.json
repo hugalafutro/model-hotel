@@ -1517,7 +1517,7 @@
 			"keyDeleted": "Smazáno",
 			"ip": "IP",
 			"cost": "Cena",
-			"ttftNotStreamed": "Neměřeno: odpověď nebyla streamována, takže nebyl žádný první token k načasování"
+			"ttftNotStreamed": "U nestreamovaných požadavků se neměří"
 		},
 		"tooltip": {
 			"timeDate": "Časové razítko požadavku",
