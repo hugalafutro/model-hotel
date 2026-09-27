@@ -525,7 +525,10 @@ both directions (streaming included); reasoning summaries come back as `reasonin
 the gateway always sends `store: false` so OpenAI keeps no conversation state. The pro tier
 (`o1-pro`, `o3-pro`, `gpt-5.x-pro`), which OpenAI serves over the Responses API alone, routes
 there from the first request on `api.openai.com`, and any other model that refuses the chat
-endpoint with OpenAI's "not a chat model" 404 is learned and re-routed the same way.
+endpoint with OpenAI's "not a chat model" 404 is learned and re-routed the same way. OpenCode Zen
+and OpenCode Go serve their GPT models over the Responses API alone too (a 400 "Model does not
+support this protocol"); that refusal is learned and re-routed the same way, with the OpenCode Go
+session header kept on the re-issue.
 
 ### Metrics & log shipping
 

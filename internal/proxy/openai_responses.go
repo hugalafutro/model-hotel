@@ -2,6 +2,7 @@ package proxy
 
 import (
 	"context"
+	"encoding/json"
 	"net/http"
 	"net/url"
 	"strings"
@@ -23,7 +24,8 @@ import (
 // round-trip. The pro tier is served by /v1/responses alone and refuses the
 // chat endpoint with a 404; that refusal is learned the same way for every
 // request to the model, and the tier's names route there from the first request
-// on OpenAI's own host.
+// on OpenAI's own host. OpenCode Zen and Go serve their GPT models the same
+// way (a 400 naming the protocol) and are rerouted through the same learner.
 
 // responsesCacheKey mirrors the paramrewrite cache keying.
 func responsesCacheKey(providerType, modelID string) string {
@@ -31,8 +33,8 @@ func responsesCacheKey(providerType, modelID string) string {
 }
 
 // shouldUseResponsesAttempt reports whether this candidate must be served via
-// /v1/responses: a direct-OpenAI chat attempt whose model is known to require
-// it. A model learned to refuse tools+reasoning goes there only on a request
+// /v1/responses: a chat attempt on OpenAI or one of the OpenCode types whose
+// model is known to require it. A model learned to refuse tools+reasoning goes there only on a request
 // carrying that combination (tools + reasoning not "none"); plain,
 // reasoning-only and tools-off requests keep the cheaper chat-completions
 // path. A model known to live behind /v1/responses alone goes there for every
@@ -105,8 +107,6 @@ func (h *Handler) buildResponsesRequest(ctx context.Context, st *requestState, c
 		return nil, providerType, targetURL, err
 	}
 	util.SetProviderAuthHeaders(proxyReq, providerType, candidate.apiKey)
-	// The Responses path is gated to the openai provider type today, so this
-	// call stamps nothing. It is here for the day that gate widens.
 	util.SetOpenCodeGoSession(proxyReq, providerType, st.opencodeSession)
 	return proxyReq, providerType, targetURL, nil
 }
@@ -115,13 +115,74 @@ func (h *Handler) buildResponsesRequest(ctx context.Context, st *requestState, c
 // candidate: shared chat rewrite (model rename, learned strips and renames,
 // isStreaming=false so no stream_options is injected, since the Responses API
 // has its own streaming usage semantics), then chat to Responses translation.
+// The OpenCode types strip reasoning_effort on the chat route, where their
+// other models reject it; the GPT models behind /v1/responses take it, so the
+// client's effort is put back before translation, unless a Responses 400 from
+// this very provider and model has since taught the param learner to strip
+// it, in which case that lesson stands.
 func (h *Handler) translateResponsesRequestBody(st *requestState, candidate modelCandidate, providerType string) ([]byte, error) {
-	cleaned := paramrewrite.BuildNativeUpstreamBody(st.bodyBytes, providerType, candidate.model.ModelID, st.reqModel, &h.deprecationCache, &h.paramRenameCache, nil, learnedScopeFor(candidate))
+	scope := learnedScopeFor(candidate)
+	cleaned := paramrewrite.BuildNativeUpstreamBody(st.bodyBytes, providerType, candidate.model.ModelID, st.reqModel, &h.deprecationCache, &h.paramRenameCache, nil, scope)
+	if isOpenCodeType(providerType) && !h.learnedStrip(scope, candidate.model.ModelID, "reasoning_effort") {
+		cleaned = restoreReasoningEffort(cleaned, st.bodyBytes)
+	}
 	return openairesponses.TranslateChatToResponses(cleaned, candidate.model.ModelID)
 }
 
+// learnedStrip reports whether a 400 has taught the param learner to strip
+// param for this provider and model.
+func (h *Handler) learnedStrip(scope, modelID, param string) bool {
+	return paramrewrite.CachedRejectedParams(&h.deprecationCache, paramrewrite.LearnedCacheKey(scope, modelID))[param]
+}
+
+// isOpenCodeType reports the two OpenCode provider types, whose GPT models are
+// served over /v1/responses alone.
+func isOpenCodeType(providerType string) bool {
+	return providerType == "opencode-go" || providerType == "opencode-zen"
+}
+
+// isOpenCodeResponsesRefusal reports an OpenCode protocol refusal that means
+// "use /v1/responses": the OpenCode types only, since an openai-typed relay
+// answering the same words has no Responses route the reroute could learn;
+// and their GPT models only, since the same body would also refuse a model
+// OpenCode serves over a third protocol, and learning that one as
+// Responses-only would pin it to a route that refuses it too.
+func isOpenCodeResponsesRefusal(providerType, modelID string, errBody []byte) bool {
+	return isOpenCodeType(providerType) && strings.HasPrefix(modelID, "gpt-") && openairesponses.IsOpenCodeProtocolRefusal(errBody)
+}
+
+// restoreReasoningEffort copies the client's reasoning_effort back onto a
+// cleaned chat body that a provider-type strip removed it from. Either body
+// failing to parse leaves the cleaned one as it is.
+func restoreReasoningEffort(cleaned, original []byte) []byte {
+	var want struct {
+		ReasoningEffort string `json:"reasoning_effort"`
+	}
+	if json.Unmarshal(original, &want) != nil || want.ReasoningEffort == "" {
+		return cleaned
+	}
+	var m map[string]json.RawMessage
+	if json.Unmarshal(cleaned, &m) != nil {
+		return cleaned
+	}
+	if _, ok := m["reasoning_effort"]; ok {
+		return cleaned
+	}
+	effort, err := json.Marshal(want.ReasoningEffort)
+	if err != nil {
+		return cleaned
+	}
+	m["reasoning_effort"] = effort
+	out, err := json.Marshal(m)
+	if err != nil {
+		return cleaned
+	}
+	return out
+}
+
 // retryWithResponses handles a chat-completions refusal that demands the
-// Responses API, the tools+reasoning 400 or the pro tier's 404: learn the
+// Responses API, the tools+reasoning 400, the pro tier's 404 or OpenCode's
+// protocol 400 on a GPT model: learn the
 // requirement into responsesRequiredCache, rebuild the request as a
 // /v1/responses call and re-issue it once, marking the attempt so the response
 // dispatch translates the answer back. When the error is not the Responses
@@ -208,7 +269,7 @@ func (h *Handler) learnResponsesRequirement(st *requestState, candidate modelCan
 		return false
 	}
 	key := responsesCacheKey(providerType, candidate.model.ModelID)
-	if openairesponses.IsResponsesOnlyRejection(errBody) {
+	if openairesponses.IsResponsesOnlyRejection(errBody) || isOpenCodeResponsesRefusal(providerType, candidate.model.ModelID, errBody) {
 		// The whole model lives behind /v1/responses: learn it for every
 		// request, whatever this one carried.
 		h.responsesRequiredCache.Store(key, responsesAlways)
@@ -236,10 +297,12 @@ func translateResponsesResponseBody(resp *http.Response, model string) error {
 }
 
 // plainOpenAIChat reports an attempt that is a chat-completions call in the
-// OpenAI dialect against an openai-typed provider: not a pass-through endpoint
-// and not a translated dialect. It is the precondition for every part of the
-// Responses reroute, since only such an attempt has a chat body to translate
-// and an answer to translate back.
+// OpenAI dialect against a provider with a /v1/responses route to fall back
+// to: OpenAI itself, and OpenCode Zen and Go, which serve their GPT models
+// behind that route alone. Not a pass-through endpoint and not a translated
+// dialect. It is the precondition for every part of the Responses reroute,
+// since only such an attempt has a chat body to translate and an answer to
+// translate back.
 func (st *requestState) plainOpenAIChat(providerType string) bool {
-	return providerType == "openai" && st.endpointPath == "" && st.makeUpstreamBody == nil
+	return (providerType == "openai" || isOpenCodeType(providerType)) && st.endpointPath == "" && st.makeUpstreamBody == nil
 }

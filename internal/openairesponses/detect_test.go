@@ -64,6 +64,31 @@ func TestIsResponsesOnlyRejection(t *testing.T) {
 	}
 }
 
+// OpenCode's protocol refusal: matched on its error type, or on its message
+// when the type is missing, and on nothing that merely mentions a protocol.
+func TestIsOpenCodeProtocolRefusal(t *testing.T) {
+	for name, body := range map[string]string{
+		"typed":        `{"type":"error","error":{"type":"ModelProtocolUnsupported","message":"Model does not support this protocol."}}`,
+		"message only": `{"error":{"message":"Model does not support this protocol"}}`,
+	} {
+		if !IsOpenCodeProtocolRefusal([]byte(body)) {
+			t.Errorf("%s: not recognised as the OpenCode protocol refusal", name)
+		}
+	}
+	for name, body := range map[string]string{
+		"openai pro tier": `{"error":{"message":"This is not a chat model and thus not supported in the v1/chat/completions endpoint. Did you mean to use v1/completions?"}}`,
+		"other protocol":  `{"error":{"message":"Streaming does not support this protocol."}}`,
+		"other type":      `{"error":{"type":"invalid_request_error","message":"Unsupported parameter: 'temperature'"}}`,
+		"typed otherwise": `{"error":{"type":"invalid_request_error","message":"Model does not support this protocol."}}`,
+		"not an envelope": `Model does not support this protocol.`,
+		"empty":           ``,
+	} {
+		if IsOpenCodeProtocolRefusal([]byte(body)) {
+			t.Errorf("%s: recognised as the OpenCode protocol refusal", name)
+		}
+	}
+}
+
 func TestResponsesOnlyModel(t *testing.T) {
 	for id, want := range map[string]bool{
 		"gpt-5.5-pro-2026-04-23": true,

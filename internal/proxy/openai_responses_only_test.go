@@ -95,6 +95,95 @@ func TestRetryWithResponses_ResponsesOnly404(t *testing.T) {
 	}
 }
 
+// OpenCode Go and Zen serve their GPT models behind /v1/responses alone and
+// refuse chat-completions with a 400 naming the protocol. Through the 400
+// self-heal dispatch the refusal learns the model as Responses-only under the
+// provider's own type and re-issues the request against /v1/responses in the
+// Responses dialect, with the client's reasoning_effort kept (the OpenCode
+// chat route strips it) and the Go session header still stamped.
+func TestRetryLearnable400_OpenCodeProtocolRefusal(t *testing.T) {
+	for _, providerType := range []string{"opencode-go", "opencode-zen"} {
+		var mu sync.Mutex
+		var gotPath, gotSession, gotBody string
+		upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			raw, _ := io.ReadAll(r.Body)
+			mu.Lock()
+			gotPath, gotSession, gotBody = r.URL.Path, r.Header.Get("x-opencode-session"), string(raw)
+			mu.Unlock()
+			w.Header().Set("Content-Type", "application/json")
+			_, _ = io.WriteString(w, `{"id":"resp_1","object":"response","status":"completed","output":[{"type":"message","role":"assistant","content":[{"type":"output_text","text":"hi"}]}],"usage":{"input_tokens":1,"output_tokens":1}}`)
+		}))
+		h := &Handler{upstreamTransport: &http.Transport{}}
+		st := &requestState{bodyBytes: []byte(`{"model":"gpt-6-luna","reasoning_effort":"high","messages":[{"role":"user","content":"hi"}]}`), failoverTimeout: 5 * time.Second, opencodeSession: "ses_1"}
+		cand := responsesTestCandidate(upstream.URL + "/zen/go/v1")
+		cand.model.ModelID = "gpt-6-luna"
+		refusal := &http.Response{StatusCode: 400, Body: io.NopCloser(strings.NewReader(`{"type":"error","error":{"type":"ModelProtocolUnsupported","message":"Model does not support this protocol."}}`))}
+		r := httptest.NewRequest("POST", "/v1/chat/completions", http.NoBody)
+		var dialMs float64
+		res, handled := h.retryLearnable400(r, st, cand, providerType, upstream.URL+"/zen/go/v1/chat/completions", refusal, 0, &dialMs, func() {}, "")
+		if !handled || !res.retried {
+			t.Fatalf("%s: handled=%v retried=%v, want the request re-issued", providerType, handled, res.retried)
+		}
+		mu.Lock()
+		path, session, body := gotPath, gotSession, gotBody
+		mu.Unlock()
+		if path != "/zen/go/v1/responses" {
+			t.Fatalf("%s: retry went to %q, want /zen/go/v1/responses", providerType, path)
+		}
+		wantSession := ""
+		if providerType == "opencode-go" {
+			wantSession = "ses_1"
+		}
+		if session != wantSession {
+			t.Fatalf("%s: session header %q, want %q", providerType, session, wantSession)
+		}
+		for _, want := range []string{`"model":"gpt-6-luna"`, `"store":false`, `"effort":"high"`, `"input"`} {
+			if !strings.Contains(body, want) {
+				t.Fatalf("%s: re-issued body lacks %s: %s", providerType, want, body)
+			}
+		}
+		if strings.Contains(body, `"messages"`) {
+			t.Fatalf("%s: re-issued body is still the chat dialect: %s", providerType, body)
+		}
+		if v, ok := h.responsesRequiredCache.Load(providerType + ":gpt-6-luna"); !ok || v != responsesAlways {
+			t.Fatalf("%s: learned %v, want the always requirement", providerType, v)
+		}
+		if !h.shouldUseResponsesAttempt(&requestState{bodyBytes: st.bodyBytes}, cand, providerType) {
+			t.Fatalf("%s: the next tools-free request does not route to /v1/responses preemptively", providerType)
+		}
+		if res.resp != nil && res.resp.Body != nil {
+			_ = res.resp.Body.Close()
+		}
+		if res.retryCancel != nil {
+			res.retryCancel()
+		}
+		upstream.Close()
+	}
+}
+
+// The OpenCode wording teaches nothing outside its own case: an openai-typed
+// relay answering it has no Responses route to learn, and an OpenCode model
+// outside the GPT family is refused for some other protocol, which pinning it
+// to /v1/responses would not serve.
+func TestLearnResponsesRequirement_OpenCodeRefusalIsGated(t *testing.T) {
+	refusal := []byte(`{"type":"error","error":{"type":"ModelProtocolUnsupported","message":"Model does not support this protocol."}}`)
+	for _, c := range []struct{ providerType, model string }{
+		{"openai", "gpt-6-luna"},
+		{"opencode-zen", "claude-sonnet-4"},
+	} {
+		h := &Handler{}
+		st := &requestState{bodyBytes: []byte(plainChatBody)}
+		cand := responsesTestCandidate("https://opencode.ai/zen/v1")
+		cand.model.ModelID = c.model
+		if h.learnResponsesRequirement(st, cand, c.providerType, refusal) {
+			t.Fatalf("%s/%s: learned from the OpenCode wording", c.providerType, c.model)
+		}
+		if _, ok := h.responsesRequiredCache.Load(c.providerType + ":" + c.model); ok {
+			t.Fatalf("%s/%s: a requirement was cached", c.providerType, c.model)
+		}
+	}
+}
+
 // The attempt loop hands a chat-completions 404 from OpenAI's own host to the
 // learnable-refusal path, and nothing else that is not a 400.
 func TestIsLearnableRefusal(t *testing.T) {
@@ -640,5 +729,43 @@ func TestIssueParamRetry_RerouteMetricCountsIssuedRequests(t *testing.T) {
 	}
 	if got := rerouteCount(t, deadCand.provider.Name, deadCand.model.ModelID, "param_retry") - before; got != 0 {
 		t.Errorf("param_retry samples = %v after a round that never got an answer, want 0", got)
+	}
+}
+
+// A learned strip of reasoning_effort for this provider and model (seeded
+// here straight into the cache, as a Responses 400 naming the param would
+// leave it) wins over the restore: the re-issue goes out without the effort
+// instead of drawing the same 400 on every attempt.
+func TestTranslateResponsesRequestBody_LearnedStripWinsOverRestore(t *testing.T) {
+	h := &Handler{}
+	cand := responsesTestCandidate("https://opencode.ai/zen/go/v1")
+	cand.model.ModelID = "gpt-6-luna"
+	st := &requestState{bodyBytes: []byte(`{"model":"gpt-6-luna","reasoning_effort":"high","messages":[{"role":"user","content":"hi"}]}`)}
+	body, err := h.translateResponsesRequestBody(st, cand, "opencode-go")
+	if err != nil || !strings.Contains(string(body), `"effort":"high"`) {
+		t.Fatalf("before the lesson: err=%v body=%s, want the effort restored", err, body)
+	}
+	stripped := map[string]bool{"reasoning_effort": true}
+	h.deprecationCache.Store(paramrewrite.LearnedCacheKey(learnedScopeFor(cand), "gpt-6-luna"), &stripped)
+	body, err = h.translateResponsesRequestBody(st, cand, "opencode-go")
+	if err != nil || strings.Contains(string(body), `"effort"`) {
+		t.Fatalf("after the lesson: err=%v body=%s, want no effort", err, body)
+	}
+}
+
+// restoreReasoningEffort puts the client's effort back only when the strip
+// took it: an unparsable body on either side, an original without the field
+// and a cleaned body that still carries it are all left as they are.
+func TestRestoreReasoningEffort(t *testing.T) {
+	for name, c := range map[string]struct{ cleaned, original, want string }{
+		"restored":        {`{"model":"gpt-6-luna"}`, `{"model":"gpt-6-luna","reasoning_effort":"high"}`, `{"model":"gpt-6-luna","reasoning_effort":"high"}`},
+		"original lacks":  {`{"model":"gpt-6-luna"}`, `{"model":"gpt-6-luna"}`, `{"model":"gpt-6-luna"}`},
+		"original broken": {`{"model":"gpt-6-luna"}`, `{"model":`, `{"model":"gpt-6-luna"}`},
+		"cleaned broken":  {`{"model":`, `{"reasoning_effort":"high"}`, `{"model":`},
+		"cleaned keeps":   {`{"reasoning_effort":"low"}`, `{"reasoning_effort":"high"}`, `{"reasoning_effort":"low"}`},
+	} {
+		if got := string(restoreReasoningEffort([]byte(c.cleaned), []byte(c.original))); got != c.want {
+			t.Errorf("%s: got %s, want %s", name, got, c.want)
+		}
 	}
 }

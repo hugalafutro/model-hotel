@@ -627,7 +627,7 @@ func hedgeProbeLog(entry *requestLogData, candidate modelCandidate) *requestLogD
 // path. A hedged probe cannot retry in-race (a second upstream round-trip
 // inside one race slot would skew the TTFT contest), but it can still LEARN
 // what the sequential path would: the /v1/responses requirement from the
-// tools+reasoning 400 or the pro tier's 404, so every subsequent request
+// tools+reasoning 400, the pro tier's 404 or OpenCode's protocol 400, so every subsequent request
 // (hedged or sequential) routes preemptively, and the params a 400 names, so
 // the next request is built without them. Both readings are only valid on a
 // chat-completions attempt, judged by the same isLearnableRefusal the
@@ -649,8 +649,9 @@ func (h *Handler) learnFromHedgedRefusal(st *requestState, candidate modelCandid
 // parameter by the same quoted name chat-completions uses, so it teaches the
 // same strip the sequential param retry would, read through the same
 // dialect-aware reader (responsesRejectedParams). A Responses attempt is
-// only ever built for an OpenAI provider (shouldUseResponsesAttempt), which
-// is why no host or type gate repeats here.
+// only ever built by shouldUseResponsesAttempt, for a provider type with a
+// /v1/responses route, so no host or type gate repeats here; the strip is
+// learned per provider id either way.
 func (h *Handler) learnFromHedgedResponsesRefusal(st *requestState, candidate modelCandidate, status int, errBody []byte) {
 	if status == http.StatusBadRequest && st.responsesAttempt {
 		h.mergeLearnedParams(candidate, responsesRejectedParams(errBody), paramrewrite.ParseProviderParamRename(errBody))
