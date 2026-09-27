@@ -29,6 +29,7 @@ const base = {
 	virtual_key_id: "vk1",
 	virtual_key_deleted: false,
 	client_ip: "10.0.0.1",
+	streaming: false,
 	error_message: "",
 } as unknown as LogEntry;
 
@@ -64,6 +65,26 @@ describe("RequestLogCells", () => {
 
 		const plain = renderCells().container.querySelectorAll("td")[10];
 		expect(plain.querySelector("span")?.className).toContain("text-gray-400");
+	});
+
+	it("explains the missing TTFT of a non-streamed request", () => {
+		// The whole body arrived at once, so there was no first token to time;
+		// a bare dash reads as a measurement that got lost.
+		const { container } = renderCells({ ttft_ms: 0, streaming: false });
+		const cell = container.querySelectorAll("td")[8];
+		expect(cell.textContent).toBe("-");
+		expect(cell.querySelector("span")?.getAttribute("title")).toBe(
+			"Not measured for non-streaming requests",
+		);
+	});
+
+	it("leaves a streamed request's missing TTFT unexplained", () => {
+		// A stream that never produced a token (cancelled, or still waiting) has
+		// nothing to explain away.
+		const { container } = renderCells({ ttft_ms: 0, streaming: true });
+		const cell = container.querySelectorAll("td")[8];
+		expect(cell.textContent).toBe("-");
+		expect(cell.querySelector("span")?.hasAttribute("title")).toBe(false);
 	});
 
 	it("keeps header and TTFT timings on a cancelled request", () => {

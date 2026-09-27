@@ -1406,7 +1406,8 @@
 			"cacheInflated": "Oppustet af prompt-cache-hits",
 			"keyDeleted": "Slettet",
 			"ip": "IP",
-			"cost": "Pris"
+			"cost": "Pris",
+			"ttftNotStreamed": "Måles ikke for ikke-streamede anmodninger"
 		},
 		"tooltip": {
 			"timeDate": "Tidsstempel for anmodningen",
@@ -2824,7 +2825,7 @@
 			"headers": "Overskrifter",
 			"timeToReceiveHeaders": "Tid til at modtage de første HTTP-svaroverskrifter fra opstrømsudbyderen",
 			"ttft": "TTFT",
-			"timeToFirstToken": "Tid til første Token: forsinkelse mellem anmodning start og den første token af respons kroppen (streaming) eller fuld respons (ikke-streaming)",
+			"timeToFirstToken": "Tid til første token: forsinkelse mellem anmodningens start og det første token i et streamet svar. Måles ikke for ikke-streamede anmodninger.",
 			"tokensPerSecond": "Tokens/s",
 			"outputTokensPerSecond": "Output tokens pr. sekund i generationsfasen (udelukker tid til første token). Vises som '-' når generationstiden er ubetydelig.",
 			"sumOfTokens": "Sum af prompt- og completion-tokens (ræsonnement er en del af completion)",

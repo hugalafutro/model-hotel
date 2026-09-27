@@ -1516,7 +1516,8 @@
 			"cacheInflated": "Nadhodnoceno zásahy do promptové mezipaměti",
 			"keyDeleted": "Smazáno",
 			"ip": "IP",
-			"cost": "Cena"
+			"cost": "Cena",
+			"ttftNotStreamed": "U nestreamovaných požadavků se neměří"
 		},
 		"tooltip": {
 			"timeDate": "Časové razítko požadavku",
@@ -2970,7 +2971,7 @@
 			"headers": "Hlavičky",
 			"timeToReceiveHeaders": "Doba do přijetí prvních HTTP hlaviček odpovědi od poskytovatele",
 			"ttft": "TTFT",
-			"timeToFirstToken": "Doba do přijetí prvního tokenu odpovědi od poskytovatele",
+			"timeToFirstToken": "Čas do prvního tokenu: prodleva mezi začátkem požadavku a prvním tokenem streamované odpovědi. U nestreamovaných požadavků se neměří.",
 			"tokensPerSecond": "tokenů za sekundu",
 			"outputTokensPerSecond": "Počet vygenerovaných tokenů za sekundu během fáze generování (nezahrnuje dobu do vygenerování prvního tokenu). Pokud je doba generování zanedbatelná, zobrazí se jako „-“.",
 			"sumOfTokens": "Součet tokenů promptu a dokončení (uvažování je součástí dokončení)",

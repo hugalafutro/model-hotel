@@ -1406,7 +1406,8 @@
 			"cacheInflated": "Tăng do các lần trúng bộ nhớ đệm lời nhắc",
 			"keyDeleted": "Đã xóa",
 			"ip": "IP",
-			"cost": "Chi phí"
+			"cost": "Chi phí",
+			"ttftNotStreamed": "Không đo với các yêu cầu không truyền luồng"
 		},
 		"tooltip": {
 			"timeDate": "Dấu thời gian của yêu cầu",
@@ -2824,7 +2825,7 @@
 			"headers": "Tiêu đề",
 			"timeToReceiveHeaders": "Thời gian để nhận các tiêu đề phản hồi HTTP đầu tiên từ nhà cung cấp thượng nguồn",
 			"ttft": "TTFT",
-			"timeToFirstToken": "Thời gian đến token đầu tiên: khoảng thời gian trễ giữa thời điểm bắt đầu yêu cầu và token đầu tiên trong phần nội dung phản hồi (truyền dữ liệu theo luồng) hoặc toàn bộ phản hồi (không truyền dữ liệu theo luồng)",
+			"timeToFirstToken": "Thời gian đến token đầu tiên: độ trễ từ khi bắt đầu yêu cầu đến token đầu tiên của phản hồi truyền luồng. Không đo với các yêu cầu không truyền luồng.",
 			"tokensPerSecond": "Token/giây",
 			"outputTokensPerSecond": "Số token được tạo ra mỗi giây trong giai đoạn tạo (không tính thời gian để tạo ra token đầu tiên). Được hiển thị dưới dạng '-' khi thời gian tạo là không đáng kể.",
 			"sumOfTokens": "Tổng số token của lời nhắc và phần hoàn thành (suy luận nằm trong phần hoàn thành)",

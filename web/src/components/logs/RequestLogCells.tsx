@@ -147,8 +147,18 @@ export function RequestLogCells({
 			<td className="px-2 py-1 whitespace-nowrap text-xs text-gray-400 font-mono">
 				{log.response_header_ms > 0 ? formatMs(log.response_header_ms, 1) : "-"}
 			</td>
+			{/* A non-streamed response has no first token to time, so its dash is
+			    explained rather than left to read as a lost measurement. */}
 			<td className="px-2 py-1 whitespace-nowrap text-xs text-gray-400 font-mono">
-				{log.ttft_ms > 0 ? formatMs(log.ttft_ms, 1) : "-"}
+				{log.ttft_ms > 0 ? (
+					formatMs(log.ttft_ms, 1)
+				) : (
+					<span
+						title={log.streaming ? undefined : t("logs.table.ttftNotStreamed")}
+					>
+						-
+					</span>
+				)}
 			</td>
 			<td className="px-2 py-1 whitespace-nowrap text-xs text-gray-400 font-mono">
 				{inProgress && log.duration_ms === 0 ? (

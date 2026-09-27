@@ -144,7 +144,15 @@ export function RequestLogDetail({
 						{requestLog.ttft_ms > 0 ? (
 							<DurationFigure ms={requestLog.ttft_ms} />
 						) : (
-							"-"
+							<span
+								title={
+									requestLog.streaming
+										? undefined
+										: t("logs.table.ttftNotStreamed")
+								}
+							>
+								-
+							</span>
 						)}
 					</div>
 					<div className="flex items-center justify-center gap-1 ui-overline">

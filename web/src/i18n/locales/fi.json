@@ -1406,7 +1406,8 @@
 			"cacheInflated": "Kasvatettu kehotevälimuistin osumilla",
 			"keyDeleted": "Poistettu",
 			"ip": "IP",
-			"cost": "Hinta"
+			"cost": "Hinta",
+			"ttftNotStreamed": "Ei mitata pyynnöille ilman suoratoistoa"
 		},
 		"tooltip": {
 			"timeDate": "Pyyntöön liittyvä aikaleima",
@@ -2824,7 +2825,7 @@
 			"headers": "Otsikot",
 			"timeToReceiveHeaders": "Aika saadaksesi ensimmäiset HTTP-vastausotsikot alkuvirran tarjoajalta",
 			"ttft": "TTFT",
-			"timeToFirstToken": "Aika ensimmäiseen tokeniin: viive pyynnön alkamisesta vastauksen rungon ensimmäiseen tokeniin (suoratoisto) tai koko vastaukseen (ei-suoratoisto)",
+			"timeToFirstToken": "Aika ensimmäiseen tokeniin: viive pyynnön alusta suoratoistetun vastauksen ensimmäiseen tokeniin. Ei mitata pyynnöille ilman suoratoistoa.",
 			"tokensPerSecond": "Tunnukset/s",
 			"outputTokensPerSecond": "Ulostulotokeneita sekunnissa generointivaiheen aikana (ei sisällä aikaa ensimmäiseen tokeniin). Näytetään ’-’, kun generointiaika on merkityksettömän lyhyt.",
 			"sumOfTokens": "Kehotteen ja täydennyksen tokenien summa (päättely sisältyy täydennykseen)",

@@ -1406,7 +1406,8 @@
 			"cacheInflated": "因提示缓存命中而偏高",
 			"keyDeleted": "已删除",
 			"ip": "IP",
-			"cost": "费用"
+			"cost": "费用",
+			"ttftNotStreamed": "非流式请求不测量"
 		},
 		"tooltip": {
 			"timeDate": "请求的时间戳",
@@ -2824,7 +2825,7 @@
 			"headers": "响应头",
 			"timeToReceiveHeaders": "从上游提供商接收第一个HTTP响应头的时间",
 			"ttft": "TTFT",
-			"timeToFirstToken": "首个 Token 时间：请求开始到响应正文首个 Token 之间的延迟（流式）或到完整响应的延迟（非流式）",
+			"timeToFirstToken": "首个 token 时间：从请求开始到流式响应首个 token 的延迟。非流式请求不测量。",
 			"tokensPerSecond": "令牌/秒",
 			"outputTokensPerSecond": "生成阶段每秒输出的 Token 数（不含首个 token 的等待时间）。生成时间极短时显示为“-”。",
 			"sumOfTokens": "提示与补全 token 之和（推理包含在补全中）",

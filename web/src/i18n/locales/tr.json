@@ -1406,7 +1406,8 @@
 			"cacheInflated": "Komut istemi önbellek isabetleriyle şişmiş",
 			"keyDeleted": "Silindi",
 			"ip": "IP",
-			"cost": "Maliyet"
+			"cost": "Maliyet",
+			"ttftNotStreamed": "Akışsız isteklerde ölçülmez"
 		},
 		"tooltip": {
 			"timeDate": "İsteğin zaman damgası",
@@ -2824,7 +2825,7 @@
 			"headers": "Başlıklar",
 			"timeToReceiveHeaders": "Yukarı akış sağlayıcısından ilk HTTP yanıt başlıklarını alma zamanı",
 			"ttft": "TTFT",
-			"timeToFirstToken": "İlk Jetonun Alınma Süresi: İsteğin başlaması ile yanıt gövdesindeki ilk jeton (akış) veya tam yanıt (akış dışı) arasındaki gecikme süresi",
+			"timeToFirstToken": "İlk Token'a Kadar Geçen Süre: isteğin başlangıcı ile akışlı bir yanıtın ilk token'ı arasındaki gecikme. Akışsız isteklerde ölçülmez.",
 			"tokensPerSecond": "Token/saniye",
 			"outputTokensPerSecond": "Oluşturma aşamasında saniye başına üretilen token sayısı (ilk tokenin üretilme süresi hariç). Oluşturma süresi önemsiz düzeyde olduğunda '-' olarak gösterilir.",
 			"sumOfTokens": "İstem ve tamamlama jetonlarının toplamı (akıl yürütme tamamlamaya dahildir)",

@@ -1406,7 +1406,8 @@
 			"cacheInflated": "Opgeblaas deur opdrag-kastreffers",
 			"keyDeleted": "Verwyder",
 			"ip": "IP",
-			"cost": "Koste"
+			"cost": "Koste",
+			"ttftNotStreamed": "Nie gemeet vir nie-stroom versoeke nie"
 		},
 		"tooltip": {
 			"timeDate": "Tydstempel van die versoek",
@@ -2824,7 +2825,7 @@
 			"headers": "Opskrifte",
 			"timeToReceiveHeaders": "Tyd om die eerste HTTP-reaksie-opskrifte van die stroomopverskaffer te ontvang",
 			"ttft": "TTFT",
-			"timeToFirstToken": "Tyd tot eerste token: vertraging tussen die aanvraag se begin en die eerste token van die reaksie-liggaam (strooming) of die volledige reaksie (nie-strooming)",
+			"timeToFirstToken": "Tyd tot Eerste Token: vertraging tussen die begin van die versoek en die eerste token van 'n gestroomde antwoord. Nie gemeet vir nie-stroom versoeke nie.",
 			"tokensPerSecond": "Tokens/s",
 			"outputTokensPerSecond": "Uitvoer tokens per sekonde tydens die generasiefase (sluit nie die tyd tot die eerste token in nie). Word as '-' gewys wanneer die generasietyd verwaarloosbaar is.",
 			"sumOfTokens": "Som van prompt- en voltooiingstokens (redenering is deel van voltooiing)",
