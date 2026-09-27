@@ -397,6 +397,163 @@ func TestAutoSync_MemberWithAnUnknownVersionIsHeldNotMeasured(t *testing.T) {
 	}
 }
 
+// TestAutoSync_UnknownPrimaryBuildHoldsNobody: one blank version read of the
+// primary is not skew on every replica. The pass pushes nothing (the gate still
+// fails closed) but announces no hold and leaves the fleet state alone; on prod a
+// single missed poll of the primary held all three replicas and degraded the
+// fleet for fifteen seconds. Once the primary's build reads again the same
+// members sync as if nothing happened.
+func TestAutoSync_UnknownPrimaryBuildHoldsNobody(t *testing.T) {
+	f := newHashFleet(t, func(r *stubAutoMember) { r.dryDiff = driftDiff })
+	setMemberVersion(f.srv, f.primaryM.ID, "")
+
+	f.tick(t)
+
+	if f.replica.didRealSync() {
+		t.Fatal("a pass with an unknown primary build pushed to a replica; the gate must still fail closed")
+	}
+	evs, _, err := f.store.ListEvents(t.Context(), EventFilter{Type: "config.sync_held"})
+	if err != nil {
+		t.Fatalf("ListEvents: %v", err)
+	}
+	if len(evs) != 0 {
+		t.Fatalf("config.sync_held events = %d, want 0: an unread primary build is not skew on its replicas", len(evs))
+	}
+
+	setMemberVersion(f.srv, f.primaryM.ID, "dev")
+	f.tick(t)
+	if !f.replica.didRealSync() {
+		t.Error("replica was not synced once the primary's build read again")
+	}
+}
+
+// TestAutoSync_UnknownPrimaryBuildKeepsAnOpenHold: a hold taken against a known
+// primary build neither closes nor re-announces while the primary's build cannot
+// be read. The skew it recorded is still the last thing known; only a build that
+// reads again, and matches, closes it.
+func TestAutoSync_UnknownPrimaryBuildKeepsAnOpenHold(t *testing.T) {
+	f := newHashFleet(t, func(r *stubAutoMember) { r.dryDiff = driftDiff })
+	setMemberVersion(f.srv, f.replicaM.ID, "v0.9.0")
+	f.tick(t)
+	count := func(typ string) int {
+		t.Helper()
+		evs, _, err := f.store.ListEvents(t.Context(), EventFilter{Type: typ})
+		if err != nil {
+			t.Fatalf("ListEvents %s: %v", typ, err)
+		}
+		return len(evs)
+	}
+	if got := count("config.sync_held"); got != 1 {
+		t.Fatalf("config.sync_held after the skewed pass = %d, want 1", got)
+	}
+
+	setMemberVersion(f.srv, f.primaryM.ID, "")
+	f.tick(t)
+	f.tick(t)
+
+	if got := count("config.sync_held"); got != 1 {
+		t.Errorf("config.sync_held after blank-primary passes = %d, want still 1 (neither re-announced nor cleared)", got)
+	}
+	if got := count("config.sync_recovered"); got != 0 {
+		t.Errorf("config.sync_recovered after blank-primary passes = %d, want 0: an unread primary build clears nothing", got)
+	}
+	if f.replica.didRealSync() {
+		t.Error("a held replica was pushed to while the primary's build was unknown")
+	}
+
+	// The build reads again and still differs: the hold stands, silently.
+	setMemberVersion(f.srv, f.primaryM.ID, "dev")
+	f.tick(t)
+	if got := count("config.sync_held"); got != 1 {
+		t.Errorf("config.sync_held once the primary reads again = %d, want 1", got)
+	}
+}
+
+// TestAutoSync_UnknownPrimaryBuildIsColdThenLoud: a skipped pass is not a verdict,
+// so the fleet-state inputs stay cold through the grace (a restart into a blank
+// primary must not report "no holds" from an empty in-memory set), and a primary
+// whose build stays unread past the grace gets the old fail-closed gate back:
+// the pass runs, the replica is held and announced, and the inputs are warm.
+func TestAutoSync_UnknownPrimaryBuildIsColdThenLoud(t *testing.T) {
+	f := newHashFleet(t, func(r *stubAutoMember) { r.dryDiff = driftDiff })
+	setMemberVersion(f.srv, f.primaryM.ID, "")
+	f.srv.autoSyncEvaluated.Store(false)
+	held := func() int {
+		t.Helper()
+		evs, _, err := f.store.ListEvents(t.Context(), EventFilter{Type: "config.sync_held"})
+		if err != nil {
+			t.Fatalf("ListEvents: %v", err)
+		}
+		return len(evs)
+	}
+
+	for i := 0; i < unknownPrimaryGracePasses; i++ {
+		f.tick(t)
+		if f.srv.autoSyncEvaluated.Load() {
+			t.Fatalf("pass %d with an unread primary build marked the fleet inputs warm", i+1)
+		}
+		if got := held(); got != 0 {
+			t.Fatalf("pass %d with an unread primary build announced %d holds, want 0", i+1, got)
+		}
+	}
+
+	f.tick(t)
+	if !f.srv.autoSyncEvaluated.Load() {
+		t.Error("the pass past the grace ran without marking the fleet inputs warm")
+	}
+	if got := held(); got != 1 {
+		t.Errorf("config.sync_held once the grace is over = %d, want 1: a primary that stays unread must gate out loud", got)
+	}
+	if f.replica.didRealSync() {
+		t.Error("the replica was pushed to while the primary's build was unknown")
+	}
+}
+
+// TestAutoSync_ReadablePrimaryBuildResetsTheGrace: the grace counts consecutive
+// unread passes, so a build that reads once in between starts it over; two
+// separate blips never add up to a loud pass.
+func TestAutoSync_ReadablePrimaryBuildResetsTheGrace(t *testing.T) {
+	f := newHashFleet(t, func(r *stubAutoMember) { r.dryDiff = driftDiff })
+	blank := func(n int) {
+		setMemberVersion(f.srv, f.primaryM.ID, "")
+		for i := 0; i < n; i++ {
+			f.tick(t)
+		}
+	}
+	held := func() int {
+		t.Helper()
+		evs, _, err := f.store.ListEvents(t.Context(), EventFilter{Type: "config.sync_held"})
+		if err != nil {
+			t.Fatalf("ListEvents: %v", err)
+		}
+		return len(evs)
+	}
+
+	blank(unknownPrimaryGracePasses - 1)
+	f.srv.autoSyncEvaluated.Store(false)
+	setMemberVersion(f.srv, f.primaryM.ID, "dev")
+	f.tick(t)
+	if !f.srv.autoSyncEvaluated.Load() {
+		t.Fatal("the readable tick in the middle did not run a pass")
+	}
+	blank(unknownPrimaryGracePasses - 1)
+	if got := held(); got != 0 {
+		t.Fatalf("config.sync_held after two short blips with a readable pass between = %d, want 0", got)
+	}
+
+	// Switching auto-sync off and on starts the grace over too: the next
+	// designation is a new question, not the tail of the old one's blips.
+	if err := f.store.SetAutoSync(t.Context(), false, ""); err != nil {
+		t.Fatalf("SetAutoSync off: %v", err)
+	}
+	f.tick(t)
+	enableAutoSync(t, f.store, f.primaryM.ID)
+	blank(unknownPrimaryGracePasses - 1)
+	if got := held(); got != 0 {
+		t.Fatalf("config.sync_held after a blip, a disable and a fresh blip = %d, want 0", got)
+	}
+}
+
 // TestAutoSyncHoldsCommitSkewOnDevFleet: the skew the app version cannot see. A
 // self-built fleet reports the "dev" placeholder on every member (the
 // Dockerfile's ARG VERSION default), so version equality vouches for nothing;

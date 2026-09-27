@@ -173,6 +173,9 @@ type Server struct {
 	// case those sets stay deliberately empty. Until then their emptiness means
 	// "not looked yet", not "no holds", and fleetInputsWarm reports cold.
 	autoSyncEvaluated atomic.Bool
+	// unknownPrimaryPasses counts consecutive auto-sync passes that found the
+	// primary's build unread; see skipForUnknownPrimaryBuild.
+	unknownPrimaryPasses atomic.Int32
 	// startedAt anchors fleetInputsWarm's Traefik grace: with no config poll
 	// recorded yet, the staleness input only counts as observed once a full
 	// staleness window has passed since this process started.
