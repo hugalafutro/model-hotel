@@ -79,6 +79,7 @@ func TestIsOpenCodeProtocolRefusal(t *testing.T) {
 		"openai pro tier": `{"error":{"message":"This is not a chat model and thus not supported in the v1/chat/completions endpoint. Did you mean to use v1/completions?"}}`,
 		"other protocol":  `{"error":{"message":"Streaming does not support this protocol."}}`,
 		"other type":      `{"error":{"type":"invalid_request_error","message":"Unsupported parameter: 'temperature'"}}`,
+		"typed otherwise": `{"error":{"type":"invalid_request_error","message":"Model does not support this protocol."}}`,
 		"not an envelope": `Model does not support this protocol.`,
 		"empty":           ``,
 	} {
