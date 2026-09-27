@@ -72,7 +72,7 @@ func IsOpenCodeProtocolRefusal(errBody []byte) bool {
 	if env.Error.Type == "ModelProtocolUnsupported" {
 		return true
 	}
-	return strings.HasPrefix(strings.ToLower(env.Error.Message), "model does not support this protocol")
+	return env.Error.Type == "" && strings.HasPrefix(strings.ToLower(env.Error.Message), "model does not support this protocol")
 }
 
 // ResponsesOnlyModel reports an OpenAI model id known to be served by the
