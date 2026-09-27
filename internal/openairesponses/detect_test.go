@@ -52,6 +52,10 @@ func TestIsResponsesOnlyRejection(t *testing.T) {
 	if !IsResponsesOnlyRejection([]byte(yes)) {
 		t.Fatal("the pro-tier refusal was not recognised")
 	}
+	opencode := `{"type":"error","error":{"type":"ModelProtocolUnsupported","message":"Model does not support this protocol."}}`
+	if !IsResponsesOnlyRejection([]byte(opencode)) {
+		t.Fatal("the OpenCode protocol refusal was not recognised")
+	}
 	for name, body := range map[string]string{
 		"tools rejection":      `{"error":{"message":"Function tools with reasoning_effort are not supported in the Chat Completions API for this model. Please use the /v1/responses endpoint."}}`,
 		"model not found":      `{"error":{"message":"The model 'gpt-9' does not exist or you do not have access to it."}}`,

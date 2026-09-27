@@ -23,7 +23,8 @@ import (
 // round-trip. The pro tier is served by /v1/responses alone and refuses the
 // chat endpoint with a 404; that refusal is learned the same way for every
 // request to the model, and the tier's names route there from the first request
-// on OpenAI's own host.
+// on OpenAI's own host. OpenCode Zen and Go serve their GPT models the same
+// way (a 400 naming the protocol) and are rerouted through the same learner.
 
 // responsesCacheKey mirrors the paramrewrite cache keying.
 func responsesCacheKey(providerType, modelID string) string {
@@ -105,8 +106,6 @@ func (h *Handler) buildResponsesRequest(ctx context.Context, st *requestState, c
 		return nil, providerType, targetURL, err
 	}
 	util.SetProviderAuthHeaders(proxyReq, providerType, candidate.apiKey)
-	// The Responses path is gated to the openai provider type today, so this
-	// call stamps nothing. It is here for the day that gate widens.
 	util.SetOpenCodeGoSession(proxyReq, providerType, st.opencodeSession)
 	return proxyReq, providerType, targetURL, nil
 }
@@ -236,10 +235,16 @@ func translateResponsesResponseBody(resp *http.Response, model string) error {
 }
 
 // plainOpenAIChat reports an attempt that is a chat-completions call in the
-// OpenAI dialect against an openai-typed provider: not a pass-through endpoint
-// and not a translated dialect. It is the precondition for every part of the
-// Responses reroute, since only such an attempt has a chat body to translate
-// and an answer to translate back.
+// OpenAI dialect against a provider with a /v1/responses route to fall back
+// to: OpenAI itself, and OpenCode Zen and Go, which serve their GPT models
+// behind that route alone. Not a pass-through endpoint and not a translated
+// dialect. It is the precondition for every part of the Responses reroute,
+// since only such an attempt has a chat body to translate and an answer to
+// translate back.
 func (st *requestState) plainOpenAIChat(providerType string) bool {
-	return providerType == "openai" && st.endpointPath == "" && st.makeUpstreamBody == nil
+	switch providerType {
+	case "openai", "opencode-go", "opencode-zen":
+		return st.endpointPath == "" && st.makeUpstreamBody == nil
+	}
+	return false
 }

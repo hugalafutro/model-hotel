@@ -95,6 +95,53 @@ func TestRetryWithResponses_ResponsesOnly404(t *testing.T) {
 	}
 }
 
+// OpenCode Go and Zen serve their GPT models behind /v1/responses alone and
+// refuse chat-completions with a 400 naming the protocol. The refusal learns
+// the model as Responses-only under the provider's own type and re-issues the
+// request against /v1/responses with the Go session header still stamped.
+func TestRetryWithResponses_OpenCodeProtocolRefusal(t *testing.T) {
+	for _, providerType := range []string{"opencode-go", "opencode-zen"} {
+		var gotPath, gotSession string
+		upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			gotPath = r.URL.Path
+			gotSession = r.Header.Get("X-OpenCode-Session")
+			w.Header().Set("Content-Type", "application/json")
+			_, _ = io.WriteString(w, `{"id":"resp_1","object":"response","status":"completed","output":[{"type":"message","role":"assistant","content":[{"type":"output_text","text":"hi"}]}],"usage":{"input_tokens":1,"output_tokens":1}}`)
+		}))
+		h := &Handler{upstreamTransport: &http.Transport{}}
+		st := &requestState{bodyBytes: []byte(`{"model":"gpt-6-luna","messages":[{"role":"user","content":"hi"}]}`), failoverTimeout: 5 * time.Second, opencodeSession: "ses_1"}
+		cand := responsesTestCandidate(upstream.URL + "/zen/go/v1")
+		cand.model.ModelID = "gpt-6-luna"
+		refusal := `{"type":"error","error":{"type":"ModelProtocolUnsupported","message":"Model does not support this protocol."}}`
+		resp := &http.Response{StatusCode: 400, Body: io.NopCloser(strings.NewReader(refusal))}
+		r := httptest.NewRequest("POST", "/v1/chat/completions", http.NoBody)
+		var dialMs float64
+		res, handled := h.retryWithResponses(r, st, cand, providerType, resp, 0, &dialMs, func() {}, "")
+		if !handled || !res.retried {
+			t.Fatalf("%s: handled=%v retried=%v, want the request re-issued", providerType, handled, res.retried)
+		}
+		if gotPath != "/zen/go/v1/responses" {
+			t.Fatalf("%s: retry went to %q, want /zen/go/v1/responses", providerType, gotPath)
+		}
+		if wantSession := map[bool]string{true: "ses_1", false: ""}[providerType == "opencode-go"]; gotSession != wantSession {
+			t.Fatalf("%s: session header %q, want %q", providerType, gotSession, wantSession)
+		}
+		if v, ok := h.responsesRequiredCache.Load(providerType + ":gpt-6-luna"); !ok || v != responsesAlways {
+			t.Fatalf("%s: learned %v, want the always requirement", providerType, v)
+		}
+		if !h.shouldUseResponsesAttempt(&requestState{bodyBytes: st.bodyBytes}, cand, providerType) {
+			t.Fatalf("%s: the next tools-free request does not route to /v1/responses preemptively", providerType)
+		}
+		if res.resp != nil && res.resp.Body != nil {
+			_ = res.resp.Body.Close()
+		}
+		if res.retryCancel != nil {
+			res.retryCancel()
+		}
+		upstream.Close()
+	}
+}
+
 // The attempt loop hands a chat-completions 404 from OpenAI's own host to the
 // learnable-refusal path, and nothing else that is not a 400.
 func TestIsLearnableRefusal(t *testing.T) {

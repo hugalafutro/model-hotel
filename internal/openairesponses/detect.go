@@ -40,15 +40,20 @@ func NeedsResponsesRouting(chatBody []byte) bool {
 	return len(probe.Tools) > 0 && probe.ReasoningEffort != "none"
 }
 
-// IsResponsesOnlyRejection reports the chat-completions refusal OpenAI
-// answers for a model that is served by the Responses API alone (the pro
-// tier: o1-pro, o3-pro, gpt-5-pro and its point releases). The message
-// misdirects, pointing at the legacy /v1/completions, and arrives as a 404
-// rather than a 400; unlike the tools+reasoning rejection it applies to
-// every request for the model, tools or not.
+// IsResponsesOnlyRejection reports the chat-completions refusal for a model
+// that is served by the Responses API alone; unlike the tools+reasoning
+// rejection it applies to every request for the model, tools or not. Two
+// wordings: OpenAI's own for the pro tier (o1-pro, o3-pro, gpt-5-pro and its
+// point releases), a 404 whose message misdirects to the legacy
+// /v1/completions; and OpenCode's for the GPT models on Zen and Go, a 400
+// "Model does not support this protocol." (type ModelProtocolUnsupported)
+// that names no forward path at all.
 func IsResponsesOnlyRejection(errBody []byte) bool {
 	m := strings.ToLower(util.ErrorEnvelopeMessage(errBody))
-	return strings.Contains(m, "not a chat model") && strings.Contains(m, "chat/completions")
+	if strings.Contains(m, "not a chat model") && strings.Contains(m, "chat/completions") {
+		return true
+	}
+	return strings.Contains(m, "does not support this protocol")
 }
 
 // ResponsesOnlyModel reports an OpenAI model id known to be served by the
