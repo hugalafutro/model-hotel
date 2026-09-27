@@ -167,19 +167,28 @@ func TestParseProviderParamError_ValueRangeComplaintTeachesNothing(t *testing.T)
 // A value of the wrong JSON type quotes the param the same way (Strix
 // ds41flash 2026-09-27): the model takes temperature, this caller sent it as a
 // string. Learning a strip from it would delete the param, or a caller's
-// max_tokens budget, from every later request to the model.
+// max_tokens budget, from every later request to the model. One wording per
+// phrase in valueComplaintPhrases, each quoting the param so that it IS
+// learned without its phrase.
 func TestParseProviderParamError_ValueTypeComplaintTeachesNothing(t *testing.T) {
 	t.Parallel()
 
 	for _, msg := range []string{
+		// OpenAI
 		`Invalid type for 'temperature': expected a number, but got a string instead.`,
-		`Invalid type for 'max_tokens': expected an integer, but got a string instead.`,
-		`Invalid type for 'top_p': expected a number, but got a string instead.`,
+		// JSON-schema validators
 		`'temperature' is not of type 'number'`,
-		`temperature: Input should be a valid number, unable to parse string as a number`,
-		`max_tokens: Input should be a valid integer`,
-		`Invalid value at 'generation_config.temperature' (TYPE_FLOAT), "warm"`,
+		// pydantic v2 (vLLM, Anthropic)
+		`[{'type': 'float_parsing', 'loc': ('body', 'temperature'), 'msg': 'Input should be a valid number, unable to parse string as a number', 'input': 'warm'}]`,
+		// pydantic v1
+		`[{'loc': ('body', 'temperature'), 'msg': 'value is not a valid float', 'type': 'type_error.float'}]`,
+		`[{'loc': ('body', 'max_tokens'), 'msg': 'value is not a valid integer', 'type': 'type_error.integer'}]`,
+		`[{'loc': ('body', 'top_p'), 'msg': 'value is not a valid number', 'type': 'type_error.number'}]`,
+		// "must be"
+		`'temperature' must be a number`,
 		`'max_tokens' must be an integer`,
+		// Google's OpenAI-compatible endpoint
+		`Invalid value at 'temperature' (TYPE_FLOAT), "warm"`,
 	} {
 		body := []byte(`{"error":{"message":` + fmt.Sprintf("%q", msg) + `,"type":"invalid_request_error"}}`)
 		if rejected := ParseProviderParamError(body); len(rejected) != 0 {

@@ -179,8 +179,9 @@ func ParseProviderParamRename(body []byte) map[string]string {
 // Anthropic (pydantic): "Input should be less than or equal to 1", "greater
 // than or equal to"; Google: "must be in the range". Type, OpenAI: "Invalid
 // type for 'temperature': expected a number, but got a string instead";
-// pydantic: "Input should be a valid number"; JSON-schema validators: "is not
-// of type 'number'"; Google: "(TYPE_FLOAT)". A phrase here has to describe
+// pydantic v2: "Input should be a valid number", v1: "value is not a valid
+// float"; JSON-schema validators: "is not of type 'number'"; Google:
+// "(TYPE_FLOAT)". A phrase here has to describe
 // the value, never the param's mere presence: OpenAI's "does not support 0
 // with this model" is a value the model refuses outright and stays learnable.
 var valueComplaintPhrases = []string{
@@ -194,10 +195,11 @@ var valueComplaintPhrases = []string{
 	"must be between", "in the range", "out of range",
 	"must be at least", "must be at most", "must not exceed",
 	// The wrong JSON type: the param is taken, this caller's value is not.
+	// OpenAI, JSON-schema validators, pydantic v2 (vLLM), pydantic v1,
+	// Groq-style "must be", Google's compat endpoint, in that order.
 	"invalid type for", "is not of type", "input should be a valid",
-	"expected a number", "expected an integer", "expected a boolean",
-	"must be a number", "must be an integer", "must be a boolean",
-	"(type_",
+	"is not a valid float", "is not a valid integer", "is not a valid number",
+	"must be a number", "must be an integer", "(type_",
 }
 
 // isValueComplaint reports whether msg says a value was out of range or of
