@@ -68,7 +68,11 @@ func TestServerMemberStateMaintenanceReason(t *testing.T) {
 		if ev.Severity != "info" || ev.Metadata["reason"] != "maintenance" || ev.MemberID != first.ID {
 			t.Errorf("maintenance event = %+v", ev)
 		}
-		if state, _ := ev.Metadata["state"].(string); ev.Message != wantMessage[state] {
+		state, ok := ev.Metadata["state"].(string)
+		if !ok {
+			t.Fatalf("maintenance event carries no state: %+v", ev)
+		}
+		if ev.Message != wantMessage[state] {
 			t.Errorf("maintenance %s message = %q, want %q", state, ev.Message, wantMessage[state])
 		}
 	}
