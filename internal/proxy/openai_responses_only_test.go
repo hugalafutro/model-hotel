@@ -731,3 +731,20 @@ func TestIssueParamRetry_RerouteMetricCountsIssuedRequests(t *testing.T) {
 		t.Errorf("param_retry samples = %v after a round that never got an answer, want 0", got)
 	}
 }
+
+// restoreReasoningEffort puts the client's effort back only when the strip
+// took it: an unparsable body on either side, an original without the field
+// and a cleaned body that still carries it are all left as they are.
+func TestRestoreReasoningEffort(t *testing.T) {
+	for name, c := range map[string]struct{ cleaned, original, want string }{
+		"restored":        {`{"model":"gpt-6-luna"}`, `{"model":"gpt-6-luna","reasoning_effort":"high"}`, `{"model":"gpt-6-luna","reasoning_effort":"high"}`},
+		"original lacks":  {`{"model":"gpt-6-luna"}`, `{"model":"gpt-6-luna"}`, `{"model":"gpt-6-luna"}`},
+		"original broken": {`{"model":"gpt-6-luna"}`, `{"model":`, `{"model":"gpt-6-luna"}`},
+		"cleaned broken":  {`{"model":`, `{"reasoning_effort":"high"}`, `{"model":`},
+		"cleaned keeps":   {`{"reasoning_effort":"low"}`, `{"reasoning_effort":"high"}`, `{"reasoning_effort":"low"}`},
+	} {
+		if got := string(restoreReasoningEffort([]byte(c.cleaned), []byte(c.original))); got != c.want {
+			t.Errorf("%s: got %s, want %s", name, got, c.want)
+		}
+	}
+}
