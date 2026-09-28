@@ -130,8 +130,18 @@ func initKeyCacheTTL(settingsRepo *settings.Repository) {
 		// Re-read through the same getter the startup seed uses rather than
 		// parsing the notified value: a reset-to-default arrives as "", and
 		// GetDuration already yields the default for an absent or unparseable
-		// value and accepts the day suffix the seed accepts.
-		d := settingsRepo.GetDuration(context.Background(), "key_cache_ttl", auth.DefaultKeyCacheTTL)
+		// value and accepts the day suffix the seed accepts. A read the store
+		// could not serve keeps the current value: the default is what an
+		// absent row means, not what a failed read means.
+		d, err := settingsRepo.GetDurationChecked(context.Background(), "key_cache_ttl", auth.DefaultKeyCacheTTL)
+		if err != nil {
+			debuglog.Warn("keycache: key_cache_ttl could not be re-read, keeping current value", "error", err)
+			return
+		}
+		if d <= 0 {
+			debuglog.Warn("keycache: key_cache_ttl is not positive, keeping current value", "value", d)
+			return
+		}
 		auth.SetKeyCacheTTL(d)
 		debuglog.Info("keycache: TTL updated", "ttl", d)
 	})

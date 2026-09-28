@@ -3,6 +3,7 @@ package failover
 import (
 	"context"
 	"os"
+	"strings"
 	"testing"
 
 	"github.com/google/uuid"
@@ -1568,8 +1569,22 @@ func TestRepository_SyncAllModels_LeavesCustomGroupNamedLikeABase(t *testing.T) 
 		if err != nil {
 			t.Fatalf("%s: %v", run.name, err)
 		}
-		if len(result.SyncErrors) != 0 || len(result.UpdatedGroups) != 0 || len(result.DeletedGroups) != 0 {
-			t.Fatalf("%s reported changes for a custom group: %+v", run.name, result)
+		// Filtered to this base: SyncAllModels walks the whole table and other
+		// tests' leftovers are not this test's business.
+		for _, e := range result.SyncErrors {
+			if strings.HasPrefix(e, baseModel+":") {
+				t.Fatalf("%s reported a sync error for the custom group: %s", run.name, e)
+			}
+		}
+		for _, d := range result.DeletedGroups {
+			if d.DisplayModel == baseModel {
+				t.Fatalf("%s deleted the custom group: %+v", run.name, d)
+			}
+		}
+		for _, u := range result.UpdatedGroups {
+			if u.DisplayModel == baseModel {
+				t.Fatalf("%s rewrote the custom group: %+v", run.name, u)
+			}
 		}
 		InvalidateFailoverCache()
 		group, err := repo.GetByModel(ctx, baseModel)

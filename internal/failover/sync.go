@@ -238,12 +238,15 @@ func (r *Repository) upsertAutoGroup(ctx context.Context, base string, currentID
 		return nil, nil, false, fmt.Errorf("lookup existing group: %w", err)
 	}
 	if existing != nil && !existing.AutoCreated {
-		// A custom group whose display_model equals a base name (created while
-		// one provider served it, so no auto group stood in the way) keeps its
-		// own members, toggles and enabled flag. Writing here would prune every
-		// member outside the base, force it enabled and flag it auto_created,
-		// after which the auto rules would delete it the next time the base
-		// dropped to one model.
+		// A custom group can carry a base name: created while one provider
+		// served the model (so no auto group refused the name), renamed to it
+		// through the group editor, or imported from the fleet primary as the
+		// primary's custom row. Its members, toggles and enabled flag are the
+		// operator's. Writing here would prune every member outside the base,
+		// force it enabled and flag it auto_created, after which the auto rules
+		// would delete it the next time the base dropped to one model. The
+		// custom-group rules (stale-entry prune, auto-disable below two
+		// routable members) still apply to it elsewhere in the sync.
 		return existing, existing.PriorityOrder, true, nil
 	}
 	if existing != nil {
@@ -497,6 +500,8 @@ func (r *Repository) SyncForModel(ctx context.Context, modelID string) (*SyncRes
 	}
 	if custom {
 		debuglog.Debug("failover: base name held by a custom group, left alone", "display_model", base)
+		// Nothing changed, but an owed echo clear is still retried on every scan.
+		r.clearFleetAutoEchoIfStaled(ctx, nil)
 		return result, nil
 	}
 
