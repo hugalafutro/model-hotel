@@ -156,9 +156,10 @@ type StreamEvent struct {
 	// a content_block_delta's text, thinking or partial JSON, and a
 	// content_block_start's tool name plus whatever content a relay put on the
 	// opener (Anthropic itself opens a block empty and streams the rest as
-	// deltas, so nothing is counted twice). It is the delivered output the
-	// passthrough estimates from when the stream ends before message_delta
-	// reports output_tokens.
+	// deltas). A relay that puts the input on the opener AND streams it as
+	// deltas is counted twice; the estimate only stands in when the stream
+	// ends before message_delta reports output_tokens, so the over-count is
+	// accepted. It is the delivered output the passthrough estimates from.
 	TextBytes int
 }
 

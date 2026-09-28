@@ -257,6 +257,10 @@ func (t *StreamTranslator) startBlock(buf *bytes.Buffer, ev antEvent) error {
 	oaIndex := t.toolCalls
 	t.toolCalls++
 	t.toolIndexByBlock[ev.Index] = oaIndex
+	// A relay may reuse a block index; the new block starts with no arguments
+	// seen and no opener input of its own.
+	delete(t.toolArgsSeen, ev.Index)
+	delete(t.openerInput, ev.Index)
 
 	if err := t.writeChunk(buf, chunkDelta{ToolCalls: []chunkToolCall{{
 		Index:    oaIndex,
@@ -330,6 +334,17 @@ func (t *StreamTranslator) Finish() ([]byte, error) {
 	t.finished = true
 
 	var buf bytes.Buffer
+	// A tool block the stream never stopped (a relay that skips
+	// content_block_stop) still owes its arguments: the opener's input when
+	// it carried one, the empty object otherwise.
+	for blockIndex := range t.toolIndexByBlock {
+		if t.toolArgsSeen[blockIndex] {
+			continue
+		}
+		if err := t.stopBlock(&buf, antEvent{Index: blockIndex}); err != nil {
+			return nil, err
+		}
+	}
 	reason := mapFinishReason(t.stopReason)
 	var usage *completionUsage
 	if t.usage != (anthropic.UsageBlock{}) {

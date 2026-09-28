@@ -475,18 +475,20 @@ func TestIngressStream_MixedIndexShapes(t *testing.T) {
 			t.Errorf("a=%+v", a)
 		}
 	})
-	t.Run("index 0 reused for a second id", func(t *testing.T) {
+	t.Run("index 0 stamped on every call and its continuations", func(t *testing.T) {
 		tr := NewIngressStreamTranslator("resp_2", "m", nil)
 		sse := runIngress(t, tr,
-			chunk(`{"tool_calls":[{"index":0,"id":"call_a","type":"function","function":{"name":"ls","arguments":"{\"a\":1}"}}]}`, ""),
-			chunk(`{"tool_calls":[{"index":0,"id":"call_b","type":"function","function":{"name":"cat","arguments":"{\"b\":2}"}}]}`, "tool_calls"),
+			chunk(`{"tool_calls":[{"index":0,"id":"call_a","type":"function","function":{"name":"ls","arguments":"{\"a\":"}}]}`, ""),
+			chunk(`{"tool_calls":[{"index":0,"function":{"arguments":"1}"}}]}`, ""),
+			chunk(`{"tool_calls":[{"index":0,"id":"call_b","type":"function","function":{"name":"cat","arguments":"{\"b\":"}}]}`, ""),
+			chunk(`{"tool_calls":[{"index":0,"function":{"arguments":"2}"}}]}`, "tool_calls"),
 		)
 		got := decodeWithOpenAISDK(t, sse)
 		if len(got.itemsDone) != 2 {
 			t.Fatalf("items = %d, want 2", len(got.itemsDone))
 		}
 		a, b := got.itemsDone[0].AsFunctionCall(), got.itemsDone[1].AsFunctionCall()
-		if a.CallID != "call_a" || b.CallID != "call_b" || b.Arguments != `{"b":2}` {
+		if a.CallID != "call_a" || a.Arguments != `{"a":1}` || b.CallID != "call_b" || b.Arguments != `{"b":2}` {
 			t.Errorf("a=%+v b=%+v", a, b)
 		}
 	})

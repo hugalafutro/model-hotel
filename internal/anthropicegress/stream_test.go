@@ -290,6 +290,46 @@ func TestStreamTranslator_DeltasWinOverOpenerInput(t *testing.T) {
 	}
 }
 
+// A relay that puts the input on the opener may skip content_block_stop too;
+// the arguments are still owed at the end of the stream.
+func TestStreamTranslator_OpenerInputFlushedWithoutBlockStop(t *testing.T) {
+	tr := NewStreamTranslator("chatcmpl-7", "m", 1)
+	out := feed(t, tr,
+		`{"type":"message_start","message":{"usage":{"input_tokens":4}}}`,
+		`{"type":"content_block_start","index":0,"content_block":{"type":"tool_use","id":"toolu_a","name":"first","input":{"a":1}}}`,
+		`{"type":"message_delta","delta":{"stop_reason":"tool_use"},"usage":{"output_tokens":9}}`,
+		`{"type":"message_stop"}`,
+	)
+	chunks, done := parseChunks(t, out)
+	if !done {
+		t.Fatalf("stream did not end with [DONE]:\n%s", out)
+	}
+	if args := toolArgsByIndex(chunks); args[0] != `{"a":1}` {
+		t.Errorf("arguments = %q, want the opener's input flushed at the end", args[0])
+	}
+}
+
+// A relay that reuses a block index starts the second block clean: the first
+// block's arguments-seen mark must not swallow the second block's arguments.
+func TestStreamTranslator_ReusedBlockIndexStartsClean(t *testing.T) {
+	tr := NewStreamTranslator("chatcmpl-8", "m", 1)
+	out := feed(t, tr,
+		`{"type":"message_start","message":{"usage":{"input_tokens":4}}}`,
+		`{"type":"content_block_start","index":0,"content_block":{"type":"tool_use","id":"toolu_a","name":"first","input":{}}}`,
+		`{"type":"content_block_delta","index":0,"delta":{"type":"input_json_delta","partial_json":"{\"a\":1}"}}`,
+		`{"type":"content_block_stop","index":0}`,
+		`{"type":"content_block_start","index":0,"content_block":{"type":"tool_use","id":"toolu_b","name":"second","input":{"b":2}}}`,
+		`{"type":"content_block_stop","index":0}`,
+		`{"type":"message_delta","delta":{"stop_reason":"tool_use"},"usage":{"output_tokens":9}}`,
+		`{"type":"message_stop"}`,
+	)
+	chunks, _ := parseChunks(t, out)
+	args := toolArgsByIndex(chunks)
+	if args[0] != `{"a":1}` || args[1] != `{"b":2}` {
+		t.Errorf("arguments by index = %v, want 0:{\"a\":1} 1:{\"b\":2}", args)
+	}
+}
+
 func TestStreamTranslator_ToolCallIndicesSkipTextBlocks(t *testing.T) {
 	// Anthropic block indices count every block (text at 0, tools at 1 and 2);
 	// OpenAI tool-call indices count only tool calls, so they must be 0 and 1.

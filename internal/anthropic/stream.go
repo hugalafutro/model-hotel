@@ -37,7 +37,8 @@ type StreamTranslator struct {
 	// last, since fragments of one call arrive contiguously.
 	toolBlockByOAIndex map[int]int
 	idxByCallID        map[string]int
-	idByIndex          map[int]string
+	idByIndex          map[int]string // wire index -> the id that last opened under it
+	aliasOf            map[int]int    // wire index -> the call it currently names
 	lastToolOAIndex    int
 
 	// Best-effort usage + terminal reason.
@@ -69,28 +70,35 @@ func NewStreamTranslator(messageID, model string) *StreamTranslator {
 		toolBlockByOAIndex: map[int]int{},
 		idxByCallID:        map[string]int{},
 		idByIndex:          map[int]string{},
+		aliasOf:            map[int]int{},
 	}
 }
 
 // oaIndexFor resolves the OpenAI index a tool-call fragment belongs to, see
-// toolBlockByOAIndex. Two mixed shapes are read for what they mean: an opener
+// toolBlockByOAIndex. Mixed shapes are read for what they mean: an opener
 // that reuses an index another call already holds (a provider that stamps 0
-// on every call) is a new call, and a continuation whose index opened nothing
-// while the last call was id-keyed belongs to that call.
+// on every call) is a new call, and that wire index then names the new call
+// for the id-less fragments that follow (aliasOf, latest opener wins); a
+// continuation whose index opened nothing while the last call was id-keyed
+// belongs to that call.
 func (t *StreamTranslator) oaIndexFor(tc OAToolCallDelta) int {
 	switch {
 	case tc.Index != nil:
-		idx := *tc.Index
+		wire := *tc.Index
+		idx := wire
 		if tc.ID != "" {
 			if known, ok := t.idxByCallID[tc.ID]; ok {
 				// The call was keyed by id before its index showed up.
 				idx = known
-			} else if owner, taken := t.idByIndex[idx]; taken && owner != tc.ID {
+			} else if owner, taken := t.idByIndex[wire]; taken && owner != tc.ID {
 				idx = -1 - len(t.idxByCallID)
 			}
 			t.idxByCallID[tc.ID] = idx
-			t.idByIndex[idx] = tc.ID
-		} else if _, open := t.toolBlockByOAIndex[idx]; !open && t.lastToolOAIndex < 0 {
+			t.idByIndex[wire] = tc.ID
+			t.aliasOf[wire] = idx
+		} else if alias, ok := t.aliasOf[wire]; ok {
+			idx = alias
+		} else if _, open := t.toolBlockByOAIndex[wire]; !open && t.lastToolOAIndex < 0 {
 			idx = t.lastToolOAIndex
 		}
 		t.lastToolOAIndex = idx
@@ -311,12 +319,12 @@ func (t *StreamTranslator) Finish() ([]byte, error) {
 	}
 
 	stop := mapStopReason(t.finishReason)
-	if len(t.toolBlockByOAIndex) > 0 && stop != "max_tokens" {
-		// A turn that produced tool calls stops for tool_use whatever the
-		// finish_reason said: some OpenAI-compatible servers report "stop"
-		// beside tool_calls, and an agent loop keyed on stop_reason would end
-		// the turn without running them. "length" stays max_tokens: a call cut
-		// mid-arguments is not one to run.
+	if len(t.toolBlockByOAIndex) > 0 && (t.finishReason == "" || t.finishReason == "stop") {
+		// A turn that produced tool calls stops for tool_use when the
+		// finish_reason claims an ordinary end: some OpenAI-compatible servers
+		// report "stop" beside tool_calls, and an agent loop keyed on
+		// stop_reason would end the turn without running them. "length" and
+		// "content_filter" stand: a call cut short is not one to run.
 		stop = "tool_use"
 	}
 	if err := writeEvent(&buf, "message_delta", messageDeltaEvent{

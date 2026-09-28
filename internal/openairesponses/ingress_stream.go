@@ -38,7 +38,8 @@ type IngressStreamTranslator struct {
 	open          int            // index into items of the open reasoning/message item, or -1
 	toolItemByIdx map[int]int    // chat tool_calls index -> items index
 	idxByCallID   map[string]int // chat tool_call id -> chat index, for fragments sent without one
-	idByIndex     map[int]string // chat index -> the id that opened it, to spot a reused index
+	idByIndex     map[int]string // wire index -> the id that last opened under it, to spot a reused index
+	aliasOf       map[int]int    // wire index -> the call it currently names (latest opener wins)
 	lastChatIndex int            // chat index of the call streamed last, for fragments sent with neither
 	finishReason  string
 	usage         *Usage
@@ -84,6 +85,7 @@ func NewIngressStreamTranslator(responseID, model string, facts *RequestFacts) *
 		toolItemByIdx: map[int]int{},
 		idxByCallID:   map[string]int{},
 		idByIndex:     map[int]string{},
+		aliasOf:       map[int]int{},
 		facts:         facts,
 	}
 }
@@ -354,18 +356,24 @@ func (t *IngressStreamTranslator) toolCallDelta(buf *bytes.Buffer, tc chatToolCa
 func (t *IngressStreamTranslator) chatIndexFor(tc chatToolCall) int {
 	switch {
 	case tc.Index != nil:
-		idx := *tc.Index
+		wire := *tc.Index
+		idx := wire
 		if tc.ID != "" {
 			if known, ok := t.idxByCallID[tc.ID]; ok {
 				// The call was keyed by id before its index showed up.
 				idx = known
-			} else if owner, taken := t.idByIndex[idx]; taken && owner != tc.ID {
+			} else if owner, taken := t.idByIndex[wire]; taken && owner != tc.ID {
 				// An opener reusing an index another call holds is a new call.
 				idx = -1 - len(t.idxByCallID)
 			}
 			t.idxByCallID[tc.ID] = idx
-			t.idByIndex[idx] = tc.ID
-		} else if _, open := t.toolItemByIdx[idx]; !open && t.lastChatIndex < 0 {
+			t.idByIndex[wire] = tc.ID
+			t.aliasOf[wire] = idx
+		} else if alias, ok := t.aliasOf[wire]; ok {
+			// The id-less fragments under a reused wire index belong to the
+			// call that last opened under it.
+			idx = alias
+		} else if _, open := t.toolItemByIdx[wire]; !open && t.lastChatIndex < 0 {
 			// An index that opened nothing, after an id-keyed opener: the
 			// continuation of that call.
 			idx = t.lastChatIndex

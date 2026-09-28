@@ -272,22 +272,46 @@ func TestStreamTranslator_MixedIndexShapes(t *testing.T) {
 			t.Errorf("blocks = %v inputs = %v, want one call ls with {\"a\":1}", got.toolNameByIx, got.toolJSONByIx)
 		}
 	})
-	t.Run("index 0 reused for a second id", func(t *testing.T) {
+	t.Run("index 0 stamped on every call and its continuations", func(t *testing.T) {
 		tr := NewStreamTranslator("msg_mix2", "m")
 		chunks := []OAStreamChunk{
 			{Choices: []OAStreamChoice{{Delta: OAStreamDelta{ToolCalls: []OAToolCallDelta{
-				{Index: new(0), ID: "call_a", Type: "function", Function: OAFunctionDelta{Name: "ls", Arguments: `{"a":1}`}},
+				{Index: new(0), ID: "call_a", Type: "function", Function: OAFunctionDelta{Name: "ls", Arguments: `{"a":`}},
 			}}}}},
 			{Choices: []OAStreamChoice{{Delta: OAStreamDelta{ToolCalls: []OAToolCallDelta{
-				{Index: new(0), ID: "call_b", Type: "function", Function: OAFunctionDelta{Name: "cat", Arguments: `{"b":2}`}},
+				{Index: new(0), Function: OAFunctionDelta{Arguments: `1}`}},
+			}}}}},
+			{Choices: []OAStreamChoice{{Delta: OAStreamDelta{ToolCalls: []OAToolCallDelta{
+				{Index: new(0), ID: "call_b", Type: "function", Function: OAFunctionDelta{Name: "cat", Arguments: `{"b":`}},
+			}}}}},
+			{Choices: []OAStreamChoice{{Delta: OAStreamDelta{ToolCalls: []OAToolCallDelta{
+				{Index: new(0), Function: OAFunctionDelta{Arguments: `2}`}},
 			}}}}},
 			{Choices: []OAStreamChoice{{Delta: OAStreamDelta{}, FinishReason: new("tool_calls")}}},
 		}
 		got := decodeWithSDK(t, runTranslator(t, tr, chunks))
-		if got.toolNameByIx[0] != "ls" || got.toolNameByIx[1] != "cat" || got.toolJSONByIx[1] != `{"b":2}` {
-			t.Errorf("blocks = %v inputs = %v, want ls and cat", got.toolNameByIx, got.toolJSONByIx)
+		if got.toolNameByIx[0] != "ls" || got.toolNameByIx[1] != "cat" {
+			t.Fatalf("blocks = %v, want ls and cat", got.toolNameByIx)
+		}
+		if got.toolJSONByIx[0] != `{"a":1}` || got.toolJSONByIx[1] != `{"b":2}` {
+			t.Errorf("inputs = %v, want the second call's continuation on the second block", got.toolJSONByIx)
 		}
 	})
+}
+
+// finish_reason "content_filter" beside tool calls is not an ordinary end
+// either; it stays end_turn rather than telling the client to run the call.
+func TestStreamTranslator_ContentFilterBesideToolCallsStaysEndTurn(t *testing.T) {
+	tr := NewStreamTranslator("msg_cf", "m")
+	chunks := []OAStreamChunk{
+		{Choices: []OAStreamChoice{{Delta: OAStreamDelta{ToolCalls: []OAToolCallDelta{
+			{Index: new(0), ID: "call_a", Type: "function", Function: OAFunctionDelta{Name: "ls", Arguments: `{}`}},
+		}}}}},
+		{Choices: []OAStreamChoice{{Delta: OAStreamDelta{}, FinishReason: new("content_filter")}}},
+	}
+	if got := decodeWithSDK(t, runTranslator(t, tr, chunks)); got.stopReason != "end_turn" {
+		t.Errorf("stop_reason = %q, want end_turn", got.stopReason)
+	}
 }
 
 func TestStreamTranslator_EmptyCompletion_WellFormed(t *testing.T) {
