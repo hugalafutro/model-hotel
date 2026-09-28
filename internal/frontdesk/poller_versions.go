@@ -32,14 +32,17 @@ func (p *Poller) PollVersionsOnce(ctx context.Context) {
 		}
 		build, err := p.fetchMemberBuild(ctx, m.URL, token)
 		if err != nil {
-			p.noteVersionFetchFailure(ctx, m, err)
+			n := p.noteVersionFetchFailure(ctx, m, err)
 			// A build that can no longer be read is unknown, and the config-sync
 			// gates treat unknown as skewed (fail closed). Keeping the last good
 			// value would let a sync proceed on stale data while the member is
 			// mid-upgrade, the window the gate exists for. The commit is cleared
 			// with the version: kept beside a blank version it would outlive the
-			// read that vouched for it.
-			if p.clearBuild(m.ID) {
+			// read that vouched for it. Cleared at the same threshold that
+			// raises the fetch-failed event, not on the first miss: one blip
+			// otherwise held sync and paged the fleet degraded, then recovered
+			// it a poll later. A rebuild answers nothing for longer than that.
+			if n >= versionFetchFailThreshold && p.clearBuild(m.ID) {
 				p.publishMemberStatus(m.ID)
 			}
 			continue
@@ -88,13 +91,14 @@ func (p *Poller) clearBuild(memberID string) bool {
 }
 
 // noteVersionFetchFailure tracks consecutive version-fetch failures for a member
-// and raises a single visible warning + event when they cross the threshold. The
+// and raises a single visible warning + event when they cross the threshold,
+// reporting the count so the caller can act on the same threshold. The
 // member's admin token is sent on every attempt, so a persistently failing
 // (possibly hostile or misconfigured) URL is surfaced for the operator rather
 // than retried silently at Debug level forever. The fetch error is logged but
 // never put in the event payload (it can embed a fragment of the member's HTTP
 // response).
-func (p *Poller) noteVersionFetchFailure(ctx context.Context, m *Member, fetchErr error) {
+func (p *Poller) noteVersionFetchFailure(ctx context.Context, m *Member, fetchErr error) int {
 	p.mu.Lock()
 	p.versionFailures[m.ID]++
 	n := p.versionFailures[m.ID]
@@ -113,9 +117,10 @@ func (p *Poller) noteVersionFetchFailure(ctx context.Context, m *Member, fetchEr
 			MemberID: m.ID,
 			Metadata: map[string]any{"consecutive_failures": n},
 		})
-		return
+		return n
 	}
 	debuglog.Debug("frontdesk: fetch member version", "member", m.Name, "error", fetchErr)
+	return n
 }
 
 // fetchMemberBuild reads app_version and app_commit from the member's admin

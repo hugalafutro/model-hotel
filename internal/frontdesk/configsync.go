@@ -298,6 +298,7 @@ func (s *Server) applyMemberConfig(ctx context.Context, m *Member, token string,
 	}
 
 	if res.OK {
+		s.clearSyncFailure(m.ID)
 		recordConfigSync("ok")
 		if emitSuccessEvent {
 			// The wizard's path: an operator drove this sync, so a completed write is
@@ -316,6 +317,13 @@ func (s *Server) applyMemberConfig(ctx context.Context, m *Member, token string,
 	} else {
 		recordConfigSync("err")
 		debuglog.Warn("frontdesk: config sync failed", "member", m.Name, "error", res.Error)
+		if s.syncFailureRepeats(m.ID, res.Error) {
+			// The same refusal as the last push (a member whose ALLOWED_PROVIDER_HOSTS
+			// refuses a synced base_url, a fence the primary's generation is behind):
+			// retried every tick, reported once. A new cause, or a failure after a
+			// converged push, is news again.
+			return res
+		}
 		// An unconfirmed push (timed out, or 5xx'd in a way that can stand in front
 		// of a live import) is published at info, not warning: alert dispatch takes
 		// its notification severity from the live event, and paging an operator for
@@ -448,9 +456,13 @@ func lostAnswer5xx(status int, elapsed time.Duration) bool {
 const maxMemberConfigExportBody = 8 << 20
 
 // fetchMemberExport reads a member's config envelope as raw JSON so it can be
-// re-posted to replicas verbatim (preserving the base64 key ciphertext).
+// re-posted to replicas verbatim (preserving the base64 key ciphertext). It
+// uses readClient, not the health-probe client, for the reason the hash read
+// does (fetchMemberConfigVersion): the member builds the whole envelope, which
+// does not fit a probe's deadline on a busy primary, and a refused export
+// ends the pass with no member converged.
 func (s *Server) fetchMemberExport(ctx context.Context, m *Member, token string) ([]byte, error) {
-	status, body, err := callMemberLimited(ctx, s.probe, maxMemberConfigExportBody,
+	status, body, err := callMemberLimited(ctx, s.readClient, maxMemberConfigExportBody,
 		http.MethodGet, m.URL, memberConfigExportPath, token, nil)
 	if err != nil {
 		return nil, err

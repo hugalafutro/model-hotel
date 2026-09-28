@@ -74,6 +74,26 @@ func (s *Server) recordSyncAttempt(memberID string, unapplied, partial, unapplie
 	s.syncIncomplete[memberID] = st
 }
 
+// syncFailureRepeats records a push failure's cause for the member and reports
+// whether the previous push failed for the same cause, so the event and alert
+// fire on the transition, not on every retried tick. A push that converged or
+// was confirmed applied must call clearSyncFailure so the next failure counts
+// as new.
+func (s *Server) syncFailureRepeats(memberID, cause string) bool {
+	s.syncIncompleteMu.Lock()
+	defer s.syncIncompleteMu.Unlock()
+	prev, had := s.lastSyncFailure[memberID]
+	s.lastSyncFailure[memberID] = cause
+	return had && prev == cause
+}
+
+// clearSyncFailure forgets a member's last push failure.
+func (s *Server) clearSyncFailure(memberID string) {
+	s.syncIncompleteMu.Lock()
+	delete(s.lastSyncFailure, memberID)
+	s.syncIncompleteMu.Unlock()
+}
+
 // markUnconfirmedPush remembers that a member's latest real config push, carrying
 // the primary config identified by hash, got no usable answer, so its last-sync
 // marker could not be stamped even though the import may have completed

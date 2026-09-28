@@ -374,6 +374,47 @@ func TestVersionFetchFailureRaisesEvent(t *testing.T) {
 	}
 }
 
+// A single failed version read keeps the member's last build: cleared on the
+// first miss, one blip made the sync gate read the member as skewed, hold it
+// and page the fleet degraded, then recover it a poll later. The build goes at
+// the same threshold that raises the fetch-failed event.
+func TestVersionFetchBlipKeepsBuild(t *testing.T) {
+	ctx := context.Background()
+	var ok atomic.Bool
+	ok.Store(true)
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != memberSettingsPath || !ok.Load() {
+			w.WriteHeader(http.StatusInternalServerError)
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"app_version":"9.9.9"}`))
+	}))
+	defer srv.Close()
+
+	p, s, _ := newTestPoller(t, "")
+	m, err := s.CreateMember(ctx, "m1", srv.URL, "member-admin-token")
+	if err != nil {
+		t.Fatalf("CreateMember: %v", err)
+	}
+	p.PollVersionsOnce(ctx)
+	if got := p.memberBuildOf(m.ID).Version; got != "9.9.9" {
+		t.Fatalf("version after a good read = %q, want 9.9.9", got)
+	}
+
+	ok.Store(false)
+	for i := range versionFetchFailThreshold - 1 {
+		p.PollVersionsOnce(ctx)
+		if got := p.memberBuildOf(m.ID).Version; got != "9.9.9" {
+			t.Fatalf("version after %d failed reads = %q, want the last good build kept below the threshold", i+1, got)
+		}
+	}
+	p.PollVersionsOnce(ctx)
+	if got := p.memberBuildOf(m.ID).Version; got != "" {
+		t.Fatalf("version at the threshold = %q, want cleared", got)
+	}
+}
+
 func countEvents(t *testing.T, s *Store, typ string) int {
 	t.Helper()
 	evs, _, err := s.ListEvents(context.Background(), EventFilter{Type: typ})

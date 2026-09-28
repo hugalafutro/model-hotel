@@ -1418,6 +1418,64 @@ func TestAutoSync_ConfigVersionReadUsesReadClientNotProbe(t *testing.T) {
 	}
 }
 
+// TestAutoSync_ExportReadUsesReadClientNotProbe: the export is the same envelope
+// build as the hash read, so it gets the same client. Read with the probe, a
+// primary slower than the probe's deadline failed every pass at the export and
+// no member ever converged, with nothing but a warning in the log.
+func TestAutoSync_ExportReadUsesReadClientNotProbe(t *testing.T) {
+	f := newHashFleet(t, func(r *stubAutoMember) {
+		r.versionHash = "hash-drifted"
+		r.dryDiff = driftDiff
+	})
+	f.primary.exportDelay = 200 * time.Millisecond
+	f.srv.probe = newProbeClient(50 * time.Millisecond)
+	f.srv.readClient = newProbeClient(3 * time.Second)
+
+	f.tick(t)
+
+	if got := f.replica.realSyncCount(); got != 1 {
+		t.Errorf("real imports = %d, want 1: a probe-deadline export would have ended the pass before the push", got)
+	}
+}
+
+// TestAutoSync_PersistentRefusalIsReportedOnce: a member that refuses the real
+// import for the same reason on every tick (a base_url its ALLOWED_PROVIDER_HOSTS
+// will not take) is retried every tick but reported once; a new cause is news
+// again.
+func TestAutoSync_PersistentRefusalIsReportedOnce(t *testing.T) {
+	f := newHashFleet(t, func(r *stubAutoMember) {
+		r.versionHash = "hash-drifted"
+		r.dryDiff = driftDiff
+		r.realImportCode = http.StatusBadRequest
+	})
+
+	f.tick(t)
+	f.tick(t)
+	f.tick(t)
+	if got := f.replica.realSyncCount(); got != 3 {
+		t.Fatalf("real imports = %d, want 3: a refused push is retried every tick", got)
+	}
+	evs, _, err := f.store.ListEvents(t.Context(), EventFilter{Type: "config.sync_failed"})
+	if err != nil {
+		t.Fatalf("ListEvents: %v", err)
+	}
+	if len(evs) != 1 {
+		t.Fatalf("config.sync_failed events after three identical refusals = %d, want 1", len(evs))
+	}
+
+	f.replica.mu.Lock()
+	f.replica.realImportCode = http.StatusForbidden
+	f.replica.mu.Unlock()
+	f.tick(t)
+	evs, _, err = f.store.ListEvents(t.Context(), EventFilter{Type: "config.sync_failed"})
+	if err != nil {
+		t.Fatalf("ListEvents: %v", err)
+	}
+	if len(evs) != 2 {
+		t.Fatalf("config.sync_failed events after the cause changed = %d, want 2", len(evs))
+	}
+}
+
 // TestAutoSync_PushedMemberIsNotStampedVerifiedUntilItMatches: a completed write
 // is not a verification. A member that commits every import and never ends up
 // holding the config is re-pushed once per incompleteRetryInterval forever, so a
