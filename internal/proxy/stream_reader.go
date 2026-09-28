@@ -38,6 +38,15 @@ type sseEvent struct {
 	payload string
 }
 
+// sseLineCap bounds one SSE line on every chat stream reader (this one, the
+// TTFT probe) and the pass-through mask's per-event hold. The scanner grows its
+// buffer on demand, so the cap costs nothing until a frame needs it. It has to
+// hold a whole image: an image model streams each picture as one base64 data
+// URL in a single delta (OpenRouter `images`, Gemini image models via egress),
+// and a 2K PNG runs past 10 MiB encoded. The old 4 MiB cap failed such streams
+// as bufio.ErrTooLong and charged the provider's breaker for it.
+const sseLineCap = 32 << 20
+
 // streamReader owns the upstream side of handleStreamingResponse: the scanner
 // (replaying the TTFT probe buffer when present), the stall watchdog goroutine,
 // the chunk counter, the empty-line limit, client-disconnect detection, BOM/CR
@@ -88,7 +97,7 @@ func newStreamReader(ctx context.Context, body io.ReadCloser, opts streamOptions
 	} else {
 		scanner = bufio.NewScanner(body)
 	}
-	scanner.Buffer(make([]byte, 64*1024), 4*1024*1024) // 4MB per line
+	scanner.Buffer(make([]byte, 64*1024), sseLineCap)
 	debuglog.Debug("proxy: streaming scanner created", "model", logData.modelID, "provider", logData.providerName, "replaying_probe", opts.preReadBuf != nil)
 
 	r := &streamReader{

@@ -443,7 +443,7 @@ func (h *Handler) probeFirstToken(
 	var buf bytes.Buffer
 	tee := io.TeeReader(body, &buf)
 	scanner := bufio.NewScanner(tee)
-	scanner.Buffer(make([]byte, 64*1024), 4*1024*1024)
+	scanner.Buffer(make([]byte, 64*1024), sseLineCap)
 
 	// sawFrame records a data frame that carried no output (a role opener, a
 	// usage-only chunk, an Anthropic message_start). Such a frame is not a

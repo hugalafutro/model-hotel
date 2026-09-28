@@ -1,6 +1,7 @@
 package proxy
 
 import (
+	"bufio"
 	"context"
 	"encoding/json"
 	"errors"
@@ -389,6 +390,14 @@ func deriveStreamError(st *streamState, scanErr error, opts streamOptions, logDa
 	}
 	if errMsg == "" && scanErr != nil {
 		switch {
+		case errors.Is(scanErr, bufio.ErrTooLong):
+			// The gateway's own line cap, not an upstream fault: the provider
+			// sent a frame this reader will not hold (past sseLineCap), so the
+			// row and the client both name the limit and the breaker is not
+			// charged (KindInternal is not providerAtFault).
+			errMsg = fmt.Sprintf("stream failed: a frame exceeded the gateway's %d MiB line limit", sseLineCap>>20)
+			st.clientErrMsg = errMsg
+			logData.errorKind = KindInternal
 		case errors.Is(scanErr, context.Canceled):
 			// The scanner caught the cancellation before the select between
 			// iterations could. This is always a client disconnect: the
