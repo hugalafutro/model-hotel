@@ -1362,7 +1362,7 @@ func TestTotpLogin_AccountThrottleAcrossIPs(t *testing.T) {
 
 	var last *httptest.ResponseRecorder
 	for i := range 10 {
-		last = totpLoginFrom(t, th, fmt.Sprintf("10.0.%d.1:1234", i), "admin-token", "000000")
+		last = totpLoginFrom(t, th, fmt.Sprintf("10.0.%d.1:1234", i), "admin-token", wrongCode(t, secret))
 		if last.Code == http.StatusTooManyRequests {
 			break
 		}
