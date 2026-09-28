@@ -1535,6 +1535,53 @@ func TestAutoSync_RefusalAfterHashConvergenceIsNewsAgain(t *testing.T) {
 	}
 }
 
+// TestConfigSync_WizardHoldsMemberWhoseVersionReadFailed: the wizard applies
+// the same admission rule as the loop. A member whose last version read failed
+// is reported held, not pushed, even though its cached build still matches.
+func TestConfigSync_WizardHoldsMemberWhoseVersionReadFailed(t *testing.T) {
+	f := newHashFleet(t, func(r *stubAutoMember) {
+		r.versionHash = "hash-drifted"
+		r.dryDiff = driftDiff
+	})
+	f.srv.poller.noteVersionFetchFailure(t.Context(), f.replicaM, errors.New("connection reset"))
+
+	run := f.srv.runConfigSync(t.Context(), f.primaryM.ID)
+	if run.err != nil {
+		t.Fatalf("runConfigSync: %v", run.err)
+	}
+	var held bool
+	for _, item := range run.results {
+		if item.MemberID == f.replicaM.ID && strings.Contains(item.Error, "could not be read") {
+			held = true
+		}
+	}
+	if !held {
+		t.Errorf("results = %+v, want the replica held for an unread build", run.results)
+	}
+	if got := f.replica.realSyncCount(); got != 0 {
+		t.Errorf("real imports = %d, want 0", got)
+	}
+}
+
+// TestConfigSync_WizardReportsEveryRepeatedFailure: an operator-driven run is
+// not deduped; they asked for that run and its audit event carries who and why.
+func TestConfigSync_WizardReportsEveryRepeatedFailure(t *testing.T) {
+	f := newHashFleet(t, func(r *stubAutoMember) {
+		r.versionHash = "hash-drifted"
+		r.dryDiff = driftDiff
+		r.realImportCode = http.StatusBadRequest
+	})
+	for range 2 {
+		if res := f.srv.applyMemberConfig(t.Context(), f.replicaM, "rtoken", []byte(fleetExportWithKey),
+			manualSyncReason("the dashboard"), true, 0, ""); res.OK {
+			t.Fatal("a refused import reported OK")
+		}
+	}
+	if n := countEvents(t, f.store, "config.sync_failed"); n != 2 {
+		t.Errorf("config.sync_failed after two wizard refusals = %d, want 2", n)
+	}
+}
+
 // TestAutoSync_PushedMemberIsNotStampedVerifiedUntilItMatches: a completed write
 // is not a verification. A member that commits every import and never ends up
 // holding the config is re-pushed once per incompleteRetryInterval forever, so a
