@@ -85,15 +85,17 @@ func TestDeriveStreamError_LineCapNamesTheLimitAndChargesTheProvider(t *testing.
 
 	// An overflow after an in-stream error frame is still charged, output or
 	// not, and never relabelled a stall.
-	framed := &streamState{sawContent: true, deliveredBytes: 5, stalled: true, lastErrMsg: "upstream said no"}
-	fl := &requestLogData{statusCode: 200}
-	fmsg := deriveStreamError(framed, bufio.ErrTooLong, streamOptions{streamStallTimeout: time.Second}, fl)
-	if !framed.lineCapExceeded || strings.HasPrefix(fmsg, "stream stalled") {
-		t.Fatalf("overflow after an error frame: flag=%v errMsg=%q", framed.lineCapExceeded, fmsg)
-	}
-	if providerAtFault(fl.errorKind) {
+	// Two error frames: one classified as the provider's fault, one (a
+	// balance error) as not; the overflow is charged after either.
+	for _, frame := range []string{"upstream said no", "insufficient balance"} {
+		framed := &streamState{sawContent: true, deliveredBytes: 5, stalled: true, lastErrMsg: frame}
+		fl := &requestLogData{statusCode: 200}
+		fmsg := deriveStreamError(framed, bufio.ErrTooLong, streamOptions{streamStallTimeout: time.Second}, fl)
+		if !framed.lineCapExceeded || strings.HasPrefix(fmsg, "stream stalled") {
+			t.Fatalf("overflow after %q: flag=%v errMsg=%q", frame, framed.lineCapExceeded, fmsg)
+		}
 		if v := judgeStreamForBreaker(framed, fl, fmsg, true); v.failureReason == "" {
-			t.Fatalf("overflow after an error frame: verdict = %+v, want a charge", v)
+			t.Fatalf("overflow after %q (kind %s): verdict = %+v, want a charge", frame, fl.errorKind, v)
 		}
 	}
 

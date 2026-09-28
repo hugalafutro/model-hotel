@@ -214,15 +214,17 @@ func judgeStreamForBreaker(st *streamState, logData *requestLogData, errMsg stri
 	// two non-provider causes that could reach it (interrupted,
 	// clientDisconnected) are short-circuited at the top, except an
 	// interrupted stream that overflowed, which is charged below.
+	// An overflow is charged whatever an earlier error frame was classified
+	// as: no model sends such a frame.
+	if st.lineCapExceeded {
+		return streamBreakerVerdict{failureReason: "stream frame exceeded the line limit"}
+	}
 	if !providerAtFault(logData.errorKind) {
 		return streamBreakerVerdict{}
 	}
 	// !sawDone/!sawTerminalEvent avoids penalising a provider whose stream
 	// completed normally but whose stall timer fired concurrently with the
 	// terminal frame.
-	if st.lineCapExceeded {
-		return streamBreakerVerdict{failureReason: "stream frame exceeded the line limit"}
-	}
 	if st.stalled && !st.sawDone && !st.sawTerminalEvent {
 		return streamBreakerVerdict{failureReason: "stream stalled"}
 	}
