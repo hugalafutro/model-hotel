@@ -500,6 +500,9 @@ func (s *Server) applyAutoSync(ctx context.Context, primary *Member, primaryBuil
 			// reach it, and an unclosed config.sync_held would stay the new
 			// primary's newest event forever.
 			s.closeSyncHold(ctx, m, fmt.Sprintf("%s is no longer held for sync: it is now the primary", m.Name))
+			// Nor is a push failure it remembered from before its promotion news
+			// once it is a replica again, days later, under another topology.
+			s.clearSyncFailure(m.ID)
 			continue
 		}
 		if stale() {

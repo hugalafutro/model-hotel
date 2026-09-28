@@ -157,8 +157,6 @@ func doVersionCheck(t *testing.T, srv *Server, primaryID string) versionCheckRes
 	return resp
 }
 
-// TestFleetVersionCheckUnknownPrimary: an unknown primary is a client error,
-// not an empty aligned response.
 // A member (or the primary) whose last version read failed vouches for
 // nothing: the check reports what the run would refuse.
 func TestFleetVersionCheckUnreadBuildIsSkewed(t *testing.T) {
@@ -191,8 +189,8 @@ func TestFleetVersionCheckUnreadBuildIsSkewed(t *testing.T) {
 	if err := json.Unmarshal(rec.Body.Bytes(), &resp); err != nil {
 		t.Fatalf("decode: %v", err)
 	}
-	if len(resp.Skewed) != 1 || resp.Skewed[0].MemberID != bm.ID {
-		t.Errorf("skewed = %+v, want the member whose read failed", resp.Skewed)
+	if len(resp.Skewed) != 1 || resp.Skewed[0].MemberID != bm.ID || resp.Skewed[0].Version != "" {
+		t.Errorf("skewed = %+v, want the member whose read failed, listed as unknown", resp.Skewed)
 	}
 	if resp.CommitVouched {
 		t.Error("CommitVouched = true, want false with an unread member")
@@ -221,6 +219,8 @@ func TestFleetVersionCheckUnreadBuildIsSkewed(t *testing.T) {
 	}
 }
 
+// TestFleetVersionCheckUnknownPrimary: an unknown primary is a client error,
+// not an empty aligned response.
 func TestFleetVersionCheckUnknownPrimary(t *testing.T) {
 	srv, _ := newTestServer(t)
 	rec := do(t, srv, http.MethodPost, "/api/fleet/version-check", `{"primary_id":"nope"}`, true)

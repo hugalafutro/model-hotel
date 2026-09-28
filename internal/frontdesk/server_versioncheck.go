@@ -77,6 +77,11 @@ func (s *Server) fleetVersionCheck(w http.ResponseWriter, r *http.Request) {
 			vouched = false
 		}
 		if buildSkew(primaryBuild, mb) || unread || primaryUnread {
+			if unread || primaryUnread {
+				// Listed as unknown, not with a cached build that may read as
+				// aligned beside the primary's: nothing confirms it.
+				mb = memberBuild{}
+			}
 			skewed = append(skewed, versionSkewMember{
 				MemberID: m.ID, Name: m.Name, Version: mb.Version, Commit: mb.Commit,
 			})

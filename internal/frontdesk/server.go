@@ -154,8 +154,9 @@ type Server struct {
 	unconfirmedSync map[string]string
 	// lastSyncFailure is the cause of a member's latest refused or unreachable
 	// push, so config.sync_failed fires once per distinct cause rather than on
-	// every 15s tick a persistent refusal is retried; a converged push clears
-	// it. Guarded by syncIncompleteMu; in-memory and bounded by fleet size.
+	// every 15s tick a persistent refusal is retried; a converged push, a
+	// matching hash or a promotion to primary clears it. Guarded by
+	// syncIncompleteMu; in-memory and bounded by fleet size.
 	lastSyncFailure map[string]string
 	// backupStale tracks which members have no database backup from the last
 	// memberBackupStaleAfter, so backup.stale fires once on the transition in and
