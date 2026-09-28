@@ -170,7 +170,9 @@ func streamDeliveredOutput(st *streamState) bool {
 // frame from ever winning that race). The breaker is then the only thing left
 // that can keep the next request away.
 func judgeStreamForBreaker(st *streamState, logData *requestLogData, errMsg string, circuitBreakerOn bool) streamBreakerVerdict {
-	if !circuitBreakerOn || st.interrupted || st.clientDisconnected {
+	// An overflow is charged even when a shutdown lands before the finalizer:
+	// the row already names it as the provider's fault.
+	if !circuitBreakerOn || (st.interrupted && !st.lineCapExceeded) || st.clientDisconnected {
 		return streamBreakerVerdict{}
 	}
 	if errMsg == "" {

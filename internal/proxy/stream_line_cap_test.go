@@ -155,13 +155,19 @@ func (neverEnding) Read(p []byte) (int, error) {
 
 // slowBody hands out one frame in small pieces with a pause between them, so
 // the frame takes longer to arrive than the stall timeout.
+// Close ends further reads the way closing a real response body does, which
+// is how the watchdog unblocks a stalled scan.
 type slowBody struct {
-	data  []byte
-	piece int
-	pause time.Duration
+	data   []byte
+	piece  int
+	pause  time.Duration
+	closed atomic.Bool
 }
 
 func (s *slowBody) Read(p []byte) (int, error) {
+	if s.closed.Load() {
+		return 0, errors.New("read on closed body")
+	}
 	if len(s.data) == 0 {
 		return 0, io.EOF
 	}
@@ -172,15 +178,15 @@ func (s *slowBody) Read(p []byte) (int, error) {
 	return n, nil
 }
 
-func (s *slowBody) Close() error { return nil }
+func (s *slowBody) Close() error { s.closed.Store(true); return nil }
 
 // Bytes arriving mid-frame keep the watchdog armed: a large frame on a slow
 // link is data, not a stall, even when the whole frame outlasts the timeout.
 func TestStreamReader_SlowLargeFrameIsNotAStall(t *testing.T) {
 	t.Parallel()
-	frame := "data: {\"x\":\"" + strings.Repeat("A", 4000) + "\"}\n"
-	body := &slowBody{data: []byte(frame), piece: 400, pause: 30 * time.Millisecond}
-	reader := newStreamReader(context.Background(), body, streamOptions{streamStallTimeout: 100 * time.Millisecond}, &requestLogData{modelID: "m", providerName: "p"}, nil)
+	frame := "data: {\"x\":\"" + strings.Repeat("A", 40<<10) + "\"}\n"
+	body := &slowBody{data: []byte(frame), piece: stallByteQuantum, pause: 100 * time.Millisecond}
+	reader := newStreamReader(context.Background(), body, streamOptions{streamStallTimeout: 500 * time.Millisecond}, &requestLogData{modelID: "m", providerName: "p"}, nil)
 	defer reader.Close()
 
 	ev, ok := reader.Next()
@@ -189,5 +195,28 @@ func TestStreamReader_SlowLargeFrameIsNotAStall(t *testing.T) {
 	}
 	if reader.stalled() {
 		t.Fatal("a frame whose bytes kept arriving was judged a stall")
+	}
+}
+
+// An upstream dribbling a byte at a time without finishing a line never
+// reaches the byte quantum, so the watchdog still fires and the stream is a
+// stall, charged to the provider, not held open until the attempt deadline.
+func TestStreamReader_MidLineDribbleStillStalls(t *testing.T) {
+	t.Parallel()
+	body := &slowBody{data: []byte("data: " + strings.Repeat("A", 200)), piece: 1, pause: 20 * time.Millisecond}
+	reader := newStreamReader(context.Background(), body, streamOptions{streamStallTimeout: 300 * time.Millisecond}, &requestLogData{modelID: "m", providerName: "p"}, nil)
+
+	start := time.Now()
+	for {
+		if _, ok := reader.Next(); !ok {
+			break
+		}
+	}
+	reader.Close()
+	if elapsed := time.Since(start); elapsed > 3*time.Second {
+		t.Fatalf("the dribble held the stream for %s; the watchdog should end it", elapsed)
+	}
+	if !reader.stalled() {
+		t.Fatal("a mid-line dribble below the byte quantum must stall")
 	}
 }

@@ -90,6 +90,9 @@ type streamReader struct {
 
 	chunkCount int
 	emptyLines int
+	// midLineBytes counts bytes read since the watchdog was last re-armed;
+	// written only on the scanner's goroutine.
+	midLineBytes int
 
 	// disconnected is set when the client's context is cancelled between
 	// iterations; abortErrMsg is set when the empty-line limit is exceeded.
@@ -120,10 +123,12 @@ func newStreamReader(ctx context.Context, body io.ReadCloser, opts streamOptions
 	if opts.streamStallTimeout > 0 {
 		r.stallCh = make(chan time.Duration, 1)
 	}
-	// The watchdog hears every read that brought bytes, not only every
-	// finished line: an image frame of tens of MiB on a slow link is still
-	// data arriving, and must not read as a stall halfway through.
-	var src io.Reader = progressReader{r: body, progress: r.pingWatchdog}
+	// The watchdog hears reads mid-line as well as finished lines: an image
+	// frame of tens of MiB on a slow link is still data arriving, and must
+	// not read as a stall halfway through. Mid-line bytes re-arm it only in
+	// volume (stallByteQuantum), so an upstream dribbling a byte at a time
+	// without finishing a line still stalls.
+	var src io.Reader = progressReader{r: body, progress: r.noteBytes}
 	if opts.preReadBuf != nil {
 		src = io.MultiReader(bytes.NewReader(opts.preReadBuf.Bytes()), src)
 	}
@@ -254,12 +259,27 @@ func (r *streamReader) Next() (sseEvent, bool) {
 	return sseEvent{kind: sseComment, raw: line, clean: lineStr}, true
 }
 
+// stallByteQuantum is how many mid-line bytes re-arm the stall watchdog. A
+// real frame on a slow link moves far more than this per stall window; an
+// upstream trickling a byte every few seconds never reaches it.
+const stallByteQuantum = 4 << 10
+
+// noteBytes counts bytes read inside Scan and re-arms the watchdog once a
+// quantum has arrived since it was last re-armed.
+func (r *streamReader) noteBytes(n int) {
+	r.midLineBytes += n
+	if r.midLineBytes >= stallByteQuantum {
+		r.pingWatchdog()
+	}
+}
+
 // pingWatchdog re-arms the stall watchdog. It runs on the scanner's
 // goroutine (after each line, and from progressReader inside Scan), so
 // chunkCount needs no lock. After progressiveChunkThreshold chunks the stream
 // is clearly alive, so the timeout extends to tolerate tool-call pauses and
 // long reasoning.
 func (r *streamReader) pingWatchdog() {
+	r.midLineBytes = 0
 	if r.stallCh == nil {
 		return
 	}
@@ -273,16 +293,16 @@ func (r *streamReader) pingWatchdog() {
 	}
 }
 
-// progressReader calls progress after every read that returned bytes.
+// progressReader reports the size of every read that returned bytes.
 type progressReader struct {
 	r        io.Reader
-	progress func()
+	progress func(n int)
 }
 
 func (p progressReader) Read(b []byte) (int, error) {
 	n, err := p.r.Read(b)
 	if n > 0 {
-		p.progress()
+		p.progress(n)
 	}
 	return n, err
 }
