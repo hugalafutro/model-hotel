@@ -30,7 +30,9 @@ var (
 	// captures it before its SELECT and installs only if it is unchanged, so a
 	// read that overlapped a write (a disable, a provider key rotation) can
 	// never reinstall the pre-write row for the TTL. Global rather than per
-	// key because the invalidations here are whole-cache flushes anyway.
+	// key because the invalidations here are whole-cache flushes anyway: a
+	// discovery scan's per-row Upsert flushes drop the read-throughs that
+	// overlap it, rows the flush had already made a miss.
 	modelCacheGen atomic.Uint64
 )
 

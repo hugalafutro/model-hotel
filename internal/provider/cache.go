@@ -3,7 +3,6 @@ package provider
 import (
 	"strings"
 	"sync"
-	"sync/atomic"
 	"time"
 
 	"github.com/google/uuid"
@@ -27,16 +26,36 @@ var (
 	providerByNameCache       = make(map[string]providerCacheEntry)
 	providerByNormalNameCache = make(map[string]providerCacheEntry)
 	providerCacheMu           sync.RWMutex
-	// providerCacheGen advances on every invalidation, whole or per id. A
-	// read-through fill captures it before its SELECT and installs only if it
-	// is unchanged, so a read that overlapped a write (a key rotation, a
-	// disable) can never reinstall the pre-write row for the TTL.
-	providerCacheGen atomic.Uint64
+	// providerFlushGen advances on every full flush and providerEvictSeq on
+	// every per-id eviction, with providerEvicted holding the sequence at
+	// which each id was last evicted. A read-through fill captures both
+	// counters before its SELECT (CacheGen) and installs a row only if no
+	// flush has landed since and the row's own id was not evicted since, so
+	// a read that overlapped a write (a key rotation, a disable) can never
+	// reinstall the pre-write row for the TTL. The eviction side is per id
+	// because TouchLastUsed evicts on every proxied attempt: one global
+	// counter would discard every unrelated fill in flight under load.
+	// providerEvicted is bounded by the provider count and is reset by a
+	// flush, which supersedes every eviction before it.
+	providerFlushGen uint64
+	providerEvictSeq uint64
+	providerEvicted  = make(map[uuid.UUID]uint64)
 )
 
+// CacheMark is what a read-through captures before its query: the flush
+// generation and the eviction sequence at that moment.
+type CacheMark struct {
+	flush uint64
+	evict uint64
+}
+
 // CacheGen is the generation a read-through fill captures before querying;
-// see providerCacheGen.
-func CacheGen() uint64 { return providerCacheGen.Load() }
+// see providerFlushGen.
+func CacheGen() CacheMark {
+	providerCacheMu.RLock()
+	defer providerCacheMu.RUnlock()
+	return CacheMark{flush: providerFlushGen, evict: providerEvictSeq}
+}
 
 const providerCacheTTL = 5 * time.Minute
 
@@ -46,10 +65,10 @@ const providerCacheTTL = 5 * time.Minute
 // when an invalidation has landed since; the caller still gets the row it
 // read, the next reader refills.
 func cacheProvider(p *Provider) {
-	cacheProviderAt(p, providerCacheGen.Load())
+	cacheProviderAt(p, CacheGen())
 }
 
-func cacheProviderAt(p *Provider, gen uint64) {
+func cacheProviderAt(p *Provider, gen CacheMark) {
 	if p == nil {
 		return
 	}
@@ -59,7 +78,7 @@ func cacheProviderAt(p *Provider, gen uint64) {
 	}
 	providerCacheMu.Lock()
 	defer providerCacheMu.Unlock()
-	if providerCacheGen.Load() != gen {
+	if providerFlushGen != gen.flush || providerEvicted[p.ID] > gen.evict {
 		return
 	}
 	providerByIDCache[p.ID] = entry
@@ -120,7 +139,8 @@ func IsCachedByName(name string) bool {
 // cost of a full flush on a hot path.
 func EvictProviderCacheByID(id uuid.UUID) {
 	providerCacheMu.Lock()
-	providerCacheGen.Add(1)
+	providerEvictSeq++
+	providerEvicted[id] = providerEvictSeq
 	if entry, ok := providerByIDCache[id]; ok {
 		delete(providerByNameCache, entry.provider.Name)
 		delete(providerByNormalNameCache, NormalizeName(entry.provider.Name))
@@ -132,7 +152,8 @@ func EvictProviderCacheByID(id uuid.UUID) {
 // InvalidateProviderCache clears all provider cache entries.
 func InvalidateProviderCache() {
 	providerCacheMu.Lock()
-	providerCacheGen.Add(1)
+	providerFlushGen++
+	providerEvicted = make(map[uuid.UUID]uint64)
 	providerByIDCache = make(map[uuid.UUID]providerCacheEntry)
 	providerByNameCache = make(map[string]providerCacheEntry)
 	providerByNormalNameCache = make(map[string]providerCacheEntry)

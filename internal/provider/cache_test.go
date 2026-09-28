@@ -269,15 +269,30 @@ func TestCacheProviderAt_StaleGenerationDoesNotInstall(t *testing.T) {
 		t.Error("fill captured before an invalidation must not install")
 	}
 
-	// A per-id eviction of any provider advances the generation too: the
-	// eviction is the write's signal and the in-flight read may hold the
-	// evicted row.
+	// A per-id eviction of THIS provider is the write's signal and the
+	// in-flight read may hold the evicted row.
 	gen = CacheGen()
-	EvictProviderCacheByID(uuid.New())
+	EvictProviderCacheByID(p.ID)
 	cacheProviderAt(p, gen)
 
 	if IsCachedByID(p.ID) {
-		t.Error("fill captured before an eviction must not install")
+		t.Error("fill captured before an eviction of its own id must not install")
+	}
+}
+
+func TestCacheProviderAt_OtherProviderEvictionDoesNotDropFill(t *testing.T) {
+	InvalidateProviderCache()
+	p := &Provider{ID: uuid.New(), Name: "Unrelated Provider"}
+
+	// TouchLastUsed evicts on every proxied attempt; a fill for a different
+	// provider that overlapped one must still install or the hit rate
+	// collapses under load.
+	gen := CacheGen()
+	EvictProviderCacheByID(uuid.New())
+	cacheProviderAt(p, gen)
+
+	if !IsCachedByID(p.ID) {
+		t.Error("an eviction of another id must not drop this fill")
 	}
 }
 

@@ -373,7 +373,9 @@ func touchLastDiscovered(ctx context.Context, pool *pgxpool.Pool, p *provider.Pr
 	now := time.Now()
 	if _, err := pool.Exec(ctx, `UPDATE providers SET last_discovered_at = $1 WHERE id = $2`, now, p.ID); err != nil {
 		debuglog.Error("discovery: failed to update last_discovered_at", "provider", p.Name, "error", err)
+		return
 	}
+	provider.EvictProviderCacheByID(p.ID)
 }
 
 // syncFailoverAfterDiscovery rebuilds auto failover groups for every model

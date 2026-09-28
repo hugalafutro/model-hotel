@@ -369,8 +369,10 @@ func (r *Repository) Update(ctx context.Context, id uuid.UUID, req UpdateProvide
 		return nil, err
 	}
 
+	// The flush is the whole of the cache work: installing the RETURNING row
+	// here would let two concurrent updates finish in reverse order and hold
+	// the older row for the TTL. The next reader refills.
 	InvalidateProviderCache()
-	cacheProvider(p)
 	// Cached model rows denormalize provider name and enabled state, so a
 	// provider update must drop them or failover entries report stale
 	// provider_enabled until the model cache TTL expires.
