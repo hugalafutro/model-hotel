@@ -185,7 +185,7 @@ func (s *slowBody) Close() error { s.closed.Store(true); return nil }
 func TestStreamReader_SlowLargeFrameIsNotAStall(t *testing.T) {
 	t.Parallel()
 	frame := "data: {\"x\":\"" + strings.Repeat("A", 40<<10) + "\"}\n"
-	body := &slowBody{data: []byte(frame), piece: stallByteQuantum, pause: 100 * time.Millisecond}
+	body := &slowBody{data: []byte(frame), piece: stallByteQuantum, pause: 50 * time.Millisecond}
 	reader := newStreamReader(context.Background(), body, streamOptions{streamStallTimeout: time.Second}, &requestLogData{modelID: "m", providerName: "p"}, nil)
 	defer reader.Close()
 
@@ -222,12 +222,13 @@ func TestStreamReader_MidLineDribbleStillStalls(t *testing.T) {
 }
 
 // Volume alone does not keep a line alive forever: once one line has run for
-// progressiveStallMultiplier stall windows, mid-line bytes stop re-arming the
-// watchdog and an upstream trickling quanta without finishing the line stalls.
+// progressiveStallMultiplier stall windows below slowLineRate, mid-line bytes
+// stop re-arming the watchdog and an upstream trickling quanta without
+// finishing the line (here 4 KiB per 100 ms, 40 KiB/s) stalls.
 func TestStreamReader_EndlessLineInQuantaStallsAfterItsBudget(t *testing.T) {
 	t.Parallel()
 	const stall = 200 * time.Millisecond
-	body := &slowBody{data: []byte("data: " + strings.Repeat("A", 200*stallByteQuantum)), piece: stallByteQuantum, pause: 50 * time.Millisecond}
+	body := &slowBody{data: []byte("data: " + strings.Repeat("A", 200*stallByteQuantum)), piece: stallByteQuantum, pause: 100 * time.Millisecond}
 	reader := newStreamReader(context.Background(), body, streamOptions{streamStallTimeout: stall}, &requestLogData{modelID: "m", providerName: "p"}, nil)
 
 	start := time.Now()
@@ -242,5 +243,46 @@ func TestStreamReader_EndlessLineInQuantaStallsAfterItsBudget(t *testing.T) {
 	}
 	if elapsed := time.Since(start); elapsed > 5*time.Second {
 		t.Fatalf("the line held the stream for %s", elapsed)
+	}
+}
+
+// A line past its time budget keeps the watchdog armed while it averages
+// slowLineRate: a large frame on a slow but working link is not a stall.
+func TestStreamReader_LongLineAboveTheRateFloorIsNotAStall(t *testing.T) {
+	t.Parallel()
+	const stall = 100 * time.Millisecond
+	// 16 KiB per 20 ms is about 800 KiB/s, far above the floor, for 1.2 s:
+	// four times the 300 ms budget.
+	frame := "data: {\"x\":\"" + strings.Repeat("A", 60*(16<<10)) + "\"}\n"
+	body := &slowBody{data: []byte(frame), piece: 16 << 10, pause: 20 * time.Millisecond}
+	reader := newStreamReader(context.Background(), body, streamOptions{streamStallTimeout: stall}, &requestLogData{modelID: "m", providerName: "p"}, nil)
+	defer reader.Close()
+
+	ev, ok := reader.Next()
+	if !ok || ev.kind != sseData {
+		t.Fatalf("long frame not delivered: ok=%v err=%v", ok, reader.err())
+	}
+	if reader.stalled() {
+		t.Fatal("a line averaging above the floor was judged a stall")
+	}
+}
+
+// A shutdown landing after an overflow does not excuse it: the row names the
+// provider, so the breaker is charged too.
+func TestJudgeStreamForBreaker_OverflowIsChargedAcrossAShutdown(t *testing.T) {
+	t.Parallel()
+	st := &streamState{interrupted: true}
+	logData := &requestLogData{statusCode: 200}
+	msg := deriveStreamError(st, bufio.ErrTooLong, streamOptions{}, logData)
+	if msg != lineCapErrMsg {
+		t.Fatalf("errMsg = %q, want the overflow, not the restart", msg)
+	}
+	if v := judgeStreamForBreaker(st, logData, msg, true); v.failureReason == "" {
+		t.Fatalf("verdict = %+v, want a charge", v)
+	}
+	// Without the overflow a shutdown records nothing, as before.
+	plain := &streamState{interrupted: true}
+	if v := judgeStreamForBreaker(plain, &requestLogData{errorKind: KindInternal}, "stream interrupted: gateway restarting", true); v.failureReason != "" || v.success {
+		t.Fatalf("plain shutdown verdict = %+v, want nothing", v)
 	}
 }

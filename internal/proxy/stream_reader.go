@@ -94,6 +94,7 @@ type streamReader struct {
 	// lineStarted is when the line now being read began arriving; both are
 	// written only on the scanner's goroutine.
 	midLineBytes int
+	lineBytes    int
 	lineStarted  time.Time
 
 	// disconnected is set when the client's context is cancelled between
@@ -212,7 +213,7 @@ func (r *streamReader) Next() (sseEvent, bool) {
 	}
 	line := r.scanner.Bytes()
 	r.chunkCount++
-	r.midLineBytes, r.lineStarted = 0, time.Time{}
+	r.midLineBytes, r.lineBytes, r.lineStarted = 0, 0, time.Time{}
 	r.pingWatchdog()
 
 	// Client-disconnect check between iterations: abandon the scanned line.
@@ -262,23 +263,34 @@ func (r *streamReader) Next() (sseEvent, bool) {
 	return sseEvent{kind: sseComment, raw: line, clean: lineStr}, true
 }
 
+// slowLineRate is the average rate, in bytes per second, a line must keep
+// once it has been arriving for progressiveStallMultiplier stall windows for
+// its bytes to go on re-arming the watchdog. A 32 MiB frame at this floor
+// lands in about eight and a half minutes, inside the streaming attempt's
+// ten-minute deadline; a trickle falls below it and stalls.
+const slowLineRate = 64 << 10
+
 // stallByteQuantum is how many mid-line bytes re-arm the stall watchdog. A
 // real frame on a slow link moves far more than this per stall window; an
 // upstream trickling a byte every few seconds never reaches it.
 const stallByteQuantum = 4 << 10
 
 // noteBytes counts bytes read inside Scan and re-arms the watchdog once a
-// quantum has arrived since it was last re-armed, for at most
-// progressiveStallMultiplier stall windows of one line: past that a line is
-// not a slow frame but an upstream holding the stream open, and the watchdog
-// is left to fire. At the 30 s default that is 90 s for one frame, which a
-// 32 MiB image clears at under 400 KB/s.
+// quantum has arrived since it was last re-armed. For the first
+// progressiveStallMultiplier stall windows of a line that is all it takes;
+// past them the line must also have averaged slowLineRate since it began, so
+// a large frame on a slow but working link keeps going while an upstream
+// trickling quanta to hold the stream open is left to stall.
 func (r *streamReader) noteBytes(n int) {
 	if r.lineStarted.IsZero() {
 		r.lineStarted = time.Now()
 	}
 	r.midLineBytes += n
-	if r.midLineBytes < stallByteQuantum || time.Since(r.lineStarted) >= r.stallTimeout*progressiveStallMultiplier {
+	r.lineBytes += n
+	if r.midLineBytes < stallByteQuantum {
+		return
+	}
+	if elapsed := time.Since(r.lineStarted); elapsed >= r.stallTimeout*progressiveStallMultiplier && float64(r.lineBytes) < slowLineRate*elapsed.Seconds() {
 		return
 	}
 	r.midLineBytes = 0
