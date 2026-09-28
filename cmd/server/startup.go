@@ -123,15 +123,26 @@ func warmCaches(deps discoveryDeps, settingsRepo *settings.Repository) {
 // initKeyCacheTTL seeds the key cache TTL from settings and reacts to changes.
 func initKeyCacheTTL(settingsRepo *settings.Repository) {
 	auth.SetKeyCacheTTL(settingsRepo.GetDuration(context.Background(), "key_cache_ttl", auth.DefaultKeyCacheTTL))
-	settingsRepo.RegisterOnChange(func(key, value string) {
-		if key == "key_cache_ttl" {
-			d, err := time.ParseDuration(value)
-			if err != nil || d <= 0 {
-				debuglog.Warn("keycache: invalid key_cache_ttl setting, keeping current value", "value", value, "error", err)
-				return
-			}
-			auth.SetKeyCacheTTL(d)
-			debuglog.Info("keycache: TTL updated", "ttl", d)
+	settingsRepo.RegisterOnChange(func(key, _ string) {
+		if key != "key_cache_ttl" {
+			return
 		}
+		// Re-read through the same getter the startup seed uses rather than
+		// parsing the notified value: a reset-to-default arrives as "", and
+		// GetDuration already yields the default for an absent or unparseable
+		// value and accepts the day suffix the seed accepts. A read the store
+		// could not serve keeps the current value: the default is what an
+		// absent row means, not what a failed read means.
+		d, err := settingsRepo.GetDurationChecked(context.Background(), "key_cache_ttl", auth.DefaultKeyCacheTTL)
+		if err != nil {
+			debuglog.Warn("keycache: key_cache_ttl could not be re-read, keeping current value", "error", err)
+			return
+		}
+		if d <= 0 {
+			debuglog.Warn("keycache: key_cache_ttl is not positive, keeping current value", "value", d)
+			return
+		}
+		auth.SetKeyCacheTTL(d)
+		debuglog.Info("keycache: TTL updated", "ttl", d)
 	})
 }

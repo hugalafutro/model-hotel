@@ -157,10 +157,17 @@ func (r *Repository) UpsertWithConfig(ctx context.Context, displayModel string, 
 	}
 	doSetClauses = append(doSetClauses, "auto_created = $7", "updated_at = now()")
 
+	// The WHERE makes the auto writer's refusal to touch a custom row atomic:
+	// the sync's read of the row and this write are separate statements, and
+	// a custom group created, renamed or fleet-imported between them would
+	// otherwise be overwritten. An auto write ($7 true) lands only on an auto
+	// row; a custom write ($7 false) lands on any row. A refused write returns
+	// no row, which surfaces as pgx.ErrNoRows to the caller.
 	query := fmt.Sprintf(`INSERT INTO model_failover_groups (display_model, priority_order, entry_enabled, group_enabled, display_name, description, auto_created)
 		VALUES ($1, $2, $3, $4, $5, $6, $7)
 		ON CONFLICT (display_model)
 		DO UPDATE SET %s
+		WHERE model_failover_groups.auto_created OR NOT EXCLUDED.auto_created
 		RETURNING %s`, strings.Join(doSetClauses, ", "), failoverGroupColumns)
 
 	fg, err := scanFailoverGroup(r.pool.QueryRow(ctx, query, displayModel, priorityJSON, entryEnabledJSON,

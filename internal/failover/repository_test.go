@@ -734,7 +734,11 @@ func TestRepository_SyncForModel_PreservesPriorityOrder(t *testing.T) {
 		model2ID.String(): true,
 	}
 	groupEnabled := true
-	autoCreated := false
+	// An auto group whose order the operator rearranged: the sync keeps the
+	// order and adds any newcomer. A custom group (auto_created false) is left
+	// alone entirely; TestRepository_SyncAllModels_LeavesCustomGroupNamedLikeABase
+	// pins that.
+	autoCreated := true
 
 	_, err := repo.UpsertWithConfig(ctx, baseModel, customPriorityOrder, entryEnabled, &groupEnabled, nil, nil, &autoCreated)
 	if err != nil {

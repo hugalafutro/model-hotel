@@ -32,8 +32,9 @@ func init() {
 	keyCacheTTLNanos.Store(int64(DefaultKeyCacheTTL))
 }
 
-// getKeyCacheTTL returns the current key cache TTL.
-func getKeyCacheTTL() time.Duration {
+// KeyCacheTTL returns the current key cache TTL, the value SetKeyCacheTTL
+// last accepted.
+func KeyCacheTTL() time.Duration {
 	return time.Duration(keyCacheTTLNanos.Load())
 }
 
@@ -83,7 +84,7 @@ func DecryptCached(ciphertext, nonce, salt []byte, masterKey string) (string, er
 		return "", err
 	}
 
-	ttl := getKeyCacheTTL()
+	ttl := KeyCacheTTL()
 	keyCacheMu.Lock()
 	keyCache[ck] = cacheEntry{
 		plaintext: plaintext,
@@ -112,7 +113,7 @@ func WarmKeyCache(encryptedKey, keyNonce, keySalt []byte, masterKey string) {
 // cancellation starts no sweep, so the join budget is never spent on work
 // begun after the cancel.
 func KeyCacheEvictionLoop(ctx context.Context) {
-	ticker := time.NewTicker(getKeyCacheTTL())
+	ticker := time.NewTicker(KeyCacheTTL())
 	defer ticker.Stop()
 	for {
 		select {
@@ -126,7 +127,7 @@ func KeyCacheEvictionLoop(ctx context.Context) {
 				return
 			}
 			evictExpiredKeyCacheEntries()
-			ticker.Reset(getKeyCacheTTL())
+			ticker.Reset(KeyCacheTTL())
 		}
 	}
 }

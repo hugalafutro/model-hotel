@@ -225,7 +225,9 @@ func (r *Repository) deleteUndersizedAutoGroup(ctx context.Context, base string,
 // toggles (for members still present), user priority order, display name, and
 // description. It returns the pre-upsert group snapshot (nil when the group is
 // new) and the merged priority order that was written.
-func (r *Repository) upsertAutoGroup(ctx context.Context, base string, currentIDs []uuid.UUID) (existing *FailoverGroup, priorityOrder []uuid.UUID, err error) {
+// custom reports that the name is held by an operator-built group, which the
+// auto rules leave alone: nothing is written and the caller skips the base.
+func (r *Repository) upsertAutoGroup(ctx context.Context, base string, currentIDs []uuid.UUID) (existing *FailoverGroup, priorityOrder []uuid.UUID, custom bool, err error) {
 	entryEnabled := make(map[string]bool, len(currentIDs))
 	for _, id := range currentIDs {
 		entryEnabled[id.String()] = true
@@ -233,7 +235,19 @@ func (r *Repository) upsertAutoGroup(ctx context.Context, base string, currentID
 
 	existing, err = r.GetByModel(ctx, base)
 	if err != nil && !errors.Is(err, pgx.ErrNoRows) {
-		return nil, nil, fmt.Errorf("lookup existing group: %w", err)
+		return nil, nil, false, fmt.Errorf("lookup existing group: %w", err)
+	}
+	if existing != nil && !existing.AutoCreated {
+		// A custom group can carry a base name: created while one provider
+		// served the model (so no auto group refused the name), renamed to it
+		// through the group editor, or imported from the fleet primary as the
+		// primary's custom row. Its members, toggles and enabled flag are the
+		// operator's. Writing here would prune every member outside the base,
+		// force it enabled and flag it auto_created, after which the auto rules
+		// would delete it the next time the base dropped to one model. The
+		// custom-group rules (stale-entry prune, auto-disable below two
+		// routable members) still apply to it elsewhere in the sync.
+		return existing, existing.PriorityOrder, true, nil
 	}
 	if existing != nil {
 		for uuidStr, enabled := range existing.EntryEnabled {
@@ -258,7 +272,19 @@ func (r *Repository) upsertAutoGroup(ctx context.Context, base string, currentID
 		}
 	}
 	_, err = r.UpsertWithConfig(ctx, base, priorityOrder, entryEnabled, &groupEnabled, syncDisplayName, syncDescription, &autoCreated)
-	return existing, priorityOrder, err
+	if errors.Is(err, pgx.ErrNoRows) {
+		// A custom row took the name between the read above and this write;
+		// the upsert refused to touch it. Same verdict as the read-side check.
+		// The cached row is the auto one that read returned, which the table
+		// no longer holds, so it goes now rather than at the end of its TTL.
+		InvalidateFailoverCacheKey(base)
+		var order []uuid.UUID
+		if existing != nil {
+			order = existing.PriorityOrder
+		}
+		return existing, order, true, nil
+	}
+	return existing, priorityOrder, false, err
 }
 
 // diffGroupMembership reports which model UUIDs the sync removed from and added
@@ -357,9 +383,13 @@ func (r *Repository) SyncAllModels(ctx context.Context) (*SyncResult, error) {
 		}
 
 		syncedBases[base] = true
-		existing, order, err := r.upsertAutoGroup(ctx, base, currentIDs)
+		existing, order, custom, err := r.upsertAutoGroup(ctx, base, currentIDs)
 		if err != nil {
 			result.SyncErrors = append(result.SyncErrors, fmt.Sprintf("%s: %v", base, err))
+			continue
+		}
+		if custom {
+			debuglog.Debug("failover: base name held by a custom group, left alone", "display_model", base)
 			continue
 		}
 		// A scan re-enables an auto group (upsertAutoGroup writes group_enabled
@@ -475,10 +505,16 @@ func (r *Repository) SyncForModel(ctx context.Context, modelID string) (*SyncRes
 		return result, nil
 	}
 
-	existing, priorityOrder, err := r.upsertAutoGroup(ctx, base, currentIDs)
+	existing, priorityOrder, custom, err := r.upsertAutoGroup(ctx, base, currentIDs)
 	if err != nil {
 		debuglog.Error("failover: failed to sync group", "display_model", base, "error", err)
 		return nil, err
+	}
+	if custom {
+		debuglog.Debug("failover: base name held by a custom group, left alone", "display_model", base)
+		// Nothing changed, but an owed echo clear is still retried on every scan.
+		r.clearFleetAutoEchoIfStaled(ctx, nil)
+		return result, nil
 	}
 
 	// Report membership changes so discovery summaries show what the sync did;

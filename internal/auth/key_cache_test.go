@@ -415,35 +415,35 @@ func TestKeyCacheTTLValue(t *testing.T) {
 	if DefaultKeyCacheTTL != 10*time.Minute {
 		t.Errorf("DefaultKeyCacheTTL should be 10 minutes, got %v", DefaultKeyCacheTTL)
 	}
-	if getKeyCacheTTL() != DefaultKeyCacheTTL {
-		t.Errorf("getKeyCacheTTL() should return default, got %v", getKeyCacheTTL())
+	if KeyCacheTTL() != DefaultKeyCacheTTL {
+		t.Errorf("KeyCacheTTL() should return default, got %v", KeyCacheTTL())
 	}
 }
 
 func TestSetKeyCacheTTL(t *testing.T) {
-	orig := getKeyCacheTTL()
+	orig := KeyCacheTTL()
 	defer SetKeyCacheTTL(orig)
 
 	SetKeyCacheTTL(30 * time.Minute)
-	if getKeyCacheTTL() != 30*time.Minute {
-		t.Errorf("expected 30m TTL, got %v", getKeyCacheTTL())
+	if KeyCacheTTL() != 30*time.Minute {
+		t.Errorf("expected 30m TTL, got %v", KeyCacheTTL())
 	}
 
 	// Zero or negative values should be rejected
 	SetKeyCacheTTL(0)
-	if getKeyCacheTTL() != 30*time.Minute {
+	if KeyCacheTTL() != 30*time.Minute {
 		t.Error("TTL should remain unchanged after SetKeyCacheTTL(0)")
 	}
 
 	SetKeyCacheTTL(-1 * time.Minute)
-	if getKeyCacheTTL() != 30*time.Minute {
+	if KeyCacheTTL() != 30*time.Minute {
 		t.Error("TTL should remain unchanged after SetKeyCacheTTL(-1m)")
 	}
 }
 
 func TestDecryptCached_CacheExpiryEndToEnd(t *testing.T) {
 	// Save original TTL and defer restore
-	orig := getKeyCacheTTL()
+	orig := KeyCacheTTL()
 	defer SetKeyCacheTTL(orig)
 
 	// Set a very short TTL
@@ -537,7 +537,7 @@ func startEvictionLoop() func() {
 
 func TestKeyCacheEvictionLoop_FiresPeriodically(t *testing.T) {
 	// Set very short TTL
-	orig := getKeyCacheTTL()
+	orig := KeyCacheTTL()
 	defer SetKeyCacheTTL(orig)
 	SetKeyCacheTTL(50 * time.Millisecond)
 
@@ -579,7 +579,7 @@ func TestKeyCacheEvictionLoop_FiresPeriodically(t *testing.T) {
 // repetition makes each arm near certain to be exercised while the assertion
 // holds for either.
 func TestKeyCacheEvictionLoop_PendingTickAfterCancelSweepsNothing(t *testing.T) {
-	orig := getKeyCacheTTL()
+	orig := KeyCacheTTL()
 	defer SetKeyCacheTTL(orig)
 	SetKeyCacheTTL(time.Nanosecond)
 
@@ -617,7 +617,7 @@ func TestKeyCacheEvictionLoop_PendingTickAfterCancelSweepsNothing(t *testing.T) 
 
 func TestSetKeyCacheTTL_AffectsNewEntryExpiry(t *testing.T) {
 	// Save original TTL, defer restore
-	orig := getKeyCacheTTL()
+	orig := KeyCacheTTL()
 	defer SetKeyCacheTTL(orig)
 
 	// Set TTL to 5 minutes
@@ -766,7 +766,7 @@ func TestDecryptionCacheKey_NoColonCollision(t *testing.T) {
 
 func TestDecryptCached_ConcurrentEvictionAndAccess(t *testing.T) {
 	// Save original TTL
-	orig := getKeyCacheTTL()
+	orig := KeyCacheTTL()
 	defer SetKeyCacheTTL(orig)
 
 	// Set short TTL
