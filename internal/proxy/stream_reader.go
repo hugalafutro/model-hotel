@@ -4,6 +4,8 @@ import (
 	"bufio"
 	"bytes"
 	"context"
+	"errors"
+	"fmt"
 	"io"
 	"strings"
 	"sync/atomic"
@@ -38,14 +40,21 @@ type sseEvent struct {
 	payload string
 }
 
-// sseLineCap bounds one SSE line on every chat stream reader (this one, the
-// TTFT probe) and the pass-through mask's per-event hold. The scanner grows its
-// buffer on demand, so the cap costs nothing until a frame needs it. It has to
-// hold a whole image: an image model streams each picture as one base64 data
-// URL in a single delta (OpenRouter `images`, Gemini image models via egress),
-// and a 2K PNG runs past 10 MiB encoded. The old 4 MiB cap failed such streams
-// as bufio.ErrTooLong and charged the provider's breaker for it.
+// sseLineCap bounds one SSE line on both chat stream readers (this one and
+// the TTFT probe); egress.MaxSSEEventBytes is the same figure for a translated
+// upstream's event. The scanner grows its buffer on demand, so the cap costs
+// nothing until a frame needs it. It has to hold a whole image: an image model
+// streams each picture as one base64 data URL in a single delta (OpenRouter
+// `images`, a Responses partial image), and a 2K PNG runs past 10 MiB encoded.
+// The old 4 MiB cap failed such streams as bufio.ErrTooLong, reported as an
+// upstream connection error. A frame past this cap is not an image any model
+// produces: the stream ends, the row and the client name the limit, and the
+// provider is charged for it like any other broken stream.
 const sseLineCap = 32 << 20
+
+// lineCapErrMsg is the row's and the client's message when a frame exceeds
+// sseLineCap, on the stream path and the probe path alike.
+var lineCapErrMsg = fmt.Sprintf("stream failed: a frame exceeded the gateway's %d MiB line limit", sseLineCap>>20)
 
 // streamReader owns the upstream side of handleStreamingResponse: the scanner
 // (replaying the TTFT probe buffer when present), the stall watchdog goroutine,
@@ -178,6 +187,12 @@ func (r *streamReader) runWatchdog() {
 // are valid only until the following Next() call.
 func (r *streamReader) Next() (sseEvent, bool) {
 	if !r.scanner.Scan() {
+		if errors.Is(r.scanner.Err(), bufio.ErrTooLong) {
+			// The rest of that line is unbounded and the orchestrator drains
+			// the body before closing it, so it is closed here: a drain of an
+			// endless line would otherwise run to the attempt's deadline.
+			_ = r.body.Close()
+		}
 		return sseEvent{}, false
 	}
 	line := r.scanner.Bytes()

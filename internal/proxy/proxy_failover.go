@@ -1,6 +1,7 @@
 package proxy
 
 import (
+	"bufio"
 	"bytes"
 	"context"
 	"errors"
@@ -291,6 +292,11 @@ func classifyProbeError(probeErr error, providerName string, masker credentialMa
 		//
 		// Gateway-authored text, so nothing to mask.
 		return answered(emptyErr.Error())
+	}
+	if errors.Is(probeErr, bufio.ErrTooLong) {
+		// The first frame exceeded sseLineCap: named and charged the way the
+		// stream path treats it (deriveStreamError), not as a probe timeout.
+		return answered(lineCapErrMsg)
 	}
 	// Fenced like the frame branch above: this text reaches the app log as the
 	// attempt's "error" attribute on both the failover and the hedged path, and

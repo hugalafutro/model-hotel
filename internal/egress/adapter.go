@@ -10,12 +10,14 @@ import (
 )
 
 // MaxSSEEventBytes caps the SSE event an adapter will buffer: the data fields
-// joined so far plus the line still being read. The Responses dialect sets the
-// floor, since its response.completed event embeds the whole generated output
-// (a 128k-token generation with JSON escaping approaches 1 MiB); 4 MiB clears
-// that with headroom while still bounding an upstream that never closes an
-// event.
-const MaxSSEEventBytes = 4 << 20
+// joined so far plus the line still being read. It is the proxy's per-line cap
+// (proxy.sseLineCap) so a translated upstream holds what a direct one does: a
+// Responses partial image is one base64 picture in a single event and a 2K
+// PNG runs past 10 MiB encoded, and response.completed embeds the whole
+// generated output (a 128k-token generation with JSON escaping approaches
+// 1 MiB). The buffer grows on demand, so the cap costs nothing until an event
+// needs it, while still bounding an upstream that never closes one.
+const MaxSSEEventBytes = 32 << 20
 
 // Translator converts one upstream SSE data payload into the client-facing
 // bytes for that event, and produces the stream's terminal bytes on Finish.
