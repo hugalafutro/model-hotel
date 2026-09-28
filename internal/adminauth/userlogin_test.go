@@ -87,6 +87,7 @@ func testUser(t *testing.T, username, password string, enabled bool) *user.User 
 func doLogin(t *testing.T, r chi.Router, body string) *httptest.ResponseRecorder {
 	t.Helper()
 	req := httptest.NewRequest(http.MethodPost, "/auth/login", bytes.NewReader([]byte(body)))
+	req.Header.Set("Content-Type", "application/json")
 	req.RemoteAddr = "10.0.0.1:1234"
 	w := httptest.NewRecorder()
 	r.ServeHTTP(w, req)
@@ -227,6 +228,7 @@ func TestUserLogin_OverLongUsernameStopsAtTheGuard(t *testing.T) {
 	// username the handler accepts is throttled well inside it.
 	for i := range 10 {
 		req := httptest.NewRequest(http.MethodPost, "/auth/login", bytes.NewReader([]byte(body)))
+		req.Header.Set("Content-Type", "application/json")
 		req.RemoteAddr = fmt.Sprintf("10.2.%d.1:1234", i)
 		w := httptest.NewRecorder()
 		r.ServeHTTP(w, req)
@@ -287,6 +289,7 @@ func TestUserLogin_PerUsernameThrottle(t *testing.T) {
 
 	attempt := func(ip, body string) *httptest.ResponseRecorder {
 		req := httptest.NewRequest(http.MethodPost, "/auth/login", bytes.NewReader([]byte(body)))
+		req.Header.Set("Content-Type", "application/json")
 		req.RemoteAddr = ip
 		w := httptest.NewRecorder()
 		r.ServeHTTP(w, req)
@@ -370,6 +373,7 @@ func TestUserLogin_SessionCreationFailure(t *testing.T) {
 
 			req := httptest.NewRequestWithContext(ctx, http.MethodPost, "/auth/login",
 				strings.NewReader(`{"username":"alice","password":"correct-horse"}`))
+			req.Header.Set("Content-Type", "application/json")
 			req.RemoteAddr = "10.0.0.1:1234"
 			w := httptest.NewRecorder()
 			r.ServeHTTP(w, req)
@@ -849,5 +853,39 @@ func TestUserLogin_MaxLengthUsernameCanLogIn(t *testing.T) {
 	w := doLogin(t, r, `{"username":"`+name+`","password":"correct-horse"}`)
 	if w.Code != http.StatusOK {
 		t.Fatalf("login with a %d byte username = %d, want 200 (body %s)", len(name), w.Code, w.Body.String())
+	}
+}
+
+// TestUserLogin_RejectsNonJSONContentType pins the login-CSRF fence: a
+// cross-site HTML form can only POST text/plain (or a form media type), and
+// such a body, even one spelling valid JSON with the right credentials, must
+// not mint a session. 415, no cookie.
+func TestUserLogin_RejectsNonJSONContentType(t *testing.T) {
+	u := testUser(t, "alice", "correct-horse", true)
+	_, _, _, r := newLoginFixture(t, u)
+	for _, ct := range []string{"text/plain", "application/x-www-form-urlencoded", ""} {
+		body := "{\"username\":\"alice\",\"password\":\"correct-horse\",\"x\":\"=y\"}\r\n"
+		req := httptest.NewRequest(http.MethodPost, "/auth/login", strings.NewReader(body))
+		if ct != "" {
+			req.Header.Set("Content-Type", ct)
+		}
+		req.RemoteAddr = "10.0.0.1:1234"
+		w := httptest.NewRecorder()
+		r.ServeHTTP(w, req)
+		if w.Code != http.StatusUnsupportedMediaType {
+			t.Errorf("content type %q: status = %d, want 415", ct, w.Code)
+		}
+		if len(w.Result().Cookies()) != 0 {
+			t.Errorf("content type %q: a non-JSON login set a cookie", ct)
+		}
+	}
+	// The parameterised form is still JSON.
+	req := httptest.NewRequest(http.MethodPost, "/auth/login", strings.NewReader(`{"username":"alice","password":"correct-horse"}`))
+	req.Header.Set("Content-Type", "application/json; charset=utf-8")
+	req.RemoteAddr = "10.0.0.1:1234"
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+	if w.Code != http.StatusOK {
+		t.Errorf("json with charset: status = %d, want 200", w.Code)
 	}
 }

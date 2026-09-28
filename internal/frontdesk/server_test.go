@@ -171,6 +171,9 @@ func do(t *testing.T, srv *Server, method, path, body string, auth bool) *httpte
 		rdr = strings.NewReader(body)
 	}
 	req := httptest.NewRequest(method, path, rdr)
+	if body != "" {
+		req.Header.Set("Content-Type", "application/json")
+	}
 	if auth {
 		req.Header.Set("Authorization", "Bearer "+testFrontdeskToken)
 	}

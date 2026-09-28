@@ -12,10 +12,13 @@
 package adminauth
 
 import (
+	"mime"
 	"net/http"
 
 	"github.com/go-chi/chi/v5"
 
+	"github.com/hugalafutro/model-hotel/internal/clientip"
+	"github.com/hugalafutro/model-hotel/internal/debuglog"
 	"github.com/hugalafutro/model-hotel/internal/httpx"
 	"github.com/hugalafutro/model-hotel/internal/user"
 )
@@ -71,6 +74,23 @@ func readOnlyGuard(next http.Handler) http.Handler {
 // guard keeps new ceremonies on this path.
 func decodeJSON(w http.ResponseWriter, r *http.Request, v any) bool {
 	return httpx.DecodeJSON(w, r, logComponent, httpx.MaxJSONBody, v)
+}
+
+// requireJSON refuses a login body that did not arrive as application/json,
+// with a 415. An HTML form on another origin can POST enctype=text/plain
+// whose one field spells a JSON object; without this check that body decodes
+// like any other login and the response sets the attacker's session cookie in
+// the victim's browser (SameSite governs sending a cookie, not storing one).
+// A browser cannot send application/json cross-site without a preflight, which
+// the CORS layer refuses for unknown origins, so the media type is the fence.
+func requireJSON(w http.ResponseWriter, r *http.Request) bool {
+	mt, _, err := mime.ParseMediaType(r.Header.Get("Content-Type"))
+	if err == nil && mt == "application/json" {
+		return true
+	}
+	debuglog.Warn(logComponent+": login body is not application/json", "remote_addr", clientip.From(r))
+	http.Error(w, "content type must be application/json", http.StatusUnsupportedMediaType)
+	return false
 }
 
 // SetAudit installs the audit middleware on the passkey management routes.

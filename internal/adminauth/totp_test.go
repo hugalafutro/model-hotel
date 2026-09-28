@@ -1340,3 +1340,151 @@ func testEnrollVerifySweepFailure(t *testing.T, failFrom int) {
 		t.Error("2FA was enabled although the pre-2FA sessions could not be swept")
 	}
 }
+
+// totpLoginFrom posts one /totp/login attempt from the given source address.
+func totpLoginFrom(t *testing.T, th *TotpHandler, ip, token, code string) *httptest.ResponseRecorder {
+	t.Helper()
+	req := httptest.NewRequest(http.MethodPost, "/totp/login",
+		bytes.NewReader([]byte(`{"token":"`+token+`","code":"`+code+`"}`)))
+	req.Header.Set("Content-Type", "application/json")
+	req.RemoteAddr = ip
+	w := httptest.NewRecorder()
+	serveTotpRouter(th).ServeHTTP(w, req)
+	return w
+}
+
+// TestTotpLogin_AccountThrottleAcrossIPs: one failure per source IP never
+// trips the per-IP throttle, so the single admin account must carry its own
+// backoff or a distributed guess of the six-digit window runs unthrottled.
+func TestTotpLogin_AccountThrottleAcrossIPs(t *testing.T) {
+	_, th := newTotpTestHandler(t)
+	secret, _ := doEnrollVerify(t, th)
+
+	var last *httptest.ResponseRecorder
+	for i := range 10 {
+		last = totpLoginFrom(t, th, fmt.Sprintf("10.0.%d.1:1234", i), "admin-token", "000000")
+		if last.Code == http.StatusTooManyRequests {
+			break
+		}
+	}
+	if last.Code != http.StatusTooManyRequests {
+		t.Fatalf("distributed brute force never throttled, last status = %d", last.Code)
+	}
+	if last.Header().Get("Retry-After") == "" {
+		t.Error("429 without Retry-After header")
+	}
+	// The lock follows the account: a valid code from a fresh IP waits too.
+	if w := totpLoginFrom(t, th, "172.16.0.1:1234", "admin-token", validCode(t, secret)); w.Code != http.StatusTooManyRequests {
+		t.Errorf("account throttle bypassed from fresh IP: %d", w.Code)
+	}
+}
+
+// TestTotpLogin_RejectsNonJSONContentType: the login-CSRF fence (see
+// requireJSON) applies to the TOTP exchange too.
+func TestTotpLogin_RejectsNonJSONContentType(t *testing.T) {
+	_, th := newTotpTestHandler(t)
+	secret, _ := doEnrollVerify(t, th)
+	req := httptest.NewRequest(http.MethodPost, "/totp/login",
+		bytes.NewReader([]byte(`{"token":"admin-token","code":"`+validCode(t, secret)+`"}`)))
+	req.Header.Set("Content-Type", "text/plain")
+	w := httptest.NewRecorder()
+	serveTotpRouter(th).ServeHTTP(w, req)
+	if w.Code != http.StatusUnsupportedMediaType {
+		t.Fatalf("status = %d, want 415: %s", w.Code, w.Body.String())
+	}
+	if len(w.Result().Cookies()) != 0 {
+		t.Error("a non-JSON login set a cookie")
+	}
+}
+
+// TestTotpDisable_WrongCodeThrottles: a session holder gets a bounded number
+// of wrong codes before the disable endpoint backs off, so a hijacked session
+// is not a free oracle for the six-digit window.
+func TestTotpDisable_WrongCodeThrottles(t *testing.T) {
+	_, th := newTotpTestHandler(t)
+	secret, _ := doEnrollVerify(t, th)
+	sessionToken := sessionTokenAfterEnroll(t, th, secret)
+
+	var last *httptest.ResponseRecorder
+	for range 8 {
+		dreq := httptest.NewRequest(http.MethodPost, "/totp/disable",
+			bytes.NewReader([]byte(`{"code":"000000"}`)))
+		dreq.Header.Set("Authorization", "Bearer "+sessionToken)
+		dreq.Header.Set("Content-Type", "application/json")
+		last = httptest.NewRecorder()
+		serveTotpRouter(th).ServeHTTP(last, dreq)
+		if last.Code == http.StatusTooManyRequests {
+			break
+		}
+		if last.Code != http.StatusForbidden {
+			t.Fatalf("wrong code: status = %d, want 403", last.Code)
+		}
+	}
+	if last.Code != http.StatusTooManyRequests {
+		t.Fatalf("repeated wrong codes never throttled, last status = %d", last.Code)
+	}
+	if last.Header().Get("Retry-After") == "" {
+		t.Error("429 without Retry-After header")
+	}
+	// TOTP is still on: the throttle refused, it did not disable anything.
+	sreq := httptest.NewRequest(http.MethodGet, "/totp/status", http.NoBody)
+	sw := httptest.NewRecorder()
+	serveTotpRouter(th).ServeHTTP(sw, sreq)
+	var st struct {
+		Enabled bool `json:"enabled"`
+	}
+	if err := json.Unmarshal(sw.Body.Bytes(), &st); err != nil || !st.Enabled {
+		t.Errorf("status after throttled disables: enabled=%v err=%v", st.Enabled, err)
+	}
+}
+
+// TestTotpEnrollVerify_RefusedWhileEnabled: with TOTP on, verify must not
+// complete a second "enrolment" (which would hand out fresh recovery codes and
+// revoke every admin session). Same 409 as EnrollStart.
+func TestTotpEnrollVerify_RefusedWhileEnabled(t *testing.T) {
+	_, th := newTotpTestHandler(t)
+	secret, _ := doEnrollVerify(t, th)
+	sessionToken := sessionTokenAfterEnroll(t, th, secret)
+
+	vreq := httptest.NewRequest(http.MethodPost, "/totp/enroll/verify",
+		bytes.NewReader([]byte(`{"code":"`+codeForStep(t, secret, 1)+`"}`)))
+	vreq.Header.Set("Authorization", "Bearer "+sessionToken)
+	vreq.Header.Set("Content-Type", "application/json")
+	vw := httptest.NewRecorder()
+	serveTotpRouter(th).ServeHTTP(vw, vreq)
+	if vw.Code != http.StatusConflict {
+		t.Fatalf("status = %d, want 409: %s", vw.Code, vw.Body.String())
+	}
+}
+
+// TestTotpEnrollVerify_WrongCodeThrottles: the staged-secret verify backs off
+// on repeated wrong codes like disable does.
+func TestTotpEnrollVerify_WrongCodeThrottles(t *testing.T) {
+	_, th := newTotpTestHandler(t)
+	req := httptest.NewRequest(http.MethodPost, "/totp/enroll/start", http.NoBody)
+	req.Header.Set("Authorization", "Bearer admin-token")
+	w := httptest.NewRecorder()
+	serveTotpRouter(th).ServeHTTP(w, req)
+	if w.Code != http.StatusOK {
+		t.Fatalf("enroll/start: %d", w.Code)
+	}
+
+	var last *httptest.ResponseRecorder
+	for range 8 {
+		vreq := httptest.NewRequest(http.MethodPost, "/totp/enroll/verify",
+			bytes.NewReader([]byte(`{"code":"000000"}`)))
+		vreq.Header.Set("Authorization", "Bearer admin-token")
+		vreq.Header.Set("Content-Type", "application/json")
+		last = httptest.NewRecorder()
+		serveTotpRouter(th).ServeHTTP(last, vreq)
+		if last.Code == http.StatusTooManyRequests {
+			break
+		}
+		if last.Code != http.StatusBadRequest {
+			t.Fatalf("wrong code: status = %d, want 400", last.Code)
+		}
+	}
+	if last.Code != http.StatusTooManyRequests {
+		t.Fatalf("repeated wrong codes never throttled, last status = %d", last.Code)
+	}
+}

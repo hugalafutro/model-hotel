@@ -32,7 +32,13 @@ type TotpHandler struct {
 	audit              func(http.Handler) http.Handler
 	totpEnabled        func() bool           // shared cached state (Handler.TotpEnabled)
 	refreshTotpEnabled func(context.Context) // refresh cache after mutations (Handler.RefreshTotpEnabled)
-	loginThrottle      *totp.Throttle        // per-IP exponential backoff on failed /totp/login
+	// loginThrottle backs off failed second-factor checks, exponentially per
+	// key (1s doubling, capped at 5m; self-clearing, reset on success). Login
+	// charges two keys per failure: the source IP, and accountThrottleKey for
+	// the single admin account, so a brute force spread across IPs still trips
+	// it. Disable and EnrollVerify charge codeThrottleKey: a hijacked session
+	// must not be a free oracle for the six-digit window either.
+	loginThrottle *totp.Throttle
 	// cookieSecure ("auto"/"always"/"never") resolves the Secure attribute on
 	// the session cookie so plain-http LAN deployments still work.
 	cookieSecure string
@@ -81,10 +87,24 @@ func NewTotpHandler(
 		cookieSecure:       cookieSecure,
 		useCookieAuth:      useCookieAuth,
 		jar:                jar,
-		// After maxFailures failed logins from one IP, back off exponentially
-		// (1s doubling, capped at 5m), self-clearing and reset on success.
-		loginThrottle: totp.NewThrottle(5, time.Second, 5*time.Minute),
+		loginThrottle:      totp.NewThrottle(5, time.Second, 5*time.Minute),
 	}
+}
+
+// Throttle keys that are not source addresses (an IP never spells either).
+const (
+	accountThrottleKey = "account:login"
+	codeThrottleKey    = "account:code"
+)
+
+// allowCode refuses a second-factor check while codeThrottleKey is locked.
+func (h *TotpHandler) allowCode(w http.ResponseWriter, r *http.Request, what string) bool {
+	ok, retry := h.loginThrottle.Allowed(codeThrottleKey)
+	if !ok {
+		debuglog.Warn("totp: "+what+" throttled", "remote_addr", clientip.From(r))
+		httpx.RespondTooManyAttempts(w, retry)
+	}
+	return ok
 }
 
 // Register mounts the TOTP routes on the given router.
@@ -261,6 +281,17 @@ func (h *TotpHandler) EnrollStart(w http.ResponseWriter, r *http.Request) {
 
 // EnrollVerify verifies the TOTP code, enables 2FA, and returns recovery codes.
 func (h *TotpHandler) EnrollVerify(w http.ResponseWriter, r *http.Request) {
+	// Same gate as EnrollStart: with TOTP already on, a matching code here would
+	// hand the caller a fresh set of recovery codes (voiding the operator's) and
+	// revoke every admin session, so verify only ever completes an enrolment
+	// started from the disabled state.
+	if h.totpEnabled != nil && h.totpEnabled() {
+		respondError(w, "disable TOTP before re-enrolling", nil, http.StatusConflict)
+		return
+	}
+	if !h.allowCode(w, r, "enroll verify") {
+		return
+	}
 	var req struct {
 		Code string `json:"code"`
 	}
@@ -273,9 +304,11 @@ func (h *TotpHandler) EnrollVerify(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if !ok {
+		h.loginThrottle.RecordFailure(codeThrottleKey)
 		respondBadRequest(w, "invalid TOTP code", nil)
 		return
 	}
+	h.loginThrottle.RecordSuccess(codeThrottleKey)
 	// Generate recovery codes BEFORE enabling: if this fails, 2FA stays off and
 	// the user retries cleanly instead of being left enabled with no codes.
 	codes, err := h.totpRepo.GenerateRecoveryCodes(r.Context())
@@ -360,6 +393,9 @@ func (h *TotpHandler) EnrollVerify(w http.ResponseWriter, r *http.Request) {
 // Disable removes the TOTP config + recovery codes. Requires a valid current
 // TOTP or recovery code as a safeguard (401 on mismatch, not 400).
 func (h *TotpHandler) Disable(w http.ResponseWriter, r *http.Request) {
+	if !h.allowCode(w, r, "disable") {
+		return
+	}
 	var req struct {
 		Code string `json:"code"`
 	}
@@ -375,12 +411,14 @@ func (h *TotpHandler) Disable(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if !ok {
+		h.loginThrottle.RecordFailure(codeThrottleKey)
 		// 403, not 401: the caller is authenticated and only the code is
 		// wrong. Both dashboards read a 401 as a dead session and drop to the
 		// login screen, which a mistyped code must not do.
 		http.Error(w, "invalid TOTP or recovery code", http.StatusForbidden)
 		return
 	}
+	h.loginThrottle.RecordSuccess(codeThrottleKey)
 	h.refreshTotpEnabled(r.Context())
 	// Clear the cached stamp so a later re-enrollment doesn't serve this one.
 	h.invalidateEnabledAt()
@@ -402,11 +440,18 @@ func (h *TotpHandler) Login(w http.ResponseWriter, r *http.Request) {
 		httpx.RespondTooManyAttempts(w, retry)
 		return
 	}
+	// Per-account backoff: without it a brute force spread across source IPs
+	// never trips the per-IP throttle above (the user login has the same).
+	if ok, retry := h.loginThrottle.Allowed(accountThrottleKey); !ok {
+		debuglog.Warn("totp: login account throttled", "remote_addr", clientip.From(r))
+		httpx.RespondTooManyAttempts(w, retry)
+		return
+	}
 	var req struct {
 		Token string `json:"token"`
 		Code  string `json:"code"`
 	}
-	if !decodeJSON(w, r, &req) {
+	if !requireJSON(w, r) || !decodeJSON(w, r, &req) {
 		return
 	}
 	// Check the admin-token first factor, then the second factor ONLY when the
@@ -431,6 +476,7 @@ func (h *TotpHandler) Login(w http.ResponseWriter, r *http.Request) {
 	}
 	if !tokenValid || !codeValid {
 		h.loginThrottle.RecordFailure(throttleKey)
+		h.loginThrottle.RecordFailure(accountThrottleKey)
 		debuglog.Warn("totp: login failed", "remote_addr", clientip.From(r))
 		http.Error(w, "invalid admin token or TOTP code", http.StatusUnauthorized)
 		return
@@ -449,6 +495,7 @@ func (h *TotpHandler) Login(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	h.loginThrottle.RecordSuccess(throttleKey)
+	h.loginThrottle.RecordSuccess(accountThrottleKey)
 	if !h.useCookieAuth {
 		// Header-bearer mode: the session token rides the JSON body, for
 		// clients that hold it themselves and send it as an Authorization

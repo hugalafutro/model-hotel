@@ -1768,11 +1768,11 @@ Time-based one-time passwords (RFC 6238) as an admin-login second factor, indepe
 | Route | Method | Auth | Description |
 |-------|--------|------|-------------|
 | `/api/totp/status` | GET | None (public) | Report whether TOTP is enabled (`{"enabled": true/false}`) |
-| `/api/totp/login` | POST | IP rate-limited | Exchange admin token + 6-digit code (or a recovery code) for a session token |
+| `/api/totp/login` | POST | IP rate-limited; failures back off per IP and per account | Exchange admin token + 6-digit code (or a recovery code) for a session token. Body must be `application/json` (415 otherwise) |
 | `/api/totp/info` | GET | Admin/session token | Enrollment state and remaining recovery-code count |
 | `/api/totp/enroll/start` | POST | Admin/session token | Begin enrollment; returns the otpauth URI + base32 secret |
-| `/api/totp/enroll/verify` | POST | Admin/session token | Verify the first code, enable TOTP, return recovery codes + a session token |
-| `/api/totp/disable` | POST | Admin/session token | Disable TOTP (gated on a current code or recovery code) |
+| `/api/totp/enroll/verify` | POST | Admin/session token | Verify the first code, enable TOTP, return recovery codes + a session token. 409 while TOTP is already on; wrong codes back off |
+| `/api/totp/disable` | POST | Admin/session token | Disable TOTP (gated on a current code or recovery code; wrong codes back off) |
 
 When TOTP is enabled, the raw admin token alone no longer authorizes `/api/*`: it is a first factor that must be exchanged via `/api/totp/login` for a session token.
 
@@ -1812,7 +1812,7 @@ Routes that exist but have no section of their own. Everything under `/api` carr
 | `/api/public-config` | GET | None (public) | Feature flags the login screen needs (e.g. read-only demo mode) |
 | `/api/demo-login` | GET | None (public) | Demo-mode login helper |
 | `/api/auth/status` | GET | None (public) | Whether password login is available |
-| `/api/auth/login` | POST | None (IP rate-limited) | Password login; mints a session |
+| `/api/auth/login` | POST | None (IP rate-limited) | Password login; mints a session. Body must be `application/json` (415 otherwise) |
 | `/api/auth/admin-exchange` | POST | None (IP rate-limited) | Trade a raw admin token for an HttpOnly session cookie |
 | `/api/auth/logout` | POST | Session | End the current session |
 | `/api/auth/me` | GET | Any signed-in identity | The caller's identity, role and grants |
