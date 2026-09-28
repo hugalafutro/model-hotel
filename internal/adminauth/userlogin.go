@@ -121,7 +121,7 @@ func (h *UserLoginHandler) Login(w http.ResponseWriter, r *http.Request) {
 		// enabled (the missing-code response tells the login UI to ask).
 		Code string `json:"code"`
 	}
-	if !decodeJSON(w, r, &req) {
+	if !requireJSON(w, r) || !decodeJSON(w, r, &req) {
 		return
 	}
 	if req.Username == "" || req.Password == "" {

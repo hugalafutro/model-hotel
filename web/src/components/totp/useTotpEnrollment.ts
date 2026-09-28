@@ -7,6 +7,7 @@ import {
 import QRCode from "qrcode";
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
+import { ApiError } from "../../api/http";
 import { useToast } from "../../context/ToastContext";
 import { useCopyToClipboard } from "../../hooks/useCopyToClipboard";
 
@@ -111,7 +112,13 @@ export function useTotpEnrollment(client: TotpClient, queryKey: QueryKey) {
 			invalidate();
 			toast(t("settings.totp.verifiedSuccess"), "success");
 		},
-		onError: () => toast(t("settings.totp.failedToVerify"), "error"),
+		onError: (err) =>
+			toast(
+				err instanceof ApiError && err.status === 429
+					? t("layout.auth.totpThrottled")
+					: t("settings.totp.failedToVerify"),
+				"error",
+			),
 	});
 
 	const disableMutation = useMutation({
@@ -122,7 +129,13 @@ export function useTotpEnrollment(client: TotpClient, queryKey: QueryKey) {
 			invalidate();
 			toast(t("settings.totp.disabled"), "success");
 		},
-		onError: () => toast(t("settings.totp.failedToDisable"), "error"),
+		onError: (err) =>
+			toast(
+				err instanceof ApiError && err.status === 429
+					? t("layout.auth.totpThrottled")
+					: t("settings.totp.failedToDisable"),
+				"error",
+			),
 	});
 
 	return {

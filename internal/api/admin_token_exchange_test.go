@@ -42,7 +42,9 @@ func TestRegisterAuthExchange_MountsRoutes(t *testing.T) {
 
 	rec := httptest.NewRecorder()
 	body := `{"admin_token":"` + exchangeAdminToken + `"}`
-	r.ServeHTTP(rec, httptest.NewRequest(http.MethodPost, "/auth/admin-exchange", strings.NewReader(body)))
+	req := httptest.NewRequest(http.MethodPost, "/auth/admin-exchange", strings.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	r.ServeHTTP(rec, req)
 	if rec.Code != http.StatusOK {
 		t.Fatalf("POST /auth/admin-exchange = %d, want 200 (%s)", rec.Code, rec.Body.String())
 	}

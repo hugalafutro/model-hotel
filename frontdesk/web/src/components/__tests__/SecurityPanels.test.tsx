@@ -403,6 +403,68 @@ describe("TotpPanel", () => {
 		expect(await screen.findByText(/Invalid code/i)).toBeInTheDocument();
 	});
 
+	it("tells the operator to wait when verify is throttled", async () => {
+		server.use(
+			http.get("/api/webauthn/available", () =>
+				HttpResponse.json({ enabled: false, has_credentials: false }),
+			),
+			http.get("/api/totp/status", () => HttpResponse.json({ enabled: false })),
+			http.post("/api/totp/enroll/start", () =>
+				HttpResponse.json({
+					uri: "otpauth://totp/FrontDesk:admin?secret=JBSWY3DPEHPK3PXP",
+					secret: "JBSWY3DPEHPK3PXP",
+				}),
+			),
+			http.post("/api/totp/enroll/verify", () =>
+				HttpResponse.text("too many attempts", { status: 429 }),
+			),
+		);
+		renderPanels();
+
+		await userEvent.click(
+			await screen.findByRole("button", { name: /^Enable$/i }),
+		);
+		await userEvent.type(
+			await screen.findByLabelText(/Enter the 6-digit code/i),
+			"000000",
+		);
+		await userEvent.click(screen.getByRole("button", { name: /^Verify$/i }));
+
+		expect(
+			await screen.findByText("Too many attempts, wait a moment and try again"),
+		).toBeInTheDocument();
+	});
+
+	it("tells the operator to wait when disable is throttled", async () => {
+		server.use(
+			http.get("/api/totp/status", () =>
+				HttpResponse.json({
+					enabled: true,
+					recovery_remaining: 8,
+					recovery_total: 10,
+				}),
+			),
+			http.post("/api/totp/disable", () =>
+				HttpResponse.text("too many attempts", { status: 429 }),
+			),
+		);
+		renderPanels();
+		expect(await screen.findByText("Enabled")).toBeInTheDocument();
+		await userEvent.click(screen.getByRole("button", { name: /^Disable$/i }));
+		await userEvent.type(
+			await screen.findByLabelText(/Code or recovery code/i),
+			"000000",
+		);
+		const disableButtons = screen.getAllByRole("button", {
+			name: /^Disable$/i,
+		});
+		await userEvent.click(disableButtons[disableButtons.length - 1]);
+
+		expect(
+			await screen.findByText("Too many attempts, wait a moment and try again"),
+		).toBeInTheDocument();
+	});
+
 	it("copies the enrollment secret and toasts either outcome", async () => {
 		const writeText = vi
 			.fn()
