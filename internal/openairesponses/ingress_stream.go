@@ -356,7 +356,10 @@ func (t *IngressStreamTranslator) chatIndexFor(tc chatToolCall) int {
 	case tc.Index != nil:
 		idx := *tc.Index
 		if tc.ID != "" {
-			if owner, taken := t.idByIndex[idx]; taken && owner != tc.ID {
+			if known, ok := t.idxByCallID[tc.ID]; ok {
+				// The call was keyed by id before its index showed up.
+				idx = known
+			} else if owner, taken := t.idByIndex[idx]; taken && owner != tc.ID {
 				// An opener reusing an index another call holds is a new call.
 				idx = -1 - len(t.idxByCallID)
 			}

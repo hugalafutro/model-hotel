@@ -256,6 +256,22 @@ func TestStreamTranslator_MixedIndexShapes(t *testing.T) {
 			t.Errorf("blocks = %v inputs = %v, want one call ls with {\"a\":1}", got.toolNameByIx, got.toolJSONByIx)
 		}
 	})
+	t.Run("id keyed first, index and id together later", func(t *testing.T) {
+		tr := NewStreamTranslator("msg_mix3", "m")
+		chunks := []OAStreamChunk{
+			{Choices: []OAStreamChoice{{Delta: OAStreamDelta{ToolCalls: []OAToolCallDelta{
+				{ID: "call_a", Type: "function", Function: OAFunctionDelta{Name: "ls", Arguments: `{"a":`}},
+			}}}}},
+			{Choices: []OAStreamChoice{{Delta: OAStreamDelta{ToolCalls: []OAToolCallDelta{
+				{Index: new(1), ID: "call_a", Function: OAFunctionDelta{Arguments: `1}`}},
+			}}}}},
+			{Choices: []OAStreamChoice{{Delta: OAStreamDelta{}, FinishReason: new("tool_calls")}}},
+		}
+		got := decodeWithSDK(t, runTranslator(t, tr, chunks))
+		if len(got.toolNameByIx) != 1 || got.toolJSONByIx[0] != `{"a":1}` {
+			t.Errorf("blocks = %v inputs = %v, want one call ls with {\"a\":1}", got.toolNameByIx, got.toolJSONByIx)
+		}
+	})
 	t.Run("index 0 reused for a second id", func(t *testing.T) {
 		tr := NewStreamTranslator("msg_mix2", "m")
 		chunks := []OAStreamChunk{

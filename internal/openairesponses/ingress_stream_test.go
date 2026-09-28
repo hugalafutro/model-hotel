@@ -461,6 +461,20 @@ func TestIngressStream_MixedIndexShapes(t *testing.T) {
 			t.Errorf("a=%+v", a)
 		}
 	})
+	t.Run("id keyed first, index and id together later", func(t *testing.T) {
+		tr := NewIngressStreamTranslator("resp_3", "m", nil)
+		sse := runIngress(t, tr,
+			chunk(`{"tool_calls":[{"id":"call_a","type":"function","function":{"name":"ls","arguments":"{\"a\":"}}]}`, ""),
+			chunk(`{"tool_calls":[{"index":1,"id":"call_a","function":{"arguments":"1}"}}]}`, "tool_calls"),
+		)
+		got := decodeWithOpenAISDK(t, sse)
+		if len(got.itemsDone) != 1 {
+			t.Fatalf("items = %d, want 1", len(got.itemsDone))
+		}
+		if a := got.itemsDone[0].AsFunctionCall(); a.CallID != "call_a" || a.Arguments != `{"a":1}` {
+			t.Errorf("a=%+v", a)
+		}
+	})
 	t.Run("index 0 reused for a second id", func(t *testing.T) {
 		tr := NewIngressStreamTranslator("resp_2", "m", nil)
 		sse := runIngress(t, tr,

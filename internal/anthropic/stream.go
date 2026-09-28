@@ -82,7 +82,10 @@ func (t *StreamTranslator) oaIndexFor(tc OAToolCallDelta) int {
 	case tc.Index != nil:
 		idx := *tc.Index
 		if tc.ID != "" {
-			if owner, taken := t.idByIndex[idx]; taken && owner != tc.ID {
+			if known, ok := t.idxByCallID[tc.ID]; ok {
+				// The call was keyed by id before its index showed up.
+				idx = known
+			} else if owner, taken := t.idByIndex[idx]; taken && owner != tc.ID {
 				idx = -1 - len(t.idxByCallID)
 			}
 			t.idxByCallID[tc.ID] = idx
