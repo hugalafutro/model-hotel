@@ -44,6 +44,7 @@ func TestGetByModel_InvalidationDuringQueryIsNotReinstalled(t *testing.T) {
 	if err != nil {
 		t.Fatalf("upsert: %v", err)
 	}
+	t.Cleanup(func() { _ = newTestRepo(t).Delete(ctx, displayModel) })
 	if IsCachedByModel(displayModel) {
 		t.Fatal("a write path must not install its RETURNING row")
 	}
