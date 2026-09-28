@@ -272,6 +272,15 @@ func (r *Repository) upsertAutoGroup(ctx context.Context, base string, currentID
 		}
 	}
 	_, err = r.UpsertWithConfig(ctx, base, priorityOrder, entryEnabled, &groupEnabled, syncDisplayName, syncDescription, &autoCreated)
+	if errors.Is(err, pgx.ErrNoRows) {
+		// A custom row took the name between the read above and this write;
+		// the upsert refused to touch it. Same verdict as the read-side check.
+		var order []uuid.UUID
+		if existing != nil {
+			order = existing.PriorityOrder
+		}
+		return existing, order, true, nil
+	}
 	return existing, priorityOrder, false, err
 }
 

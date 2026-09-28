@@ -2,11 +2,13 @@ package failover
 
 import (
 	"context"
+	"errors"
 	"os"
 	"strings"
 	"testing"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -1600,5 +1602,72 @@ func TestRepository_SyncAllModels_LeavesCustomGroupNamedLikeABase(t *testing.T) 
 		if group.EntryEnabled[otherID.String()] {
 			t.Errorf("%s flipped a member toggle on", run.name)
 		}
+	}
+
+	// The base drops to one provider: the undersized rule deletes an auto
+	// group in that position, never a custom one.
+	if _, err := testDB.Pool().Exec(ctx, "DELETE FROM models WHERE id = $1", model2ID); err != nil {
+		t.Fatalf("delete model2: %v", err)
+	}
+	for _, run := range []struct {
+		name string
+		sync func() (*SyncResult, error)
+	}{
+		{"SyncAllModels", func() (*SyncResult, error) { return repo.SyncAllModels(ctx) }},
+		{"SyncForModel", func() (*SyncResult, error) { return repo.SyncForModel(ctx, baseModel) }},
+	} {
+		result, err := run.sync()
+		if err != nil {
+			t.Fatalf("%s after the base shrank: %v", run.name, err)
+		}
+		for _, d := range result.DeletedGroups {
+			if d.DisplayModel == baseModel {
+				t.Fatalf("%s deleted the custom group once the base had one provider: %+v", run.name, d)
+			}
+		}
+		InvalidateFailoverCache()
+		group, err := repo.GetByModel(ctx, baseModel)
+		if err != nil {
+			t.Fatalf("%s after the base shrank: custom group gone: %v", run.name, err)
+		}
+		if group.AutoCreated || len(group.PriorityOrder) != 2 {
+			t.Errorf("%s after the base shrank rewrote the custom group: auto_created=%v members=%v", run.name, group.AutoCreated, group.PriorityOrder)
+		}
+	}
+}
+
+// The read-side custom check and the write are separate statements, so the
+// write itself refuses to land an auto row on a custom one: an auto upsert
+// against a custom holder returns no row, which upsertAutoGroup reads as the
+// same custom verdict.
+func TestUpsertWithConfig_AutoWriteNeverLandsOnACustomRow(t *testing.T) {
+	repo := newTestRepo(t)
+	ctx := context.Background()
+	name := "test-atomic-custom-" + uuid.New().String()[:8]
+	member := uuid.New()
+
+	off, custom := false, false
+	if _, err := repo.UpsertWithConfig(ctx, name, []uuid.UUID{member}, map[string]bool{member.String(): true}, &off, nil, nil, &custom); err != nil {
+		t.Fatalf("create custom group: %v", err)
+	}
+	defer func() { _ = repo.Delete(ctx, name) }()
+
+	on, auto := true, true
+	_, err := repo.UpsertWithConfig(ctx, name, []uuid.UUID{uuid.New()}, map[string]bool{}, &on, nil, nil, &auto)
+	if !errors.Is(err, pgx.ErrNoRows) {
+		t.Fatalf("auto write on a custom row: err = %v, want pgx.ErrNoRows", err)
+	}
+	InvalidateFailoverCache()
+	group, err := repo.GetByModel(ctx, name)
+	if err != nil {
+		t.Fatalf("get: %v", err)
+	}
+	if group.AutoCreated || group.GroupEnabled || len(group.PriorityOrder) != 1 || group.PriorityOrder[0] != member {
+		t.Errorf("custom row was touched: %+v", group)
+	}
+
+	// A custom write still lands on a custom row (the API's own path).
+	if _, err := repo.UpsertWithConfig(ctx, name, []uuid.UUID{member}, map[string]bool{member.String(): true}, &on, nil, nil, &custom); err != nil {
+		t.Fatalf("custom write on a custom row: %v", err)
 	}
 }
