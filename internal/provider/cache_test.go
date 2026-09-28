@@ -343,3 +343,24 @@ func TestTouchProviderCacheLastUsed_KeepsTheLaterStamp(t *testing.T) {
 	// A stamp for an id that is not cached is a no-op.
 	TouchProviderCacheLastUsed(uuid.New(), later)
 }
+
+// A read-through that captured its mark before a touch must not install the
+// unstamped row it read, or last_used_at reads as never for the whole TTL.
+func TestTouchProviderCacheLastUsed_FencesAnOverlappingFill(t *testing.T) {
+	InvalidateProviderCache()
+	p := &Provider{ID: uuid.New(), Name: "Touch Fenced"}
+
+	mark := CacheGen()
+	TouchProviderCacheLastUsed(p.ID, time.Now())
+	if cacheProviderAt(p, mark) {
+		t.Fatal("a fill that overlapped a touch of its id must not install")
+	}
+
+	// A fill for another provider is untouched by it.
+	other := &Provider{ID: uuid.New(), Name: "Touch Other"}
+	mark = CacheGen()
+	TouchProviderCacheLastUsed(p.ID, time.Now())
+	if !cacheProviderAt(other, mark) {
+		t.Fatal("a touch of one id must not drop another id's fill")
+	}
+}

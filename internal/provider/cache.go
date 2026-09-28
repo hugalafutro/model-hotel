@@ -154,6 +154,11 @@ func EvictProviderCacheByID(id uuid.UUID) {
 func TouchProviderCacheLastUsed(id uuid.UUID, at time.Time) {
 	providerCacheMu.Lock()
 	defer providerCacheMu.Unlock()
+	// A read-through of this id whose SELECT ran before the touch's UPDATE
+	// would otherwise install the unstamped row after it: the touch fences
+	// that fill like an eviction does, and keeps the entry it can stamp.
+	providerEvictSeq++
+	providerEvicted[id] = providerEvictSeq
 	entry, ok := providerByIDCache[id]
 	if !ok {
 		return
