@@ -11,6 +11,21 @@ const REQUEST_EVENTS = new Set([
 	"request.completed",
 ]);
 
+// A row only moves forward: pending, then streaming, then finished.
+const rank = (log: LogEntry) =>
+	log.state === "pending" ? 0 : log.state === "streaming" ? 1 : 2;
+
+/**
+ * keepFresherRow refuses a snapshot from earlier in a row's life than the one
+ * the list holds. Fetches for one row settle out of order: the
+ * request.streaming and request.completed events each fetch it, and a page
+ * fetch started before a merge lands after it. Taking the older copy put a
+ * live pulse with no tokens back over a finished row, and nothing later
+ * repaired it. Same rank replaces, so a fresher copy of the same state lands.
+ */
+export const keepFresherRow = (current: LogEntry, next: LogEntry) =>
+	rank(current) > rank(next);
+
 /**
  * Keeps the request list current while the live toggle is on, in whichever
  * view mode is active.
@@ -65,7 +80,8 @@ export function useRequestLogLiveUpdates({
 				}
 			}
 		}
-		// mergeEntries only updates rows already in the list, so this covers the
+		// A row not in the list yet is held by mergeEntries for the page that
+		// first lists it, and this fetchNewer is that page: it also covers the
 		// race where the pending row has not landed yet. fetchNewer is guarded
 		// against concurrent calls.
 		fetchNewer();

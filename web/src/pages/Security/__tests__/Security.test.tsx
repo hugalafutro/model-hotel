@@ -89,16 +89,20 @@ describe("Security page", () => {
 		mockStatus({ enabled: false });
 		let payload: { current_password: string; new_password: string } | null =
 			null;
-		// Answer 401 on purpose: a 200 would schedule the component's delayed
+		// Answer 403 on purpose: a 200 would schedule the component's delayed
 		// sign-out teardown, which clears the file-wide test auth token while
 		// LATER tests are running. The success path (and its teardown) is
 		// owned end-to-end by the "tears down the session" test below.
 		server.use(
 			http.post("/api/auth/password", async ({ request }) => {
 				payload = (await request.json()) as typeof payload;
-				return HttpResponse.text("current password is incorrect", {
-					status: 401,
-				});
+				return HttpResponse.json(
+					{
+						code: "wrong_current_password",
+						error: "current password is incorrect",
+					},
+					{ status: 403 },
+				);
 			}),
 		);
 		const { user } = renderWithProviders(<Security />);
@@ -160,7 +164,13 @@ describe("Security page", () => {
 		mockStatus({ enabled: false });
 		server.use(
 			http.post("/api/auth/password", () =>
-				HttpResponse.text("current password is incorrect", { status: 401 }),
+				HttpResponse.json(
+					{
+						code: "wrong_current_password",
+						error: "current password is incorrect",
+					},
+					{ status: 403 },
+				),
 			),
 		);
 		const { user } = renderWithProviders(<Security />);
@@ -514,7 +524,38 @@ describe("Security page edge handlers", () => {
 		}
 	});
 
-	it("reports a generic failure for non-401 password errors", {
+	it("does not read an uncoded 403 as a wrong current password", {
+		timeout: 30000,
+	}, async () => {
+		mockStatus({ enabled: false });
+		server.use(
+			http.post("/api/auth/password", () =>
+				HttpResponse.text("this is a read-only demo", { status: 403 }),
+			),
+		);
+		const { user } = renderWithProviders(<Security />);
+		await user.type(
+			await screen.findByTestId("security-current-password"),
+			"old-password-1",
+		);
+		await user.type(
+			screen.getByTestId("security-new-password"),
+			"new-password-1",
+		);
+		await user.type(
+			screen.getByTestId("security-confirm-password"),
+			"new-password-1",
+		);
+		await user.click(screen.getByTestId("security-password-submit"));
+		expect(
+			await screen.findByText("Failed to change password"),
+		).toBeInTheDocument();
+		expect(
+			screen.queryByText("Current password is incorrect"),
+		).not.toBeInTheDocument();
+	});
+
+	it("reports a generic failure for other password errors", {
 		timeout: 30000,
 	}, async () => {
 		mockStatus({ enabled: false });

@@ -55,7 +55,12 @@ func (h *Handler) ChangeOwnPassword(w http.ResponseWriter, r *http.Request) {
 	if !match {
 		h.pwThrottle.RecordFailure(key)
 		debuglog.Warn("userpassword: wrong current password", "username", id.Username)
-		http.Error(w, "current password is incorrect", http.StatusUnauthorized)
+		// 403, not 401: the session is alive and only the re-typed password is
+		// wrong. The dashboard reads a 401 as a dead session and tears its auth
+		// state down, which turned a typo into a logout.
+		// Coded, since the dashboard sees other 403s on this route (the
+		// read-only demo guard, a CSRF refusal) that are not this.
+		writeCodedError(w, http.StatusForbidden, "wrong_current_password", "current password is incorrect")
 		return
 	}
 	// Breach-check the new password only after the current one is verified, so

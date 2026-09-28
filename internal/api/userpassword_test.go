@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"strings"
 	"testing"
 
 	"github.com/go-chi/chi/v5"
@@ -36,8 +37,8 @@ func TestChangeOwnPassword_Success(t *testing.T) {
 	if err != nil {
 		t.Fatalf("CreateAuthToken: %v", err)
 	}
-	if code := changePassword(t, r, token2, "password123", "password789"); code != http.StatusUnauthorized {
-		t.Errorf("old current password accepted: %d, want 401", code)
+	if code := changePassword(t, r, token2, "password123", "password789"); code != http.StatusForbidden {
+		t.Errorf("old current password accepted: %d, want 403", code)
 	}
 	if code := changePassword(t, r, token2, "password456", "password789"); code != http.StatusOK {
 		t.Errorf("new current password rejected: %d, want 200", code)
@@ -56,9 +57,12 @@ func TestChangeOwnPassword_Validation(t *testing.T) {
 	if code := changePassword(t, r, envAdminToken, "x", "password456"); code != http.StatusBadRequest {
 		t.Errorf("env admin: %d, want 400", code)
 	}
-	// Wrong current password is a 401 and does not change anything.
-	if code := changePassword(t, r, token, "nope-nope-nope", "password456"); code != http.StatusUnauthorized {
-		t.Errorf("wrong current: %d, want 401", code)
+	// Wrong current password is a coded 403 (the session is alive) and changes
+	// nothing; the code is what the dashboard matches, since the route sees
+	// other 403s.
+	if w := doJSON(t, r, http.MethodPost, "/auth/password", token,
+		`{"current_password":"nope-nope-nope","new_password":"password456"}`); w.Code != http.StatusForbidden || !strings.Contains(w.Body.String(), `"wrong_current_password"`) {
+		t.Errorf("wrong current: %d %s, want 403 with code wrong_current_password", w.Code, w.Body.String())
 	}
 	if w := doJSON(t, r, http.MethodGet, "/auth/me", token, ""); w.Code != http.StatusOK {
 		t.Errorf("session revoked on failed change: %d, want 200", w.Code)
@@ -78,7 +82,7 @@ func TestChangeOwnPassword_ThrottlesGuessing(t *testing.T) {
 			got429 = true
 			break
 		}
-		if code != http.StatusUnauthorized {
+		if code != http.StatusForbidden {
 			t.Fatalf("unexpected status %d", code)
 		}
 	}

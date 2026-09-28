@@ -1,5 +1,5 @@
 import { useQueryClient } from "@tanstack/react-query";
-import { api, clearAuth } from "../../api/client";
+import { api, resetToLogin } from "../../api/client";
 import { useIdleLogout } from "../../hooks/useIdleLogout";
 
 /**
@@ -21,12 +21,11 @@ export function useLogout() {
 			// Server-side logout failure is non-fatal.
 		}
 		// The logout call revoked the session and cleared the httpOnly session
-		// cookie server-side. Drop the client-visible auth signal so
-		// isAuthenticated() flips false, cancel any in-flight queries so they don't
-		// race the reload, then reload into the login screen.
-		clearAuth();
-		queryClient.cancelQueries();
-		window.location.reload();
+		// cookie server-side. resetToLogin is the shared teardown: it drops the
+		// client-visible auth signal and the per-session localStorage mirror,
+		// cancels in-flight queries so they do not race the reload, and reloads
+		// into the login screen.
+		resetToLogin(queryClient);
 	};
 
 	// Sign out after the configured period of inactivity (0 = never). Reuses the
