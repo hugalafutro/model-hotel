@@ -655,7 +655,7 @@ func (r *Repository) BackfillMaskedKeys(ctx context.Context, masterKey string) (
 func (r *Repository) TouchLastUsed(ctx context.Context, id uuid.UUID) error {
 	var at time.Time
 	err := r.pool.QueryRow(ctx, `
-		UPDATE providers SET last_used_at = now() WHERE id = $1 RETURNING last_used_at
+		UPDATE providers SET last_used_at = GREATEST(last_used_at, now()) WHERE id = $1 RETURNING last_used_at
 	`, id).Scan(&at)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil

@@ -322,3 +322,24 @@ func TestWarmProviderCacheAt_StaleMarkInstallsNothing(t *testing.T) {
 		t.Error("a warm whose List overlapped a flush must not install")
 	}
 }
+
+func TestTouchProviderCacheLastUsed_KeepsTheLaterStamp(t *testing.T) {
+	InvalidateProviderCache()
+	p := &Provider{ID: uuid.New(), Name: "Touched"}
+	cacheProviderAt(p, CacheGen())
+
+	later := time.Now()
+	earlier := later.Add(-time.Second)
+	TouchProviderCacheLastUsed(p.ID, later)
+	TouchProviderCacheLastUsed(p.ID, earlier)
+
+	cached, ok := GetCachedByID(p.ID)
+	if !ok || cached.LastUsedAt == nil || !cached.LastUsedAt.Equal(later) {
+		t.Fatalf("an earlier stamp landing late must not win: %v", cached.LastUsedAt)
+	}
+	if p.LastUsedAt != nil {
+		t.Fatal("the stamp must not mutate the row readers already hold")
+	}
+	// A stamp for an id that is not cached is a no-op.
+	TouchProviderCacheLastUsed(uuid.New(), later)
+}

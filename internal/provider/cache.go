@@ -158,6 +158,10 @@ func TouchProviderCacheLastUsed(id uuid.UUID, at time.Time) {
 	if !ok {
 		return
 	}
+	// Two attempts' touches can land out of order; the later stamp stays.
+	if cur := entry.provider.LastUsedAt; cur != nil && !at.After(*cur) {
+		return
+	}
 	stamped := *entry.provider
 	stamped.LastUsedAt = &at
 	entry.provider = &stamped
