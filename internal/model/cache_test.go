@@ -31,7 +31,7 @@ func TestGetCachedByUUID_CacheHit(t *testing.T) {
 		Name:    "GPT-4",
 		Enabled: true,
 	}
-	cacheModelByUUID(m)
+	cacheModelByUUIDAt(m, CacheGen())
 
 	found, ok := GetCachedByUUID(id)
 	if !ok {
@@ -53,7 +53,7 @@ func TestGetCachedByUUID_CacheMiss(t *testing.T) {
 		ID:      id,
 		ModelID: "gpt-4",
 	}
-	cacheModelByUUID(m)
+	cacheModelByUUIDAt(m, CacheGen())
 
 	_, ok := GetCachedByUUID(uuid.New())
 	if ok {
@@ -88,7 +88,7 @@ func TestGetCachedByUUID_NilModel(t *testing.T) {
 	InvalidateModelCache()
 
 	// Should not panic
-	cacheModelByUUID(nil)
+	cacheModelByUUIDAt(nil, CacheGen())
 
 	// Cache should still be empty
 	_, ok := GetCachedByUUID(uuid.New())
@@ -121,7 +121,7 @@ func TestGetCachedByModelID_CacheHit(t *testing.T) {
 			Enabled: true,
 		},
 	}
-	cacheModelsByModelID("gpt-4", models)
+	cacheModelsByModelIDAt("gpt-4", models, CacheGen())
 
 	found, ok := GetCachedByModelID("gpt-4")
 	if !ok {
@@ -141,7 +141,7 @@ func TestGetCachedByModelID_CacheMiss(t *testing.T) {
 	models := []*Model{
 		{ID: uuid.New(), ModelID: "gpt-4"},
 	}
-	cacheModelsByModelID("gpt-4", models)
+	cacheModelsByModelIDAt("gpt-4", models, CacheGen())
 
 	_, ok := GetCachedByModelID("claude-3")
 	if ok {
@@ -177,7 +177,7 @@ func TestGetCachedByModelID_MultipleModels(t *testing.T) {
 		{ID: uuid.New(), ModelID: "gpt-4", ProviderName: "openai"},
 		{ID: uuid.New(), ModelID: "gpt-4", ProviderName: "azure"},
 	}
-	cacheModelsByModelID("gpt-4", models)
+	cacheModelsByModelIDAt("gpt-4", models, CacheGen())
 
 	found, ok := GetCachedByModelID("gpt-4")
 	if !ok {
@@ -218,7 +218,7 @@ func TestGetCachedByCompositeKey_CacheHit(t *testing.T) {
 		Name:       "GPT-4",
 		Enabled:    true,
 	}
-	cacheModelByCompositeKey(providerID, "gpt-4", m)
+	cacheModelByCompositeKeyAt(providerID, "gpt-4", m, CacheGen())
 
 	found, ok := GetCachedByCompositeKey(providerID, "gpt-4")
 	if !ok {
@@ -241,7 +241,7 @@ func TestGetCachedByCompositeKey_CacheMiss(t *testing.T) {
 		ProviderID: providerID,
 		ModelID:    "gpt-4",
 	}
-	cacheModelByCompositeKey(providerID, "gpt-4", m)
+	cacheModelByCompositeKeyAt(providerID, "gpt-4", m, CacheGen())
 
 	_, ok := GetCachedByCompositeKey(uuid.New(), "gpt-4")
 	if ok {
@@ -283,7 +283,7 @@ func TestGetCachedByCompositeKey_NilModel(t *testing.T) {
 	InvalidateModelCache()
 
 	// Should not panic
-	cacheModelByCompositeKey(uuid.New(), "gpt-4", nil)
+	cacheModelByCompositeKeyAt(uuid.New(), "gpt-4", nil, CacheGen())
 
 	// Cache should still be empty
 	_, ok := GetCachedByCompositeKey(uuid.New(), "gpt-4")
@@ -305,9 +305,9 @@ func TestInvalidateModelCache_RemovesAll(t *testing.T) {
 		ProviderID: providerID,
 		ModelID:    "gpt-4",
 	}
-	cacheModelByUUID(m)
-	cacheModelsByModelID("gpt-4", []*Model{m})
-	cacheModelByCompositeKey(providerID, "gpt-4", m)
+	cacheModelByUUIDAt(m, CacheGen())
+	cacheModelsByModelIDAt("gpt-4", []*Model{m}, CacheGen())
+	cacheModelByCompositeKeyAt(providerID, "gpt-4", m, CacheGen())
 
 	// Confirm all are cached
 	_, ok := GetCachedByUUID(id)
@@ -360,7 +360,7 @@ func TestInvalidateModelCache_AllowsReinsertion(t *testing.T) {
 		ID:      id,
 		ModelID: "reinsert-test",
 	}
-	cacheModelByUUID(m)
+	cacheModelByUUIDAt(m, CacheGen())
 
 	InvalidateModelCache()
 
@@ -370,7 +370,7 @@ func TestInvalidateModelCache_AllowsReinsertion(t *testing.T) {
 	}
 
 	// Re-insert
-	cacheModelByUUID(m)
+	cacheModelByUUIDAt(m, CacheGen())
 
 	found, ok := GetCachedByUUID(id)
 	if !ok {
@@ -491,7 +491,7 @@ func TestWarmModelCache_OverwritesExisting(t *testing.T) {
 		ModelID: "overwrite-test",
 		Name:    "Original",
 	}
-	cacheModelByUUID(m1)
+	cacheModelByUUIDAt(m1, CacheGen())
 
 	found, ok := GetCachedByUUID(id1)
 	if !ok {
@@ -528,7 +528,7 @@ func TestWarmModelCache_PreservesOtherEntries(t *testing.T) {
 		ModelID: "existing-model",
 		Name:    "Existing",
 	}
-	cacheModelByUUID(m1)
+	cacheModelByUUIDAt(m1, CacheGen())
 
 	// Warm with a different model
 	id2 := uuid.New()
@@ -571,7 +571,7 @@ func TestCacheModelsByModelID_PopulatesUUIDCache(t *testing.T) {
 	models := []*Model{
 		{ID: id, ModelID: "gpt-4"},
 	}
-	cacheModelsByModelID("gpt-4", models)
+	cacheModelsByModelIDAt("gpt-4", models, CacheGen())
 
 	// Should also be findable by UUID
 	found, ok := GetCachedByUUID(id)
@@ -590,7 +590,7 @@ func TestCacheModelsByModelID_EmptySlice(t *testing.T) {
 	// but GetCachedByModelID returns nil, false for an empty slice
 	// because the stored models list has length 0.
 	// This is expected behavior — an empty result isn't useful to cache.
-	cacheModelsByModelID("empty-model", []*Model{})
+	cacheModelsByModelIDAt("empty-model", []*Model{}, CacheGen())
 
 	_, ok := GetCachedByModelID("empty-model")
 	// The entry is stored but contains an empty slice, which is still
@@ -618,7 +618,7 @@ func TestCacheModelByUUID_ConcurrentAccess(t *testing.T) {
 				ID:      uuid.New(),
 				ModelID: "concurrent-model",
 			}
-			cacheModelByUUID(m)
+			cacheModelByUUIDAt(m, CacheGen())
 		})
 	}
 
@@ -645,7 +645,7 @@ func TestInvalidateModelCache_ConcurrentWithReads(t *testing.T) {
 		ID:      id,
 		ModelID: "concurrent-invalidate",
 	}
-	cacheModelByUUID(m)
+	cacheModelByUUIDAt(m, CacheGen())
 
 	var wg sync.WaitGroup
 	errors := make(chan error, 50)
@@ -673,7 +673,7 @@ func TestCacheModelByCompositeKey_NilModel(t *testing.T) {
 	InvalidateModelCache()
 
 	// Should not panic
-	cacheModelByCompositeKey(uuid.New(), "test", nil)
+	cacheModelByCompositeKeyAt(uuid.New(), "test", nil, CacheGen())
 
 	// Cache should still be empty for this key
 	_, ok := GetCachedByCompositeKey(uuid.New(), "test")
@@ -701,8 +701,8 @@ func TestCacheModelByCompositeKey_DifferentProviders(t *testing.T) {
 		Name:       "Azure GPT-4",
 	}
 
-	cacheModelByCompositeKey(providerA, "gpt-4", mA)
-	cacheModelByCompositeKey(providerB, "gpt-4", mB)
+	cacheModelByCompositeKeyAt(providerA, "gpt-4", mA, CacheGen())
+	cacheModelByCompositeKeyAt(providerB, "gpt-4", mB, CacheGen())
 
 	foundA, ok := GetCachedByCompositeKey(providerA, "gpt-4")
 	if !ok {
@@ -739,7 +739,7 @@ func TestCacheFillAt_StaleGenerationDoesNotInstall(t *testing.T) {
 	cacheModelByUUIDAt(m, gen)
 	cacheModelsByModelIDAt("gpt-4", []*Model{m}, gen)
 	cacheModelByCompositeKeyAt(providerID, "gpt-4", m, gen)
-	warmModelCacheAt([]*Model{m}, gen)
+	WarmModelCacheAt([]*Model{m}, gen)
 
 	if _, ok := GetCachedByUUID(m.ID); ok {
 		t.Error("stale fill installed by UUID")

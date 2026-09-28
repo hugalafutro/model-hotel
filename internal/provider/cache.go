@@ -163,8 +163,14 @@ func InvalidateProviderCache() {
 
 // WarmProviderCache populates the provider cache with the given providers.
 func WarmProviderCache(providers []*Provider) {
+	WarmProviderCacheAt(providers, CacheGen())
+}
+
+// WarmProviderCacheAt is WarmProviderCache for rows read at a captured mark:
+// nothing installs for a row invalidated since the capture.
+func WarmProviderCacheAt(providers []*Provider, mark CacheMark) {
 	for _, p := range providers {
-		cacheProvider(p)
+		cacheProviderAt(p, mark)
 	}
 	debuglog.Info("provider: warmed cache", "providers", len(providers))
 }

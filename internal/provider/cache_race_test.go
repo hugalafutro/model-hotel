@@ -44,6 +44,7 @@ func TestGetByName_EvictionDuringQueryIsNotReinstalled(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Create: %v", err)
 	}
+	t.Cleanup(func() { _ = newTestRepo(t).Delete(ctx, p.ID) })
 
 	// A TouchLastUsed of this provider lands while the SELECT is in flight.
 	racing := NewRepository(tracedPool(t, func() { EvictProviderCacheByID(p.ID) }))

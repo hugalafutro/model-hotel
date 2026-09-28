@@ -42,15 +42,10 @@ func CacheGen() uint64 { return modelCacheGen.Load() }
 
 const modelCacheTTL = 5 * time.Minute
 
-// The plain fills install at the current generation, outside a read-through
-// (the startup warm; nothing on a write path installs). The At variants take the
-// generation a read-through captured before its query and install nothing
-// when an invalidation has landed since; the caller still gets the rows it
-// read, the next reader refills.
-func cacheModelsByModelID(modelID string, models []*Model) {
-	cacheModelsByModelIDAt(modelID, models, modelCacheGen.Load())
-}
-
+// The At fills take the generation a read-through captured before its query
+// (CacheGen) and install nothing when an invalidation has landed since; the
+// caller still gets the rows it read, the next reader refills. Nothing on a
+// write path installs.
 func cacheModelsByModelIDAt(modelID string, models []*Model, gen uint64) {
 	exp := time.Now().Add(modelCacheTTL)
 	modelCacheMu.Lock()
@@ -64,10 +59,6 @@ func cacheModelsByModelIDAt(modelID string, models []*Model, gen uint64) {
 	}
 }
 
-func cacheModelByUUID(m *Model) {
-	cacheModelByUUIDAt(m, modelCacheGen.Load())
-}
-
 func cacheModelByUUIDAt(m *Model, gen uint64) {
 	if m == nil {
 		return
@@ -78,10 +69,6 @@ func cacheModelByUUIDAt(m *Model, gen uint64) {
 		return
 	}
 	modelByUUIDCache[m.ID] = modelByIDCacheEntry{model: m, expiresAt: time.Now().Add(modelCacheTTL)}
-}
-
-func cacheModelByCompositeKey(providerID uuid.UUID, modelID string, m *Model) {
-	cacheModelByCompositeKeyAt(providerID, modelID, m, modelCacheGen.Load())
 }
 
 func cacheModelByCompositeKeyAt(providerID uuid.UUID, modelID string, m *Model, gen uint64) {
@@ -161,13 +148,12 @@ func InvalidateModelCache() {
 // composite provider:modelID key) so that lookups from all resolve paths
 // hit cache on the first request.
 func WarmModelCache(models []*Model) {
-	warmModelCacheAt(models, modelCacheGen.Load())
+	WarmModelCacheAt(models, modelCacheGen.Load())
 }
 
-// warmModelCacheAt is WarmModelCache for a read-through: gen is the
-// generation captured before the query, and nothing installs if an
-// invalidation has landed since.
-func warmModelCacheAt(models []*Model, gen uint64) {
+// WarmModelCacheAt is WarmModelCache for rows read at a captured generation:
+// nothing installs if an invalidation has landed since the capture.
+func WarmModelCacheAt(models []*Model, gen uint64) {
 	exp := time.Now().Add(modelCacheTTL)
 	modelCacheMu.Lock()
 	defer modelCacheMu.Unlock()

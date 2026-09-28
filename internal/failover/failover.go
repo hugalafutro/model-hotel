@@ -86,7 +86,7 @@ func (r *Repository) GetByModel(ctx context.Context, modelID string) (*FailoverG
 	if fg, ok := GetCachedFailoverByModel(modelID); ok {
 		return fg, nil
 	}
-	mark := CacheGen()
+	gen := CacheGen()
 
 	fg, err := scanFailoverGroup(r.pool.QueryRow(ctx, `
 		SELECT `+failoverGroupColumns+`
@@ -97,7 +97,7 @@ func (r *Repository) GetByModel(ctx context.Context, modelID string) (*FailoverG
 		return nil, err
 	}
 
-	cacheFailoverGroupAt(fg, mark)
+	cacheFailoverGroupAt(fg, gen)
 	return fg, nil
 }
 
@@ -200,7 +200,7 @@ func (r *Repository) DeleteByID(ctx context.Context, id uuid.UUID) error {
 
 // GetByID retrieves a failover group by its ID.
 func (r *Repository) GetByID(ctx context.Context, id uuid.UUID) (*FailoverGroup, error) {
-	mark := CacheGen()
+	gen := CacheGen()
 	fg, err := scanFailoverGroup(r.pool.QueryRow(ctx, `
 		SELECT `+failoverGroupColumns+`
 		FROM model_failover_groups
@@ -210,7 +210,7 @@ func (r *Repository) GetByID(ctx context.Context, id uuid.UUID) (*FailoverGroup,
 		return nil, err
 	}
 
-	cacheFailoverGroupAt(fg, mark)
+	cacheFailoverGroupAt(fg, gen)
 	return fg, nil
 }
 

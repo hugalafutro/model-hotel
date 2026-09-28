@@ -430,7 +430,7 @@ func (r *Repository) GetByIDs(ctx context.Context, ids []uuid.UUID) (map[uuid.UU
 		return result, err
 	}
 
-	warmModelCacheAt(models, gen)
+	WarmModelCacheAt(models, gen)
 
 	for _, m := range models {
 		result[m.ID] = m
