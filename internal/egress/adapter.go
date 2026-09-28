@@ -10,12 +10,18 @@ import (
 )
 
 // MaxSSEEventBytes caps the SSE event an adapter will buffer: the data fields
-// joined so far plus the line still being read. The Responses dialect sets the
-// floor, since its response.completed event embeds the whole generated output
-// (a 128k-token generation with JSON escaping approaches 1 MiB); 4 MiB clears
-// that with headroom while still bounding an upstream that never closes an
-// event.
-const MaxSSEEventBytes = 4 << 20
+// joined so far plus the line still being read. It is the proxy's per-line cap
+// (proxy.sseLineCap) so a translated upstream holds what a direct one does: a
+// Responses partial image is one base64 picture in a single event and a 2K
+// PNG runs past 10 MiB encoded, and response.completed embeds the whole
+// generated output (a 128k-token generation with JSON escaping approaches
+// 1 MiB). The buffer grows on demand, so the cap costs nothing until an event
+// needs it, while still bounding an upstream that never closes one.
+const MaxSSEEventBytes = 32 << 20
+
+// ErrEventTooLarge is wrapped by the stream error of an upstream whose event
+// outgrew MaxSSEEventBytes, so the proxy classifies it with its own line cap.
+var ErrEventTooLarge = errors.New("upstream SSE event exceeds the cap")
 
 // Translator converts one upstream SSE data payload into the client-facing
 // bytes for that event, and produces the stream's terminal bytes on Finish.
@@ -55,19 +61,17 @@ type StreamAdapter struct {
 	readBuf  []byte
 	srcErr   error
 	transErr error // first translation failure; poisons the stream
-	eventCap int   // largest SSE event this adapter buffers; MaxSSEEventBytes unless the dialect says otherwise
+	eventCap int   // largest SSE event this adapter buffers: MaxSSEEventBytes
+	// onUpstream, when set, hears the size of every upstream read that
+	// brought bytes (OnUpstreamBytes).
+	onUpstream func(n int)
 }
 
 // NewStreamAdapter builds an adapter for one streaming response. component is
 // the log prefix ("gemini", "anthropicegress"); tr is that dialect's stream
 // translator, already primed with the chunk id and model to echo.
 func NewStreamAdapter(component string, upstream io.ReadCloser, tr Translator) *StreamAdapter {
-	return NewStreamAdapterWithCap(component, upstream, tr, MaxSSEEventBytes)
-}
-
-// NewStreamAdapterWithCap is NewStreamAdapter with the dialect's own event
-// cap, for one whose single event legitimately outgrows MaxSSEEventBytes.
-func NewStreamAdapterWithCap(component string, upstream io.ReadCloser, tr Translator, eventCap int) *StreamAdapter {
+	eventCap := MaxSSEEventBytes
 	return &StreamAdapter{
 		component: component,
 		upstream:  upstream,
@@ -95,6 +99,9 @@ func (a *StreamAdapter) Read(p []byte) (int, error) {
 		}
 		n, err := a.upstream.Read(a.readBuf)
 		if n > 0 {
+			if a.onUpstream != nil {
+				a.onUpstream(n)
+			}
 			a.consume(a.readBuf[:n])
 		}
 		if err != nil {
@@ -119,6 +126,14 @@ func (a *StreamAdapter) Read(p []byte) (int, error) {
 	n := copy(p, a.pending)
 	a.pending = a.pending[n:]
 	return n, nil
+}
+
+// OnUpstreamBytes registers f to hear the size of every upstream read that
+// brought bytes. The adapter hands its reader nothing until an event is whole,
+// so a caller timing the stream's liveness (the proxy's stall watchdog) needs
+// the upstream's progress, not its own. f runs on the goroutine calling Read.
+func (a *StreamAdapter) OnUpstreamBytes(f func(n int)) {
+	a.onUpstream = f
 }
 
 // consume splits incoming bytes into SSE lines and assembles those lines into
@@ -177,7 +192,7 @@ func (a *StreamAdapter) withinEventCap(partialLine int) bool {
 		return true
 	}
 	a.lineBuf, a.eventBuf = nil, nil
-	a.transErr = fmt.Errorf("%s: upstream SSE event exceeds %d bytes", a.component, a.eventCap)
+	a.transErr = fmt.Errorf("%s: %w (%d bytes)", a.component, ErrEventTooLarge, a.eventCap)
 	debuglog.Warn(a.component+": stream event exceeds buffer cap", "limit", a.eventCap)
 	return false
 }

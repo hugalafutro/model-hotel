@@ -85,6 +85,10 @@ type streamState struct {
 	// address). Empty means the client frame reuses errMsg, which is
 	// gateway-authored on every other failure path.
 	clientErrMsg string
+	// lineCapExceeded marks a stream that ended on a frame past sseLineCap.
+	// It is charged even after output: no model sends such a frame, and a
+	// provider must not stay in rotation by emitting one token first.
+	lineCapExceeded bool
 
 	// Observer state carried across chunks. Not consumed by the finalizer, but
 	// co-located here so the data-chunk observers operate on one named
@@ -166,7 +170,9 @@ func streamDeliveredOutput(st *streamState) bool {
 // frame from ever winning that race). The breaker is then the only thing left
 // that can keep the next request away.
 func judgeStreamForBreaker(st *streamState, logData *requestLogData, errMsg string, circuitBreakerOn bool) streamBreakerVerdict {
-	if !circuitBreakerOn || st.interrupted || st.clientDisconnected {
+	// An overflow is charged even when a shutdown lands before the finalizer:
+	// the row already names it as the provider's fault.
+	if !circuitBreakerOn || (st.interrupted && !st.lineCapExceeded) || st.clientDisconnected {
 		return streamBreakerVerdict{}
 	}
 	if errMsg == "" {
@@ -206,7 +212,13 @@ func judgeStreamForBreaker(st *streamState, logData *requestLogData, errMsg stri
 	// deriveStreamError writes the two together. The clean-finish charge sits
 	// above this gate deliberately, having no errMsg and therefore no kind; the
 	// two non-provider causes that could reach it (interrupted,
-	// clientDisconnected) are short-circuited at the top.
+	// clientDisconnected) are short-circuited at the top, except an
+	// interrupted stream that overflowed, which is charged below.
+	// An overflow is charged whatever an earlier error frame was classified
+	// as: no model sends such a frame.
+	if st.lineCapExceeded {
+		return streamBreakerVerdict{failureReason: "stream frame exceeded the line limit"}
+	}
 	if !providerAtFault(logData.errorKind) {
 		return streamBreakerVerdict{}
 	}
@@ -365,6 +377,12 @@ func (h *Handler) finalizeStream(st *streamState, sink *streamSink, scanErr erro
 // by the watchdog's body.Close(). The missing-[DONE] diagnosis is NOT handled
 // here: it may write to the client, so it stays in finalizeStream.
 func deriveStreamError(st *streamState, scanErr error, opts streamOptions, logData *requestLogData) string {
+	// An overflow is charged and outranks a stall whatever came before it,
+	// an in-stream error frame included; the message below names it only
+	// when nothing earlier already explains the failure.
+	if isLineCapErr(scanErr) {
+		st.lineCapExceeded = true
+	}
 	errMsg := st.lastErrMsg
 	if errMsg != "" {
 		// An in-stream SSE error body from the provider. It is sanitized here for
@@ -389,6 +407,16 @@ func deriveStreamError(st *streamState, scanErr error, opts streamOptions, logDa
 	}
 	if errMsg == "" && scanErr != nil {
 		switch {
+		case isLineCapErr(scanErr):
+			// A frame past sseLineCap: the row and the client name the limit
+			// rather than a connection error, and the provider is charged as
+			// for any broken stream, so one that keeps sending endless lines
+			// leaves rotation. The probe path classifies the same error the
+			// same way (classifyProbeError).
+			errMsg = lineCapErrMsg
+			st.clientErrMsg = errMsg
+			st.lineCapExceeded = true
+			logData.errorKind = KindProviderError
 		case errors.Is(scanErr, context.Canceled):
 			// The scanner caught the cancellation before the select between
 			// iterations could. This is always a client disconnect: the
@@ -443,7 +471,10 @@ func deriveStreamError(st *streamState, scanErr error, opts streamOptions, logDa
 	// stall so a restart never reads as a provider fault.
 	// Either verdict needs the stream to have ended without a terminal sentinel
 	// and without the client leaving.
-	cutShort := !st.sawDone && !st.sawTerminalEvent && !st.clientDisconnected
+	// A frame past the line cap is its own verdict: the body close it
+	// triggers, or a watchdog firing after it, must not relabel it a stall
+	// or a restart.
+	cutShort := !st.sawDone && !st.sawTerminalEvent && !st.clientDisconnected && !st.lineCapExceeded
 	switch {
 	case st.interrupted && cutShort:
 		errMsg = "stream interrupted: gateway restarting"

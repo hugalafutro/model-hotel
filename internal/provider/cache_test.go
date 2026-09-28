@@ -343,3 +343,35 @@ func TestTouchProviderCacheLastUsed_KeepsTheLaterStamp(t *testing.T) {
 	// A stamp for an id that is not cached is a no-op.
 	TouchProviderCacheLastUsed(uuid.New(), later)
 }
+
+// A read-through that captured its mark before a touch installs with the
+// touch's stamp rather than the unstamped row it read, and is never dropped
+// for it: a provider touched on every request must still refill.
+func TestTouchProviderCacheLastUsed_RepairsAnOverlappingFill(t *testing.T) {
+	InvalidateProviderCache()
+	p := &Provider{ID: uuid.New(), Name: "Touch Repaired"}
+
+	mark := CacheGen()
+	at := time.Now()
+	TouchProviderCacheLastUsed(p.ID, at)
+	if !cacheProviderAt(p, mark) {
+		t.Fatal("a fill that overlapped a touch must still install")
+	}
+	cached, ok := GetCachedByID(p.ID)
+	if !ok || cached.LastUsedAt == nil || !cached.LastUsedAt.Equal(at) {
+		t.Fatalf("the installed row must carry the touch's stamp: %v", cached.LastUsedAt)
+	}
+	if p.LastUsedAt != nil {
+		t.Fatal("the repair must not mutate the row the reader holds")
+	}
+
+	// A row that already carries a later stamp keeps it.
+	later := at.Add(time.Second)
+	newer := &Provider{ID: p.ID, Name: p.Name, LastUsedAt: &later}
+	InvalidateProviderCache()
+	TouchProviderCacheLastUsed(p.ID, at)
+	cacheProviderAt(newer, CacheGen())
+	if got, _ := GetCachedByID(p.ID); !got.LastUsedAt.Equal(later) {
+		t.Fatalf("an older touch overwrote a newer row: %v", got.LastUsedAt)
+	}
+}

@@ -40,6 +40,10 @@ var (
 	providerFlushGen uint64
 	providerEvictSeq uint64
 	providerEvicted  = make(map[uuid.UUID]uint64)
+	// providerTouchedAt is the latest last_used_at each provider was touched
+	// with (TouchProviderCacheLastUsed); bounded by the provider count and
+	// reset by a flush.
+	providerTouchedAt = make(map[uuid.UUID]time.Time)
 )
 
 // CacheMark is what a read-through captures before its query: the flush
@@ -76,6 +80,11 @@ func cacheProviderAt(p *Provider, gen CacheMark) bool {
 	defer providerCacheMu.Unlock()
 	if providerFlushGen != gen.flush || providerEvicted[p.ID] > gen.evict {
 		return false
+	}
+	if t, ok := providerTouchedAt[p.ID]; ok && (p.LastUsedAt == nil || t.After(*p.LastUsedAt)) {
+		stamped := *p
+		stamped.LastUsedAt = &t
+		entry.provider = &stamped
 	}
 	providerByIDCache[p.ID] = entry
 	providerByNameCache[p.Name] = entry
@@ -154,6 +163,13 @@ func EvictProviderCacheByID(id uuid.UUID) {
 func TouchProviderCacheLastUsed(id uuid.UUID, at time.Time) {
 	providerCacheMu.Lock()
 	defer providerCacheMu.Unlock()
+	// A read-through of this id whose SELECT ran before the touch's UPDATE
+	// installs later; the recorded time lets cacheProviderAt raise that row's
+	// stamp rather than install it unstamped. Fencing the fill instead would
+	// drop nearly every refill of a provider touched on every request.
+	if prev, ok := providerTouchedAt[id]; !ok || at.After(prev) {
+		providerTouchedAt[id] = at
+	}
 	entry, ok := providerByIDCache[id]
 	if !ok {
 		return
@@ -175,6 +191,7 @@ func InvalidateProviderCache() {
 	providerCacheMu.Lock()
 	providerFlushGen++
 	providerEvicted = make(map[uuid.UUID]uint64)
+	providerTouchedAt = make(map[uuid.UUID]time.Time)
 	providerByIDCache = make(map[uuid.UUID]providerCacheEntry)
 	providerByNameCache = make(map[string]providerCacheEntry)
 	providerByNormalNameCache = make(map[string]providerCacheEntry)

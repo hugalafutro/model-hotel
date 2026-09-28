@@ -4,12 +4,15 @@ import (
 	"bufio"
 	"bytes"
 	"context"
+	"errors"
+	"fmt"
 	"io"
 	"strings"
 	"sync/atomic"
 	"time"
 
 	"github.com/hugalafutro/model-hotel/internal/debuglog"
+	"github.com/hugalafutro/model-hotel/internal/egress"
 )
 
 // emptyMessagesLimit caps how many consecutive blank SSE lines we tolerate
@@ -38,6 +41,29 @@ type sseEvent struct {
 	payload string
 }
 
+// sseLineCap bounds one SSE line on both chat stream readers (this one and
+// the TTFT probe); egress.MaxSSEEventBytes is the same figure for a translated
+// upstream's event. The scanner grows its buffer on demand, so the cap costs
+// nothing until a frame needs it. It has to hold a whole image: an image model
+// streams each picture as one base64 data URL in a single delta (OpenRouter
+// `images`, a Responses partial image), and a 2K PNG runs past 10 MiB encoded.
+// The old 4 MiB cap failed such streams as bufio.ErrTooLong, reported as an
+// upstream connection error. A frame past this cap is not an image any model
+// produces: the stream ends, the row and the client name the limit, and the
+// provider is charged for it like any other broken stream.
+const sseLineCap = egress.MaxSSEEventBytes
+
+// lineCapErrMsg is the row's and the client's message when a frame exceeds
+// sseLineCap, on the stream path and the probe path alike.
+var lineCapErrMsg = fmt.Sprintf("stream failed: a frame exceeded the gateway's %d MiB line limit", sseLineCap>>20)
+
+// isLineCapErr reports a frame past the cap, from this package's scanners
+// (bufio.ErrTooLong) or from a translated upstream's adapter
+// (egress.ErrEventTooLarge).
+func isLineCapErr(err error) bool {
+	return errors.Is(err, bufio.ErrTooLong) || errors.Is(err, egress.ErrEventTooLarge)
+}
+
 // streamReader owns the upstream side of handleStreamingResponse: the scanner
 // (replaying the TTFT probe buffer when present), the stall watchdog goroutine,
 // the chunk counter, the empty-line limit, client-disconnect detection, BOM/CR
@@ -64,6 +90,12 @@ type streamReader struct {
 
 	chunkCount int
 	emptyLines int
+	// midLineBytes counts bytes read since the watchdog was last re-armed and
+	// lineStarted is when the line now being read began arriving; both are
+	// written only on the scanner's goroutine.
+	midLineBytes int
+	lineBytes    int
+	lineStarted  time.Time
 
 	// disconnected is set when the client's context is cancelled between
 	// iterations; abortErrMsg is set when the empty-line limit is exceeded.
@@ -82,17 +114,7 @@ type streamReader struct {
 // finalize path can hand the client a terminal error frame before the
 // process exits; nil means no shutdown signal.
 func newStreamReader(ctx context.Context, body io.ReadCloser, opts streamOptions, logData *requestLogData, shutdown <-chan struct{}) *streamReader {
-	var scanner *bufio.Scanner
-	if opts.preReadBuf != nil {
-		scanner = bufio.NewScanner(io.MultiReader(bytes.NewReader(opts.preReadBuf.Bytes()), body))
-	} else {
-		scanner = bufio.NewScanner(body)
-	}
-	scanner.Buffer(make([]byte, 64*1024), 4*1024*1024) // 4MB per line
-	debuglog.Debug("proxy: streaming scanner created", "model", logData.modelID, "provider", logData.providerName, "replaying_probe", opts.preReadBuf != nil)
-
 	r := &streamReader{
-		scanner:       scanner,
 		ctx:           ctx,
 		body:          body,
 		stallTimeout:  opts.streamStallTimeout,
@@ -104,6 +126,25 @@ func newStreamReader(ctx context.Context, body io.ReadCloser, opts streamOptions
 	if opts.streamStallTimeout > 0 {
 		r.stallCh = make(chan time.Duration, 1)
 	}
+	// The watchdog hears reads mid-line as well as finished lines: an image
+	// frame of tens of MiB on a slow link is still data arriving, and must
+	// not read as a stall halfway through. Mid-line bytes re-arm it only in
+	// volume (stallByteQuantum), so an upstream dribbling a byte at a time
+	// without finishing a line still stalls.
+	// A translated upstream's adapter buffers a whole event before handing on
+	// a byte, so its own upstream reads are what the watchdog hears.
+	var src io.Reader = body
+	if tap, ok := body.(interface{ OnUpstreamBytes(func(int)) }); ok {
+		tap.OnUpstreamBytes(r.noteBytes)
+	} else {
+		src = progressReader{r: body, progress: r.noteBytes}
+	}
+	if opts.preReadBuf != nil {
+		src = io.MultiReader(bytes.NewReader(opts.preReadBuf.Bytes()), src)
+	}
+	r.scanner = bufio.NewScanner(src)
+	r.scanner.Buffer(make([]byte, 64*1024), sseLineCap)
+	debuglog.Debug("proxy: streaming scanner created", "model", logData.modelID, "provider", logData.providerName, "replaying_probe", opts.preReadBuf != nil)
 	if opts.streamStallTimeout > 0 || shutdown != nil {
 		r.watchdogDone = make(chan struct{})
 		go r.runWatchdog()
@@ -169,24 +210,18 @@ func (r *streamReader) runWatchdog() {
 // are valid only until the following Next() call.
 func (r *streamReader) Next() (sseEvent, bool) {
 	if !r.scanner.Scan() {
+		if isLineCapErr(r.scanner.Err()) {
+			// The rest of that line is unbounded and the orchestrator drains
+			// the body before closing it, so it is closed here: a drain of an
+			// endless line would otherwise run to the attempt's deadline.
+			_ = r.body.Close()
+		}
 		return sseEvent{}, false
 	}
 	line := r.scanner.Bytes()
 	r.chunkCount++
-
-	// Ping stall watchdog after each successful scan. After
-	// progressiveChunkThreshold chunks the stream is clearly alive — extend
-	// the timeout to tolerate tool-call pauses and long reasoning.
-	if r.stallCh != nil {
-		effectiveStall := r.stallTimeout
-		if r.chunkCount > progressiveChunkThreshold {
-			effectiveStall = r.stallTimeout * progressiveStallMultiplier
-		}
-		select {
-		case r.stallCh <- effectiveStall:
-		default:
-		}
-	}
+	r.midLineBytes, r.lineBytes, r.lineStarted = 0, 0, time.Time{}
+	r.pingWatchdog()
 
 	// Client-disconnect check between iterations: abandon the scanned line.
 	select {
@@ -233,6 +268,73 @@ func (r *streamReader) Next() (sseEvent, bool) {
 	// Not a data line — an SSE comment (": ..."), event/id/retry directive, or
 	// other. Carry the cleaned form so the orchestrator can inspect "event:".
 	return sseEvent{kind: sseComment, raw: line, clean: lineStr}, true
+}
+
+// slowLineRate is the average rate, in bytes per second, a line must keep
+// once it has been arriving for progressiveStallMultiplier stall windows for
+// its bytes to go on re-arming the watchdog. A 32 MiB frame at this floor
+// lands in about eight and a half minutes, inside the streaming attempt's
+// ten-minute deadline; a trickle falls below it and stalls.
+const slowLineRate = 64 << 10
+
+// stallByteQuantum is how many mid-line bytes re-arm the stall watchdog. A
+// real frame on a slow link moves far more than this per stall window; an
+// upstream trickling a byte every few seconds never reaches it.
+const stallByteQuantum = 4 << 10
+
+// noteBytes counts bytes read inside Scan and re-arms the watchdog once a
+// quantum has arrived since it was last re-armed. For the first
+// progressiveStallMultiplier stall windows of a line that is all it takes;
+// past them the line must also have averaged slowLineRate since it began, so
+// a large frame on a slow but working link keeps going while an upstream
+// trickling quanta to hold the stream open is left to stall.
+func (r *streamReader) noteBytes(n int) {
+	if r.lineStarted.IsZero() {
+		r.lineStarted = time.Now()
+	}
+	r.midLineBytes += n
+	r.lineBytes += n
+	if r.midLineBytes < stallByteQuantum {
+		return
+	}
+	if elapsed := time.Since(r.lineStarted); elapsed >= r.stallTimeout*progressiveStallMultiplier && float64(r.lineBytes) < slowLineRate*elapsed.Seconds() {
+		return
+	}
+	r.midLineBytes = 0
+	r.pingWatchdog()
+}
+
+// pingWatchdog re-arms the stall watchdog. It runs on the scanner's
+// goroutine (after each line, and from progressReader inside Scan), so
+// chunkCount needs no lock. After progressiveChunkThreshold chunks the stream
+// is clearly alive, so the timeout extends to tolerate tool-call pauses and
+// long reasoning.
+func (r *streamReader) pingWatchdog() {
+	if r.stallCh == nil {
+		return
+	}
+	effectiveStall := r.stallTimeout
+	if r.chunkCount > progressiveChunkThreshold {
+		effectiveStall = r.stallTimeout * progressiveStallMultiplier
+	}
+	select {
+	case r.stallCh <- effectiveStall:
+	default:
+	}
+}
+
+// progressReader reports the size of every read that returned bytes.
+type progressReader struct {
+	r        io.Reader
+	progress func(n int)
+}
+
+func (p progressReader) Read(b []byte) (int, error) {
+	n, err := p.r.Read(b)
+	if n > 0 {
+		p.progress(n)
+	}
+	return n, err
 }
 
 // dataEvent classifies a payload extracted from a "data:" line as the [DONE]

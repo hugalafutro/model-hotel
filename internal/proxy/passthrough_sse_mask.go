@@ -37,10 +37,10 @@ func (t *tailBuffer) Bytes() []byte {
 }
 
 // sseErrorMaskEventCap bounds how much of one SSE event the masking writer holds
-// back before giving up and passing the rest of that event through raw. It
-// matches the per-line cap of the chat stream reader: a sane error frame is
-// orders of magnitude smaller, and a partial-image event that long is not
-// something the mask should touch.
+// back before giving up and passing the rest of that event through raw. It is
+// deliberately far below sseLineCap: a sane error frame is orders of magnitude
+// smaller, and a partial-image event past this is streamed through raw rather
+// than held whole in memory before its first byte goes out.
 const sseErrorMaskEventCap = 4 << 20
 
 // sseErrorMaskWriter is an io.Writer that forwards a pass-through SSE stream

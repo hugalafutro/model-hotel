@@ -443,7 +443,7 @@ func (h *Handler) probeFirstToken(
 	var buf bytes.Buffer
 	tee := io.TeeReader(body, &buf)
 	scanner := bufio.NewScanner(tee)
-	scanner.Buffer(make([]byte, 64*1024), 4*1024*1024)
+	scanner.Buffer(make([]byte, 64*1024), sseLineCap)
 
 	// sawFrame records a data frame that carried no output (a role opener, a
 	// usage-only chunk, an Anthropic message_start). Such a frame is not a
@@ -533,7 +533,9 @@ func (h *Handler) probeFirstToken(
 		// context is still valid: once it expires the goroutine has closed the
 		// body, and returning success would hand the caller a closed body,
 		// truncating the stream after buffer replay.
-		if probeCtx.Err() == nil {
+		// A frame past the cap has no complete line to recover, and the
+		// recovery would copy the whole capped buffer twice to find that out.
+		if probeCtx.Err() == nil && !isLineCapErr(scanErr) {
 			probeSucceeded.Store(true) // mirror the main loop: store before any processing
 			// Every outcome logs, including the ones that refuse: the log is
 			// the only way an operator learns this branch fired.
@@ -541,7 +543,9 @@ func (h *Handler) probeFirstToken(
 				return probeBuf, ttft, err
 			}
 		}
-		if probeCtx.Err() == context.DeadlineExceeded {
+		// An overflow is named as one even when the probe deadline lands at
+		// the same moment.
+		if probeCtx.Err() == context.DeadlineExceeded && !isLineCapErr(scanErr) {
 			return nil, 0, fmt.Errorf("TTFT timeout: no first token within %s", ttftTimeout)
 		}
 		return nil, 0, fmt.Errorf("TTFT probe read error: %w", scanErr)

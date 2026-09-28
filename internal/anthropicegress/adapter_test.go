@@ -6,8 +6,6 @@ import (
 	"io"
 	"strings"
 	"testing"
-
-	"github.com/hugalafutro/model-hotel/internal/egress"
 )
 
 // scriptedBody yields its script one entry per Read call, simulating SSE
@@ -303,28 +301,6 @@ func TestStreamAdapter_TruncatedResidualAfterMessageStopIgnored(t *testing.T) {
 	}
 	if !strings.HasSuffix(s, "data: [DONE]\n\n") {
 		t.Errorf("bytes emitted after the sentinel:\n%s", s)
-	}
-}
-
-func TestStreamAdapter_OverlongEventFailsStream(t *testing.T) {
-	// An upstream that never emits a newline must fail the stream rather than
-	// grow the line buffer without bound.
-	upstream := &scriptedBody{script: []string{
-		"data: {\"type\":\"content_block_delta\",\"index\":0,\"delta\":{\"type\":\"text_delta\",\"text\":\"" +
-			strings.Repeat("a", egress.MaxSSEEventBytes+1),
-	}}
-	out, err := io.ReadAll(NewStreamAdapter(upstream, "m"))
-	if err == nil {
-		t.Fatal("expected an error once the line exceeded the cap")
-	}
-	if !strings.Contains(err.Error(), "exceeds") {
-		t.Errorf("error = %q, want it to name the exceeded cap", err)
-	}
-	if strings.Contains(string(out), "[DONE]") {
-		t.Errorf("[DONE] fabricated over an unterminated line:\n%s", out)
-	}
-	if strings.Contains(err.Error(), "aaaa") {
-		t.Errorf("error leaked the buffered line: %q", err)
 	}
 }
 

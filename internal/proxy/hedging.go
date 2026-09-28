@@ -422,7 +422,7 @@ func (h *Handler) probeStreamingCandidate(ctx context.Context, st *requestState,
 		_ = resp.Body.Close()
 		var frameErr *upstreamFrameError
 		var emptyErr *emptyStreamError
-		answered := errors.As(probeErr, &frameErr) || errors.As(probeErr, &emptyErr)
+		answered := errors.As(probeErr, &frameErr) || errors.As(probeErr, &emptyErr) || isLineCapErr(probeErr)
 		if !answered && ctx.Err() != nil && hedgeAbandonKind(ctx) == KindHedgeSuperseded {
 			// The orchestrator cancelled this attempt because another
 			// candidate won. Its probe was still valid when it was cut, so
