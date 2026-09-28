@@ -1663,6 +1663,36 @@ func TestAutoSync_OneRecoveredEventPerRecovery(t *testing.T) {
 	}
 }
 
+// TestAutoSync_PushSucceedingAgainRecovers: a member that refused a push and
+// was never flagged diverged gets its one recovered event from the push that
+// succeeds again.
+func TestAutoSync_PushSucceedingAgainRecovers(t *testing.T) {
+	f := newHashFleet(t, func(r *stubAutoMember) {
+		r.versionHash = "hash-drifted"
+		r.dryDiff = driftDiff
+		r.realImportCode = http.StatusBadRequest
+	})
+	f.tick(t)
+	if n := countEvents(t, f.store, "config.sync_failed"); n != 1 {
+		t.Fatalf("config.sync_failed after the refusal = %d, want 1", n)
+	}
+	f.replica.mu.Lock()
+	f.replica.realImportCode = 0
+	f.replica.appliedHash = "hash-B"
+	f.replica.mu.Unlock()
+	f.tick(t)
+	if got := f.replica.realSyncCount(); got != 2 {
+		t.Fatalf("real imports = %d, want 2 (the refused push and the one that succeeded)", got)
+	}
+	evs, _, err := f.store.ListEvents(t.Context(), EventFilter{Type: "config.sync_recovered"})
+	if err != nil {
+		t.Fatalf("ListEvents: %v", err)
+	}
+	if len(evs) != 1 || !strings.Contains(evs[0].Message, "succeeds again") {
+		t.Errorf("config.sync_recovered = %+v, want one event from the push that succeeded", evs)
+	}
+}
+
 // TestAutoSync_PushedMemberIsNotStampedVerifiedUntilItMatches: a completed write
 // is not a verification. A member that commits every import and never ends up
 // holding the config is re-pushed once per incompleteRetryInterval forever, so a
