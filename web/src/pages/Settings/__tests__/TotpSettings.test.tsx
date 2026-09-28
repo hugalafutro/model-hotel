@@ -349,6 +349,57 @@ describe("TotpSettings", () => {
 		expect(await screen.findByText(/Invalid TOTP code/i)).toBeInTheDocument();
 	});
 
+	it("tells the operator to wait when verify is throttled", async () => {
+		mockStatus(false);
+		server.use(
+			http.post("/api/totp/enroll/start", () =>
+				HttpResponse.json({ uri: ENROLL_URI, secret: ENROLL_SECRET }),
+			),
+			http.post("/api/totp/enroll/verify", () =>
+				HttpResponse.text("too many attempts", { status: 429 }),
+			),
+		);
+
+		const { user } = renderWithProviders(<TotpPanel />);
+		await user.click(
+			await screen.findByRole("button", { name: /Enable TOTP/i }),
+		);
+		await user.type(
+			await screen.findByLabelText(/TOTP verification code/i),
+			"000000",
+		);
+		await user.click(
+			await screen.findByRole("button", {
+				name: /Verify TOTP code and enable/i,
+			}),
+		);
+
+		expect(await screen.findByText(/Too many attempts/i)).toBeInTheDocument();
+	});
+
+	it("tells the operator to wait when disable is throttled", async () => {
+		mockStatus(true);
+		server.use(
+			http.post("/api/totp/disable", () =>
+				HttpResponse.text("too many attempts", { status: 429 }),
+			),
+		);
+
+		const { user } = renderWithProviders(<TotpPanel />);
+		await user.click(
+			await screen.findByRole("button", { name: /Disable TOTP/i }),
+		);
+		await user.type(
+			await screen.findByLabelText(/TOTP or recovery code to disable/i),
+			"000000",
+		);
+		await user.click(
+			await screen.findByRole("button", { name: /Confirm disable TOTP/i }),
+		);
+
+		expect(await screen.findByText(/Too many attempts/i)).toBeInTheDocument();
+	});
+
 	it("renders nothing sensitive in initial disabled state", async () => {
 		mockStatus(false);
 

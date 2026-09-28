@@ -291,3 +291,46 @@ func TestUserTotp_EdgeResponses(t *testing.T) {
 		t.Errorf("reset unknown user: %d, want 404", w.Code)
 	}
 }
+
+// TestUserTotp_EnrollVerifyGuards: verify while TOTP is already on is refused
+// (409), and wrong codes on a staged secret back off (429) like disable does,
+// so a hijacked session cannot brute-force a fresh set of recovery codes.
+func TestUserTotp_EnrollVerifyGuards(t *testing.T) {
+	r, sm := setupUserTotpTest(t)
+	_, token := userSession(t, r, sm, "totp-verify-guards")
+	secret, _ := enrollUserTotp(t, r, token)
+
+	// The gate runs before the code is looked at, so no step is consumed.
+	w := doJSON(t, r, http.MethodPost, "/auth/totp/enroll/verify", token, `{"code":"000000"}`)
+	if w.Code != http.StatusConflict {
+		t.Fatalf("verify while enabled: %d, want 409 (body %s)", w.Code, w.Body.String())
+	}
+
+	// Back to a staged secret: disable, start again, then guess.
+	w = doJSON(t, r, http.MethodPost, "/auth/totp/disable", token,
+		`{"code":"`+totpCodeAt(t, secret, 1)+`"}`)
+	if w.Code != http.StatusOK {
+		t.Fatalf("disable: %d %s", w.Code, w.Body.String())
+	}
+	w = doJSON(t, r, http.MethodPost, "/auth/totp/enroll/start", token, "{}")
+	if w.Code != http.StatusOK {
+		t.Fatalf("enroll/start: %d %s", w.Code, w.Body.String())
+	}
+	var got429 bool
+	for range 8 {
+		w = doJSON(t, r, http.MethodPost, "/auth/totp/enroll/verify", token, `{"code":"000000"}`)
+		if w.Code == http.StatusTooManyRequests {
+			if w.Header().Get("Retry-After") == "" {
+				t.Error("429 without Retry-After header")
+			}
+			got429 = true
+			break
+		}
+		if w.Code != http.StatusBadRequest {
+			t.Fatalf("wrong code: %d, want 400 (body %s)", w.Code, w.Body.String())
+		}
+	}
+	if !got429 {
+		t.Fatal("enroll/verify throttle never engaged after repeated wrong codes")
+	}
+}

@@ -1813,7 +1813,7 @@ Routes that exist but have no section of their own. Everything under `/api` carr
 | `/api/demo-login` | GET | None (public) | Demo-mode login helper |
 | `/api/auth/status` | GET | None (public) | Whether password login is available |
 | `/api/auth/login` | POST | None (IP rate-limited) | Password login; mints a session. Body must be `application/json` (415 otherwise) |
-| `/api/auth/admin-exchange` | POST | None (IP rate-limited) | Trade a raw admin token for an HttpOnly session cookie |
+| `/api/auth/admin-exchange` | POST | None (IP rate-limited) | Trade a raw admin token for an HttpOnly session cookie. Body must be `application/json` (415 otherwise) |
 | `/api/auth/logout` | POST | Session | End the current session |
 | `/api/auth/me` | GET | Any signed-in identity | The caller's identity, role and grants |
 | `/api/auth/password` | POST | Any signed-in identity | Rotate the caller's own password |

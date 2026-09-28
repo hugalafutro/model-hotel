@@ -1408,7 +1408,7 @@ func TestTotpDisable_WrongCodeThrottles(t *testing.T) {
 	var last *httptest.ResponseRecorder
 	for range 8 {
 		dreq := httptest.NewRequest(http.MethodPost, "/totp/disable",
-			bytes.NewReader([]byte(`{"code":"000000"}`)))
+			bytes.NewReader([]byte(`{"code":"`+wrongCode(t, secret)+`"}`)))
 		dreq.Header.Set("Authorization", "Bearer "+sessionToken)
 		dreq.Header.Set("Content-Type", "application/json")
 		last = httptest.NewRecorder()
@@ -1468,11 +1468,15 @@ func TestTotpEnrollVerify_WrongCodeThrottles(t *testing.T) {
 	if w.Code != http.StatusOK {
 		t.Fatalf("enroll/start: %d", w.Code)
 	}
+	var start map[string]string
+	if err := json.Unmarshal(w.Body.Bytes(), &start); err != nil {
+		t.Fatalf("decode: %v", err)
+	}
 
 	var last *httptest.ResponseRecorder
 	for range 8 {
 		vreq := httptest.NewRequest(http.MethodPost, "/totp/enroll/verify",
-			bytes.NewReader([]byte(`{"code":"000000"}`)))
+			bytes.NewReader([]byte(`{"code":"`+wrongCode(t, start["secret"])+`"}`)))
 		vreq.Header.Set("Authorization", "Bearer admin-token")
 		vreq.Header.Set("Content-Type", "application/json")
 		last = httptest.NewRecorder()

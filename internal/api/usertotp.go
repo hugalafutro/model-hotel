@@ -112,6 +112,9 @@ func (h *Handler) UserTotpEnrollStart(w http.ResponseWriter, r *http.Request) {
 // (generated BEFORE enable so a failure can never leave 2FA on without them).
 // The caller's session stays valid: unlike the admin flow, enabling a user's
 // TOTP changes login requirements only, not the bearer they already hold.
+// Refused (409) while TOTP is already on, like EnrollStart: a matching code
+// then would replace the user's recovery codes with a set handed to the
+// caller. Wrong codes back off on the per-user throttle, like Disable.
 func (h *Handler) UserTotpEnrollVerify(w http.ResponseWriter, r *http.Request) {
 	repo, id, ok := h.callerTotpRepo(w, r)
 	if !ok {
@@ -123,15 +126,32 @@ func (h *Handler) UserTotpEnrollVerify(w http.ResponseWriter, r *http.Request) {
 	if !decodeJSON(w, r, &req) {
 		return
 	}
+	enabled, err := repo.IsEnabled(r.Context())
+	if err != nil {
+		respondError(w, "failed to read TOTP status", err, http.StatusInternalServerError)
+		return
+	}
+	if enabled {
+		http.Error(w, "disable TOTP before re-enrolling", http.StatusConflict)
+		return
+	}
+	key := id.UserID.String()
+	if ok, retry := h.pwThrottle.Allowed(key); !ok {
+		debuglog.Warn("usertotp: enroll verify throttled", "username", id.Username)
+		httpx.RespondTooManyAttempts(w, retry)
+		return
+	}
 	verified, err := repo.Verify(r.Context(), req.Code)
 	if err != nil {
 		respondError(w, "totp: verify failed", err, http.StatusInternalServerError)
 		return
 	}
 	if !verified {
+		h.pwThrottle.RecordFailure(key)
 		respondBadRequest(w, "invalid TOTP code", nil)
 		return
 	}
+	h.pwThrottle.RecordSuccess(key)
 	codes, err := repo.GenerateRecoveryCodes(r.Context())
 	if err != nil {
 		respondError(w, "totp: failed to generate recovery codes", err, http.StatusInternalServerError)

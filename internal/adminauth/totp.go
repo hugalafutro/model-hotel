@@ -34,10 +34,11 @@ type TotpHandler struct {
 	refreshTotpEnabled func(context.Context) // refresh cache after mutations (Handler.RefreshTotpEnabled)
 	// loginThrottle backs off failed second-factor checks, exponentially per
 	// key (1s doubling, capped at 5m; self-clearing, reset on success). Login
-	// charges two keys per failure: the source IP, and accountThrottleKey for
-	// the single admin account, so a brute force spread across IPs still trips
-	// it. Disable and EnrollVerify charge codeThrottleKey: a hijacked session
-	// must not be a free oracle for the six-digit window either.
+	// charges the source IP on every failure and accountThrottleKey only for a
+	// wrong code behind a valid token, so a brute force spread across IPs still
+	// trips it while a caller without the token cannot lock the account.
+	// Disable and EnrollVerify charge codeThrottleKey: a hijacked session must
+	// not be a free oracle for the six-digit window either.
 	loginThrottle *totp.Throttle
 	// cookieSecure ("auto"/"always"/"never") resolves the Secure attribute on
 	// the session cookie so plain-http LAN deployments still work.
@@ -289,6 +290,14 @@ func (h *TotpHandler) EnrollStart(w http.ResponseWriter, r *http.Request) {
 
 // EnrollVerify verifies the TOTP code, enables 2FA, and returns recovery codes.
 func (h *TotpHandler) EnrollVerify(w http.ResponseWriter, r *http.Request) {
+	var req struct {
+		Code string `json:"code"`
+	}
+	// Decoded before the lock: a slow upload must not hold every TOTP mutation
+	// for its body-read deadline.
+	if !decodeJSON(w, r, &req) {
+		return
+	}
 	h.enrollMu.Lock()
 	defer h.enrollMu.Unlock()
 	// Same gate as EnrollStart: with TOTP already on, a matching code here would
@@ -300,12 +309,6 @@ func (h *TotpHandler) EnrollVerify(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if !h.allowCode(w, r, "enroll verify") {
-		return
-	}
-	var req struct {
-		Code string `json:"code"`
-	}
-	if !decodeJSON(w, r, &req) {
 		return
 	}
 	ok, err := h.totpRepo.Verify(r.Context(), req.Code)
@@ -403,15 +406,15 @@ func (h *TotpHandler) EnrollVerify(w http.ResponseWriter, r *http.Request) {
 // Disable removes the TOTP config + recovery codes. Requires a valid current
 // TOTP or recovery code as a safeguard (401 on mismatch, not 400).
 func (h *TotpHandler) Disable(w http.ResponseWriter, r *http.Request) {
-	h.enrollMu.Lock()
-	defer h.enrollMu.Unlock()
-	if !h.allowCode(w, r, "disable") {
-		return
-	}
 	var req struct {
 		Code string `json:"code"`
 	}
 	if !decodeJSON(w, r, &req) {
+		return
+	}
+	h.enrollMu.Lock()
+	defer h.enrollMu.Unlock()
+	if !h.allowCode(w, r, "disable") {
 		return
 	}
 	// Authorize and disable atomically: the code is only spent if the whole
