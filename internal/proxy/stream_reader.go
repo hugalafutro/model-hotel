@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/hugalafutro/model-hotel/internal/debuglog"
+	"github.com/hugalafutro/model-hotel/internal/egress"
 )
 
 // emptyMessagesLimit caps how many consecutive blank SSE lines we tolerate
@@ -55,6 +56,13 @@ const sseLineCap = 32 << 20
 // lineCapErrMsg is the row's and the client's message when a frame exceeds
 // sseLineCap, on the stream path and the probe path alike.
 var lineCapErrMsg = fmt.Sprintf("stream failed: a frame exceeded the gateway's %d MiB line limit", sseLineCap>>20)
+
+// isLineCapErr reports a frame past the cap, from this package's scanners
+// (bufio.ErrTooLong) or from a translated upstream's adapter
+// (egress.ErrEventTooLarge).
+func isLineCapErr(err error) bool {
+	return errors.Is(err, bufio.ErrTooLong) || errors.Is(err, egress.ErrEventTooLarge)
+}
 
 // streamReader owns the upstream side of handleStreamingResponse: the scanner
 // (replaying the TTFT probe buffer when present), the stall watchdog goroutine,
@@ -187,7 +195,7 @@ func (r *streamReader) runWatchdog() {
 // are valid only until the following Next() call.
 func (r *streamReader) Next() (sseEvent, bool) {
 	if !r.scanner.Scan() {
-		if errors.Is(r.scanner.Err(), bufio.ErrTooLong) {
+		if isLineCapErr(r.scanner.Err()) {
 			// The rest of that line is unbounded and the orchestrator drains
 			// the body before closing it, so it is closed here: a drain of an
 			// endless line would otherwise run to the attempt's deadline.

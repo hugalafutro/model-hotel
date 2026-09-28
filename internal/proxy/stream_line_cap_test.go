@@ -10,6 +10,8 @@ import (
 	"sync/atomic"
 	"testing"
 	"time"
+
+	"github.com/hugalafutro/model-hotel/internal/egress"
 )
 
 // An image model streams a whole picture as one base64 data URL in a single
@@ -62,6 +64,37 @@ func TestDeriveStreamError_LineCapNamesTheLimitAndChargesTheProvider(t *testing.
 	}
 	if v := judgeStreamForBreaker(st, logData, got, true); v.failureReason == "" {
 		t.Fatalf("breaker verdict = %+v, want a charge", v)
+	}
+
+	// Charged even after output: a provider must not stay in rotation by
+	// emitting one token before the endless line.
+	delivered := &streamState{sawContent: true, deliveredBytes: 5}
+	dl := &requestLogData{statusCode: 200}
+	msg := deriveStreamError(delivered, bufio.ErrTooLong, streamOptions{}, dl)
+	if v := judgeStreamForBreaker(delivered, dl, msg, true); v.failureReason == "" {
+		t.Fatalf("breaker verdict after output = %+v, want a charge", v)
+	}
+
+	// A translated upstream's overflow is the same fault.
+	tr := &streamState{}
+	tl := &requestLogData{statusCode: 200}
+	if got := deriveStreamError(tr, fmt.Errorf("gemini: %w", egress.ErrEventTooLarge), streamOptions{}, tl); got != lineCapErrMsg || tl.errorKind != KindProviderError {
+		t.Fatalf("egress overflow: errMsg=%q kind=%s", got, tl.errorKind)
+	}
+}
+
+// The real probe, not a hand-wrapped error: its first frame past the cap comes
+// back wrapping bufio.ErrTooLong and classifies as the stream path does.
+func TestProbeFirstToken_FirstFramePastTheCap(t *testing.T) {
+	h := &Handler{}
+	body := io.NopCloser(strings.NewReader("data: " + strings.Repeat("A", sseLineCap+1) + "\n"))
+	_, _, err := h.probeFirstToken(context.Background(), body, 30*time.Second, time.Now())
+	if !errors.Is(err, bufio.ErrTooLong) {
+		t.Fatalf("probe error = %v, want it to wrap bufio.ErrTooLong", err)
+	}
+	re, charged := classifyProbeError(err, "p", credentialMasker{}, nil, false, time.Second, time.Minute, time.Minute, 1)
+	if !charged || re.Kind != KindProviderError || re.Underlying != lineCapErrMsg {
+		t.Fatalf("got kind=%s charged=%v underlying=%q", re.Kind, charged, re.Underlying)
 	}
 }
 

@@ -20,14 +20,8 @@ import (
 // type, so a type switch cannot tell them apart.
 type StreamAdapter = egress.StreamAdapter
 
-// MaxEventBytes caps one Gemini SSE event. An image model streams its whole
-// picture as a single inlineData part in one event, and a 2K or 4K PNG is
-// several MiB of base64, well past the 4 MiB the text dialects need; 32 MiB
-// matches the cap on a non-streaming body.
-const MaxEventBytes = 32 << 20
-
 // NewStreamAdapter builds an adapter for one streaming response. model is
 // echoed in every emitted chunk (the model string the client requested).
 func NewStreamAdapter(upstream io.ReadCloser, model string) *StreamAdapter {
-	return egress.NewStreamAdapterWithCap("gemini", upstream, NewStreamTranslator(egress.NewChatCompletionID(), model, time.Now().Unix()), MaxEventBytes)
+	return egress.NewStreamAdapter("gemini", upstream, NewStreamTranslator(egress.NewChatCompletionID(), model, time.Now().Unix()))
 }

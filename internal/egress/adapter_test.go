@@ -189,10 +189,13 @@ func TestStreamAdapter_UnterminatedFoldedEventFlushedAtEOF(t *testing.T) {
 // is over it, so it must fail rather than grow the buffer.
 func TestStreamAdapter_FoldedEventOverCapFailsStream(t *testing.T) {
 	tr := &fakeTranslator{}
-	half := strings.Repeat("a", MaxSSEEventBytes/2+1)
+	const testCap = 1 << 10
+	half := strings.Repeat("a", testCap/2+1)
 	body := &scriptedBody{script: []string{"data: " + half + "\ndata: " + half + "\n\n"}}
+	a := NewStreamAdapter("test", body, tr)
+	a.eventCap = testCap // the cap's arithmetic, without a 32 MiB payload
 
-	_, err := io.ReadAll(NewStreamAdapter("test", body, tr))
+	_, err := io.ReadAll(a)
 	if err == nil {
 		t.Fatal("expected the joined event to exceed the cap")
 	}
@@ -339,14 +342,17 @@ func TestStreamAdapter_OverlongEventFailsStream(t *testing.T) {
 	tr := &fakeTranslator{}
 	// An upstream that never emits a newline must fail the stream rather than
 	// grow the line buffer without bound.
-	body := &scriptedBody{script: []string{"data: " + strings.Repeat("a", MaxSSEEventBytes+1)}}
+	const testCap = 1 << 10
+	body := &scriptedBody{script: []string{"data: " + strings.Repeat("a", testCap+1)}}
+	a := NewStreamAdapter("test", body, tr)
+	a.eventCap = testCap // the cap's arithmetic, without a 32 MiB payload
 
-	out, err := io.ReadAll(NewStreamAdapter("test", body, tr))
+	out, err := io.ReadAll(a)
 	if err == nil {
 		t.Fatal("expected an error once the line exceeded the cap")
 	}
-	if !strings.Contains(err.Error(), "exceeds") {
-		t.Errorf("error = %q, want it to name the exceeded cap", err)
+	if !errors.Is(err, ErrEventTooLarge) {
+		t.Errorf("error = %q, want it to wrap ErrEventTooLarge", err)
 	}
 	if !strings.HasPrefix(err.Error(), "test: ") {
 		t.Errorf("error = %q, want the component prefix", err)

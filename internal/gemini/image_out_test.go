@@ -113,9 +113,8 @@ func TestTranslateRequest_ImageOnlyModalities(t *testing.T) {
 	}
 }
 
-// A streamed picture arrives as one SSE event of several MiB; the gemini
-// adapter's cap admits it where the text dialects' 4 MiB would fail the
-// stream.
+// A streamed picture arrives as one SSE event of several MiB; the shared
+// adapter's cap (egress.MaxSSEEventBytes) admits it.
 func TestStreamAdapter_LargeImageEventPasses(t *testing.T) {
 	big := strings.Repeat("A", 5<<20)
 	event := "data: " + `{"candidates":[{"content":{"parts":[{"inlineData":{"mimeType":"image/png","data":"` + big + `"}}]},"finishReason":"STOP"}],"usageMetadata":{"promptTokenCount":3,"candidatesTokenCount":1290,"totalTokenCount":1293}}` + "\n\n"

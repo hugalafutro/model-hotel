@@ -1,7 +1,6 @@
 package proxy
 
 import (
-	"bufio"
 	"context"
 	"encoding/json"
 	"errors"
@@ -86,6 +85,10 @@ type streamState struct {
 	// address). Empty means the client frame reuses errMsg, which is
 	// gateway-authored on every other failure path.
 	clientErrMsg string
+	// lineCapExceeded marks a stream that ended on a frame past sseLineCap.
+	// It is charged even after output: no model sends such a frame, and a
+	// provider must not stay in rotation by emitting one token first.
+	lineCapExceeded bool
 
 	// Observer state carried across chunks. Not consumed by the finalizer, but
 	// co-located here so the data-chunk observers operate on one named
@@ -216,6 +219,9 @@ func judgeStreamForBreaker(st *streamState, logData *requestLogData, errMsg stri
 	// terminal frame.
 	if st.stalled && !st.sawDone && !st.sawTerminalEvent {
 		return streamBreakerVerdict{failureReason: "stream stalled"}
+	}
+	if st.lineCapExceeded {
+		return streamBreakerVerdict{failureReason: "stream frame exceeded the line limit"}
 	}
 	if !streamDeliveredOutput(st) {
 		return streamBreakerVerdict{failureReason: "stream failed without delivering content"}
@@ -390,7 +396,7 @@ func deriveStreamError(st *streamState, scanErr error, opts streamOptions, logDa
 	}
 	if errMsg == "" && scanErr != nil {
 		switch {
-		case errors.Is(scanErr, bufio.ErrTooLong):
+		case isLineCapErr(scanErr):
 			// A frame past sseLineCap: the row and the client name the limit
 			// rather than a connection error, and the provider is charged as
 			// for any broken stream, so one that keeps sending endless lines
@@ -398,6 +404,7 @@ func deriveStreamError(st *streamState, scanErr error, opts streamOptions, logDa
 			// same way (classifyProbeError).
 			errMsg = lineCapErrMsg
 			st.clientErrMsg = errMsg
+			st.lineCapExceeded = true
 			logData.errorKind = KindProviderError
 		case errors.Is(scanErr, context.Canceled):
 			// The scanner caught the cancellation before the select between
