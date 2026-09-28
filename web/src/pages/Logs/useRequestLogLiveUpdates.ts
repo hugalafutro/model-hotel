@@ -80,7 +80,8 @@ export function useRequestLogLiveUpdates({
 				}
 			}
 		}
-		// mergeEntries only updates rows already in the list, so this covers the
+		// A row not in the list yet is held by mergeEntries for the page that
+		// first lists it, and this fetchNewer is that page: it also covers the
 		// race where the pending row has not landed yet. fetchNewer is guarded
 		// against concurrent calls.
 		fetchNewer();

@@ -44,9 +44,10 @@ export function Security() {
 			resetTimerRef.current = setTimeout(() => resetToLogin(queryClient), 1500);
 		},
 		onError: (err: Error) => {
-			if (err instanceof ApiError && err.status === 403) {
-				// The session is alive and only the re-typed password is wrong;
-				// a 401 would mean the session died and is torn down by fetchOK.
+			if (err instanceof ApiError && err.code === "wrong_current_password") {
+				// The session is alive and only the re-typed password is wrong; a
+				// 401 would mean the session died and is torn down by fetchOK, and
+				// an uncoded 403 (the read-only demo, a CSRF refusal) is not this.
 				toast(t("security.password.wrongCurrent"), "error");
 				return;
 			}

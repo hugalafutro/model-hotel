@@ -74,7 +74,11 @@ export interface UseBidirectionalFetchReturn<
 	fetchNewer: () => Promise<void>;
 	fetchOlder: () => Promise<void>;
 	reset: () => void;
-	/** Replaces rows already in the list by id, subject to the keep option. */
+	/**
+	 * Replaces rows already in the list by id, subject to the keep option. A
+	 * row the list does not hold yet is held back and applied, subject to
+	 * keep, by the page that first lists it.
+	 */
 	mergeEntries: (updated: T[]) => void;
 }
 
@@ -103,6 +107,8 @@ export function useBidirectionalFetch<
 	keep,
 }: UseBidirectionalFetchOptions<T, R>): UseBidirectionalFetchReturn<T, R> {
 	const [entries, setEntries] = useState<T[]>([]);
+	// Merges for rows the list does not hold yet, keyed by id; see applyPending.
+	const pendingMergesRef = useRef(new Map<string, T>());
 	// The generation that produced `entries`, set in the same render as them,
 	// so a page fetch can tell rows from before a filter change apart from the
 	// current ones even while the refetch's rows are still on their way in.
@@ -135,6 +141,8 @@ export function useBidirectionalFetch<
 	// Drops every in-flight fetch without touching the loaded data.
 	const invalidate = useCallback(() => {
 		generationRef.current++;
+		// Merges held for the old generation's pages are not for the new one's.
+		pendingMergesRef.current.clear();
 		setError(null);
 		// The dropped fetches' finally blocks skip on the generation check, so
 		// their loading flags are cleared here or they would stay set.
@@ -160,20 +168,40 @@ export function useBidirectionalFetch<
 		clearData();
 	}, [invalidate, clearData]);
 
-	// Merges for rows the list does not hold yet. The cursor query is a strict
-	// keyset, so no later page repeats a listed row; a row whose finished copy
-	// arrived before the page that lists it is applied when that page lands.
-	// Bounded by the burst of events between two pages; cleared with the list.
-	const pendingMergesRef = useRef(new Map<string, T>());
+	// applyPending swaps a held merge in for each fetched row it has one for,
+	// subject to keep, and forgets it. Run on the rows before they reach a
+	// state updater: an updater may run more than once (StrictMode, a restarted
+	// render), and a stash consumed inside one would be gone on the rerun.
+	const applyPending = useCallback(
+		(rows: T[]): T[] =>
+			rows.map((e) => {
+				const merged = pendingMergesRef.current.get(getId(e));
+				if (merged === undefined) return e;
+				pendingMergesRef.current.delete(getId(e));
+				return keep?.(e, merged) ? e : merged;
+			}),
+		[getId, keep],
+	);
 
 	const mergeEntries = useCallback(
 		(updated: T[]) => {
 			if (updated.length === 0) return;
+			const updateMap = new Map(updated.map((e) => [getId(e), e]));
 			setEntries((prev) => {
-				const updateMap = new Map(updated.map((e) => [getId(e), e]));
+				// Holding a merge is idempotent, so it can live in the updater,
+				// which is where the current rows are known; consuming one cannot
+				// (see applyPending).
 				const listed = new Set(prev.map((e) => getId(e)));
 				for (const [id, next] of updateMap) {
-					if (!listed.has(id)) pendingMergesRef.current.set(id, next);
+					if (listed.has(id)) continue;
+					pendingMergesRef.current.set(id, next);
+					// A row the filters exclude is never listed, so the stash would
+					// otherwise grow by one per event for the life of the page. Older
+					// than a page's worth of events, a merge has missed its page.
+					if (pendingMergesRef.current.size > FETCH_SIZE) {
+						const oldest = pendingMergesRef.current.keys().next().value;
+						if (oldest !== undefined) pendingMergesRef.current.delete(oldest);
+					}
 				}
 				return prev.map((e) => {
 					const next = updateMap.get(getId(e));
@@ -205,7 +233,7 @@ export function useBidirectionalFetch<
 			// Discard if a newer fetch was triggered (filter change, etc.)
 			if (gen !== generationRef.current) return;
 
-			setEntries(response.entries);
+			setEntries(applyPending(response.entries));
 			setEntriesGen(gen);
 			setTotal(response.total);
 			setLastResponse(response);
@@ -226,7 +254,7 @@ export function useBidirectionalFetch<
 				setIsLoadingInitial(false);
 			}
 		}
-	}, [fetchFn, filters, sortDir, clearData]);
+	}, [fetchFn, filters, sortDir, clearData, applyPending]);
 
 	// The two directions are one routine: which end of the list supplies the
 	// cursor, which loading pair guards it, where the page is spliced in, and
@@ -284,8 +312,9 @@ export function useBidirectionalFetch<
 					return;
 				}
 
+				const page = applyPending(response.entries);
 				setEntries((prev) => {
-					const byId = new Map(response.entries.map((e) => [getId(e), e]));
+					const byId = new Map(page.map((e) => [getId(e), e]));
 					// A row the list already holds takes the page's copy unless keep
 					// refuses it: a row that finished after the fetch that prepended
 					// it reads finished on the next page, while a page that started
@@ -296,14 +325,7 @@ export function useBidirectionalFetch<
 						return next;
 					});
 					const existingIds = new Set(prev.map((e) => getId(e)));
-					const fresh = response.entries
-						.filter((e) => !existingIds.has(getId(e)))
-						.map((e) => {
-							const merged = pendingMergesRef.current.get(getId(e));
-							if (merged === undefined) return e;
-							pendingMergesRef.current.delete(getId(e));
-							return keep?.(e, merged) ? e : merged;
-						});
+					const fresh = page.filter((e) => !existingIds.has(getId(e)));
 					return before ? [...fresh, ...kept] : [...kept, ...fresh];
 				});
 
@@ -327,7 +349,17 @@ export function useBidirectionalFetch<
 				}
 			}
 		},
-		[fetchFn, filters, sortDir, entries, entriesGen, getCursor, getId, keep],
+		[
+			fetchFn,
+			filters,
+			sortDir,
+			entries,
+			entriesGen,
+			getCursor,
+			getId,
+			keep,
+			applyPending,
+		],
 	);
 
 	const fetchNewer = useCallback(() => fetchPage("before"), [fetchPage]);

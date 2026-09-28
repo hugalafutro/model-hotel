@@ -1,5 +1,5 @@
 import { act, renderHook, waitFor } from "@testing-library/react";
-import { useLayoutEffect } from "react";
+import { StrictMode, useLayoutEffect } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
 	type CursorFetchFn,
@@ -361,6 +361,50 @@ describe("useBidirectionalFetch", () => {
 	});
 
 	describe("fetchNewer", () => {
+		it("applies a held merge under StrictMode and on the initial page", async () => {
+			// The initial page is held until the merge for one of its rows arrives,
+			// the way a request.completed fetch can land while fetchInitial is in
+			// flight. StrictMode runs state updaters twice; the stash must survive.
+			let release: (v: {
+				entries: TestEntry[];
+				total: number;
+				has_before: boolean;
+				has_after: boolean;
+			}) => void = () => {};
+			const mockFetchFn = vi.fn().mockReturnValueOnce(
+				new Promise((resolve) => {
+					release = resolve;
+				}),
+			);
+			const { result } = renderHook(
+				() =>
+					useBidirectionalFetch<TestEntry>({
+						fetchFn: mockFetchFn,
+						filters: {},
+						sortDir: "desc",
+						getCursor: (e) => e.id,
+						getId: (e) => e.id,
+						keep: (current, next) =>
+							current.name === "finished" && next.name === "pending",
+					}),
+				{ wrapper: StrictMode },
+			);
+			act(() => {
+				result.current.mergeEntries([{ id: "1", name: "finished" }]);
+			});
+			await act(async () => {
+				release({
+					entries: [{ id: "1", name: "pending" }],
+					total: 1,
+					has_before: false,
+					has_after: false,
+				});
+			});
+			await waitFor(() =>
+				expect(result.current.entries.map((e) => e.name)).toEqual(["finished"]),
+			);
+		});
+
 		it("applies a merge that arrived before the page listing its row", async () => {
 			const mockFetchFn = vi
 				.fn()

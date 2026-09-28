@@ -96,9 +96,13 @@ describe("Security page", () => {
 		server.use(
 			http.post("/api/auth/password", async ({ request }) => {
 				payload = (await request.json()) as typeof payload;
-				return HttpResponse.text("current password is incorrect", {
-					status: 403,
-				});
+				return HttpResponse.json(
+					{
+						code: "wrong_current_password",
+						error: "current password is incorrect",
+					},
+					{ status: 403 },
+				);
 			}),
 		);
 		const { user } = renderWithProviders(<Security />);
@@ -160,7 +164,13 @@ describe("Security page", () => {
 		mockStatus({ enabled: false });
 		server.use(
 			http.post("/api/auth/password", () =>
-				HttpResponse.text("current password is incorrect", { status: 403 }),
+				HttpResponse.json(
+					{
+						code: "wrong_current_password",
+						error: "current password is incorrect",
+					},
+					{ status: 403 },
+				),
 			),
 		);
 		const { user } = renderWithProviders(<Security />);
@@ -512,6 +522,37 @@ describe("Security page edge handlers", () => {
 			});
 			document.cookie = "mh_csrf=test-csrf; path=/";
 		}
+	});
+
+	it("does not read an uncoded 403 as a wrong current password", {
+		timeout: 30000,
+	}, async () => {
+		mockStatus({ enabled: false });
+		server.use(
+			http.post("/api/auth/password", () =>
+				HttpResponse.text("this is a read-only demo", { status: 403 }),
+			),
+		);
+		const { user } = renderWithProviders(<Security />);
+		await user.type(
+			await screen.findByTestId("security-current-password"),
+			"old-password-1",
+		);
+		await user.type(
+			screen.getByTestId("security-new-password"),
+			"new-password-1",
+		);
+		await user.type(
+			screen.getByTestId("security-confirm-password"),
+			"new-password-1",
+		);
+		await user.click(screen.getByTestId("security-password-submit"));
+		expect(
+			await screen.findByText("Failed to change password"),
+		).toBeInTheDocument();
+		expect(
+			screen.queryByText("Current password is incorrect"),
+		).not.toBeInTheDocument();
 	});
 
 	it("reports a generic failure for other password errors", {
