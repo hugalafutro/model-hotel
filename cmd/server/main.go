@@ -449,11 +449,14 @@ func main() {
 		}
 	}
 
-	// Startup: run initial discovery for all enabled providers (if enabled).
-	maybeStartupDiscovery(ctx, &background, discDeps, settingsRepo)
-
+	// The warm runs before startup discovery is launched: discovery writes
+	// rows and flushes the caches from a background goroutine, and a warm
+	// that listed before such a write installed the pre-write rows after it.
 	warmCaches(discDeps, settingsRepo)
 	initKeyCacheTTL(settingsRepo)
+
+	// Startup: run initial discovery for all enabled providers (if enabled).
+	maybeStartupDiscovery(ctx, &background, discDeps, settingsRepo)
 
 	// Background maintenance loops (see background.go). The discovery scheduler
 	// sleeps a full interval before its first run so it doesn't bypass the

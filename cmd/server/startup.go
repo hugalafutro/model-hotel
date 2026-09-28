@@ -77,6 +77,10 @@ func cleanupInterruptedRequests(pool *pgxpool.Pool, serverStartTime time.Time) {
 func warmCaches(deps discoveryDeps, settingsRepo *settings.Repository) {
 	ctx := context.Background()
 
+	// Marks are taken before each List: a goroutine already running (the
+	// backup scheduler, the models.dev retry) can write and flush during the
+	// List, and the warm must not install the rows listed before that write.
+	providerMark := provider.CacheGen()
 	providers, err := deps.providerRepo.List(ctx)
 	if err != nil {
 		debuglog.Error("cache: warm failed to list providers", "error", err)
@@ -91,7 +95,7 @@ func warmCaches(deps discoveryDeps, settingsRepo *settings.Repository) {
 			}
 			enabledProviders = append(enabledProviders, p)
 		}
-		provider.WarmProviderCache(enabledProviders)
+		provider.WarmProviderCacheAt(enabledProviders, providerMark)
 	}
 	// Every provider key, enabled or not, joins the credential mask's held set;
 	// a disabled provider is the one a relay is most likely to quote. Synchronous
@@ -101,18 +105,20 @@ func warmCaches(deps discoveryDeps, settingsRepo *settings.Repository) {
 	held, failed := provider.HoldKeys(ctx, deps.providerRepo, deps.cfg.MasterKey)
 	debuglog.Info("cache: provider keys held for the credential mask", "held", held, "failed", failed)
 
+	modelGen := model.CacheGen()
 	enabledModels, err := deps.modelRepo.ListEnabled(ctx)
 	if err != nil {
 		debuglog.Error("cache: warm failed to list models", "error", err)
 	} else {
-		model.WarmModelCache(enabledModels)
+		model.WarmModelCacheAt(enabledModels, modelGen)
 	}
 
+	failoverGen := failover.CacheGen()
 	failoverGroups, err := deps.failoverRepo.List(ctx)
 	if err != nil {
 		debuglog.Error("cache: warm failed to list failover groups", "error", err)
 	} else {
-		failover.WarmFailoverCache(failoverGroups)
+		failover.WarmFailoverCacheAt(failoverGroups, failoverGen)
 	}
 
 	settingsRepo.WarmCache(ctx)

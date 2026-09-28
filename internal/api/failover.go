@@ -578,10 +578,10 @@ func (h *FailoverHandler) Update(w http.ResponseWriter, r *http.Request) {
 		respondError(w, fmt.Sprintf("failed to update failover group %s", id), err, http.StatusInternalServerError)
 		return
 	}
-	// The repository cached the row under its new display model. A lookup that
-	// raced the write could have re-cached the old row under the old key in
-	// the meantime, so that key is dropped again now that the write has landed
-	// (the eviction above ran before it).
+	// The repository dropped the new display model's key. A lookup on the old
+	// key that captured its mark after the eviction above and read the row
+	// before the write landed installs the old row under the old key, so that
+	// key is dropped again now that the write has landed.
 	if req.DisplayModel != nil && *req.DisplayModel != existing.DisplayModel {
 		failover.InvalidateFailoverCacheKey(existing.DisplayModel)
 	}

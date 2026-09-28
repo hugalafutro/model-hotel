@@ -1687,6 +1687,10 @@ func TestUpsertAutoGroup_CustomRowLandingAfterTheReadIsNotAdopted(t *testing.T) 
 		t.Fatalf("create auto group: %v", err)
 	}
 	defer func() { _ = repo.Delete(ctx, name) }()
+	// The sync's read installs the auto row (a write installs nothing).
+	if _, err := repo.GetByModel(ctx, name); err != nil {
+		t.Fatalf("get: %v", err)
+	}
 	// The operator's rename or a fleet import lands after the sync's read: the
 	// table says custom while the sync's cached read still says auto.
 	if _, err := testDB.Pool().Exec(ctx, "UPDATE model_failover_groups SET auto_created = false, group_enabled = false, priority_order = $2 WHERE display_model = $1", name, `["`+m1.String()+`"]`); err != nil {

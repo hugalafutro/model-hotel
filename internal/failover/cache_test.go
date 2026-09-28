@@ -30,7 +30,7 @@ func TestGetCachedFailoverByModel_CacheHit(t *testing.T) {
 		PriorityOrder: []uuid.UUID{uuid.New()},
 		GroupEnabled:  true,
 	}
-	cacheFailoverGroup(fg)
+	cacheFailoverGroupAt(fg, CacheGen())
 
 	found, ok := GetCachedFailoverByModel("gpt-4")
 	if !ok {
@@ -53,7 +53,7 @@ func TestGetCachedFailoverByModel_CacheMiss(t *testing.T) {
 		PriorityOrder: []uuid.UUID{uuid.New()},
 		GroupEnabled:  true,
 	}
-	cacheFailoverGroup(fg)
+	cacheFailoverGroupAt(fg, CacheGen())
 
 	_, ok := GetCachedFailoverByModel("claude-3")
 	if ok {
@@ -94,7 +94,7 @@ func TestGetCachedFailoverByModel_ValidEntry(t *testing.T) {
 		PriorityOrder: []uuid.UUID{uuid.New()},
 		GroupEnabled:  true,
 	}
-	cacheFailoverGroup(fg)
+	cacheFailoverGroupAt(fg, CacheGen())
 
 	found, ok := GetCachedFailoverByModel("gpt-4")
 	if !ok {
@@ -122,8 +122,8 @@ func TestInvalidateFailoverCache_RemovesAll(t *testing.T) {
 		PriorityOrder: []uuid.UUID{uuid.New()},
 		GroupEnabled:  true,
 	}
-	cacheFailoverGroup(fg1)
-	cacheFailoverGroup(fg2)
+	cacheFailoverGroupAt(fg1, CacheGen())
+	cacheFailoverGroupAt(fg2, CacheGen())
 
 	// Confirm both are cached
 	_, ok := GetCachedFailoverByModel("model-a")
@@ -168,7 +168,7 @@ func TestInvalidateFailoverCache_AllowsReinsertion(t *testing.T) {
 		PriorityOrder: []uuid.UUID{uuid.New()},
 		GroupEnabled:  true,
 	}
-	cacheFailoverGroup(fg)
+	cacheFailoverGroupAt(fg, CacheGen())
 
 	InvalidateFailoverCache()
 
@@ -178,7 +178,7 @@ func TestInvalidateFailoverCache_AllowsReinsertion(t *testing.T) {
 	}
 
 	// Re-insert
-	cacheFailoverGroup(fg)
+	cacheFailoverGroupAt(fg, CacheGen())
 
 	found, ok := GetCachedFailoverByModel("reinsert-test")
 	if !ok {
@@ -209,8 +209,8 @@ func TestInvalidateFailoverCacheKey_RemovesSingleEntry(t *testing.T) {
 		PriorityOrder: []uuid.UUID{uuid.New()},
 		GroupEnabled:  true,
 	}
-	cacheFailoverGroup(group1)
-	cacheFailoverGroup(group2)
+	cacheFailoverGroupAt(group1, CacheGen())
+	cacheFailoverGroupAt(group2, CacheGen())
 
 	// Verify both are cached
 	if _, ok := GetCachedFailoverByModel("model-a"); !ok {
@@ -291,7 +291,7 @@ func TestWarmFailoverCache_MultipleGroups(t *testing.T) {
 		},
 	}
 
-	WarmFailoverCache(groups)
+	WarmFailoverCacheAt(groups, CacheGen())
 
 	for _, fg := range groups {
 		found, ok := GetCachedFailoverByModel(fg.DisplayModel)
@@ -312,7 +312,7 @@ func TestWarmFailoverCache_EmptySlice(t *testing.T) {
 	InvalidateFailoverCache()
 
 	// Should not panic
-	WarmFailoverCache([]*FailoverGroup{})
+	WarmFailoverCacheAt([]*FailoverGroup{}, CacheGen())
 
 	// Verify cache is still empty after warming with empty slice
 	_, ok := GetCachedFailoverByModel("nonexistent-model")
@@ -325,7 +325,7 @@ func TestWarmFailoverCache_NilSlice(t *testing.T) {
 	InvalidateFailoverCache()
 
 	// Should not panic
-	WarmFailoverCache(nil)
+	WarmFailoverCacheAt(nil, CacheGen())
 
 	// Verify cache is still empty after warming with nil slice
 	_, ok := GetCachedFailoverByModel("nonexistent-model")
@@ -344,7 +344,7 @@ func TestWarmFailoverCache_OverwritesExisting(t *testing.T) {
 		PriorityOrder: []uuid.UUID{uuid.New()},
 		GroupEnabled:  true,
 	}
-	cacheFailoverGroup(fg1)
+	cacheFailoverGroupAt(fg1, CacheGen())
 
 	found, ok := GetCachedFailoverByModel("overwrite-test")
 	if !ok {
@@ -362,7 +362,7 @@ func TestWarmFailoverCache_OverwritesExisting(t *testing.T) {
 		PriorityOrder: []uuid.UUID{uuid.New()},
 		GroupEnabled:  true,
 	}
-	WarmFailoverCache([]*FailoverGroup{fg2})
+	WarmFailoverCacheAt([]*FailoverGroup{fg2}, CacheGen())
 
 	found, ok = GetCachedFailoverByModel("overwrite-test")
 	if !ok {
@@ -383,7 +383,7 @@ func TestWarmFailoverCache_PreservesOtherEntries(t *testing.T) {
 		PriorityOrder: []uuid.UUID{uuid.New()},
 		GroupEnabled:  true,
 	}
-	cacheFailoverGroup(fg1)
+	cacheFailoverGroupAt(fg1, CacheGen())
 
 	// Warm with a different entry
 	fg2 := &FailoverGroup{
@@ -392,7 +392,7 @@ func TestWarmFailoverCache_PreservesOtherEntries(t *testing.T) {
 		PriorityOrder: []uuid.UUID{uuid.New()},
 		GroupEnabled:  true,
 	}
-	WarmFailoverCache([]*FailoverGroup{fg2})
+	WarmFailoverCacheAt([]*FailoverGroup{fg2}, CacheGen())
 
 	// Both should be found
 	_, ok := GetCachedFailoverByModel("existing-model")
@@ -413,7 +413,7 @@ func TestCacheFailoverGroup_NilGroup(t *testing.T) {
 	InvalidateFailoverCache()
 
 	// Should not panic
-	cacheFailoverGroup(nil)
+	cacheFailoverGroupAt(nil, CacheGen())
 
 	// Cache should still be empty
 	_, ok := GetCachedFailoverByModel("anything")
@@ -432,7 +432,7 @@ func TestCacheFailoverGroup_GroupWithPriorityOrder(t *testing.T) {
 		PriorityOrder: po,
 		GroupEnabled:  true,
 	}
-	cacheFailoverGroup(fg)
+	cacheFailoverGroupAt(fg, CacheGen())
 
 	found, ok := GetCachedFailoverByModel("ordered-model")
 	if !ok {
@@ -462,7 +462,7 @@ func TestCacheFailoverGroup_EntryEnabled(t *testing.T) {
 		EntryEnabled:  enabled,
 		GroupEnabled:  true,
 	}
-	cacheFailoverGroup(fg)
+	cacheFailoverGroupAt(fg, CacheGen())
 
 	found, ok := GetCachedFailoverByModel("enabled-model")
 	if !ok {
@@ -506,7 +506,7 @@ func TestCacheFailoverGroup_ConcurrentAccess(t *testing.T) {
 				PriorityOrder: []uuid.UUID{uuid.New()},
 				GroupEnabled:  true,
 			}
-			cacheFailoverGroup(fg)
+			cacheFailoverGroupAt(fg, CacheGen())
 		}(i)
 	}
 
@@ -534,7 +534,7 @@ func TestInvalidateFailoverCache_ConcurrentWithReads(t *testing.T) {
 		PriorityOrder: []uuid.UUID{uuid.New()},
 		GroupEnabled:  true,
 	}
-	cacheFailoverGroup(fg)
+	cacheFailoverGroupAt(fg, CacheGen())
 
 	var wg sync.WaitGroup
 	errors := make(chan error, 50)
@@ -571,9 +571,9 @@ func TestIsCachedByModel_EmptyCache(t *testing.T) {
 
 func TestIsCachedByModel_Cached(t *testing.T) {
 	InvalidateFailoverCache()
-	WarmFailoverCache([]*FailoverGroup{
+	WarmFailoverCacheAt([]*FailoverGroup{
 		{DisplayModel: "my-model"},
-	})
+	}, CacheGen())
 	if !IsCachedByModel("my-model") {
 		t.Error("IsCachedByModel should return true for cached model")
 	}
@@ -581,10 +581,23 @@ func TestIsCachedByModel_Cached(t *testing.T) {
 
 func TestIsCachedByModel_Miss(t *testing.T) {
 	InvalidateFailoverCache()
-	WarmFailoverCache([]*FailoverGroup{
+	WarmFailoverCacheAt([]*FailoverGroup{
 		{DisplayModel: "my-model"},
-	})
+	}, CacheGen())
 	if IsCachedByModel("other-model") {
 		t.Error("IsCachedByModel should return false for different model")
+	}
+}
+
+func TestWarmFailoverCacheAt_StaleGenerationInstallsNothing(t *testing.T) {
+	InvalidateFailoverCache()
+	fg := &FailoverGroup{ID: uuid.New(), DisplayModel: "warm-stale"}
+
+	gen := CacheGen()
+	InvalidateFailoverCacheKey("warm-stale")
+	WarmFailoverCacheAt([]*FailoverGroup{fg}, gen)
+
+	if IsCachedByModel("warm-stale") {
+		t.Error("a warm whose List overlapped an invalidation must not install")
 	}
 }

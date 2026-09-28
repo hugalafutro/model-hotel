@@ -929,12 +929,26 @@ func TestRepository_TouchLastUsed(t *testing.T) {
 		t.Fatalf("Create: %v", err)
 	}
 
+	// Installed by the read; the touch must keep it installed and stamped.
+	if _, err := repo.Get(ctx, p.ID); err != nil {
+		t.Fatalf("Get: %v", err)
+	}
 	beforeTouch := time.Now()
 	if err := repo.TouchLastUsed(ctx, p.ID); err != nil {
 		t.Fatalf("TouchLastUsed: %v", err)
 	}
+	cached, ok := GetCachedByID(p.ID)
+	if !ok {
+		t.Fatal("the touch must not evict the cached provider")
+	}
+	if cached.LastUsedAt == nil || cached.LastUsedAt.Before(beforeTouch.Add(-1*time.Second)) {
+		t.Fatalf("the cached row is not stamped: %v", cached.LastUsedAt)
+	}
+	if byName, ok := GetCachedByName(p.Name); !ok || byName.LastUsedAt == nil {
+		t.Fatal("the name entries must carry the stamp too")
+	}
 
-	// Cache was invalidated, so this should hit DB
+	InvalidateProviderCache()
 	found, err := repo.Get(ctx, p.ID)
 	if err != nil {
 		t.Fatalf("Get after touch: %v", err)
@@ -1140,7 +1154,7 @@ func TestList_Empty(t *testing.T) {
 
 // TestGetByIDs_UncachedDBFetch tests that GetByIDs correctly fetches providers
 // from the database when all entries are uncached (cache was invalidated).
-// This exercises the full DB query path: rows.Next(), cacheProvider, and rows.Err().
+// This exercises the full DB query path: rows.Next(), cacheProviderAt, and rows.Err().
 func TestGetByIDs_UncachedDBFetch(t *testing.T) {
 	repo := newTestRepo(t)
 	ctx := context.Background()

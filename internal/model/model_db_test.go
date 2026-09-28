@@ -13,11 +13,15 @@ import (
 	"github.com/hugalafutro/model-hotel/internal/db"
 )
 
-var testPool *pgxpool.Pool
+var (
+	testPool  *pgxpool.Pool
+	testDBURL string
+)
 
 func TestMain(m *testing.M) {
 	ctx := context.Background()
 	dbURL, setupErr := db.SetupTestDB("model")
+	testDBURL = dbURL
 	if setupErr != nil {
 		log.Printf("failed to setup test DB: %v", setupErr)
 		os.Exit(1)

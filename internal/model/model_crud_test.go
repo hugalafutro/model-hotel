@@ -336,141 +336,6 @@ func TestGetByIDs_CacheHit(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// TestGetByModelID
-// ---------------------------------------------------------------------------
-
-func TestGetByModelID_NotFound(t *testing.T) {
-	ctx := context.Background()
-
-	repo := NewRepository(testPool)
-
-	models, err := repo.GetByModelID(ctx, "non-existent-model")
-	if err != nil {
-		t.Fatalf("GetByModelID with non-existent model failed: %v", err)
-	}
-	if len(models) != 0 {
-		t.Errorf("expected 0 models, got %d", len(models))
-	}
-}
-
-func TestGetByModelID_Found(t *testing.T) {
-	ctx := context.Background()
-	repo := NewRepository(testPool)
-
-	providerA := insertTestProvider(ctx, t, "test-getbymodelid-a")
-	providerB := insertTestProvider(ctx, t, "test-getbymodelid-b")
-	t.Cleanup(func() {
-		cleanupProvider(ctx, t, providerA)
-		cleanupProvider(ctx, t, providerB)
-	})
-
-	modelID := "shared-model-id"
-
-	idA := uuid.New()
-	_, err := testPool.Exec(ctx, `
-		INSERT INTO models (id, provider_id, model_id, name, enabled, created_at)
-		VALUES ($1, $2, $3, $4, true, now())
-	`, idA, providerA, modelID, "From Provider A")
-	if err != nil {
-		t.Fatalf("insert model A failed: %v", err)
-	}
-
-	idB := uuid.New()
-	_, err = testPool.Exec(ctx, `
-		INSERT INTO models (id, provider_id, model_id, name, enabled, created_at)
-		VALUES ($1, $2, $3, $4, true, now())
-	`, idB, providerB, modelID, "From Provider B")
-	if err != nil {
-		t.Fatalf("insert model B failed: %v", err)
-	}
-
-	models, err := repo.GetByModelID(ctx, modelID)
-	if err != nil {
-		t.Fatalf("GetByModelID failed: %v", err)
-	}
-	if len(models) != 2 {
-		t.Errorf("expected 2 models with same model_id, got %d", len(models))
-	}
-
-	providers := make(map[uuid.UUID]bool)
-	for _, m := range models {
-		providers[m.ProviderID] = true
-	}
-	if len(providers) != 2 {
-		t.Errorf("expected 2 different providers, got %d", len(providers))
-	}
-}
-
-func TestGetByModelID_OnlyEnabled(t *testing.T) {
-	ctx := context.Background()
-	repo := NewRepository(testPool)
-
-	providerID := insertTestProvider(ctx, t, "test-getbymodelid-enabled")
-	t.Cleanup(func() { cleanupProvider(ctx, t, providerID) })
-
-	modelID := "enabled-test"
-	idEnabled := uuid.New()
-	_, err := testPool.Exec(ctx, `
-		INSERT INTO models (id, provider_id, model_id, name, enabled, created_at)
-		VALUES ($1, $2, $3, $4, true, now())
-	`, idEnabled, providerID, modelID, "Enabled")
-	if err != nil {
-		t.Fatalf("insert enabled model failed: %v", err)
-	}
-
-	idDisabled := uuid.New()
-	_, err = testPool.Exec(ctx, `
-		INSERT INTO models (id, provider_id, model_id, name, enabled, created_at)
-		VALUES ($1, $2, $3, $4, false, now())
-	`, idDisabled, providerID, "disabled-test", "Disabled")
-	if err != nil {
-		t.Fatalf("insert disabled model failed: %v", err)
-	}
-
-	models, err := repo.GetByModelID(ctx, modelID)
-	if err != nil {
-		t.Fatalf("GetByModelID failed: %v", err)
-	}
-	if len(models) != 1 {
-		t.Errorf("expected 1 enabled model, got %d", len(models))
-	}
-	if models[0].ModelID != modelID {
-		t.Errorf("expected %q, got %q", modelID, models[0].ModelID)
-	}
-}
-
-func TestGetByModelID_CacheHit(t *testing.T) {
-	ctx := context.Background()
-	repo := NewRepository(testPool)
-
-	providerID := insertTestProvider(ctx, t, "test-getbymodelid-cache")
-	t.Cleanup(func() { cleanupProvider(ctx, t, providerID) })
-
-	modelID := "cache-test-model"
-	_, err := testPool.Exec(ctx, `
-		INSERT INTO models (id, provider_id, model_id, name, enabled, created_at)
-		VALUES ($1, $2, $3, $4, true, now())
-	`, uuid.New(), providerID, modelID, "Cache Test")
-	if err != nil {
-		t.Fatalf("insert model failed: %v", err)
-	}
-
-	models1, err := repo.GetByModelID(ctx, modelID)
-	if err != nil {
-		t.Fatalf("first call failed: %v", err)
-	}
-
-	models2, err := repo.GetByModelID(ctx, modelID)
-	if err != nil {
-		t.Fatalf("second call failed: %v", err)
-	}
-
-	if len(models1) != len(models2) {
-		t.Errorf("cache returned different count: %d vs %d", len(models1), len(models2))
-	}
-}
-
-// ---------------------------------------------------------------------------
 // TestGetByProviderAndModelID
 
 // ---------------------------------------------------------------------------
@@ -995,24 +860,6 @@ func TestRepository_GetByIDs_NotFound(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// TestGetByModelID edge cases
-// ---------------------------------------------------------------------------
-
-func TestRepository_GetByModelID_NotFound(t *testing.T) {
-	ctx := context.Background()
-	repo := NewRepository(testPool)
-
-	// Get by non-existent model ID - should return nil/empty
-	models, err := repo.GetByModelID(ctx, "non-existent-model-id")
-	if err != nil {
-		t.Fatalf("GetByModelID failed: %v", err)
-	}
-	if len(models) != 0 {
-		t.Errorf("expected 0 models for non-existent model ID, got %d", len(models))
-	}
-}
-
-// ---------------------------------------------------------------------------
 // TestRecordMissingModels edge cases
 // ---------------------------------------------------------------------------
 
@@ -1091,20 +938,6 @@ func TestGetByIDs_CacheHitOnly(t *testing.T) {
 	}
 }
 
-func TestGetByModelID_CancelledContext(t *testing.T) {
-	repo := NewRepository(testPool)
-	InvalidateModelCache()
-
-	ctx, cancel := context.WithCancel(context.Background())
-	cancel()
-
-	// Use a model ID that won't be in cache, forcing a DB query
-	_, err := repo.GetByModelID(ctx, "nonexistent-model-id")
-	if err == nil {
-		t.Error("expected error with cancelled context, got nil")
-	}
-}
-
 func TestGetByProviderAndModelID_CancelledContext(t *testing.T) {
 	repo := NewRepository(testPool)
 	InvalidateModelCache()
@@ -1149,8 +982,8 @@ func TestUpdate_CancelledContext(t *testing.T) {
 // ---------------------------------------------------------------------------
 
 // TestGetByIDs_AfterCacheInvalidation verifies that GetByIDs fetches from the
-// database after the cache is invalidated, and that WarmModelCache is called
-// on the results (subsequent lookups hit the refreshed cache).
+// database after the cache is invalidated, and that the results are installed
+// at the captured generation (subsequent lookups hit the refreshed cache).
 func TestGetByIDs_AfterCacheInvalidation(t *testing.T) {
 	ctx := context.Background()
 	repo := NewRepository(testPool)

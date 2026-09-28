@@ -586,7 +586,15 @@ func TestMaybeStartupDiscovery(t *testing.T) {
 		if err != nil {
 			t.Fatalf("failed to create provider: %v", err)
 		}
+		if _, err := deps.providerRepo.Get(ctx, p.ID); err != nil {
+			t.Fatalf("Get: %v", err)
+		}
 		touchLastDiscovered(ctx, deps.pool, p)
+		// The stamp evicts the cached row, so a reader sees
+		// last_discovered_at now rather than after the TTL.
+		if provider.IsCachedByID(p.ID) {
+			t.Fatal("touchLastDiscovered must evict the provider's cache entry")
+		}
 		// Recently-discovered guard fires: no background run is launched, so
 		// the unreachable provider is never scanned again.
 		var group backgroundGroup

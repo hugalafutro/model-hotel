@@ -1241,20 +1241,24 @@ var failoverByModelCache = make(map[string]failoverCacheEntry)
 | Operation | Function | When Called |
 |-----------|----------|-------------|
 | Read | `GetCachedFailoverByModel(displayModel)` | Every `GetByModel` query (before DB) |
-| Write | `cacheFailoverGroup(&fg)` | After successful DB query |
-| Invalidate | `InvalidateFailoverCache()` | On group create/update/delete |
-| Warm | `WarmFailoverCache(groups)` | On startup, periodic refresh |
+| Fill | `cacheFailoverGroupAt(fg, gen)` | After a read-through's DB query, if no invalidation landed since `gen` |
+| Invalidate | `InvalidateFailoverCacheKey(displayModel)`, `InvalidateFailoverCache()` | On group create/update/delete |
+| Warm | `WarmFailoverCacheAt(groups, gen)` | On startup, with `gen` captured before the List |
 
 **Cache Invalidation:**
 
-The cache is invalidated on any mutation:
+The cache is invalidated on any mutation. A write never installs its `RETURNING` row: two
+concurrent writes can finish in reverse order and an install would hold the older row for
+the TTL, so the write drops the key and the next reader refills. Every invalidation
+advances the cache generation; a read-through that captured the generation before its
+`SELECT` installs nothing if it has moved.
 
 ```go
 // internal/failover/failover.go:UpsertWithConfig
 func (r *Repository) UpsertWithConfig(...) (*FailoverGroup, error) {
     // ... INSERT/UPDATE query ...
-    cacheFailoverGroup(&fg)  // Update cache entry
-    return &fg, nil
+    InvalidateFailoverCacheKey(fg.DisplayModel)  // the next reader refills
+    return fg, nil
 }
 
 // internal/failover/failover.go:Delete
@@ -1267,15 +1271,15 @@ func (r *Repository) Delete(ctx context.Context, displayModel string) error {
 
 **Cache Warming:**
 
-On startup and periodic sync, the cache is pre-populated:
+On startup the cache is pre-populated with the rows listed at a captured generation, so a
+write that lands during the List is not undone by the warm:
 
 ```go
-// internal/failover/cache.go:WarmFailoverCache
-func WarmFailoverCache(groups []*FailoverGroup) {
-    for _, fg := range groups {
-        cacheFailoverGroup(fg)
-    }
-}
+// cmd/server/startup.go:warmCaches
+gen := failover.CacheGen()
+groups, err := deps.failoverRepo.List(ctx)
+// ...
+failover.WarmFailoverCacheAt(groups, gen)
 ```
 
 ---

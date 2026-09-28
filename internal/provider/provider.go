@@ -183,7 +183,8 @@ func (r *Repository) Create(ctx context.Context, req CreateProviderRequest, encr
 		return nil, err
 	}
 
-	cacheProvider(p)
+	// Not installed here: a write path never installs its RETURNING row (see
+	// Update), the first reader fills it.
 	return p, nil
 }
 
@@ -238,6 +239,7 @@ func (r *Repository) Get(ctx context.Context, id uuid.UUID) (*Provider, error) {
 	if p, ok := GetCachedByID(id); ok {
 		return p, nil
 	}
+	gen := CacheGen()
 
 	query := `SELECT ` + providerColumns + ` FROM providers WHERE id = $1`
 
@@ -246,7 +248,7 @@ func (r *Repository) Get(ctx context.Context, id uuid.UUID) (*Provider, error) {
 		return nil, err
 	}
 
-	cacheProvider(p)
+	cacheProviderAt(p, gen)
 	return p, nil
 }
 
@@ -271,6 +273,7 @@ func (r *Repository) GetByIDs(ctx context.Context, ids []uuid.UUID) (map[uuid.UU
 		return result, nil
 	}
 
+	gen := CacheGen()
 	query := `SELECT ` + providerColumns + ` FROM providers WHERE id = ANY($1)`
 
 	rows, err := r.pool.Query(ctx, query, uncachedIDs)
@@ -284,7 +287,7 @@ func (r *Repository) GetByIDs(ctx context.Context, ids []uuid.UUID) (map[uuid.UU
 		if err != nil {
 			return nil, err
 		}
-		cacheProvider(p)
+		cacheProviderAt(p, gen)
 		result[p.ID] = p
 	}
 
@@ -296,12 +299,13 @@ func (r *Repository) GetByName(ctx context.Context, name string) (*Provider, err
 	if p, ok := GetCachedByName(name); ok {
 		return p, nil
 	}
+	gen := CacheGen()
 
 	query := `SELECT ` + providerColumns + ` FROM providers WHERE name = $1`
 
 	p, err := scanProvider(r.pool.QueryRow(ctx, query, name))
 	if err == nil {
-		cacheProvider(p)
+		cacheProviderAt(p, gen)
 		return p, nil
 	}
 	// Only a genuine miss earns the normalized retry. A context, connectivity
@@ -319,7 +323,7 @@ func (r *Repository) GetByName(ctx context.Context, name string) (*Provider, err
 		return nil, err
 	}
 
-	cacheProvider(p)
+	cacheProviderAt(p, gen)
 	return p, nil
 }
 
@@ -366,8 +370,10 @@ func (r *Repository) Update(ctx context.Context, id uuid.UUID, req UpdateProvide
 		return nil, err
 	}
 
+	// The flush is the whole of the cache work: installing the RETURNING row
+	// here would let two concurrent updates finish in reverse order and hold
+	// the older row for the TTL. The next reader refills.
 	InvalidateProviderCache()
-	cacheProvider(p)
 	// Cached model rows denormalize provider name and enabled state, so a
 	// provider update must drop them or failover entries report stale
 	// provider_enabled until the model cache TTL expires.
@@ -647,17 +653,21 @@ func (r *Repository) BackfillMaskedKeys(ctx context.Context, masterKey string) (
 
 // TouchLastUsed updates the last_used_at timestamp for a provider.
 func (r *Repository) TouchLastUsed(ctx context.Context, id uuid.UUID) error {
-	_, err := r.pool.Exec(ctx, `
-		UPDATE providers SET last_used_at = now() WHERE id = $1
-	`, id)
+	var at time.Time
+	err := r.pool.QueryRow(ctx, `
+		UPDATE providers SET last_used_at = GREATEST(last_used_at, now()) WHERE id = $1 RETURNING last_used_at
+	`, id).Scan(&at)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return nil
+	}
 	if err != nil {
 		debuglog.Error("provider: touch last_used failed", "id", id, "error", err)
 		return err
 	}
-	// A single-row metadata write only invalidates that provider's own cache
-	// entries: a full flush here would empty the routing cache on every
-	// attempt/probe, and hedged streaming touches every launched candidate.
-	EvictProviderCacheByID(id)
+	// A metadata-only write on the per-attempt path: the cached row is
+	// stamped in place rather than evicted, so the providers carrying load
+	// stay cache hits (see TouchProviderCacheLastUsed).
+	TouchProviderCacheLastUsed(id, at)
 	return nil
 }
 
