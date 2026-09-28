@@ -1671,3 +1671,44 @@ func TestUpsertWithConfig_AutoWriteNeverLandsOnACustomRow(t *testing.T) {
 		t.Fatalf("custom write on a custom row: %v", err)
 	}
 }
+
+// The write-time refusal is what closes the race the read-side check cannot:
+// here the cache still holds the auto row the sync read while the table
+// already holds a custom one, so the read-side check passes and the upsert
+// itself must return the custom verdict.
+func TestUpsertAutoGroup_CustomRowLandingAfterTheReadIsNotAdopted(t *testing.T) {
+	repo := newTestRepo(t)
+	ctx := context.Background()
+	name := "test-race-custom-" + uuid.New().String()[:8]
+	m1, m2 := uuid.New(), uuid.New()
+
+	on, auto := true, true
+	if _, err := repo.UpsertWithConfig(ctx, name, []uuid.UUID{m1, m2}, map[string]bool{m1.String(): true, m2.String(): true}, &on, nil, nil, &auto); err != nil {
+		t.Fatalf("create auto group: %v", err)
+	}
+	defer func() { _ = repo.Delete(ctx, name) }()
+	// The operator's rename or a fleet import lands after the sync's read: the
+	// table says custom while the sync's cached read still says auto.
+	if _, err := testDB.Pool().Exec(ctx, "UPDATE model_failover_groups SET auto_created = false, group_enabled = false, priority_order = $2 WHERE display_model = $1", name, `["`+m1.String()+`"]`); err != nil {
+		t.Fatalf("flip to custom: %v", err)
+	}
+
+	existing, order, custom, err := repo.upsertAutoGroup(ctx, name, []uuid.UUID{m1, m2})
+	if err != nil {
+		t.Fatalf("upsertAutoGroup: %v", err)
+	}
+	if !custom {
+		t.Fatal("a custom row that landed after the read was adopted")
+	}
+	if existing == nil || !existing.AutoCreated || len(order) != 2 {
+		t.Errorf("stale read not reported as such: existing=%+v order=%v", existing, order)
+	}
+	InvalidateFailoverCache()
+	group, err := repo.GetByModel(ctx, name)
+	if err != nil {
+		t.Fatalf("get: %v", err)
+	}
+	if group.AutoCreated || group.GroupEnabled || len(group.PriorityOrder) != 1 {
+		t.Errorf("custom row was touched: auto_created=%v group_enabled=%v members=%v", group.AutoCreated, group.GroupEnabled, group.PriorityOrder)
+	}
+}
