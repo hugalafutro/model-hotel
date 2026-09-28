@@ -284,9 +284,8 @@ func TestCacheProviderAt_OtherProviderEvictionDoesNotDropFill(t *testing.T) {
 	InvalidateProviderCache()
 	p := &Provider{ID: uuid.New(), Name: "Unrelated Provider"}
 
-	// TouchLastUsed evicts on every proxied attempt; a fill for a different
-	// provider that overlapped one must still install or the hit rate
-	// collapses under load.
+	// A fill for a different provider that overlapped a per-id eviction must
+	// still install, or every eviction would cost every reader a query.
 	gen := CacheGen()
 	EvictProviderCacheByID(uuid.New())
 	cacheProviderAt(p, gen)
@@ -308,5 +307,18 @@ func TestCacheProviderAt_CurrentGenerationInstalls(t *testing.T) {
 	}
 	if CacheGen() != gen {
 		t.Error("a fill must not advance the generation")
+	}
+}
+
+func TestWarmProviderCacheAt_StaleMarkInstallsNothing(t *testing.T) {
+	InvalidateProviderCache()
+	p := &Provider{ID: uuid.New(), Name: "Warm Stale"}
+
+	mark := CacheGen()
+	InvalidateProviderCache()
+	WarmProviderCacheAt([]*Provider{p}, mark)
+
+	if IsCachedByID(p.ID) {
+		t.Error("a warm whose List overlapped a flush must not install")
 	}
 }

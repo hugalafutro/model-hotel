@@ -46,7 +46,7 @@ func TestGetByName_EvictionDuringQueryIsNotReinstalled(t *testing.T) {
 	}
 	t.Cleanup(func() { _ = newTestRepo(t).Delete(ctx, p.ID) })
 
-	// A TouchLastUsed of this provider lands while the SELECT is in flight.
+	// A discovery stamp evicts this provider while the SELECT is in flight.
 	racing := NewRepository(tracedPool(t, func() { EvictProviderCacheByID(p.ID) }))
 	if _, err := racing.GetByName(ctx, p.Name); err != nil {
 		t.Fatalf("GetByName: %v", err)

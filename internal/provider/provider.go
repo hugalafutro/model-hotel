@@ -653,17 +653,21 @@ func (r *Repository) BackfillMaskedKeys(ctx context.Context, masterKey string) (
 
 // TouchLastUsed updates the last_used_at timestamp for a provider.
 func (r *Repository) TouchLastUsed(ctx context.Context, id uuid.UUID) error {
-	_, err := r.pool.Exec(ctx, `
-		UPDATE providers SET last_used_at = now() WHERE id = $1
-	`, id)
+	var at time.Time
+	err := r.pool.QueryRow(ctx, `
+		UPDATE providers SET last_used_at = now() WHERE id = $1 RETURNING last_used_at
+	`, id).Scan(&at)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return nil
+	}
 	if err != nil {
 		debuglog.Error("provider: touch last_used failed", "id", id, "error", err)
 		return err
 	}
-	// A single-row metadata write only invalidates that provider's own cache
-	// entries: a full flush here would empty the routing cache on every
-	// attempt/probe, and hedged streaming touches every launched candidate.
-	EvictProviderCacheByID(id)
+	// A metadata-only write on the per-attempt path: the cached row is
+	// stamped in place rather than evicted, so the providers carrying load
+	// stay cache hits (see TouchProviderCacheLastUsed).
+	TouchProviderCacheLastUsed(id, at)
 	return nil
 }
 

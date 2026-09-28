@@ -32,9 +32,9 @@ var (
 	// counters before its SELECT (CacheGen) and installs a row only if no
 	// flush has landed since and the row's own id was not evicted since, so
 	// a read that overlapped a write (a key rotation, a disable) can never
-	// reinstall the pre-write row for the TTL. The eviction side is per id
-	// because TouchLastUsed evicts on every proxied attempt: one global
-	// counter would discard every unrelated fill in flight under load.
+	// reinstall the pre-write row for the TTL. The eviction side is per id so
+	// that a single row's eviction (a discovery stamp) discards only that
+	// row's overlapping fill, not every unrelated fill in flight.
 	// providerEvicted is bounded by the provider count and is reset by a
 	// flush, which supersedes every eviction before it.
 	providerFlushGen uint64
@@ -132,7 +132,7 @@ func IsCachedByName(name string) bool {
 
 // EvictProviderCacheByID removes one provider's entries from all three key
 // maps, leaving the rest of the cache intact. For single-row metadata writes
-// (e.g. TouchLastUsed) this keeps read-through Get/GetByIDs honest without the
+// (a discovery stamp) this keeps read-through Get/GetByIDs honest without the
 // cost of a full flush on a hot path.
 func EvictProviderCacheByID(id uuid.UUID) {
 	providerCacheMu.Lock()
@@ -144,6 +144,26 @@ func EvictProviderCacheByID(id uuid.UUID) {
 	}
 	delete(providerByIDCache, id)
 	providerCacheMu.Unlock()
+}
+
+// TouchProviderCacheLastUsed stamps last_used_at on the cached copies of one
+// provider. A proxied attempt touches its provider every time, and evicting
+// on each touch left the busiest providers a cache miss per request; the
+// touch is metadata only, so the cached row is patched in place instead.
+// Readers hold the old pointer, so the stamped row is a fresh copy.
+func TouchProviderCacheLastUsed(id uuid.UUID, at time.Time) {
+	providerCacheMu.Lock()
+	defer providerCacheMu.Unlock()
+	entry, ok := providerByIDCache[id]
+	if !ok {
+		return
+	}
+	stamped := *entry.provider
+	stamped.LastUsedAt = &at
+	entry.provider = &stamped
+	providerByIDCache[id] = entry
+	providerByNameCache[stamped.Name] = entry
+	providerByNormalNameCache[NormalizeName(stamped.Name)] = entry
 }
 
 // InvalidateProviderCache clears all provider cache entries.

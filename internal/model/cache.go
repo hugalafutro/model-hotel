@@ -114,13 +114,15 @@ func InvalidateModelCache() {
 func WarmModelCacheAt(models []*Model, gen uint64) {
 	exp := time.Now().Add(modelCacheTTL)
 	modelCacheMu.Lock()
-	defer modelCacheMu.Unlock()
 	if modelCacheGen.Load() != gen {
+		modelCacheMu.Unlock()
+		debuglog.Info("model: warm skipped, the cache was invalidated during the read", "count", len(models))
 		return
 	}
 	for _, m := range models {
 		modelByUUIDCache[m.ID] = modelByIDCacheEntry{model: m, expiresAt: exp}
 		modelByCompositeKey[m.ProviderID.String()+":"+m.ModelID] = modelByIDCacheEntry{model: m, expiresAt: exp}
 	}
+	modelCacheMu.Unlock()
 	debuglog.Info("model: warmed cache", "count", len(models))
 }

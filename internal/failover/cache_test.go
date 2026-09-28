@@ -588,3 +588,16 @@ func TestIsCachedByModel_Miss(t *testing.T) {
 		t.Error("IsCachedByModel should return false for different model")
 	}
 }
+
+func TestWarmFailoverCacheAt_StaleGenerationInstallsNothing(t *testing.T) {
+	InvalidateFailoverCache()
+	fg := &FailoverGroup{ID: uuid.New(), DisplayModel: "warm-stale"}
+
+	gen := CacheGen()
+	InvalidateFailoverCacheKey("warm-stale")
+	WarmFailoverCacheAt([]*FailoverGroup{fg}, gen)
+
+	if IsCachedByModel("warm-stale") {
+		t.Error("a warm whose List overlapped an invalidation must not install")
+	}
+}

@@ -22,7 +22,7 @@ func TestCacheProvider_NilProvider(t *testing.T) {
 	testUUID := uuid.New()
 	_, ok := GetCachedByID(testUUID)
 	if ok {
-		t.Error("GetCachedByID should return ok=false after cacheProviderAt(nil)", CacheGen())
+		t.Error("GetCachedByID should return ok=false after cacheProviderAt(nil)")
 	}
 }
 
