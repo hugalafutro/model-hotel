@@ -131,7 +131,14 @@ func newStreamReader(ctx context.Context, body io.ReadCloser, opts streamOptions
 	// not read as a stall halfway through. Mid-line bytes re-arm it only in
 	// volume (stallByteQuantum), so an upstream dribbling a byte at a time
 	// without finishing a line still stalls.
-	var src io.Reader = progressReader{r: body, progress: r.noteBytes}
+	// A translated upstream's adapter buffers a whole event before handing on
+	// a byte, so its own upstream reads are what the watchdog hears.
+	var src io.Reader = body
+	if tap, ok := body.(interface{ OnUpstreamBytes(func(int)) }); ok {
+		tap.OnUpstreamBytes(r.noteBytes)
+	} else {
+		src = progressReader{r: body, progress: r.noteBytes}
+	}
 	if opts.preReadBuf != nil {
 		src = io.MultiReader(bytes.NewReader(opts.preReadBuf.Bytes()), src)
 	}

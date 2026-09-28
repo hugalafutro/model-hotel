@@ -375,6 +375,12 @@ func (h *Handler) finalizeStream(st *streamState, sink *streamSink, scanErr erro
 // by the watchdog's body.Close(). The missing-[DONE] diagnosis is NOT handled
 // here: it may write to the client, so it stays in finalizeStream.
 func deriveStreamError(st *streamState, scanErr error, opts streamOptions, logData *requestLogData) string {
+	// An overflow is charged and outranks a stall whatever came before it,
+	// an in-stream error frame included; the message below names it only
+	// when nothing earlier already explains the failure.
+	if isLineCapErr(scanErr) {
+		st.lineCapExceeded = true
+	}
 	errMsg := st.lastErrMsg
 	if errMsg != "" {
 		// An in-stream SSE error body from the provider. It is sanitized here for

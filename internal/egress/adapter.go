@@ -62,6 +62,9 @@ type StreamAdapter struct {
 	srcErr   error
 	transErr error // first translation failure; poisons the stream
 	eventCap int   // largest SSE event this adapter buffers: MaxSSEEventBytes
+	// onUpstream, when set, hears the size of every upstream read that
+	// brought bytes (OnUpstreamBytes).
+	onUpstream func(n int)
 }
 
 // NewStreamAdapter builds an adapter for one streaming response. component is
@@ -96,6 +99,9 @@ func (a *StreamAdapter) Read(p []byte) (int, error) {
 		}
 		n, err := a.upstream.Read(a.readBuf)
 		if n > 0 {
+			if a.onUpstream != nil {
+				a.onUpstream(n)
+			}
 			a.consume(a.readBuf[:n])
 		}
 		if err != nil {
@@ -120,6 +126,14 @@ func (a *StreamAdapter) Read(p []byte) (int, error) {
 	n := copy(p, a.pending)
 	a.pending = a.pending[n:]
 	return n, nil
+}
+
+// OnUpstreamBytes registers f to hear the size of every upstream read that
+// brought bytes. The adapter hands its reader nothing until an event is whole,
+// so a caller timing the stream's liveness (the proxy's stall watchdog) needs
+// the upstream's progress, not its own. f runs on the goroutine calling Read.
+func (a *StreamAdapter) OnUpstreamBytes(f func(n int)) {
+	a.onUpstream = f
 }
 
 // consume splits incoming bytes into SSE lines and assembles those lines into

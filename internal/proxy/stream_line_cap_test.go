@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/hugalafutro/model-hotel/internal/egress"
+	"github.com/hugalafutro/model-hotel/internal/gemini"
 )
 
 // An image model streams a whole picture as one base64 data URL in a single
@@ -80,6 +81,20 @@ func TestDeriveStreamError_LineCapNamesTheLimitAndChargesTheProvider(t *testing.
 	ll := &requestLogData{statusCode: 200}
 	if got := deriveStreamError(late, bufio.ErrTooLong, streamOptions{streamStallTimeout: time.Second}, ll); got != lineCapErrMsg || ll.errorKind != KindProviderError {
 		t.Fatalf("overflow then stall: errMsg=%q kind=%s", got, ll.errorKind)
+	}
+
+	// An overflow after an in-stream error frame is still charged, output or
+	// not, and never relabelled a stall.
+	framed := &streamState{sawContent: true, deliveredBytes: 5, stalled: true, lastErrMsg: "upstream said no"}
+	fl := &requestLogData{statusCode: 200}
+	fmsg := deriveStreamError(framed, bufio.ErrTooLong, streamOptions{streamStallTimeout: time.Second}, fl)
+	if !framed.lineCapExceeded || strings.HasPrefix(fmsg, "stream stalled") {
+		t.Fatalf("overflow after an error frame: flag=%v errMsg=%q", framed.lineCapExceeded, fmsg)
+	}
+	if providerAtFault(fl.errorKind) {
+		if v := judgeStreamForBreaker(framed, fl, fmsg, true); v.failureReason == "" {
+			t.Fatalf("overflow after an error frame: verdict = %+v, want a charge", v)
+		}
 	}
 
 	// A translated upstream's overflow is the same fault.
@@ -184,9 +199,11 @@ func (s *slowBody) Close() error { s.closed.Store(true); return nil }
 // link is data, not a stall, even when the whole frame outlasts the timeout.
 func TestStreamReader_SlowLargeFrameIsNotAStall(t *testing.T) {
 	t.Parallel()
-	frame := "data: {\"x\":\"" + strings.Repeat("A", 40<<10) + "\"}\n"
-	body := &slowBody{data: []byte(frame), piece: stallByteQuantum, pause: 50 * time.Millisecond}
-	reader := newStreamReader(context.Background(), body, streamOptions{streamStallTimeout: time.Second}, &requestLogData{modelID: "m", providerName: "p"}, nil)
+	// 30 pieces of 16 KiB 100 ms apart: 3 s of arrival at about 160 KiB/s
+	// (above slowLineRate), six times the 500 ms window, every gap a fifth.
+	frame := "data: {\"x\":\"" + strings.Repeat("A", 30*(16<<10)) + "\"}\n"
+	body := &slowBody{data: []byte(frame), piece: 16 << 10, pause: 100 * time.Millisecond}
+	reader := newStreamReader(context.Background(), body, streamOptions{streamStallTimeout: 500 * time.Millisecond}, &requestLogData{modelID: "m", providerName: "p"}, nil)
 	defer reader.Close()
 
 	ev, ok := reader.Next()
@@ -250,11 +267,12 @@ func TestStreamReader_EndlessLineInQuantaStallsAfterItsBudget(t *testing.T) {
 // slowLineRate: a large frame on a slow but working link is not a stall.
 func TestStreamReader_LongLineAboveTheRateFloorIsNotAStall(t *testing.T) {
 	t.Parallel()
-	const stall = 100 * time.Millisecond
-	// 16 KiB per 20 ms is about 800 KiB/s, far above the floor, for 1.2 s:
-	// four times the 300 ms budget.
-	frame := "data: {\"x\":\"" + strings.Repeat("A", 60*(16<<10)) + "\"}\n"
-	body := &slowBody{data: []byte(frame), piece: 16 << 10, pause: 20 * time.Millisecond}
+	const stall = 300 * time.Millisecond
+	// 32 KiB per 40 ms is about 800 KiB/s, far above the floor, for 3.6 s:
+	// four times the 900 ms budget, with every gap under a seventh of the
+	// window.
+	frame := "data: {\"x\":\"" + strings.Repeat("A", 90*(32<<10)) + "\"}\n"
+	body := &slowBody{data: []byte(frame), piece: 32 << 10, pause: 40 * time.Millisecond}
 	reader := newStreamReader(context.Background(), body, streamOptions{streamStallTimeout: stall}, &requestLogData{modelID: "m", providerName: "p"}, nil)
 	defer reader.Close()
 
@@ -284,5 +302,25 @@ func TestJudgeStreamForBreaker_OverflowIsChargedAcrossAShutdown(t *testing.T) {
 	plain := &streamState{interrupted: true}
 	if v := judgeStreamForBreaker(plain, &requestLogData{errorKind: KindInternal}, "stream interrupted: gateway restarting", true); v.failureReason != "" || v.success {
 		t.Fatalf("plain shutdown verdict = %+v, want nothing", v)
+	}
+}
+
+// A translated upstream's adapter holds a whole event before its reader sees a
+// byte; the watchdog hears the adapter's upstream reads, so a large event
+// arriving steadily is not a stall.
+func TestStreamReader_SlowTranslatedFrameIsNotAStall(t *testing.T) {
+	t.Parallel()
+	event := "data: {\"candidates\":[{\"content\":{\"parts\":[{\"text\":\"" + strings.Repeat("A", 30*(16<<10)) + "\"}]}}]}\n\n"
+	upstream := &slowBody{data: []byte(event), piece: 16 << 10, pause: 100 * time.Millisecond}
+	body := gemini.NewStreamAdapter(upstream, "m")
+	reader := newStreamReader(context.Background(), body, streamOptions{streamStallTimeout: 500 * time.Millisecond}, &requestLogData{modelID: "m", providerName: "p"}, nil)
+	defer reader.Close()
+
+	ev, ok := reader.Next()
+	if !ok || ev.kind != sseData {
+		t.Fatalf("translated frame not delivered: ok=%v kind=%d err=%v", ok, ev.kind, reader.err())
+	}
+	if reader.stalled() {
+		t.Fatal("a translated frame whose upstream bytes kept arriving was judged a stall")
 	}
 }
