@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"strings"
 	"testing"
 
 	"github.com/go-chi/chi/v5"
@@ -56,9 +57,12 @@ func TestChangeOwnPassword_Validation(t *testing.T) {
 	if code := changePassword(t, r, envAdminToken, "x", "password456"); code != http.StatusBadRequest {
 		t.Errorf("env admin: %d, want 400", code)
 	}
-	// Wrong current password is a 403 (the session is alive) and changes nothing.
-	if code := changePassword(t, r, token, "nope-nope-nope", "password456"); code != http.StatusForbidden {
-		t.Errorf("wrong current: %d, want 403", code)
+	// Wrong current password is a coded 403 (the session is alive) and changes
+	// nothing; the code is what the dashboard matches, since the route sees
+	// other 403s.
+	if w := doJSON(t, r, http.MethodPost, "/auth/password", token,
+		`{"current_password":"nope-nope-nope","new_password":"password456"}`); w.Code != http.StatusForbidden || !strings.Contains(w.Body.String(), `"wrong_current_password"`) {
+		t.Errorf("wrong current: %d %s, want 403 with code wrong_current_password", w.Code, w.Body.String())
 	}
 	if w := doJSON(t, r, http.MethodGet, "/auth/me", token, ""); w.Code != http.StatusOK {
 		t.Errorf("session revoked on failed change: %d, want 200", w.Code)

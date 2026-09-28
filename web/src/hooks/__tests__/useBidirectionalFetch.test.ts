@@ -361,6 +361,51 @@ describe("useBidirectionalFetch", () => {
 	});
 
 	describe("fetchNewer", () => {
+		it("keeps the fresher of two held merges for one row", async () => {
+			const mockFetchFn = vi
+				.fn()
+				.mockResolvedValueOnce({
+					entries: [{ id: "1", name: "old" }] as TestEntry[],
+					total: 1,
+					has_before: true,
+					has_after: false,
+				})
+				.mockResolvedValueOnce({
+					entries: [{ id: "2", name: "pending" }] as TestEntry[],
+					total: 2,
+					has_before: false,
+					has_after: false,
+				});
+			const rank = (n: string) =>
+				n === "pending" ? 0 : n === "streaming" ? 1 : 2;
+			const { result } = renderHook(() =>
+				useBidirectionalFetch<TestEntry>({
+					fetchFn: mockFetchFn,
+					filters: {},
+					sortDir: "desc",
+					getCursor: (e) => e.id,
+					getId: (e) => e.id,
+					keep: (current, next) => rank(current.name) > rank(next.name),
+				}),
+			);
+			await waitFor(() => expect(result.current.entries).toHaveLength(1));
+
+			// The completed copy lands first, the streaming one second.
+			act(() => {
+				result.current.mergeEntries([{ id: "2", name: "finished" }]);
+			});
+			act(() => {
+				result.current.mergeEntries([{ id: "2", name: "streaming" }]);
+			});
+			await act(async () => {
+				await result.current.fetchNewer();
+			});
+			expect(result.current.entries.map((e) => e.name)).toEqual([
+				"finished",
+				"old",
+			]);
+		});
+
 		it("applies a held merge under StrictMode and on the initial page", async () => {
 			// The initial page is held until the merge for one of its rows arrives,
 			// the way a request.completed fetch can land while fetchInitial is in

@@ -4,6 +4,7 @@ import type { ReactNode } from "react";
 import { describe, expect, it, vi } from "vitest";
 import { api } from "../../api/client";
 import { ToastProvider } from "../../context/ToastContext";
+import { QUOTA_QUERY_KEYS } from "../useQuotaData";
 import { useQuotaRefresh } from "../useQuotaRefresh";
 
 vi.mock("../../api/client", () => ({
@@ -36,12 +37,14 @@ describe("useQuotaRefresh", () => {
 			});
 			const queryClient = new QueryClient();
 			const invalidate = vi.spyOn(queryClient, "invalidateQueries");
-			const quotaInvalidated = () =>
-				invalidate.mock.calls.some(
-					([opts]) =>
-						Array.isArray(opts?.queryKey) &&
-						opts.queryKey[0] === "nanogpt-usage",
+			const invalidatedKeys = () =>
+				new Set(
+					invalidate.mock.calls
+						.map(([opts]) => opts?.queryKey?.[0])
+						.filter((k): k is string => typeof k === "string"),
 				);
+			const quotaInvalidated = () =>
+				QUOTA_QUERY_KEYS.every((k) => invalidatedKeys().has(k));
 			const { result } = renderHook(() => useQuotaRefresh(), {
 				wrapper: wrap(queryClient),
 			});

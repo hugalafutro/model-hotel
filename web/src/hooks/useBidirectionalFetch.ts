@@ -194,6 +194,13 @@ export function useBidirectionalFetch<
 				const listed = new Set(prev.map((e) => getId(e)));
 				for (const [id, next] of updateMap) {
 					if (listed.has(id)) continue;
+					// keep decides between two held copies too: the streaming and
+					// completed fetches for one row can land in either order. The
+					// accepted copy is re-inserted so it is the newest in insertion
+					// order, which the cap below evicts from.
+					const held = pendingMergesRef.current.get(id);
+					if (held !== undefined && keep?.(held, next)) continue;
+					pendingMergesRef.current.delete(id);
 					pendingMergesRef.current.set(id, next);
 					// A row the filters exclude is never listed, so the stash would
 					// otherwise grow by one per event for the life of the page. Older
