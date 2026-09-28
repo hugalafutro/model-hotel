@@ -64,9 +64,9 @@ const providerCacheTTL = 5 * time.Minute
 // gets the row it read, the next reader refills. Write paths install nothing:
 // two concurrent writes can finish in reverse order and an install would hold
 // the older row for the TTL.
-func cacheProviderAt(p *Provider, gen CacheMark) {
+func cacheProviderAt(p *Provider, gen CacheMark) bool {
 	if p == nil {
-		return
+		return false
 	}
 	entry := providerCacheEntry{
 		provider:  p,
@@ -75,11 +75,12 @@ func cacheProviderAt(p *Provider, gen CacheMark) {
 	providerCacheMu.Lock()
 	defer providerCacheMu.Unlock()
 	if providerFlushGen != gen.flush || providerEvicted[p.ID] > gen.evict {
-		return
+		return false
 	}
 	providerByIDCache[p.ID] = entry
 	providerByNameCache[p.Name] = entry
 	providerByNormalNameCache[NormalizeName(p.Name)] = entry
+	return true
 }
 
 // GetCachedByID returns a cached provider by ID if not expired.
@@ -159,8 +160,13 @@ func InvalidateProviderCache() {
 // WarmProviderCacheAt installs rows read at a captured mark: nothing installs
 // for a row invalidated since the capture.
 func WarmProviderCacheAt(providers []*Provider, mark CacheMark) {
+	installed := 0
 	for _, p := range providers {
-		cacheProviderAt(p, mark)
+		if cacheProviderAt(p, mark) {
+			installed++
+		}
 	}
-	debuglog.Info("provider: warmed cache", "providers", len(providers))
+	// Rows a write invalidated during the List are not installed; the count
+	// says so rather than claiming a full warm.
+	debuglog.Info("provider: warmed cache", "providers", len(providers), "installed", installed)
 }
