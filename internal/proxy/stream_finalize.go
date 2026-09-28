@@ -212,7 +212,8 @@ func judgeStreamForBreaker(st *streamState, logData *requestLogData, errMsg stri
 	// deriveStreamError writes the two together. The clean-finish charge sits
 	// above this gate deliberately, having no errMsg and therefore no kind; the
 	// two non-provider causes that could reach it (interrupted,
-	// clientDisconnected) are short-circuited at the top.
+	// clientDisconnected) are short-circuited at the top, except an
+	// interrupted stream that overflowed, which is charged below.
 	if !providerAtFault(logData.errorKind) {
 		return streamBreakerVerdict{}
 	}
