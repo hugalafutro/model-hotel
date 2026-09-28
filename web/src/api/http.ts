@@ -228,5 +228,17 @@ export function getAuthHeaders(): Record<string, string> {
 export function resetToLogin(queryClient?: QueryClient): void {
 	clearAuth();
 	queryClient?.cancelQueries();
+	// The quota payloads useQuotaData mirrors into localStorage (its
+	// CACHE_PREFIX) carry provider account details; they belong to the session
+	// that ends here, not to whoever logs into this browser next. Other
+	// "model-hotel:" keys are the same mirror. Chat history and UI preferences
+	// use other keys and stay.
+	try {
+		for (const key of Object.keys(localStorage)) {
+			if (key.startsWith("model-hotel:")) localStorage.removeItem(key);
+		}
+	} catch {
+		/* blocked storage: nothing to clear */
+	}
 	window.location.reload();
 }

@@ -67,7 +67,13 @@ export interface UseBidirectionalFetchReturn<
 	fetchNewer: () => Promise<void>;
 	fetchOlder: () => Promise<void>;
 	reset: () => void;
-	mergeEntries: (updated: T[]) => void;
+	/**
+	 * Replaces rows already in the list by id. keep, when given, is asked per
+	 * row whether the current one should stay (true) instead of taking the
+	 * update: two fetches for one row can settle out of order, and a caller
+	 * that knows a row's state is terminal can refuse the older snapshot.
+	 */
+	mergeEntries: (updated: T[], keep?: (current: T, next: T) => boolean) => void;
 }
 
 function deepEqualFilters(
@@ -151,11 +157,15 @@ export function useBidirectionalFetch<
 	}, [invalidate, clearData]);
 
 	const mergeEntries = useCallback(
-		(updated: T[]) => {
+		(updated: T[], keep?: (current: T, next: T) => boolean) => {
 			if (updated.length === 0) return;
 			setEntries((prev) => {
 				const updateMap = new Map(updated.map((e) => [getId(e), e]));
-				return prev.map((e) => updateMap.get(getId(e)) ?? e);
+				return prev.map((e) => {
+					const next = updateMap.get(getId(e));
+					if (next === undefined || keep?.(e, next)) return e;
+					return next;
+				});
 			});
 		},
 		[getId],

@@ -962,6 +962,41 @@ describe("useBidirectionalFetch", () => {
 	});
 
 	describe("mergeEntries", () => {
+		it("keeps the current row when keep says so", async () => {
+			const mockFetchFn = vi.fn().mockResolvedValue({
+				entries: [{ id: "1", name: "finished" }] as TestEntry[],
+				total: 1,
+				has_before: false,
+				has_after: false,
+			});
+			const { result } = renderHook(() =>
+				useBidirectionalFetch<TestEntry>({
+					fetchFn: mockFetchFn,
+					filters: {},
+					sortDir: "desc",
+					getCursor: (e) => e.id,
+					getId: (e) => e.id,
+				}),
+			);
+			await waitFor(() => expect(result.current.entries).toHaveLength(1));
+
+			act(() => {
+				result.current.mergeEntries(
+					[{ id: "1", name: "older snapshot" }],
+					(current) => current.name === "finished",
+				);
+			});
+			expect(result.current.entries[0].name).toBe("finished");
+
+			act(() => {
+				result.current.mergeEntries(
+					[{ id: "1", name: "newer" }],
+					(current) => current.name === "nothing matches",
+				);
+			});
+			expect(result.current.entries[0].name).toBe("newer");
+		});
+
 		it("merges updated entry by ID", async () => {
 			const mockFetchFn = vi.fn().mockResolvedValue({
 				entries: [

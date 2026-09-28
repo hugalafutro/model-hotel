@@ -3,6 +3,7 @@ import { useCallback, useRef } from "react";
 import { useTranslation } from "react-i18next";
 import { api } from "../api/client";
 import { useToast } from "../context/ToastContext";
+import { invalidateQuotaQueries } from "./useQuotaData";
 
 // quotaRefreshCooldownMs is the click cooldown on a quota refresh: the sweep
 // forwards to every quota-bearing provider and each call lands in the audit
@@ -46,6 +47,11 @@ export function useQuotaRefresh() {
 				"error",
 			);
 		},
+		// The badges on the provider cards read the quota queries, not the
+		// provider list, so the sweep's fresh snapshots are re-read here; on a
+		// failed sweep the re-read falls back to the last-good snapshot the
+		// server keeps, as the sidebar panel does.
+		onSettled: () => invalidateQuotaQueries(queryClient),
 	});
 	const refreshQuotas = useCallback(() => {
 		const now = Date.now();

@@ -11,6 +11,20 @@ const REQUEST_EVENTS = new Set([
 	"request.completed",
 ]);
 
+const inFlight = (log: LogEntry) =>
+	log.state === "pending" || log.state === "streaming";
+
+/**
+ * keepFinishedRow refuses an in-flight snapshot for a row the list already
+ * holds finished. The request.streaming and request.completed events each
+ * fetch the row; when the first fetch lands second it would put the streaming
+ * snapshot (no tokens, no duration, a live pulse) back over the finished one,
+ * and nothing later repairs that: fetchNewer only prepends ids not in the
+ * list.
+ */
+export const keepFinishedRow = (current: LogEntry, next: LogEntry) =>
+	!inFlight(current) && inFlight(next);
+
 /**
  * Keeps the request list current while the live toggle is on, in whichever
  * view mode is active.
@@ -34,7 +48,10 @@ export function useRequestLogLiveUpdates({
 	viewMode: "paginate" | "scroll";
 	liveEnabled: boolean;
 	fetchNewer: () => void;
-	mergeEntries: (entries: LogEntry[]) => void;
+	mergeEntries: (
+		entries: LogEntry[],
+		keep?: (current: LogEntry, next: LogEntry) => boolean,
+	) => void;
 }) {
 	const queryClient = useQueryClient();
 	const isVisible = useDocumentVisible();
@@ -58,7 +75,7 @@ export function useRequestLogLiveUpdates({
 			const requestId = event.metadata?.request_id;
 			if (typeof requestId === "string") {
 				try {
-					mergeEntries([await api.logs.get(requestId)]);
+					mergeEntries([await api.logs.get(requestId)], keepFinishedRow);
 				} catch {
 					// The row may have been purged between the event and the fetch;
 					// the fetchNewer below is the fallback.
