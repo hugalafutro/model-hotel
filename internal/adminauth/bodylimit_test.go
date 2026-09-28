@@ -22,7 +22,9 @@ func TestTokenExchange_OversizedBody_413(t *testing.T) {
 
 	body := `{"admin_token":"sekrit","padding":"` + strings.Repeat("a", httpx.MaxJSONBody+1) + `"}`
 	rec := httptest.NewRecorder()
-	h(rec, httptest.NewRequest(http.MethodPost, "/api/auth/admin-exchange", strings.NewReader(body)))
+	req := httptest.NewRequest(http.MethodPost, "/api/auth/admin-exchange", strings.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	h(rec, req)
 
 	if rec.Code != http.StatusRequestEntityTooLarge {
 		t.Fatalf("status = %d, want 413; body=%q", rec.Code, rec.Body.String())
@@ -41,7 +43,9 @@ func TestTokenExchange_MissingToken_400(t *testing.T) {
 	h := TokenExchange(adminMgr, sessionMgr, nil, authcookie.FrontDesk, "never", nil)
 
 	rec := httptest.NewRecorder()
-	h(rec, httptest.NewRequest(http.MethodPost, "/api/auth/admin-exchange", strings.NewReader(`{}`)))
+	req := httptest.NewRequest(http.MethodPost, "/api/auth/admin-exchange", strings.NewReader(`{}`))
+	req.Header.Set("Content-Type", "application/json")
+	h(rec, req)
 
 	if rec.Code != http.StatusBadRequest {
 		t.Fatalf("status = %d, want 400; body=%q", rec.Code, rec.Body.String())

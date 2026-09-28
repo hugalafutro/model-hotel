@@ -1955,7 +1955,7 @@ Returns `200` with the body `OK` while the database answers, and `503` with the 
 | `/api/chat/*` | Any signed-in identity holding the chat grant | `Bearer <admin-token>` or session cookie |
 | `/api/webauthn/available`, `/api/webauthn/login/*` | None (IP rate-limited) | - |
 | `/api/totp/status` | None (public) | - |
-| `/api/totp/login` | None (IP rate-limited) | - |
+| `/api/totp/login` | None (IP rate-limited; failures back off per IP and per account) | - |
 | `/health` | None | - |
 
 ---

@@ -28,6 +28,7 @@ func TestTokenExchange_MintsJarCookie(t *testing.T) {
 
 	r := httptest.NewRequest(http.MethodPost, "/api/auth/admin-exchange",
 		strings.NewReader(`{"admin_token":"sekrit"}`))
+	r.Header.Set("Content-Type", "application/json")
 	rec := httptest.NewRecorder()
 	h(rec, r)
 
@@ -69,6 +70,7 @@ func TestTokenExchange_StampsDeviceMetaOnTheSession(t *testing.T) {
 
 	r := httptest.NewRequest(http.MethodPost, "/api/auth/admin-exchange",
 		strings.NewReader(`{"admin_token":"sekrit"}`))
+	r.Header.Set("Content-Type", "application/json")
 	r.Header.Set("User-Agent", "Mozilla/5.0 Firefox/141.0")
 	r.Header.Set("X-Forwarded-For", "203.0.113.7")
 	r.RemoteAddr = "198.51.100.66:41234"
@@ -102,6 +104,7 @@ func TestTokenExchange_RefusesWhenTotpEnabled(t *testing.T) {
 	h := TokenExchange(adminMgr, newTestSessionManager(t),
 		func() bool { return true }, authcookie.FrontDesk, "never", nil)
 	r := httptest.NewRequest(http.MethodPost, "/x", strings.NewReader(`{"admin_token":"sekrit"}`))
+	r.Header.Set("Content-Type", "application/json")
 	rec := httptest.NewRecorder()
 	h(rec, r)
 	if rec.Code != http.StatusBadRequest {
@@ -121,6 +124,7 @@ func TestTokenExchange_RevokesASessionMintedAsTotpTurnedOn(t *testing.T) {
 	totp := func() bool { calls++; return calls > 1 } // off at the gate, on after the mint
 	h := TokenExchange(adminMgr, sm, totp, authcookie.FrontDesk, "never", nil)
 	r := httptest.NewRequest(http.MethodPost, "/x", strings.NewReader(`{"admin_token":"sekrit"}`))
+	r.Header.Set("Content-Type", "application/json")
 	rec := httptest.NewRecorder()
 	h(rec, r)
 	if rec.Code != http.StatusBadRequest {
@@ -143,6 +147,7 @@ func TestTokenExchange_NilSessionManager_ReturnsServerErrorWithoutValidating(t *
 	h := TokenExchange(adminMgr, nil, nil, authcookie.FrontDesk, "never", nil)
 
 	r := httptest.NewRequest(http.MethodPost, "/x", strings.NewReader(`{"admin_token":"x"}`))
+	r.Header.Set("Content-Type", "application/json")
 	rec := httptest.NewRecorder()
 	h(rec, r)
 
@@ -159,6 +164,7 @@ func TestTokenExchange_RejectsBadToken(t *testing.T) {
 	h := TokenExchange(adminMgr, newTestSessionManager(t), nil, authcookie.FrontDesk, "never", nil)
 	for _, body := range []string{`{"admin_token":"wrong"}`, `{}`, `not-json`} {
 		r := httptest.NewRequest(http.MethodPost, "/x", strings.NewReader(body))
+		r.Header.Set("Content-Type", "application/json")
 		rec := httptest.NewRecorder()
 		h(rec, r)
 		if rec.Code == http.StatusOK {
@@ -188,13 +194,34 @@ func TestTokenExchange_MintFailure_500(t *testing.T) {
 	h := TokenExchange(adminMgr, failingMinter{}, nil, authcookie.FrontDesk, "never", nil)
 
 	rec := httptest.NewRecorder()
-	h(rec, httptest.NewRequest(http.MethodPost, "/api/auth/admin-exchange",
-		strings.NewReader(`{"admin_token":"sekrit"}`)))
+	req := httptest.NewRequest(http.MethodPost, "/api/auth/admin-exchange",
+		strings.NewReader(`{"admin_token":"sekrit"}`))
+	req.Header.Set("Content-Type", "application/json")
+	h(rec, req)
 
 	if rec.Code != http.StatusInternalServerError {
 		t.Fatalf("status = %d, want 500; body %s", rec.Code, rec.Body.String())
 	}
 	if len(rec.Result().Cookies()) != 0 {
 		t.Errorf("no cookie may be set when the mint failed, got %+v", rec.Result().Cookies())
+	}
+}
+
+// TestTokenExchange_RejectsNonJSONContentType: the exchange mints a cookie
+// from an unauthenticated POST, so it carries the same login-CSRF fence as
+// the password and TOTP logins.
+func TestTokenExchange_RejectsNonJSONContentType(t *testing.T) {
+	adminMgr := &mockAdminAuth{validateFn: func(tok string) bool { return tok == "sekrit" }}
+	h := TokenExchange(adminMgr, newTestSessionManager(t), nil, authcookie.FrontDesk, "never", nil)
+	r := httptest.NewRequest(http.MethodPost, "/api/auth/admin-exchange",
+		strings.NewReader(`{"admin_token":"sekrit"}`))
+	r.Header.Set("Content-Type", "text/plain")
+	rec := httptest.NewRecorder()
+	h(rec, r)
+	if rec.Code != http.StatusUnsupportedMediaType {
+		t.Fatalf("status = %d, want 415: %s", rec.Code, rec.Body.String())
+	}
+	if len(rec.Result().Cookies()) != 0 {
+		t.Error("a non-JSON exchange set a cookie")
 	}
 }

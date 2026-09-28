@@ -36,7 +36,7 @@ func TokenExchange(
 		var req struct {
 			AdminToken string `json:"admin_token"`
 		}
-		if !decodeJSON(w, r, &req) {
+		if !requireJSON(w, r) || !decodeJSON(w, r, &req) {
 			return
 		}
 		if req.AdminToken == "" {

@@ -1091,6 +1091,7 @@ func TestCookieAuth_ExchangeLoginCSRFAndLogout(t *testing.T) {
 	rec := httptest.NewRecorder()
 	req := httptest.NewRequest(http.MethodPost, "/api/auth/admin-exchange",
 		strings.NewReader(`{"admin_token":"`+testFrontdeskToken+`"}`))
+	req.Header.Set("Content-Type", "application/json")
 	srv.ServeHTTP(rec, req)
 	if rec.Code != http.StatusOK {
 		t.Fatalf("exchange: %d %s", rec.Code, rec.Body.String())

@@ -61,6 +61,12 @@ type TotpHandler struct {
 	enabledAtCache atomic.Pointer[time.Time]
 	enabledAtGen   atomic.Uint64
 	enabledAtMu    sync.Mutex
+	// enrollMu serialises EnrollStart, EnrollVerify and Disable. Each reads the
+	// cached enabled flag and then mutates the one TOTP row; interleaved, a
+	// start could re-stage the secret under a running verify, leaving the cache
+	// saying enabled while the row is provisional, which every handler then
+	// refuses. Rare admin actions, so one lock costs nothing.
+	enrollMu sync.Mutex
 }
 
 // NewTotpHandler constructs a TotpHandler wired to the shared TOTP-enabled cache.
@@ -261,6 +267,8 @@ func (h *TotpHandler) invalidateEnabledAt() {
 
 // EnrollStart generates a new TOTP secret and returns the otpauth URI + secret.
 func (h *TotpHandler) EnrollStart(w http.ResponseWriter, r *http.Request) {
+	h.enrollMu.Lock()
+	defer h.enrollMu.Unlock()
 	// Refuse re-enrollment while TOTP is active: rotating the secret requires
 	// disabling first (the UI only offers Enable when disabled). Allowing it
 	// here would flip the enforcement gate off while the new secret is staged --
@@ -281,10 +289,12 @@ func (h *TotpHandler) EnrollStart(w http.ResponseWriter, r *http.Request) {
 
 // EnrollVerify verifies the TOTP code, enables 2FA, and returns recovery codes.
 func (h *TotpHandler) EnrollVerify(w http.ResponseWriter, r *http.Request) {
+	h.enrollMu.Lock()
+	defer h.enrollMu.Unlock()
 	// Same gate as EnrollStart: with TOTP already on, a matching code here would
 	// hand the caller a fresh set of recovery codes (voiding the operator's) and
-	// revoke every admin session, so verify only ever completes an enrolment
-	// started from the disabled state.
+	// revoke every admin session. Under enrollMu the cached flag cannot flip
+	// between this read and the Enable below.
 	if h.totpEnabled != nil && h.totpEnabled() {
 		respondError(w, "disable TOTP before re-enrolling", nil, http.StatusConflict)
 		return
@@ -393,6 +403,8 @@ func (h *TotpHandler) EnrollVerify(w http.ResponseWriter, r *http.Request) {
 // Disable removes the TOTP config + recovery codes. Requires a valid current
 // TOTP or recovery code as a safeguard (401 on mismatch, not 400).
 func (h *TotpHandler) Disable(w http.ResponseWriter, r *http.Request) {
+	h.enrollMu.Lock()
+	defer h.enrollMu.Unlock()
 	if !h.allowCode(w, r, "disable") {
 		return
 	}
@@ -476,7 +488,12 @@ func (h *TotpHandler) Login(w http.ResponseWriter, r *http.Request) {
 	}
 	if !tokenValid || !codeValid {
 		h.loginThrottle.RecordFailure(throttleKey)
-		h.loginThrottle.RecordFailure(accountThrottleKey)
+		if tokenValid {
+			// Only a real second-factor guess charges the account key. A bad
+			// token is anyone's to send, and charging the shared key for it
+			// would let a caller without the first factor lock the admin out.
+			h.loginThrottle.RecordFailure(accountThrottleKey)
+		}
 		debuglog.Warn("totp: login failed", "remote_addr", clientip.From(r))
 		http.Error(w, "invalid admin token or TOTP code", http.StatusUnauthorized)
 		return

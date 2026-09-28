@@ -83,6 +83,11 @@ func decodeJSON(w http.ResponseWriter, r *http.Request, v any) bool {
 // the victim's browser (SameSite governs sending a cookie, not storing one).
 // A browser cannot send application/json cross-site without a preflight, which
 // the CORS layer refuses for unknown origins, so the media type is the fence.
+// Applied to every unauthenticated cookie-minting POST that takes a JSON body:
+// the password login (where a non-admin attacker account exists, so the swap
+// pays), the TOTP exchange and the admin-token exchange. WebAuthn's finish
+// carries an assertion no cross-site form can forge, and the SSO callbacks are
+// GETs bound to a login-state cookie their Start set.
 func requireJSON(w http.ResponseWriter, r *http.Request) bool {
 	mt, _, err := mime.ParseMediaType(r.Header.Get("Content-Type"))
 	if err == nil && mt == "application/json" {

@@ -1488,3 +1488,20 @@ func TestTotpEnrollVerify_WrongCodeThrottles(t *testing.T) {
 		t.Fatalf("repeated wrong codes never throttled, last status = %d", last.Code)
 	}
 }
+
+// TestTotpLogin_BadTokenDoesNotLockAccount: a wrong first factor is anyone's
+// to send. It charges the source IP only, so a caller without the admin token
+// cannot hold the account key locked; the admin still logs in from a fresh IP.
+func TestTotpLogin_BadTokenDoesNotLockAccount(t *testing.T) {
+	_, th := newTotpTestHandler(t)
+	secret, _ := doEnrollVerify(t, th)
+
+	for i := range 12 {
+		if w := totpLoginFrom(t, th, fmt.Sprintf("10.9.%d.1:1234", i), "wrong-token", "000000"); w.Code != http.StatusUnauthorized {
+			t.Fatalf("bad token from IP %d: status = %d, want 401", i, w.Code)
+		}
+	}
+	if w := totpLoginFrom(t, th, "172.16.0.9:1234", "admin-token", validCode(t, secret)); w.Code != http.StatusOK {
+		t.Fatalf("admin login after distributed bad-token noise: status = %d, want 200: %s", w.Code, w.Body.String())
+	}
+}

@@ -185,7 +185,7 @@ Time-based one-time passwords (RFC 6238) add a second factor to admin login, ind
 | `/api/totp/enroll/verify` | POST | Admin/session token | Verify the first code, enable TOTP, return recovery codes + a session token. 409 while TOTP is already on; wrong codes back off |
 | `/api/totp/disable` | POST | Admin/session token | Disable TOTP (gated on a current code or recovery code; wrong codes back off) |
 
-The login endpoint is IP rate-limited to throttle brute-force probing of codes. Enroll and disable require admin or session token auth; once TOTP is enabled the raw admin token alone no longer satisfies that gate, so the second factor cannot be bypassed.
+The login endpoint is IP rate-limited, and failed second-factor guesses back off both per source IP and per account, so a brute force spread across IPs is throttled too (a wrong admin token charges only its IP, so it cannot lock the account). Enroll-verify and disable back off on wrong codes as well. Enroll and disable require admin or session token auth; once TOTP is enabled the raw admin token alone no longer satisfies that gate, so the second factor cannot be bypassed.
 
 ### Single Sign-On (OpenID Connect)
 
