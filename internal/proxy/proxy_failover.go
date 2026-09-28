@@ -220,7 +220,11 @@ func (h *Handler) attemptCandidate(w http.ResponseWriter, r *http.Request, st *r
 			// a provider fault; fail over like any other malformed upstream.
 			// Closed after the verdict: readCappedBody left the upstream close,
 			// which settles the in-flight slot, to whoever judges the bytes.
-			return h.rejectAndClose(st, candidate, logData, "responses api", resp, err, attempt, r)
+			// Judged under dispatchCtx, the context the body was read under:
+			// the bare client request carries no cancel origin, so an attempt
+			// deadline that cut the read would be filed as the caller hanging
+			// up, uncharged, and answered 499 to a caller still waiting.
+			return h.rejectAndClose(st, candidate, logData, "responses api", resp, err, attempt, r.WithContext(dispatchCtx))
 		}
 	}
 	if st.geminiAttempt {
@@ -228,7 +232,7 @@ func (h *Handler) attemptCandidate(w http.ResponseWriter, r *http.Request, st *r
 		if st.isStreaming {
 			resp.Body = gemini.NewStreamAdapter(resp.Body, st.reqModel)
 		} else if err := translateEgressResponseBody(resp, st.reqModel, gemini.BuildChatCompletion); err != nil {
-			return h.rejectAndClose(st, candidate, logData, "gemini", resp, err, attempt, r)
+			return h.rejectAndClose(st, candidate, logData, "gemini", resp, err, attempt, r.WithContext(dispatchCtx))
 		}
 	}
 	if st.anthropicEgressAttempt {
@@ -236,7 +240,7 @@ func (h *Handler) attemptCandidate(w http.ResponseWriter, r *http.Request, st *r
 		if st.isStreaming {
 			resp.Body = anthropicegress.NewStreamAdapter(resp.Body, st.reqModel)
 		} else if err := translateEgressResponseBody(resp, st.reqModel, anthropicegress.BuildChatCompletion); err != nil {
-			return h.rejectAndClose(st, candidate, logData, "anthropic egress", resp, err, attempt, r)
+			return h.rejectAndClose(st, candidate, logData, "anthropic egress", resp, err, attempt, r.WithContext(dispatchCtx))
 		}
 	}
 	if st.isStreaming {

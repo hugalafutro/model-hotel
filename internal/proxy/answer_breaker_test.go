@@ -255,6 +255,56 @@ func TestAttemptCandidate_UntranslatableBodyChargesTheBreaker(t *testing.T) {
 	}
 }
 
+// The egress translations read the whole body under the attempt's context and
+// judge the read afterwards. Judged against the bare client request, which
+// carries no cancel origin, this gateway's own attempt deadline cutting a
+// stalled body read as the caller hanging up: uncharged, and on the last
+// candidate answered 499 to a caller still waiting. The judgement now runs
+// under the context the body was read under.
+func TestAttemptCandidate_EgressBodyStalledPastTheAttemptDeadlineIsNotAClientDisconnect(t *testing.T) {
+	h := newIntegrationHandler()
+	t.Cleanup(func() { stopUnitHandler(h) })
+	withBreakerThresholdOne(t, h)
+
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		_, _ = io.WriteString(w, `{"candidates":[{"content":{"parts":[{"text":"par`)
+		w.(http.Flusher).Flush()
+		// Stall until the gateway gives up on the read.
+		<-r.Context().Done()
+	}))
+	defer srv.Close()
+	h.upstreamTransport = dialToTestServer(t, srv)
+
+	m := &model.Model{ID: uuid.New(), ModelID: "gemini-2.0-flash"}
+	cand := goneCandidateAt(m, "Vertex Express", "http://us-central1-aiplatform.googleapis.com/v1")
+
+	st := &requestState{
+		startTime:             time.Now(),
+		reqModel:              "gemini-2.0-flash",
+		bodyBytes:             []byte(`{"model":"gemini-2.0-flash","messages":[{"role":"user","content":"hi"}]}`),
+		failoverTimeout:       300 * time.Millisecond,
+		circuitBreakerEnabled: true,
+		logData:               &requestLogData{modelID: "gemini-2.0-flash", endpointType: endpointTypeChat},
+	}
+	// The caller is alive for the whole attempt.
+	r := httptest.NewRequest("POST", "/v1/chat/completions", http.NoBody)
+
+	if got := h.attemptCandidate(httptest.NewRecorder(), r, st, cand, 0, 2); got != outcomeFailover {
+		t.Fatalf("outcome = %v, want a failover on a body cut by the attempt deadline", got)
+	}
+	if st.lastReqErr.Kind == KindClientDisconnect {
+		t.Fatal("the attempt deadline was filed as the caller hanging up")
+	}
+	if st.lastReqErr.Kind != KindProviderTimeout {
+		t.Errorf("kind = %q, want provider_timeout for a body the provider stopped sending", st.lastReqErr.Kind)
+	}
+	if h.circuitBreaker.GetState(cand.provider.ID, cand.model.ModelID) != failover.StateOpen {
+		t.Error("a provider that stalled its body past the attempt deadline was not charged")
+	}
+}
+
 // An interrupted read is not a provider failure, and the KIND is what says so.
 // recordAnswerOutcome no longer carries a second client-gone guard of its own:
 // it reads the kind the handler classified, which is the one place that knows

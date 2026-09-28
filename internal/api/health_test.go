@@ -117,3 +117,21 @@ func TestHealthHandler_PingReceivesBoundedTimeout(t *testing.T) {
 type pingFunc func(ctx context.Context) error
 
 func (f pingFunc) Ping(ctx context.Context) error { return f(ctx) }
+
+// A prober that hangs up mid-ping (or times out before the DB answers) must
+// not leave a DEGRADED in the cache for everyone else: the ping runs detached
+// from the caller's cancellation.
+func TestHealthHandler_CallerHangingUpDoesNotPoisonTheCache(t *testing.T) {
+	h := NewHealthHandler(pingFunc(func(ctx context.Context) error { return ctx.Err() }))
+
+	gone, cancel := context.WithCancel(context.Background())
+	cancel()
+	rr := httptest.NewRecorder()
+	h.ServeHTTP(rr, httptest.NewRequest(http.MethodGet, "/health", http.NoBody).WithContext(gone))
+	if rr.Code != http.StatusOK {
+		t.Fatalf("aborted prober: status = %d, want 200 (the ping must not see its cancellation)", rr.Code)
+	}
+	if rr := serveHealth(h); rr.Code != http.StatusOK {
+		t.Fatalf("next prober inside the TTL: status = %d, want 200", rr.Code)
+	}
+}
