@@ -92,7 +92,7 @@ type Server struct {
 	totpRepo       *totp.Repository
 	totpStatus     *totpEnabledCache
 	probe          *http.Client // guarded client for proxying member admin APIs
-	readClient     *http.Client // guarded client for interactive member admin reads (e.g. Traffic timeseries); longer deadline than the health probe, shorter than the import relay
+	readClient     *http.Client // guarded client for member admin reads that do real work (Traffic timeseries, the config hash and export); longer deadline than the health probe, shorter than the import relay
 	syncClient     *http.Client // guarded client for the config-import relay (longer deadline; import runs member-side discovery)
 	backupClient   *http.Client // guarded client for a member's backup listing/delete calls (see memberBackupTimeout)
 	pushClient     *http.Client // guarded client for the quota snapshot push (see memberQuotaPushTimeout)

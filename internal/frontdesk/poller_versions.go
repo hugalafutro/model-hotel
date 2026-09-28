@@ -39,9 +39,10 @@ func (p *Poller) PollVersionsOnce(ctx context.Context) {
 			// mid-upgrade, the window the gate exists for. The commit is cleared
 			// with the version: kept beside a blank version it would outlive the
 			// read that vouched for it. Cleared at the same threshold that
-			// raises the fetch-failed event, not on the first miss: one blip
-			// otherwise held sync and paged the fleet degraded, then recovered
-			// it a poll later. A rebuild answers nothing for longer than that.
+			// raises the fetch-failed event, not on the first miss, so one blip
+			// neither holds sync nor pages the fleet degraded; the push paths
+			// still skip the member while its last read failed
+			// (versionReadFailing), so admission stays closed from the first miss.
 			if n >= versionFetchFailThreshold && p.clearBuild(m.ID) {
 				p.publishMemberStatus(m.ID)
 			}
@@ -73,6 +74,17 @@ func (p *Poller) PollVersionsOnce(ctx context.Context) {
 			})
 		}
 	}
+}
+
+// versionReadFailing reports whether the member's latest version read failed.
+// Below versionFetchFailThreshold the cached build stays (for display and so
+// one blip neither holds sync nor pages the fleet), but the sync gate must not
+// write onto a build the last read could not confirm: the push paths skip such
+// a member silently until a read succeeds or the threshold clears the build.
+func (p *Poller) versionReadFailing(memberID string) bool {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	return p.versionFailures[memberID] > 0
 }
 
 // clearBuild drops a member's version and commit together and reports whether

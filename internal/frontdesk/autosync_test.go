@@ -3,6 +3,7 @@ package frontdesk
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"strconv"
 	"strings"
@@ -1473,6 +1474,64 @@ func TestAutoSync_PersistentRefusalIsReportedOnce(t *testing.T) {
 	}
 	if len(evs) != 2 {
 		t.Fatalf("config.sync_failed events after the cause changed = %d, want 2", len(evs))
+	}
+}
+
+// TestAutoSync_FailedVersionReadSkipsPushQuietly: below the poller's threshold
+// the cached build stays, but the last read of it failed, so the member may
+// already run a build the cache does not show. The pass skips it with no hold
+// and no page; admission stays closed from the first miss.
+func TestAutoSync_FailedVersionReadSkipsPushQuietly(t *testing.T) {
+	f := newHashFleet(t, func(r *stubAutoMember) {
+		r.versionHash = "hash-drifted"
+		r.dryDiff = driftDiff
+	})
+	f.srv.poller.noteVersionFetchFailure(t.Context(), f.replicaM, errors.New("connection reset"))
+
+	f.tick(t)
+
+	if got := f.replica.realSyncCount(); got != 0 {
+		t.Errorf("real imports = %d, want 0: a member whose last version read failed is not written to", got)
+	}
+	if got := f.srv.poller.memberBuildOf(f.replicaM.ID).Version; got == "" {
+		t.Error("one failed read dropped the cached build")
+	}
+	if n := countEvents(t, f.store, "config.sync_held"); n != 0 {
+		t.Errorf("config.sync_held events = %d, want 0: a blip is not a hold", n)
+	}
+}
+
+// TestAutoSync_RefusalAfterHashConvergenceIsNewsAgain: a member that converged
+// by hash (the operator reverted the change it refused) with no successful push
+// in between must still report the next refusal, and the convergence itself
+// says the push succeeds again.
+func TestAutoSync_RefusalAfterHashConvergenceIsNewsAgain(t *testing.T) {
+	f := newHashFleet(t, func(r *stubAutoMember) {
+		r.versionHash = "hash-drifted"
+		r.dryDiff = driftDiff
+		r.realImportCode = http.StatusBadRequest
+	})
+	f.tick(t)
+	if n := countEvents(t, f.store, "config.sync_failed"); n != 1 {
+		t.Fatalf("config.sync_failed after the refusal = %d, want 1", n)
+	}
+
+	// Converged by hash alone: the primary went back to what the member holds.
+	f.replica.mu.Lock()
+	f.replica.versionHash = "hash-B"
+	f.replica.mu.Unlock()
+	f.tick(t)
+	if n := countEvents(t, f.store, "config.sync_recovered"); n != 1 {
+		t.Fatalf("config.sync_recovered after converging by hash = %d, want 1", n)
+	}
+
+	// The same refusal returns: news again.
+	f.replica.mu.Lock()
+	f.replica.versionHash = "hash-drifted"
+	f.replica.mu.Unlock()
+	f.tick(t)
+	if n := countEvents(t, f.store, "config.sync_failed"); n != 2 {
+		t.Fatalf("config.sync_failed after the refusal returned = %d, want 2", n)
 	}
 }
 

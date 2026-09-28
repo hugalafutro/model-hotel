@@ -534,6 +534,14 @@ func (s *Server) applyAutoSync(ctx context.Context, primary *Member, primaryBuil
 			s.holdMemberForSkew(ctx, m, primaryBuild, build)
 			continue
 		}
+		if s.poller.versionReadFailing(m.ID) {
+			// The cached build passed the gate, but the last read of it failed:
+			// a member mid-rebuild may already run a newer build the cache does
+			// not show. Not a hold (no event, no degraded fleet): a blip or a
+			// rebuild both resolve within the poller's threshold.
+			debuglog.Debug("frontdesk: auto-sync: skipping member until its version reads again", "member", m.Name)
+			continue
+		}
 		converged, measured, differing := s.measureMember(ctx, passCtx, m, token, hash, primarySections)
 		if converged {
 			continue
@@ -673,6 +681,7 @@ func (s *Server) measureMember(ctx, passCtx context.Context, m *Member, token, h
 		// heartbeat. Only a hash match moves it, so it means "measured holding the
 		// primary's config", never "written to".
 		s.clearMemberIncomplete(ctx, m)
+		s.clearSyncFailure(ctx, m)
 		if s.hasUnconfirmedPush(m.ID, hash) {
 			// The member holds the primary's exact config, so the push whose answer
 			// was lost did land: record the sync its own stamp missed, at the moment

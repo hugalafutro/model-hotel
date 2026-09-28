@@ -302,6 +302,15 @@ func (s *Server) runConfigSync(ctx context.Context, primaryID string) configSync
 			})
 			continue
 		}
+		if s.poller.versionReadFailing(m.ID) {
+			// The cached build matched, but its last read failed: the member may
+			// already run a build the cache does not show (see versionReadFailing).
+			results = append(results, syncResultItem{
+				MemberID: m.ID, Name: m.Name,
+				Error: "held: member's build could not be read on the last poll",
+			})
+			continue
+		}
 		// Gate the destructive replace on a dry-run, so an already-converged member
 		// is reported without an import.
 		if item, proceed := s.prepareMemberSync(passCtx, m, token, export); !proceed {

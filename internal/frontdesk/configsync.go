@@ -298,7 +298,7 @@ func (s *Server) applyMemberConfig(ctx context.Context, m *Member, token string,
 	}
 
 	if res.OK {
-		s.clearSyncFailure(m.ID)
+		s.clearSyncFailure(ctx, m)
 		recordConfigSync("ok")
 		if emitSuccessEvent {
 			// The wizard's path: an operator drove this sync, so a completed write is
@@ -317,11 +317,13 @@ func (s *Server) applyMemberConfig(ctx context.Context, m *Member, token string,
 	} else {
 		recordConfigSync("err")
 		debuglog.Warn("frontdesk: config sync failed", "member", m.Name, "error", res.Error)
-		if s.syncFailureRepeats(m.ID, res.Error) {
+		if s.syncFailureRepeats(m.ID, res.Error) && !emitSuccessEvent {
 			// The same refusal as the last push (a member whose ALLOWED_PROVIDER_HOSTS
 			// refuses a synced base_url, a fence the primary's generation is behind):
 			// retried every tick, reported once. A new cause, or a failure after a
-			// converged push, is news again.
+			// converged push, is news again. An operator-driven run (the wizard,
+			// emitSuccessEvent) reports every failure: they asked for that run and
+			// its audit trail carries who and why.
 			return res
 		}
 		// An unconfirmed push (timed out, or 5xx'd in a way that can stand in front

@@ -76,9 +76,10 @@ func (s *Server) recordSyncAttempt(memberID string, unapplied, partial, unapplie
 
 // syncFailureRepeats records a push failure's cause for the member and reports
 // whether the previous push failed for the same cause, so the event and alert
-// fire on the transition, not on every retried tick. A push that converged or
-// was confirmed applied must call clearSyncFailure so the next failure counts
-// as new.
+// fire on the transition, not on every retried tick. Keyed on the last cause
+// only: a member alternating between two causes reports both each time. A
+// push that converged, by its own answer or by a later hash match, must go
+// through clearSyncFailure so the next failure counts as new.
 func (s *Server) syncFailureRepeats(memberID, cause string) bool {
 	s.syncIncompleteMu.Lock()
 	defer s.syncIncompleteMu.Unlock()
@@ -87,11 +88,22 @@ func (s *Server) syncFailureRepeats(memberID, cause string) bool {
 	return had && prev == cause
 }
 
-// clearSyncFailure forgets a member's last push failure.
-func (s *Server) clearSyncFailure(memberID string) {
+// clearSyncFailure forgets a member's last push failure and, when there was
+// one, says so once: config.sync_failed fires on the transition in, so the
+// transition out gets its own signal. Off by default in the alert routing,
+// like the other recovered events.
+func (s *Server) clearSyncFailure(ctx context.Context, m *Member) {
 	s.syncIncompleteMu.Lock()
-	delete(s.lastSyncFailure, memberID)
+	_, had := s.lastSyncFailure[m.ID]
+	delete(s.lastSyncFailure, m.ID)
 	s.syncIncompleteMu.Unlock()
+	if !had {
+		return
+	}
+	s.emit(ctx, Event{
+		Type: "config.sync_recovered", Severity: "success", Source: "frontdesk",
+		Message: fmt.Sprintf("Config push to %s succeeds again", m.Name), MemberID: m.ID,
+	})
 }
 
 // markUnconfirmedPush remembers that a member's latest real config push, carrying
