@@ -256,11 +256,11 @@ func TestAttemptCandidate_UntranslatableBodyChargesTheBreaker(t *testing.T) {
 }
 
 // The egress translations read the whole body under the attempt's context and
-// judge the read afterwards. Judged against the bare client request, which
-// carries no cancel origin, this gateway's own attempt deadline cutting a
-// stalled body read as the caller hanging up: uncharged, and on the last
-// candidate answered 499 to a caller still waiting. The judgement now runs
-// under the context the body was read under, on all three translations.
+// judge the read under that same context, so an attempt deadline that cuts a
+// stalled body is a provider timeout, charged, on all three translations.
+// Judged against the bare client request, which carries no cancel origin, the
+// same cut reads as the caller hanging up: uncharged, and on the last
+// candidate answered 499 to a caller still waiting.
 func TestAttemptCandidate_EgressBodyStalledPastTheAttemptDeadlineIsNotAClientDisconnect(t *testing.T) {
 	for _, tc := range []struct {
 		name    string
@@ -309,10 +309,13 @@ func TestAttemptCandidate_EgressBodyStalledPastTheAttemptDeadlineIsNotAClientDis
 			h.upstreamTransport = dialToTestServer(t, srv)
 
 			st := &requestState{
-				startTime:             time.Now(),
-				reqModel:              tc.cand.model.ModelID,
-				bodyBytes:             []byte(`{"model":"` + tc.cand.model.ModelID + `","messages":[{"role":"user","content":"hi"}]}`),
-				failoverTimeout:       300 * time.Millisecond,
+				startTime: time.Now(),
+				reqModel:  tc.cand.model.ModelID,
+				bodyBytes: []byte(`{"model":"` + tc.cand.model.ModelID + `","messages":[{"role":"user","content":"hi"}]}`),
+				// Wide enough that headers land before the deadline on a
+				// loaded runner: a cut before them is a failover_timeout, not
+				// the body stall under test.
+				failoverTimeout:       time.Second,
 				circuitBreakerEnabled: true,
 				logData:               &requestLogData{modelID: tc.cand.model.ModelID, endpointType: endpointTypeChat},
 			}
