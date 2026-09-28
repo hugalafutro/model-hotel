@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"slices"
 
 	"github.com/hugalafutro/model-hotel/internal/anthropic"
 	"github.com/hugalafutro/model-hotel/internal/egress"
@@ -337,10 +338,14 @@ func (t *StreamTranslator) Finish() ([]byte, error) {
 	// A tool block the stream never stopped (a relay that skips
 	// content_block_stop) still owes its arguments: the opener's input when
 	// it carried one, the empty object otherwise.
+	pending := make([]int, 0, len(t.toolIndexByBlock))
 	for blockIndex := range t.toolIndexByBlock {
-		if t.toolArgsSeen[blockIndex] {
-			continue
+		if !t.toolArgsSeen[blockIndex] {
+			pending = append(pending, blockIndex)
 		}
+	}
+	slices.Sort(pending) // map order is random; the client sees the blocks in stream order
+	for _, blockIndex := range pending {
 		if err := t.stopBlock(&buf, antEvent{Index: blockIndex}); err != nil {
 			return nil, err
 		}

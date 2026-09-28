@@ -297,6 +297,8 @@ func TestStreamTranslator_OpenerInputFlushedWithoutBlockStop(t *testing.T) {
 	out := feed(t, tr,
 		`{"type":"message_start","message":{"usage":{"input_tokens":4}}}`,
 		`{"type":"content_block_start","index":0,"content_block":{"type":"tool_use","id":"toolu_a","name":"first","input":{"a":1}}}`,
+		`{"type":"content_block_start","index":1,"content_block":{"type":"tool_use","id":"toolu_b","name":"second","input":{}}}`,
+		`{"type":"content_block_start","index":2,"content_block":{"type":"tool_use","id":"toolu_c","name":"third","input":{"c":3}}}`,
 		`{"type":"message_delta","delta":{"stop_reason":"tool_use"},"usage":{"output_tokens":9}}`,
 		`{"type":"message_stop"}`,
 	)
@@ -304,8 +306,21 @@ func TestStreamTranslator_OpenerInputFlushedWithoutBlockStop(t *testing.T) {
 	if !done {
 		t.Fatalf("stream did not end with [DONE]:\n%s", out)
 	}
-	if args := toolArgsByIndex(chunks); args[0] != `{"a":1}` {
-		t.Errorf("arguments = %q, want the opener's input flushed at the end", args[0])
+	args := toolArgsByIndex(chunks)
+	if args[0] != `{"a":1}` || args[1] != `{}` || args[2] != `{"c":3}` {
+		t.Errorf("arguments by index = %v, want the openers' inputs (or {}) flushed at the end", args)
+	}
+	// Flushed in stream order, not map order: the argument chunks land 0, 1, 2.
+	var order []int
+	for _, c := range chunks {
+		for _, tc := range c.Choices[0].Delta.ToolCalls {
+			if tc.Function.Arguments != "" {
+				order = append(order, tc.Index)
+			}
+		}
+	}
+	if len(order) != 3 || order[0] != 0 || order[1] != 1 || order[2] != 2 {
+		t.Errorf("flush order = %v, want [0 1 2]", order)
 	}
 }
 
