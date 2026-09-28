@@ -225,7 +225,9 @@ func (r *Repository) deleteUndersizedAutoGroup(ctx context.Context, base string,
 // toggles (for members still present), user priority order, display name, and
 // description. It returns the pre-upsert group snapshot (nil when the group is
 // new) and the merged priority order that was written.
-func (r *Repository) upsertAutoGroup(ctx context.Context, base string, currentIDs []uuid.UUID) (existing *FailoverGroup, priorityOrder []uuid.UUID, err error) {
+// custom reports that the name is held by an operator-built group, which the
+// auto rules leave alone: nothing is written and the caller skips the base.
+func (r *Repository) upsertAutoGroup(ctx context.Context, base string, currentIDs []uuid.UUID) (existing *FailoverGroup, priorityOrder []uuid.UUID, custom bool, err error) {
 	entryEnabled := make(map[string]bool, len(currentIDs))
 	for _, id := range currentIDs {
 		entryEnabled[id.String()] = true
@@ -233,7 +235,16 @@ func (r *Repository) upsertAutoGroup(ctx context.Context, base string, currentID
 
 	existing, err = r.GetByModel(ctx, base)
 	if err != nil && !errors.Is(err, pgx.ErrNoRows) {
-		return nil, nil, fmt.Errorf("lookup existing group: %w", err)
+		return nil, nil, false, fmt.Errorf("lookup existing group: %w", err)
+	}
+	if existing != nil && !existing.AutoCreated {
+		// A custom group whose display_model equals a base name (created while
+		// one provider served it, so no auto group stood in the way) keeps its
+		// own members, toggles and enabled flag. Writing here would prune every
+		// member outside the base, force it enabled and flag it auto_created,
+		// after which the auto rules would delete it the next time the base
+		// dropped to one model.
+		return existing, existing.PriorityOrder, true, nil
 	}
 	if existing != nil {
 		for uuidStr, enabled := range existing.EntryEnabled {
@@ -258,7 +269,7 @@ func (r *Repository) upsertAutoGroup(ctx context.Context, base string, currentID
 		}
 	}
 	_, err = r.UpsertWithConfig(ctx, base, priorityOrder, entryEnabled, &groupEnabled, syncDisplayName, syncDescription, &autoCreated)
-	return existing, priorityOrder, err
+	return existing, priorityOrder, false, err
 }
 
 // diffGroupMembership reports which model UUIDs the sync removed from and added
@@ -357,9 +368,13 @@ func (r *Repository) SyncAllModels(ctx context.Context) (*SyncResult, error) {
 		}
 
 		syncedBases[base] = true
-		existing, order, err := r.upsertAutoGroup(ctx, base, currentIDs)
+		existing, order, custom, err := r.upsertAutoGroup(ctx, base, currentIDs)
 		if err != nil {
 			result.SyncErrors = append(result.SyncErrors, fmt.Sprintf("%s: %v", base, err))
+			continue
+		}
+		if custom {
+			debuglog.Debug("failover: base name held by a custom group, left alone", "display_model", base)
 			continue
 		}
 		// A scan re-enables an auto group (upsertAutoGroup writes group_enabled
@@ -475,10 +490,14 @@ func (r *Repository) SyncForModel(ctx context.Context, modelID string) (*SyncRes
 		return result, nil
 	}
 
-	existing, priorityOrder, err := r.upsertAutoGroup(ctx, base, currentIDs)
+	existing, priorityOrder, custom, err := r.upsertAutoGroup(ctx, base, currentIDs)
 	if err != nil {
 		debuglog.Error("failover: failed to sync group", "display_model", base, "error", err)
 		return nil, err
+	}
+	if custom {
+		debuglog.Debug("failover: base name held by a custom group, left alone", "display_model", base)
+		return result, nil
 	}
 
 	// Report membership changes so discovery summaries show what the sync did;

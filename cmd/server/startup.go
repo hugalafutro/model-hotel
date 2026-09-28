@@ -123,15 +123,16 @@ func warmCaches(deps discoveryDeps, settingsRepo *settings.Repository) {
 // initKeyCacheTTL seeds the key cache TTL from settings and reacts to changes.
 func initKeyCacheTTL(settingsRepo *settings.Repository) {
 	auth.SetKeyCacheTTL(settingsRepo.GetDuration(context.Background(), "key_cache_ttl", auth.DefaultKeyCacheTTL))
-	settingsRepo.RegisterOnChange(func(key, value string) {
-		if key == "key_cache_ttl" {
-			d, err := time.ParseDuration(value)
-			if err != nil || d <= 0 {
-				debuglog.Warn("keycache: invalid key_cache_ttl setting, keeping current value", "value", value, "error", err)
-				return
-			}
-			auth.SetKeyCacheTTL(d)
-			debuglog.Info("keycache: TTL updated", "ttl", d)
+	settingsRepo.RegisterOnChange(func(key, _ string) {
+		if key != "key_cache_ttl" {
+			return
 		}
+		// Re-read through the same getter the startup seed uses rather than
+		// parsing the notified value: a reset-to-default arrives as "", and
+		// GetDuration already yields the default for an absent or unparseable
+		// value and accepts the day suffix the seed accepts.
+		d := settingsRepo.GetDuration(context.Background(), "key_cache_ttl", auth.DefaultKeyCacheTTL)
+		auth.SetKeyCacheTTL(d)
+		debuglog.Info("keycache: TTL updated", "ttl", d)
 	})
 }

@@ -917,7 +917,11 @@ func TestRepository_SyncAllModels_PreservesPriorityOrder(t *testing.T) {
 		model3ID.String(): true,
 	}
 	groupEnabled := true
-	autoCreated := false
+	// An auto group whose order the operator rearranged: the sync keeps the
+	// order and adds any newcomer. A custom group (auto_created false) is left
+	// alone entirely; TestRepository_SyncAllModels_LeavesCustomGroupNamedLikeABase
+	// pins that.
+	autoCreated := true
 
 	_, err := repo.UpsertWithConfig(ctx, baseModel, customPriorityOrder, entryEnabled, &groupEnabled, nil, nil, &autoCreated)
 	if err != nil {
@@ -1021,7 +1025,11 @@ func TestRepository_SyncAllModels_PreservesPriorityOrderWithNewModel(t *testing.
 		model2ID.String(): true,
 	}
 	groupEnabled := true
-	autoCreated := false
+	// An auto group whose order the operator rearranged: the sync keeps the
+	// order and adds any newcomer. A custom group (auto_created false) is left
+	// alone entirely; TestRepository_SyncAllModels_LeavesCustomGroupNamedLikeABase
+	// pins that.
+	autoCreated := true
 
 	_, err := repo.UpsertWithConfig(ctx, baseModel, customPriorityOrder, entryEnabled, &groupEnabled, nil, nil, &autoCreated)
 	if err != nil {
@@ -1500,5 +1508,82 @@ func TestRepository_SyncAllModels_CancelledContext(t *testing.T) {
 	_, err := repo.SyncAllModels(ctx)
 	if err == nil {
 		t.Error("Expected SyncAllModels to return error with cancelled context")
+	}
+}
+
+// A custom group can carry a base name: the operator built it while one
+// provider served the model, so no auto group stood in the way. When a second
+// provider later serves the same model, the sync must not adopt the group:
+// its members, toggles and enabled flag are the operator's.
+func TestRepository_SyncAllModels_LeavesCustomGroupNamedLikeABase(t *testing.T) {
+	repo := newTestRepo(t)
+	ctx := context.Background()
+
+	baseModel := "test-custom-base-" + uuid.New().String()[:8]
+	provider1ID, provider2ID := uuid.New(), uuid.New()
+	model1ID, model2ID, otherID := uuid.New(), uuid.New(), uuid.New()
+	for _, p := range []struct {
+		id   uuid.UUID
+		name string
+	}{{provider1ID, "test-provider-1-" + uuid.New().String()[:8]}, {provider2ID, "test-provider-2-" + uuid.New().String()[:8]}} {
+		if _, err := testDB.Pool().Exec(ctx, `
+			INSERT INTO providers (id, name, base_url, encrypted_key, key_nonce, key_salt, enabled, created_at)
+			VALUES ($1, $2, 'http://localhost:11434', 'dGVzdA==', 'dGVzdA==', 'dGVzdA==', true, now())
+		`, p.id, p.name); err != nil {
+			t.Fatalf("insert provider: %v", err)
+		}
+		defer func(id uuid.UUID) { _, _ = testDB.Pool().Exec(ctx, "DELETE FROM providers WHERE id = $1", id) }(p.id)
+	}
+	for _, m := range []struct {
+		id       uuid.UUID
+		modelID  string
+		provider uuid.UUID
+	}{{model1ID, baseModel, provider1ID}, {model2ID, baseModel, provider2ID}, {otherID, baseModel + "-mini", provider1ID}} {
+		if _, err := testDB.Pool().Exec(ctx, `
+			INSERT INTO models (id, model_id, provider_id, enabled, created_at)
+			VALUES ($1, $2, $3, true, now())
+		`, m.id, m.modelID, m.provider); err != nil {
+			t.Fatalf("insert model: %v", err)
+		}
+		defer func(id uuid.UUID) { _, _ = testDB.Pool().Exec(ctx, "DELETE FROM models WHERE id = $1", id) }(m.id)
+	}
+
+	// The operator's group: the base name, one base member plus a sibling
+	// model from outside the base, switched off, custom.
+	off, custom := false, false
+	if _, err := repo.UpsertWithConfig(ctx, baseModel, []uuid.UUID{model1ID, otherID},
+		map[string]bool{model1ID.String(): true, otherID.String(): false}, &off, nil, nil, &custom); err != nil {
+		t.Fatalf("create custom group: %v", err)
+	}
+	defer func() { _ = repo.Delete(ctx, baseModel) }()
+
+	for _, run := range []struct {
+		name string
+		sync func() (*SyncResult, error)
+	}{
+		{"SyncAllModels", func() (*SyncResult, error) { return repo.SyncAllModels(ctx) }},
+		{"SyncForModel", func() (*SyncResult, error) { return repo.SyncForModel(ctx, baseModel) }},
+	} {
+		result, err := run.sync()
+		if err != nil {
+			t.Fatalf("%s: %v", run.name, err)
+		}
+		if len(result.SyncErrors) != 0 || len(result.UpdatedGroups) != 0 || len(result.DeletedGroups) != 0 {
+			t.Fatalf("%s reported changes for a custom group: %+v", run.name, result)
+		}
+		InvalidateFailoverCache()
+		group, err := repo.GetByModel(ctx, baseModel)
+		if err != nil {
+			t.Fatalf("%s: get group: %v", run.name, err)
+		}
+		if group.AutoCreated || group.GroupEnabled {
+			t.Errorf("%s adopted the custom group: auto_created=%v group_enabled=%v", run.name, group.AutoCreated, group.GroupEnabled)
+		}
+		if len(group.PriorityOrder) != 2 || group.PriorityOrder[0] != model1ID || group.PriorityOrder[1] != otherID {
+			t.Errorf("%s rewrote the members: %v", run.name, group.PriorityOrder)
+		}
+		if group.EntryEnabled[otherID.String()] {
+			t.Errorf("%s flipped a member toggle on", run.name)
+		}
 	}
 }

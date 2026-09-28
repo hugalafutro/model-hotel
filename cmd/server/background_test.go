@@ -120,17 +120,47 @@ func TestInitKeyCacheTTL(t *testing.T) {
 
 	initKeyCacheTTL(settingsRepo)
 
-	// A valid change is applied, an invalid one keeps the current value, and
-	// unrelated keys are ignored — all delivered through the change callback.
+	// Every change arrives through the callback and is applied the way the
+	// startup seed would read it: a valid value, the day suffix, an invalid
+	// value (default), a reset (default), and an unrelated key (untouched).
+	// Callbacks run on their own goroutine, so each step polls briefly.
+	want := func(step string, d time.Duration) {
+		t.Helper()
+		deadline := time.Now().Add(2 * time.Second)
+		for auth.KeyCacheTTL() != d && time.Now().Before(deadline) {
+			time.Sleep(5 * time.Millisecond)
+		}
+		if got := auth.KeyCacheTTL(); got != d {
+			t.Fatalf("%s: key cache TTL = %v, want %v", step, got, d)
+		}
+	}
 	if err := settingsRepo.Set(ctx, "key_cache_ttl", "123ms"); err != nil {
 		t.Fatalf("set failed: %v", err)
 	}
+	want("valid value", 123*time.Millisecond)
+	if err := settingsRepo.Set(ctx, "key_cache_ttl", "1d"); err != nil {
+		t.Fatalf("set failed: %v", err)
+	}
+	want("day suffix", 24*time.Hour)
 	if err := settingsRepo.Set(ctx, "key_cache_ttl", "bogus"); err != nil {
 		t.Fatalf("set failed: %v", err)
 	}
+	want("invalid value", auth.DefaultKeyCacheTTL)
+	if err := settingsRepo.Set(ctx, "key_cache_ttl", "2h"); err != nil {
+		t.Fatalf("set failed: %v", err)
+	}
+	want("valid again", 2*time.Hour)
+	// Reset-to-default deletes the row and notifies with an empty value; the
+	// TTL must fall back to the default rather than keep the last value.
+	if err := settingsRepo.DeleteKey(ctx, "key_cache_ttl"); err != nil {
+		t.Fatalf("delete failed: %v", err)
+	}
+	want("reset", auth.DefaultKeyCacheTTL)
+	auth.SetKeyCacheTTL(5 * time.Minute)
 	if err := settingsRepo.Set(ctx, "some_other_key", "x"); err != nil {
 		t.Fatalf("set failed: %v", err)
 	}
+	want("unrelated key", 5*time.Minute)
 }
 
 func TestDiscoverySchedulerLoop(t *testing.T) {

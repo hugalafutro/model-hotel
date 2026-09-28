@@ -109,6 +109,7 @@ Failover groups are automatically created during model discovery sync (`SyncAllM
 3. Group providers that share the same base name
 4. **Require 2+ providers** - an auto-created group whose base name no longer has two enabled providers is **deleted**, not disabled
 5. Set `auto_created = true`
+6. **Leave custom groups alone** - a group you created by hand whose name equals a base name (possible while only one provider served the model) keeps its members, toggles and enabled flag; the sync never adopts it, and rule 4 never deletes it
 
 Groups are modality-agnostic: an embedding, rerank, image or audio model forms a group by the same rule and is reached through the same `hotel/<name>` on its own endpoint (`hotel/rerank-v3.5` on `/v1/rerank`). A model only one provider lists gets no group, whatever its modality; that request is `404 model not found: hotel/<name>` until a second provider lists the same id.
 

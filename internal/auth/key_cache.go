@@ -37,6 +37,10 @@ func getKeyCacheTTL() time.Duration {
 	return time.Duration(keyCacheTTLNanos.Load())
 }
 
+// KeyCacheTTL is getKeyCacheTTL for callers outside the package (the startup
+// wiring's tests read it back after a settings change).
+func KeyCacheTTL() time.Duration { return getKeyCacheTTL() }
+
 // SetKeyCacheTTL updates the key cache TTL. Existing cache entries retain
 // their original expiry; only newly cached entries use the updated TTL.
 func SetKeyCacheTTL(d time.Duration) {
