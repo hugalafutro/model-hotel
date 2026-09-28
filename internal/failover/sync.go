@@ -275,6 +275,9 @@ func (r *Repository) upsertAutoGroup(ctx context.Context, base string, currentID
 	if errors.Is(err, pgx.ErrNoRows) {
 		// A custom row took the name between the read above and this write;
 		// the upsert refused to touch it. Same verdict as the read-side check.
+		// The cached row is the auto one that read returned, which the table
+		// no longer holds, so it goes now rather than at the end of its TTL.
+		InvalidateFailoverCacheKey(base)
 		var order []uuid.UUID
 		if existing != nil {
 			order = existing.PriorityOrder

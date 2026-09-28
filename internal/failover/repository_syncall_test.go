@@ -1703,12 +1703,13 @@ func TestUpsertAutoGroup_CustomRowLandingAfterTheReadIsNotAdopted(t *testing.T) 
 	if existing == nil || !existing.AutoCreated || len(order) != 2 {
 		t.Errorf("stale read not reported as such: existing=%+v order=%v", existing, order)
 	}
-	InvalidateFailoverCache()
+	// No manual invalidation: the refused write must have dropped the stale
+	// auto row from the cache itself, or readers keep it for its whole TTL.
 	group, err := repo.GetByModel(ctx, name)
 	if err != nil {
 		t.Fatalf("get: %v", err)
 	}
 	if group.AutoCreated || group.GroupEnabled || len(group.PriorityOrder) != 1 {
-		t.Errorf("custom row was touched: auto_created=%v group_enabled=%v members=%v", group.AutoCreated, group.GroupEnabled, group.PriorityOrder)
+		t.Errorf("custom row was touched or the stale auto row survived in the cache: auto_created=%v group_enabled=%v members=%v", group.AutoCreated, group.GroupEnabled, group.PriorityOrder)
 	}
 }
