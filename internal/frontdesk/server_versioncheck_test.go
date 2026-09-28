@@ -197,6 +197,28 @@ func TestFleetVersionCheckUnreadBuildIsSkewed(t *testing.T) {
 	if resp.CommitVouched {
 		t.Error("CommitVouched = true, want false with an unread member")
 	}
+
+	// An unread primary lists every member: the run would hold them all.
+	aligned := fake("v1.0.0", "atoken")
+	am, _ := store.CreateMember(t.Context(), "aligned", aligned.URL, "atoken")
+	srv.poller.PollVersionsOnce(t.Context())
+	primary.Close()
+	rec = do(t, srv, http.MethodPost, "/api/fleet/version-check", `{"primary_id":"`+pm.ID+`"}`, true)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("version-check = %d (%s)", rec.Code, rec.Body.String())
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &resp); err != nil {
+		t.Fatalf("decode: %v", err)
+	}
+	var listed int
+	for _, sk := range resp.Skewed {
+		if sk.MemberID == am.ID || sk.MemberID == bm.ID {
+			listed++
+		}
+	}
+	if listed != 2 || resp.CommitVouched {
+		t.Errorf("skewed = %+v vouched = %v, want both members listed and nothing vouched while the primary is unread", resp.Skewed, resp.CommitVouched)
+	}
 }
 
 func TestFleetVersionCheckUnknownPrimary(t *testing.T) {

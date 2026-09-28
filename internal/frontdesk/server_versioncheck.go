@@ -61,9 +61,12 @@ func (s *Server) fleetVersionCheck(w http.ResponseWriter, r *http.Request) {
 	}
 	primaryBuild := s.poller.memberBuildOf(primary.ID)
 	skewed := make([]versionSkewMember, 0)
-	// A build whose last read failed vouches for nothing, the primary's
-	// included: the check reports what the run would refuse.
-	vouched := stampedCommit(primaryBuild.Commit) && !s.poller.versionReadFailing(primary.ID)
+	// A build whose last read failed vouches for nothing, and the check reports
+	// what the run would refuse: an unread member is listed as skewed with its
+	// cached build, and an unread primary lists every member, since the run
+	// holds them all.
+	primaryUnread := s.poller.versionReadFailing(primary.ID)
+	vouched := stampedCommit(primaryBuild.Commit) && !primaryUnread
 	for _, m := range members {
 		if m.ID == primary.ID || !m.HasToken {
 			continue
@@ -71,10 +74,9 @@ func (s *Server) fleetVersionCheck(w http.ResponseWriter, r *http.Request) {
 		mb := s.poller.memberBuildOf(m.ID)
 		unread := s.poller.versionReadFailing(m.ID)
 		if unread {
-			// Listed with its cached build, which nothing currently vouches for.
 			vouched = false
 		}
-		if buildSkew(primaryBuild, mb) || unread {
+		if buildSkew(primaryBuild, mb) || unread || primaryUnread {
 			skewed = append(skewed, versionSkewMember{
 				MemberID: m.ID, Name: m.Name, Version: mb.Version, Commit: mb.Commit,
 			})
