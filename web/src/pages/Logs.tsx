@@ -35,7 +35,10 @@ import {
 } from "./Logs/RequestLogFilters";
 import { RequestLogRow } from "./Logs/RequestLogRow";
 import { type LogSortField, requestLogColumns } from "./Logs/requestLogColumns";
-import { useRequestLogLiveUpdates } from "./Logs/useRequestLogLiveUpdates";
+import {
+	keepFresherRow,
+	useRequestLogLiveUpdates,
+} from "./Logs/useRequestLogLiveUpdates";
 import { useStaleClock } from "./Logs/useStaleClock";
 
 function RequestLogs() {
@@ -154,6 +157,7 @@ function RequestLogs() {
 		getCursor: (entry) =>
 			encodeCursor({ created_at: entry.created_at, id: entry.id }),
 		getId: (entry) => entry.id,
+		keep: keepFresherRow,
 	});
 
 	const { isVisible } = useRequestLogLiveUpdates({

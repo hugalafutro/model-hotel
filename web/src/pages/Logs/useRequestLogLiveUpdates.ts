@@ -11,19 +11,20 @@ const REQUEST_EVENTS = new Set([
 	"request.completed",
 ]);
 
-const inFlight = (log: LogEntry) =>
-	log.state === "pending" || log.state === "streaming";
+// A row only moves forward: pending, then streaming, then finished.
+const rank = (log: LogEntry) =>
+	log.state === "pending" ? 0 : log.state === "streaming" ? 1 : 2;
 
 /**
- * keepFinishedRow refuses an in-flight snapshot for a row the list already
- * holds finished. The request.streaming and request.completed events each
- * fetch the row; when the first fetch lands second it would put the streaming
- * snapshot (no tokens, no duration, a live pulse) back over the finished one,
- * and nothing later repairs that: fetchNewer only prepends ids not in the
- * list.
+ * keepFresherRow refuses a snapshot from earlier in a row's life than the one
+ * the list holds. Fetches for one row settle out of order: the
+ * request.streaming and request.completed events each fetch it, and a page
+ * fetch started before a merge lands after it. Taking the older copy put a
+ * live pulse with no tokens back over a finished row, and nothing later
+ * repaired it. Same rank replaces, so a fresher copy of the same state lands.
  */
-export const keepFinishedRow = (current: LogEntry, next: LogEntry) =>
-	!inFlight(current) && inFlight(next);
+export const keepFresherRow = (current: LogEntry, next: LogEntry) =>
+	rank(current) > rank(next);
 
 /**
  * Keeps the request list current while the live toggle is on, in whichever
@@ -48,10 +49,7 @@ export function useRequestLogLiveUpdates({
 	viewMode: "paginate" | "scroll";
 	liveEnabled: boolean;
 	fetchNewer: () => void;
-	mergeEntries: (
-		entries: LogEntry[],
-		keep?: (current: LogEntry, next: LogEntry) => boolean,
-	) => void;
+	mergeEntries: (entries: LogEntry[]) => void;
 }) {
 	const queryClient = useQueryClient();
 	const isVisible = useDocumentVisible();
@@ -75,7 +73,7 @@ export function useRequestLogLiveUpdates({
 			const requestId = event.metadata?.request_id;
 			if (typeof requestId === "string") {
 				try {
-					mergeEntries([await api.logs.get(requestId)], keepFinishedRow);
+					mergeEntries([await api.logs.get(requestId)]);
 				} catch {
 					// The row may have been purged between the event and the fetch;
 					// the fetchNewer below is the fallback.

@@ -361,12 +361,15 @@ describe("useBidirectionalFetch", () => {
 	});
 
 	describe("fetchNewer", () => {
-		it("refreshes rows the list already holds from the page it fetched", async () => {
+		it("refreshes rows the list already holds from the page it fetched, subject to keep", async () => {
 			const mockFetchFn = vi
 				.fn()
 				.mockResolvedValueOnce({
-					entries: [{ id: "1", name: "pending" }] as TestEntry[],
-					total: 1,
+					entries: [
+						{ id: "1", name: "pending" },
+						{ id: "3", name: "finished" },
+					] as TestEntry[],
+					total: 2,
 					has_before: true,
 					has_after: false,
 				})
@@ -374,8 +377,9 @@ describe("useBidirectionalFetch", () => {
 					entries: [
 						{ id: "2", name: "new" },
 						{ id: "1", name: "finished" },
+						{ id: "3", name: "pending" }, // a page that started before row 3 finished
 					] as TestEntry[],
-					total: 2,
+					total: 3,
 					has_before: false,
 					has_after: false,
 				});
@@ -386,9 +390,11 @@ describe("useBidirectionalFetch", () => {
 					sortDir: "desc",
 					getCursor: (e) => e.id,
 					getId: (e) => e.id,
+					keep: (current, next) =>
+						current.name === "finished" && next.name === "pending",
 				}),
 			);
-			await waitFor(() => expect(result.current.entries).toHaveLength(1));
+			await waitFor(() => expect(result.current.entries).toHaveLength(2));
 
 			await act(async () => {
 				await result.current.fetchNewer();
@@ -396,6 +402,7 @@ describe("useBidirectionalFetch", () => {
 
 			expect(result.current.entries.map((e) => e.name)).toEqual([
 				"new",
+				"finished",
 				"finished",
 			]);
 		});
@@ -1001,7 +1008,7 @@ describe("useBidirectionalFetch", () => {
 	});
 
 	describe("mergeEntries", () => {
-		it("keeps the current row when keep says so", async () => {
+		it("keeps the current row when the keep option says so", async () => {
 			const mockFetchFn = vi.fn().mockResolvedValue({
 				entries: [{ id: "1", name: "finished" }] as TestEntry[],
 				total: 1,
@@ -1015,23 +1022,19 @@ describe("useBidirectionalFetch", () => {
 					sortDir: "desc",
 					getCursor: (e) => e.id,
 					getId: (e) => e.id,
+					keep: (current, next) =>
+						current.name === "finished" && next.name === "older snapshot",
 				}),
 			);
 			await waitFor(() => expect(result.current.entries).toHaveLength(1));
 
 			act(() => {
-				result.current.mergeEntries(
-					[{ id: "1", name: "older snapshot" }],
-					(current) => current.name === "finished",
-				);
+				result.current.mergeEntries([{ id: "1", name: "older snapshot" }]);
 			});
 			expect(result.current.entries[0].name).toBe("finished");
 
 			act(() => {
-				result.current.mergeEntries(
-					[{ id: "1", name: "newer" }],
-					(current) => current.name === "nothing matches",
-				);
+				result.current.mergeEntries([{ id: "1", name: "newer" }]);
 			});
 			expect(result.current.entries[0].name).toBe("newer");
 		});
