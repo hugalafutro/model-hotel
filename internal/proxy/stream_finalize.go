@@ -217,11 +217,11 @@ func judgeStreamForBreaker(st *streamState, logData *requestLogData, errMsg stri
 	// !sawDone/!sawTerminalEvent avoids penalising a provider whose stream
 	// completed normally but whose stall timer fired concurrently with the
 	// terminal frame.
-	if st.stalled && !st.sawDone && !st.sawTerminalEvent {
-		return streamBreakerVerdict{failureReason: "stream stalled"}
-	}
 	if st.lineCapExceeded {
 		return streamBreakerVerdict{failureReason: "stream frame exceeded the line limit"}
+	}
+	if st.stalled && !st.sawDone && !st.sawTerminalEvent {
+		return streamBreakerVerdict{failureReason: "stream stalled"}
 	}
 	if !streamDeliveredOutput(st) {
 		return streamBreakerVerdict{failureReason: "stream failed without delivering content"}
@@ -460,7 +460,10 @@ func deriveStreamError(st *streamState, scanErr error, opts streamOptions, logDa
 	// stall so a restart never reads as a provider fault.
 	// Either verdict needs the stream to have ended without a terminal sentinel
 	// and without the client leaving.
-	cutShort := !st.sawDone && !st.sawTerminalEvent && !st.clientDisconnected
+	// A frame past the line cap is its own verdict: the body close it
+	// triggers, or a watchdog firing after it, must not relabel it a stall
+	// or a restart.
+	cutShort := !st.sawDone && !st.sawTerminalEvent && !st.clientDisconnected && !st.lineCapExceeded
 	switch {
 	case st.interrupted && cutShort:
 		errMsg = "stream interrupted: gateway restarting"

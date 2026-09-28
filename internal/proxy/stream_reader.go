@@ -51,7 +51,7 @@ type sseEvent struct {
 // upstream connection error. A frame past this cap is not an image any model
 // produces: the stream ends, the row and the client name the limit, and the
 // provider is charged for it like any other broken stream.
-const sseLineCap = 32 << 20
+const sseLineCap = egress.MaxSSEEventBytes
 
 // lineCapErrMsg is the row's and the client's message when a frame exceeds
 // sseLineCap, on the stream path and the probe path alike.
@@ -108,17 +108,7 @@ type streamReader struct {
 // finalize path can hand the client a terminal error frame before the
 // process exits; nil means no shutdown signal.
 func newStreamReader(ctx context.Context, body io.ReadCloser, opts streamOptions, logData *requestLogData, shutdown <-chan struct{}) *streamReader {
-	var scanner *bufio.Scanner
-	if opts.preReadBuf != nil {
-		scanner = bufio.NewScanner(io.MultiReader(bytes.NewReader(opts.preReadBuf.Bytes()), body))
-	} else {
-		scanner = bufio.NewScanner(body)
-	}
-	scanner.Buffer(make([]byte, 64*1024), sseLineCap)
-	debuglog.Debug("proxy: streaming scanner created", "model", logData.modelID, "provider", logData.providerName, "replaying_probe", opts.preReadBuf != nil)
-
 	r := &streamReader{
-		scanner:       scanner,
 		ctx:           ctx,
 		body:          body,
 		stallTimeout:  opts.streamStallTimeout,
@@ -130,6 +120,16 @@ func newStreamReader(ctx context.Context, body io.ReadCloser, opts streamOptions
 	if opts.streamStallTimeout > 0 {
 		r.stallCh = make(chan time.Duration, 1)
 	}
+	// The watchdog hears every read that brought bytes, not only every
+	// finished line: an image frame of tens of MiB on a slow link is still
+	// data arriving, and must not read as a stall halfway through.
+	var src io.Reader = progressReader{r: body, progress: r.pingWatchdog}
+	if opts.preReadBuf != nil {
+		src = io.MultiReader(bytes.NewReader(opts.preReadBuf.Bytes()), src)
+	}
+	r.scanner = bufio.NewScanner(src)
+	r.scanner.Buffer(make([]byte, 64*1024), sseLineCap)
+	debuglog.Debug("proxy: streaming scanner created", "model", logData.modelID, "provider", logData.providerName, "replaying_probe", opts.preReadBuf != nil)
 	if opts.streamStallTimeout > 0 || shutdown != nil {
 		r.watchdogDone = make(chan struct{})
 		go r.runWatchdog()
@@ -205,20 +205,7 @@ func (r *streamReader) Next() (sseEvent, bool) {
 	}
 	line := r.scanner.Bytes()
 	r.chunkCount++
-
-	// Ping stall watchdog after each successful scan. After
-	// progressiveChunkThreshold chunks the stream is clearly alive — extend
-	// the timeout to tolerate tool-call pauses and long reasoning.
-	if r.stallCh != nil {
-		effectiveStall := r.stallTimeout
-		if r.chunkCount > progressiveChunkThreshold {
-			effectiveStall = r.stallTimeout * progressiveStallMultiplier
-		}
-		select {
-		case r.stallCh <- effectiveStall:
-		default:
-		}
-	}
+	r.pingWatchdog()
 
 	// Client-disconnect check between iterations: abandon the scanned line.
 	select {
@@ -265,6 +252,39 @@ func (r *streamReader) Next() (sseEvent, bool) {
 	// Not a data line — an SSE comment (": ..."), event/id/retry directive, or
 	// other. Carry the cleaned form so the orchestrator can inspect "event:".
 	return sseEvent{kind: sseComment, raw: line, clean: lineStr}, true
+}
+
+// pingWatchdog re-arms the stall watchdog. It runs on the scanner's
+// goroutine (after each line, and from progressReader inside Scan), so
+// chunkCount needs no lock. After progressiveChunkThreshold chunks the stream
+// is clearly alive, so the timeout extends to tolerate tool-call pauses and
+// long reasoning.
+func (r *streamReader) pingWatchdog() {
+	if r.stallCh == nil {
+		return
+	}
+	effectiveStall := r.stallTimeout
+	if r.chunkCount > progressiveChunkThreshold {
+		effectiveStall = r.stallTimeout * progressiveStallMultiplier
+	}
+	select {
+	case r.stallCh <- effectiveStall:
+	default:
+	}
+}
+
+// progressReader calls progress after every read that returned bytes.
+type progressReader struct {
+	r        io.Reader
+	progress func()
+}
+
+func (p progressReader) Read(b []byte) (int, error) {
+	n, err := p.r.Read(b)
+	if n > 0 {
+		p.progress()
+	}
+	return n, err
 }
 
 // dataEvent classifies a payload extracted from a "data:" line as the [DONE]

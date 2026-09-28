@@ -75,6 +75,13 @@ func TestDeriveStreamError_LineCapNamesTheLimitAndChargesTheProvider(t *testing.
 		t.Fatalf("breaker verdict after output = %+v, want a charge", v)
 	}
 
+	// A watchdog firing after the overflow does not relabel it a stall.
+	late := &streamState{stalled: true}
+	ll := &requestLogData{statusCode: 200}
+	if got := deriveStreamError(late, bufio.ErrTooLong, streamOptions{streamStallTimeout: time.Second}, ll); got != lineCapErrMsg || ll.errorKind != KindProviderError {
+		t.Fatalf("overflow then stall: errMsg=%q kind=%s", got, ll.errorKind)
+	}
+
 	// A translated upstream's overflow is the same fault.
 	tr := &streamState{}
 	tl := &requestLogData{statusCode: 200}
@@ -87,7 +94,7 @@ func TestDeriveStreamError_LineCapNamesTheLimitAndChargesTheProvider(t *testing.
 // back wrapping bufio.ErrTooLong and classifies as the stream path does.
 func TestProbeFirstToken_FirstFramePastTheCap(t *testing.T) {
 	h := &Handler{}
-	body := io.NopCloser(strings.NewReader("data: " + strings.Repeat("A", sseLineCap+1) + "\n"))
+	body := io.NopCloser(io.MultiReader(strings.NewReader("data: "), io.LimitReader(neverEnding{}, sseLineCap+1), strings.NewReader("\n")))
 	_, _, err := h.probeFirstToken(context.Background(), body, 30*time.Second, time.Now())
 	if !errors.Is(err, bufio.ErrTooLong) {
 		t.Fatalf("probe error = %v, want it to wrap bufio.ErrTooLong", err)
@@ -121,7 +128,7 @@ func (c *closingBody) Close() error { c.closed.Store(true); return nil }
 // drain of an endless line would run to the attempt's deadline.
 func TestStreamReader_LinePastTheCapClosesTheBody(t *testing.T) {
 	t.Parallel()
-	body := &closingBody{Reader: io.MultiReader(strings.NewReader("data: "+strings.Repeat("A", sseLineCap+1)), neverEnding{})}
+	body := &closingBody{Reader: io.MultiReader(strings.NewReader("data: "), neverEnding{})}
 	reader := newStreamReader(context.Background(), body, streamOptions{}, &requestLogData{modelID: "m", providerName: "p"}, nil)
 	defer reader.Close()
 
@@ -144,4 +151,43 @@ func (neverEnding) Read(p []byte) (int, error) {
 		p[i] = 'A'
 	}
 	return len(p), nil
+}
+
+// slowBody hands out one frame in small pieces with a pause between them, so
+// the frame takes longer to arrive than the stall timeout.
+type slowBody struct {
+	data  []byte
+	piece int
+	pause time.Duration
+}
+
+func (s *slowBody) Read(p []byte) (int, error) {
+	if len(s.data) == 0 {
+		return 0, io.EOF
+	}
+	time.Sleep(s.pause)
+	n := min(s.piece, len(p), len(s.data))
+	copy(p, s.data[:n])
+	s.data = s.data[n:]
+	return n, nil
+}
+
+func (s *slowBody) Close() error { return nil }
+
+// Bytes arriving mid-frame keep the watchdog armed: a large frame on a slow
+// link is data, not a stall, even when the whole frame outlasts the timeout.
+func TestStreamReader_SlowLargeFrameIsNotAStall(t *testing.T) {
+	t.Parallel()
+	frame := "data: {\"x\":\"" + strings.Repeat("A", 4000) + "\"}\n"
+	body := &slowBody{data: []byte(frame), piece: 400, pause: 30 * time.Millisecond}
+	reader := newStreamReader(context.Background(), body, streamOptions{streamStallTimeout: 100 * time.Millisecond}, &requestLogData{modelID: "m", providerName: "p"}, nil)
+	defer reader.Close()
+
+	ev, ok := reader.Next()
+	if !ok || ev.kind != sseData {
+		t.Fatalf("slow frame not delivered: ok=%v kind=%d err=%v", ok, ev.kind, reader.err())
+	}
+	if reader.stalled() {
+		t.Fatal("a frame whose bytes kept arriving was judged a stall")
+	}
 }
