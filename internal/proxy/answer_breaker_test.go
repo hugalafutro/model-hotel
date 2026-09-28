@@ -255,6 +255,89 @@ func TestAttemptCandidate_UntranslatableBodyChargesTheBreaker(t *testing.T) {
 	}
 }
 
+// The egress translations read the whole body under the attempt's context and
+// judge the read under that same context, so an attempt deadline that cuts a
+// stalled body is a provider timeout, charged, on all three translations.
+// Judged against the bare client request, which carries no cancel origin, the
+// same cut reads as the caller hanging up: uncharged, and on the last
+// candidate answered 499 to a caller still waiting.
+func TestAttemptCandidate_EgressBodyStalledPastTheAttemptDeadlineIsNotAClientDisconnect(t *testing.T) {
+	for _, tc := range []struct {
+		name    string
+		cand    modelCandidate
+		partial string
+	}{
+		{
+			name:    "gemini",
+			cand:    goneCandidateAt(&model.Model{ID: uuid.New(), ModelID: "gemini-2.0-flash"}, "Vertex Express", "http://us-central1-aiplatform.googleapis.com/v1"),
+			partial: `{"candidates":[{"content":{"parts":[{"text":"par`,
+		},
+		{
+			name: "anthropic egress",
+			cand: modelCandidate{
+				model:    &model.Model{ID: uuid.New(), ModelID: "claude-sonnet-4"},
+				provider: &provider.Provider{ID: uuid.New(), Name: "Messages", BaseURL: "http://api.anthropic.com", ProviderType: "anthropic-messages"},
+				apiKey:   "sk-test",
+			},
+			partial: `{"id":"msg_1","type":"message","role":"assistant","content":[{"type":"text","text":"par`,
+		},
+		{
+			// The pro tier routes to /v1/responses from the first request.
+			name: "responses",
+			cand: modelCandidate{
+				model:    &model.Model{ID: uuid.New(), ModelID: "gpt-5-pro"},
+				provider: &provider.Provider{ID: uuid.New(), Name: "OpenAI", BaseURL: "http://api.openai.com/v1", ProviderType: "openai"},
+				apiKey:   "sk-test",
+			},
+			partial: `{"id":"resp_1","object":"response","status":"completed","output":[{"type":"message","content":[{"type":"output_text","text":"par`,
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			h := newIntegrationHandler()
+			t.Cleanup(func() { stopUnitHandler(h) })
+			withBreakerThresholdOne(t, h)
+
+			srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				w.Header().Set("Content-Type", "application/json")
+				w.WriteHeader(http.StatusOK)
+				_, _ = io.WriteString(w, tc.partial)
+				w.(http.Flusher).Flush()
+				// Stall until the gateway gives up on the read.
+				<-r.Context().Done()
+			}))
+			defer srv.Close()
+			h.upstreamTransport = dialToTestServer(t, srv)
+
+			st := &requestState{
+				startTime: time.Now(),
+				reqModel:  tc.cand.model.ModelID,
+				bodyBytes: []byte(`{"model":"` + tc.cand.model.ModelID + `","messages":[{"role":"user","content":"hi"}]}`),
+				// Wide enough that headers land before the deadline on a
+				// loaded runner: a cut before them is a failover_timeout, not
+				// the body stall under test.
+				failoverTimeout:       time.Second,
+				circuitBreakerEnabled: true,
+				logData:               &requestLogData{modelID: tc.cand.model.ModelID, endpointType: endpointTypeChat},
+			}
+			// The caller is alive for the whole attempt.
+			r := httptest.NewRequest("POST", "/v1/chat/completions", http.NoBody)
+
+			if got := h.attemptCandidate(httptest.NewRecorder(), r, st, tc.cand, 0, 2); got != outcomeFailover {
+				t.Fatalf("outcome = %v, want a failover on a body cut by the attempt deadline", got)
+			}
+			if st.lastReqErr.Kind == KindClientDisconnect {
+				t.Fatal("the attempt deadline was filed as the caller hanging up")
+			}
+			if st.lastReqErr.Kind != KindProviderTimeout {
+				t.Errorf("kind = %q, want provider_timeout for a body the provider stopped sending", st.lastReqErr.Kind)
+			}
+			if h.circuitBreaker.GetState(tc.cand.provider.ID, tc.cand.model.ModelID) != failover.StateOpen {
+				t.Error("a provider that stalled its body past the attempt deadline was not charged")
+			}
+		})
+	}
+}
+
 // An interrupted read is not a provider failure, and the KIND is what says so.
 // recordAnswerOutcome no longer carries a second client-gone guard of its own:
 // it reads the kind the handler classified, which is the one place that knows

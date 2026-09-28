@@ -73,7 +73,11 @@ func (h *HealthHandler) check(ctx context.Context) bool {
 		return h.healthy
 	}
 
-	pingCtx, cancel := context.WithTimeout(ctx, h.pingTimeout)
+	// The probe runs detached from the caller's cancellation: the result is
+	// cached and served to every other caller for cacheTTL, so a prober that
+	// hangs up mid-ping (or whose own timeout is shorter than the ping) must
+	// not turn into a DEGRADED that pulls the instance out of rotation.
+	pingCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), h.pingTimeout)
 	defer cancel()
 	err := h.pinger.Ping(pingCtx)
 
