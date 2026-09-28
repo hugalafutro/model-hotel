@@ -88,22 +88,25 @@ func (s *Server) syncFailureRepeats(memberID, cause string) bool {
 	return had && prev == cause
 }
 
-// clearSyncFailure forgets a member's last push failure and, when there was
-// one, says so once: config.sync_failed fires on the transition in, so the
-// transition out gets its own signal. Off by default in the alert routing,
-// like the other recovered events.
-func (s *Server) clearSyncFailure(ctx context.Context, m *Member) {
+// clearSyncFailure forgets a member's last push failure and reports whether
+// there was one, so the caller can say so once: config.sync_failed fires on
+// the transition in, and the transition out gets one signal, from whichever
+// path observed it (a converging hash, or a push that succeeded on a member
+// that was not flagged diverged).
+func (s *Server) clearSyncFailure(memberID string) bool {
 	s.syncIncompleteMu.Lock()
-	_, had := s.lastSyncFailure[m.ID]
-	delete(s.lastSyncFailure, m.ID)
+	_, had := s.lastSyncFailure[memberID]
+	delete(s.lastSyncFailure, memberID)
 	s.syncIncompleteMu.Unlock()
-	if !had {
-		return
-	}
-	s.emit(ctx, Event{
-		Type: "config.sync_recovered", Severity: "success", Source: "frontdesk",
-		Message: fmt.Sprintf("Config push to %s succeeds again", m.Name), MemberID: m.ID,
-	})
+	return had
+}
+
+// isDiverged reports whether the member is currently flagged as holding
+// config that differs from the primary's.
+func (s *Server) isDiverged(memberID string) bool {
+	s.syncIncompleteMu.Lock()
+	defer s.syncIncompleteMu.Unlock()
+	return s.syncIncomplete[memberID].diverged
 }
 
 // markUnconfirmedPush remembers that a member's latest real config push, carrying
@@ -366,18 +369,19 @@ func unmeasuredMessage(member, cause string) string {
 // own report of its import, which is the trust this criterion replaces. With
 // auto-sync off a flagged member keeps its amber badge however many times the
 // wizard runs, until a pass measures it as matching.
-func (s *Server) clearMemberIncomplete(ctx context.Context, m *Member) {
+func (s *Server) clearMemberIncomplete(ctx context.Context, m *Member) bool {
 	s.syncIncompleteMu.Lock()
 	was := s.syncIncomplete[m.ID].diverged
 	delete(s.syncIncomplete, m.ID)
 	s.syncIncompleteMu.Unlock()
 	if !was {
-		return
+		return false
 	}
 	s.emit(ctx, Event{
 		Type: "config.sync_recovered", Severity: "success", Source: "frontdesk",
 		Message: fmt.Sprintf("%s now holds the primary's config", m.Name), MemberID: m.ID,
 	})
+	return true
 }
 
 // incompleteSnapshot copies the diverged set under its lock for the fleet state

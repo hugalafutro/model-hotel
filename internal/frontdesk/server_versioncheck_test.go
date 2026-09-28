@@ -159,6 +159,46 @@ func doVersionCheck(t *testing.T, srv *Server, primaryID string) versionCheckRes
 
 // TestFleetVersionCheckUnknownPrimary: an unknown primary is a client error,
 // not an empty aligned response.
+// A member (or the primary) whose last version read failed vouches for
+// nothing: the check reports what the run would refuse.
+func TestFleetVersionCheckUnreadBuildIsSkewed(t *testing.T) {
+	srv, store := newTestServer(t)
+	fake := func(version, token string) *httptest.Server {
+		s := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			if r.Method == http.MethodGet && r.URL.Path == "/api/settings" {
+				_ = json.NewEncoder(w).Encode(map[string]string{"app_version": version, "app_commit": "d18a96d1f84d"})
+				return
+			}
+			w.WriteHeader(http.StatusNotFound)
+		}))
+		t.Cleanup(s.Close)
+		return s
+	}
+	primary := fake("v1.0.0", "ptoken")
+	pm, _ := store.CreateMember(t.Context(), "primary", primary.URL, "ptoken")
+	blip := fake("v1.0.0", "btoken")
+	bm, _ := store.CreateMember(t.Context(), "blip", blip.URL, "btoken")
+
+	// Seed both builds from a good read, then fail the member's next one.
+	srv.poller.PollVersionsOnce(t.Context())
+	blip.Close()
+
+	rec := do(t, srv, http.MethodPost, "/api/fleet/version-check", `{"primary_id":"`+pm.ID+`"}`, true)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("version-check = %d (%s)", rec.Code, rec.Body.String())
+	}
+	var resp versionCheckResponse
+	if err := json.Unmarshal(rec.Body.Bytes(), &resp); err != nil {
+		t.Fatalf("decode: %v", err)
+	}
+	if len(resp.Skewed) != 1 || resp.Skewed[0].MemberID != bm.ID {
+		t.Errorf("skewed = %+v, want the member whose read failed", resp.Skewed)
+	}
+	if resp.CommitVouched {
+		t.Error("CommitVouched = true, want false with an unread member")
+	}
+}
+
 func TestFleetVersionCheckUnknownPrimary(t *testing.T) {
 	srv, _ := newTestServer(t)
 	rec := do(t, srv, http.MethodPost, "/api/fleet/version-check", `{"primary_id":"nope"}`, true)

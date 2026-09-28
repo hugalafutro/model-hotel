@@ -298,7 +298,14 @@ func (s *Server) applyMemberConfig(ctx context.Context, m *Member, token string,
 	}
 
 	if res.OK {
-		s.clearSyncFailure(ctx, m)
+		if s.clearSyncFailure(m.ID) && !s.isDiverged(m.ID) {
+			// A member still flagged diverged gets its one recovered event from
+			// the pass that measures it converged; this push alone is not that.
+			s.emit(ctx, Event{
+				Type: "config.sync_recovered", Severity: "success", Source: "frontdesk",
+				Message: fmt.Sprintf("Config push to %s succeeds again", m.Name), MemberID: m.ID,
+			})
+		}
 		recordConfigSync("ok")
 		if emitSuccessEvent {
 			// The wizard's path: an operator drove this sync, so a completed write is
@@ -317,7 +324,10 @@ func (s *Server) applyMemberConfig(ctx context.Context, m *Member, token string,
 	} else {
 		recordConfigSync("err")
 		debuglog.Warn("frontdesk: config sync failed", "member", m.Name, "error", res.Error)
-		if s.syncFailureRepeats(m.ID, res.Error) && !emitSuccessEvent {
+		// An unconfirmed push is not remembered as a failure: it is rate-limited
+		// on its own, and the pass that later proves it landed would otherwise
+		// announce a recovery from a failure that never was.
+		if !res.Unconfirmed && s.syncFailureRepeats(m.ID, res.Error) && !emitSuccessEvent {
 			// The same refusal as the last push (a member whose ALLOWED_PROVIDER_HOSTS
 			// refuses a synced base_url, a fence the primary's generation is behind):
 			// retried every tick, reported once. A new cause, or a failure after a

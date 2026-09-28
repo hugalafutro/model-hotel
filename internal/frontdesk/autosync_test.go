@@ -1582,6 +1582,87 @@ func TestConfigSync_WizardReportsEveryRepeatedFailure(t *testing.T) {
 	}
 }
 
+// TestAutoSync_PrimaryUnreadBuildSkipsPassQuietly: the primary's cached build
+// survives a blip too, and a rebuilt primary may already serve a newer build's
+// envelope. While its last version read failed nothing is pushed and nothing
+// announced; the grace for a blank build is a separate matter.
+func TestAutoSync_PrimaryUnreadBuildSkipsPassQuietly(t *testing.T) {
+	f := newHashFleet(t, func(r *stubAutoMember) {
+		r.versionHash = "hash-drifted"
+		r.dryDiff = driftDiff
+	})
+	f.srv.poller.noteVersionFetchFailure(t.Context(), f.primaryM, errors.New("connection reset"))
+
+	f.tick(t)
+
+	if got := f.replica.realSyncCount(); got != 0 {
+		t.Errorf("real imports = %d, want 0: a primary whose last version read failed is not a source", got)
+	}
+	if n := countEvents(t, f.store, "config.sync_held"); n != 0 {
+		t.Errorf("config.sync_held events = %d, want 0", n)
+	}
+}
+
+// TestConfigSync_WizardHoldsAllWhenPrimaryBuildUnread: the wizard applies the
+// same rule to its source.
+func TestConfigSync_WizardHoldsAllWhenPrimaryBuildUnread(t *testing.T) {
+	f := newHashFleet(t, func(r *stubAutoMember) {
+		r.versionHash = "hash-drifted"
+		r.dryDiff = driftDiff
+	})
+	f.srv.poller.noteVersionFetchFailure(t.Context(), f.primaryM, errors.New("connection reset"))
+
+	run := f.srv.runConfigSync(t.Context(), f.primaryM.ID)
+	if run.err != nil {
+		t.Fatalf("runConfigSync: %v", run.err)
+	}
+	var held bool
+	for _, item := range run.results {
+		if item.MemberID == f.replicaM.ID && strings.Contains(item.Error, "primary's build") {
+			held = true
+		}
+	}
+	if !held || f.replica.realSyncCount() != 0 {
+		t.Errorf("results = %+v imports = %d, want every member held and nothing pushed", run.results, f.replica.realSyncCount())
+	}
+}
+
+// TestAutoSync_OneRecoveredEventPerRecovery: a member flagged diverged whose
+// retry push was then refused converges by hash once; the divergence's own
+// recovered event says it and the cleared push failure adds no second one.
+func TestAutoSync_OneRecoveredEventPerRecovery(t *testing.T) {
+	f := newHashFleet(t, func(r *stubAutoMember) {
+		r.versionHash = "hash-drifted" // commits every import, never adopts the hash
+		r.dryDiff = driftDiff
+	})
+	f.tick(t) // pushes
+	f.tick(t) // measures the divergence and flags it
+	if !f.srv.incompleteSnapshot()[f.replicaM.ID] {
+		t.Fatal("test setup: the member was not flagged diverged")
+	}
+	f.replica.mu.Lock()
+	f.replica.realImportCode = http.StatusBadRequest
+	f.replica.mu.Unlock()
+	// Past the retry interval so the refused push actually runs.
+	f.srv.syncIncompleteMu.Lock()
+	st := f.srv.syncIncomplete[f.replicaM.ID]
+	st.lastAttempt = time.Time{}
+	f.srv.syncIncomplete[f.replicaM.ID] = st
+	f.srv.syncIncompleteMu.Unlock()
+	f.tick(t)
+	if n := countEvents(t, f.store, "config.sync_failed"); n != 1 {
+		t.Fatalf("config.sync_failed after the refusal = %d, want 1", n)
+	}
+
+	f.replica.mu.Lock()
+	f.replica.versionHash = "hash-B"
+	f.replica.mu.Unlock()
+	f.tick(t)
+	if n := countEvents(t, f.store, "config.sync_recovered"); n != 1 {
+		t.Errorf("config.sync_recovered after converging = %d, want exactly 1", n)
+	}
+}
+
 // TestAutoSync_PushedMemberIsNotStampedVerifiedUntilItMatches: a completed write
 // is not a verification. A member that commits every import and never ends up
 // holding the config is re-pushed once per incompleteRetryInterval forever, so a

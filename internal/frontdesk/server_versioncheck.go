@@ -61,13 +61,20 @@ func (s *Server) fleetVersionCheck(w http.ResponseWriter, r *http.Request) {
 	}
 	primaryBuild := s.poller.memberBuildOf(primary.ID)
 	skewed := make([]versionSkewMember, 0)
-	vouched := stampedCommit(primaryBuild.Commit)
+	// A build whose last read failed vouches for nothing, the primary's
+	// included: the check reports what the run would refuse.
+	vouched := stampedCommit(primaryBuild.Commit) && !s.poller.versionReadFailing(primary.ID)
 	for _, m := range members {
 		if m.ID == primary.ID || !m.HasToken {
 			continue
 		}
 		mb := s.poller.memberBuildOf(m.ID)
-		if buildSkew(primaryBuild, mb) {
+		unread := s.poller.versionReadFailing(m.ID)
+		if unread {
+			// Listed with its cached build, which nothing currently vouches for.
+			vouched = false
+		}
+		if buildSkew(primaryBuild, mb) || unread {
 			skewed = append(skewed, versionSkewMember{
 				MemberID: m.ID, Name: m.Name, Version: mb.Version, Commit: mb.Commit,
 			})
