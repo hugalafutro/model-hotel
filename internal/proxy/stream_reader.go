@@ -90,9 +90,11 @@ type streamReader struct {
 
 	chunkCount int
 	emptyLines int
-	// midLineBytes counts bytes read since the watchdog was last re-armed;
+	// midLineBytes counts bytes read since the watchdog was last re-armed and
+	// lineStarted is when the line now being read began arriving; both are
 	// written only on the scanner's goroutine.
 	midLineBytes int
+	lineStarted  time.Time
 
 	// disconnected is set when the client's context is cancelled between
 	// iterations; abortErrMsg is set when the empty-line limit is exceeded.
@@ -210,6 +212,7 @@ func (r *streamReader) Next() (sseEvent, bool) {
 	}
 	line := r.scanner.Bytes()
 	r.chunkCount++
+	r.midLineBytes, r.lineStarted = 0, time.Time{}
 	r.pingWatchdog()
 
 	// Client-disconnect check between iterations: abandon the scanned line.
@@ -265,12 +268,21 @@ func (r *streamReader) Next() (sseEvent, bool) {
 const stallByteQuantum = 4 << 10
 
 // noteBytes counts bytes read inside Scan and re-arms the watchdog once a
-// quantum has arrived since it was last re-armed.
+// quantum has arrived since it was last re-armed, for at most
+// progressiveStallMultiplier stall windows of one line: past that a line is
+// not a slow frame but an upstream holding the stream open, and the watchdog
+// is left to fire. At the 30 s default that is 90 s for one frame, which a
+// 32 MiB image clears at under 400 KB/s.
 func (r *streamReader) noteBytes(n int) {
-	r.midLineBytes += n
-	if r.midLineBytes >= stallByteQuantum {
-		r.pingWatchdog()
+	if r.lineStarted.IsZero() {
+		r.lineStarted = time.Now()
 	}
+	r.midLineBytes += n
+	if r.midLineBytes < stallByteQuantum || time.Since(r.lineStarted) >= r.stallTimeout*progressiveStallMultiplier {
+		return
+	}
+	r.midLineBytes = 0
+	r.pingWatchdog()
 }
 
 // pingWatchdog re-arms the stall watchdog. It runs on the scanner's
@@ -279,7 +291,6 @@ func (r *streamReader) noteBytes(n int) {
 // is clearly alive, so the timeout extends to tolerate tool-call pauses and
 // long reasoning.
 func (r *streamReader) pingWatchdog() {
-	r.midLineBytes = 0
 	if r.stallCh == nil {
 		return
 	}

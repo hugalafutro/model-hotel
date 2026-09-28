@@ -543,7 +543,9 @@ func (h *Handler) probeFirstToken(
 				return probeBuf, ttft, err
 			}
 		}
-		if probeCtx.Err() == context.DeadlineExceeded {
+		// An overflow is named as one even when the probe deadline lands at
+		// the same moment.
+		if probeCtx.Err() == context.DeadlineExceeded && !isLineCapErr(scanErr) {
 			return nil, 0, fmt.Errorf("TTFT timeout: no first token within %s", ttftTimeout)
 		}
 		return nil, 0, fmt.Errorf("TTFT probe read error: %w", scanErr)

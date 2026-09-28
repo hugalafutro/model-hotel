@@ -186,7 +186,7 @@ func TestStreamReader_SlowLargeFrameIsNotAStall(t *testing.T) {
 	t.Parallel()
 	frame := "data: {\"x\":\"" + strings.Repeat("A", 40<<10) + "\"}\n"
 	body := &slowBody{data: []byte(frame), piece: stallByteQuantum, pause: 100 * time.Millisecond}
-	reader := newStreamReader(context.Background(), body, streamOptions{streamStallTimeout: 500 * time.Millisecond}, &requestLogData{modelID: "m", providerName: "p"}, nil)
+	reader := newStreamReader(context.Background(), body, streamOptions{streamStallTimeout: time.Second}, &requestLogData{modelID: "m", providerName: "p"}, nil)
 	defer reader.Close()
 
 	ev, ok := reader.Next()
@@ -218,5 +218,29 @@ func TestStreamReader_MidLineDribbleStillStalls(t *testing.T) {
 	}
 	if !reader.stalled() {
 		t.Fatal("a mid-line dribble below the byte quantum must stall")
+	}
+}
+
+// Volume alone does not keep a line alive forever: once one line has run for
+// progressiveStallMultiplier stall windows, mid-line bytes stop re-arming the
+// watchdog and an upstream trickling quanta without finishing the line stalls.
+func TestStreamReader_EndlessLineInQuantaStallsAfterItsBudget(t *testing.T) {
+	t.Parallel()
+	const stall = 200 * time.Millisecond
+	body := &slowBody{data: []byte("data: " + strings.Repeat("A", 200*stallByteQuantum)), piece: stallByteQuantum, pause: 50 * time.Millisecond}
+	reader := newStreamReader(context.Background(), body, streamOptions{streamStallTimeout: stall}, &requestLogData{modelID: "m", providerName: "p"}, nil)
+
+	start := time.Now()
+	for {
+		if _, ok := reader.Next(); !ok {
+			break
+		}
+	}
+	reader.Close()
+	if !reader.stalled() {
+		t.Fatal("a line past its time budget must stall")
+	}
+	if elapsed := time.Since(start); elapsed > 5*time.Second {
+		t.Fatalf("the line held the stream for %s", elapsed)
 	}
 }
