@@ -171,8 +171,9 @@ describe("Logs", () => {
 			let singleLogCallCount = 0;
 			server.use(
 				// Initial in-progress row, identified in the mock table by its
-				// request_hash. fetchNewer is add-only (filters by existing id),
-				// so it won't revert the merge below.
+				// request_hash. keepFresherRow ranks streaming above pending, so a
+				// page that still carries the pending copy cannot revert the merge
+				// below.
 				http.get("/api/logs/cursor", () =>
 					HttpResponse.json({
 						entries: [

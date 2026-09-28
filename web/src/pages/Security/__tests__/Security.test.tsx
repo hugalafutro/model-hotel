@@ -89,7 +89,7 @@ describe("Security page", () => {
 		mockStatus({ enabled: false });
 		let payload: { current_password: string; new_password: string } | null =
 			null;
-		// Answer 401 on purpose: a 200 would schedule the component's delayed
+		// Answer 403 on purpose: a 200 would schedule the component's delayed
 		// sign-out teardown, which clears the file-wide test auth token while
 		// LATER tests are running. The success path (and its teardown) is
 		// owned end-to-end by the "tears down the session" test below.
@@ -97,7 +97,7 @@ describe("Security page", () => {
 			http.post("/api/auth/password", async ({ request }) => {
 				payload = (await request.json()) as typeof payload;
 				return HttpResponse.text("current password is incorrect", {
-					status: 401,
+					status: 403,
 				});
 			}),
 		);
@@ -160,7 +160,7 @@ describe("Security page", () => {
 		mockStatus({ enabled: false });
 		server.use(
 			http.post("/api/auth/password", () =>
-				HttpResponse.text("current password is incorrect", { status: 401 }),
+				HttpResponse.text("current password is incorrect", { status: 403 }),
 			),
 		);
 		const { user } = renderWithProviders(<Security />);
@@ -514,7 +514,7 @@ describe("Security page edge handlers", () => {
 		}
 	});
 
-	it("reports a generic failure for non-401 password errors", {
+	it("reports a generic failure for other password errors", {
 		timeout: 30000,
 	}, async () => {
 		mockStatus({ enabled: false });

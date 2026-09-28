@@ -146,6 +146,7 @@ export function useBidirectionalFetch<
 	}, []);
 
 	const clearData = useCallback(() => {
+		pendingMergesRef.current.clear();
 		setEntries([]);
 		setEntriesGen(generationRef.current);
 		setTotal(0);
@@ -159,11 +160,21 @@ export function useBidirectionalFetch<
 		clearData();
 	}, [invalidate, clearData]);
 
+	// Merges for rows the list does not hold yet. The cursor query is a strict
+	// keyset, so no later page repeats a listed row; a row whose finished copy
+	// arrived before the page that lists it is applied when that page lands.
+	// Bounded by the burst of events between two pages; cleared with the list.
+	const pendingMergesRef = useRef(new Map<string, T>());
+
 	const mergeEntries = useCallback(
 		(updated: T[]) => {
 			if (updated.length === 0) return;
 			setEntries((prev) => {
 				const updateMap = new Map(updated.map((e) => [getId(e), e]));
+				const listed = new Set(prev.map((e) => getId(e)));
+				for (const [id, next] of updateMap) {
+					if (!listed.has(id)) pendingMergesRef.current.set(id, next);
+				}
 				return prev.map((e) => {
 					const next = updateMap.get(getId(e));
 					if (next === undefined || keep?.(e, next)) return e;
@@ -285,9 +296,14 @@ export function useBidirectionalFetch<
 						return next;
 					});
 					const existingIds = new Set(prev.map((e) => getId(e)));
-					const fresh = response.entries.filter(
-						(e) => !existingIds.has(getId(e)),
-					);
+					const fresh = response.entries
+						.filter((e) => !existingIds.has(getId(e)))
+						.map((e) => {
+							const merged = pendingMergesRef.current.get(getId(e));
+							if (merged === undefined) return e;
+							pendingMergesRef.current.delete(getId(e));
+							return keep?.(e, merged) ? e : merged;
+						});
 					return before ? [...fresh, ...kept] : [...kept, ...fresh];
 				});
 

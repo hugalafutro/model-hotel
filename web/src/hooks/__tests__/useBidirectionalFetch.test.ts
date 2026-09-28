@@ -361,6 +361,50 @@ describe("useBidirectionalFetch", () => {
 	});
 
 	describe("fetchNewer", () => {
+		it("applies a merge that arrived before the page listing its row", async () => {
+			const mockFetchFn = vi
+				.fn()
+				.mockResolvedValueOnce({
+					entries: [{ id: "1", name: "old" }] as TestEntry[],
+					total: 1,
+					has_before: true,
+					has_after: false,
+				})
+				// The strict keyset page: only rows newer than the top one.
+				.mockResolvedValueOnce({
+					entries: [{ id: "2", name: "pending" }] as TestEntry[],
+					total: 2,
+					has_before: false,
+					has_after: false,
+				});
+			const { result } = renderHook(() =>
+				useBidirectionalFetch<TestEntry>({
+					fetchFn: mockFetchFn,
+					filters: {},
+					sortDir: "desc",
+					getCursor: (e) => e.id,
+					getId: (e) => e.id,
+					keep: (current, next) =>
+						current.name === "finished" && next.name === "pending",
+				}),
+			);
+			await waitFor(() => expect(result.current.entries).toHaveLength(1));
+
+			// The finished copy of row 2 arrives before any page lists it.
+			act(() => {
+				result.current.mergeEntries([{ id: "2", name: "finished" }]);
+			});
+			expect(result.current.entries).toHaveLength(1);
+
+			await act(async () => {
+				await result.current.fetchNewer();
+			});
+			expect(result.current.entries.map((e) => e.name)).toEqual([
+				"finished",
+				"old",
+			]);
+		});
+
 		it("refreshes rows the list already holds from the page it fetched, subject to keep", async () => {
 			const mockFetchFn = vi
 				.fn()
