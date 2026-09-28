@@ -1090,7 +1090,7 @@ Model IDs follow the format provided by each provider:
 ### Usage in Routing
 
 Model IDs are used in:
-1. **Database lookups** - `GetByModelID()` finds all enabled models with a given model ID across providers
+1. **Database lookups** - `GetByProviderAndModelID()` finds one provider's model by its model ID; the failover group for a model ID is what spans providers
 2. **Failover groups** - Models with the same `model_id` from different providers can be grouped for failover
 3. **Proxy requests** - The proxy endpoint accepts model IDs in the format `{provider_name}/{model_id}` for admin chat, or just `{model_id}` for virtual key auth
 
@@ -1406,21 +1406,23 @@ The `internal/model/cache.go` module provides in-memory caching for model lookup
 ### Cache Types
 
 1. **UUID cache** - `GetCachedByUUID(id)` - Returns a single model by its UUID
-2. **Model ID cache** - `GetCachedByModelID(modelID)` - Returns all models with a given model ID (across providers)
-3. **Composite key cache** - `GetCachedByCompositeKey(providerID, modelID)` - Returns a model by provider + model ID
+2. **Composite key cache** - `GetCachedByCompositeKey(providerID, modelID)` - Returns a model by provider + model ID
 
 ### Cache Operations
 
 | Function | Description |
 |----------|-------------|
-| `cacheModelByUUID(model)` | Cache a single model by UUID |
-| `cacheModelsByModelID(modelID, models)` | Cache multiple models by model ID string |
-| `cacheModelByCompositeKey(providerID, modelID, model)` | Cache by composite key |
+| `CacheGen()` | The generation a read-through captures before its query |
+| `cacheModelByUUIDAt(model, gen)` | Cache a single model by UUID, if no invalidation landed since `gen` |
+| `cacheModelByCompositeKeyAt(providerID, modelID, model, gen)` | Cache by composite key, same guard |
 | `GetCachedByUUID(id)` | Lookup by UUID |
-| `GetCachedByModelID(modelID)` | Lookup by model ID |
 | `GetCachedByCompositeKey(providerID, modelID)` | Lookup by composite key |
-| `InvalidateModelCache()` | Clear all cache entries (called on every write) |
-| `WarmModelCache(models)` | Populate cache with a slice of models |
+| `InvalidateModelCache()` | Clear all cache entries and advance the generation (called on every write) |
+| `WarmModelCacheAt(models, gen)` | Populate both caches with rows listed at `gen` (startup warm, `GetByIDs`) |
+
+Every read-through captures `CacheGen()` before its `SELECT` and installs only if it is
+unchanged, so a read that overlapped a write cannot reinstall the pre-write row for the
+TTL. No write path installs its `RETURNING` row: it invalidates, the next reader refills.
 
 ### Cache Invalidation
 

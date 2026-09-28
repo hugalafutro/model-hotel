@@ -1140,7 +1140,7 @@ func TestList_Empty(t *testing.T) {
 
 // TestGetByIDs_UncachedDBFetch tests that GetByIDs correctly fetches providers
 // from the database when all entries are uncached (cache was invalidated).
-// This exercises the full DB query path: rows.Next(), cacheProvider, and rows.Err().
+// This exercises the full DB query path: rows.Next(), cacheProviderAt, and rows.Err().
 func TestGetByIDs_UncachedDBFetch(t *testing.T) {
 	repo := newTestRepo(t)
 	ctx := context.Background()

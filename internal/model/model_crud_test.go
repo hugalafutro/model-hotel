@@ -990,8 +990,8 @@ func TestUpdate_CancelledContext(t *testing.T) {
 // ---------------------------------------------------------------------------
 
 // TestGetByIDs_AfterCacheInvalidation verifies that GetByIDs fetches from the
-// database after the cache is invalidated, and that WarmModelCache is called
-// on the results (subsequent lookups hit the refreshed cache).
+// database after the cache is invalidated, and that the results are installed
+// at the captured generation (subsequent lookups hit the refreshed cache).
 func TestGetByIDs_AfterCacheInvalidation(t *testing.T) {
 	ctx := context.Background()
 	repo := NewRepository(testPool)
