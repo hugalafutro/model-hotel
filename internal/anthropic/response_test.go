@@ -136,6 +136,23 @@ func TestBuildMessageResponse_ToolCallsWinOverStopFinish(t *testing.T) {
 	}
 }
 
+// finish_reason "length" beside tool_calls stays max_tokens: a call cut
+// mid-arguments is not one to run.
+func TestBuildMessageResponse_LengthBesideToolCallsStaysMaxTokens(t *testing.T) {
+	oai := []byte(`{"choices":[{"message":{"role":"assistant","content":null,"tool_calls":[
+		{"id":"call_9","type":"function","function":{"name":"lookup","arguments":"{\"q"}}
+	]},"finish_reason":"length"}]}`)
+	out, err := BuildMessageResponse(oai, "msg_4", "m")
+	if err != nil {
+		t.Fatalf("BuildMessageResponse: %v", err)
+	}
+	var m map[string]any
+	_ = json.Unmarshal(out, &m)
+	if m["stop_reason"] != "max_tokens" {
+		t.Errorf("stop_reason = %v, want max_tokens", m["stop_reason"])
+	}
+}
+
 func TestBuildErrorResponse_StatusMapping(t *testing.T) {
 	cases := []struct {
 		status int

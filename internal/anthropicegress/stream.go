@@ -113,6 +113,10 @@ type StreamTranslator struct {
 	// fragments parse as JSON, and "" does not, so a block that closes with no
 	// fragment gets "{}" at content_block_stop.
 	toolArgsSeen map[int]bool
+	// openerInput is the input object a relay put on a tool_use block's
+	// content_block_start, emitted at the stop when no input_json_delta
+	// streamed for the block (the deltas win when both arrive).
+	openerInput map[int]string
 }
 
 // NewStreamTranslator builds a translator for one response. id, model and
@@ -123,6 +127,7 @@ func NewStreamTranslator(id, model string, created int64) *StreamTranslator {
 		w:                egress.ChunkWriter{Component: "anthropicegress", ID: id, Model: model, Created: created},
 		toolIndexByBlock: map[int]int{},
 		toolArgsSeen:     map[int]bool{},
+		openerInput:      map[int]string{},
 	}
 }
 
@@ -212,9 +217,14 @@ func (t *StreamTranslator) stopBlock(buf *bytes.Buffer, ev antEvent) error {
 		return nil
 	}
 	t.toolArgsSeen[ev.Index] = true
+	args := "{}"
+	if opener, ok := t.openerInput[ev.Index]; ok {
+		// No delta arrived for the block: the opener's input is the arguments.
+		args = opener
+	}
 	return t.writeChunk(buf, chunkDelta{ToolCalls: []chunkToolCall{{
 		Index:    oaIndex,
-		Function: chunkToolFunction{Arguments: "{}"},
+		Function: chunkToolFunction{Arguments: args},
 	}}}, nil, nil)
 }
 
@@ -256,12 +266,11 @@ func (t *StreamTranslator) startBlock(buf *bytes.Buffer, ev antEvent) error {
 	}}}, nil, nil); err != nil {
 		return err
 	}
-	if input := bytes.TrimSpace(ev.ContentBlock.Input); len(input) > 0 && string(input) != "{}" && string(input) != "null" {
-		t.toolArgsSeen[ev.Index] = true
-		return t.writeChunk(buf, chunkDelta{ToolCalls: []chunkToolCall{{
-			Index:    oaIndex,
-			Function: chunkToolFunction{Arguments: string(input)},
-		}}}, nil, nil)
+	if input := bytes.TrimSpace(ev.ContentBlock.Input); len(input) > 1 && input[0] == '{' && string(input) != "{}" && json.Valid(input) {
+		// Held until the block stops: a relay that also streams
+		// input_json_delta for the block would otherwise hand the client the
+		// object twice, and the deltas are the spec's way of saying it.
+		t.openerInput[ev.Index] = string(input)
 	}
 	return nil
 }

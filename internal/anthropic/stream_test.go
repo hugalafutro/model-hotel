@@ -220,6 +220,60 @@ func TestStreamTranslator_ToolCallsWinOverStopFinish(t *testing.T) {
 	}
 }
 
+// finish_reason "length" beside tool calls stays max_tokens: a call cut
+// mid-arguments is not one to run.
+func TestStreamTranslator_LengthBesideToolCallsStaysMaxTokens(t *testing.T) {
+	tr := NewStreamTranslator("msg_len", "m")
+	chunks := []OAStreamChunk{
+		{Choices: []OAStreamChoice{{Delta: OAStreamDelta{ToolCalls: []OAToolCallDelta{
+			{Index: new(0), ID: "call_a", Type: "function", Function: OAFunctionDelta{Name: "ls", Arguments: `{"pa`}},
+		}}}}},
+		{Choices: []OAStreamChoice{{Delta: OAStreamDelta{}, FinishReason: new("length")}}},
+	}
+	got := decodeWithSDK(t, runTranslator(t, tr, chunks))
+	if got.stopReason != "max_tokens" {
+		t.Errorf("stop_reason = %q, want max_tokens", got.stopReason)
+	}
+}
+
+// Mixed shapes: an id-keyed opener followed by a continuation carrying only
+// "index":0 is one call, and two openers both stamped "index":0 with distinct
+// ids are two calls.
+func TestStreamTranslator_MixedIndexShapes(t *testing.T) {
+	t.Run("index appears on the continuation", func(t *testing.T) {
+		tr := NewStreamTranslator("msg_mix1", "m")
+		chunks := []OAStreamChunk{
+			{Choices: []OAStreamChoice{{Delta: OAStreamDelta{ToolCalls: []OAToolCallDelta{
+				{ID: "call_a", Type: "function", Function: OAFunctionDelta{Name: "ls", Arguments: `{"a":`}},
+			}}}}},
+			{Choices: []OAStreamChoice{{Delta: OAStreamDelta{ToolCalls: []OAToolCallDelta{
+				{Index: new(0), Function: OAFunctionDelta{Arguments: `1}`}},
+			}}}}},
+			{Choices: []OAStreamChoice{{Delta: OAStreamDelta{}, FinishReason: new("tool_calls")}}},
+		}
+		got := decodeWithSDK(t, runTranslator(t, tr, chunks))
+		if len(got.toolNameByIx) != 1 || got.toolJSONByIx[0] != `{"a":1}` {
+			t.Errorf("blocks = %v inputs = %v, want one call ls with {\"a\":1}", got.toolNameByIx, got.toolJSONByIx)
+		}
+	})
+	t.Run("index 0 reused for a second id", func(t *testing.T) {
+		tr := NewStreamTranslator("msg_mix2", "m")
+		chunks := []OAStreamChunk{
+			{Choices: []OAStreamChoice{{Delta: OAStreamDelta{ToolCalls: []OAToolCallDelta{
+				{Index: new(0), ID: "call_a", Type: "function", Function: OAFunctionDelta{Name: "ls", Arguments: `{"a":1}`}},
+			}}}}},
+			{Choices: []OAStreamChoice{{Delta: OAStreamDelta{ToolCalls: []OAToolCallDelta{
+				{Index: new(0), ID: "call_b", Type: "function", Function: OAFunctionDelta{Name: "cat", Arguments: `{"b":2}`}},
+			}}}}},
+			{Choices: []OAStreamChoice{{Delta: OAStreamDelta{}, FinishReason: new("tool_calls")}}},
+		}
+		got := decodeWithSDK(t, runTranslator(t, tr, chunks))
+		if got.toolNameByIx[0] != "ls" || got.toolNameByIx[1] != "cat" || got.toolJSONByIx[1] != `{"b":2}` {
+			t.Errorf("blocks = %v inputs = %v, want ls and cat", got.toolNameByIx, got.toolJSONByIx)
+		}
+	})
+}
+
 func TestStreamTranslator_EmptyCompletion_WellFormed(t *testing.T) {
 	tr := NewStreamTranslator("msg_empty", "claude-haiku-4-5")
 	// No content at all, just a terminal finish.

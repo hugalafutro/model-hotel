@@ -270,6 +270,26 @@ func TestStreamTranslator_ContentOnBlockOpenerIsOutput(t *testing.T) {
 	}
 }
 
+// When a relay puts an input object on the opener AND streams input_json_delta
+// for the block, the deltas are the arguments and the opener's copy is dropped,
+// so the client never sees the object twice.
+func TestStreamTranslator_DeltasWinOverOpenerInput(t *testing.T) {
+	tr := NewStreamTranslator("chatcmpl-6", "m", 1)
+	out := feed(t, tr,
+		`{"type":"message_start","message":{"usage":{"input_tokens":4}}}`,
+		`{"type":"content_block_start","index":0,"content_block":{"type":"tool_use","id":"toolu_a","name":"first","input":{"a":1}}}`,
+		`{"type":"content_block_delta","index":0,"delta":{"type":"input_json_delta","partial_json":"{\"a\":"}}`,
+		`{"type":"content_block_delta","index":0,"delta":{"type":"input_json_delta","partial_json":"1}"}}`,
+		`{"type":"content_block_stop","index":0}`,
+		`{"type":"message_delta","delta":{"stop_reason":"tool_use"},"usage":{"output_tokens":9}}`,
+		`{"type":"message_stop"}`,
+	)
+	chunks, _ := parseChunks(t, out)
+	if args := toolArgsByIndex(chunks); args[0] != `{"a":1}` {
+		t.Errorf("arguments = %q, want the deltas' {\"a\":1} once", args[0])
+	}
+}
+
 func TestStreamTranslator_ToolCallIndicesSkipTextBlocks(t *testing.T) {
 	// Anthropic block indices count every block (text at 0, tools at 1 and 2);
 	// OpenAI tool-call indices count only tool calls, so they must be 0 and 1.

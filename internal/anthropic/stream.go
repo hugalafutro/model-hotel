@@ -37,6 +37,7 @@ type StreamTranslator struct {
 	// last, since fragments of one call arrive contiguously.
 	toolBlockByOAIndex map[int]int
 	idxByCallID        map[string]int
+	idByIndex          map[int]string
 	lastToolOAIndex    int
 
 	// Best-effort usage + terminal reason.
@@ -67,18 +68,29 @@ func NewStreamTranslator(messageID, model string) *StreamTranslator {
 		openMax:            -1,
 		toolBlockByOAIndex: map[int]int{},
 		idxByCallID:        map[string]int{},
+		idByIndex:          map[int]string{},
 	}
 }
 
 // oaIndexFor resolves the OpenAI index a tool-call fragment belongs to, see
-// toolBlockByOAIndex.
+// toolBlockByOAIndex. Two mixed shapes are read for what they mean: an opener
+// that reuses an index another call already holds (a provider that stamps 0
+// on every call) is a new call, and a continuation whose index opened nothing
+// while the last call was id-keyed belongs to that call.
 func (t *StreamTranslator) oaIndexFor(tc OAToolCallDelta) int {
 	switch {
 	case tc.Index != nil:
+		idx := *tc.Index
 		if tc.ID != "" {
-			t.idxByCallID[tc.ID] = *tc.Index
+			if owner, taken := t.idByIndex[idx]; taken && owner != tc.ID {
+				idx = -1 - len(t.idxByCallID)
+			}
+			t.idxByCallID[tc.ID] = idx
+			t.idByIndex[idx] = tc.ID
+		} else if _, open := t.toolBlockByOAIndex[idx]; !open && t.lastToolOAIndex < 0 {
+			idx = t.lastToolOAIndex
 		}
-		t.lastToolOAIndex = *tc.Index
+		t.lastToolOAIndex = idx
 	case tc.ID == "":
 		// Neither index nor id: a continuation of the call being streamed.
 	default:
@@ -296,12 +308,12 @@ func (t *StreamTranslator) Finish() ([]byte, error) {
 	}
 
 	stop := mapStopReason(t.finishReason)
-	if len(t.toolBlockByOAIndex) > 0 {
+	if len(t.toolBlockByOAIndex) > 0 && stop != "max_tokens" {
 		// A turn that produced tool calls stops for tool_use whatever the
 		// finish_reason said: some OpenAI-compatible servers report "stop"
 		// beside tool_calls, and an agent loop keyed on stop_reason would end
-		// the turn without running them. Same rule as the Gemini and Responses
-		// translators.
+		// the turn without running them. "length" stays max_tokens: a call cut
+		// mid-arguments is not one to run.
 		stop = "tool_use"
 	}
 	if err := writeEvent(&buf, "message_delta", messageDeltaEvent{

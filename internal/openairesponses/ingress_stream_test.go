@@ -422,10 +422,9 @@ func TestIngressStream_RefusalPart(t *testing.T) {
 	}
 }
 
-// Parallel calls a provider streams without indexes are told apart by id.
 // An index-less opener carries the id; its continuations may carry neither.
 // They belong to the call streamed last, not to index 0, which the id-keyed
-// opener never claimed (that produced a second, nameless call).
+// opener never claimed.
 func TestIngressStream_IndexlessContinuationFollowsTheOpenCall(t *testing.T) {
 	tr := NewIngressStreamTranslator("resp_1", "m", nil)
 	sse := runIngress(t, tr,
@@ -444,6 +443,42 @@ func TestIngressStream_IndexlessContinuationFollowsTheOpenCall(t *testing.T) {
 	}
 }
 
+// Mixed shapes: an id-keyed opener followed by a continuation carrying only
+// "index":0 is one call; two openers both stamped "index":0 with distinct ids
+// are two calls.
+func TestIngressStream_MixedIndexShapes(t *testing.T) {
+	t.Run("index appears on the continuation", func(t *testing.T) {
+		tr := NewIngressStreamTranslator("resp_1", "m", nil)
+		sse := runIngress(t, tr,
+			chunk(`{"tool_calls":[{"id":"call_a","type":"function","function":{"name":"ls","arguments":"{\"a\":"}}]}`, ""),
+			chunk(`{"tool_calls":[{"index":0,"function":{"arguments":"1}"}}]}`, "tool_calls"),
+		)
+		got := decodeWithOpenAISDK(t, sse)
+		if len(got.itemsDone) != 1 {
+			t.Fatalf("items = %d, want 1", len(got.itemsDone))
+		}
+		if a := got.itemsDone[0].AsFunctionCall(); a.CallID != "call_a" || a.Arguments != `{"a":1}` {
+			t.Errorf("a=%+v", a)
+		}
+	})
+	t.Run("index 0 reused for a second id", func(t *testing.T) {
+		tr := NewIngressStreamTranslator("resp_2", "m", nil)
+		sse := runIngress(t, tr,
+			chunk(`{"tool_calls":[{"index":0,"id":"call_a","type":"function","function":{"name":"ls","arguments":"{\"a\":1}"}}]}`, ""),
+			chunk(`{"tool_calls":[{"index":0,"id":"call_b","type":"function","function":{"name":"cat","arguments":"{\"b\":2}"}}]}`, "tool_calls"),
+		)
+		got := decodeWithOpenAISDK(t, sse)
+		if len(got.itemsDone) != 2 {
+			t.Fatalf("items = %d, want 2", len(got.itemsDone))
+		}
+		a, b := got.itemsDone[0].AsFunctionCall(), got.itemsDone[1].AsFunctionCall()
+		if a.CallID != "call_a" || b.CallID != "call_b" || b.Arguments != `{"b":2}` {
+			t.Errorf("a=%+v b=%+v", a, b)
+		}
+	})
+}
+
+// Parallel calls a provider streams without indexes are told apart by id.
 func TestIngressStream_IndexlessParallelCallsByID(t *testing.T) {
 	tr := NewIngressStreamTranslator("resp_1", "m", nil)
 	sse := runIngress(t, tr,
