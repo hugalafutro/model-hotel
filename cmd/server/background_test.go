@@ -156,10 +156,26 @@ func TestInitKeyCacheTTL(t *testing.T) {
 		t.Fatalf("delete failed: %v", err)
 	}
 	want("reset", auth.DefaultKeyCacheTTL)
+	// The unrelated-key step must observe the callback having run, or a hook
+	// that re-read on every key would pass it before its goroutine fired.
+	otherSeen := make(chan struct{})
+	settingsRepo.RegisterOnChange(func(key, _ string) {
+		if key == "some_other_key" {
+			close(otherSeen)
+		}
+	})
 	auth.SetKeyCacheTTL(5 * time.Minute)
 	if err := settingsRepo.Set(ctx, "some_other_key", "x"); err != nil {
 		t.Fatalf("set failed: %v", err)
 	}
+	select {
+	case <-otherSeen:
+	case <-time.After(2 * time.Second):
+		t.Fatal("change callback for the unrelated key never ran")
+	}
+	// Callbacks are independent goroutines; give the hook's own a moment to
+	// do the wrong thing before asserting it did nothing.
+	time.Sleep(50 * time.Millisecond)
 	want("unrelated key", 5*time.Minute)
 }
 
