@@ -91,13 +91,8 @@ func IsCachedByModel(displayModel string) bool {
 	return ok && !time.Now().After(entry.expiresAt)
 }
 
-// WarmFailoverCache populates the cache with the provided failover groups.
-func WarmFailoverCache(groups []*FailoverGroup) {
-	WarmFailoverCacheAt(groups, CacheGen())
-}
-
-// WarmFailoverCacheAt is WarmFailoverCache for rows read at a captured
-// generation: nothing installs if an invalidation has landed since.
+// WarmFailoverCacheAt installs rows read at a captured generation: nothing
+// installs if an invalidation has landed since.
 func WarmFailoverCacheAt(groups []*FailoverGroup, gen uint64) {
 	for _, fg := range groups {
 		cacheFailoverGroupAt(fg, gen)

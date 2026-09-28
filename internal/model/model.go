@@ -439,30 +439,6 @@ func (r *Repository) GetByIDs(ctx context.Context, ids []uuid.UUID) (map[uuid.UU
 	return result, nil
 }
 
-// GetByModelID returns all enabled models matching the given model ID string.
-func (r *Repository) GetByModelID(ctx context.Context, modelID string) ([]*Model, error) {
-	if models, ok := GetCachedByModelID(modelID); ok {
-		return models, nil
-	}
-	gen := CacheGen()
-
-	query := `SELECT ` + modelColumns + ` FROM models m JOIN providers p ON m.provider_id = p.id WHERE m.model_id = $1 AND m.enabled = true AND p.enabled = true ORDER BY p.created_at ASC`
-
-	rows, err := r.pool.Query(ctx, query, modelID)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-
-	models, err := scanModels(rows)
-	if err != nil {
-		return nil, err
-	}
-
-	cacheModelsByModelIDAt(modelID, models, gen)
-	return models, nil
-}
-
 // GetByProviderAndModelID retrieves a model by provider ID and model ID.
 func (r *Repository) GetByProviderAndModelID(ctx context.Context, providerID uuid.UUID, modelID string) (*Model, error) {
 	if m, ok := GetCachedByCompositeKey(providerID, modelID); ok {

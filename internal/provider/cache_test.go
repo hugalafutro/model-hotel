@@ -26,7 +26,7 @@ func TestIsCachedByID_EmptyCache(t *testing.T) {
 func TestIsCachedByID_Cached(t *testing.T) {
 	InvalidateProviderCache()
 	id := uuid.New()
-	WarmProviderCache([]*Provider{{ID: id, Name: "test-provider"}})
+	WarmProviderCacheAt([]*Provider{{ID: id, Name: "test-provider"}}, CacheGen())
 	if !IsCachedByID(id) {
 		t.Error("IsCachedByID should return true for cached provider")
 	}
@@ -36,10 +36,10 @@ func TestEvictProviderCacheByID_RemovesOnlyThatProvider(t *testing.T) {
 	InvalidateProviderCache()
 	evicted := uuid.New()
 	kept := uuid.New()
-	WarmProviderCache([]*Provider{
+	WarmProviderCacheAt([]*Provider{
 		{ID: evicted, Name: "evicted-provider"},
 		{ID: kept, Name: "kept-provider"},
-	})
+	}, CacheGen())
 
 	EvictProviderCacheByID(evicted)
 
@@ -57,7 +57,7 @@ func TestEvictProviderCacheByID_RemovesOnlyThatProvider(t *testing.T) {
 func TestEvictProviderCacheByID_UnknownIDIsNoop(t *testing.T) {
 	InvalidateProviderCache()
 	id := uuid.New()
-	WarmProviderCache([]*Provider{{ID: id, Name: "survivor"}})
+	WarmProviderCacheAt([]*Provider{{ID: id, Name: "survivor"}}, CacheGen())
 
 	EvictProviderCacheByID(uuid.New())
 
@@ -68,7 +68,7 @@ func TestEvictProviderCacheByID_UnknownIDIsNoop(t *testing.T) {
 
 func TestIsCachedByID_Miss(t *testing.T) {
 	InvalidateProviderCache()
-	WarmProviderCache([]*Provider{{ID: uuid.New(), Name: "test-provider"}})
+	WarmProviderCacheAt([]*Provider{{ID: uuid.New(), Name: "test-provider"}}, CacheGen())
 	if IsCachedByID(uuid.New()) {
 		t.Error("IsCachedByID should return false for different ID")
 	}
@@ -87,7 +87,7 @@ func TestIsCachedByName_EmptyCache(t *testing.T) {
 
 func TestIsCachedByName_Cached(t *testing.T) {
 	InvalidateProviderCache()
-	WarmProviderCache([]*Provider{{ID: uuid.New(), Name: "My Provider"}})
+	WarmProviderCacheAt([]*Provider{{ID: uuid.New(), Name: "My Provider"}}, CacheGen())
 	if !IsCachedByName("My Provider") {
 		t.Error("IsCachedByName should return true for exact name match")
 	}
@@ -95,7 +95,7 @@ func TestIsCachedByName_Cached(t *testing.T) {
 
 func TestIsCachedByName_NormalizedName(t *testing.T) {
 	InvalidateProviderCache()
-	WarmProviderCache([]*Provider{{ID: uuid.New(), Name: "My Provider"}})
+	WarmProviderCacheAt([]*Provider{{ID: uuid.New(), Name: "My Provider"}}, CacheGen())
 	if !IsCachedByName("My-Provider") {
 		t.Error("IsCachedByName should return true for normalized name match")
 	}
@@ -103,7 +103,7 @@ func TestIsCachedByName_NormalizedName(t *testing.T) {
 
 func TestIsCachedByName_Miss(t *testing.T) {
 	InvalidateProviderCache()
-	WarmProviderCache([]*Provider{{ID: uuid.New(), Name: "test-provider"}})
+	WarmProviderCacheAt([]*Provider{{ID: uuid.New(), Name: "test-provider"}}, CacheGen())
 	if IsCachedByName("other-provider") {
 		t.Error("IsCachedByName should return false for different name")
 	}
@@ -116,7 +116,7 @@ func TestIsCachedByName_Miss(t *testing.T) {
 func TestGetCachedByID_CacheHit(t *testing.T) {
 	InvalidateProviderCache()
 	id := uuid.New()
-	WarmProviderCache([]*Provider{{ID: id, Name: "cached-provider"}})
+	WarmProviderCacheAt([]*Provider{{ID: id, Name: "cached-provider"}}, CacheGen())
 	p, ok := GetCachedByID(id)
 	if !ok {
 		t.Fatal("GetCachedByID should return true for cached provider")
@@ -128,7 +128,7 @@ func TestGetCachedByID_CacheHit(t *testing.T) {
 
 func TestGetCachedByID_CacheMiss(t *testing.T) {
 	InvalidateProviderCache()
-	WarmProviderCache([]*Provider{{ID: uuid.New(), Name: "other-provider"}})
+	WarmProviderCacheAt([]*Provider{{ID: uuid.New(), Name: "other-provider"}}, CacheGen())
 	_, ok := GetCachedByID(uuid.New())
 	if ok {
 		t.Error("GetCachedByID should return false for non-cached ID")
@@ -149,7 +149,7 @@ func TestGetCachedByID_EmptyCache(t *testing.T) {
 
 func TestGetCachedByName_CacheHit(t *testing.T) {
 	InvalidateProviderCache()
-	WarmProviderCache([]*Provider{{ID: uuid.New(), Name: "My Provider"}})
+	WarmProviderCacheAt([]*Provider{{ID: uuid.New(), Name: "My Provider"}}, CacheGen())
 	p, ok := GetCachedByName("My Provider")
 	if !ok {
 		t.Fatal("GetCachedByName should return true for cached name")
@@ -161,7 +161,7 @@ func TestGetCachedByName_CacheHit(t *testing.T) {
 
 func TestGetCachedByName_NormalizedNameHit(t *testing.T) {
 	InvalidateProviderCache()
-	WarmProviderCache([]*Provider{{ID: uuid.New(), Name: "My Provider"}})
+	WarmProviderCacheAt([]*Provider{{ID: uuid.New(), Name: "My Provider"}}, CacheGen())
 	p, ok := GetCachedByName("My-Provider")
 	if !ok {
 		t.Fatal("GetCachedByName should return true for normalized name")
@@ -173,7 +173,7 @@ func TestGetCachedByName_NormalizedNameHit(t *testing.T) {
 
 func TestGetCachedByName_CacheMiss(t *testing.T) {
 	InvalidateProviderCache()
-	WarmProviderCache([]*Provider{{ID: uuid.New(), Name: "test-provider"}})
+	WarmProviderCacheAt([]*Provider{{ID: uuid.New(), Name: "test-provider"}}, CacheGen())
 	_, ok := GetCachedByName("nonexistent")
 	if ok {
 		t.Error("GetCachedByName should return false for missing name")

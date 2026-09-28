@@ -16,13 +16,13 @@ import (
 
 func TestCacheProvider_NilProvider(t *testing.T) {
 	// Should not panic
-	cacheProvider(nil)
+	cacheProviderAt(nil, CacheGen())
 
 	// Verify nil provider was not cached
 	testUUID := uuid.New()
 	_, ok := GetCachedByID(testUUID)
 	if ok {
-		t.Error("GetCachedByID should return ok=false after cacheProvider(nil)")
+		t.Error("GetCachedByID should return ok=false after cacheProviderAt(nil)", CacheGen())
 	}
 }
 
@@ -36,7 +36,7 @@ func TestCacheProvider_RoundTrip(t *testing.T) {
 		Name: "cache-test-provider",
 	}
 
-	cacheProvider(p)
+	cacheProviderAt(p, CacheGen())
 
 	// Should be retrievable by ID
 	found, ok := GetCachedByID(id)
@@ -105,7 +105,7 @@ func TestInvalidateProviderCache(t *testing.T) {
 		Name: "to-be-invalidated",
 	}
 
-	cacheProvider(p)
+	cacheProviderAt(p, CacheGen())
 
 	// Should exist before invalidation
 	_, ok := GetCachedByID(id)
@@ -131,7 +131,7 @@ func TestWarmProviderCache(t *testing.T) {
 		{ID: uuid.New(), Name: "warm-c"},
 	}
 
-	WarmProviderCache(providers)
+	WarmProviderCacheAt(providers, CacheGen())
 
 	for _, p := range providers {
 		found, ok := GetCachedByID(p.ID)
@@ -152,7 +152,7 @@ func TestNormalizeName_RoundTripWithCache(t *testing.T) {
 		ID:   uuid.New(),
 		Name: "My Provider",
 	}
-	cacheProvider(p)
+	cacheProviderAt(p, CacheGen())
 
 	// Should be findable by normalized name (spaces → hyphens)
 	normalized := NormalizeName("My Provider")

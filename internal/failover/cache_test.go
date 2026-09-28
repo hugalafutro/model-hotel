@@ -291,7 +291,7 @@ func TestWarmFailoverCache_MultipleGroups(t *testing.T) {
 		},
 	}
 
-	WarmFailoverCache(groups)
+	WarmFailoverCacheAt(groups, CacheGen())
 
 	for _, fg := range groups {
 		found, ok := GetCachedFailoverByModel(fg.DisplayModel)
@@ -312,7 +312,7 @@ func TestWarmFailoverCache_EmptySlice(t *testing.T) {
 	InvalidateFailoverCache()
 
 	// Should not panic
-	WarmFailoverCache([]*FailoverGroup{})
+	WarmFailoverCacheAt([]*FailoverGroup{}, CacheGen())
 
 	// Verify cache is still empty after warming with empty slice
 	_, ok := GetCachedFailoverByModel("nonexistent-model")
@@ -325,7 +325,7 @@ func TestWarmFailoverCache_NilSlice(t *testing.T) {
 	InvalidateFailoverCache()
 
 	// Should not panic
-	WarmFailoverCache(nil)
+	WarmFailoverCacheAt(nil, CacheGen())
 
 	// Verify cache is still empty after warming with nil slice
 	_, ok := GetCachedFailoverByModel("nonexistent-model")
@@ -362,7 +362,7 @@ func TestWarmFailoverCache_OverwritesExisting(t *testing.T) {
 		PriorityOrder: []uuid.UUID{uuid.New()},
 		GroupEnabled:  true,
 	}
-	WarmFailoverCache([]*FailoverGroup{fg2})
+	WarmFailoverCacheAt([]*FailoverGroup{fg2}, CacheGen())
 
 	found, ok = GetCachedFailoverByModel("overwrite-test")
 	if !ok {
@@ -392,7 +392,7 @@ func TestWarmFailoverCache_PreservesOtherEntries(t *testing.T) {
 		PriorityOrder: []uuid.UUID{uuid.New()},
 		GroupEnabled:  true,
 	}
-	WarmFailoverCache([]*FailoverGroup{fg2})
+	WarmFailoverCacheAt([]*FailoverGroup{fg2}, CacheGen())
 
 	// Both should be found
 	_, ok := GetCachedFailoverByModel("existing-model")
@@ -571,9 +571,9 @@ func TestIsCachedByModel_EmptyCache(t *testing.T) {
 
 func TestIsCachedByModel_Cached(t *testing.T) {
 	InvalidateFailoverCache()
-	WarmFailoverCache([]*FailoverGroup{
+	WarmFailoverCacheAt([]*FailoverGroup{
 		{DisplayModel: "my-model"},
-	})
+	}, CacheGen())
 	if !IsCachedByModel("my-model") {
 		t.Error("IsCachedByModel should return true for cached model")
 	}
@@ -581,9 +581,9 @@ func TestIsCachedByModel_Cached(t *testing.T) {
 
 func TestIsCachedByModel_Miss(t *testing.T) {
 	InvalidateFailoverCache()
-	WarmFailoverCache([]*FailoverGroup{
+	WarmFailoverCacheAt([]*FailoverGroup{
 		{DisplayModel: "my-model"},
-	})
+	}, CacheGen())
 	if IsCachedByModel("other-model") {
 		t.Error("IsCachedByModel should return false for different model")
 	}
