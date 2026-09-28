@@ -3,6 +3,7 @@ package model
 
 import (
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/google/uuid"
@@ -25,37 +26,73 @@ var (
 	modelByUUIDCache    = make(map[uuid.UUID]modelByIDCacheEntry)
 	modelByCompositeKey = make(map[string]modelByIDCacheEntry)
 	modelCacheMu        sync.RWMutex
+	// modelCacheGen advances on every invalidation. A read-through fill
+	// captures it before its SELECT and installs only if it is unchanged, so a
+	// read that overlapped a write (a disable, a provider key rotation) can
+	// never reinstall the pre-write row for the TTL. Global rather than per
+	// key because the invalidations here are whole-cache flushes anyway.
+	modelCacheGen atomic.Uint64
 )
+
+// CacheGen is the generation a read-through fill captures before querying;
+// see modelCacheGen.
+func CacheGen() uint64 { return modelCacheGen.Load() }
 
 const modelCacheTTL = 5 * time.Minute
 
+// The plain fills install at the current generation: for a row this process
+// just wrote, or one loaded outside a read-through. The At variants take the
+// generation a read-through captured before its query and install nothing
+// when an invalidation has landed since; the caller still gets the rows it
+// read, the next reader refills.
 func cacheModelsByModelID(modelID string, models []*Model) {
+	cacheModelsByModelIDAt(modelID, models, modelCacheGen.Load())
+}
+
+func cacheModelsByModelIDAt(modelID string, models []*Model, gen uint64) {
 	exp := time.Now().Add(modelCacheTTL)
 	modelCacheMu.Lock()
+	defer modelCacheMu.Unlock()
+	if modelCacheGen.Load() != gen {
+		return
+	}
 	modelByModelIDCache[modelID] = modelCacheEntry{models: models, expiresAt: exp}
 	for _, m := range models {
 		modelByUUIDCache[m.ID] = modelByIDCacheEntry{model: m, expiresAt: exp}
 	}
-	modelCacheMu.Unlock()
 }
 
 func cacheModelByUUID(m *Model) {
+	cacheModelByUUIDAt(m, modelCacheGen.Load())
+}
+
+func cacheModelByUUIDAt(m *Model, gen uint64) {
 	if m == nil {
 		return
 	}
 	modelCacheMu.Lock()
+	defer modelCacheMu.Unlock()
+	if modelCacheGen.Load() != gen {
+		return
+	}
 	modelByUUIDCache[m.ID] = modelByIDCacheEntry{model: m, expiresAt: time.Now().Add(modelCacheTTL)}
-	modelCacheMu.Unlock()
 }
 
 func cacheModelByCompositeKey(providerID uuid.UUID, modelID string, m *Model) {
+	cacheModelByCompositeKeyAt(providerID, modelID, m, modelCacheGen.Load())
+}
+
+func cacheModelByCompositeKeyAt(providerID uuid.UUID, modelID string, m *Model, gen uint64) {
 	if m == nil {
 		return
 	}
 	key := providerID.String() + ":" + modelID
 	modelCacheMu.Lock()
+	defer modelCacheMu.Unlock()
+	if modelCacheGen.Load() != gen {
+		return
+	}
 	modelByCompositeKey[key] = modelByIDCacheEntry{model: m, expiresAt: time.Now().Add(modelCacheTTL)}
-	modelCacheMu.Unlock()
 }
 
 // GetCachedByModelID returns cached models by model ID string if not expired.
@@ -110,6 +147,7 @@ func IsCachedByCompositeKey(providerID uuid.UUID, modelID string) bool {
 // InvalidateModelCache clears all model cache entries.
 func InvalidateModelCache() {
 	modelCacheMu.Lock()
+	modelCacheGen.Add(1)
 	modelByModelIDCache = make(map[string]modelCacheEntry)
 	modelByUUIDCache = make(map[uuid.UUID]modelByIDCacheEntry)
 	modelByCompositeKey = make(map[string]modelByIDCacheEntry)
@@ -121,8 +159,19 @@ func InvalidateModelCache() {
 // composite provider:modelID key) so that lookups from all resolve paths
 // hit cache on the first request.
 func WarmModelCache(models []*Model) {
+	warmModelCacheAt(models, modelCacheGen.Load())
+}
+
+// warmModelCacheAt is WarmModelCache for a read-through: gen is the
+// generation captured before the query, and nothing installs if an
+// invalidation has landed since.
+func warmModelCacheAt(models []*Model, gen uint64) {
 	exp := time.Now().Add(modelCacheTTL)
 	modelCacheMu.Lock()
+	defer modelCacheMu.Unlock()
+	if modelCacheGen.Load() != gen {
+		return
+	}
 	for _, m := range models {
 		modelByUUIDCache[m.ID] = modelByIDCacheEntry{model: m, expiresAt: exp}
 		modelByCompositeKey[m.ProviderID.String()+":"+m.ModelID] = modelByIDCacheEntry{model: m, expiresAt: exp}
@@ -135,6 +184,5 @@ func WarmModelCache(models []*Model) {
 	for modelID, group := range byModelID {
 		modelByModelIDCache[modelID] = modelCacheEntry{models: group, expiresAt: exp}
 	}
-	modelCacheMu.Unlock()
 	debuglog.Info("model: warmed cache", "count", len(models))
 }

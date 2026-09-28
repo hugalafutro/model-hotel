@@ -238,6 +238,7 @@ func (r *Repository) Get(ctx context.Context, id uuid.UUID) (*Provider, error) {
 	if p, ok := GetCachedByID(id); ok {
 		return p, nil
 	}
+	gen := CacheGen()
 
 	query := `SELECT ` + providerColumns + ` FROM providers WHERE id = $1`
 
@@ -246,7 +247,7 @@ func (r *Repository) Get(ctx context.Context, id uuid.UUID) (*Provider, error) {
 		return nil, err
 	}
 
-	cacheProvider(p)
+	cacheProviderAt(p, gen)
 	return p, nil
 }
 
@@ -271,6 +272,7 @@ func (r *Repository) GetByIDs(ctx context.Context, ids []uuid.UUID) (map[uuid.UU
 		return result, nil
 	}
 
+	gen := CacheGen()
 	query := `SELECT ` + providerColumns + ` FROM providers WHERE id = ANY($1)`
 
 	rows, err := r.pool.Query(ctx, query, uncachedIDs)
@@ -284,7 +286,7 @@ func (r *Repository) GetByIDs(ctx context.Context, ids []uuid.UUID) (map[uuid.UU
 		if err != nil {
 			return nil, err
 		}
-		cacheProvider(p)
+		cacheProviderAt(p, gen)
 		result[p.ID] = p
 	}
 
@@ -296,12 +298,13 @@ func (r *Repository) GetByName(ctx context.Context, name string) (*Provider, err
 	if p, ok := GetCachedByName(name); ok {
 		return p, nil
 	}
+	gen := CacheGen()
 
 	query := `SELECT ` + providerColumns + ` FROM providers WHERE name = $1`
 
 	p, err := scanProvider(r.pool.QueryRow(ctx, query, name))
 	if err == nil {
-		cacheProvider(p)
+		cacheProviderAt(p, gen)
 		return p, nil
 	}
 	// Only a genuine miss earns the normalized retry. A context, connectivity
@@ -319,7 +322,7 @@ func (r *Repository) GetByName(ctx context.Context, name string) (*Provider, err
 		return nil, err
 	}
 
-	cacheProvider(p)
+	cacheProviderAt(p, gen)
 	return p, nil
 }
 

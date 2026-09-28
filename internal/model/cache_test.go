@@ -720,3 +720,58 @@ func TestCacheModelByCompositeKey_DifferentProviders(t *testing.T) {
 		t.Errorf("Azure model Name = %q, want %q", foundB.Name, "Azure GPT-4")
 	}
 }
+
+// ---------------------------------------------------------------------------
+// Generation guard: a fill that captured its generation before an
+// invalidation must not reinstall the row it read.
+// ---------------------------------------------------------------------------
+
+func TestCacheFillAt_StaleGenerationDoesNotInstall(t *testing.T) {
+	InvalidateModelCache()
+	providerID := uuid.New()
+	m := &Model{ID: uuid.New(), ProviderID: providerID, ModelID: "gpt-4", Enabled: true}
+
+	// A read-through captured the generation, then a write invalidated
+	// while its SELECT was in flight.
+	gen := CacheGen()
+	InvalidateModelCache()
+
+	cacheModelByUUIDAt(m, gen)
+	cacheModelsByModelIDAt("gpt-4", []*Model{m}, gen)
+	cacheModelByCompositeKeyAt(providerID, "gpt-4", m, gen)
+	warmModelCacheAt([]*Model{m}, gen)
+
+	if _, ok := GetCachedByUUID(m.ID); ok {
+		t.Error("stale fill installed by UUID")
+	}
+	if _, ok := GetCachedByModelID("gpt-4"); ok {
+		t.Error("stale fill installed by model ID")
+	}
+	if _, ok := GetCachedByCompositeKey(providerID, "gpt-4"); ok {
+		t.Error("stale fill installed by composite key")
+	}
+}
+
+func TestCacheFillAt_CurrentGenerationInstalls(t *testing.T) {
+	InvalidateModelCache()
+	providerID := uuid.New()
+	m := &Model{ID: uuid.New(), ProviderID: providerID, ModelID: "gpt-4", Enabled: true}
+
+	gen := CacheGen()
+	cacheModelByUUIDAt(m, gen)
+	cacheModelsByModelIDAt("gpt-4", []*Model{m}, gen)
+	cacheModelByCompositeKeyAt(providerID, "gpt-4", m, gen)
+
+	if _, ok := GetCachedByUUID(m.ID); !ok {
+		t.Error("current-generation fill must install by UUID")
+	}
+	if _, ok := GetCachedByModelID("gpt-4"); !ok {
+		t.Error("current-generation fill must install by model ID")
+	}
+	if _, ok := GetCachedByCompositeKey(providerID, "gpt-4"); !ok {
+		t.Error("current-generation fill must install by composite key")
+	}
+	if CacheGen() != gen {
+		t.Error("a fill must not advance the generation")
+	}
+}

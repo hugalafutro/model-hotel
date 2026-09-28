@@ -251,3 +251,47 @@ func TestNewDiscoveryService_WithCheckRedirect(t *testing.T) {
 		t.Errorf("expected ErrUseLastResponse, got %v", err)
 	}
 }
+
+// ---------------------------------------------------------------------------
+// Generation guard: a fill that captured its generation before an
+// invalidation or a per-id eviction must not reinstall the row it read.
+// ---------------------------------------------------------------------------
+
+func TestCacheProviderAt_StaleGenerationDoesNotInstall(t *testing.T) {
+	InvalidateProviderCache()
+	p := &Provider{ID: uuid.New(), Name: "Stale Provider"}
+
+	gen := CacheGen()
+	InvalidateProviderCache()
+	cacheProviderAt(p, gen)
+
+	if IsCachedByID(p.ID) || IsCachedByName(p.Name) || IsCachedByName(NormalizeName(p.Name)) {
+		t.Error("fill captured before an invalidation must not install")
+	}
+
+	// A per-id eviction of any provider advances the generation too: the
+	// eviction is the write's signal and the in-flight read may hold the
+	// evicted row.
+	gen = CacheGen()
+	EvictProviderCacheByID(uuid.New())
+	cacheProviderAt(p, gen)
+
+	if IsCachedByID(p.ID) {
+		t.Error("fill captured before an eviction must not install")
+	}
+}
+
+func TestCacheProviderAt_CurrentGenerationInstalls(t *testing.T) {
+	InvalidateProviderCache()
+	p := &Provider{ID: uuid.New(), Name: "Fresh Provider"}
+
+	gen := CacheGen()
+	cacheProviderAt(p, gen)
+
+	if !IsCachedByID(p.ID) || !IsCachedByName(p.Name) || !IsCachedByName(NormalizeName(p.Name)) {
+		t.Error("current-generation fill must install in all three maps")
+	}
+	if CacheGen() != gen {
+		t.Error("a fill must not advance the generation")
+	}
+}

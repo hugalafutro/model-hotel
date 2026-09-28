@@ -3,6 +3,7 @@ package provider
 import (
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/google/uuid"
@@ -26,11 +27,29 @@ var (
 	providerByNameCache       = make(map[string]providerCacheEntry)
 	providerByNormalNameCache = make(map[string]providerCacheEntry)
 	providerCacheMu           sync.RWMutex
+	// providerCacheGen advances on every invalidation, whole or per id. A
+	// read-through fill captures it before its SELECT and installs only if it
+	// is unchanged, so a read that overlapped a write (a key rotation, a
+	// disable) can never reinstall the pre-write row for the TTL.
+	providerCacheGen atomic.Uint64
 )
+
+// CacheGen is the generation a read-through fill captures before querying;
+// see providerCacheGen.
+func CacheGen() uint64 { return providerCacheGen.Load() }
 
 const providerCacheTTL = 5 * time.Minute
 
+// cacheProvider installs at the current generation: for a row this process
+// just wrote, or one loaded outside a read-through. cacheProviderAt takes the
+// generation a read-through captured before its query and installs nothing
+// when an invalidation has landed since; the caller still gets the row it
+// read, the next reader refills.
 func cacheProvider(p *Provider) {
+	cacheProviderAt(p, providerCacheGen.Load())
+}
+
+func cacheProviderAt(p *Provider, gen uint64) {
 	if p == nil {
 		return
 	}
@@ -39,10 +58,13 @@ func cacheProvider(p *Provider) {
 		expiresAt: time.Now().Add(providerCacheTTL),
 	}
 	providerCacheMu.Lock()
+	defer providerCacheMu.Unlock()
+	if providerCacheGen.Load() != gen {
+		return
+	}
 	providerByIDCache[p.ID] = entry
 	providerByNameCache[p.Name] = entry
 	providerByNormalNameCache[NormalizeName(p.Name)] = entry
-	providerCacheMu.Unlock()
 }
 
 // GetCachedByID returns a cached provider by ID if not expired.
@@ -98,6 +120,7 @@ func IsCachedByName(name string) bool {
 // cost of a full flush on a hot path.
 func EvictProviderCacheByID(id uuid.UUID) {
 	providerCacheMu.Lock()
+	providerCacheGen.Add(1)
 	if entry, ok := providerByIDCache[id]; ok {
 		delete(providerByNameCache, entry.provider.Name)
 		delete(providerByNormalNameCache, NormalizeName(entry.provider.Name))
@@ -109,6 +132,7 @@ func EvictProviderCacheByID(id uuid.UUID) {
 // InvalidateProviderCache clears all provider cache entries.
 func InvalidateProviderCache() {
 	providerCacheMu.Lock()
+	providerCacheGen.Add(1)
 	providerByIDCache = make(map[uuid.UUID]providerCacheEntry)
 	providerByNameCache = make(map[string]providerCacheEntry)
 	providerByNormalNameCache = make(map[string]providerCacheEntry)

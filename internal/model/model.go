@@ -382,6 +382,7 @@ func (r *Repository) Get(ctx context.Context, id uuid.UUID) (*Model, error) {
 	if m, ok := GetCachedByUUID(id); ok {
 		return m, nil
 	}
+	gen := CacheGen()
 
 	query := `SELECT ` + modelColumns + ` FROM models m JOIN providers p ON m.provider_id = p.id WHERE m.id = $1`
 
@@ -390,7 +391,7 @@ func (r *Repository) Get(ctx context.Context, id uuid.UUID) (*Model, error) {
 		return nil, err
 	}
 
-	cacheModelByUUID(m)
+	cacheModelByUUIDAt(m, gen)
 	return m, nil
 }
 
@@ -415,6 +416,7 @@ func (r *Repository) GetByIDs(ctx context.Context, ids []uuid.UUID) (map[uuid.UU
 		return result, nil
 	}
 
+	gen := CacheGen()
 	query := `SELECT ` + modelColumns + ` FROM models m JOIN providers p ON m.provider_id = p.id WHERE m.id = ANY($1)`
 
 	rows, err := r.pool.Query(ctx, query, uncachedIDs)
@@ -428,7 +430,7 @@ func (r *Repository) GetByIDs(ctx context.Context, ids []uuid.UUID) (map[uuid.UU
 		return result, err
 	}
 
-	WarmModelCache(models)
+	warmModelCacheAt(models, gen)
 
 	for _, m := range models {
 		result[m.ID] = m
@@ -442,6 +444,7 @@ func (r *Repository) GetByModelID(ctx context.Context, modelID string) ([]*Model
 	if models, ok := GetCachedByModelID(modelID); ok {
 		return models, nil
 	}
+	gen := CacheGen()
 
 	query := `SELECT ` + modelColumns + ` FROM models m JOIN providers p ON m.provider_id = p.id WHERE m.model_id = $1 AND m.enabled = true AND p.enabled = true ORDER BY p.created_at ASC`
 
@@ -456,7 +459,7 @@ func (r *Repository) GetByModelID(ctx context.Context, modelID string) ([]*Model
 		return nil, err
 	}
 
-	cacheModelsByModelID(modelID, models)
+	cacheModelsByModelIDAt(modelID, models, gen)
 	return models, nil
 }
 
@@ -465,6 +468,7 @@ func (r *Repository) GetByProviderAndModelID(ctx context.Context, providerID uui
 	if m, ok := GetCachedByCompositeKey(providerID, modelID); ok {
 		return m, nil
 	}
+	gen := CacheGen()
 
 	query := `SELECT ` + modelColumns + ` FROM models m JOIN providers p ON m.provider_id = p.id WHERE m.provider_id = $1 AND m.model_id = $2`
 
@@ -473,8 +477,8 @@ func (r *Repository) GetByProviderAndModelID(ctx context.Context, providerID uui
 		return nil, err
 	}
 
-	cacheModelByCompositeKey(providerID, modelID, m)
-	cacheModelByUUID(m)
+	cacheModelByCompositeKeyAt(providerID, modelID, m, gen)
+	cacheModelByUUIDAt(m, gen)
 	return m, nil
 }
 
