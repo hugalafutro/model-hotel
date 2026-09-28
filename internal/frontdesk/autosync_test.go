@@ -3,6 +3,7 @@ package frontdesk
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"strconv"
 	"strings"
@@ -1415,6 +1416,280 @@ func TestAutoSync_ConfigVersionReadUsesReadClientNotProbe(t *testing.T) {
 	}
 	if !f.verified() {
 		t.Error("member not verified on the first pass; a probe-timeout read would have left it unmeasured")
+	}
+}
+
+// TestAutoSync_ExportReadUsesReadClientNotProbe: the export is the same envelope
+// build as the hash read, so it gets the same client. Read with the probe, a
+// primary slower than the probe's deadline failed every pass at the export and
+// no member ever converged, with nothing but a warning in the log.
+func TestAutoSync_ExportReadUsesReadClientNotProbe(t *testing.T) {
+	f := newHashFleet(t, func(r *stubAutoMember) {
+		r.versionHash = "hash-drifted"
+		r.dryDiff = driftDiff
+	})
+	f.primary.exportDelay = 200 * time.Millisecond
+	f.srv.probe = newProbeClient(50 * time.Millisecond)
+	f.srv.readClient = newProbeClient(3 * time.Second)
+
+	f.tick(t)
+
+	if got := f.replica.realSyncCount(); got != 1 {
+		t.Errorf("real imports = %d, want 1: a probe-deadline export would have ended the pass before the push", got)
+	}
+}
+
+// TestAutoSync_PersistentRefusalIsReportedOnce: a member that refuses the real
+// import for the same reason on every tick (a base_url its ALLOWED_PROVIDER_HOSTS
+// will not take) is retried every tick but reported once; a new cause is news
+// again.
+func TestAutoSync_PersistentRefusalIsReportedOnce(t *testing.T) {
+	f := newHashFleet(t, func(r *stubAutoMember) {
+		r.versionHash = "hash-drifted"
+		r.dryDiff = driftDiff
+		r.realImportCode = http.StatusBadRequest
+	})
+
+	f.tick(t)
+	f.tick(t)
+	f.tick(t)
+	if got := f.replica.realSyncCount(); got != 3 {
+		t.Fatalf("real imports = %d, want 3: a refused push is retried every tick", got)
+	}
+	evs, _, err := f.store.ListEvents(t.Context(), EventFilter{Type: "config.sync_failed"})
+	if err != nil {
+		t.Fatalf("ListEvents: %v", err)
+	}
+	if len(evs) != 1 {
+		t.Fatalf("config.sync_failed events after three identical refusals = %d, want 1", len(evs))
+	}
+
+	f.replica.mu.Lock()
+	f.replica.realImportCode = http.StatusForbidden
+	f.replica.mu.Unlock()
+	f.tick(t)
+	evs, _, err = f.store.ListEvents(t.Context(), EventFilter{Type: "config.sync_failed"})
+	if err != nil {
+		t.Fatalf("ListEvents: %v", err)
+	}
+	if len(evs) != 2 {
+		t.Fatalf("config.sync_failed events after the cause changed = %d, want 2", len(evs))
+	}
+}
+
+// TestAutoSync_FailedVersionReadSkipsPushQuietly: below the poller's threshold
+// the cached build stays, but the last read of it failed, so the member may
+// already run a build the cache does not show. The pass skips it with no hold
+// and no page; admission stays closed from the first miss.
+func TestAutoSync_FailedVersionReadSkipsPushQuietly(t *testing.T) {
+	f := newHashFleet(t, func(r *stubAutoMember) {
+		r.versionHash = "hash-drifted"
+		r.dryDiff = driftDiff
+	})
+	f.srv.poller.noteVersionFetchFailure(t.Context(), f.replicaM, errors.New("connection reset"))
+
+	f.tick(t)
+
+	if got := f.replica.realSyncCount(); got != 0 {
+		t.Errorf("real imports = %d, want 0: a member whose last version read failed is not written to", got)
+	}
+	if got := f.srv.poller.memberBuildOf(f.replicaM.ID).Version; got == "" {
+		t.Error("one failed read dropped the cached build")
+	}
+	if n := countEvents(t, f.store, "config.sync_held"); n != 0 {
+		t.Errorf("config.sync_held events = %d, want 0: a blip is not a hold", n)
+	}
+}
+
+// TestAutoSync_RefusalAfterHashConvergenceIsNewsAgain: a member that converged
+// by hash (the operator reverted the change it refused) with no successful push
+// in between must still report the next refusal, and the convergence itself
+// says the push succeeds again.
+func TestAutoSync_RefusalAfterHashConvergenceIsNewsAgain(t *testing.T) {
+	f := newHashFleet(t, func(r *stubAutoMember) {
+		r.versionHash = "hash-drifted"
+		r.dryDiff = driftDiff
+		r.realImportCode = http.StatusBadRequest
+	})
+	f.tick(t)
+	if n := countEvents(t, f.store, "config.sync_failed"); n != 1 {
+		t.Fatalf("config.sync_failed after the refusal = %d, want 1", n)
+	}
+
+	// Converged by hash alone: the primary went back to what the member holds.
+	f.replica.mu.Lock()
+	f.replica.versionHash = "hash-B"
+	f.replica.mu.Unlock()
+	f.tick(t)
+	if n := countEvents(t, f.store, "config.sync_recovered"); n != 1 {
+		t.Fatalf("config.sync_recovered after converging by hash = %d, want 1", n)
+	}
+
+	// The same refusal returns: news again.
+	f.replica.mu.Lock()
+	f.replica.versionHash = "hash-drifted"
+	f.replica.mu.Unlock()
+	f.tick(t)
+	if n := countEvents(t, f.store, "config.sync_failed"); n != 2 {
+		t.Fatalf("config.sync_failed after the refusal returned = %d, want 2", n)
+	}
+}
+
+// TestConfigSync_WizardHoldsMemberWhoseVersionReadFailed: the wizard applies
+// the same admission rule as the loop. A member whose last version read failed
+// is reported held, not pushed, even though its cached build still matches.
+func TestConfigSync_WizardHoldsMemberWhoseVersionReadFailed(t *testing.T) {
+	f := newHashFleet(t, func(r *stubAutoMember) {
+		r.versionHash = "hash-drifted"
+		r.dryDiff = driftDiff
+	})
+	f.srv.poller.noteVersionFetchFailure(t.Context(), f.replicaM, errors.New("connection reset"))
+
+	run := f.srv.runConfigSync(t.Context(), f.primaryM.ID)
+	if run.err != nil {
+		t.Fatalf("runConfigSync: %v", run.err)
+	}
+	var held bool
+	for _, item := range run.results {
+		if item.MemberID == f.replicaM.ID && strings.Contains(item.Error, "could not be read") {
+			held = true
+		}
+	}
+	if !held {
+		t.Errorf("results = %+v, want the replica held for an unread build", run.results)
+	}
+	if got := f.replica.realSyncCount(); got != 0 {
+		t.Errorf("real imports = %d, want 0", got)
+	}
+}
+
+// TestConfigSync_WizardReportsEveryRepeatedFailure: an operator-driven run is
+// not deduped; they asked for that run and its audit event carries who and why.
+func TestConfigSync_WizardReportsEveryRepeatedFailure(t *testing.T) {
+	f := newHashFleet(t, func(r *stubAutoMember) {
+		r.versionHash = "hash-drifted"
+		r.dryDiff = driftDiff
+		r.realImportCode = http.StatusBadRequest
+	})
+	for range 2 {
+		if res := f.srv.applyMemberConfig(t.Context(), f.replicaM, "rtoken", []byte(fleetExportWithKey),
+			manualSyncReason("the dashboard"), true, 0, ""); res.OK {
+			t.Fatal("a refused import reported OK")
+		}
+	}
+	if n := countEvents(t, f.store, "config.sync_failed"); n != 2 {
+		t.Errorf("config.sync_failed after two wizard refusals = %d, want 2", n)
+	}
+}
+
+// TestAutoSync_PrimaryUnreadBuildSkipsPassQuietly: the primary's cached build
+// survives a blip too, and a rebuilt primary may already serve a newer build's
+// envelope. While its last version read failed nothing is pushed and nothing
+// announced; the grace for a blank build is a separate matter.
+func TestAutoSync_PrimaryUnreadBuildSkipsPassQuietly(t *testing.T) {
+	f := newHashFleet(t, func(r *stubAutoMember) {
+		r.versionHash = "hash-drifted"
+		r.dryDiff = driftDiff
+	})
+	f.srv.poller.noteVersionFetchFailure(t.Context(), f.primaryM, errors.New("connection reset"))
+
+	f.tick(t)
+
+	if got := f.replica.realSyncCount(); got != 0 {
+		t.Errorf("real imports = %d, want 0: a primary whose last version read failed is not a source", got)
+	}
+	if n := countEvents(t, f.store, "config.sync_held"); n != 0 {
+		t.Errorf("config.sync_held events = %d, want 0", n)
+	}
+}
+
+// TestConfigSync_WizardHoldsAllWhenPrimaryBuildUnread: the wizard applies the
+// same rule to its source.
+func TestConfigSync_WizardHoldsAllWhenPrimaryBuildUnread(t *testing.T) {
+	f := newHashFleet(t, func(r *stubAutoMember) {
+		r.versionHash = "hash-drifted"
+		r.dryDiff = driftDiff
+	})
+	f.srv.poller.noteVersionFetchFailure(t.Context(), f.primaryM, errors.New("connection reset"))
+
+	run := f.srv.runConfigSync(t.Context(), f.primaryM.ID)
+	if run.err != nil {
+		t.Fatalf("runConfigSync: %v", run.err)
+	}
+	var held bool
+	for _, item := range run.results {
+		if item.MemberID == f.replicaM.ID && strings.Contains(item.Error, "primary's build") {
+			held = true
+		}
+	}
+	if !held || f.replica.realSyncCount() != 0 {
+		t.Errorf("results = %+v imports = %d, want every member held and nothing pushed", run.results, f.replica.realSyncCount())
+	}
+}
+
+// TestAutoSync_OneRecoveredEventPerRecovery: a member flagged diverged whose
+// retry push was then refused converges by hash once; the divergence's own
+// recovered event says it and the cleared push failure adds no second one.
+func TestAutoSync_OneRecoveredEventPerRecovery(t *testing.T) {
+	f := newHashFleet(t, func(r *stubAutoMember) {
+		r.versionHash = "hash-drifted" // commits every import, never adopts the hash
+		r.dryDiff = driftDiff
+	})
+	f.tick(t) // pushes
+	f.tick(t) // measures the divergence and flags it
+	if !f.srv.incompleteSnapshot()[f.replicaM.ID] {
+		t.Fatal("test setup: the member was not flagged diverged")
+	}
+	f.replica.mu.Lock()
+	f.replica.realImportCode = http.StatusBadRequest
+	f.replica.mu.Unlock()
+	// Past the retry interval so the refused push actually runs.
+	f.srv.syncIncompleteMu.Lock()
+	st := f.srv.syncIncomplete[f.replicaM.ID]
+	st.lastAttempt = time.Time{}
+	f.srv.syncIncomplete[f.replicaM.ID] = st
+	f.srv.syncIncompleteMu.Unlock()
+	f.tick(t)
+	if n := countEvents(t, f.store, "config.sync_failed"); n != 1 {
+		t.Fatalf("config.sync_failed after the refusal = %d, want 1", n)
+	}
+
+	f.replica.mu.Lock()
+	f.replica.versionHash = "hash-B"
+	f.replica.mu.Unlock()
+	f.tick(t)
+	if n := countEvents(t, f.store, "config.sync_recovered"); n != 1 {
+		t.Errorf("config.sync_recovered after converging = %d, want exactly 1", n)
+	}
+}
+
+// TestAutoSync_PushSucceedingAgainRecovers: a member that refused a push and
+// was never flagged diverged gets its one recovered event from the push that
+// succeeds again.
+func TestAutoSync_PushSucceedingAgainRecovers(t *testing.T) {
+	f := newHashFleet(t, func(r *stubAutoMember) {
+		r.versionHash = "hash-drifted"
+		r.dryDiff = driftDiff
+		r.realImportCode = http.StatusBadRequest
+	})
+	f.tick(t)
+	if n := countEvents(t, f.store, "config.sync_failed"); n != 1 {
+		t.Fatalf("config.sync_failed after the refusal = %d, want 1", n)
+	}
+	f.replica.mu.Lock()
+	f.replica.realImportCode = 0
+	f.replica.appliedHash = "hash-B"
+	f.replica.mu.Unlock()
+	f.tick(t)
+	if got := f.replica.realSyncCount(); got != 2 {
+		t.Fatalf("real imports = %d, want 2 (the refused push and the one that succeeded)", got)
+	}
+	evs, _, err := f.store.ListEvents(t.Context(), EventFilter{Type: "config.sync_recovered"})
+	if err != nil {
+		t.Fatalf("ListEvents: %v", err)
+	}
+	if len(evs) != 1 || !strings.Contains(evs[0].Message, "succeeds again") {
+		t.Errorf("config.sync_recovered = %+v, want one event from the push that succeeded", evs)
 	}
 }
 

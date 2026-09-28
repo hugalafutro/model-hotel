@@ -298,6 +298,14 @@ func (s *Server) applyMemberConfig(ctx context.Context, m *Member, token string,
 	}
 
 	if res.OK {
+		if s.clearSyncFailure(m.ID) && !s.isDiverged(m.ID) {
+			// A member still flagged diverged gets its one recovered event from
+			// the pass that measures it converged; this push alone is not that.
+			s.emit(ctx, Event{
+				Type: "config.sync_recovered", Severity: "success", Source: "frontdesk",
+				Message: fmt.Sprintf("Config push to %s succeeds again", m.Name), MemberID: m.ID,
+			})
+		}
 		recordConfigSync("ok")
 		if emitSuccessEvent {
 			// The wizard's path: an operator drove this sync, so a completed write is
@@ -316,6 +324,18 @@ func (s *Server) applyMemberConfig(ctx context.Context, m *Member, token string,
 	} else {
 		recordConfigSync("err")
 		debuglog.Warn("frontdesk: config sync failed", "member", m.Name, "error", res.Error)
+		// An unconfirmed push is not remembered as a failure: it is rate-limited
+		// on its own, and the pass that later proves it landed would otherwise
+		// announce a recovery from a failure that never was.
+		if !res.Unconfirmed && s.syncFailureRepeats(m.ID, res.Error) && !emitSuccessEvent {
+			// The same refusal as the last push (a member whose ALLOWED_PROVIDER_HOSTS
+			// refuses a synced base_url, a fence the primary's generation is behind):
+			// retried every tick, reported once. A new cause, or a failure after a
+			// converged push, is news again. An operator-driven run (the wizard,
+			// emitSuccessEvent) reports every failure: they asked for that run and
+			// its audit trail carries who and why.
+			return res
+		}
 		// An unconfirmed push (timed out, or 5xx'd in a way that can stand in front
 		// of a live import) is published at info, not warning: alert dispatch takes
 		// its notification severity from the live event, and paging an operator for
@@ -448,9 +468,13 @@ func lostAnswer5xx(status int, elapsed time.Duration) bool {
 const maxMemberConfigExportBody = 8 << 20
 
 // fetchMemberExport reads a member's config envelope as raw JSON so it can be
-// re-posted to replicas verbatim (preserving the base64 key ciphertext).
+// re-posted to replicas verbatim (preserving the base64 key ciphertext). It
+// uses readClient, not the health-probe client, for the reason the hash read
+// does (fetchMemberConfigVersion): the member builds the whole envelope, which
+// does not fit a probe's deadline on a busy primary, and a refused export
+// ends the pass with no member converged.
 func (s *Server) fetchMemberExport(ctx context.Context, m *Member, token string) ([]byte, error) {
-	status, body, err := callMemberLimited(ctx, s.probe, maxMemberConfigExportBody,
+	status, body, err := callMemberLimited(ctx, s.readClient, maxMemberConfigExportBody,
 		http.MethodGet, m.URL, memberConfigExportPath, token, nil)
 	if err != nil {
 		return nil, err

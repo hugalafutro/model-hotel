@@ -263,6 +263,9 @@ func (s *Server) runConfigSync(ctx context.Context, primaryID string) configSync
 	defer stopWatch()
 
 	primaryBuild := s.poller.memberBuildOf(primary.ID)
+	// The same admission rule as the loop: a primary whose last version read
+	// failed may already serve a build the cache does not show.
+	primaryUnread := s.poller.versionReadFailing(primary.ID)
 	results := make([]syncResultItem, 0)
 	notAttempted := 0
 	repointed := false
@@ -292,6 +295,13 @@ func (s *Server) runConfigSync(ctx context.Context, primaryID string) configSync
 		if !ok {
 			continue // token-less members are flagged in the preview and skipped here
 		}
+		if primaryUnread {
+			results = append(results, syncResultItem{
+				MemberID: m.ID, Name: m.Name,
+				Error: "held: the primary's build could not be read on the last poll",
+			})
+			continue
+		}
 		if buildSkew(primaryBuild, s.poller.memberBuildOf(m.ID)) {
 			// This member runs a different build than the primary; pushing could
 			// delete settings it legitimately has. Refuse here even though the
@@ -299,6 +309,15 @@ func (s *Server) runConfigSync(ctx context.Context, primaryID string) configSync
 			results = append(results, syncResultItem{
 				MemberID: m.ID, Name: m.Name,
 				Error: "held: member's build differs from the primary's",
+			})
+			continue
+		}
+		if s.poller.versionReadFailing(m.ID) {
+			// The cached build matched, but its last read failed: the member may
+			// already run a build the cache does not show (see versionReadFailing).
+			results = append(results, syncResultItem{
+				MemberID: m.ID, Name: m.Name,
+				Error: "held: member's build could not be read on the last poll",
 			})
 			continue
 		}

@@ -92,7 +92,7 @@ type Server struct {
 	totpRepo       *totp.Repository
 	totpStatus     *totpEnabledCache
 	probe          *http.Client // guarded client for proxying member admin APIs
-	readClient     *http.Client // guarded client for interactive member admin reads (e.g. Traffic timeseries); longer deadline than the health probe, shorter than the import relay
+	readClient     *http.Client // guarded client for member admin reads that do real work (Traffic timeseries, the config hash and export); longer deadline than the health probe, shorter than the import relay
 	syncClient     *http.Client // guarded client for the config-import relay (longer deadline; import runs member-side discovery)
 	backupClient   *http.Client // guarded client for a member's backup listing/delete calls (see memberBackupTimeout)
 	pushClient     *http.Client // guarded client for the quota snapshot push (see memberQuotaPushTimeout)
@@ -152,6 +152,12 @@ type Server struct {
 	// landed. Guarded by syncIncompleteMu; in-memory and bounded by fleet size,
 	// like syncIncomplete.
 	unconfirmedSync map[string]string
+	// lastSyncFailure is the cause of a member's latest refused or unreachable
+	// push, so config.sync_failed fires once per distinct cause rather than on
+	// every 15s tick a persistent refusal is retried; a converged push, a
+	// matching hash or a promotion to primary clears it. Guarded by
+	// syncIncompleteMu; in-memory and bounded by fleet size.
+	lastSyncFailure map[string]string
 	// backupStale tracks which members have no database backup from the last
 	// memberBackupStaleAfter, so backup.stale fires once on the transition in and
 	// backup.recovered once on the way out. In-memory and bounded by fleet size,
@@ -276,6 +282,7 @@ func NewServer(cfg ServerConfig) *Server {
 		syncHeld:        make(map[string]string),
 		holdLogChecked:  make(map[string]bool),
 		syncIncomplete:  make(map[string]incompleteState),
+		lastSyncFailure: make(map[string]string),
 		unconfirmedSync: make(map[string]string),
 		backupStale:     make(map[string]bool),
 		startedAt:       time.Now(),

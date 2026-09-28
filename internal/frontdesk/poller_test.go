@@ -452,7 +452,8 @@ func TestAutoSyncStalenessWatchdog(t *testing.T) {
 // TestPollVersionsOnceClearsVersionOnFailedFetch: a version we can no longer
 // read is unknown, and the sync gates treat unknown as skewed (fail closed).
 // Keeping the last good value would let a sync proceed on stale data while a
-// member is mid-upgrade, so a failed fetch clears the cached version.
+// member is mid-upgrade, so reads failing for versionFetchFailThreshold polls
+// clear the cached version (one blip keeps it; see TestVersionFetchBlipKeepsBuild).
 func TestPollVersionsOnceClearsVersionOnFailedFetch(t *testing.T) {
 	p, store, _ := newTestPoller(t, "")
 	ctx := context.Background()
@@ -474,11 +475,13 @@ func TestPollVersionsOnceClearsVersionOnFailedFetch(t *testing.T) {
 	}
 
 	fail.Store(true)
-	p.PollVersionsOnce(ctx)
+	for range versionFetchFailThreshold {
+		p.PollVersionsOnce(ctx)
+	}
 	// The commit is cleared with the version: kept on its own it would outlive
 	// the read that vouched for it, and read as a build we can still confirm.
 	if b := p.memberBuildOf(m.ID); b.Version != "" || b.Commit != "" {
-		t.Errorf("build after a failed fetch = %+v, want zero (fail closed)", b)
+		t.Errorf("build after the reads failed to the threshold = %+v, want zero (fail closed)", b)
 	}
 
 	// A member whose token is removed loses its build the same way: nothing

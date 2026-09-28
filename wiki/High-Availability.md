@@ -489,7 +489,10 @@ equality alone would vouch for nothing and a rolling rebuild would read as an
 aligned fleet while its halves ran different code. A member that cannot report a
 commit (built without the stamp, or too old to carry one) falls back to the
 version verdict rather than being held forever, and a member whose version cannot
-be read at all is held: Front Desk never overwrites a build it cannot confirm.
+be read is not written to: Front Desk never overwrites a build it cannot confirm.
+A single failed read skips that member's push quietly (the cached build stays on
+the Members tab); three consecutive failed reads drop the build and hold the
+member, the same threshold that raises `version.fetch_failed`.
 The hold covers the wizard and automatic sync alike, so a bypassed UI cannot
 force a mismatched push. You see it as **Sync held** on the Members tab, as
 `Sync is on hold: N members run a different build than the primary. Align the

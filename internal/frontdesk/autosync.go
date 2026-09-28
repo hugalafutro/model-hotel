@@ -276,10 +276,10 @@ func (s *Server) primaryConfigHash(ctx context.Context, cfg AutoSyncConfig) (pri
 // but carries no parenthetical.
 //
 // unknownPrimaryGracePasses is how many consecutive passes may find the primary's
-// build unread before the pass runs anyway and the build gate fails closed out
-// loud. Three passes at the 15 s tick (45 s) outlast one missed version poll,
-// which is the blip this grace exists for; the poller's own version.fetch_failed
-// lands sooner (three reads at the health interval), so a primary that stays
+// build blank before the pass runs anyway and the build gate fails closed out
+// loud. The poller blanks the build only once versionFetchFailThreshold reads
+// have failed (and raises version.fetch_failed at the same moment), so the
+// grace covers the first passes after that, and a primary that stays
 // unreadable is already reported by the time the gate goes loud.
 const unknownPrimaryGracePasses = 3
 
@@ -306,6 +306,14 @@ func (s *Server) skipForUnknownPrimaryBuild(primary *Member) (memberBuild, bool)
 	build := s.poller.memberBuildOf(primary.ID)
 	if build.Version != "" {
 		s.unknownPrimaryPasses.Store(0)
+		if s.poller.versionReadFailing(primary.ID) {
+			// The cached build is kept below the poller's threshold, but the last
+			// read of it failed: a rebuilt primary may already serve a newer
+			// build's envelope. Nothing is pushed and nothing announced until a
+			// read confirms the build; the grace above is for a blank one.
+			debuglog.Debug("frontdesk: auto-sync: skipping pass, primary build unconfirmed", "member", primary.Name)
+			return build, true
+		}
 		return build, false
 	}
 	n := s.unknownPrimaryPasses.Add(1)
@@ -492,6 +500,9 @@ func (s *Server) applyAutoSync(ctx context.Context, primary *Member, primaryBuil
 			// reach it, and an unclosed config.sync_held would stay the new
 			// primary's newest event forever.
 			s.closeSyncHold(ctx, m, fmt.Sprintf("%s is no longer held for sync: it is now the primary", m.Name))
+			// Nor is a push failure it remembered from before its promotion news
+			// once it is a replica again, days later, under another topology.
+			s.clearSyncFailure(m.ID)
 			continue
 		}
 		if stale() {
@@ -514,7 +525,9 @@ func (s *Server) applyAutoSync(ctx context.Context, primary *Member, primaryBuil
 		// is impossible, and holds on unsyncable members would be noise.
 		build := s.poller.memberBuildOf(m.ID)
 		skewed := buildSkew(primaryBuild, build)
-		if !skewed {
+		if !skewed && !s.poller.versionReadFailing(m.ID) {
+			// A hold closes on a build a read confirmed, not on a cached one
+			// whose last read failed; that member is skipped below anyway.
 			// "Resumed" is only claimed when a token exists to resume with; for a
 			// tokenless member the builds realigned but sync stays impossible.
 			message := fmt.Sprintf("%s is no longer held for sync: its build matches the primary's again", m.Name)
@@ -532,6 +545,14 @@ func (s *Server) applyAutoSync(ctx context.Context, primary *Member, primaryBuil
 		}
 		if skewed {
 			s.holdMemberForSkew(ctx, m, primaryBuild, build)
+			continue
+		}
+		if s.poller.versionReadFailing(m.ID) {
+			// The cached build passed the gate, but the last read of it failed:
+			// a member mid-rebuild may already run a newer build the cache does
+			// not show. Not a hold (no event, no degraded fleet): a blip or a
+			// rebuild both resolve within the poller's threshold.
+			debuglog.Debug("frontdesk: auto-sync: skipping member until its version reads again", "member", m.Name)
 			continue
 		}
 		converged, measured, differing := s.measureMember(ctx, passCtx, m, token, hash, primarySections)
@@ -672,7 +693,15 @@ func (s *Server) measureMember(ctx, passCtx context.Context, m *Member, token, h
 		// config.sync_recovered once on the way out, and move the verified-in-sync
 		// heartbeat. Only a hash match moves it, so it means "measured holding the
 		// primary's config", never "written to".
-		s.clearMemberIncomplete(ctx, m)
+		recovered := s.clearMemberIncomplete(ctx, m)
+		if s.clearSyncFailure(m.ID) && !recovered {
+			// One recovery, one event: the divergence's own event says it when
+			// the member was flagged; otherwise the cleared push failure does.
+			s.emit(ctx, Event{
+				Type: "config.sync_recovered", Severity: "success", Source: "frontdesk",
+				Message: fmt.Sprintf("%s holds the primary's config again", m.Name), MemberID: m.ID,
+			})
+		}
 		if s.hasUnconfirmedPush(m.ID, hash) {
 			// The member holds the primary's exact config, so the push whose answer
 			// was lost did land: record the sync its own stamp missed, at the moment

@@ -48,10 +48,13 @@ type stubAutoMember struct {
 	// endpoint pays, to prove which client (probe vs. read) the caller used.
 	versionDelay time.Duration
 	exportBody   string
-	exportCode   int    // status for the export GET (default 200)
-	dryDiff      string // diff object returned on a dry-run import
-	importCode   int    // status for the dry-run import (default 200)
-	importBody   string // full dry-run import body; overrides dryDiff when set
+	exportCode   int // status for the export GET (default 200)
+	// exportDelay, when set, holds the export GET response for that long: the
+	// envelope build a busy primary pays, to prove which client read it.
+	exportDelay time.Duration
+	dryDiff     string // diff object returned on a dry-run import
+	importCode  int    // status for the dry-run import (default 200)
+	importBody  string // full dry-run import body; overrides dryDiff when set
 	// realImportBody is the full body the real (non-dry-run) import answers with,
 	// overriding the default success response. It is how a test pins exactly what
 	// the member claims about its own apply: an explicit "incomplete":false, or an
@@ -129,6 +132,9 @@ func newStubAutoMember(t *testing.T, token string) *stubAutoMember {
 			_ = json.NewEncoder(w).Encode(map[string]string{"version": sm.versionHash})
 		case r.Method == http.MethodGet && r.URL.Path == "/api/config/export":
 			sm.exports++
+			if sm.exportDelay > 0 {
+				time.Sleep(sm.exportDelay)
+			}
 			w.WriteHeader(sm.exportCode)
 			_, _ = w.Write([]byte(sm.exportBody))
 		case r.Method == http.MethodPost && r.URL.Path == "/api/config/import":

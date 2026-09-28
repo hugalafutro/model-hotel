@@ -74,6 +74,41 @@ func (s *Server) recordSyncAttempt(memberID string, unapplied, partial, unapplie
 	s.syncIncomplete[memberID] = st
 }
 
+// syncFailureRepeats records a push failure's cause for the member and reports
+// whether the previous push failed for the same cause, so the event and alert
+// fire on the transition, not on every retried tick. Keyed on the last cause
+// only: a member alternating between two causes reports both each time. A
+// push that converged, by its own answer or by a later hash match, must go
+// through clearSyncFailure so the next failure counts as new.
+func (s *Server) syncFailureRepeats(memberID, cause string) bool {
+	s.syncIncompleteMu.Lock()
+	defer s.syncIncompleteMu.Unlock()
+	prev, had := s.lastSyncFailure[memberID]
+	s.lastSyncFailure[memberID] = cause
+	return had && prev == cause
+}
+
+// clearSyncFailure forgets a member's last push failure and reports whether
+// there was one, so the caller can say so once: config.sync_failed fires on
+// the transition in, and the transition out gets one signal, from whichever
+// path observed it (a converging hash, or a push that succeeded on a member
+// that was not flagged diverged).
+func (s *Server) clearSyncFailure(memberID string) bool {
+	s.syncIncompleteMu.Lock()
+	_, had := s.lastSyncFailure[memberID]
+	delete(s.lastSyncFailure, memberID)
+	s.syncIncompleteMu.Unlock()
+	return had
+}
+
+// isDiverged reports whether the member is currently flagged as holding
+// config that differs from the primary's.
+func (s *Server) isDiverged(memberID string) bool {
+	s.syncIncompleteMu.Lock()
+	defer s.syncIncompleteMu.Unlock()
+	return s.syncIncomplete[memberID].diverged
+}
+
 // markUnconfirmedPush remembers that a member's latest real config push, carrying
 // the primary config identified by hash, got no usable answer, so its last-sync
 // marker could not be stamped even though the import may have completed
@@ -334,18 +369,19 @@ func unmeasuredMessage(member, cause string) string {
 // own report of its import, which is the trust this criterion replaces. With
 // auto-sync off a flagged member keeps its amber badge however many times the
 // wizard runs, until a pass measures it as matching.
-func (s *Server) clearMemberIncomplete(ctx context.Context, m *Member) {
+func (s *Server) clearMemberIncomplete(ctx context.Context, m *Member) bool {
 	s.syncIncompleteMu.Lock()
 	was := s.syncIncomplete[m.ID].diverged
 	delete(s.syncIncomplete, m.ID)
 	s.syncIncompleteMu.Unlock()
 	if !was {
-		return
+		return false
 	}
 	s.emit(ctx, Event{
 		Type: "config.sync_recovered", Severity: "success", Source: "frontdesk",
 		Message: fmt.Sprintf("%s now holds the primary's config", m.Name), MemberID: m.ID,
 	})
+	return true
 }
 
 // incompleteSnapshot copies the diverged set under its lock for the fleet state
