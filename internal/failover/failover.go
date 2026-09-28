@@ -86,6 +86,7 @@ func (r *Repository) GetByModel(ctx context.Context, modelID string) (*FailoverG
 	if fg, ok := GetCachedFailoverByModel(modelID); ok {
 		return fg, nil
 	}
+	mark := CacheGen()
 
 	fg, err := scanFailoverGroup(r.pool.QueryRow(ctx, `
 		SELECT `+failoverGroupColumns+`
@@ -96,7 +97,7 @@ func (r *Repository) GetByModel(ctx context.Context, modelID string) (*FailoverG
 		return nil, err
 	}
 
-	cacheFailoverGroup(fg)
+	cacheFailoverGroupAt(fg, mark)
 	return fg, nil
 }
 
@@ -176,7 +177,10 @@ func (r *Repository) UpsertWithConfig(ctx context.Context, displayModel string, 
 		return nil, err
 	}
 
-	cacheFailoverGroup(fg)
+	// Invalidate rather than install the RETURNING row: two concurrent
+	// writes can finish in reverse order and an install would hold the older
+	// row for the TTL. The next reader refills.
+	InvalidateFailoverCacheKey(fg.DisplayModel)
 	return fg, nil
 }
 
@@ -196,6 +200,7 @@ func (r *Repository) DeleteByID(ctx context.Context, id uuid.UUID) error {
 
 // GetByID retrieves a failover group by its ID.
 func (r *Repository) GetByID(ctx context.Context, id uuid.UUID) (*FailoverGroup, error) {
+	mark := CacheGen()
 	fg, err := scanFailoverGroup(r.pool.QueryRow(ctx, `
 		SELECT `+failoverGroupColumns+`
 		FROM model_failover_groups
@@ -205,7 +210,7 @@ func (r *Repository) GetByID(ctx context.Context, id uuid.UUID) (*FailoverGroup,
 		return nil, err
 	}
 
-	cacheFailoverGroup(fg)
+	cacheFailoverGroupAt(fg, mark)
 	return fg, nil
 }
 
@@ -328,7 +333,8 @@ func (r *Repository) Update(ctx context.Context, id uuid.UUID, priorityOrder []u
 		return nil, err
 	}
 
-	cacheFailoverGroup(fg)
+	// See UpsertWithConfig: the write invalidates, the next reader refills.
+	InvalidateFailoverCacheKey(fg.DisplayModel)
 	return fg, nil
 }
 

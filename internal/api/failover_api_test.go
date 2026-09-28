@@ -295,8 +295,8 @@ func TestFailoverHandler_Update_RenameEvictsTheOldKeyAfterTheWrite(t *testing.T)
 	if failover.IsCachedByModel(oldName) {
 		t.Error("the old display model is still cached after the rename")
 	}
-	if cached, ok := failover.GetCachedFailoverByModel(newName); !ok || cached.ID != fg.ID {
-		t.Errorf("the renamed group is not cached under its new name (ok=%v)", ok)
+	if renamed, err := h.failoverRepo.GetByModel(ctx, newName); err != nil || renamed.ID != fg.ID {
+		t.Errorf("the renamed group does not read under its new name (err=%v)", err)
 	}
 }
 
@@ -536,18 +536,11 @@ func TestFailoverHandler_Update_InvalidatesCache(t *testing.T) {
 		t.Fatalf("expected status %d, got %d; body: %s", http.StatusOK, w.Code, w.Body.String())
 	}
 
-	// After Update, GetCachedFailoverByModel may return the fresh group (the
-	// repo's Update method re-caches after writing). What matters is that the
-	// cached PriorityOrder reflects the new order, not the stale one.
-	cachedAfter, ok := failover.GetCachedFailoverByModel(displayModel)
-	if !ok {
-		t.Fatal("expected cache to be populated with updated group after Update")
+	// The write installs nothing: the stale row is gone and the next read
+	// refills with the new order.
+	if failover.IsCachedByModel(displayModel) {
+		t.Fatal("the stale group survived the update in the cache")
 	}
-	if cachedAfter.PriorityOrder[0] != id2 || cachedAfter.PriorityOrder[1] != id1 {
-		t.Errorf("cached priority order not swapped: got %v, want [%v, %v]", cachedAfter.PriorityOrder, id2, id1)
-	}
-
-	// Verify the DB also has the reordered priority.
 	updated, err := h.failoverRepo.GetByModel(ctx, displayModel)
 	if err != nil {
 		t.Fatalf("GetByModel after update failed: %v", err)

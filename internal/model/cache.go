@@ -42,8 +42,8 @@ func CacheGen() uint64 { return modelCacheGen.Load() }
 
 const modelCacheTTL = 5 * time.Minute
 
-// The plain fills install at the current generation: for a row this process
-// just wrote, or one loaded outside a read-through. The At variants take the
+// The plain fills install at the current generation, outside a read-through
+// (the startup warm; nothing on a write path installs). The At variants take the
 // generation a read-through captured before its query and install nothing
 // when an invalidation has landed since; the caller still gets the rows it
 // read, the next reader refills.

@@ -183,7 +183,8 @@ func (r *Repository) Create(ctx context.Context, req CreateProviderRequest, encr
 		return nil, err
 	}
 
-	cacheProvider(p)
+	// Not installed here: a write path never installs its RETURNING row (see
+	// Update), the first reader fills it.
 	return p, nil
 }
 

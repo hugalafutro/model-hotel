@@ -59,11 +59,12 @@ func CacheGen() CacheMark {
 
 const providerCacheTTL = 5 * time.Minute
 
-// cacheProvider installs at the current generation: for a row this process
-// just wrote, or one loaded outside a read-through. cacheProviderAt takes the
-// generation a read-through captured before its query and installs nothing
-// when an invalidation has landed since; the caller still gets the row it
-// read, the next reader refills.
+// cacheProvider installs at the current mark, for the startup warm.
+// cacheProviderAt takes the mark a read-through captured before its query and
+// installs nothing when an invalidation has landed since; the caller still
+// gets the row it read, the next reader refills. Write paths install nothing:
+// two concurrent writes can finish in reverse order and an install would hold
+// the older row for the TTL.
 func cacheProvider(p *Provider) {
 	cacheProviderAt(p, CacheGen())
 }
