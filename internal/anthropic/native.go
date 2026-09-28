@@ -1,6 +1,7 @@
 package anthropic
 
 import (
+	"bytes"
 	"encoding/json"
 
 	"github.com/hugalafutro/model-hotel/internal/util"
@@ -153,10 +154,12 @@ type StreamEvent struct {
 	CarriesError bool
 	// TextBytes is the byte length of the output a content block event carries:
 	// a content_block_delta's text, thinking or partial JSON, and a
-	// content_block_start's tool name (its input starts empty and arrives as
-	// deltas, so nothing is counted twice). It is the delivered output the
-	// passthrough estimates from when the stream ends before message_delta
-	// reports output_tokens.
+	// content_block_start's tool name plus whatever content a relay put on the
+	// opener (Anthropic itself opens a block empty and streams the rest as
+	// deltas). A relay that puts the input on the opener AND streams it as
+	// deltas is counted twice; the estimate only stands in when the stream
+	// ends before message_delta reports output_tokens, so the over-count is
+	// accepted. It is the delivered output the passthrough estimates from.
 	TextBytes int
 }
 
@@ -199,6 +202,9 @@ func InspectStreamEvent(payload []byte) StreamEvent {
 			Thinking string `json:"thinking"`
 			// A redacted_thinking block carries its whole payload on the opener.
 			Data string `json:"data"`
+			// Anthropic opens a tool_use block with an empty input; a relay may
+			// put the whole object here, and then no delta carries it.
+			Input json.RawMessage `json:"input"`
 		} `json:"content_block"`
 	}
 	if json.Unmarshal(payload, &ev) != nil {
@@ -243,6 +249,9 @@ func InspectStreamEvent(payload []byte) StreamEvent {
 	case "content_block_start":
 		if ev.ContentBlock != nil {
 			info.TextBytes = len(ev.ContentBlock.Name) + len(ev.ContentBlock.Text) + len(ev.ContentBlock.Thinking) + len(ev.ContentBlock.Data)
+			if in := string(bytes.TrimSpace(ev.ContentBlock.Input)); in != "" && in != "{}" && in != "null" {
+				info.TextBytes += len(in)
+			}
 		}
 	}
 	return info

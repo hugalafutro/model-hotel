@@ -170,7 +170,7 @@ func TestStreamTranslator_ToolWithoutID_AndIdempotentFinish(t *testing.T) {
 	// input_json_delta.
 	out, err := tr.Translate(OAStreamChunk{Choices: []OAStreamChoice{{
 		Delta: OAStreamDelta{ToolCalls: []OAToolCallDelta{{
-			Index: 0, Function: OAFunctionDelta{Name: "f", Arguments: `{"a":1}`},
+			Index: new(0), Function: OAFunctionDelta{Name: "f", Arguments: `{"a":1}`},
 		}}},
 	}}})
 	if err != nil {
@@ -272,5 +272,18 @@ func TestResponseTextBytes(t *testing.T) {
 	}
 	if got := ResponseTextBytes([]byte("nope")); got != 0 {
 		t.Errorf("ResponseTextBytes(invalid) = %d, want 0", got)
+	}
+}
+
+// A relay that puts the whole input object on a tool_use opener streams no
+// delta for it, so the opener's input counts as delivered output.
+func TestInspectStreamEvent_OpenerInputCounts(t *testing.T) {
+	ev := InspectStreamEvent([]byte(`{"type":"content_block_start","index":0,"content_block":{"type":"tool_use","id":"t","name":"ls","input":{"a":1}}}`))
+	if ev.TextBytes != len("ls")+len(`{"a":1}`) {
+		t.Errorf("TextBytes = %d, want name plus input", ev.TextBytes)
+	}
+	empty := InspectStreamEvent([]byte(`{"type":"content_block_start","index":0,"content_block":{"type":"tool_use","id":"t","name":"ls","input":{}}}`))
+	if empty.TextBytes != len("ls") {
+		t.Errorf("TextBytes with empty input = %d, want name only", empty.TextBytes)
 	}
 }

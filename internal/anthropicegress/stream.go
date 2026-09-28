@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"slices"
 
 	"github.com/hugalafutro/model-hotel/internal/anthropic"
 	"github.com/hugalafutro/model-hotel/internal/egress"
@@ -113,6 +114,10 @@ type StreamTranslator struct {
 	// fragments parse as JSON, and "" does not, so a block that closes with no
 	// fragment gets "{}" at content_block_stop.
 	toolArgsSeen map[int]bool
+	// openerInput is the input object a relay put on a tool_use block's
+	// content_block_start, emitted at the stop when no input_json_delta
+	// streamed for the block (the deltas win when both arrive).
+	openerInput map[int]string
 }
 
 // NewStreamTranslator builds a translator for one response. id, model and
@@ -123,6 +128,7 @@ func NewStreamTranslator(id, model string, created int64) *StreamTranslator {
 		w:                egress.ChunkWriter{Component: "anthropicegress", ID: id, Model: model, Created: created},
 		toolIndexByBlock: map[int]int{},
 		toolArgsSeen:     map[int]bool{},
+		openerInput:      map[int]string{},
 	}
 }
 
@@ -212,29 +218,66 @@ func (t *StreamTranslator) stopBlock(buf *bytes.Buffer, ev antEvent) error {
 		return nil
 	}
 	t.toolArgsSeen[ev.Index] = true
+	args := "{}"
+	if opener, ok := t.openerInput[ev.Index]; ok {
+		// No delta arrived for the block: the opener's input is the arguments.
+		args = opener
+	}
 	return t.writeChunk(buf, chunkDelta{ToolCalls: []chunkToolCall{{
 		Index:    oaIndex,
-		Function: chunkToolFunction{Arguments: "{}"},
+		Function: chunkToolFunction{Arguments: args},
 	}}}, nil, nil)
 }
 
-// startBlock handles content_block_start. Only tool_use blocks open anything on
-// the OpenAI side (the header fragment carrying the tool-call index, id, type
-// and name); text and thinking blocks emit content in their deltas alone.
+// startBlock handles content_block_start. A tool_use block opens the OpenAI
+// tool call (the header fragment carrying the index, id, type and name).
+// Anthropic itself opens text and thinking blocks empty and streams their
+// content in deltas, but an Anthropic-compatible relay may put content on the
+// opener, and that content is output: dropped, the answer would start
+// mid-sentence. A tool_use opener carrying an input object likewise streams no
+// input_json_delta, so its input is the arguments.
 func (t *StreamTranslator) startBlock(buf *bytes.Buffer, ev antEvent) error {
-	if ev.ContentBlock == nil || ev.ContentBlock.Type != "tool_use" {
+	if ev.ContentBlock == nil {
+		return nil
+	}
+	switch ev.ContentBlock.Type {
+	case "text":
+		if ev.ContentBlock.Text == "" {
+			return nil
+		}
+		return t.writeChunk(buf, chunkDelta{Content: ev.ContentBlock.Text}, nil, nil)
+	case "thinking":
+		if ev.ContentBlock.Thinking == "" {
+			return nil
+		}
+		return t.writeChunk(buf, chunkDelta{ReasoningContent: ev.ContentBlock.Thinking}, nil, nil)
+	case "tool_use":
+	default:
 		return nil
 	}
 	oaIndex := t.toolCalls
 	t.toolCalls++
 	t.toolIndexByBlock[ev.Index] = oaIndex
+	// A relay may reuse a block index; the new block starts with no arguments
+	// seen and no opener input of its own.
+	delete(t.toolArgsSeen, ev.Index)
+	delete(t.openerInput, ev.Index)
 
-	return t.writeChunk(buf, chunkDelta{ToolCalls: []chunkToolCall{{
+	if err := t.writeChunk(buf, chunkDelta{ToolCalls: []chunkToolCall{{
 		Index:    oaIndex,
 		ID:       ev.ContentBlock.ID,
 		Type:     "function",
 		Function: chunkToolFunction{Name: ev.ContentBlock.Name},
-	}}}, nil, nil)
+	}}}, nil, nil); err != nil {
+		return err
+	}
+	if input := bytes.TrimSpace(ev.ContentBlock.Input); len(input) > 1 && input[0] == '{' && string(input) != "{}" && json.Valid(input) {
+		// Held until the block stops: a relay that also streams
+		// input_json_delta for the block would otherwise hand the client the
+		// object twice, and the deltas are the spec's way of saying it.
+		t.openerInput[ev.Index] = string(input)
+	}
+	return nil
 }
 
 // blockDelta handles content_block_delta: text and thinking become content and
@@ -292,6 +335,21 @@ func (t *StreamTranslator) Finish() ([]byte, error) {
 	t.finished = true
 
 	var buf bytes.Buffer
+	// A tool block the stream never stopped (a relay that skips
+	// content_block_stop) still owes its arguments: the opener's input when
+	// it carried one, the empty object otherwise.
+	pending := make([]int, 0, len(t.toolIndexByBlock))
+	for blockIndex := range t.toolIndexByBlock {
+		if !t.toolArgsSeen[blockIndex] {
+			pending = append(pending, blockIndex)
+		}
+	}
+	slices.Sort(pending) // map order is random; the client sees the blocks in stream order
+	for _, blockIndex := range pending {
+		if err := t.stopBlock(&buf, antEvent{Index: blockIndex}); err != nil {
+			return nil, err
+		}
+	}
 	reason := mapFinishReason(t.stopReason)
 	var usage *completionUsage
 	if t.usage != (anthropic.UsageBlock{}) {

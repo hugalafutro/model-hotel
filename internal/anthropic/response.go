@@ -127,6 +127,14 @@ func BuildMessageResponse(body []byte, messageID, model string) ([]byte, error) 
 	}
 
 	stop := mapStopReason(finish)
+	if len(resp.Choices) > 0 && len(resp.Choices[0].Message.ToolCalls) > 0 && (finish == "" || finish == "stop") {
+		// Tool calls stop the turn for tool_use when finish_reason claims an
+		// ordinary end: some OpenAI-compatible servers report "stop" beside
+		// tool_calls, and an agent loop keyed on stop_reason would end the
+		// turn without running them. "length" and "content_filter" stand: a
+		// call cut short is not one to run.
+		stop = "tool_use"
+	}
 	msg.StopReason = &stop
 
 	msg.Usage = readOAUsage(resp.Usage)

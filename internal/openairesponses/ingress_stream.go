@@ -38,6 +38,9 @@ type IngressStreamTranslator struct {
 	open          int            // index into items of the open reasoning/message item, or -1
 	toolItemByIdx map[int]int    // chat tool_calls index -> items index
 	idxByCallID   map[string]int // chat tool_call id -> chat index, for fragments sent without one
+	idByIndex     map[int]string // wire index -> the id that last opened under it, to spot a reused index
+	aliasOf       map[int]int    // wire index -> the call it currently names (latest opener wins)
+	lastChatIndex int            // chat index of the call streamed last, for fragments sent with neither
 	finishReason  string
 	usage         *Usage
 	facts         *RequestFacts
@@ -81,6 +84,8 @@ func NewIngressStreamTranslator(responseID, model string, facts *RequestFacts) *
 		open:          openIndexNone,
 		toolItemByIdx: map[int]int{},
 		idxByCallID:   map[string]int{},
+		idByIndex:     map[int]string{},
+		aliasOf:       map[int]int{},
 		facts:         facts,
 	}
 }
@@ -347,23 +352,51 @@ func (t *IngressStreamTranslator) toolCallDelta(buf *bytes.Buffer, tc chatToolCa
 // chatIndexFor is the chat tool_calls index a fragment belongs to. A provider
 // that omits the index is read by call id instead, each id getting its own
 // synthetic index, so two parallel calls sent without indexes do not merge
-// into one item; a fragment with neither is the first call.
+// into one item; a fragment with neither continues the call streamed last.
 func (t *IngressStreamTranslator) chatIndexFor(tc chatToolCall) int {
-	if tc.Index != nil {
+	switch {
+	case tc.Index != nil:
+		wire := *tc.Index
+		idx := wire
 		if tc.ID != "" {
-			t.idxByCallID[tc.ID] = *tc.Index
+			if known, ok := t.idxByCallID[tc.ID]; ok {
+				// A call already keyed: an id-bearing continuation, or an
+				// opener whose id arrived before its index. Neither re-aliases
+				// the wire index; only an opener may, or a continuation of
+				// the first call would steal the alias from the call opened
+				// after it.
+				idx = known
+			} else {
+				if owner, taken := t.idByIndex[wire]; taken && owner != tc.ID {
+					// An opener reusing an index another call holds is a new call.
+					idx = -1 - len(t.idxByCallID)
+				}
+				t.idxByCallID[tc.ID] = idx
+				t.idByIndex[wire] = tc.ID
+				t.aliasOf[wire] = idx
+			}
+		} else if alias, ok := t.aliasOf[wire]; ok {
+			// The id-less fragments under a reused wire index belong to the
+			// call that last opened under it.
+			idx = alias
+		} else if _, open := t.toolItemByIdx[wire]; !open && t.lastChatIndex < 0 {
+			// An index that opened nothing, after an id-keyed opener: the
+			// continuation of that call.
+			idx = t.lastChatIndex
 		}
-		return *tc.Index
+		t.lastChatIndex = idx
+	case tc.ID == "":
+		// Neither index nor id: a continuation of the call streamed last, not
+		// index 0, which an id-keyed opener never claimed.
+	default:
+		idx, ok := t.idxByCallID[tc.ID]
+		if !ok {
+			idx = -1 - len(t.idxByCallID)
+			t.idxByCallID[tc.ID] = idx
+		}
+		t.lastChatIndex = idx
 	}
-	if tc.ID == "" {
-		return 0
-	}
-	if idx, ok := t.idxByCallID[tc.ID]; ok {
-		return idx
-	}
-	idx := -1 - len(t.idxByCallID)
-	t.idxByCallID[tc.ID] = idx
-	return idx
+	return t.lastChatIndex
 }
 
 // openItem appends an item and emits its output_item.added. A reasoning or

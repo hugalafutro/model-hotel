@@ -241,6 +241,110 @@ func TestStreamTranslator_ToolCallFragmentedArguments(t *testing.T) {
 	}
 }
 
+// An Anthropic-compatible relay may put a block's content on its opener. That
+// content is output: text on a text opener is a content delta, and a tool_use
+// opener carrying an input object is the call's arguments (no "{}" filler at
+// the stop).
+func TestStreamTranslator_ContentOnBlockOpenerIsOutput(t *testing.T) {
+	tr := NewStreamTranslator("chatcmpl-5", "m", 1)
+	out := feed(t, tr,
+		`{"type":"message_start","message":{"usage":{"input_tokens":4}}}`,
+		`{"type":"content_block_start","index":0,"content_block":{"type":"text","text":"Hel"}}`,
+		`{"type":"content_block_delta","index":0,"delta":{"type":"text_delta","text":"lo"}}`,
+		`{"type":"content_block_stop","index":0}`,
+		`{"type":"content_block_start","index":1,"content_block":{"type":"tool_use","id":"toolu_a","name":"first","input":{"a":1}}}`,
+		`{"type":"content_block_stop","index":1}`,
+		`{"type":"message_delta","delta":{"stop_reason":"tool_use"},"usage":{"output_tokens":9}}`,
+		`{"type":"message_stop"}`,
+	)
+	chunks, done := parseChunks(t, out)
+	if !done {
+		t.Fatalf("stream did not end with [DONE]:\n%s", out)
+	}
+	if got := joinContent(chunks); got != "Hello" {
+		t.Errorf("content = %q, want Hello (text on the opener dropped)", got)
+	}
+	args := toolArgsByIndex(chunks)
+	if args[0] != `{"a":1}` {
+		t.Errorf("arguments = %q, want the opener's input {\"a\":1}", args[0])
+	}
+}
+
+// When a relay puts an input object on the opener AND streams input_json_delta
+// for the block, the deltas are the arguments and the opener's copy is dropped,
+// so the client never sees the object twice.
+func TestStreamTranslator_DeltasWinOverOpenerInput(t *testing.T) {
+	tr := NewStreamTranslator("chatcmpl-6", "m", 1)
+	out := feed(t, tr,
+		`{"type":"message_start","message":{"usage":{"input_tokens":4}}}`,
+		`{"type":"content_block_start","index":0,"content_block":{"type":"tool_use","id":"toolu_a","name":"first","input":{"a":1}}}`,
+		`{"type":"content_block_delta","index":0,"delta":{"type":"input_json_delta","partial_json":"{\"a\":"}}`,
+		`{"type":"content_block_delta","index":0,"delta":{"type":"input_json_delta","partial_json":"1}"}}`,
+		`{"type":"content_block_stop","index":0}`,
+		`{"type":"message_delta","delta":{"stop_reason":"tool_use"},"usage":{"output_tokens":9}}`,
+		`{"type":"message_stop"}`,
+	)
+	chunks, _ := parseChunks(t, out)
+	if args := toolArgsByIndex(chunks); args[0] != `{"a":1}` {
+		t.Errorf("arguments = %q, want the deltas' {\"a\":1} once", args[0])
+	}
+}
+
+// A relay that puts the input on the opener may skip content_block_stop too;
+// the arguments are still owed at the end of the stream.
+func TestStreamTranslator_OpenerInputFlushedWithoutBlockStop(t *testing.T) {
+	tr := NewStreamTranslator("chatcmpl-7", "m", 1)
+	out := feed(t, tr,
+		`{"type":"message_start","message":{"usage":{"input_tokens":4}}}`,
+		`{"type":"content_block_start","index":0,"content_block":{"type":"tool_use","id":"toolu_a","name":"first","input":{"a":1}}}`,
+		`{"type":"content_block_start","index":1,"content_block":{"type":"tool_use","id":"toolu_b","name":"second","input":{}}}`,
+		`{"type":"content_block_start","index":2,"content_block":{"type":"tool_use","id":"toolu_c","name":"third","input":{"c":3}}}`,
+		`{"type":"message_delta","delta":{"stop_reason":"tool_use"},"usage":{"output_tokens":9}}`,
+		`{"type":"message_stop"}`,
+	)
+	chunks, done := parseChunks(t, out)
+	if !done {
+		t.Fatalf("stream did not end with [DONE]:\n%s", out)
+	}
+	args := toolArgsByIndex(chunks)
+	if args[0] != `{"a":1}` || args[1] != `{}` || args[2] != `{"c":3}` {
+		t.Errorf("arguments by index = %v, want the openers' inputs (or {}) flushed at the end", args)
+	}
+	// Flushed in stream order, not map order: the argument chunks land 0, 1, 2.
+	var order []int
+	for _, c := range chunks {
+		for _, tc := range c.Choices[0].Delta.ToolCalls {
+			if tc.Function.Arguments != "" {
+				order = append(order, tc.Index)
+			}
+		}
+	}
+	if len(order) != 3 || order[0] != 0 || order[1] != 1 || order[2] != 2 {
+		t.Errorf("flush order = %v, want [0 1 2]", order)
+	}
+}
+
+// A relay that reuses a block index starts the second block clean: the first
+// block's arguments-seen mark must not swallow the second block's arguments.
+func TestStreamTranslator_ReusedBlockIndexStartsClean(t *testing.T) {
+	tr := NewStreamTranslator("chatcmpl-8", "m", 1)
+	out := feed(t, tr,
+		`{"type":"message_start","message":{"usage":{"input_tokens":4}}}`,
+		`{"type":"content_block_start","index":0,"content_block":{"type":"tool_use","id":"toolu_a","name":"first","input":{}}}`,
+		`{"type":"content_block_delta","index":0,"delta":{"type":"input_json_delta","partial_json":"{\"a\":1}"}}`,
+		`{"type":"content_block_stop","index":0}`,
+		`{"type":"content_block_start","index":0,"content_block":{"type":"tool_use","id":"toolu_b","name":"second","input":{"b":2}}}`,
+		`{"type":"content_block_stop","index":0}`,
+		`{"type":"message_delta","delta":{"stop_reason":"tool_use"},"usage":{"output_tokens":9}}`,
+		`{"type":"message_stop"}`,
+	)
+	chunks, _ := parseChunks(t, out)
+	args := toolArgsByIndex(chunks)
+	if args[0] != `{"a":1}` || args[1] != `{"b":2}` {
+		t.Errorf("arguments by index = %v, want 0:{\"a\":1} 1:{\"b\":2}", args)
+	}
+}
+
 func TestStreamTranslator_ToolCallIndicesSkipTextBlocks(t *testing.T) {
 	// Anthropic block indices count every block (text at 0, tools at 1 and 2);
 	// OpenAI tool-call indices count only tool calls, so they must be 0 and 1.
