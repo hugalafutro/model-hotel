@@ -481,6 +481,9 @@ func TestIngressStream_MixedIndexShapes(t *testing.T) {
 			chunk(`{"tool_calls":[{"index":0,"id":"call_a","type":"function","function":{"name":"ls","arguments":"{\"a\":"}}]}`, ""),
 			chunk(`{"tool_calls":[{"index":0,"function":{"arguments":"1}"}}]}`, ""),
 			chunk(`{"tool_calls":[{"index":0,"id":"call_b","type":"function","function":{"name":"cat","arguments":"{\"b\":"}}]}`, ""),
+			// An id-bearing continuation of the first call in between must not
+			// take the wire index back from the second.
+			chunk(`{"tool_calls":[{"index":0,"id":"call_a","function":{"arguments":""}}]}`, ""),
 			chunk(`{"tool_calls":[{"index":0,"function":{"arguments":"2}"}}]}`, "tool_calls"),
 		)
 		got := decodeWithOpenAISDK(t, sse)

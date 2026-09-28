@@ -284,6 +284,11 @@ func TestStreamTranslator_MixedIndexShapes(t *testing.T) {
 			{Choices: []OAStreamChoice{{Delta: OAStreamDelta{ToolCalls: []OAToolCallDelta{
 				{Index: new(0), ID: "call_b", Type: "function", Function: OAFunctionDelta{Name: "cat", Arguments: `{"b":`}},
 			}}}}},
+			// An id-bearing continuation of the first call in between must not
+			// take the wire index back from the second.
+			{Choices: []OAStreamChoice{{Delta: OAStreamDelta{ToolCalls: []OAToolCallDelta{
+				{Index: new(0), ID: "call_a", Function: OAFunctionDelta{Arguments: ``}},
+			}}}}},
 			{Choices: []OAStreamChoice{{Delta: OAStreamDelta{ToolCalls: []OAToolCallDelta{
 				{Index: new(0), Function: OAFunctionDelta{Arguments: `2}`}},
 			}}}}},

@@ -360,15 +360,21 @@ func (t *IngressStreamTranslator) chatIndexFor(tc chatToolCall) int {
 		idx := wire
 		if tc.ID != "" {
 			if known, ok := t.idxByCallID[tc.ID]; ok {
-				// The call was keyed by id before its index showed up.
+				// A call already keyed: an id-bearing continuation, or an
+				// opener whose id arrived before its index. Neither re-aliases
+				// the wire index; only an opener may, or a continuation of
+				// the first call would steal the alias from the call opened
+				// after it.
 				idx = known
-			} else if owner, taken := t.idByIndex[wire]; taken && owner != tc.ID {
-				// An opener reusing an index another call holds is a new call.
-				idx = -1 - len(t.idxByCallID)
+			} else {
+				if owner, taken := t.idByIndex[wire]; taken && owner != tc.ID {
+					// An opener reusing an index another call holds is a new call.
+					idx = -1 - len(t.idxByCallID)
+				}
+				t.idxByCallID[tc.ID] = idx
+				t.idByIndex[wire] = tc.ID
+				t.aliasOf[wire] = idx
 			}
-			t.idxByCallID[tc.ID] = idx
-			t.idByIndex[wire] = tc.ID
-			t.aliasOf[wire] = idx
 		} else if alias, ok := t.aliasOf[wire]; ok {
 			// The id-less fragments under a reused wire index belong to the
 			// call that last opened under it.
