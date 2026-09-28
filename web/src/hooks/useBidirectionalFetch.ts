@@ -271,11 +271,17 @@ export function useBidirectionalFetch<
 				}
 
 				setEntries((prev) => {
+					const byId = new Map(response.entries.map((e) => [getId(e), e]));
+					// A row the list already holds takes the page's copy: the page is
+					// the server's latest state, so a row that finished between the
+					// event that fetched it and this page reads finished, not stuck on
+					// the snapshot an earlier fetch prepended.
+					const kept = prev.map((e) => byId.get(getId(e)) ?? e);
 					const existingIds = new Set(prev.map((e) => getId(e)));
 					const fresh = response.entries.filter(
 						(e) => !existingIds.has(getId(e)),
 					);
-					return before ? [...fresh, ...prev] : [...prev, ...fresh];
+					return before ? [...fresh, ...kept] : [...kept, ...fresh];
 				});
 
 				setHas(before ? response.has_before : response.has_after);

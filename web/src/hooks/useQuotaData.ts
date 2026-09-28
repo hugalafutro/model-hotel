@@ -24,6 +24,7 @@ import {
 import { useCallback, useEffect, useMemo, useRef } from "react";
 import { useTranslation } from "react-i18next";
 import { api } from "../api/client";
+import { LOCAL_CACHE_PREFIX } from "../api/http";
 import type {
 	DeepSeekBalance,
 	KimiCodeQuotaResponse,
@@ -57,7 +58,7 @@ export {
 
 // ── Cache helpers (shared across consumers) ──────────────────────────────
 
-const CACHE_PREFIX = "model-hotel";
+const CACHE_PREFIX = LOCAL_CACHE_PREFIX;
 
 export function getCachedData<T>(key: string): T | undefined {
 	try {

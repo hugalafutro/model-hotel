@@ -203,7 +203,24 @@ export function isAuthenticated(): boolean {
 export function clearAuth(): void {
 	// biome-ignore lint/suspicious/noDocumentCookie: must be synchronous; see the doc comment above.
 	document.cookie = `${CSRF_COOKIE}=; path=/; max-age=0`;
+	// The quota payloads useQuotaData mirrors into localStorage carry provider
+	// account details; they belong to the session that ends here, not to
+	// whoever logs into this browser next. Cleared wherever the auth signal
+	// drops (logout, a 401, a password change), so no teardown path keeps
+	// them. Chat history and UI preferences use other keys and stay.
+	try {
+		for (const key of Object.keys(localStorage)) {
+			if (key.startsWith(`${LOCAL_CACHE_PREFIX}:`))
+				localStorage.removeItem(key);
+		}
+	} catch {
+		/* blocked storage: nothing to clear */
+	}
 }
+
+/** LOCAL_CACHE_PREFIX namespaces the localStorage mirror of per-session
+ * server payloads (useQuotaData's cache helpers); clearAuth wipes it. */
+export const LOCAL_CACHE_PREFIX = "model-hotel";
 
 /** getAuthHeaders returns the headers for an authenticated mutating request:
  * a JSON content type plus the CSRF token echoed from the readable cookie. It
@@ -228,17 +245,5 @@ export function getAuthHeaders(): Record<string, string> {
 export function resetToLogin(queryClient?: QueryClient): void {
 	clearAuth();
 	queryClient?.cancelQueries();
-	// The quota payloads useQuotaData mirrors into localStorage (its
-	// CACHE_PREFIX) carry provider account details; they belong to the session
-	// that ends here, not to whoever logs into this browser next. Other
-	// "model-hotel:" keys are the same mirror. Chat history and UI preferences
-	// use other keys and stay.
-	try {
-		for (const key of Object.keys(localStorage)) {
-			if (key.startsWith("model-hotel:")) localStorage.removeItem(key);
-		}
-	} catch {
-		/* blocked storage: nothing to clear */
-	}
 	window.location.reload();
 }

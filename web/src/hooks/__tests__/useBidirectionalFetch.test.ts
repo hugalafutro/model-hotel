@@ -361,6 +361,45 @@ describe("useBidirectionalFetch", () => {
 	});
 
 	describe("fetchNewer", () => {
+		it("refreshes rows the list already holds from the page it fetched", async () => {
+			const mockFetchFn = vi
+				.fn()
+				.mockResolvedValueOnce({
+					entries: [{ id: "1", name: "pending" }] as TestEntry[],
+					total: 1,
+					has_before: true,
+					has_after: false,
+				})
+				.mockResolvedValueOnce({
+					entries: [
+						{ id: "2", name: "new" },
+						{ id: "1", name: "finished" },
+					] as TestEntry[],
+					total: 2,
+					has_before: false,
+					has_after: false,
+				});
+			const { result } = renderHook(() =>
+				useBidirectionalFetch<TestEntry>({
+					fetchFn: mockFetchFn,
+					filters: {},
+					sortDir: "desc",
+					getCursor: (e) => e.id,
+					getId: (e) => e.id,
+				}),
+			);
+			await waitFor(() => expect(result.current.entries).toHaveLength(1));
+
+			await act(async () => {
+				await result.current.fetchNewer();
+			});
+
+			expect(result.current.entries.map((e) => e.name)).toEqual([
+				"new",
+				"finished",
+			]);
+		});
+
 		it("prepends new entries and deduplicates by ID", async () => {
 			const initialResponse = {
 				entries: [
