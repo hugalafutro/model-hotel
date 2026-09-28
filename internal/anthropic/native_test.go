@@ -170,7 +170,7 @@ func TestStreamTranslator_ToolWithoutID_AndIdempotentFinish(t *testing.T) {
 	// input_json_delta.
 	out, err := tr.Translate(OAStreamChunk{Choices: []OAStreamChoice{{
 		Delta: OAStreamDelta{ToolCalls: []OAToolCallDelta{{
-			Index: 0, Function: OAFunctionDelta{Name: "f", Arguments: `{"a":1}`},
+			Index: new(0), Function: OAFunctionDelta{Name: "f", Arguments: `{"a":1}`},
 		}}},
 	}}})
 	if err != nil {

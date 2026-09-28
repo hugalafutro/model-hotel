@@ -32,7 +32,10 @@ type OAStreamDelta struct {
 // function name (and id) on the first fragment for a given Index, then streams
 // the JSON arguments as a string in successive fragments under the same Index.
 type OAToolCallDelta struct {
-	Index    int             `json:"index"`
+	// Index is nil when the upstream omitted it. Some OpenAI-compatible servers
+	// stream tool calls without one; the translator then keys the call by its
+	// id, and a fragment carrying neither continues the call last opened.
+	Index    *int            `json:"index"`
 	ID       string          `json:"id"`
 	Type     string          `json:"type"`
 	Function OAFunctionDelta `json:"function"`

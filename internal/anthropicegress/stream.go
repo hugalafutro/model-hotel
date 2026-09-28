@@ -218,23 +218,52 @@ func (t *StreamTranslator) stopBlock(buf *bytes.Buffer, ev antEvent) error {
 	}}}, nil, nil)
 }
 
-// startBlock handles content_block_start. Only tool_use blocks open anything on
-// the OpenAI side (the header fragment carrying the tool-call index, id, type
-// and name); text and thinking blocks emit content in their deltas alone.
+// startBlock handles content_block_start. A tool_use block opens the OpenAI
+// tool call (the header fragment carrying the index, id, type and name).
+// Anthropic itself opens text and thinking blocks empty and streams their
+// content in deltas, but an Anthropic-compatible relay may put content on the
+// opener, and that content is output: dropped, the answer would start
+// mid-sentence. A tool_use opener carrying an input object likewise streams no
+// input_json_delta, so its input is the arguments.
 func (t *StreamTranslator) startBlock(buf *bytes.Buffer, ev antEvent) error {
-	if ev.ContentBlock == nil || ev.ContentBlock.Type != "tool_use" {
+	if ev.ContentBlock == nil {
+		return nil
+	}
+	switch ev.ContentBlock.Type {
+	case "text":
+		if ev.ContentBlock.Text == "" {
+			return nil
+		}
+		return t.writeChunk(buf, chunkDelta{Content: ev.ContentBlock.Text}, nil, nil)
+	case "thinking":
+		if ev.ContentBlock.Thinking == "" {
+			return nil
+		}
+		return t.writeChunk(buf, chunkDelta{ReasoningContent: ev.ContentBlock.Thinking}, nil, nil)
+	case "tool_use":
+	default:
 		return nil
 	}
 	oaIndex := t.toolCalls
 	t.toolCalls++
 	t.toolIndexByBlock[ev.Index] = oaIndex
 
-	return t.writeChunk(buf, chunkDelta{ToolCalls: []chunkToolCall{{
+	if err := t.writeChunk(buf, chunkDelta{ToolCalls: []chunkToolCall{{
 		Index:    oaIndex,
 		ID:       ev.ContentBlock.ID,
 		Type:     "function",
 		Function: chunkToolFunction{Name: ev.ContentBlock.Name},
-	}}}, nil, nil)
+	}}}, nil, nil); err != nil {
+		return err
+	}
+	if input := bytes.TrimSpace(ev.ContentBlock.Input); len(input) > 0 && string(input) != "{}" && string(input) != "null" {
+		t.toolArgsSeen[ev.Index] = true
+		return t.writeChunk(buf, chunkDelta{ToolCalls: []chunkToolCall{{
+			Index:    oaIndex,
+			Function: chunkToolFunction{Arguments: string(input)},
+		}}}, nil, nil)
+	}
+	return nil
 }
 
 // blockDelta handles content_block_delta: text and thinking become content and

@@ -119,6 +119,23 @@ func TestBuildMessageResponse_ToolUse(t *testing.T) {
 	}
 }
 
+// finish_reason "stop" beside tool_calls still reports stop_reason tool_use;
+// see the streaming twin for why.
+func TestBuildMessageResponse_ToolCallsWinOverStopFinish(t *testing.T) {
+	oai := []byte(`{"choices":[{"message":{"role":"assistant","content":null,"tool_calls":[
+		{"id":"call_9","type":"function","function":{"name":"lookup","arguments":"{}"}}
+	]},"finish_reason":"stop"}]}`)
+	out, err := BuildMessageResponse(oai, "msg_3", "m")
+	if err != nil {
+		t.Fatalf("BuildMessageResponse: %v", err)
+	}
+	var m map[string]any
+	_ = json.Unmarshal(out, &m)
+	if m["stop_reason"] != "tool_use" {
+		t.Errorf("stop_reason = %v, want tool_use", m["stop_reason"])
+	}
+}
+
 func TestBuildErrorResponse_StatusMapping(t *testing.T) {
 	cases := []struct {
 		status int

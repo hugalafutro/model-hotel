@@ -38,6 +38,7 @@ type IngressStreamTranslator struct {
 	open          int            // index into items of the open reasoning/message item, or -1
 	toolItemByIdx map[int]int    // chat tool_calls index -> items index
 	idxByCallID   map[string]int // chat tool_call id -> chat index, for fragments sent without one
+	lastChatIndex int            // chat index of the call streamed last, for fragments sent with neither
 	finishReason  string
 	usage         *Usage
 	facts         *RequestFacts
@@ -349,21 +350,24 @@ func (t *IngressStreamTranslator) toolCallDelta(buf *bytes.Buffer, tc chatToolCa
 // synthetic index, so two parallel calls sent without indexes do not merge
 // into one item; a fragment with neither is the first call.
 func (t *IngressStreamTranslator) chatIndexFor(tc chatToolCall) int {
-	if tc.Index != nil {
+	switch {
+	case tc.Index != nil:
 		if tc.ID != "" {
 			t.idxByCallID[tc.ID] = *tc.Index
 		}
-		return *tc.Index
+		t.lastChatIndex = *tc.Index
+	case tc.ID == "":
+		// Neither index nor id: a continuation of the call streamed last, not
+		// index 0, which an id-keyed opener never claimed.
+	default:
+		idx, ok := t.idxByCallID[tc.ID]
+		if !ok {
+			idx = -1 - len(t.idxByCallID)
+			t.idxByCallID[tc.ID] = idx
+		}
+		t.lastChatIndex = idx
 	}
-	if tc.ID == "" {
-		return 0
-	}
-	if idx, ok := t.idxByCallID[tc.ID]; ok {
-		return idx
-	}
-	idx := -1 - len(t.idxByCallID)
-	t.idxByCallID[tc.ID] = idx
-	return idx
+	return t.lastChatIndex
 }
 
 // openItem appends an item and emits its output_item.added. A reasoning or

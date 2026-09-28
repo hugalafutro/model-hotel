@@ -31,8 +31,13 @@ type StreamTranslator struct {
 	openMax  int // highest block index opened so far (-1 = none)
 
 	// Tool-call bookkeeping: OpenAI streams tool_calls under their own Index;
-	// map that to the Anthropic content-block index we assigned it.
+	// map that to the Anthropic content-block index we assigned it. A fragment
+	// without an index is keyed by its call id (a synthetic negative index per
+	// id), and one with neither continues lastToolOAIndex, the call streamed
+	// last, since fragments of one call arrive contiguously.
 	toolBlockByOAIndex map[int]int
+	idxByCallID        map[string]int
+	lastToolOAIndex    int
 
 	// Best-effort usage + terminal reason.
 	promptTokens     int
@@ -61,7 +66,30 @@ func NewStreamTranslator(messageID, model string) *StreamTranslator {
 		curKind:            blockNone,
 		openMax:            -1,
 		toolBlockByOAIndex: map[int]int{},
+		idxByCallID:        map[string]int{},
 	}
+}
+
+// oaIndexFor resolves the OpenAI index a tool-call fragment belongs to, see
+// toolBlockByOAIndex.
+func (t *StreamTranslator) oaIndexFor(tc OAToolCallDelta) int {
+	switch {
+	case tc.Index != nil:
+		if tc.ID != "" {
+			t.idxByCallID[tc.ID] = *tc.Index
+		}
+		t.lastToolOAIndex = *tc.Index
+	case tc.ID == "":
+		// Neither index nor id: a continuation of the call being streamed.
+	default:
+		idx, ok := t.idxByCallID[tc.ID]
+		if !ok {
+			idx = -1 - len(t.idxByCallID)
+			t.idxByCallID[tc.ID] = idx
+		}
+		t.lastToolOAIndex = idx
+	}
+	return t.lastToolOAIndex
 }
 
 // writeEvent appends one framed SSE event ("event: <type>\ndata: <json>\n\n").
@@ -222,10 +250,11 @@ func (t *StreamTranslator) Translate(chunk OAStreamChunk) ([]byte, error) {
 			return nil, err
 		}
 		sig := egress.ThoughtSignatureIn(tc.ExtraContent)
-		blockIdx, open := t.toolBlockByOAIndex[tc.Index]
+		oaIndex := t.oaIndexFor(tc)
+		blockIdx, open := t.toolBlockByOAIndex[oaIndex]
 		if !open {
 			// First fragment for this tool call: open the block (carries id/name).
-			if err := t.openToolBlock(&buf, tc.Index, tc.ID, tc.Function.Name, sig); err != nil {
+			if err := t.openToolBlock(&buf, oaIndex, tc.ID, tc.Function.Name, sig); err != nil {
 				return nil, err
 			}
 			blockIdx = t.curIndex
@@ -267,6 +296,14 @@ func (t *StreamTranslator) Finish() ([]byte, error) {
 	}
 
 	stop := mapStopReason(t.finishReason)
+	if len(t.toolBlockByOAIndex) > 0 {
+		// A turn that produced tool calls stops for tool_use whatever the
+		// finish_reason said: some OpenAI-compatible servers report "stop"
+		// beside tool_calls, and an agent loop keyed on stop_reason would end
+		// the turn without running them. Same rule as the Gemini and Responses
+		// translators.
+		stop = "tool_use"
+	}
 	if err := writeEvent(&buf, "message_delta", messageDeltaEvent{
 		Type:  "message_delta",
 		Delta: messageDeltaBody{StopReason: &stop, StopSequence: nil},

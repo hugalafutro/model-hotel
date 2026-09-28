@@ -241,6 +241,35 @@ func TestStreamTranslator_ToolCallFragmentedArguments(t *testing.T) {
 	}
 }
 
+// An Anthropic-compatible relay may put a block's content on its opener. That
+// content is output: text on a text opener is a content delta, and a tool_use
+// opener carrying an input object is the call's arguments (no "{}" filler at
+// the stop).
+func TestStreamTranslator_ContentOnBlockOpenerIsOutput(t *testing.T) {
+	tr := NewStreamTranslator("chatcmpl-5", "m", 1)
+	out := feed(t, tr,
+		`{"type":"message_start","message":{"usage":{"input_tokens":4}}}`,
+		`{"type":"content_block_start","index":0,"content_block":{"type":"text","text":"Hel"}}`,
+		`{"type":"content_block_delta","index":0,"delta":{"type":"text_delta","text":"lo"}}`,
+		`{"type":"content_block_stop","index":0}`,
+		`{"type":"content_block_start","index":1,"content_block":{"type":"tool_use","id":"toolu_a","name":"first","input":{"a":1}}}`,
+		`{"type":"content_block_stop","index":1}`,
+		`{"type":"message_delta","delta":{"stop_reason":"tool_use"},"usage":{"output_tokens":9}}`,
+		`{"type":"message_stop"}`,
+	)
+	chunks, done := parseChunks(t, out)
+	if !done {
+		t.Fatalf("stream did not end with [DONE]:\n%s", out)
+	}
+	if got := joinContent(chunks); got != "Hello" {
+		t.Errorf("content = %q, want Hello (text on the opener dropped)", got)
+	}
+	args := toolArgsByIndex(chunks)
+	if args[0] != `{"a":1}` {
+		t.Errorf("arguments = %q, want the opener's input {\"a\":1}", args[0])
+	}
+}
+
 func TestStreamTranslator_ToolCallIndicesSkipTextBlocks(t *testing.T) {
 	// Anthropic block indices count every block (text at 0, tools at 1 and 2);
 	// OpenAI tool-call indices count only tool calls, so they must be 0 and 1.
