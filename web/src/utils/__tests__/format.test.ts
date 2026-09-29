@@ -1,3 +1,4 @@
+import { formatCount } from "@web-shared/format";
 import i18next from "i18next";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
@@ -118,6 +119,56 @@ describe("formatLocale", () => {
 		setLocales("ar", ["ar-EG"]);
 		expect(formatLocale()).toBe("ar-EG-u-nu-latn");
 		expect(formatNumber(1234)).toMatch(/^1\D?234$/);
+	});
+
+	it("keeps Latin digits for an Arabic browser entry that carries its own extension", () => {
+		setLocales("ar", ["ar-SA-u-ca-islamic"]);
+		expect(formatLocale()).toBe("ar-SA-u-nu-latn");
+		expect(formatNumber(1234)).toMatch(/^1\D?234$/);
+		expect(formatSpend(0.5)).toMatch(/0\D50/);
+	});
+
+	it("skips a malformed browser entry instead of throwing", () => {
+		setLocales("de", ["de-!!", "de-AT"]);
+		expect(formatLocale()).toBe("de-AT");
+		expect(formatNumber(1234)).toBe(
+			new Intl.NumberFormat("de-AT").format(1234),
+		);
+		setLocales("en", ["en_GB-x-", "@@"]);
+		expect(formatLocale()).toBe("en");
+		expect(formatNumber(1234)).toBe("1,234");
+	});
+
+	it("falls back to en when the app language itself is malformed", () => {
+		setLocales("!!", ["de-DE"]);
+		expect(formatLocale()).toBe("en");
+	});
+
+	it.each([
+		["no", ["nb-NO"], "nb-NO"],
+		["no", ["nn-NO"], "nn-NO"],
+		["nb", ["no-NO"], "no-NO"],
+	])(
+		"treats Norwegian app %s and browser %j as one language: %s",
+		(app, browser, want) => {
+			setLocales(app, browser);
+			expect(formatLocale()).toBe(want);
+		},
+	);
+
+	it("formats the shared magnitudes in the same locale as formatNumber", () => {
+		setLocales("de", ["de-DE"]);
+		expect(formatNumber(1234567)).toBe("1.234.567");
+		expect(formatDollars(1234.56)).toBe(
+			new Intl.NumberFormat("de-DE", {
+				style: "currency",
+				currency: "USD",
+			}).format(1234.56),
+		);
+		expect(formatKwh(1234.5)).toBe("1.234,5");
+		expect(formatCompact(1_500_000)).toBe("1,5M");
+		expect(formatTokens(2_000)).toBe("2K");
+		expect(formatCount(1249)).toBe("1.249");
 	});
 
 	it("formatNumber groups digits the way the app language and browser region do", () => {

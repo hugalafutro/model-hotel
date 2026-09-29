@@ -1,18 +1,63 @@
 // The number formatters both frontends render identically: compact magnitudes
-// and the units that ride on them. Pinned to en-US rather than the browser
-// locale, so a figure the two dashboards show side by side reads the same
-// wherever it is read from. Anything whose wording depends on the active
-// language (durations, relative times, count labels) stays in the app, because
-// it needs i18next and this module takes no package imports.
+// and the units that ride on them, plus the locale every figure and date is
+// formatted in. Anything whose wording depends on the active language
+// (durations, relative times, count labels) stays in the app, because it needs
+// i18next and this module takes no package imports: each app hands its
+// language over once through setFormatLanguage.
+
+let appLanguage: () => string = () => "en";
+
+/** Points the formatters at the app's current language. Read at call time. */
+export function setFormatLanguage(get: () => string): void {
+	appLanguage = get;
+}
+
+function parseLocale(tag: string | undefined): Intl.Locale | undefined {
+	try {
+		return tag ? new Intl.Locale(tag) : undefined;
+	} catch {
+		return undefined;
+	}
+}
+
+// Norwegian ships as "no" in the app while browsers report Bokmal or Nynorsk.
+const sameBase = (lang: string) =>
+	lang === "nb" || lang === "nn" ? "no" : lang;
+
+/**
+ * The locale every number and date is formatted in: the app language, with
+ * the region of the first browser language that shares its base. App "en" with
+ * browser "en-GB" formats as en-GB; app "en" with browser "de-DE" stays plain
+ * "en". Browser entries keep only language, script and region, so an extension
+ * or a malformed entry can never make Intl throw. Arabic keeps Latin digits
+ * (some Arabic regions default to Arabic-Indic ones), as the app's other
+ * figures are Latin.
+ */
+export function formatLocale(): string {
+	const app = parseLocale(appLanguage())?.language ?? "en";
+	const browser = navigator.languages?.length
+		? navigator.languages
+		: [navigator.language];
+	const tag =
+		browser
+			.map(parseLocale)
+			.find((l) => l && sameBase(l.language) === sameBase(app))?.baseName ??
+		app;
+	return app === "ar"
+		? new Intl.Locale(tag, { numberingSystem: "latn" }).toString()
+		: tag;
+}
 
 /** Abbreviates a number to K/M/B with at most one decimal, dropping a trailing .0. */
 export function formatCompact(n: number): string {
 	if (n === 0) return "0";
 	const abs = Math.abs(n);
-	const fmt = (v: number) => {
-		const s = v.toFixed(1);
-		return s.endsWith(".0") ? s.slice(0, -2) : s;
-	};
+	// No grouping: the suffix already carries the magnitude ("1000K", not "1,000K").
+	const fmt = (v: number) =>
+		v.toLocaleString(formatLocale(), {
+			maximumFractionDigits: 1,
+			useGrouping: false,
+		});
 	if (abs >= 1_000_000_000) return `${fmt(n / 1_000_000_000)}B`;
 	if (abs >= 1_000_000) return `${fmt(n / 1_000_000)}M`;
 	if (abs >= 1_000) return `${fmt(n / 1_000)}K`;
@@ -25,9 +70,12 @@ export function formatTokens(n: number | null | undefined): string {
 	return formatCompact(n);
 }
 
-/** A USD amount. Pinned to en-US so the currency symbol matches the API's units. */
+/** A USD amount (the gateway meters in dollars), written the locale's way. */
 export function formatDollars(v: number): string {
-	return v.toLocaleString("en-US", { style: "currency", currency: "USD" });
+	return v.toLocaleString(formatLocale(), {
+		style: "currency",
+		currency: "USD",
+	});
 }
 
 /**
@@ -36,7 +84,7 @@ export function formatDollars(v: number): string {
  */
 export function formatSpend(v: number): string {
 	if (v === 0 || Math.abs(v) >= 0.01) return formatDollars(v);
-	return v.toLocaleString("en-US", {
+	return v.toLocaleString(formatLocale(), {
 		style: "currency",
 		currency: "USD",
 		maximumSignificantDigits: 2,
@@ -45,7 +93,7 @@ export function formatSpend(v: number): string {
 
 /** A kWh magnitude, at most two decimals. The unit is appended by the caller. */
 export function formatKwh(v: number): string {
-	return v.toLocaleString("en-US", { maximumFractionDigits: 2 });
+	return v.toLocaleString(formatLocale(), { maximumFractionDigits: 2 });
 }
 
 /**
@@ -56,7 +104,7 @@ export function formatKwh(v: number): string {
  */
 export function formatCount(n: number | null | undefined): string {
 	if (n == null) return "-";
-	return Math.round(n).toLocaleString("en-US");
+	return Math.round(n).toLocaleString(formatLocale());
 }
 
 /** Confines a value to [lo, hi]. With an inverted range (lo > hi), hi wins. */

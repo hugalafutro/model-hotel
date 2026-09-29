@@ -1,34 +1,24 @@
+import { formatLocale, setFormatLanguage } from "@web-shared/format";
 import i18next from "i18next";
 
-// The locale-independent formatters live once in web-shared/ and are re-exported
-// here, so every existing "utils/format" import keeps working and the two
-// dashboards cannot drift on how a magnitude reads. Everything defined below
-// phrases itself through i18next and is the dashboard's own.
+// The magnitude formatters and the format locale live once in web-shared/ and
+// are re-exported here, so every existing "utils/format" import keeps working
+// and the two dashboards cannot drift on how a figure reads. Everything defined
+// below phrases itself through i18next and is the dashboard's own.
+
 export {
 	formatCompact,
 	formatDollars,
 	formatKwh,
+	formatLocale,
 	formatSpend,
 	formatTokens,
 } from "@web-shared/format";
-/**
- * The locale every number and date the dashboard shows is formatted in: the
- * app language, with the region of the first browser language that shares its
- * base. App "en" with browser "en-GB" formats as en-GB; app "en" with browser
- * "de-DE" stays plain "en". Read at call time, so a component re-rendered by a
- * language change formats in the new language, as its t() strings do. Arabic
- * keeps Latin digits (some Arabic regions default to Arabic-Indic ones), as
- * the app's other figures are Latin.
- */
-export function formatLocale(): string {
-	const app = (i18next.language || "en").split("-")[0].toLowerCase();
-	const browser = navigator.languages?.length
-		? navigator.languages
-		: [navigator.language];
-	const tag =
-		browser.find((l) => l?.split("-")[0].toLowerCase() === app) ?? app;
-	return app === "ar" ? `${tag}-u-nu-latn` : tag;
-}
+
+// Every number and date the dashboard shows, the shared formatters included,
+// follows the app language, so a language change re-renders them all with the
+// t() strings around them.
+setFormatLanguage(() => i18next.language);
 
 /** Encode a value as base64, handling Unicode characters safely. */
 export function encodeCursor(obj: unknown): string {
