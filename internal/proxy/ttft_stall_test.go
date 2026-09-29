@@ -1246,3 +1246,40 @@ func TestProbeFirstToken_MultipleDataLines(t *testing.T) {
 		t.Errorf("expected first data line in buffer, got: %q", got)
 	}
 }
+
+// A first token whose read completes as the TTFT deadline closes the body must
+// not be committed to: the body is already closed, so the stream would die
+// right after the replay. tokenAtClose models that interleaving: its Read is
+// in progress when the deadline fires and returns the token only once the
+// close has landed, so the deadline always wins the claim.
+func TestProbeFirstToken_TokenReadAsTheDeadlineClosesIsNotCommitted(t *testing.T) {
+	h := &Handler{}
+	body := &tokenAtClose{closed: make(chan struct{})}
+	buf, _, err := h.probeFirstToken(context.Background(), body, 20*time.Millisecond, time.Now())
+	if err == nil {
+		t.Fatalf("the probe committed to a body the deadline had closed (replay %q)", buf.String())
+	}
+	if !strings.Contains(err.Error(), "TTFT timeout") {
+		t.Errorf("error = %v, want the TTFT timeout", err)
+	}
+}
+
+type tokenAtClose struct {
+	closed chan struct{}
+	once   sync.Once
+	sent   bool
+}
+
+func (b *tokenAtClose) Read(p []byte) (int, error) {
+	<-b.closed
+	if b.sent {
+		return 0, errors.New("read on closed body")
+	}
+	b.sent = true
+	return copy(p, "data: {\"choices\":[{\"delta\":{\"content\":\"hi\"}}]}\n"), nil
+}
+
+func (b *tokenAtClose) Close() error {
+	b.once.Do(func() { close(b.closed) })
+	return nil
+}

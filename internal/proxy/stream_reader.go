@@ -210,12 +210,6 @@ func (r *streamReader) runWatchdog() {
 // are valid only until the following Next() call.
 func (r *streamReader) Next() (sseEvent, bool) {
 	if !r.scanner.Scan() {
-		if isLineCapErr(r.scanner.Err()) {
-			// The rest of that line is unbounded and the orchestrator drains
-			// the body before closing it, so it is closed here: a drain of an
-			// endless line would otherwise run to the attempt's deadline.
-			_ = r.body.Close()
-		}
 		return sseEvent{}, false
 	}
 	line := r.scanner.Bytes()

@@ -45,6 +45,9 @@ type hedgeResult struct {
 	// with the snapshot and a terminal all-busy response would fall back to
 	// the class-default Retry-After instead of the provider's own ask.
 	rateLimit rateLimitVerdict
+	// slot is the attempt's held in-flight admission, handed to the winner's
+	// stream so its finalizer's verdict is what settles it.
+	slot *attemptSlot
 	// busy marks a candidate skipped at its provider's in-flight window: no
 	// request was made, so an all-busy race is worth waiting out (see the
 	// orchestrator's exhaustion branch) instead of failing in milliseconds.
@@ -312,6 +315,7 @@ func (h *Handler) probeStreamingCandidate(ctx context.Context, st *requestState,
 		st.logData.noteBreaker(breakerNoop)
 		return res
 	}
+	res.slot = st.attemptSlot
 
 	// Same stamp beginAttempt makes at attempt start, before the request is
 	// built: launching an attempt against this provider counts as use, whether
@@ -414,9 +418,11 @@ func (h *Handler) probeStreamingCandidate(ctx context.Context, st *requestState,
 
 	// Same hold as dispatchStreaming: the probe closes the body itself when
 	// its context ends, from its own goroutine, and that close settles the
-	// slot clean from the 2xx unless the hold says otherwise. Raised until a
-	// first token proves the stream delivers, lowered after.
-	st.attemptSlot.holdForProbe(true)
+	// slot clean from the 2xx unless the hold says otherwise. Raised here and
+	// kept up through the winner's stream until its finalizer judges it; a
+	// runner-up's body is closed with it still raised, which is right, since
+	// a stream nobody read is no consumed success.
+	st.attemptSlot.holdVerdict(true)
 	probeBuf, trueTtftMs, probeErr := h.probeFirstToken(ctx, resp.Body, ttftTimeout, st.startTime)
 	if probeErr != nil {
 		_ = resp.Body.Close()
@@ -450,8 +456,6 @@ func (h *Handler) probeStreamingCandidate(ctx context.Context, st *requestState,
 		res.reqErr = re
 		return res
 	}
-	st.attemptSlot.holdForProbe(false)
-
 	// No breaker success here either: the winner's stream is judged by
 	// finalizeStream, and a runner-up whose stream is never read is no evidence
 	// of anything. See judgeStreamForBreaker.
@@ -564,6 +568,7 @@ func (h *Handler) serveHedgeWinner(w http.ResponseWriter, r *http.Request, st *r
 		attempt:            res.idx,
 		cancelOrigin:       "failover_timeout",
 		masker:             logData.masker,
+		slot:               res.slot,
 	}
 	// attempt is the 0-based failover_attempt this request is logged and stored
 	// with; it must match the value stream_finalize reports for the same request.

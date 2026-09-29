@@ -351,20 +351,22 @@ func (h *Handler) dispatchStreaming(w http.ResponseWriter, r *http.Request, st *
 		cancelOrigin:       streamCancelOrigin,
 		rawPassthrough:     st.nativeAttempt(),
 		masker:             logData.masker,
+		slot:               st.attemptSlot,
 	}
 
 	if ttftTimeout > 0 {
 		// The in-flight slot settles from the body's close, and the probe
 		// closes the body itself, from its own goroutine, when its context
-		// ends (the TTFT timeout, or the caller leaving). So the verdict has
-		// to be on the slot BEFORE the probe runs: unclean until a first token
-		// proves the stream delivers, lifted once one has. The hold also
-		// defers an EOF that arrives in the same read as that first token,
-		// so a one-read stream is not settled before the verdict is in. A
-		// probe that failed is not a consumed success whoever ended it, so
-		// the provider's learned window does not grow on it; the breaker
-		// charge below still spares a caller who left.
-		st.attemptSlot.holdForProbe(true)
+		// ends (the TTFT timeout, or the caller leaving). So the verdict hold
+		// has to be on the slot BEFORE the probe runs, and it stays raised
+		// through the stream until the finalizer judges it (see
+		// handleStreamingResponse). The hold also defers an EOF that arrives
+		// in the same read as the first token, so a one-read stream is not
+		// settled before the verdict is in. A probe that failed is not a
+		// consumed success whoever ended it, so the provider's learned window
+		// does not grow on it; the breaker charge below still spares a caller
+		// who left.
+		st.attemptSlot.holdVerdict(true)
 		// TTFT probe: read until first real data chunk.
 		probeBuf, trueTtftMs, probeErr := h.probeFirstToken(r.Context(), resp.Body, ttftTimeout, st.startTime)
 		if probeErr != nil {
@@ -393,7 +395,6 @@ func (h *Handler) dispatchStreaming(w http.ResponseWriter, r *http.Request, st *
 			debuglog.Warn("proxy: TTFT probe failed", "attempt", attempt+1, "provider", candidate.provider.Name, "client_gone", clientGone, "elapsed", elapsed, "kind", string(re.Kind), "charged", recordFailure, "error", re.Underlying)
 			return outcomeFailover
 		}
-		st.attemptSlot.holdForProbe(false)
 		// First token confirmed. No breaker success is recorded here: a first
 		// token is not a served stream, and recording one would zero
 		// consecutiveFails on every request, so the finalizer's own failure

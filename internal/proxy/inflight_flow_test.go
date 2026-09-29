@@ -494,3 +494,51 @@ func TestRunHedgedStreaming_AllBusyWaitsForASlot(t *testing.T) {
 		t.Errorf("body %q is not the served stream", w.Body.String())
 	}
 }
+
+// A streaming 200 settles its slot with the stream's own verdict, not the
+// status: only a stream the finalizer judged completed grows the learned
+// window. A stall (the watchdog closes the body) and an error frame ending in
+// a clean EOF are failures, and must leave the window where it was.
+func TestHandleStreamingResponse_OnlyACompletedStreamGrowsTheWindow(t *testing.T) {
+	const content = "data: {\"choices\":[{\"delta\":{\"content\":\"hi\"}}]}\n\n"
+	cases := []struct {
+		name      string
+		body      io.ReadCloser
+		wantLimit int
+	}{
+		{"completed", io.NopCloser(strings.NewReader(content + "data: [DONE]\n\n")), 2},
+		{"stalled", newBlockUntilClosedReader(content), 1},
+		{"error frame", io.NopCloser(strings.NewReader("data: {\"error\":{\"message\":\"boom\"}}\n\n")), 1},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			h := newUnitHandler()
+			defer stopUnitHandler(h)
+			limiter := newInflightLimiter()
+			pid := uuid.New()
+			if !limiter.tryAcquire(pid, 0) {
+				t.Fatal("setup: slot not acquired")
+			}
+			limiter.cut(pid, 0) // learned limit 1, grown by the next clean run
+			slot := &attemptSlot{fire: func(clean bool) { limiter.release(pid, clean, 1, time.Hour) }}
+			// The dispatch raises the hold for the probe; the stream keeps it.
+			slot.holdVerdict(true)
+			resp := &http.Response{
+				StatusCode: http.StatusOK,
+				Header:     make(http.Header),
+				Body:       &inflightRelease{ReadCloser: tc.body, slot: slot, clean: true, onEOF: true},
+			}
+			req := withAuthContext(httptest.NewRequest("GET", "/", http.NoBody))
+			h.handleStreamingResponse(httptest.NewRecorder(), req, streamingLog(), resp, time.Now(), streamOptions{cancelOrigin: "failover_timeout", streamStallTimeout: 50 * time.Millisecond, slot: slot})
+
+			for _, s := range limiter.snapshot() {
+				if s.Inflight != 0 {
+					t.Errorf("inflight = %d, want 0: the slot must settle", s.Inflight)
+				}
+				if s.Limit != tc.wantLimit {
+					t.Errorf("limit = %d, want %d", s.Limit, tc.wantLimit)
+				}
+			}
+		})
+	}
+}

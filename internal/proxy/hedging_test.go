@@ -744,10 +744,12 @@ func TestProbeStreamingCandidate(t *testing.T) {
 		if res.resp != nil {
 			_ = res.resp.Body.Close()
 		}
-		// The hold is lowered once the token is in: the winner's close settles
-		// clean and the capped window grows.
-		if got := inflightLimitFor(h, cand); got != 2 {
-			t.Errorf("window limit after a hedged win = %d, want 2", got)
+		// The hold stays raised past the token: only the winner's stream,
+		// once its finalizer judges it completed, may settle clean. A win
+		// closed without being streamed is no consumed success, so the capped
+		// window does not grow.
+		if got := inflightLimitFor(h, cand); got != 1 {
+			t.Errorf("window limit after an unstreamed hedged win = %d, want 1", got)
 		}
 	})
 
