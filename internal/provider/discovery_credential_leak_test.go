@@ -19,7 +19,8 @@ import (
 // Discovery decrypts the provider credential to talk to the upstream, and an
 // upstream that quotes it back in an auth failure used to reach app_logs
 // verbatim through these error paths. The error a discovery function returns
-// is logged by its caller, so the credential must not be in it.
+// carries the upstream status only, and the body it no longer carries goes to
+// the debug log, so the credential must be in neither.
 // Deliberately shapeless: no known prefix, no digit, so MaskKeyShapedTokens
 // cannot see it and only the exact-match layer can remove it. A self-hosted
 // gateway's key looks like this, and it is the case the exact layer exists
@@ -41,12 +42,10 @@ func TestDiscoverLMStudioNative_ErrorDoesNotCarryTheKey(t *testing.T) {
 	srv := httptest.NewServer(echoKeyHandler(http.StatusUnauthorized))
 	defer srv.Close()
 
+	logged := captureDebuglog(t)
 	svc := &DiscoveryService{httpClient: srv.Client()}
 	_, err := svc.discoverLMStudioNative(context.Background(), &Provider{ID: uuid.New(), BaseURL: srv.URL + "/v1"}, leakedKey)
-	if err == nil {
-		t.Fatal("expected an error from the 401")
-	}
-	assertScrubbed(t, err.Error())
+	assertBodyScrubbedIntoLog(t, err, logged)
 }
 
 // The OpenAI-compatible fallback listing does the same.
@@ -54,33 +53,47 @@ func TestDiscoverLMStudioOpenAI_ErrorDoesNotCarryTheKey(t *testing.T) {
 	srv := httptest.NewServer(echoKeyHandler(http.StatusUnauthorized))
 	defer srv.Close()
 
+	logged := captureDebuglog(t)
 	svc := &DiscoveryService{httpClient: srv.Client()}
 	_, err := svc.discoverLMStudioOpenAI(context.Background(), &Provider{ID: uuid.New(), BaseURL: srv.URL + "/v1"}, leakedKey)
-	if err == nil {
-		t.Fatal("expected an error from the 401")
-	}
-	assertScrubbed(t, err.Error())
+	assertBodyScrubbedIntoLog(t, err, logged)
 }
 
 func TestKoboldCPPLoadedModel_ErrorDoesNotCarryTheKey(t *testing.T) {
 	srv := httptest.NewServer(echoKeyHandler(http.StatusUnauthorized))
 	defer srv.Close()
 
+	logged := captureDebuglog(t)
 	svc := &DiscoveryService{httpClient: srv.Client()}
 	_, err := svc.koboldcppLoadedModel(context.Background(), srv.URL, leakedKey)
-	if err == nil {
-		t.Fatal("expected an error from the 401")
-	}
-	assertScrubbed(t, err.Error())
+	assertBodyScrubbedIntoLog(t, err, logged)
 }
 
-func assertScrubbed(t *testing.T, msg string) {
+// captureDebuglog routes the debug log into a buffer for the rest of the test.
+func captureDebuglog(t *testing.T) *strings.Builder {
 	t.Helper()
-	if strings.Contains(msg, leakedKey) {
-		t.Errorf("the provider key survived into the error: %q", msg)
+	var logged strings.Builder
+	debuglog.SetHandler(slog.NewTextHandler(&logged, &slog.HandlerOptions{Level: slog.LevelDebug}))
+	t.Cleanup(func() { debuglog.SetHandler(debuglog.StdoutHandler()) })
+	return &logged
+}
+
+// assertBodyScrubbedIntoLog checks the split an upstream refusal takes: the
+// returned error carries neither the key nor the body that quoted it, and the
+// debug log carries the body with the key redacted out of it.
+func assertBodyScrubbedIntoLog(t *testing.T, err error, logged *strings.Builder) {
+	t.Helper()
+	if err == nil {
+		t.Fatal("expected an error from the upstream refusal")
 	}
-	if !strings.Contains(msg, "[redacted]") {
-		t.Errorf("no redaction marker, so the body was not scrubbed at all: %q", msg)
+	if strings.Contains(err.Error(), leakedKey) || strings.Contains(err.Error(), "Incorrect API key") {
+		t.Errorf("the upstream body survived into the error: %q", err.Error())
+	}
+	if strings.Contains(logged.String(), leakedKey) {
+		t.Errorf("the provider key reached the debug log:\n%s", logged.String())
+	}
+	if !strings.Contains(logged.String(), "[redacted]") {
+		t.Errorf("no redaction marker in the debug log, so the body was not scrubbed at all:\n%s", logged.String())
 	}
 }
 
@@ -96,26 +109,28 @@ func assertScrubbed(t *testing.T, msg string) {
 func TestDiscoverOpenAI_Non200DoesNotCarryTheKey(t *testing.T) {
 	srv := httptest.NewServer(echoKeyHandler(http.StatusUnauthorized))
 	defer srv.Close()
+	logged := captureDebuglog(t)
 	svc := &DiscoveryService{httpClient: srv.Client()}
 
 	_, err := svc.discoverOpenAI(context.Background(), &Provider{ID: uuid.New(), BaseURL: srv.URL}, leakedKey)
 
-	assertNoKey(t, err)
+	assertBodyScrubbedIntoLog(t, err, logged)
 }
 
-// A retryable status (429/5xx) is read into lastErr on every attempt and the
-// final error wraps it, so the key rode out through a different string than the
-// non-200 branch and needs its own assertion.
+// A retryable status (429/5xx) is read on every attempt and logged with each
+// retry, and the final error wraps the last attempt's, so it takes a different
+// path than the non-200 branch and needs its own assertion.
 func TestFetchURL_RetryableStatusDoesNotCarryTheKey(t *testing.T) {
 	srv := httptest.NewServer(echoKeyHandler(http.StatusServiceUnavailable))
 	defer srv.Close()
+	logged := captureDebuglog(t)
 	svc := &DiscoveryService{httpClient: srv.Client()} // zero retryBaseDelay: instant backoffs
 	headers := http.Header{}
 	headers.Set("Authorization", "Bearer "+leakedKey)
 
 	_, err := svc.fetchURL(context.Background(), http.MethodGet, srv.URL+"/models", headers)
 
-	assertNoKey(t, err)
+	assertBodyScrubbedIntoLog(t, err, logged)
 }
 
 // A transport error quotes the request URL, and one provider family (Google)
@@ -167,20 +182,24 @@ func TestFetchURL_RetryableBodyKeyAcrossTheCutIsRedactedWhole(t *testing.T) {
 		_, _ = w.Write([]byte(`{"error":{"message":"` + pad + ` auth failed for token ` + leakedKey + `"}}`))
 	}))
 	defer srv.Close()
+	logged := captureDebuglog(t)
 	svc := &DiscoveryService{httpClient: srv.Client()}
 	headers := http.Header{}
 	headers.Set("Authorization", "Bearer "+leakedKey)
 
 	_, err := svc.fetchURL(context.Background(), http.MethodGet, srv.URL+"/models", headers)
 
-	// Not assertNoKey: the "[redacted]" marker can itself sit across the cut,
-	// so its presence is not the property. The property is that no run of the
-	// key survives, head included.
+	// Not assertBodyScrubbedIntoLog: the "[redacted]" marker can itself sit
+	// across the cut, so its presence is not the property. The property is that
+	// no run of the key survives in the logged body, head included.
 	if err == nil {
 		t.Fatal("expected an error")
 	}
-	if strings.Contains(err.Error(), leakedKey[:5]) {
-		t.Errorf("a prefix of the key survived the cut: %s", err.Error())
+	if !strings.Contains(logged.String(), "auth failed") {
+		t.Fatalf("setup: the retryable body never reached the debug log:\n%s", logged.String())
+	}
+	if strings.Contains(logged.String(), leakedKey[:5]) {
+		t.Errorf("a prefix of the key survived the cut:\n%s", logged.String())
 	}
 }
 
@@ -233,13 +252,17 @@ func TestFetchURL_NonCredentialQueryValueIsNotRedacted(t *testing.T) {
 		_, _ = w.Write([]byte(`{"error":"api-version 2023-03-15-preview is not supported"}`))
 	}))
 	defer srv.Close()
+	logged := captureDebuglog(t)
 	svc := &DiscoveryService{httpClient: srv.Client()}
 	headers := http.Header{}
 	headers.Set("Authorization", "Bearer "+leakedKey)
 
 	_, err := svc.fetchURL(context.Background(), http.MethodGet, srv.URL+"/deployments?api-version=2023-03-15-preview", headers)
-	if err == nil || !strings.Contains(err.Error(), "2023-03-15-preview") {
-		t.Errorf("a non-credential query value must survive in the diagnostic, got %v", err)
+	if err == nil {
+		t.Fatal("expected an error from the 400")
+	}
+	if !strings.Contains(logged.String(), "2023-03-15-preview is not supported") {
+		t.Errorf("a non-credential query value must survive in the logged diagnostic:\n%s", logged.String())
 	}
 }
 
@@ -269,13 +292,14 @@ func TestDoQuotaRequestWithRetry_DoesNotCarryTheKey(t *testing.T) {
 	t.Run("retryable body", func(t *testing.T) {
 		srv := httptest.NewServer(echoKeyHandler(http.StatusServiceUnavailable))
 		defer srv.Close()
+		logged := captureDebuglog(t)
 		svc := &DiscoveryService{httpClient: srv.Client()}
 		req, _ := http.NewRequestWithContext(context.Background(), http.MethodGet, srv.URL+"/quota", http.NoBody)
 		req.Header.Set("Authorization", "Bearer "+leakedKey)
 
 		_, err := svc.doQuotaRequestWithRetry(context.Background(), req, uuid.NewString(), "prov", "openrouter")
 
-		assertNoKey(t, err)
+		assertBodyScrubbedIntoLog(t, err, logged)
 	})
 	t.Run("transport error quoting a query key", func(t *testing.T) {
 		svc := &DiscoveryService{httpClient: &http.Client{Timeout: 2 * time.Second}}
@@ -412,23 +436,31 @@ func TestQuotaNon200Logs_DoNotCarryTheKey(t *testing.T) {
 	}
 }
 
-// A failing discovery scan is stored as the provider's last error and rendered
-// on the dashboard, so the upstream's own response body must not travel in it.
+// A failing discovery scan is stored as the provider's last error, published in
+// the discovery.provider_failed event and returned in the API's 500 body, so
+// the upstream's own response body must not travel in it, whatever the family.
 // The body stays in the debug log, where an operator can read it in context.
 func TestDiscoveryErrors_DropUpstreamBody(t *testing.T) {
 	const upstreamBody = "upstream-html-error-page-marker"
 
 	tests := []struct {
-		name           string
-		wantLoggedBody bool
-		invoke         func(*DiscoveryService, *Provider) error
+		name   string
+		invoke func(*DiscoveryService, *Provider) error
 	}{
-		{"ollama", true, func(d *DiscoveryService, p *Provider) error {
+		{"ollama", func(d *DiscoveryService, p *Provider) error {
 			_, err := d.discoverOllama(context.Background(), p, leakedKey)
 			return err
 		}},
-		{"koboldcpp-version", false, func(d *DiscoveryService, p *Provider) error {
+		{"koboldcpp-version", func(d *DiscoveryService, p *Provider) error {
 			_, err := d.koboldcppVersion(context.Background(), p.BaseURL, leakedKey)
+			return err
+		}},
+		{"openai", func(d *DiscoveryService, p *Provider) error {
+			_, err := d.discoverOpenAI(context.Background(), p, leakedKey)
+			return err
+		}},
+		{"deepseek", func(d *DiscoveryService, p *Provider) error {
+			_, err := d.discoverDeepSeek(context.Background(), p, leakedKey)
 			return err
 		}},
 	}
@@ -458,7 +490,7 @@ func TestDiscoveryErrors_DropUpstreamBody(t *testing.T) {
 			if !strings.Contains(err.Error(), "400") {
 				t.Errorf("error = %q, want it to carry the status", err)
 			}
-			if tc.wantLoggedBody && !strings.Contains(logged.String(), upstreamBody) {
+			if !strings.Contains(logged.String(), upstreamBody) {
 				t.Errorf("upstream body missing from the debug log: %s", logged.String())
 			}
 		})

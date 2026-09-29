@@ -233,9 +233,12 @@ func (d *DiscoveryService) doDiscoveryRequest(ctx context.Context, newReq func()
 		if isRetryableStatus(resp.StatusCode) {
 			body, _ := io.ReadAll(io.LimitReader(resp.Body, httpx.MaxErrorBody))
 			_ = resp.Body.Close()
-			lastErr = fmt.Errorf("retryable HTTP status %d: %s", resp.StatusCode, maskRequestSecrets(req, string(body), 200))
+			// The body stays in the log line: lastErr becomes the returned
+			// error once the retries run out, and that error reaches the
+			// operator's view, so it carries the status alone.
+			lastErr = fmt.Errorf("retryable HTTP status %d", resp.StatusCode)
 			debuglog.Info("discovery: retryable fetch status, will retry",
-				"host", req.URL.Host, "status", resp.StatusCode, "attempt", attempt+1)
+				"host", req.URL.Host, "status", resp.StatusCode, "attempt", attempt+1, "body", maskRequestSecrets(req, string(body), 200))
 			continue
 		}
 		return resp, nil
@@ -264,19 +267,6 @@ func (e *httpError) Error() string {
 		return e.Message
 	}
 	return fmt.Sprintf("unexpected status %d", e.StatusCode)
-}
-
-// statusOnly drops the quoted upstream body from a fetch error, leaving the
-// status. The scans whose failure is stored as the provider's last error and
-// rendered on the dashboard return it, so an upstream that answers a discovery
-// listing with a page of its own text cannot push that text into the operator's
-// view; the full masked body stays in the debuglog line at the call site.
-// Anything that is not an *httpError passes through unchanged.
-func statusOnly(err error) error {
-	if httpErr := httpErrorFrom(err); httpErr != nil {
-		return &httpError{StatusCode: httpErr.StatusCode}
-	}
-	return err
 }
 
 // httpErrorFrom reaches the *httpError in a chain, or nil when there is none.
@@ -368,10 +358,14 @@ func (d *DiscoveryService) fetchURL(ctx context.Context, method, rawURL string, 
 	}
 
 	if resp.StatusCode != http.StatusOK {
-		return nil, &httpError{
-			StatusCode: resp.StatusCode,
-			Message:    fmt.Sprintf("unexpected status %d: %s", resp.StatusCode, maskRequestSecrets(last, string(bodyBytes), 2000)),
-		}
+		// The body goes to the debuglog only. The returned error reaches the
+		// stored provider error, the discovery.provider_failed event and the
+		// API's 500 body, so it carries the status alone: an upstream that
+		// answers a listing with a page of its own text cannot push that text
+		// into the operator's view.
+		debuglog.Warn("discovery: fetch returned non-200 status",
+			"host", last.URL.Host, "status", resp.StatusCode, "body", maskRequestSecrets(last, string(bodyBytes), 2000))
+		return nil, &httpError{StatusCode: resp.StatusCode}
 	}
 
 	return bodyBytes, nil
@@ -544,7 +538,9 @@ func TypeOf(p *Provider) string {
 	return LegacyTypeFromURL(p.BaseURL)
 }
 
-// DiscoverModels discovers available models from a provider.
+// DiscoverModels discovers available models from a provider. A non-nil model
+// list with ErrCatalogFallback is a usable listing that must not drive miss
+// recording; any other error means no listing.
 func (d *DiscoveryService) DiscoverModels(ctx context.Context, provider *Provider, masterKey string) ([]*model.Model, error) {
 	providerType := TypeOf(provider)
 	debuglog.Info("discovery: starting discovery", "provider", provider.Name, "provider_id", provider.ID, "type", providerType)
@@ -614,7 +610,7 @@ func (d *DiscoveryService) DiscoverModels(ctx context.Context, provider *Provide
 			return d.discoverOpenAI(ctx, provider, apiKey)
 		}
 	}()
-	if err != nil {
+	if err != nil && !errors.Is(err, ErrCatalogFallback) {
 		debuglog.Error("discovery: discovery failed", "provider", provider.Name, "provider_id", provider.ID, "type", providerType, "error", err)
 		return nil, err
 	}
@@ -627,8 +623,8 @@ func (d *DiscoveryService) DiscoverModels(ctx context.Context, provider *Provide
 			m.StampPriceSources(model.PriceSourceProvider)
 		}
 	}
-	debuglog.Info("discovery: completed", "provider", provider.Name, "provider_id", provider.ID, "models", len(models))
-	return models, nil
+	debuglog.Info("discovery: completed", "provider", provider.Name, "provider_id", provider.ID, "models", len(models), "catalog_fallback", err != nil)
+	return models, err
 }
 
 // Circuit breaker thresholds.

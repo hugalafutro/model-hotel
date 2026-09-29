@@ -2,15 +2,12 @@ package provider
 
 import (
 	"context"
-	"log/slog"
 	"net/http"
 	"net/http/httptest"
 	"strings"
 	"testing"
 
 	"github.com/google/uuid"
-
-	"github.com/hugalafutro/model-hotel/internal/debuglog"
 )
 
 // Go's *url.Error renders the whole request URL in Error(), redacting only
@@ -40,21 +37,11 @@ func TestDiscoverGoogle_TransportErrorDoesNotCarryTheKey(t *testing.T) {
 // The non-200 path logs the upstream body; the echoed key must be redacted in
 // that log line.
 func TestDiscoverGoogle_ErrorBodyDoesNotCarryTheKey(t *testing.T) {
-	var logged strings.Builder
-	prev := slog.Default()
-	debuglog.SetHandler(slog.NewTextHandler(&logged, &slog.HandlerOptions{Level: slog.LevelDebug}))
-	defer slog.SetDefault(prev)
-
+	logged := captureDebuglog(t)
 	srv := httptest.NewServer(echoKeyHandler(http.StatusUnauthorized))
 	defer srv.Close()
 
 	svc := &DiscoveryService{httpClient: srv.Client()}
 	_, err := svc.discoverGoogleAIStudio(context.Background(), &Provider{ID: uuid.New(), Name: "google-leak", BaseURL: srv.URL}, leakedKey)
-	if err == nil {
-		t.Fatal("expected an error from the 401")
-	}
-	if strings.Contains(err.Error(), leakedKey) {
-		t.Errorf("the API key survived into the error: %q", err.Error())
-	}
-	assertScrubbed(t, logged.String())
+	assertBodyScrubbedIntoLog(t, err, logged)
 }

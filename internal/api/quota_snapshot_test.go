@@ -115,7 +115,7 @@ func TestFetchQuotaSnapshot_OpenCodeGoNoSubscriptionIs204(t *testing.T) {
 // the whole path the 204 and the undatable window take: through Assess and out
 // of buildQuotaAdvice. Both are unusable readings, and the failure mode they
 // share is the recovered set, not the advice map. A provider that lands in
-// recovered has ReleaseQuotaPins drop its response-driven pin and clear the
+// recovered has ReleaseQuotaPins drop its account-level pins and clear the
 // 429-open escalation of every circuit it owns, on every poll pass, which
 // re-probes a provider the snapshot gives no reason to believe is healthy.
 func TestBuildQuotaAdvice_OpenCodeGoUnusableSnapshotsNeitherPinNorRelease(t *testing.T) {

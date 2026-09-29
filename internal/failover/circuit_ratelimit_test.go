@@ -173,21 +173,29 @@ func TestRecordExhausted_PastAdvisorResetLeavesHintPin(t *testing.T) {
 	}
 }
 
-func TestRecordExhausted_ReleaseQuotaPinsLiftsHintPin(t *testing.T) {
+// A healthy quota reading contradicts a pin that spoke for the account, not
+// one model's own refusal: the advisor-pinned circuit is released and the
+// response-pinned one keeps its timer, so a model outside the plan is not
+// re-probed on every recovery.
+func TestReleaseQuotaPins_KeepsResponsePinReleasesAdvisorPin(t *testing.T) {
 	cb := NewCircuitBreaker(&stubSettings{threshold: 1, cooldown: time.Minute, pinMax: 24 * time.Hour})
 	id := uuid.New()
-	cb.RecordExhausted(id, "p", "m", 429, 30*time.Minute)
-	if overrideForModel(t, cb, id, "m") == 0 {
-		t.Fatal("setup: no hint pin stamped")
+	cb.RecordExhausted(id, "p", "not-in-plan", 403, 30*time.Minute)
+	cb.SetQuotaAdvisor(stubAdvisor{at: time.Now().Add(6 * time.Hour), ok: true})
+	cb.RecordExhausted(id, "p", "spent", 429, 0)
+	if exhaustedCircuit(t, cb, id, "not-in-plan").pinSource != pinSourceResponse ||
+		exhaustedCircuit(t, cb, id, "spent").pinSource != pinSourceAdvisor {
+		t.Fatal("setup: want one response pin and one advisor pin")
 	}
 
-	released := cb.ReleaseQuotaPins(map[uuid.UUID]struct{}{id: {}})
-
-	if released != 1 {
-		t.Errorf("released = %d, want 1", released)
+	if released := cb.ReleaseQuotaPins(map[uuid.UUID]struct{}{id: {}}); released != 1 {
+		t.Errorf("released = %d, want 1: only the advisor pin", released)
 	}
-	if got := overrideForModel(t, cb, id, "m"); got != 0 {
-		t.Errorf("override after release = %v, want 0: a hint pin lifts exactly as an advisor pin does", got)
+	if got := overrideForModel(t, cb, id, "spent"); got != 0 {
+		t.Errorf("advisor pin override after release = %v, want 0", got)
+	}
+	if got := overrideForModel(t, cb, id, "not-in-plan"); got < 30*time.Minute {
+		t.Errorf("response pin override after release = %v, want the 30m hint pin intact", got)
 	}
 }
 

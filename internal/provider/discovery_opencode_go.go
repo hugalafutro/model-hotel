@@ -21,19 +21,17 @@ func (d *DiscoveryService) discoverOpenCodeGo(ctx context.Context, provider *Pro
 
 	bodyBytes, err := d.fetchURL(ctx, "GET", baseURL+"/models", headers)
 	if err != nil {
-		// If the /models endpoint is gone (404), fall back to the catalog. The
+		// If the /models endpoint is gone (404), fall back to the catalog,
+		// flagged as a fallback so the sweep records no misses from it. The
 		// catalog is an override channel that is normally empty, so this usually
-		// yields no models — which keeps RecordMissingModels a no-op rather than
-		// disabling anything, at the cost of a discovery.suspect_scan warning per
-		// scan while the 404 persists (an empty result trips the blackout guard in
-		// ConfirmMissingModels). Every other failure returns an error so a
-		// transient outage aborts the scan instead of disabling live-only models.
+		// yields no models. Every other failure returns an error so a transient
+		// outage aborts the scan instead of disabling live-only models.
 		if errorStatusCode(err) == http.StatusNotFound {
 			debuglog.Warn("discovery: opencode-go /models returned 404, falling back to catalog", "provider", provider.Name, "provider_id", provider.ID)
-			return catalog, nil
+			return catalog, ErrCatalogFallback
 		}
 		debuglog.Error("discovery: opencode-go http request failed", "provider", provider.Name, "provider_id", provider.ID, "error", err)
-		return nil, fmt.Errorf("opencode-go: failed to fetch models for provider %s: %w", provider.Name, statusOnly(err))
+		return nil, fmt.Errorf("opencode-go: failed to fetch models for provider %s: %w", provider.Name, err)
 	}
 
 	var openAIResp OpenAIModelsResponse

@@ -29,24 +29,30 @@ func TestBlockedIP(t *testing.T) {
 		ip   string
 		want bool
 	}{
-		{"169.254.169.254", true},  // AWS/GCP cloud metadata (link-local)
-		{"169.254.0.1", true},      // link-local unicast
-		{"0.0.0.0", true},          // unspecified
-		{"0.0.0.1", true},          // 0.0.0.0/8: another spelling of "this host"
-		{"0.1.2.3", true},          // 0.0.0.0/8
-		{"0.255.255.255", true},    // 0.0.0.0/8, last address
-		{"::ffff:0.1.2.3", true},   // 0.0.0.0/8 in IPv4-mapped form
-		{"::", true},               // unspecified v6
-		{"fe80::1", true},          // link-local v6
-		{"1.0.0.1", false},         // 1.0.0.0/8 is public, the range next door
-		{"127.0.0.1", false},       // loopback allowed (internal services)
-		{"10.0.0.5", false},        // private allowed (docker network)
-		{"::ffff:10.0.0.5", false}, // the same private address, IPv4-mapped
-		{"192.168.1.10", false},    // private allowed
-		{"172.17.0.2", false},      // docker bridge allowed (apprise-api)
-		{"fc00::1", false},         // ULA allowed, the v6 equivalent of RFC1918
-		{"fd12:3456::1", false},    // ULA allowed
-		{"8.8.8.8", false},         // public
+		{"169.254.169.254", true},            // AWS/GCP cloud metadata (link-local)
+		{"169.254.0.1", true},                // link-local unicast
+		{"0.0.0.0", true},                    // unspecified
+		{"0.0.0.1", true},                    // 0.0.0.0/8: another spelling of "this host"
+		{"0.1.2.3", true},                    // 0.0.0.0/8
+		{"0.255.255.255", true},              // 0.0.0.0/8, last address
+		{"::ffff:0.1.2.3", true},             // 0.0.0.0/8 in IPv4-mapped form
+		{"::", true},                         // unspecified v6
+		{"fe80::1", true},                    // link-local v6
+		{"1.0.0.1", false},                   // 1.0.0.0/8 is public, the range next door
+		{"127.0.0.1", false},                 // loopback allowed (internal services)
+		{"10.0.0.5", false},                  // private allowed (docker network)
+		{"::ffff:10.0.0.5", false},           // the same private address, IPv4-mapped
+		{"192.168.1.10", false},              // private allowed
+		{"172.17.0.2", false},                // docker bridge allowed (apprise-api)
+		{"fc00::1", false},                   // ULA allowed, the v6 equivalent of RFC1918
+		{"fd12:3456::1", false},              // ULA allowed
+		{"8.8.8.8", false},                   // public
+		{"64:ff9b::169.254.169.254", true},   // NAT64 well-known prefix, embedded metadata
+		{"64:ff9b::a9fe:1", true},            // the same prefix, hex spelling of 169.254.0.1
+		{"64:ff9b::0.1.2.3", true},           // NAT64 embedding 0.0.0.0/8
+		{"64:ff9b:1::169.254.169.254", true}, // RFC 8215 local-use prefix, embedded metadata
+		{"64:ff9b::8.8.8.8", false},          // NAT64 to a public address
+		{"64:ff9b::10.0.0.5", false},         // NAT64 to a private address, allowed like the v4 form
 	}
 	for _, tc := range cases {
 		ip := net.ParseIP(tc.ip)
@@ -146,17 +152,18 @@ func TestValidateURL(t *testing.T) {
 	}{
 		{"", false},
 		{"https://auth.example.com", false},
-		{"http://authelia:9091", false},   // internal IdP hostname
-		{"http://10.0.0.5:8000", false},   // internal literal, allowed
-		{"http://apprise:8000", false},    // internal apprise
-		{"http://169.254.169.254", true},  // cloud metadata literal
-		{"http://169.254.0.1", true},      // link-local literal
-		{"http://0.0.0.0", true},          // unspecified literal
-		{"http://[fe80::1]", true},        // link-local IPv6 literal
-		{"http://[fe80::1%25eth0]", true}, // same, with its interface zone
-		{"ftp://example.com", true},       // wrong scheme
-		{"https://", true},                // no host
-		{"://bad", true},                  // unparseable
+		{"http://authelia:9091", false},       // internal IdP hostname
+		{"http://10.0.0.5:8000", false},       // internal literal, allowed
+		{"http://apprise:8000", false},        // internal apprise
+		{"http://169.254.169.254", true},      // cloud metadata literal
+		{"http://169.254.0.1", true},          // link-local literal
+		{"http://0.0.0.0", true},              // unspecified literal
+		{"http://[fe80::1]", true},            // link-local IPv6 literal
+		{"http://[fe80::1%25eth0]", true},     // same, with its interface zone
+		{"http://[64:ff9b::a9fe:a9fe]", true}, // metadata behind the NAT64 prefix
+		{"ftp://example.com", true},           // wrong scheme
+		{"https://", true},                    // no host
+		{"://bad", true},                      // unparseable
 	}
 	for _, tc := range cases {
 		err := ValidateURL(tc.url)

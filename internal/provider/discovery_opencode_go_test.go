@@ -42,13 +42,13 @@ func TestDiscoverOpenCodeGo_404FallsBackToCatalog(t *testing.T) {
 	}
 
 	models, err := service.discoverOpenCodeGo(context.Background(), provider, "test-api-key")
-	if err != nil {
-		t.Fatalf("discoverOpenCodeGo failed: %v", err)
+	if !errors.Is(err, ErrCatalogFallback) {
+		t.Fatalf("err = %v, want ErrCatalogFallback so the sweep records no misses", err)
 	}
 
-	// A 404 listing falls back to the catalog without erroring. The catalog is
-	// an override channel that is normally empty, so this is exactly its
-	// current (possibly zero) row count — never an aborted scan.
+	// A 404 listing falls back to the catalog, flagged as a fallback. The
+	// catalog is an override channel that is normally empty, so this is
+	// exactly its current (possibly zero) row count, never an aborted scan.
 	if len(models) != len(GetOpenCodeGoCatalog()) {
 		t.Errorf("Expected the catalog rows from fallback after 404, got %d models", len(models))
 	}
