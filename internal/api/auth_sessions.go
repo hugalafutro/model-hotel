@@ -3,7 +3,6 @@ package api
 import (
 	"errors"
 	"net/http"
-	"slices"
 
 	"github.com/hugalafutro/model-hotel/internal/authcookie"
 	"github.com/hugalafutro/model-hotel/internal/debuglog"
@@ -68,12 +67,6 @@ func (h *Handler) sessionCaller(w http.ResponseWriter, r *http.Request) (identit
 // device metadata, timestamps, and which row is the calling session. Identity
 // scoping happens in the manager off the middleware-resolved identity, so a
 // caller can only ever see their own sessions.
-//
-// On a read-only demo every visitor signs in as the same admin identity, so
-// "their own sessions" would be every visitor's IP and user agent. There the
-// list holds only the session the request rides on. readOnlyGuard passes every
-// GET, so the narrowing lives here, as the demo refusals of the backup download
-// and the config export do.
 func (h *Handler) ListAuthSessions(w http.ResponseWriter, r *http.Request) {
 	identity, candidates, ok := h.sessionCaller(w, r)
 	if !ok {
@@ -84,9 +77,6 @@ func (h *Handler) ListAuthSessions(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		respondError(w, "failed to list sessions", err, http.StatusInternalServerError)
 		return
-	}
-	if h.cfg != nil && h.cfg.DemoReadOnly {
-		sessions = slices.DeleteFunc(sessions, func(s webauthn.AuthSessionInfo) bool { return !s.Current })
 	}
 	if sessions == nil {
 		sessions = []webauthn.AuthSessionInfo{}
