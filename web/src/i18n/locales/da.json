@@ -877,7 +877,6 @@
 				"onlyOneValid": "Kun én gyldig udbyder er tilbage efter oprydningen (failover kræver mindst to)"
 			},
 			"error": "Fejl",
-			"failover": "Failover-grupper",
 			"field": {
 				"context_length": "Kontekstlængde",
 				"input_price": "Inputpris",
@@ -939,7 +938,6 @@
 			"dismissedSummary_other": "{{count}} modeller afvist",
 			"empty": "Ingen manglende eller ustabile modeller. Alt stemmer overens med udbydernes lister.",
 			"error": "Fejl",
-			"failover": "Failover-grupper",
 			"flapWindowTooltip_one": "{{count}} udsving i de seneste 30 dage",
 			"flapWindowTooltip_other": "{{count}} udsving i de seneste 30 dage",
 			"flapped_one": "{{count}} udsving",
@@ -992,7 +990,9 @@
 			"unpinTooltip": "Giver denne model tilbage til automatisk styring. Hvis den fortsat mangler på udbyderens liste, bliver den deaktiveret igen efter to scanninger.",
 			"unpinned": "{{model}} frigjort",
 			"updated": "Metadata opdateret",
-			"unpinManagedTooltip": "Fastgørelser styres af flådens primære instans og erstattes ved næste konfigurationssynkronisering. Frigør denne model på den primære instans."
+			"unpinManagedTooltip": "Fastgørelser styres af flådens primære instans og erstattes ved næste konfigurationssynkronisering. Frigør denne model på den primære instans.",
+			"failoverSync": "Failover-synkronisering",
+			"groupsChanged": "Grupper ændret"
 		},
 		"toast_quota_detected_minimax": "Opdaget kvote for MiniMax",
 		"toast_quota_detected_opencode_go": "Opdaget kvote for OpenCode Go",

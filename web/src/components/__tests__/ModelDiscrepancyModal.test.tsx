@@ -577,6 +577,43 @@ describe("ModelDiscrepancyModal", () => {
 		});
 	});
 
+	describe("failover sync entry", () => {
+		it("titles a provider-less entry differently from its group bucket", () => {
+			// A failover sync entry has no provider, so the card falls back to a
+			// title of its own. That title and the bucket label once rendered the
+			// same words ("Failover groups" over "Failover groups"), which read as
+			// a heading with a count and said nothing about what happened.
+			render(
+				<ModelDiscrepancyModal
+					{...baseProps}
+					providers={[]}
+					informational={[
+						{
+							provider_id: "",
+							provider_name: "",
+							source: "background",
+							detected_at: "2026-07-03T00:00:00Z",
+							diff: {
+								failover_updated_groups: [
+									{ display_model: "minimax-01", removed_model_ids: ["m1"] },
+								],
+							},
+						},
+					]}
+				/>,
+			);
+			const title = screen.getByTestId(
+				"discrepancy-informational-source",
+			).textContent;
+			const bucket = screen.getByTestId(
+				"discrepancy-informational-failover",
+			).textContent;
+			expect(title).toBeTruthy();
+			expect(bucket).toContain("minimax-01");
+			expect(bucket).not.toContain(title);
+		});
+	});
+
 	describe("accessibility", () => {
 		// Resolve a toggle's aria-controls the way assistive tech does, and prove
 		// it lands on the region that actually holds the content.

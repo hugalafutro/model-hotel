@@ -901,7 +901,6 @@
 				"onlyOneValid": "Rămâne un singur furnizor valid după curățare (comutarea la eroare are nevoie de cel puțin doi)"
 			},
 			"error": "Eroare",
-			"failover": "Grupuri de failover",
 			"field": {
 				"context_length": "Lungimea contextului",
 				"input_price": "Preț de intrare",
@@ -971,7 +970,6 @@
 			"dismissedSummary_other": "{{count}} de modele respinse",
 			"empty": "Niciun model lipsă sau instabil. Totul corespunde listelor furnizorilor.",
 			"error": "Eroare",
-			"failover": "Grupuri de failover",
 			"flapWindowTooltip_few": "{{count}} fluctuații în ultimele 30 de zile",
 			"flapWindowTooltip_one": "{{count}} fluctuație în ultimele 30 de zile",
 			"flapWindowTooltip_other": "{{count}} de fluctuații în ultimele 30 de zile",
@@ -1032,7 +1030,9 @@
 			"unpinTooltip": "Returnează acest model gestionării automate. Dacă rămâne absent din lista furnizorului, va fi dezactivat din nou după două scanări.",
 			"unpinned": "Fixarea pentru {{model}} a fost anulată",
 			"updated": "Metadate actualizate",
-			"unpinManagedTooltip": "Fixările sunt gestionate de instanța primară a flotei și sunt înlocuite la următoarea sincronizare a configurației. Anulați fixarea acestui model pe instanța primară."
+			"unpinManagedTooltip": "Fixările sunt gestionate de instanța primară a flotei și sunt înlocuite la următoarea sincronizare a configurației. Anulați fixarea acestui model pe instanța primară.",
+			"failoverSync": "Sincronizare failover",
+			"groupsChanged": "Grupuri modificate"
 		},
 		"toast_quota_detected_minimax": "Cotă MiniMax detectată",
 		"toast_quota_detected_opencode_go": "Cotă OpenCode Go detectată",

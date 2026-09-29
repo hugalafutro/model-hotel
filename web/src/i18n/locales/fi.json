@@ -877,7 +877,6 @@
 				"onlyOneValid": "Karsinnan jälkeen jää vain yksi kelvollinen palveluntarjoaja (vikasietoisuus vaatii vähintään kaksi)"
 			},
 			"error": "Virhe",
-			"failover": "Vikasietoryhmät",
 			"field": {
 				"context_length": "Kontekstin pituus",
 				"input_price": "Syötteen hinta",
@@ -939,7 +938,6 @@
 			"dismissedSummary_other": "{{count}} mallia hylätty",
 			"empty": "Ei puuttuvia eikä epävakaita malleja. Kaikki vastaa palveluntarjoajien luetteloita.",
 			"error": "Virhe",
-			"failover": "Vikasietoryhmät",
 			"flapWindowTooltip_one": "{{count}} vaihtelu viimeisen 30 päivän aikana",
 			"flapWindowTooltip_other": "{{count}} vaihtelua viimeisen 30 päivän aikana",
 			"flapped_one": "{{count}} vaihtelu",
@@ -992,7 +990,9 @@
 			"unpinTooltip": "Palauttaa tämän mallin automaattiseen hallintaan. Jos se puuttuu edelleen tarjoajan listauksesta, se poistetaan käytöstä uudelleen kahden tarkistuksen jälkeen.",
 			"unpinned": "{{model}} irrotettu",
 			"updated": "Metatiedot päivitetty",
-			"unpinManagedTooltip": "Kiinnityksiä hallinnoi laivaston ensisijainen ilmentymä, ja ne korvataan seuraavassa kokoonpanon synkronoinnissa. Poista tämän mallin kiinnitys ensisijaisessa ilmentymässä."
+			"unpinManagedTooltip": "Kiinnityksiä hallinnoi laivaston ensisijainen ilmentymä, ja ne korvataan seuraavassa kokoonpanon synkronoinnissa. Poista tämän mallin kiinnitys ensisijaisessa ilmentymässä.",
+			"failoverSync": "Vikasietosynkronointi",
+			"groupsChanged": "Muuttuneet ryhmät"
 		},
 		"toast_quota_detected_minimax": "MiniMax-kiintiö havaittu",
 		"toast_quota_detected_opencode_go": "OpenCode Go -kiintiö havaittu",

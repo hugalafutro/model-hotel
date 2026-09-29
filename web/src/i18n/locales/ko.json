@@ -877,7 +877,6 @@
 				"onlyOneValid": "정리 후 유효한 공급자가 하나만 남았습니다 (장애 조치에는 두 개 이상이 필요합니다)"
 			},
 			"error": "오류",
-			"failover": "페일오버 그룹",
 			"field": {
 				"context_length": "문맥 길이",
 				"input_price": "입력 가격",
@@ -939,7 +938,6 @@
 			"dismissedSummary_other": "모델 {{count}}개 무시됨",
 			"empty": "누락되거나 불안정한 모델이 없습니다. 모든 내용이 공급자 목록과 일치합니다.",
 			"error": "오류",
-			"failover": "페일오버 그룹",
 			"flapWindowTooltip_one": "최근 30일간 {{count}}회 변동",
 			"flapWindowTooltip_other": "최근 30일간 {{count}}회 변동",
 			"flapped_one": "{{count}}회 변동",
@@ -992,7 +990,9 @@
 			"unpinTooltip": "이 모델을 자동 관리로 되돌립니다. 공급자 목록에서 계속 빠져 있으면 두 번의 검사 후 다시 비활성화됩니다.",
 			"unpinned": "{{model}} 고정을 해제했습니다",
 			"updated": "메타데이터 업데이트됨",
-			"unpinManagedTooltip": "고정은 플릿 기본 인스턴스가 관리하며 다음 구성 동기화 시 대체됩니다. 이 모델의 고정은 기본 인스턴스에서 해제하세요."
+			"unpinManagedTooltip": "고정은 플릿 기본 인스턴스가 관리하며 다음 구성 동기화 시 대체됩니다. 이 모델의 고정은 기본 인스턴스에서 해제하세요.",
+			"failoverSync": "페일오버 동기화",
+			"groupsChanged": "변경된 그룹"
 		},
 		"toast_quota_detected_minimax": "MiniMax 할당량 감지됨",
 		"toast_quota_detected_opencode_go": "OpenCode Go 할당량 감지됨",

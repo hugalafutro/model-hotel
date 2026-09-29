@@ -877,7 +877,6 @@
 				"onlyOneValid": "A tisztítás után csak egy érvényes szolgáltató maradt (a feladatátvételhez legalább kettő kell)"
 			},
 			"error": "Hiba",
-			"failover": "Failover csoportok",
 			"field": {
 				"context_length": "A kontextus hossza",
 				"input_price": "Bemeneti ár",
@@ -939,7 +938,6 @@
 			"dismissedSummary_other": "{{count}} modell elvetve",
 			"empty": "Nincs hiányzó vagy instabil modell. Minden megegyezik a szolgáltatók listáival.",
 			"error": "Hiba",
-			"failover": "Failover csoportok",
 			"flapWindowTooltip_one": "{{count}} ingadozás az elmúlt 30 napban",
 			"flapWindowTooltip_other": "{{count}} ingadozás az elmúlt 30 napban",
 			"flapped_one": "{{count}} ingadozás",
@@ -992,7 +990,9 @@
 			"unpinTooltip": "Visszaadja ezt a modellt az automatikus kezelésnek. Ha továbbra is hiányzik a szolgáltató listájából, két vizsgálat után ismét letiltásra kerül.",
 			"unpinned": "A(z) {{model}} rögzítése feloldva",
 			"updated": "Frissített metaadatok",
-			"unpinManagedTooltip": "A rögzítéseket a flotta elsődleges példánya kezeli, és a következő konfigurációs szinkronizáláskor lecserélődnek. Az elsődleges példányon oldja fel ennek a modellnek a rögzítését."
+			"unpinManagedTooltip": "A rögzítéseket a flotta elsődleges példánya kezeli, és a következő konfigurációs szinkronizáláskor lecserélődnek. Az elsődleges példányon oldja fel ennek a modellnek a rögzítését.",
+			"failoverSync": "Failover szinkronizálás",
+			"groupsChanged": "Módosult csoportok"
 		},
 		"toast_quota_detected_minimax": "MiniMax kvóta észlelve",
 		"toast_quota_detected_opencode_go": "OpenCode Go kvóta észlelve",

@@ -901,7 +901,6 @@
 				"onlyOneValid": "Resta apenas um provedor válido após a limpeza (o failover precisa de pelo menos dois)"
 			},
 			"error": "Erro",
-			"failover": "Grupos de failover",
 			"field": {
 				"context_length": "Comprimento do contexto",
 				"input_price": "Preço de entrada",
@@ -971,7 +970,6 @@
 			"dismissedSummary_other": "{{count}} modelos descartados",
 			"empty": "Nenhum modelo ausente ou instável. Tudo corresponde às listas dos provedores.",
 			"error": "Erro",
-			"failover": "Grupos de failover",
 			"flapWindowTooltip_many": "{{count}} oscilações nos últimos 30 dias",
 			"flapWindowTooltip_one": "{{count}} oscilação nos últimos 30 dias",
 			"flapWindowTooltip_other": "{{count}} oscilações nos últimos 30 dias",
@@ -1032,7 +1030,9 @@
 			"unpinTooltip": "Devolve este modelo à gestão automática. Se continuar ausente da lista do fornecedor, será desativado novamente após duas verificações.",
 			"unpinned": "{{model}} desafixado",
 			"updated": "Metadados atualizados",
-			"unpinManagedTooltip": "As fixações são geridas pela instância primária da frota e são substituídas na próxima sincronização de configuração. Remova a fixação deste modelo na instância primária."
+			"unpinManagedTooltip": "As fixações são geridas pela instância primária da frota e são substituídas na próxima sincronização de configuração. Remova a fixação deste modelo na instância primária.",
+			"failoverSync": "Sincronização de failover",
+			"groupsChanged": "Grupos alterados"
 		},
 		"toast_quota_detected_minimax": "Cota MiniMax detectada",
 		"toast_quota_detected_opencode_go": "Cota OpenCode Go detectada",

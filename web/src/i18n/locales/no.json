@@ -877,7 +877,6 @@
 				"onlyOneValid": "Bare én gyldig leverandør er igjen etter opprydding (failover krever minst to)"
 			},
 			"error": "Feil",
-			"failover": "Failover-grupper",
 			"field": {
 				"context_length": "Kontekstlengde",
 				"input_price": "Inngangspris",
@@ -939,7 +938,6 @@
 			"dismissedSummary_other": "{{count}} modeller avvist",
 			"empty": "Ingen manglende eller ustabile modeller. Alt samsvarer med leverandørenes lister.",
 			"error": "Feil",
-			"failover": "Failover-grupper",
 			"flapWindowTooltip_one": "{{count}} svingning de siste 30 dagene",
 			"flapWindowTooltip_other": "{{count}} svingninger de siste 30 dagene",
 			"flapped_one": "{{count}} svingning",
@@ -992,7 +990,9 @@
 			"unpinTooltip": "Gir denne modellen tilbake til automatisk styring. Hvis den fortsatt mangler i leverandørens liste, blir den deaktivert igjen etter to skanninger.",
 			"unpinned": "{{model}} løsnet",
 			"updated": "Metadata oppdatert",
-			"unpinManagedTooltip": "Festinger styres av flåtens primære instans og erstattes ved neste konfigurasjonssynkronisering. Løsne denne modellen på den primære instansen."
+			"unpinManagedTooltip": "Festinger styres av flåtens primære instans og erstattes ved neste konfigurasjonssynkronisering. Løsne denne modellen på den primære instansen.",
+			"failoverSync": "Failover-synkronisering",
+			"groupsChanged": "Grupper endret"
 		},
 		"toast_quota_detected_minimax": "MiniMax-kvote oppdaget",
 		"toast_quota_detected_opencode_go": "OpenCode Go-kvote oppdaget",

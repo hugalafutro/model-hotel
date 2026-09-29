@@ -901,7 +901,6 @@
 				"onlyOneValid": "Dopo la potatura resta un solo provider valido (il failover ne richiede almeno due)"
 			},
 			"error": "Errore",
-			"failover": "Gruppi di failover",
 			"field": {
 				"context_length": "Lunghezza del contesto",
 				"input_price": "Prezzo di input",
@@ -971,7 +970,6 @@
 			"dismissedSummary_other": "{{count}} modelli ignorati",
 			"empty": "Nessun modello mancante o instabile. Tutto corrisponde agli elenchi dei provider.",
 			"error": "Errore",
-			"failover": "Gruppi di failover",
 			"flapWindowTooltip_many": "{{count}} oscillazioni negli ultimi 30 giorni",
 			"flapWindowTooltip_one": "{{count}} oscillazione negli ultimi 30 giorni",
 			"flapWindowTooltip_other": "{{count}} oscillazioni negli ultimi 30 giorni",
@@ -1032,7 +1030,9 @@
 			"unpinTooltip": "Restituisce questo modello alla gestione automatica. Se resta assente dall'elenco del provider, verrà disattivato di nuovo dopo due scansioni.",
 			"unpinned": "Fissaggio di {{model}} rimosso",
 			"updated": "Metadati aggiornati",
-			"unpinManagedTooltip": "I fissaggi sono gestiti dall'istanza primaria della flotta e vengono sostituiti alla successiva sincronizzazione della configurazione. Rimuovi il fissaggio di questo modello sull'istanza primaria."
+			"unpinManagedTooltip": "I fissaggi sono gestiti dall'istanza primaria della flotta e vengono sostituiti alla successiva sincronizzazione della configurazione. Rimuovi il fissaggio di questo modello sull'istanza primaria.",
+			"failoverSync": "Sincronizzazione failover",
+			"groupsChanged": "Gruppi modificati"
 		},
 		"toast_quota_detected_minimax": "Rilevata quota MiniMax",
 		"toast_quota_detected_opencode_go": "Rilevata quota OpenCode Go",

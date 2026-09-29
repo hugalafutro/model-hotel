@@ -877,7 +877,6 @@
 				"onlyOneValid": "Temizlemeden sonra yalnızca bir geçerli sağlayıcı kaldı (yük devretme en az iki tane gerektirir)"
 			},
 			"error": "Hata",
-			"failover": "Yedekleme grupları",
 			"field": {
 				"context_length": "Bağlam uzunluğu",
 				"input_price": "Giriş fiyatı",
@@ -939,7 +938,6 @@
 			"dismissedSummary_other": "{{count}} model yok sayıldı",
 			"empty": "Eksik veya kararsız model yok. Her şey sağlayıcı listeleriyle uyumlu.",
 			"error": "Hata",
-			"failover": "Yedekleme grupları",
 			"flapWindowTooltip_one": "Son 30 günde {{count}} dalgalanma",
 			"flapWindowTooltip_other": "Son 30 günde {{count}} dalgalanma",
 			"flapped_one": "{{count}} dalgalanma",
@@ -992,7 +990,9 @@
 			"unpinTooltip": "Bu modeli otomatik yönetime geri verir. Sağlayıcının listesinde görünmemeye devam ederse iki taramadan sonra yeniden devre dışı bırakılır.",
 			"unpinned": "{{model}} sabitlemesi kaldırıldı",
 			"updated": "Metadata güncellendi",
-			"unpinManagedTooltip": "Sabitlemeler filo birincil örneği tarafından yönetilir ve sonraki yapılandırma eşitlemesinde değiştirilir. Bu modelin sabitlemesini birincil örnekte kaldırın."
+			"unpinManagedTooltip": "Sabitlemeler filo birincil örneği tarafından yönetilir ve sonraki yapılandırma eşitlemesinde değiştirilir. Bu modelin sabitlemesini birincil örnekte kaldırın.",
+			"failoverSync": "Yedekleme eşitlemesi",
+			"groupsChanged": "Değişen gruplar"
 		},
 		"toast_quota_detected_minimax": "MiniMax kotası tespit edildi",
 		"toast_quota_detected_opencode_go": "OpenCode Go kotası tespit edildi",

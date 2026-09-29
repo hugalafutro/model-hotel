@@ -877,7 +877,6 @@
 				"onlyOneValid": "清理后仅剩一个有效提供商（故障转移至少需要两个）"
 			},
 			"error": "错误",
-			"failover": "故障转移组",
 			"field": {
 				"context_length": "上下文长度",
 				"input_price": "输入价格",
@@ -939,7 +938,6 @@
 			"dismissedSummary_other": "已忽略 {{count}} 个模型",
 			"empty": "没有缺失或不稳定的模型。所有内容均与提供商列表一致。",
 			"error": "错误",
-			"failover": "故障转移组",
 			"flapWindowTooltip_one": "最近 30 天内波动 {{count}} 次",
 			"flapWindowTooltip_other": "最近 30 天内波动 {{count}} 次",
 			"flapped_one": "波动 {{count}} 次",
@@ -992,7 +990,9 @@
 			"unpinTooltip": "把这个模型交回自动管理。如果它仍未出现在提供方的列表中，两次扫描后会再次被停用。",
 			"unpinned": "已取消固定 {{model}}",
 			"updated": "元数据已更新",
-			"unpinManagedTooltip": "固定由机群主节点管理，将在下次配置同步时被替换。请在主节点上取消固定此模型。"
+			"unpinManagedTooltip": "固定由机群主节点管理，将在下次配置同步时被替换。请在主节点上取消固定此模型。",
+			"failoverSync": "故障转移同步",
+			"groupsChanged": "已变更的组"
 		},
 		"toast_quota_detected_minimax": "检测到 MiniMax 配额",
 		"toast_quota_detected_opencode_go": "检测到 OpenCode Go 配额",

@@ -925,7 +925,6 @@
 				"onlyOneValid": "Po oczyszczeniu został tylko jeden prawidłowy dostawca (przełączanie awaryjne wymaga co najmniej dwóch)"
 			},
 			"error": "Błąd",
-			"failover": "Grupy przełączania awaryjnego",
 			"field": {
 				"context_length": "Długość kontekstu",
 				"input_price": "Cena wejściowa",
@@ -1003,7 +1002,6 @@
 			"dismissedSummary_other": "{{count}} modeli odrzuconych",
 			"empty": "Brak brakujących lub niestabilnych modeli. Wszystko jest zgodne z listami dostawców.",
 			"error": "Błąd",
-			"failover": "Grupy przełączania awaryjnego",
 			"flapWindowTooltip_few": "{{count}} wahania w ciągu ostatnich 30 dni",
 			"flapWindowTooltip_many": "{{count}} wahań w ciągu ostatnich 30 dni",
 			"flapWindowTooltip_one": "{{count}} wahanie w ciągu ostatnich 30 dni",
@@ -1072,7 +1070,9 @@
 			"unpinTooltip": "Zwraca ten model automatycznemu zarządzaniu. Jeśli nadal będzie go brakować na liście dostawcy, po dwóch skanach zostanie ponownie wyłączony.",
 			"unpinned": "Odpięto {{model}}",
 			"updated": "Zaktualizowane metadane",
-			"unpinManagedTooltip": "Przypięciami zarządza instancja podstawowa floty i są zastępowane przy następnej synchronizacji konfiguracji. Odepnij ten model w instancji podstawowej."
+			"unpinManagedTooltip": "Przypięciami zarządza instancja podstawowa floty i są zastępowane przy następnej synchronizacji konfiguracji. Odepnij ten model w instancji podstawowej.",
+			"failoverSync": "Synchronizacja przełączania awaryjnego",
+			"groupsChanged": "Zmienione grupy"
 		},
 		"toast_quota_detected_minimax": "Wykryto limit MiniMax",
 		"toast_quota_detected_opencode_go": "Wykryto limit OpenCode Go",

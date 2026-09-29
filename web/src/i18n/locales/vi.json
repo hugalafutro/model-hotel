@@ -877,7 +877,6 @@
 				"onlyOneValid": "Chỉ còn một nhà cung cấp hợp lệ sau khi dọn dẹp (chuyển đổi dự phòng cần ít nhất hai)"
 			},
 			"error": "Lỗi",
-			"failover": "Nhóm dự phòng",
 			"field": {
 				"context_length": "Độ dài bối cảnh",
 				"input_price": "Giá đầu vào",
@@ -939,7 +938,6 @@
 			"dismissedSummary_other": "Đã bỏ qua {{count}} mô hình",
 			"empty": "Không có mô hình nào bị thiếu hay không ổn định. Mọi thứ đều khớp với danh sách của các nhà cung cấp.",
 			"error": "Lỗi",
-			"failover": "Nhóm dự phòng",
 			"flapWindowTooltip_one": "{{count}} lần dao động trong 30 ngày qua",
 			"flapWindowTooltip_other": "{{count}} lần dao động trong 30 ngày qua",
 			"flapped_one": "{{count}} lần dao động",
@@ -992,7 +990,9 @@
 			"unpinTooltip": "Trả mô hình này về chế độ quản lý tự động. Nếu nó vẫn vắng mặt trong danh sách của nhà cung cấp, nó sẽ bị tắt lại sau hai lần quét.",
 			"unpinned": "Đã bỏ ghim {{model}}",
 			"updated": "Siêu dữ liệu được cập nhật",
-			"unpinManagedTooltip": "Ghim do phiên bản chính của hạm đội quản lý và sẽ được thay thế trong lần đồng bộ cấu hình tiếp theo. Hãy bỏ ghim mô hình này trên phiên bản chính."
+			"unpinManagedTooltip": "Ghim do phiên bản chính của hạm đội quản lý và sẽ được thay thế trong lần đồng bộ cấu hình tiếp theo. Hãy bỏ ghim mô hình này trên phiên bản chính.",
+			"failoverSync": "Đồng bộ dự phòng",
+			"groupsChanged": "Nhóm đã thay đổi"
 		},
 		"toast_quota_detected_minimax": "Đã phát hiện hạn ngạch MiniMax",
 		"toast_quota_detected_opencode_go": "Đã phát hiện hạn ngạch OpenCode Go",

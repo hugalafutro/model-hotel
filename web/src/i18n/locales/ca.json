@@ -901,7 +901,6 @@
 				"onlyOneValid": "Només queda un proveïdor vàlid després de la poda (la commutació per error en necessita almenys dos)"
 			},
 			"error": "Error",
-			"failover": "Grups de fallada",
 			"field": {
 				"context_length": "Llargada del context",
 				"input_price": "Preu d'entrada",
@@ -971,7 +970,6 @@
 			"dismissedSummary_other": "{{count}} models descartats",
 			"empty": "No hi ha cap model absent ni inestable. Tot coincideix amb les llistes dels proveïdors.",
 			"error": "Error",
-			"failover": "Grups de fallada",
 			"flapWindowTooltip_many": "{{count}} fluctuacions en els darrers 30 dies",
 			"flapWindowTooltip_one": "{{count}} fluctuació en els darrers 30 dies",
 			"flapWindowTooltip_other": "{{count}} fluctuacions en els darrers 30 dies",
@@ -1032,7 +1030,9 @@
 			"unpinTooltip": "Torna aquest model a la gestió automàtica. Si continua absent del llistat del proveïdor, es tornarà a desactivar després de dos escanejos.",
 			"unpinned": "S'ha desfixat {{model}}",
 			"updated": "Metadades actualitzades",
-			"unpinManagedTooltip": "Les fixacions les gestiona la instància primària de la flota i se substitueixen en la propera sincronització de configuració. Desfixa aquest model a la instància primària."
+			"unpinManagedTooltip": "Les fixacions les gestiona la instància primària de la flota i se substitueixen en la propera sincronització de configuració. Desfixa aquest model a la instància primària.",
+			"failoverSync": "Sincronització de fallada",
+			"groupsChanged": "Grups modificats"
 		},
 		"toast_quota_detected_minimax": "Detectada quota de MiniMax",
 		"toast_quota_detected_opencode_go": "Detectada quota d'OpenCode Go",
