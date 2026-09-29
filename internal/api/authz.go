@@ -38,7 +38,9 @@ type SessionRevoker interface {
 // surviving tokens die here even if explicit revocation missed them.
 func (h *Handler) resolveIdentity(ctx context.Context, sessionUserID []byte) (*user.Identity, bool) {
 	if string(sessionUserID) == "admin" {
-		return user.AdminIdentity(), true
+		id := user.AdminIdentity()
+		id.ViaSession = true
+		return id, true
 	}
 	uid, err := uuid.Parse(string(sessionUserID))
 	if err != nil {
@@ -54,10 +56,11 @@ func (h *Handler) resolveIdentity(ctx context.Context, sessionUserID []byte) (*u
 		return nil, false
 	}
 	return &user.Identity{
-		Role:     u.Role,
-		Grants:   u.Grants,
-		UserID:   &u.ID,
-		Username: u.Username,
+		Role:       u.Role,
+		Grants:     u.Grants,
+		UserID:     &u.ID,
+		Username:   u.Username,
+		ViaSession: true,
 	}, true
 }
 

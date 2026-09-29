@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"mime/multipart"
 	"net/http"
 	"net/http/httptest"
@@ -1675,4 +1676,52 @@ func TestRestoreBackup_AdminSessionTokenInFormRefused(t *testing.T) {
 			}
 		})
 	}
+}
+
+// The auth middleware checks TOTP when it runs, but a restore upload can be
+// held open: a raw-token request admitted while TOTP was off must be refused
+// if TOTP is enabled while the handler is still reading the body.
+func TestRestoreBackup_TotpEnabledMidUpload_RefusesRawTokenBearer(t *testing.T) {
+	h := newTestHandler(t)
+	h.SetTotpStatus(&stubTotpStatus{enabled: false})
+	h.totpEnabled.Store(false)
+	r := chi.NewRouter()
+	h.Register(r)
+
+	var buf bytes.Buffer
+	writer := multipart.NewWriter(&buf)
+	if err := writer.WriteField("admin_token", "test-admin-token"); err != nil {
+		t.Fatal(err)
+	}
+	if err := writer.Close(); err != nil {
+		t.Fatal(err)
+	}
+	body := &enableTotpOnRead{r: &buf, enable: func() { h.totpEnabled.Store(true) }}
+	req := httptest.NewRequest(http.MethodPost, "/backups/restore", body)
+	req.Header.Set("Content-Type", writer.FormDataContentType())
+	req.Header.Set("Authorization", "Bearer test-admin-token")
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+	if !body.enabled {
+		t.Fatal("the body was never read, so TOTP was never enabled mid-upload")
+	}
+	if w.Code != http.StatusUnauthorized {
+		t.Fatalf("status = %d body = %q, want 401 (raw token after TOTP enabled)", w.Code, w.Body.String())
+	}
+}
+
+// enableTotpOnRead is a request body that enables TOTP on its first read,
+// which happens only once the auth middleware has admitted the request.
+type enableTotpOnRead struct {
+	r       io.Reader
+	enable  func()
+	enabled bool
+}
+
+func (b *enableTotpOnRead) Read(p []byte) (int, error) {
+	if !b.enabled {
+		b.enabled = true
+		b.enable()
+	}
+	return b.r.Read(p)
 }
