@@ -5,7 +5,7 @@ import { useTranslation } from "react-i18next";
 import { Navigate, Route, Routes } from "react-router";
 import { Eye, EyeOff, Fingerprint, GithubLogo, LogIn } from "@/lib/icons";
 import { api, isAuthenticated } from "./api/client";
-import { clearAuth } from "./api/http";
+import { clearSessionCache } from "./api/http";
 import { CopyablePill } from "./components/CopyablePill";
 import { ErrorCallout } from "./components/ErrorCallout";
 import { Layout } from "./components/Layout";
@@ -84,8 +84,9 @@ function LoginScreen() {
 
 	// A session that expired while no tab was open never ran the teardown, so
 	// its storage mirror is still here: the login screen is logged out by
-	// definition, and clears it.
-	useEffect(clearAuth, []);
+	// definition, and clears it. Only the mirror: another tab may have logged
+	// in since this render, and its CSRF cookie stays.
+	useEffect(clearSessionCache, []);
 
 	// SSO availability is read unauthenticated; the button only shows when an
 	// IdP is configured. Cached app-wide; config does not change at runtime.

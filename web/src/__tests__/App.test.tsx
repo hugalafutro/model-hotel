@@ -2,7 +2,7 @@ import { act, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import App from "../App";
-import { api } from "../api/client";
+import { api, isAuthenticated } from "../api/client";
 import { mockAllDefaults } from "../test/helpers";
 import { server } from "../test/mocks/server";
 import { renderWithProviders } from "../test/utils";
@@ -340,6 +340,24 @@ describe("AppContent", () => {
 
 		expect(localStorage.getItem("model-hotel:quota:1")).toBeNull();
 		expect(localStorage.getItem("chatMessages")).toBe("[]");
+	});
+
+	it("leaves a CSRF cookie another tab set after the login screen rendered", () => {
+		// The login screen rendered logged out, and before its effect ran
+		// another tab finished a login: the cookie is there, the screen is not
+		// re-rendered yet. The effect must not undo that login.
+		document.cookie = "mh_csrf=other-tab; path=/";
+		const auth = vi.mocked(isAuthenticated);
+		const cookieSignal = auth.getMockImplementation();
+		auth.mockReturnValue(false);
+		try {
+			renderWithProviders(<App />);
+
+			expect(screen.getByLabelText("Admin Token")).toBeInTheDocument();
+			expect(document.cookie).toContain("mh_csrf=other-tab");
+		} finally {
+			if (cookieSignal) auth.mockImplementation(cookieSignal);
+		}
 	});
 
 	it("renders Layout with routes when session cookie present", async () => {
