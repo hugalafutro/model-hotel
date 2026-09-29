@@ -534,3 +534,26 @@ func TestTranslateRequest_ImageOnlyToolResultIsNotEmpty(t *testing.T) {
 		t.Errorf("tool msg = %v, want content [image]", m)
 	}
 }
+
+func TestTranslateRequest_ToolResultImagesSurviveAMixedTurn(t *testing.T) {
+	// Off-spec but tolerated: one message carrying a tool_result with an image
+	// and a tool_use. The image still reaches the upstream.
+	body := []byte(`{"model":"p/m","max_tokens":10,"messages":[
+		{"role":"assistant","content":[
+			{"type":"tool_result","tool_use_id":"c1","content":[
+				{"type":"image","source":{"type":"base64","media_type":"image/png","data":"AAA"}}
+			]},
+			{"type":"tool_use","id":"c2","name":"f","input":{}}
+		]}
+	]}`)
+	out, _, _, err := TranslateRequest(body)
+	if err != nil {
+		t.Fatalf("TranslateRequest: %v", err)
+	}
+	msgs := decodeOAI(t, out)["messages"].([]any)
+	last := msgs[len(msgs)-1].(map[string]any)
+	parts, _ := last["content"].([]any)
+	if last["role"] != "user" || len(parts) != 1 || parts[0].(map[string]any)["type"] != "image_url" {
+		t.Fatalf("last message = %v, want a user message carrying the image", last)
+	}
+}

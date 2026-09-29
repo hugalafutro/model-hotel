@@ -298,6 +298,11 @@ func translateMessage(m ReqMessage) ([]oaiMessage, error) {
 		}
 		out = append(out, oaiMessage{Role: m.Role, Content: content, ToolCalls: toolCalls})
 		parts = nil
+		if len(toolImages) > 0 {
+			// A turn mixing tool_result and tool_use blocks is off-spec, but
+			// its tool results are still translated, so their images are too.
+			out = append(out, oaiMessage{Role: "user", Content: toolImages})
+		}
 	} else {
 		parts = slices.Concat(toolImages, parts)
 		flushUserParts()
