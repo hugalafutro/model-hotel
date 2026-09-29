@@ -88,7 +88,7 @@ export function formatTimestamp(ts: number | string): string {
 export function countLabel(count: number | undefined, key: string): string {
 	const n = count ?? 0;
 	if (n === 0) return i18next.t(`${key}_other`);
-	return `${n} ${i18next.t(key, { count: n })}`;
+	return `${formatNumber(n)} ${i18next.t(key, { count: n })}`;
 }
 
 export function formatDate(ts: number | string): string {

@@ -182,6 +182,11 @@ describe("formatLocale", () => {
 		expect(formatDecimal(1.5, 2, { trim: true })).toBe("1,5");
 		expect(formatDecimal(2, 2, { trim: true })).toBe("2");
 		expect(dropTrailingZero(1.25, 1)).toBe("1,3");
+		// Where Intl's own rounding and toFixed's part ways.
+		expect(formatDecimal(1.005, 2)).toBe((1.005).toFixed(2).replace(".", ","));
+		expect(formatDecimal(-0, 2)).toBe("0,00");
+		expect(formatDecimal(-0.001, 2)).toBe("0,00");
+		expect(formatDecimal(Number.NaN, 2)).toBe("NaN");
 	});
 
 	it("durations, percents, latencies and byte sizes take the locale's decimal separator", () => {
@@ -349,6 +354,24 @@ describe("countLabel", () => {
 		expect(countLabel(2, KEY)).toBe("2 RU-FEW");
 		expect(countLabel(5, KEY)).toBe("5 RU-MANY");
 		expect(countLabel(22, KEY)).toBe("22 RU-FEW");
+	});
+
+	it("writes the numeral the locale's way and picks the form from the count", async () => {
+		i18next.addResourceBundle(
+			"de",
+			"translation",
+			{ [`${KEY}_one`]: "DE-ONE", [`${KEY}_other`]: "DE-OTHER" },
+			true,
+			true,
+		);
+		await i18next.changeLanguage("de");
+		vi.spyOn(navigator, "languages", "get").mockReturnValue(["de-DE"]);
+		try {
+			expect(countLabel(1234, KEY)).toBe("1.234 DE-OTHER");
+			expect(countLabel(1, KEY)).toBe("1 DE-ONE");
+		} finally {
+			vi.restoreAllMocks();
+		}
 	});
 });
 

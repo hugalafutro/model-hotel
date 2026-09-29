@@ -52,19 +52,25 @@ export function formatLocale(): string {
  * A number to `digits` decimals in formatLocale(): toFixed's digits and
  * rounding, with the locale's decimal separator. `trim` drops trailing zeros
  * ("1.50" reads "1.5", "2.00" reads "2"). No digit grouping unless `grouping`
- * is set, as toFixed never groups. For display only: the output is not
- * guaranteed to parse back as a number.
+ * is set, as toFixed never groups. A value that rounds to zero reads unsigned
+ * ("0.00", where toFixed writes -0.001 as "-0.00"). For display only: the
+ * output is not guaranteed to parse back as a number.
  */
 export function formatDecimal(
 	n: number,
 	digits: number,
 	opts: { trim?: boolean; grouping?: boolean } = {},
 ): string {
+	// Rounded by toFixed first: Intl rounds half-expand on the written decimal
+	// (1.005 to 1.01, where toFixed's binary value gives 1.00) and keeps the
+	// sign of a zero.
+	const fixed = Number(n.toFixed(digits));
+	const rounded = fixed === 0 ? 0 : fixed;
 	return new Intl.NumberFormat(formatLocale(), {
 		minimumFractionDigits: opts.trim ? 0 : digits,
 		maximumFractionDigits: digits,
 		...(opts.grouping ? {} : { useGrouping: false }),
-	}).format(n);
+	}).format(rounded);
 }
 
 /** Abbreviates a number to K/M/B with at most one decimal, dropping a trailing .0. */

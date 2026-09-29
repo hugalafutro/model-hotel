@@ -204,18 +204,17 @@ function openCodeGoBadgeContent(
 
 function deepseekBadgeContent(
 	balance: DeepSeekBalance,
-	variant: QuotaBadgeVariant,
 	dataUpdatedAt?: number,
 ): BadgeContent {
 	const usd = balance.balance_infos.find(
 		(b: DeepSeekBalanceInfo) => b.currency === "USD",
 	)?.total_balance;
-	const label = variant === "sidebar" ? `$${usd ?? "-"}` : `${usd ?? "-"} USD`;
+	const amount = usd == null ? null : formatDollars(Number(usd));
 	const refreshed = refreshedAt(dataUpdatedAt);
 	return {
-		label,
+		label: amount ?? "-",
 		title: i18next.t("components.quotaBadge.deepseekBalance", {
-			usd: usd ?? "?",
+			usd: amount ?? "?",
 			refreshed,
 		}),
 	};
@@ -377,7 +376,7 @@ export function QuotaBadge(props: QuotaBadgeProps) {
 							"components.quotaBadge.deepseekBalanceUnavailable",
 						),
 					};
-				return deepseekBadgeContent(deepseekBalance, variant, dataUpdatedAt);
+				return deepseekBadgeContent(deepseekBalance, dataUpdatedAt);
 			}
 			case "openrouter": {
 				if (!openrouterBalance)

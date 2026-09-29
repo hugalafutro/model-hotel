@@ -10,7 +10,7 @@ import { Modal } from "../../components/Modal";
 import { RevealableInput } from "../../components/RevealableInput";
 import { useRefreshDiscoveryBadge } from "../../hooks/useRefreshDiscoveryBadge";
 import { errorMessage } from "../../utils/errors";
-import { formatDecimal } from "../../utils/format";
+import { formatDecimal, formatDollars } from "../../utils/format";
 import {
 	baseUrls,
 	hasEditableBaseUrl,
@@ -171,7 +171,7 @@ export function AddProviderModal({
 						if (usd) {
 							onToast(
 								t("providers.add.deepseekBalance", {
-									balance: usd.total_balance,
+									balance: formatDollars(Number(usd.total_balance)),
 								}),
 								"info",
 							);

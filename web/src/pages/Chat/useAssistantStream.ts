@@ -71,8 +71,10 @@ export function useAssistantStream({
 	// "effect-only" and forbid mutation in event handlers - which is perfectly
 	// valid React.
 	const cleanupAbortRef = useRef<AbortController | null>(null);
-	// Counts replies started; a reply that settles after a newer one began
-	// (a stopped stream whose abort lands late) leaves that one's state alone.
+	// Advances when a reply starts or is stopped; a reply that settles after
+	// either (a stopped stream whose abort lands late) leaves the streaming
+	// flag and abort refs alone, as they now belong to a later reply or
+	// conversation.
 	const replySeqRef = useRef(0);
 
 	// Cleanup on unmount only: abort the in-flight request.
@@ -219,6 +221,7 @@ export function useAssistantStream({
 	]);
 
 	const handleStop = useCallback(() => {
+		replySeqRef.current++;
 		abortRef.current?.abort();
 		abortRef.current = null;
 		cleanupAbortRef.current = null;
