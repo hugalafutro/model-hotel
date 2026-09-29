@@ -25,6 +25,15 @@ const MaxUpstreamBody = 8 << 20 // 8 MiB
 // and reading more would only buffer it.
 const MaxErrorBody = 64 << 10 // 64 KiB
 
+// DiscardRest drains at most limit more bytes of a body whose head the
+// caller has already read (an error page quoted under MaxErrorBody, say), so
+// the transport can reuse the connection for the next request. Past limit a
+// connection is not worth the read and closing it is the cheaper outcome.
+// Closing r stays with the caller.
+func DiscardRest(r io.Reader, limit int64) {
+	_, _ = io.Copy(io.Discard, io.LimitReader(r, limit))
+}
+
 // ErrBodyTooLarge reports a response body that ran past the caller's limit. It
 // is the caller's own ceiling rather than an upstream fault, so it is a
 // distinct error and not folded into a decode or transport failure.

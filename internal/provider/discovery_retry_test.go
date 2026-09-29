@@ -246,3 +246,31 @@ func TestFetchURL_NonOKWithFailingBodyReportsTheStatus(t *testing.T) {
 		t.Fatalf("expected the 401 status error, got %v", err)
 	}
 }
+
+// An error body larger than the logged head is drained, not abandoned, so
+// the next discovery request reuses the connection instead of dialling again.
+func TestFetchURL_OversizedErrorBodyKeepsTheConnection(t *testing.T) {
+	big := strings.Repeat("x", 3*(64<<10))
+	srv := httptest.NewUnstartedServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusUnauthorized)
+		_, _ = io.WriteString(w, big)
+	}))
+	var conns atomic.Int32
+	srv.Config.ConnState = func(_ net.Conn, s http.ConnState) {
+		if s == http.StateNew {
+			conns.Add(1)
+		}
+	}
+	srv.Start()
+	defer srv.Close()
+
+	d := &DiscoveryService{httpClient: srv.Client()}
+	for range 3 {
+		if _, err := d.fetchURL(context.Background(), http.MethodGet, srv.URL+"/models", nil); httpErrorFrom(err) == nil {
+			t.Fatalf("expected the 401 status error, got %v", err)
+		}
+	}
+	if n := conns.Load(); n != 1 {
+		t.Fatalf("three fetches opened %d connections, want 1", n)
+	}
+}
