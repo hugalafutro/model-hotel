@@ -19,6 +19,10 @@ type Identity struct {
 	UserID *uuid.UUID
 	// Username is "admin" for the break-glass/legacy identity.
 	Username string
+	// ViaSession is set when the auth middleware resolved this identity from a
+	// session token (cookie or bearer), not from the raw admin token. With TOTP
+	// enabled only a session proves the second factor was passed.
+	ViaSession bool
 }
 
 // AdminIdentity is the identity for the env admin token and legacy admin
