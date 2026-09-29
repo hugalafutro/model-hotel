@@ -103,7 +103,7 @@ func (p *Poller) PollCircuitsOnce(ctx context.Context) {
 		changed := cur.Circuits == nil || cur.Circuits.Total != ledger.Total || circuitsKey(cur.Circuits.Open) != circuitsKey(ledger.Open)
 		ledger.CheckedAt = p.now()
 		cur.Circuits = ledger
-		p.statuses[m.ID] = cur
+		changed = p.putStatus(m.ID, cur) && changed
 		p.mu.Unlock()
 		if changed {
 			p.publishMemberStatus(m.ID)
@@ -119,8 +119,7 @@ func (p *Poller) clearCircuits(memberID string) bool {
 	cur := p.statuses[memberID]
 	had := cur.Circuits != nil
 	cur.Circuits = nil
-	p.statuses[memberID] = cur
-	return had
+	return p.putStatus(memberID, cur) && had
 }
 
 // circuitsKey is the identity of a ledger for change detection: which circuits

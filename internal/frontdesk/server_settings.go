@@ -158,7 +158,7 @@ func (s *Server) autoSyncStatusNow(ctx context.Context) (autoSyncStatus, error) 
 	}
 	status := autoSyncStatus{
 		AutoSyncConfig: cfg,
-		Stale:          autoSyncStale(cfg, state.LastRunAt, found, time.Now().UTC()),
+		Stale:          autoSyncStale(cfg, state.LastRunAt, found, s.poller.autoSyncIdle(), time.Now().UTC()),
 	}
 	// The member list feeds the staleness (fleetLastSync), the fleet-state
 	// fields and the last_sync_at garnish, so it is read once here and reused
@@ -167,7 +167,7 @@ func (s *Server) autoSyncStatusNow(ctx context.Context) (autoSyncStatus, error) 
 	// the time this runs), so the derived fields degrade to the marker alone.
 	if members, err := s.store.ListMembers(ctx); err == nil {
 		latestSync, haveLatest := fleetLastSync(members, state.LastRunAt, found)
-		status.Stale = autoSyncStale(cfg, latestSync, haveLatest, time.Now().UTC())
+		status.Stale = autoSyncStale(cfg, latestSync, haveLatest, s.poller.autoSyncIdle(), time.Now().UTC())
 		status.FleetState, status.FleetStateReasons = s.fleetStateFrom(ctx, members, cfg, state, found)
 		status.EffectivePrimaryID = effectivePrimaryID(members, cfg, state.PrimaryID)
 		var lastSync time.Time
@@ -412,6 +412,12 @@ func (s *Server) putAutoSync(w http.ResponseWriter, r *http.Request) {
 	// The guarded write bumped the generation: cancel any pass still importing the
 	// old primary's config before the kick below starts a fresh pass.
 	s.signalRearm()
+	// A new primary, or auto-sync switched off or on, is a new question for the
+	// idle state: whatever the previous setup's passes concluded does not carry
+	// over, even when no pass ran in between to clear it.
+	if req.PrimaryID == "" || req.PrimaryID != cur.PrimaryID || req.Enabled != cur.Enabled {
+		s.clearAutoSyncIdle(r.Context())
+	}
 	s.emit(r.Context(), Event{
 		Type: "settings.changed", Severity: "info", Source: "frontdesk",
 		Message: fmt.Sprintf("Auto-sync %s", enabledWord(req.Enabled)),
@@ -424,17 +430,17 @@ func (s *Server) putAutoSync(w http.ResponseWriter, r *http.Request) {
 	// When auto-sync is left on, converge the fleet right away instead of waiting
 	// up to two ticks for the loop: the operator opted in deliberately, so this is
 	// the "sync now" they expect from the toggle. Detached from the request
-	// context (which ends when we respond) but time-bounded so a stuck pass cannot
-	// leak the goroutine. A no-op when nothing has drifted; the loop still owns the
-	// steady-state watch. Disabling (or no primary) never kicks.
-	// Registering through the server's background group rather than a bare
-	// goroutine is what keeps this safe during shutdown: a handler can still be
-	// running after the HTTP drain gave up, and the kick is refused from that point
-	// on, its context released for it. A kick that is already running takes the
-	// server's lifetime from detachedContext, so shutdown ends it instead of
-	// leaving the drain to wait out a fifteen-minute pass.
+	// context (which ends when we respond); each pass the kick runs is
+	// time-bounded (kickAutoSync) so a stuck pass cannot leak the goroutine. A
+	// no-op when nothing has drifted; the loop still owns the steady-state watch.
+	// Disabling (or no primary) never kicks. Registering through the server's
+	// background group rather than a bare goroutine is what keeps this safe
+	// during shutdown: a handler can still be running after the HTTP drain gave
+	// up, and the kick is refused from that point on. A kick that is already
+	// running takes the server's lifetime from detachedContext, so shutdown ends
+	// it instead of leaving the drain to wait out a fifteen-minute pass.
 	if status.Enabled && status.PrimaryID != "" {
-		s.StartBackgroundTimeout(s.detachedContext(r), autoSyncKickTimeout, s.forceAutoSyncNow)
+		s.StartBackground(s.detachedContext(r), func(ctx context.Context) { s.kickAutoSync(ctx) })
 	}
 	writeJSON(w, http.StatusOK, status)
 }

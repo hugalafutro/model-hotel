@@ -1,6 +1,8 @@
 package frontdesk
 
-import "context"
+import (
+	"context"
+)
 
 // startRearmWatch spawns a pass's rearm watcher and returns the stop func that
 // cancels it and blocks until it has returned.
@@ -52,5 +54,41 @@ func (s *Server) watchRearm(ctx context.Context, rearmCh <-chan struct{}, gen in
 		// rearm/repoint, or a disband that cleared the designation without touching
 		// the gen), so this pass is stale either way: cancel it.
 		cancel()
+	}
+}
+
+// kickAutoSync is the enable-time kick PUT /api/fleet/autosync fires: it runs
+// forceAutoSyncNow, coalescing a burst. A kick arriving while another runs only
+// marks a follow-up and returns, and the running kick makes one more pass once
+// its own ends, so N PUTs landing together cost at most two passes rather than
+// N concurrent ones pushing the same export. The follow-up is not optional: each
+// PUT bumps the rearm generation, which cancels the pass already running, so the
+// latest setup is only converged by a pass that starts after it.
+//
+// ctx is the server's lifetime (detachedContext), and only its end stops the
+// loop. Each pass, the follow-up included, gets its own autoSyncKickTimeout,
+// started once the pass holds passMu (forceAutoSyncNow): a kick queued behind a
+// slow tick pass does not spend its deadline waiting, and a pass that ran out
+// its deadline neither drops the follow-up a later PUT left nor hands it the
+// few moments that deadline had left.
+func (s *Server) kickAutoSync(ctx context.Context) {
+	s.kickMu.Lock()
+	if s.kickRunning {
+		s.kickPending = true
+		s.kickMu.Unlock()
+		return
+	}
+	s.kickRunning = true
+	s.kickMu.Unlock()
+	for {
+		s.forceAutoSyncNow(ctx)
+		s.kickMu.Lock()
+		if !s.kickPending || ctx.Err() != nil {
+			s.kickRunning, s.kickPending = false, false
+			s.kickMu.Unlock()
+			return
+		}
+		s.kickPending = false
+		s.kickMu.Unlock()
 	}
 }

@@ -175,7 +175,9 @@ func (p *Poller) PollAnnounceOnce(ctx context.Context) {
 				// would be a log line every poll). The latch is never reset: the
 				// conflict is a persistent misconfiguration the operator resolves.
 				p.mu.Lock()
-				already := p.conflictNotified[m.ID]
+				// A member removed while the announce was in flight
+				// (forgetMember) gets no latch and no warning.
+				already := p.conflictNotified[m.ID] || p.forgotten[m.ID]
 				if !already {
 					p.conflictNotified[m.ID] = true
 				}

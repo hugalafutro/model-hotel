@@ -107,8 +107,24 @@ type Poller struct {
 	configWatchdogArmedAt time.Time
 	staleNotified         bool
 	autoSyncStaleNotified bool
-	versionFailures       map[string]int // consecutive version-fetch failures, keyed by member ID
-	healthFailures        map[string]int // consecutive failed health polls, keyed by member ID
+	// autoSyncIdleSince is when an enabled auto-sync last found its primary
+	// unusable (no token, removed, refusing it, or not answering), zero while it
+	// can run or is off. Written by the auto-sync passes, read by every
+	// staleness grading (autoSyncStaleTier). The Server persists it alongside,
+	// and the first idle verdict after a restart takes the persisted instant
+	// (Server.markAutoSyncIdleLocked), which autoSyncIdleObserved tells it to do.
+	autoSyncIdleSince time.Time
+	// autoSyncIdleSet is true once any pass this process has recorded an idle
+	// verdict, either way.
+	autoSyncIdleSet bool
+	// forgotten holds the IDs of members removed this process (forgetMember),
+	// so a poll that measured one before its removal drops its status write
+	// instead of re-adding it (putStatus).
+	// ponytail: one ID per removed member for the process lifetime; members are
+	// removed rarely and IDs are never reused, so it is never pruned.
+	forgotten       map[string]bool
+	versionFailures map[string]int // consecutive version-fetch failures, keyed by member ID
+	healthFailures  map[string]int // consecutive failed health polls, keyed by member ID
 	// maintenanceDown marks a member whose confirmed-down was recorded as
 	// health.maintenance (it was drained at the time), so its recovery ends the
 	// episode on the same type, and re-activating it while still down pages.
@@ -142,6 +158,7 @@ func NewPoller(store *Store, bus *events.Bus, traefikAPI string) *Poller {
 		maintenanceDown:  make(map[string]bool),
 		traefikNonUp:     make(map[string]int),
 		conflictNotified: make(map[string]bool),
+		forgotten:        make(map[string]bool),
 	}
 }
 
@@ -159,6 +176,95 @@ func (p *Poller) RecordConfigPoll() {
 	p.lastConfigPollAt = p.now()
 	p.staleNotified = false
 	p.mu.Unlock()
+}
+
+// setAutoSyncIdle records whether an enabled auto-sync can run, and reports
+// whether that flipped, so the caller logs the change once rather than on every
+// pass. A new idle spell is dated since, or now when since is zero; the idle
+// clock keeps that instant while the auto-sync stays idle.
+func (p *Poller) setAutoSyncIdle(idle bool, since time.Time) (changed bool) {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	p.autoSyncIdleSet = true
+	if idle == !p.autoSyncIdleSince.IsZero() {
+		return false
+	}
+	p.autoSyncIdleSince = time.Time{}
+	if idle {
+		if since.IsZero() {
+			since = p.now()
+		}
+		p.autoSyncIdleSince = since
+	}
+	return true
+}
+
+// redateAutoSyncIdle moves the start of the current idle spell to since, and
+// does nothing while the auto-sync is not idle.
+func (p *Poller) redateAutoSyncIdle(since time.Time) {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	if !p.autoSyncIdleSince.IsZero() {
+		p.autoSyncIdleSince = since
+	}
+}
+
+// autoSyncIdleObserved reports whether this process has recorded an idle
+// verdict yet (setAutoSyncIdle).
+func (p *Poller) autoSyncIdleObserved() bool {
+	p.mu.RLock()
+	defer p.mu.RUnlock()
+	return p.autoSyncIdleSet
+}
+
+// autoSyncIdle returns when the enabled auto-sync went idle, zero while it runs.
+func (p *Poller) autoSyncIdle() time.Time {
+	p.mu.RLock()
+	defer p.mu.RUnlock()
+	return p.autoSyncIdleSince
+}
+
+// forgetMember drops every per-member entry the poller keeps for a removed
+// member, so the maps do not grow with every member ever removed, and marks it
+// removed. A poll already in flight when it runs checks that mark under p.mu
+// before it commits anything: it writes no status, counter or latch back and
+// emits no event or alert for the removed member.
+func (p *Poller) forgetMember(id string) {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	p.forgotten[id] = true
+	delete(p.statuses, id)
+	delete(p.versionFailures, id)
+	delete(p.healthFailures, id)
+	delete(p.maintenanceDown, id)
+	delete(p.traefikNonUp, id)
+	delete(p.conflictNotified, id)
+}
+
+// tombstone marks a member removed before the store removes it, so a poll
+// landing between the delete's commit and forgetMember commits nothing;
+// untombstone takes the mark back when the delete did not remove it.
+func (p *Poller) tombstone(id string) {
+	p.mu.Lock()
+	p.forgotten[id] = true
+	p.mu.Unlock()
+}
+
+func (p *Poller) untombstone(id string) {
+	p.mu.Lock()
+	delete(p.forgotten, id)
+	p.mu.Unlock()
+}
+
+// putStatus stores a member's status, unless the member was removed while the
+// poll that measured it was in flight (forgetMember), and reports whether it
+// stored it. The caller holds p.mu.
+func (p *Poller) putStatus(id string, st MemberStatus) bool {
+	if p.forgotten[id] {
+		return false
+	}
+	p.statuses[id] = st
+	return true
 }
 
 // Snapshot returns a copy of the current per-member status map.
@@ -199,7 +305,7 @@ func (p *Poller) SetAutoSyncVerified(memberID string, at time.Time) {
 	defer p.mu.Unlock()
 	st := p.statuses[memberID]
 	st.AutoSyncVerifiedAt = &at
-	p.statuses[memberID] = st
+	p.putStatus(memberID, st)
 }
 
 // Run starts the poll loops and blocks until ctx is cancelled. Each loop reads
@@ -323,6 +429,11 @@ func (p *Poller) checkHealth(ctx context.Context, baseURL string) HealthStatus {
 // observation that is healthy is recorded silently as the baseline.
 func (p *Poller) applyHealth(ctx context.Context, m *Member, hs HealthStatus, threshold int) {
 	p.mu.Lock()
+	if p.forgotten[m.ID] {
+		// Removed while this probe was in flight: nothing to record or report.
+		p.mu.Unlock()
+		return
+	}
 	prev, had := p.statuses[m.ID]
 	cur := prev
 	priorFails := p.healthFailures[m.ID]
@@ -342,7 +453,7 @@ func (p *Poller) applyHealth(ctx context.Context, m *Member, hs HealthStatus, th
 			cur.Health = hs
 		}
 	}
-	p.statuses[m.ID] = cur
+	p.putStatus(m.ID, cur)
 	p.mu.Unlock()
 
 	// The rendered badge is a function of both Known and Healthy (unknown vs
@@ -418,11 +529,12 @@ func (p *Poller) wasMaintenanceDown(memberID string) bool {
 }
 
 // setMaintenanceDown marks the member's down episode as maintenance, or clears
-// the mark when the episode ends or becomes a page.
+// the mark when the episode ends or becomes a page. A removed member gets no
+// mark back (forgetMember).
 func (p *Poller) setMaintenanceDown(memberID string, on bool) {
 	p.mu.Lock()
 	defer p.mu.Unlock()
-	if on {
+	if on && !p.forgotten[memberID] {
 		p.maintenanceDown[memberID] = true
 		return
 	}
