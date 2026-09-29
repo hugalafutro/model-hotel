@@ -1,0 +1,9 @@
+# Race-shard weights: tests whose time under the race detector far exceeds
+# their package's typical test, in units of that typical test (~0.15 s).
+# scripts/ci/go-race-shard.sh deals a large package's tests longest-first to
+# the least-loaded shard; every test not listed here weighs 1. Add a line when
+# one Go Race shard runs far longer than the others, from the slow shard's
+# package times and a `go test -json` timing of that package.
+#
+# package                  test                                          weight
+internal/proxy             TestContentFence_DeterministicOverTheBudget   1300
