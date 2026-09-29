@@ -91,8 +91,8 @@ func TestTranslateResponses_ReasoningToolsUsage(t *testing.T) {
 	}
 }
 
-// Truncation by max_output_tokens maps to finish_reason "length"; a plain
-// completed text answer maps to "stop" with null tool_calls.
+// Truncation by max_output_tokens maps to finish_reason "length", a
+// content_filter stop to "content_filter"; a plain completed text answer maps to "stop" with null tool_calls.
 func TestTranslateResponses_FinishReasons(t *testing.T) {
 	m := mustTranslateResp(t, `{
 		"id": "resp_1", "status": "incomplete", "incomplete_details": {"reason": "max_output_tokens"},
@@ -104,6 +104,15 @@ func TestTranslateResponses_FinishReasons(t *testing.T) {
 	}
 	if msg["content"] != "truncat" {
 		t.Errorf("content = %v", msg["content"])
+	}
+
+	m = mustTranslateResp(t, `{
+		"id": "resp_f", "status": "incomplete", "incomplete_details": {"reason": "content_filter"},
+		"output": [{"type": "message", "role": "assistant", "content": [{"type": "output_text", "text": "cut"}]}]
+	}`, "m")
+	choice, _ = firstChoice(t, m)
+	if choice["finish_reason"] != "content_filter" {
+		t.Errorf("finish_reason = %v, want content_filter", choice["finish_reason"])
 	}
 
 	m = mustTranslateResp(t, `{
@@ -236,5 +245,29 @@ func TestTranslateResponsesToChat_SynthesizesAnIDWhenUpstreamOmitsIt(t *testing.
 	}
 	if !strings.HasPrefix(resp.ID, "chatcmpl-") || len(resp.ID) != len("chatcmpl-")+32 {
 		t.Errorf("id = %q, want a synthesized chatcmpl- id", resp.ID)
+	}
+}
+
+// The egress finish mapping inverts the ingress one: every finish_reason the
+// ingress side turns into a status survives the trip back.
+func TestFinishReasonRoundTrip(t *testing.T) {
+	for _, finish := range []string{"stop", "length", "content_filter"} {
+		status, details := statusForFinish(finish)
+		if got := mapStatusFinishReason(status, details, false); got != finish {
+			t.Errorf("%s -> %s %+v -> %s, want %s", finish, status, details, got, finish)
+		}
+	}
+}
+
+// An explicit incomplete reason wins over function calls: a filtered or
+// truncated turn's call arguments must not read as tool_calls to run.
+func TestFinishReason_IncompleteBeatsToolCalls(t *testing.T) {
+	for reason, want := range map[string]string{"content_filter": "content_filter", "max_output_tokens": "length"} {
+		if got := mapStatusFinishReason("incomplete", &IncompleteDetails{Reason: reason}, true); got != want {
+			t.Errorf("%s with tool calls -> %s, want %s", reason, got, want)
+		}
+	}
+	if got := mapStatusFinishReason("completed", nil, true); got != "tool_calls" {
+		t.Errorf("completed with tool calls -> %s, want tool_calls", got)
 	}
 }
