@@ -509,6 +509,9 @@ func deriveStreamError(st *streamState, scanErr error, opts streamOptions, logDa
 	switch {
 	case st.interrupted && cutShort:
 		errMsg = "stream interrupted: gateway restarting"
+		// Gateway-authored, so the client gets the row's text rather than the
+		// coarse connection error the body close would otherwise produce.
+		st.clientErrMsg = errMsg
 		logData.errorKind = KindInternal
 		debuglog.Warn("proxy: stream interrupted by shutdown", "model", logData.modelID, "provider", logData.providerName, "chunks", st.chunkCount)
 	case st.stalled && cutShort:
@@ -517,6 +520,7 @@ func deriveStreamError(st *streamState, scanErr error, opts streamOptions, logDa
 			effectiveStall = opts.streamStallTimeout * progressiveStallMultiplier
 		}
 		errMsg = fmt.Sprintf("stream stalled: no data for %s", effectiveStall)
+		st.clientErrMsg = errMsg
 		logData.errorKind = KindProviderTimeout
 		debuglog.Warn("proxy: stream stall detected", "model", logData.modelID, "provider", logData.providerName, "stall_timeout", effectiveStall, "base_timeout", opts.streamStallTimeout, "chunks", st.chunkCount)
 	}

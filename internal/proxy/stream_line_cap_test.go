@@ -134,6 +134,14 @@ func TestClassifyProbeError_LineCapMatchesTheStreamPath(t *testing.T) {
 	if !charged || re.Kind != KindProviderError || re.Underlying != lineCapErrMsg {
 		t.Fatalf("got kind=%s charged=%v underlying=%q", re.Kind, charged, re.Underlying)
 	}
+	// The breaker's last cause names the overflow rather than a bare failure.
+	if got := probeBreakerReason("TTFT probe", re); got != "TTFT probe: a frame exceeded the line limit" {
+		t.Errorf("breaker reason = %q", got)
+	}
+	timedOut, _ := classifyProbeFailure("p", "", false, time.Minute, time.Second, time.Second, 1)
+	if got := probeBreakerReason("hedged TTFT probe", timedOut); got != "hedged TTFT probe: no first token" {
+		t.Errorf("breaker reason = %q", got)
+	}
 }
 
 // A stream that stops before the upstream's EOF must not wait for it: the
