@@ -40,13 +40,26 @@ describe("lazyLocaleBackend", () => {
 // The active language reaches <html>, so screen readers and the layout follow
 // it on every screen: the listener sits on i18next, not on a component.
 describe("document language", () => {
-	afterEach(() => i18next.changeLanguage("en"));
+	afterEach(() => {
+		vi.restoreAllMocks();
+		return i18next.changeLanguage("en");
+	});
+
+	// A chunk that fails to load (a stale hash after a deploy) leaves the page
+	// in English, so <html> must not claim a right-to-left language it is not
+	// showing. i18next remembers the failure, so "he" is this test's alone.
+	it("stays on the fallback when a catalog fails to load", async () => {
+		vi.spyOn(lazyLocaleBackend, "read").mockImplementation((_l, _n, cb) =>
+			cb(new Error("chunk 404"), null),
+		);
+		await i18next.changeLanguage("he");
+		expect(document.documentElement.lang).toBe("en");
+		expect(document.documentElement.dir).toBe("ltr");
+	});
 
 	it("sets lang and dir on <html> for each language change", async () => {
 		await i18next.changeLanguage("ar");
 		expect(document.documentElement.lang).toBe("ar");
-		expect(document.documentElement.dir).toBe("rtl");
-		await i18next.changeLanguage("he");
 		expect(document.documentElement.dir).toBe("rtl");
 		await i18next.changeLanguage("de");
 		expect(document.documentElement.lang).toBe("de");

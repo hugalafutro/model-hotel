@@ -75,17 +75,17 @@ function LoginScreen() {
 	const [totpForced, setTotpForced] = useState(false);
 	const [totpCode, setTotpCode] = useState("");
 	const [username, setUsername] = useState("");
-
-	// A session that expired while no tab was open never ran the teardown, so
-	// its storage mirror is still here: the login screen is logged out by
-	// definition, and clears it.
-	useEffect(clearAuth, []);
 	const [userPassword, setUserPassword] = useState("");
 	const [userLoading, setUserLoading] = useState(false);
 	// Set when the server answers 401 {"totp_required": true}: the account has
 	// a second factor, so the form grows a code field and resubmits with it.
 	const [userTotpNeeded, setUserTotpNeeded] = useState(false);
 	const [userTotpCode, setUserTotpCode] = useState("");
+
+	// A session that expired while no tab was open never ran the teardown, so
+	// its storage mirror is still here: the login screen is logged out by
+	// definition, and clears it.
+	useEffect(clearAuth, []);
 
 	// SSO availability is read unauthenticated; the button only shows when an
 	// IdP is configured. Cached app-wide; config does not change at runtime.

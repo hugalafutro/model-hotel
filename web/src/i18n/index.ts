@@ -41,7 +41,11 @@ export const lazyLocaleBackend = createLocaleBackend(
 );
 
 // Registered before init so the detected language is applied too.
-i18next.on("languageChanged", setDocumentLanguage);
+// resolvedLanguage, so a catalog that failed to load leaves the page on the
+// fallback it renders rather than a direction its text does not have.
+i18next.on("languageChanged", (lng) =>
+	setDocumentLanguage(i18next.resolvedLanguage ?? lng),
+);
 
 i18next
 	.use(lazyLocaleBackend)
