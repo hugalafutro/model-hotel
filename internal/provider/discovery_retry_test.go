@@ -274,3 +274,38 @@ func TestFetchURL_OversizedErrorBodyKeepsTheConnection(t *testing.T) {
 		t.Fatalf("three fetches opened %d connections, want 1", n)
 	}
 }
+
+// The retry path drains its error bodies too: two oversized 503s and the 200
+// that follows share one connection.
+func TestDoDiscoveryRequest_OversizedRetryableBodiesKeepTheConnection(t *testing.T) {
+	big := strings.Repeat("x", 3*(64<<10))
+	var calls atomic.Int32
+	srv := httptest.NewUnstartedServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		if calls.Add(1) < 3 {
+			w.WriteHeader(http.StatusServiceUnavailable)
+			_, _ = io.WriteString(w, big)
+			return
+		}
+		_, _ = w.Write([]byte("ok"))
+	}))
+	var conns atomic.Int32
+	srv.Config.ConnState = func(_ net.Conn, s http.ConnState) {
+		if s == http.StateNew {
+			conns.Add(1)
+		}
+	}
+	srv.Start()
+	defer srv.Close()
+
+	d := retryTestService(srv)
+	resp, err := d.doDiscoveryRequest(context.Background(), func() (*http.Request, error) {
+		return http.NewRequestWithContext(context.Background(), http.MethodGet, srv.URL, http.NoBody)
+	})
+	if err != nil {
+		t.Fatalf("expected success after retries, got %v", err)
+	}
+	_ = resp.Body.Close()
+	if n := conns.Load(); n != 1 {
+		t.Fatalf("three attempts opened %d connections, want 1", n)
+	}
+}

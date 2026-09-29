@@ -232,7 +232,7 @@ func (d *DiscoveryService) doDiscoveryRequest(ctx context.Context, newReq func()
 		}
 		if isRetryableStatus(resp.StatusCode) {
 			body, _ := io.ReadAll(io.LimitReader(resp.Body, httpx.MaxErrorBody))
-			httpx.DiscardRest(resp.Body, discoveryBodyCap)
+			httpx.DiscardRest(resp)
 			_ = resp.Body.Close()
 			// The body stays in the log line: lastErr becomes the returned
 			// error once the retries run out, and that error reaches the
@@ -361,7 +361,7 @@ func (d *DiscoveryService) fetchURL(ctx context.Context, method, rawURL string, 
 		// some statuses are expected every scan, and callers that treat one
 		// as a failure log their own Warn or Error.
 		body, _ := io.ReadAll(io.LimitReader(resp.Body, httpx.MaxErrorBody))
-		httpx.DiscardRest(resp.Body, discoveryBodyCap)
+		httpx.DiscardRest(resp)
 		debuglog.Info("discovery: fetch returned non-200 status",
 			"host", last.URL.Host, "status", resp.StatusCode, "body", maskRequestSecrets(last, string(body), 2000))
 		return nil, &httpError{StatusCode: resp.StatusCode}
