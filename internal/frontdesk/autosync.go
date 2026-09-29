@@ -244,6 +244,10 @@ func (s *Server) forceAutoSyncNow(ctx context.Context) {
 		return
 	}
 	defer s.passMu.Unlock()
+	// The deadline starts once the pass holds the lock, so time spent queued
+	// behind another pass is not taken from it.
+	ctx, cancel := context.WithTimeout(ctx, autoSyncKickTimeout)
+	defer cancel()
 	cfg, err := s.store.GetAutoSync(ctx)
 	if err != nil {
 		debuglog.Warn("frontdesk: auto-sync kick: read config", "error", err)

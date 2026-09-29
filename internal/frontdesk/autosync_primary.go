@@ -65,16 +65,20 @@ func (s *Server) markAutoSyncIdle(ctx context.Context) bool {
 	s.idleMu.Lock()
 	defer s.idleMu.Unlock()
 	var since time.Time // zero: the poller dates it now
+	readFailed := false
 	if !s.poller.autoSyncIdleObserved() {
 		since = s.startedAt
 		if persisted, err := s.store.AutoSyncIdleSince(ctx); err != nil {
 			debuglog.Warn("frontdesk: auto-sync: read idle since", "error", err)
+			readFailed = true
 		} else if !persisted.IsZero() {
 			since = persisted
 		}
 	}
 	changed := s.poller.setAutoSyncIdle(true, since)
-	if changed {
+	// A record that could not be read is not overwritten: it may hold an
+	// older spell than the start time this verdict fell back to.
+	if changed && !readFailed {
 		s.persistAutoSyncIdle(ctx, s.poller.autoSyncIdle())
 	}
 	return changed

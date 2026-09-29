@@ -66,9 +66,11 @@ func (s *Server) watchRearm(ctx context.Context, rearmCh <-chan struct{}, gen in
 // latest setup is only converged by a pass that starts after it.
 //
 // ctx is the server's lifetime (detachedContext), and only its end stops the
-// loop. Each pass, the follow-up included, gets its own autoSyncKickTimeout
-// from it, so a pass that ran out its deadline neither drops the follow-up a
-// later PUT left nor hands it the few moments that deadline had left.
+// loop. Each pass, the follow-up included, gets its own autoSyncKickTimeout,
+// started once the pass holds passMu (forceAutoSyncNow): a kick queued behind a
+// slow tick pass does not spend its deadline waiting, and a pass that ran out
+// its deadline neither drops the follow-up a later PUT left nor hands it the
+// few moments that deadline had left.
 func (s *Server) kickAutoSync(ctx context.Context) {
 	s.kickMu.Lock()
 	if s.kickRunning {
@@ -79,9 +81,7 @@ func (s *Server) kickAutoSync(ctx context.Context) {
 	s.kickRunning = true
 	s.kickMu.Unlock()
 	for {
-		passCtx, cancel := context.WithTimeout(ctx, autoSyncKickTimeout)
-		s.forceAutoSyncNow(passCtx)
-		cancel()
+		s.forceAutoSyncNow(ctx)
 		s.kickMu.Lock()
 		if !s.kickPending || ctx.Err() != nil {
 			s.kickRunning, s.kickPending = false, false
