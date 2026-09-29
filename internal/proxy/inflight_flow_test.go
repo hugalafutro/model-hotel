@@ -656,14 +656,16 @@ func TestStreamSlotOutcome_FollowsTheBreakerVerdict(t *testing.T) {
 	}
 }
 
-// Pre-header failures the provider did not cause settle neutral.
+// Pre-header failures the provider did not cause settle neutral; the rest,
+// including a gateway deadline the breaker charges as a stall, unclean.
 func TestSlotOutcomeFor(t *testing.T) {
-	for _, k := range []ErrorKind{KindClientDisconnect, KindHedgeSuperseded, KindFailoverTimeout, KindRetryTimeout, KindInternal} {
+	for _, k := range []ErrorKind{KindClientDisconnect, KindHedgeSuperseded, KindInternal} {
 		if slotOutcomeFor(k) != slotNeutral {
 			t.Errorf("%s settles %d, want neutral", k, slotOutcomeFor(k))
 		}
 	}
-	for _, k := range []ErrorKind{KindProviderError, KindProviderTimeout, KindProviderSaturated} {
+	// A pre-header gateway deadline is charged to the provider as a stall.
+	for _, k := range []ErrorKind{KindProviderError, KindProviderTimeout, KindProviderSaturated, KindFailoverTimeout, KindRetryTimeout} {
 		if slotOutcomeFor(k) != slotUnclean {
 			t.Errorf("%s settles %d, want unclean", k, slotOutcomeFor(k))
 		}
