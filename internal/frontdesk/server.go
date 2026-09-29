@@ -188,13 +188,20 @@ type Server struct {
 	// not take it: an operator's push runs alongside, and the next pass measures
 	// whatever it left.
 	passMu sync.Mutex
-	// primaryReadFailures counts consecutive passes that could not read the
-	// primary's config hash; see primaryConfigHash.
-	primaryReadFailures atomic.Int32
-	// idleMu serialises the auto-sync idle verdicts (markAutoSyncIdle,
+	// idleMu serialises the auto-sync idle verdicts (recordPrimaryVerdict,
 	// clearAutoSyncIdle) with their store writes, so the persisted idle-since
-	// always matches the poller's in-memory one.
+	// follows the poller's in-memory one, and guards the three fields below.
 	idleMu sync.Mutex
+	// primaryReadFailures counts consecutive passes that could not read the
+	// primary's config hash; see recordPrimaryVerdict.
+	primaryReadFailures int
+	// idleSpellUndated is true while the current idle spell is dated to this
+	// process's start only because the persisted record could not be read
+	// (markAutoSyncIdleLocked).
+	idleSpellUndated bool
+	// idleRecordDirty is true while the persisted idle spell may not match the
+	// in-memory one because its last write failed (persistAutoSyncIdle).
+	idleRecordDirty bool
 	// kickMu guards kickRunning and kickPending, which coalesce the enable-time
 	// kicks: a kick arriving while one runs leaves one follow-up behind instead
 	// of a pass of its own (kickAutoSync).

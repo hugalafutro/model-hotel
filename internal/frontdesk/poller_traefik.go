@@ -39,6 +39,9 @@ func (p *Poller) PollTraefikOnce(ctx context.Context) {
 	p.traefikBlanked = false
 	var changed []string
 	for _, m := range members {
+		if p.forgotten[m.ID] {
+			continue // removed since the roster was read (forgetMember)
+		}
 		cur := p.statuses[m.ID]
 		// Key by the same URL BuildTraefikConfig publishes: a legacy row can
 		// still carry userinfo, which the emitted config strips.

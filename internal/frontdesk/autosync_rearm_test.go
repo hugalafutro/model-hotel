@@ -4,6 +4,8 @@ import (
 	"context"
 	"net/http"
 	"net/http/httptest"
+	"runtime"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -174,8 +176,8 @@ func TestWaitingPassRereadsThePrimary(t *testing.T) {
 	f.srv.passMu.Lock()
 	done := make(chan struct{})
 	go func() { f.srv.forceAutoSyncNow(t.Context()); close(done) }()
-	// A pass that read before queueing shows up here; one that waits does not.
-	waitUntilOrBriefly(func() bool { return f.primary.versionReadCount() > 0 })
+	// Blocked on the pass lock: whatever it reads, it reads after the move below.
+	waitBlockedInLockPass(t)
 	f.primary.setVersionHash("hash-C")
 	f.replica.mu.Lock()
 	f.replica.versionHash = "hash-C"
@@ -200,7 +202,7 @@ func TestWaitingPassWithEndedContextRunsNothing(t *testing.T) {
 	ctx, cancel := context.WithCancel(t.Context())
 	done := make(chan struct{})
 	go func() { f.srv.forceAutoSyncNow(ctx); close(done) }()
-	waitUntilOrBriefly(func() bool { return f.primary.versionReadCount() > 0 })
+	waitBlockedInLockPass(t)
 	cancel()
 	f.srv.passMu.Unlock()
 	<-done
@@ -213,11 +215,18 @@ func TestWaitingPassWithEndedContextRunsNothing(t *testing.T) {
 	}
 }
 
-// waitUntilOrBriefly gives a goroutine the chance to do what cond looks for,
-// returning as soon as it has, or after a moment when it never does: the
-// wanted outcome is that it never does, which no poll can confirm sooner.
-func waitUntilOrBriefly(cond func() bool) {
-	for deadline := time.Now().Add(200 * time.Millisecond); time.Now().Before(deadline) && !cond(); {
-		time.Sleep(2 * time.Millisecond)
+// waitBlockedInLockPass returns once a goroutine is parked on the pass lock
+// inside lockPass, read from the goroutine dump: the pass has started and
+// reads nothing until the test releases passMu.
+func waitBlockedInLockPass(t *testing.T) {
+	t.Helper()
+	buf := make([]byte, 1<<20)
+	for deadline := time.Now().Add(5 * time.Second); time.Now().Before(deadline); time.Sleep(time.Millisecond) {
+		for g := range strings.SplitSeq(string(buf[:runtime.Stack(buf, true)]), "\n\n") {
+			if strings.Contains(g, "[sync.Mutex.Lock") && strings.Contains(g, "(*Server).lockPass") {
+				return
+			}
+		}
 	}
+	t.Fatal("no pass blocked on the pass lock")
 }

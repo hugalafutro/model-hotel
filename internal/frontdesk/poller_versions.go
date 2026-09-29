@@ -49,6 +49,11 @@ func (p *Poller) PollVersionsOnce(ctx context.Context) {
 			continue
 		}
 		p.mu.Lock()
+		if p.forgotten[m.ID] {
+			// Removed while this read was in flight (forgetMember).
+			p.mu.Unlock()
+			continue
+		}
 		cur := p.statuses[m.ID]
 		versionChanged := cur.Version != build.Version || cur.Commit != build.Commit
 		cur.Version = build.Version
@@ -98,8 +103,7 @@ func (p *Poller) clearBuild(memberID string) bool {
 	had := cur.Version != ""
 	cur.Version = ""
 	cur.Commit = ""
-	p.putStatus(memberID, cur)
-	return had
+	return p.putStatus(memberID, cur) && had
 }
 
 // noteVersionFetchFailure tracks consecutive version-fetch failures for a member
@@ -109,9 +113,14 @@ func (p *Poller) clearBuild(memberID string) bool {
 // (possibly hostile or misconfigured) URL is surfaced for the operator rather
 // than retried silently at Debug level forever. The fetch error is logged but
 // never put in the event payload (it can embed a fragment of the member's HTTP
-// response).
+// response). A member removed while the read was in flight (forgetMember)
+// counts nothing and reports 0.
 func (p *Poller) noteVersionFetchFailure(ctx context.Context, m *Member, fetchErr error) int {
 	p.mu.Lock()
+	if p.forgotten[m.ID] {
+		p.mu.Unlock()
+		return 0
+	}
 	p.versionFailures[m.ID]++
 	n := p.versionFailures[m.ID]
 	p.mu.Unlock()
