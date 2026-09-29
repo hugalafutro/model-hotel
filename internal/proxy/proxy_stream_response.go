@@ -19,22 +19,22 @@ func (h *Handler) handleStreamingResponse(w http.ResponseWriter, r *http.Request
 	// alive, so the watchdog timeout extends to tolerate tool-call pauses and
 	// long reasoning chains.
 
-	// The in-flight slot's verdict hold stays raised for the whole stream (the
-	// dispatch raised it for the TTFT probe), so neither the upstream's EOF nor
-	// a stall or shutdown close settles the slot clean on the 2xx alone. Only a
-	// stream the finalizer judged completed lowers it before the close, which
-	// then settles the slot clean and lets the learned window grow.
+	// The in-flight slot's verdict hold is raised for the whole stream (the
+	// dispatch already raised it for the TTFT probe), so neither the upstream's
+	// EOF nor a stall, shutdown or final close settles the slot on the 2xx
+	// alone. finalizeStream settles it once the stream's outcome is classified.
+	// The deferred settle is the safety net for an exit that never reaches the
+	// finalizer (a panic): unclean, since nothing proved the stream served, and
+	// a no-op once the finalizer has settled.
 	//
 	// The body is closed, never drained. A stream that reached its EOF has
 	// nothing left to drain; one that stopped early (a [DONE] or terminal
 	// event, an abort, a disconnect) may still be sending, and a drain would
 	// hold this goroutine until the upstream ended or the attempt deadline.
-	opts.slot.holdVerdict(true)
+	opts.slot.holdVerdict()
 	defer func() {
-		if logData.state == "completed" {
-			opts.slot.holdVerdict(false)
-		}
 		_ = resp.Body.Close()
+		opts.slot.settle(slotUnclean)
 	}()
 	debuglog.Debug("proxy: handleStreamingResponse entered", "model", logData.modelID, "provider", logData.providerName, "upstream_status", resp.StatusCode, "attempt", opts.attempt, "response_header_ms", opts.responseHeaderMs, "true_ttft_ms", opts.trueTtftMs, "has_probe_buf", opts.preReadBuf != nil)
 
@@ -136,6 +136,9 @@ logUpdate:
 	// Stop the watchdog before reading its stall flag: close, then read the
 	// atomic.
 	reader.Close()
+	// Nothing is read past here, so the upstream connection is released now
+	// rather than held through the finalizer's bookkeeping.
+	_ = resp.Body.Close()
 	// st was accumulated in place by the loop; fill in the reader-owned fields
 	// it could not (the final chunk count and the stall flag, read after
 	// watchdog teardown), then finalize.

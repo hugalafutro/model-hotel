@@ -347,7 +347,7 @@ func (h *Handler) rejectUntranslatableBody(st *requestState, candidate modelCand
 	// 2xx at the close that follows and the provider keeps the run: the same
 	// line the breaker draws above, where an abandoned read is not charged.
 	if !abandoned {
-		st.attemptSlot.settle(false)
+		st.attemptSlot.settle(slotUnclean)
 	}
 	st.setReqErr(reqError{Kind: kind, Attempt: attempt, Provider: candidate.provider.Name, Underlying: errString(err)})
 	logData.failoverAttempt = attempt

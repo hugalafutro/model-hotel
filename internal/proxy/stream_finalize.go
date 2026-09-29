@@ -293,6 +293,11 @@ func (h *Handler) finalizeStream(st *streamState, sink *streamSink, scanErr erro
 		}
 	}
 
+	// The outcome is classified, so the in-flight slot settles here, before the
+	// client, request-log and token writes below: a provider at a window of one
+	// or two must not stay busy through this request's bookkeeping.
+	opts.slot.settle(streamSlotOutcome(st, logData, errMsg))
+
 	logData.statusCode = statusCode
 	logData.durationMs = totalDuration
 	logData.proxyOverheadMs = opts.proxyOverheadMs
@@ -366,6 +371,21 @@ func (h *Handler) finalizeStream(st *streamState, sink *streamSink, scanErr erro
 		debuglog.Info("proxy: recording token usage despite client disconnect", "model", logData.modelID, "provider", logData.providerName, "prompt_tokens", st.promptTokens, "completion_tokens", st.completionTokens)
 	}
 	h.recordTokenUsage(opts.vkHash, logData, promptTokens, completionTokens, reasoningTokens)
+}
+
+// streamSlotOutcome is the in-flight settlement for a finished stream: a
+// completed stream is clean, one that ended because the client left or the
+// gateway is restarting is neutral (the same causes judgeStreamForBreaker
+// spares), and any other failure is unclean.
+func streamSlotOutcome(st *streamState, logData *requestLogData, errMsg string) slotOutcome {
+	switch {
+	case errMsg == "":
+		return slotClean
+	case st.interrupted && !st.lineCapExceeded:
+		return slotNeutral
+	default:
+		return slotOutcomeFor(logData.errorKind)
+	}
 }
 
 // deriveStreamError classifies how the stream ended into the error message

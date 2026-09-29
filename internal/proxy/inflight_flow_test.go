@@ -112,7 +112,7 @@ func TestInflight_PassthroughBusyCandidateIsSkipped(t *testing.T) {
 	if !h.inflight.tryAcquire(cand.provider.ID, 1) {
 		t.Fatal("setup: slot not acquired")
 	}
-	defer h.inflight.release(cand.provider.ID, true, 0, 0)
+	defer h.inflight.release(cand.provider.ID, slotClean, 0, 0)
 
 	st := &requestState{
 		startTime: time.Now(), reqModel: "text-embedding-3-small",
@@ -156,7 +156,7 @@ func TestProbeStreamingCandidate_SlotOnEarlyExits(t *testing.T) {
 		if !h.inflight.tryAcquire(cand.provider.ID, 1) {
 			t.Fatal("setup: slot not acquired")
 		}
-		defer h.inflight.release(cand.provider.ID, true, 0, 0)
+		defer h.inflight.release(cand.provider.ID, slotClean, 0, 0)
 
 		res := h.probeStreamingCandidate(context.Background(), st, cand, 0, time.Second, time.Second)
 		if res.won || !res.busy {
@@ -225,7 +225,7 @@ func TestChatCompletions_MaxInFlightCeiling(t *testing.T) {
 		}
 		go func() {
 			time.Sleep(50 * time.Millisecond)
-			h.inflight.release(env.ProviderID, true, 0, 0)
+			h.inflight.release(env.ProviderID, slotClean, 0, 0)
 		}()
 		w := chatRequest(t, env)
 		if w.Code != http.StatusOK {
@@ -241,7 +241,7 @@ func TestChatCompletions_MaxInFlightCeiling(t *testing.T) {
 		if !h.inflight.tryAcquire(env.ProviderID, 1) {
 			t.Fatal("setup: slot not acquired")
 		}
-		defer h.inflight.release(env.ProviderID, true, 0, 0)
+		defer h.inflight.release(env.ProviderID, slotClean, 0, 0)
 
 		w := chatRequest(t, env)
 		if w.Code != http.StatusTooManyRequests {
@@ -256,7 +256,7 @@ func TestChatCompletions_MaxInFlightCeiling(t *testing.T) {
 // The scaled 2026-08-31 replay with the phrase table DELETED: a one-slot
 // provider answering an unrecognisable 429 when busy, a healthy sibling behind
 // it. The behavioural rules alone (recent-success fallback + the cut) must
-// keep every request served and the busy provider's circuit closed — the
+// keep every request served and the busy provider's circuit closed: the
 // spec's universality requirement: phrases are accelerators, never
 // prerequisites.
 func TestChatCompletions_Replay_PhraseTableEmptied(t *testing.T) {
@@ -465,7 +465,7 @@ func TestRunHedgedStreaming_AllBusyWaitsForASlot(t *testing.T) {
 	}
 	t.Cleanup(func() {
 		for _, c := range cands {
-			h.inflight.release(c.provider.ID, true, 0, 0)
+			h.inflight.release(c.provider.ID, slotClean, 0, 0)
 		}
 	})
 
@@ -482,7 +482,7 @@ func TestRunHedgedStreaming_AllBusyWaitsForASlot(t *testing.T) {
 	// writing the all-busy error.
 	go func() {
 		time.Sleep(30 * time.Millisecond)
-		h.inflight.release(cands[1].provider.ID, true, 0, 0)
+		h.inflight.release(cands[1].provider.ID, slotClean, 0, 0)
 	}()
 
 	w := runHedge(context.Background(), h, hh, st, cands)
@@ -497,18 +497,25 @@ func TestRunHedgedStreaming_AllBusyWaitsForASlot(t *testing.T) {
 
 // A streaming 200 settles its slot with the stream's own verdict, not the
 // status: only a stream the finalizer judged completed grows the learned
-// window. A stall (the watchdog closes the body) and an error frame ending in
-// a clean EOF are failures, and must leave the window where it was.
+// window, including one whose [DONE] lands as the stall watchdog closes the
+// body. A stall and an error frame ending in a clean EOF are failures and reset
+// the clean-run count; a client that hangs up is no evidence about the
+// provider and leaves the window and the count alone.
 func TestHandleStreamingResponse_OnlyACompletedStreamGrowsTheWindow(t *testing.T) {
 	const content = "data: {\"choices\":[{\"delta\":{\"content\":\"hi\"}}]}\n\n"
+	const earned = 5 // clean runs already counted before this stream
 	cases := []struct {
-		name      string
-		body      io.ReadCloser
-		wantLimit int
+		name         string
+		body         io.ReadCloser
+		clientGone   bool
+		wantLimit    int
+		wantGoodRuns int
 	}{
-		{"completed", io.NopCloser(strings.NewReader(content + "data: [DONE]\n\n")), 2},
-		{"stalled", newBlockUntilClosedReader(content), 1},
-		{"error frame", io.NopCloser(strings.NewReader("data: {\"error\":{\"message\":\"boom\"}}\n\n")), 1},
+		{"completed", io.NopCloser(strings.NewReader(content + "data: [DONE]\n\n")), false, 2, 0},
+		{"completed as the watchdog closes", &dataAtClose{data: content + "data: [DONE]\n\n", closed: make(chan struct{})}, false, 2, 0},
+		{"stalled", newBlockUntilClosedReader(content), false, 1, 0},
+		{"error frame", io.NopCloser(strings.NewReader("data: {\"error\":{\"message\":\"boom\"}}\n\n")), false, 1, 0},
+		{"client disconnect", io.NopCloser(strings.NewReader(content + "data: [DONE]\n\n")), true, 1, earned},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
@@ -520,25 +527,103 @@ func TestHandleStreamingResponse_OnlyACompletedStreamGrowsTheWindow(t *testing.T
 				t.Fatal("setup: slot not acquired")
 			}
 			limiter.cut(pid, 0) // learned limit 1, grown by the next clean run
-			slot := &attemptSlot{fire: func(clean bool) { limiter.release(pid, clean, 1, time.Hour) }}
+			limiter.windowFor(t, pid).goodRuns = earned
+			slot := &attemptSlot{fire: func(o slotOutcome) { limiter.release(pid, o, 1, time.Hour) }}
 			// The dispatch raises the hold for the probe; the stream keeps it.
-			slot.holdVerdict(true)
+			slot.holdVerdict()
 			resp := &http.Response{
 				StatusCode: http.StatusOK,
 				Header:     make(http.Header),
 				Body:       &inflightRelease{ReadCloser: tc.body, slot: slot, clean: true, onEOF: true},
 			}
-			req := withAuthContext(httptest.NewRequest("GET", "/", http.NoBody))
+			ctx, cancel := context.WithCancel(context.Background())
+			defer cancel()
+			if tc.clientGone {
+				cancel()
+			}
+			req := withAuthContext(httptest.NewRequest("GET", "/", http.NoBody).WithContext(ctx))
 			h.handleStreamingResponse(httptest.NewRecorder(), req, streamingLog(), resp, time.Now(), streamOptions{cancelOrigin: "failover_timeout", streamStallTimeout: 50 * time.Millisecond, slot: slot})
 
-			for _, s := range limiter.snapshot() {
-				if s.Inflight != 0 {
-					t.Errorf("inflight = %d, want 0: the slot must settle", s.Inflight)
-				}
-				if s.Limit != tc.wantLimit {
-					t.Errorf("limit = %d, want %d", s.Limit, tc.wantLimit)
-				}
+			w := limiter.windowFor(t, pid)
+			if w.inflight != 0 {
+				t.Errorf("inflight = %d, want 0: the slot must settle", w.inflight)
+			}
+			if w.limit != tc.wantLimit || w.goodRuns != tc.wantGoodRuns {
+				t.Errorf("limit, goodRuns = %d, %d, want %d, %d", w.limit, w.goodRuns, tc.wantLimit, tc.wantGoodRuns)
 			}
 		})
 	}
+}
+
+// dataAtClose holds its whole stream back until it is closed, then hands it
+// over in one read: the upstream's last bytes, [DONE] included, arriving just
+// as the stall watchdog closes the body.
+type dataAtClose struct {
+	data   string
+	closed chan struct{}
+	once   sync.Once
+	sent   bool
+}
+
+func (b *dataAtClose) Read(p []byte) (int, error) {
+	<-b.closed
+	if b.sent {
+		return 0, io.EOF
+	}
+	b.sent = true
+	return copy(p, b.data), nil
+}
+
+func (b *dataAtClose) Close() error {
+	b.once.Do(func() { close(b.closed) })
+	return nil
+}
+
+// A finished stream frees its provider's slot as soon as its outcome is known,
+// not after the request-log write: that write waits for the row's INSERT, up
+// to seconds, and a provider at a window of one would turn the next request
+// away all that time. The INSERT is held open here, so the terminal write
+// blocks; the slot must settle while it does.
+func TestHandleStreamingResponse_SettlesBeforeTheRequestLogWrite(t *testing.T) {
+	h := newIntegrationHandler()
+	defer stopUnitHandlerIntegration(h)
+	settled := make(chan slotOutcome, 1)
+	slot := &attemptSlot{fire: func(o slotOutcome) { settled <- o }}
+	slot.holdVerdict()
+	resp := &http.Response{
+		StatusCode: http.StatusOK,
+		Header:     make(http.Header),
+		Body:       &inflightRelease{ReadCloser: io.NopCloser(strings.NewReader("data: {\"choices\":[{\"delta\":{\"content\":\"hi\"}}]}\n\ndata: [DONE]\n\n")), slot: slot, clean: true, onEOF: true},
+	}
+	logData := streamingLog()
+	logData.insertWg.Add(1) // an INSERT that has not landed yet
+	released := false
+	defer func() {
+		if !released {
+			logData.insertWg.Done()
+		}
+	}()
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		req := withAuthContext(httptest.NewRequest("GET", "/", http.NoBody))
+		h.handleStreamingResponse(httptest.NewRecorder(), req, logData, resp, time.Now(), streamOptions{streamStallTimeout: time.Minute, slot: slot})
+	}()
+
+	select {
+	case o := <-settled:
+		if o != slotClean {
+			t.Errorf("a completed stream settled %d, want clean", o)
+		}
+	case <-time.After(2 * time.Second):
+		t.Error("the slot was still held while the request-log write waited")
+	}
+	select {
+	case <-done:
+		t.Error("the handler returned before the INSERT landed: the write did not block, so the ordering went unchecked")
+	default:
+	}
+	logData.insertWg.Done()
+	released = true
+	<-done
 }

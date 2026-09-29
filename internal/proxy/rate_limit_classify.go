@@ -641,7 +641,7 @@ func (h *Handler) judge429AndRecordBreaker(ctx context.Context, st *requestState
 	// exactly the load that fit, never a count that depends on whether the body
 	// reader beat it to the release.
 	if rl.class == rateLimitSaturated && st.inflightEnabled {
-		st.attemptSlot.settle(false)
+		st.attemptSlot.settle(slotUnclean)
 		h.inflight.cut(candidate.provider.ID, rl.retryAfter)
 	}
 	h.recordBreakerOutcome(ctx, st, candidate, resp.StatusCode, isFailoverEligible, rl)

@@ -39,7 +39,7 @@ func TestInflightLimiter_CutTargetsTheLoadThatFit(t *testing.T) {
 	// The 4th request drew a saturated 429 while all four were in flight: the
 	// pool provably takes 3. The live path settles the drawer's own slot
 	// before cutting (recordRateLimitOutcome), so cut sees the load that fit.
-	l.release(id, false, 0, 0)
+	l.release(id, slotUnclean, 0, 0)
 	l.cut(id, 0)
 
 	if got := l.windowFor(t, id).limit; got != 3 {
@@ -53,7 +53,7 @@ func TestInflightLimiter_CutTargetsTheLoadThatFit(t *testing.T) {
 	if !l2.tryAcquire(id, 0) {
 		t.Fatal("first acquisition refused")
 	}
-	l2.release(id, false, 0, 0)
+	l2.release(id, slotUnclean, 0, 0)
 	l2.cut(id, 0)
 	if got := l2.windowFor(t, id).limit; got != 1 {
 		t.Errorf("limit after cut with nothing left in flight = %d, want the floor of 1", got)
@@ -71,17 +71,17 @@ func TestInflightLimiter_GrowsOnCleanRunsOnly(t *testing.T) {
 	// stays put.
 	for range 2 {
 		l.tryAcquire(id, 0)
-		l.release(id, true, growAfter, time.Hour)
+		l.release(id, slotClean, growAfter, time.Hour)
 	}
 	l.tryAcquire(id, 0)
-	l.release(id, false, growAfter, time.Hour)
+	l.release(id, slotUnclean, growAfter, time.Hour)
 	if got := l.windowFor(t, id).limit; got != 1 {
 		t.Fatalf("limit after a broken run = %d, want 1", got)
 	}
 	// Three clean in a row earn +1.
 	for range growAfter {
 		l.tryAcquire(id, 0)
-		l.release(id, true, growAfter, time.Hour)
+		l.release(id, slotClean, growAfter, time.Hour)
 	}
 	if got := l.windowFor(t, id).limit; got != 2 {
 		t.Errorf("limit after %d clean completions = %d, want 2", growAfter, got)
@@ -97,7 +97,7 @@ func TestInflightLimiter_ForgetsAfterQuiet(t *testing.T) {
 	l.windowFor(t, id).lastCut = time.Now().Add(-11 * time.Minute)
 
 	l.tryAcquire(id, 0)
-	l.release(id, true, defaultInflightGrowAfter, 10*time.Minute)
+	l.release(id, slotClean, defaultInflightGrowAfter, 10*time.Minute)
 
 	if got := l.windowFor(t, id).limit; got != 0 {
 		t.Errorf("limit after a quiet stretch = %d, want 0 (uncapped): a stale cap is a self-inflicted saturation", got)
@@ -129,7 +129,7 @@ func TestInflightLimiter_HintFullCapsWithoutA429(t *testing.T) {
 	}
 	// A hint never widens an existing, tighter cap: settle one drawer and cut
 	// to a limit of 1, then hint again with the other still in flight.
-	l.release(id, false, 0, 0)
+	l.release(id, slotUnclean, 0, 0)
 	l.cut(id, 0) // limit 1
 	l.hintFull(id)
 	if got := l.windowFor(t, id).limit; got != 1 {
@@ -167,11 +167,11 @@ func TestInflightLimiter_UncappedPathAllocatesNothing(t *testing.T) {
 	l := newInflightLimiter()
 	id := uuid.New()
 	l.tryAcquire(id, 0)
-	l.release(id, true, 0, 0)
+	l.release(id, slotClean, 0, 0)
 
 	allocs := testing.AllocsPerRun(100, func() {
 		l.tryAcquire(id, 0)
-		l.release(id, true, 0, 0)
+		l.release(id, slotClean, 0, 0)
 	})
 	// One allocation per pair is the notify channel replaced on release; the
 	// window itself must not allocate.
@@ -190,7 +190,7 @@ func TestInflightLimiter_WaitForSlot(t *testing.T) {
 	// A release from another goroutine wakes the waiter.
 	go func() {
 		time.Sleep(20 * time.Millisecond)
-		l.release(id, true, 0, 0)
+		l.release(id, slotClean, 0, 0)
 	}()
 	if !l.waitForSlot(context.Background(), time.Now().Add(2*time.Second), admit) {
 		t.Fatal("waitForSlot missed the released slot")
@@ -217,7 +217,7 @@ func TestInflightLimiter_NilIsInert(t *testing.T) {
 	if !l.tryAcquire(id, 1) || !l.canAdmit(id, 1) {
 		t.Error("a nil limiter refused an acquisition")
 	}
-	l.release(id, true, 0, 0)
+	l.release(id, slotClean, 0, 0)
 	l.cut(id, 0)
 	l.hintFull(id)
 	if got := l.snapshot(); got != nil {
@@ -228,7 +228,7 @@ func TestInflightLimiter_NilIsInert(t *testing.T) {
 	}
 	// An attempt that held no slot (limiter disabled) settles nothing.
 	var slot *attemptSlot
-	slot.settle(true)
+	slot.settle(slotClean)
 }
 
 // Only a literal "0" in one of the OpenAI-style remaining headers is a spent
@@ -260,7 +260,7 @@ func TestFinishAttemptAdmission_RemainingZeroCapsTheWindow(t *testing.T) {
 		t.Fatal("setup: slot not acquired")
 	}
 	settled := false
-	st := &requestState{attemptSlot: &attemptSlot{fire: func(bool) { settled = true }}}
+	st := &requestState{attemptSlot: &attemptSlot{fire: func(slotOutcome) { settled = true }}}
 	resp := &http.Response{StatusCode: http.StatusOK, Header: http.Header{}, Body: io.NopCloser(strings.NewReader("ok"))}
 	resp.Header.Set("X-RateLimit-Remaining-Requests", "0")
 
@@ -301,11 +301,11 @@ func TestInflightLimiter_ConvergesOnAThreeSlotPool(t *testing.T) {
 		// drawer's slot settles before the cut, exactly as the live path
 		// orders it (recordRateLimitOutcome).
 		for i := poolSize; i < admitted; i++ {
-			l.release(id, false, growAfter, time.Hour)
+			l.release(id, slotUnclean, growAfter, time.Hour)
 			l.cut(id, 0)
 		}
 		for i := 0; i < min(admitted, poolSize); i++ {
-			l.release(id, true, growAfter, time.Hour)
+			l.release(id, slotClean, growAfter, time.Hour)
 		}
 	}
 
@@ -378,7 +378,7 @@ func TestRunFailoverLoop_BusyCandidates(t *testing.T) {
 		}
 		t.Cleanup(func() {
 			for _, c := range cands {
-				h.inflight.release(c.provider.ID, true, 0, 0)
+				h.inflight.release(c.provider.ID, slotClean, 0, 0)
 			}
 		})
 		served := false
@@ -393,7 +393,7 @@ func TestRunFailoverLoop_BusyCandidates(t *testing.T) {
 		// cleanup's extra release is harmless: release guards inflight > 0.)
 		go func() {
 			time.Sleep(30 * time.Millisecond)
-			h.inflight.release(cands[1].provider.ID, true, 0, 0)
+			h.inflight.release(cands[1].provider.ID, slotClean, 0, 0)
 		}()
 		h.runFailoverLoop(httptest.NewRecorder(), httptest.NewRequest("POST", "/v1/chat/completions", http.NoBody), st, cands, fn)
 		if !served {
@@ -410,7 +410,7 @@ func TestRunFailoverLoop_BusyCandidates(t *testing.T) {
 		}
 		t.Cleanup(func() {
 			for _, c := range cands {
-				h.inflight.release(c.provider.ID, true, 0, 0)
+				h.inflight.release(c.provider.ID, slotClean, 0, 0)
 			}
 		})
 		var tried []int
@@ -428,7 +428,7 @@ func TestRunFailoverLoop_BusyCandidates(t *testing.T) {
 		}
 		go func() {
 			time.Sleep(30 * time.Millisecond)
-			h.inflight.release(cands[1].provider.ID, true, 0, 0)
+			h.inflight.release(cands[1].provider.ID, slotClean, 0, 0)
 		}()
 		h.runFailoverLoop(httptest.NewRecorder(), httptest.NewRequest("POST", "/v1/chat/completions", http.NoBody), st, cands, fn)
 		// The freed slot ran as attempt 2 (past the two-entry list) and its
@@ -448,7 +448,7 @@ func TestRunFailoverLoop_BusyCandidates(t *testing.T) {
 		}
 		t.Cleanup(func() {
 			for _, c := range cands {
-				h.inflight.release(c.provider.ID, true, 0, 0)
+				h.inflight.release(c.provider.ID, slotClean, 0, 0)
 			}
 		})
 	}
@@ -497,7 +497,7 @@ func TestRunFailoverLoop_BusyCandidates(t *testing.T) {
 		}
 		go func() {
 			time.Sleep(30 * time.Millisecond)
-			h.inflight.release(cands[1].provider.ID, true, 0, 0)
+			h.inflight.release(cands[1].provider.ID, slotClean, 0, 0)
 		}()
 		h.runFailoverLoop(httptest.NewRecorder(), httptest.NewRequest("POST", "/v1/chat/completions", http.NoBody), st, cands, fn)
 		if len(afterFree) != 2 || afterFree[1] != outcomeServed {
@@ -518,7 +518,7 @@ func TestRunFailoverLoop_BusyCandidates(t *testing.T) {
 		}
 		go func() {
 			time.Sleep(30 * time.Millisecond)
-			h.inflight.release(cands[1].provider.ID, true, 0, 0)
+			h.inflight.release(cands[1].provider.ID, slotClean, 0, 0)
 		}()
 		w := httptest.NewRecorder()
 		h.runFailoverLoop(w, httptest.NewRequest("POST", "/v1/chat/completions", http.NoBody), st, cands, fn)
@@ -543,7 +543,7 @@ func TestRunFailoverLoop_BusyCandidates(t *testing.T) {
 		}
 		go func() {
 			time.Sleep(10 * time.Millisecond)
-			h.inflight.release(cands[1].provider.ID, true, 0, 0)
+			h.inflight.release(cands[1].provider.ID, slotClean, 0, 0)
 		}()
 		start := time.Now()
 		w := httptest.NewRecorder()
