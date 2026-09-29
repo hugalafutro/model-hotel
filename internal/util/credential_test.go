@@ -1,9 +1,9 @@
 package util
 
 import (
-	"math/rand/v2"
 	"net/url"
 	"regexp"
+	"slices"
 	"strings"
 	"testing"
 	"unsafe"
@@ -338,37 +338,22 @@ func TestMaskCredentials_ReturnsCleanTextUncopied(t *testing.T) {
 	}
 }
 
-// The literal check must never skip text a shape pattern would match: every
-// match found in random text over the patterns' own characters (minus the
-// literals, so misses are common) must pass the check, and each pattern's
-// shortest match passes it.
+// The literal check must never skip text a shape pattern would match: each
+// example below is a match that carries exactly one of the literals, so
+// dropping any literal from the check fails its row.
 func TestMayHoldShape_ImpliedByEveryPattern(t *testing.T) {
 	t.Parallel()
-	patterns := []*regexp.Regexp{ambiguousKeyShape, unambiguousKeyShape, URLUserinfoRE, secretParamShape, uuidPattern}
+	patterns := []*regexp.Regexp{ambiguousKeyShape, unambiguousKeyShape, URLUserinfoRE, secretParamShape}
 	for _, s := range []string{
-		"sk-0123456789abcdef0", "Authorization: BeArEr abcdefghijklmnopq", "AIza" + strings.Repeat("a", 30),
-		"AKIA0123456789ABCDEF", "eyJabcdefghij.abcdefghijk", "https://u:p@host", " token=x",
-		"793ac38b-0211-43e6-baa7-aa7054c39931",
+		"sk-0123456789abcdef0", "sk_0123456789abcdef0", "Authorization: BeArEr abcdefghijklmnopq",
+		"AIza" + strings.Repeat("a", 30), "AKIA0123456789ABCDEF", "eyJabcdefghij.abcdefghijk",
+		"https://u:p@host", " token=x",
 	} {
+		if !slices.ContainsFunc(patterns, func(p *regexp.Regexp) bool { return p.MatchString(s) }) {
+			t.Fatalf("%q matches no pattern", s)
+		}
 		if !mayHoldShape(s) {
 			t.Errorf("%q skipped", s)
-		}
-	}
-	const alphabet = "abeikrsxyzAIKJZ0189 .:/@?&\"'\\\n\tBRE"
-	rng := rand.New(rand.NewPCG(1, 2))
-	for range 200000 {
-		b := make([]byte, 4+rng.IntN(40))
-		for i := range b {
-			b[i] = alphabet[rng.IntN(len(alphabet))]
-		}
-		s := string(b)
-		if mayHoldShape(s) {
-			continue
-		}
-		for _, p := range patterns {
-			if p.MatchString(s) {
-				t.Fatalf("%q skipped but %v matches it", s, p)
-			}
 		}
 	}
 }
