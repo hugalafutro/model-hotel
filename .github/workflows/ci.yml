@@ -150,20 +150,27 @@ jobs:
           path: coverage.out
           retention-days: 1
 
-  # The race detector, over every package. Nothing is excluded for cost: the
-  # slow suites are slow on database round-trips, which instrumentation does not
-  # multiply, so the whole tree races in about the time internal/proxy takes on
-  # its own.
+  # The race detector, over every package, split across three runners. Nothing
+  # is excluded for cost. Run as one `go test -race ./...` the tree took as long
+  # as internal/proxy did on its own (~9.5 min), the job's whole wall clock;
+  # scripts/ci/go-race-shard.sh gives each shard a third of every large
+  # package's tests plus a share of the small packages whole, reading test names
+  # from the sources (`go test -list` would run every package's database setup).
+  # Go Race is not a required check, so the matrix may be skipped as a job.
   #
   # Un-raced, the suites written for exactly this (internal/failover/
   # circuitbreaker_race_test.go among them) pass while a data race goes
   # unreported. The first run of this job found one, in the app-log writer's
   # flush interval.
   go-race:
-    name: Go Race
+    name: Go Race (shard ${{ matrix.shard }}/3)
     needs: changes
     if: needs.changes.outputs.go != 'false'
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3]
     env:
       POSTGRES_PASSWORD: changeme
     services:
@@ -194,12 +201,12 @@ jobs:
       - name: Check pg_dump / pg_restore are present for backup tests
         run: pg_dump --version && pg_restore --version
 
-      # A longer clock than go-test's 10m: the detector's slowdown lands on
-      # internal/api, the one package already near that limit.
-      - name: go test -race
+      # The 20m clock per test binary is kept from the unsplit job: a shard of a
+      # large package takes a fraction of it.
+      - name: go test -race (shard ${{ matrix.shard }}/3)
         env:
           TEST_DATABASE_URL: postgres://modelhotel:${{ env.POSTGRES_PASSWORD }}@localhost:5433/testdb?sslmode=disable
-        run: go test -race -count=1 -timeout 20m ./...
+        run: scripts/ci/go-race-shard.sh ${{ matrix.shard }} 3
 
   go-lint:
     name: Go Lint
