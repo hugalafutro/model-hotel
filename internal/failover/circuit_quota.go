@@ -43,9 +43,10 @@ import (
 // exhaustHint is a second pin source: the exhausted 429's own claim (a dated
 // Retry-After, or the matched phrase's per-marker default), used only when the
 // advisor has no reading; the advisor measured the actual window, so it wins. The hint
-// goes through the same ceiling, floor and jitter, and the release paths lift it
-// as they lift an advisor pin. pinSource records which source stamped the pin in
-// force.
+// goes through the same ceiling, floor and jitter. Switching pinning off lifts it
+// as it lifts an advisor pin; a recovered quota reading does not, since the
+// refusal spoke for one model (see ReleaseQuotaPins). pinSource records which
+// source stamped the pin in force.
 func (cb *CircuitBreaker) applyQuotaPin(providerID uuid.UUID, c *circuit, exhaustHint time.Duration, account bool) {
 	c.cooldownOverride = 0
 	c.pinSource = ""
@@ -127,10 +128,13 @@ func pinSpeaksForAccount(source string) bool {
 }
 
 // ReleaseQuotaPins lifts the quota cooldown override from every circuit whose
-// provider appears in recovered, and reports how many pins it lifted. It is how
-// a provider that has recovered (a topped-up plan, a reset window observed early
+// provider appears in recovered and whose pin speaks for the account (source
+// "advisor" or "account"), and reports how many pins it lifted. It is how a
+// provider that has recovered (a topped-up plan, a reset window observed early
 // by the quota poller) stops serving out a pin that could otherwise run to the
-// 24h ceiling.
+// 24h ceiling. A "response" pin is one model's own refusal (a model outside the
+// plan, say), which a healthy account reading does not contradict, so it keeps
+// its own timer rather than being re-probed on every recovery.
 //
 // It only ever shortens a wait. The circuit keeps its state and its failure
 // count and reverts to the cooldown it would otherwise serve (its probe backoff
@@ -165,7 +169,7 @@ func (cb *CircuitBreaker) ReleaseQuotaPins(recovered map[uuid.UUID]struct{}) int
 			// measured the opposite. Cleared on every circuit, pinned or not, because
 			// escalated ones usually carry a backoff rather than a pin.
 			c.clear429Escalation()
-			if c.cooldownOverride == 0 {
+			if c.cooldownOverride == 0 || !pinSpeaksForAccount(c.pinSource) {
 				continue
 			}
 			cb.releasePin(&after, causePinReleasedQuota, id, model, c, r)

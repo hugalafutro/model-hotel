@@ -110,7 +110,7 @@ func (d *DiscoveryService) koboldcppVersion(ctx context.Context, apiBase, apiKey
 	// included, so the key belongs on this request as much as on /models.
 	bodyBytes, err := d.fetchURL(ctx, "GET", apiBase+"/api/extra/version", bearerHeader(apiKey))
 	if err != nil {
-		return nil, statusOnly(err)
+		return nil, err
 	}
 
 	var versionResp KoboldCPPVersionResponse

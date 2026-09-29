@@ -3,6 +3,7 @@ package provider
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
@@ -278,8 +279,8 @@ func TestDiscoverXAI_FallbackLogic(t *testing.T) {
 
 	// Test discovery - should fall back to catalog when both endpoints return 403
 	models, err := service.discoverXAI(context.Background(), provider, "test-api-key")
-	if err != nil {
-		t.Fatalf("discoverXAI failed: %v", err)
+	if !errors.Is(err, ErrCatalogFallback) {
+		t.Fatalf("err = %v, want ErrCatalogFallback so the sweep records no misses", err)
 	}
 
 	// Should return catalog models when API access is forbidden
@@ -1283,8 +1284,8 @@ func TestDiscoverXAI_ImageModelsOnCatalogFallback(t *testing.T) {
 	provider := &Provider{ID: uuid.New(), BaseURL: server.URL}
 
 	models, err := svc.discoverXAI(context.Background(), provider, "test-api-key")
-	if err != nil {
-		t.Fatalf("discoverXAI failed: %v", err)
+	if !errors.Is(err, ErrCatalogFallback) {
+		t.Fatalf("err = %v, want ErrCatalogFallback", err)
 	}
 	var img *model.Model
 	for _, m := range models {

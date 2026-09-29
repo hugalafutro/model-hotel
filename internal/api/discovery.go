@@ -2,6 +2,7 @@ package api
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net/http"
 	"time"
@@ -295,8 +296,10 @@ func (h *Handler) DiscoverProviderModels(w http.ResponseWriter, r *http.Request)
 	// can exhaust the 60s chi middleware timeout before DB upserts run.
 	provCtx, provCancel := context.WithTimeout(context.WithoutCancel(r.Context()), 180*time.Second)
 	defer provCancel()
+	// A catalog fallback is still a listing to upsert; this handler records no
+	// misses, so the flag changes nothing further here.
 	models, err := discovery.DiscoverModels(provCtx, prov, h.cfg.MasterKey)
-	if err != nil {
+	if err != nil && !errors.Is(err, provider.ErrCatalogFallback) {
 		respondError(w, fmt.Sprintf("failed to discover models for provider %s", prov.Name), err, http.StatusInternalServerError)
 		return
 	}
@@ -458,8 +461,9 @@ func (h *Handler) discoverOne(ctx context.Context, discovery *provider.Discovery
 	}
 
 	models, discoverErr := discovery.DiscoverModels(provCtx, prov, h.cfg.MasterKey)
+	catalogFallback := errors.Is(discoverErr, provider.ErrCatalogFallback)
 
-	if discoverErr != nil {
+	if discoverErr != nil && !catalogFallback {
 		result.Error = discoverErr.Error()
 		events.Publish(events.Event{
 			Type:     "discovery.provider_failed",
@@ -497,12 +501,14 @@ func (h *Handler) discoverOne(ctx context.Context, discovery *provider.Discovery
 	// Miss recording needs a trustworthy membership picture: skip it when a
 	// snapshot is unavailable (cannot confirm absentees), when any upsert
 	// failed (a DB error must not count a listed model as missing), or when
-	// the confirmation probes flag the scan as suspect. Disabling happens
+	// the confirmation probes flag the scan as suspect, or when the listing is
+	// a catalog fallback (it omits live-only models without their being
+	// gone). Disabling happens
 	// only after MissingScanThreshold consecutive confirmed-missing scans.
 	// recordMisses is false on request-bound callers so the ~70s probe
 	// backoff never overruns their HTTP timeout (see the doc comment).
 	var disabledRefs []model.DisabledModelRef
-	if recordMisses && snapErr == nil && !upsertFailed {
+	if recordMisses && snapErr == nil && !upsertFailed && !catalogFallback {
 		confirmedIDs, suspect := ConfirmMissingModels(provCtx, discovery, prov, h.cfg.MasterKey, existingModelIDs, snapshot, NewSuspectStreak(h.dbPool.Pool()))
 		if suspect {
 			debuglog.Warn("discovery: suspect scan, skipping missing-model recording", "provider", prov.Name, "provider_id", prov.ID)

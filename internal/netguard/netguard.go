@@ -18,8 +18,11 @@ import (
 	"net/http"
 	"net/netip"
 	"net/url"
+	"slices"
 	"syscall"
 	"time"
+
+	"github.com/hugalafutro/model-hotel/internal/util"
 )
 
 // parseHTTPURL parses rawURL and requires an http/https scheme and a non-empty
@@ -42,12 +45,16 @@ func parseHTTPURL(rawURL string) (*url.URL, error) {
 // dialled by an internal-facing outbound client: the whole "this host on this
 // network" block (0.0.0.0/8 and ::, per RFC 1122), or link-local
 // unicast/multicast (169.254.0.0/16 and fe80::/10, which cover the
-// cloud-metadata endpoint). Private and loopback ranges are intentionally
-// allowed so internal IdPs, the apprise-api container, and Front Desk members
-// keep working.
+// cloud-metadata endpoint). A NAT64 address is judged by the IPv4 addresses it
+// embeds (util.NAT64IPv4s), since a NAT64 gateway on the path delivers it
+// there. Private and loopback ranges are intentionally allowed so internal
+// IdPs, the apprise-api container, and Front Desk members keep working.
 func BlockedIP(ip net.IP) bool {
 	if ip == nil {
 		return false
+	}
+	if v4s := util.NAT64IPv4s(ip); v4s != nil {
+		return slices.ContainsFunc(v4s, BlockedIP)
 	}
 	// IsUnspecified covers only 0.0.0.0 and ::, but every address in 0.0.0.0/8
 	// is "this host": a Linux dial to 0.1.2.3 lands on the local machine the

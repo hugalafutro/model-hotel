@@ -3,6 +3,7 @@ package httpx
 import (
 	"errors"
 	"io"
+	"net/http"
 	"strings"
 	"testing"
 )
@@ -92,5 +93,27 @@ func TestDecodeCappedJSON_OverLimit(t *testing.T) {
 	var out map[string]any
 	if err := DecodeCappedJSON(strings.NewReader(`{"a":"aaaaaaaaaa"}`), 4, &out); !errors.Is(err, ErrBodyTooLarge) {
 		t.Errorf("err = %v, want ErrBodyTooLarge", err)
+	}
+}
+
+func TestDiscardRest(t *testing.T) {
+	remaining := func(r *strings.Reader) int { return r.Len() }
+
+	short := strings.NewReader(strings.Repeat("x", 1000))
+	DiscardRest(&http.Response{ContentLength: -1, Body: io.NopCloser(short)})
+	if n := remaining(short); n != 0 {
+		t.Errorf("a short body left %d bytes undrained", n)
+	}
+
+	long := strings.NewReader(strings.Repeat("x", maxDiscard+500))
+	DiscardRest(&http.Response{ContentLength: -1, Body: io.NopCloser(long)})
+	if n := remaining(long); n != 500 {
+		t.Errorf("an undeclared long body left %d bytes, want the 500 past the cap", n)
+	}
+
+	declared := strings.NewReader(strings.Repeat("x", 1000))
+	DiscardRest(&http.Response{ContentLength: maxDiscard + 1, Body: io.NopCloser(declared)})
+	if n := remaining(declared); n != 1000 {
+		t.Errorf("a body declared past the cap was read (%d bytes left), want none read", n)
 	}
 }

@@ -11,6 +11,7 @@ import (
 	"strings"
 	"sync/atomic"
 	"testing"
+	"testing/iotest"
 	"time"
 
 	"github.com/google/uuid"
@@ -220,5 +221,91 @@ func TestDiscoverOllama_TagsRetriesTransientFailure(t *testing.T) {
 	}
 	if got := tagCalls.Load(); got != 2 {
 		t.Errorf("expected 2 tags attempts, got %d", got)
+	}
+}
+
+// cutBodyTransport answers every request with a 401 whose body fails partway,
+// the shape of an error page the upstream drops mid-send.
+type cutBodyTransport struct{}
+
+func (cutBodyTransport) RoundTrip(*http.Request) (*http.Response, error) {
+	return &http.Response{
+		StatusCode: http.StatusUnauthorized,
+		Header:     http.Header{},
+		Body:       io.NopCloser(io.MultiReader(strings.NewReader("denied"), iotest.ErrReader(errors.New("connection reset")))),
+	}, nil
+}
+
+func TestFetchURL_NonOKWithFailingBodyReportsTheStatus(t *testing.T) {
+	// The status decides before the body is read: a 401 whose error page cannot
+	// be read whole is still reported as a 401, not as a read failure.
+	d := &DiscoveryService{httpClient: &http.Client{Transport: cutBodyTransport{}}}
+	_, err := d.fetchURL(context.Background(), "GET", "http://example.invalid/models", nil)
+	httpErr := httpErrorFrom(err)
+	if httpErr == nil || httpErr.StatusCode != http.StatusUnauthorized {
+		t.Fatalf("expected the 401 status error, got %v", err)
+	}
+}
+
+// An error body larger than the logged head is drained, not abandoned, so
+// the next discovery request reuses the connection instead of dialling again.
+func TestFetchURL_OversizedErrorBodyKeepsTheConnection(t *testing.T) {
+	big := strings.Repeat("x", 3*(64<<10))
+	srv := httptest.NewUnstartedServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusUnauthorized)
+		_, _ = io.WriteString(w, big)
+	}))
+	var conns atomic.Int32
+	srv.Config.ConnState = func(_ net.Conn, s http.ConnState) {
+		if s == http.StateNew {
+			conns.Add(1)
+		}
+	}
+	srv.Start()
+	defer srv.Close()
+
+	d := &DiscoveryService{httpClient: srv.Client()}
+	for range 3 {
+		if _, err := d.fetchURL(context.Background(), http.MethodGet, srv.URL+"/models", nil); httpErrorFrom(err) == nil {
+			t.Fatalf("expected the 401 status error, got %v", err)
+		}
+	}
+	if n := conns.Load(); n != 1 {
+		t.Fatalf("three fetches opened %d connections, want 1", n)
+	}
+}
+
+// The retry path drains its error bodies too: two oversized 503s and the 200
+// that follows share one connection.
+func TestDoDiscoveryRequest_OversizedRetryableBodiesKeepTheConnection(t *testing.T) {
+	big := strings.Repeat("x", 3*(64<<10))
+	var calls atomic.Int32
+	srv := httptest.NewUnstartedServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		if calls.Add(1) < 3 {
+			w.WriteHeader(http.StatusServiceUnavailable)
+			_, _ = io.WriteString(w, big)
+			return
+		}
+		_, _ = w.Write([]byte("ok"))
+	}))
+	var conns atomic.Int32
+	srv.Config.ConnState = func(_ net.Conn, s http.ConnState) {
+		if s == http.StateNew {
+			conns.Add(1)
+		}
+	}
+	srv.Start()
+	defer srv.Close()
+
+	d := retryTestService(srv)
+	resp, err := d.doDiscoveryRequest(context.Background(), func() (*http.Request, error) {
+		return http.NewRequestWithContext(context.Background(), http.MethodGet, srv.URL, http.NoBody)
+	})
+	if err != nil {
+		t.Fatalf("expected success after retries, got %v", err)
+	}
+	_ = resp.Body.Close()
+	if n := conns.Load(); n != 1 {
+		t.Fatalf("three attempts opened %d connections, want 1", n)
 	}
 }

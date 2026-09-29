@@ -7,6 +7,7 @@ package main
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strconv"
 	"sync"
@@ -198,7 +199,8 @@ func runDiscovery(ctx context.Context, deps discoveryDeps, source string) Discov
 func scanProvider(ctx context.Context, deps discoveryDeps, discoverySvc *provider.DiscoveryService, p *provider.Provider, source string, result *DiscoveryResult) (changed, ok bool) {
 	result.ProvidersScanned++
 	models, err := discoverySvc.DiscoverModels(ctx, p, deps.cfg.MasterKey)
-	if err != nil {
+	catalogFallback := errors.Is(err, provider.ErrCatalogFallback)
+	if err != nil && !catalogFallback {
 		debuglog.Error("discovery: failed for provider", "provider", p.Name, "error", err)
 		result.ProvidersFailed++
 		result.Errors = append(result.Errors, fmt.Sprintf("provider %s: %v", p.Name, err))
@@ -237,14 +239,16 @@ func scanProvider(ctx context.Context, deps discoveryDeps, discoverySvc *provide
 		}
 	}
 	// Miss recording needs a trustworthy membership picture: skip it
-	// when the snapshot is unavailable (absentees cannot be confirmed)
-	// or any upsert failed (a DB error must not count a listed model
-	// as missing). Absent models get a second opinion via confirmation
-	// probes, and a model is disabled only after
-	// model.MissingScanThreshold consecutive confirmed-missing scans.
+	// when the snapshot is unavailable (absentees cannot be confirmed),
+	// any upsert failed (a DB error must not count a listed model as
+	// missing), or the listing is a catalog fallback (it omits live-only
+	// models without their being gone, so the prune is withheld too).
+	// Absent models get a second opinion via confirmation probes, and a
+	// model is disabled only after model.MissingScanThreshold consecutive
+	// confirmed-missing scans.
 	var disabledRefs []model.DisabledModelRef
-	missTrusted := true
-	if snapErr == nil && !upsertFailed {
+	missTrusted := !catalogFallback
+	if snapErr == nil && !upsertFailed && !catalogFallback {
 		disabledRefs, missTrusted = recordMissingModels(ctx, deps, discoverySvc, p, existingModelIDs, snapshot)
 	}
 	if len(disabledRefs) > 0 {

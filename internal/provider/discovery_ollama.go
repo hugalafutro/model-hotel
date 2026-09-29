@@ -26,7 +26,7 @@ func (d *DiscoveryService) discoverOllama(ctx context.Context, provider *Provide
 	bodyBytes, err := d.fetchURL(ctx, "GET", apiBase+"/api/tags", bearerHeader(apiKey))
 	if err != nil {
 		debuglog.Error("discovery: ollama http request failed", "provider", provider.Name, "provider_id", provider.ID, "error", err)
-		return nil, fmt.Errorf("ollama: failed to fetch models for provider %s: %w", provider.Name, statusOnly(err))
+		return nil, fmt.Errorf("ollama: failed to fetch models for provider %s: %w", provider.Name, err)
 	}
 
 	var tagsResp OllamaTagsResponse

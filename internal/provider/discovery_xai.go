@@ -35,7 +35,7 @@ func (d *DiscoveryService) discoverXAI(ctx context.Context, provider *Provider, 
 		// Step 2: 403 (zero-balance account) -> catalog only.
 		if isNoAccessError(err) {
 			debuglog.Warn("discovery: xai /language-models returned no-access, using catalog", "status", errorStatusCode(err), "provider", provider.Name, "provider_id", provider.ID)
-			return d.appendXAIImageModels(ctx, provider, apiKey, baseURL, catalog), nil
+			return d.appendXAIImageModels(ctx, provider, apiKey, baseURL, catalog), ErrCatalogFallback
 		}
 		// Step 3: Other failure -> try the minimal /models endpoint.
 		live, err = d.discoverXAIMinimalModels(ctx, provider, apiKey, baseURL)
@@ -43,7 +43,7 @@ func (d *DiscoveryService) discoverXAI(ctx context.Context, provider *Provider, 
 			// Step 4: /models also 403 -> catalog only.
 			if isNoAccessError(err) {
 				debuglog.Warn("discovery: xai /models also returned no-access, using catalog", "status", errorStatusCode(err), "provider", provider.Name, "provider_id", provider.ID)
-				return d.appendXAIImageModels(ctx, provider, apiKey, baseURL, catalog), nil
+				return d.appendXAIImageModels(ctx, provider, apiKey, baseURL, catalog), ErrCatalogFallback
 			}
 			return nil, fmt.Errorf("xAI: failed to discover models for provider %s: both endpoints returned errors", provider.Name)
 		}
@@ -61,7 +61,7 @@ func (d *DiscoveryService) discoverXAI(ctx context.Context, provider *Provider, 
 	}
 
 	// Both endpoints succeeded but listed no models (distinct from the 403
-	// no-access path above, which intentionally returns the catalog). Return empty
+	// no-access path above, which returns the catalog flagged as a fallback). Return empty
 	// rather than unioning the catalog, so RecordMissingModels stays a no-op
 	// instead of disabling every live-only model.
 	if len(live) == 0 {
@@ -108,10 +108,10 @@ func (d *DiscoveryService) discoverXAILanguageModels(ctx context.Context, provid
 	bodyBytes, err := d.fetchURL(ctx, "GET", baseURL+"/language-models", xaiHeaders(apiKey))
 	if err != nil {
 		if errorStatusCode(err) == http.StatusForbidden {
-			return nil, statusOnly(err)
+			return nil, err
 		}
 		debuglog.Error("discovery: xai language-models fetch failed", "provider", provider.Name, "provider_id", provider.ID, "error", err)
-		return nil, fmt.Errorf("xAI: http request failed for provider %s: %w", provider.Name, statusOnly(err))
+		return nil, fmt.Errorf("xAI: http request failed for provider %s: %w", provider.Name, err)
 	}
 
 	var langResp XAILanguageModelsResponse
@@ -187,7 +187,7 @@ func (d *DiscoveryService) discoverXAILanguageModels(ctx context.Context, provid
 func (d *DiscoveryService) discoverXAIImageModels(ctx context.Context, provider *Provider, apiKey, baseURL string) ([]*model.Model, error) {
 	bodyBytes, err := d.fetchURL(ctx, "GET", baseURL+"/image-generation-models", xaiHeaders(apiKey))
 	if err != nil {
-		return nil, fmt.Errorf("xAI: image-models request failed for provider %s: %w", provider.Name, statusOnly(err))
+		return nil, fmt.Errorf("xAI: image-models request failed for provider %s: %w", provider.Name, err)
 	}
 
 	var imgResp XAIImageGenerationModelsResponse
@@ -238,10 +238,10 @@ func (d *DiscoveryService) discoverXAIMinimalModels(ctx context.Context, provide
 	bodyBytes, err := d.fetchURL(ctx, "GET", baseURL+"/models", xaiHeaders(apiKey))
 	if err != nil {
 		if errorStatusCode(err) == http.StatusForbidden {
-			return nil, statusOnly(err)
+			return nil, err
 		}
 		debuglog.Error("discovery: xai minimal models fetch failed", "provider", provider.Name, "provider_id", provider.ID, "error", err)
-		return nil, fmt.Errorf("xAI: http request failed for provider %s: %w", provider.Name, statusOnly(err))
+		return nil, fmt.Errorf("xAI: http request failed for provider %s: %w", provider.Name, err)
 	}
 
 	var openAIResp OpenAIModelsResponse

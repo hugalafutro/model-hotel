@@ -2,12 +2,22 @@ package provider
 
 import (
 	"encoding/json"
+	"errors"
 	"strings"
 
 	"github.com/google/uuid"
 
 	"github.com/hugalafutro/model-hotel/internal/model"
 )
+
+// ErrCatalogFallback comes back from DiscoverModels together with a model list
+// when the live listing failed and the family answered from its static catalog
+// instead (xAI's no-access 403, OpenCode Go's missing /models). The models are fit to upsert, but they are not the
+// provider's membership: a model the live API lists and the catalog does not
+// is absent from them without being gone, so a caller must not record a miss
+// from this listing. A confirmation probe that gets it fails, which marks the
+// scan suspect.
+var ErrCatalogFallback = errors.New("live model listing unavailable, answered from the static catalog")
 
 // liveModelStub builds a minimal model from a live listing entry (id + owner).
 // Only the id, name, owner and a streaming capability are set; every richer

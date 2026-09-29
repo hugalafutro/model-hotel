@@ -10,6 +10,7 @@ import (
 	"reflect"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"testing"
 
 	"github.com/google/uuid"
@@ -913,5 +914,63 @@ func TestSnapshotProviderModels_CarriesThePin(t *testing.T) {
 	}
 	if snap["plain-model"].pinned {
 		t.Error("plain-model: pinned = true, want false")
+	}
+}
+
+// A persistent 403 from xAI answers discovery from the static catalog, which
+// lacks the ids only the live API lists. The sweep must not read that as a
+// complete listing: two 403 sweeps in a row leave a live-only model enabled
+// with no miss recorded, where they used to disable it.
+func TestDiscoverSweep_CatalogFallbackRecordsNoMisses(t *testing.T) {
+	handler, r := newTestHandlerWithRouter(t)
+	pool := handler.dbPool.Pool()
+	ctx := context.Background()
+
+	var forbidden atomic.Bool
+	mockServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+		if forbidden.Load() || req.URL.Path != "/v1/language-models" {
+			w.WriteHeader(http.StatusForbidden)
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"models":[{"id":"xai-live-only-model"}]}`))
+	}))
+	defer mockServer.Close()
+
+	providerData := fmt.Sprintf(`{"name":"xai-fallback-test","base_url":"%s/v1","provider_type":"xai","api_key":"xai-test"}`, mockServer.URL)
+	req := httptest.NewRequest(http.MethodPost, "/providers", strings.NewReader(providerData))
+	req.Header.Set("Authorization", "Bearer test-admin-token")
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+	if w.Code != http.StatusCreated {
+		t.Fatalf("create provider: expected 201, got %d: %s", w.Code, w.Body.String())
+	}
+	var created struct {
+		ID string `json:"id"`
+	}
+	if err := json.Unmarshal(w.Body.Bytes(), &created); err != nil {
+		t.Fatalf("decode created provider: %v", err)
+	}
+
+	sweepProviderDiff(t, handler, "xai-fallback-test")
+
+	forbidden.Store(true)
+	for range model.MissingScanThreshold + 1 {
+		if diff := sweepProviderDiff(t, handler, "xai-fallback-test"); diff != nil && len(diff.Disabled) != 0 {
+			t.Fatalf("a catalog fallback disabled models: %+v", diff.Disabled)
+		}
+	}
+
+	var enabled bool
+	var streak int
+	if err := pool.QueryRow(ctx,
+		`SELECT enabled, missing_scans FROM models WHERE provider_id = $1 AND model_id = 'xai-live-only-model'`,
+		created.ID,
+	).Scan(&enabled, &streak); err != nil {
+		t.Fatalf("lookup xai-live-only-model: %v", err)
+	}
+	if !enabled || streak != 0 {
+		t.Errorf("expected the live-only model untouched by catalog-fallback sweeps, got enabled=%v missing_scans=%d", enabled, streak)
 	}
 }

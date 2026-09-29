@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"net/http"
 )
 
 // MaxUpstreamBody is the default ceiling on a response body this process reads
@@ -24,6 +25,24 @@ const MaxUpstreamBody = 8 << 20 // 8 MiB
 // or a few thousand characters at the sink, so nothing past this is ever shown
 // and reading more would only buffer it.
 const MaxErrorBody = 64 << 10 // 64 KiB
+
+// maxDiscard bounds DiscardRest. A connection is worth a short read, not a
+// long one: a server that trickles a large error page would otherwise hold
+// the caller for the read's whole timeout.
+const maxDiscard = 256 << 10 // 256 KiB
+
+// DiscardRest drains what is left of a response body whose head the caller
+// has already read (an error page quoted under MaxErrorBody, say), so the
+// transport can reuse the connection for the next request. It reads at most
+// maxDiscard, and nothing when the declared length is already past that:
+// closing such a connection is the cheaper outcome. Closing the body stays
+// with the caller.
+func DiscardRest(resp *http.Response) {
+	if resp.ContentLength > maxDiscard {
+		return
+	}
+	_, _ = io.Copy(io.Discard, io.LimitReader(resp.Body, maxDiscard))
+}
 
 // ErrBodyTooLarge reports a response body that ran past the caller's limit. It
 // is the caller's own ceiling rather than an upstream fault, so it is a

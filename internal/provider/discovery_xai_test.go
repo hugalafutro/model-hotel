@@ -101,8 +101,10 @@ func TestDiscoverXAI_CatalogFallbackAfter403(t *testing.T) {
 	disc := &DiscoveryService{httpClient: server.Client()}
 	models, err := disc.discoverXAI(ctx, provider, "test-api-key")
 
-	if err != nil {
-		t.Fatalf("discoverXAI() returned error: %v", err)
+	// A persistent 403 must not read as a complete listing: the catalog lacks
+	// the ids only the live API lists, and the sweep would disable them.
+	if !errors.Is(err, ErrCatalogFallback) {
+		t.Fatalf("discoverXAI() err = %v, want ErrCatalogFallback", err)
 	}
 
 	// Should fall back to catalog
