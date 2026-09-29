@@ -192,8 +192,11 @@ func (f *contentFence) parse() {
 		}
 		seen := map[string]bool{}
 		for i, form := range contentForms {
+			if budgets[i] <= 0 {
+				continue
+			}
 			text := form(s)
-			if seen[text] || budgets[i] <= 0 || utf8.RuneCountInString(text) < contentEchoWindow {
+			if seen[text] || utf8.RuneCountInString(text) < contentEchoWindow {
 				continue
 			}
 			seen[text] = true

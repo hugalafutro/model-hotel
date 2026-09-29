@@ -2,6 +2,8 @@ package util
 
 import (
 	"net/url"
+	"regexp"
+	"slices"
 	"strings"
 	"testing"
 	"unsafe"
@@ -333,5 +335,25 @@ func TestMaskCredentials_ReturnsCleanTextUncopied(t *testing.T) {
 	in := strings.Repeat("proxy: an ordinary log line with nothing in it ", 4)
 	if got := MaskCredentials(nil, in); unsafe.StringData(got) != unsafe.StringData(in) {
 		t.Fatal("clean text was copied")
+	}
+}
+
+// The literal check must never skip text a shape pattern would match: each
+// example below is a match that carries exactly one of the literals, so
+// dropping any literal from the check fails its row.
+func TestMayHoldShape_ImpliedByEveryPattern(t *testing.T) {
+	t.Parallel()
+	patterns := []*regexp.Regexp{ambiguousKeyShape, unambiguousKeyShape, URLUserinfoRE, secretParamShape}
+	for _, s := range []string{
+		"sk-0123456789abcdef0", "sk_0123456789abcdef0", "Authorization: BeArEr abcdefghijklmnopq",
+		"AIza" + strings.Repeat("a", 30), "AKIA0123456789ABCDEF", "eyJabcdefghij.abcdefghijk",
+		"https://u:p@host", " token=x",
+	} {
+		if !slices.ContainsFunc(patterns, func(p *regexp.Regexp) bool { return p.MatchString(s) }) {
+			t.Fatalf("%q matches no pattern", s)
+		}
+		if !mayHoldShape(s) {
+			t.Errorf("%q skipped", s)
+		}
 	}
 }

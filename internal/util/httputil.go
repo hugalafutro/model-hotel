@@ -33,7 +33,11 @@ const scrubMargin = 4096
 // still matches: masking a 16-rune window away must not let the rest of a
 // short prompt through.
 func MaskLogText(s string) string {
-	return uuidPattern.ReplaceAllString(maskShapes(MaskExactCredentials(nil, s)), "[REDACTED]")
+	s = maskShapes(MaskExactCredentials(nil, s))
+	if !strings.Contains(s, "-") { // every UUID has one; skips the scan
+		return s
+	}
+	return uuidPattern.ReplaceAllString(s, "[REDACTED]")
 }
 
 // uuidPattern matches standard UUIDs (e.g., 793ac38b-0211-43e6-baa7-aa7054c39931)
