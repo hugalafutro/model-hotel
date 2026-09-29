@@ -15,9 +15,10 @@ var _, cgnatNet, _ = net.ParseCIDR("100.64.0.0/10")
 // IsBlockedIP reports whether an IP falls into a range that must never be
 // dialled by the proxy or accepted as a provider base URL: unspecified,
 // loopback, private (RFC 1918 + IPv6 ULA), link-local, carrier-grade NAT
-// (RFC 6598), or cloud-metadata. A NAT64 address is judged by the IPv4
-// addresses it embeds (see NAT64IPv4s). It is shared by the runtime SafeDialer and
-// provider-URL validation so the two layers stay in lockstep.
+// (RFC 6598), or cloud-metadata. A well-known-prefix NAT64 address is judged
+// by the IPv4 address it embeds; a local-use one is refused (see NAT64IPv4s).
+// It is shared by the runtime SafeDialer and provider-URL validation so the
+// two layers stay in lockstep.
 func IsBlockedIP(ip net.IP) bool {
 	if ip == nil {
 		return false
@@ -70,7 +71,10 @@ var (
 // address alone does not reveal, so no reading of it is certain to be the one
 // the gateway delivers to, and every rule that tries to pick one either lets a
 // hidden destination through or blocks most real deployments. A provider on a
-// local-use NAT64 network is reached through ALLOWED_PROVIDER_HOSTS.
+// local-use NAT64 network is reached through ALLOWED_PROVIDER_HOSTS, which the
+// proxy dialer and provider base_url validation honour. netguard's clients (SSO
+// identity providers, apprise, Front Desk members) have no such list, so a
+// local-use NAT64 address stays unreachable for them.
 func NAT64IPv4s(ip net.IP) []net.IP {
 	a, ok := netip.AddrFromSlice(ip)
 	if !ok {

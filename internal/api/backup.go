@@ -34,9 +34,8 @@ type BackupHandler struct {
 	backupMu             sync.Mutex
 	adminMgr             AdminAuthenticator
 	settingsRepo         SettingsStore
-	sessionMgr           WebAuthnSessionManager // set via SetSessionAuth; nil when WebAuthn not wired (the form then accepts only the raw admin token)
-	totpEnabled          func() bool            // set via SetSessionAuth; nil -> treated as false (TOTP off) so the raw admin token is accepted on its own
-	masterKey            string                 // set via SetSigningKey; empty disables backup signing and verification
+	totpEnabled          func() bool // set via SetTotpEnabled; nil -> treated as false (TOTP off) so the typed admin token is accepted on its own
+	masterKey            string      // set via SetSigningKey; empty disables backup signing and verification
 	schedulerCancelMu    sync.Mutex
 	schedulerCancel      context.CancelFunc
 	// schedulerStopped is the running scheduler's join channel, so a second
@@ -60,14 +59,12 @@ func NewBackupHandler(databaseURL, backupDir string, adminMgr AdminAuthenticator
 	}
 }
 
-// SetSessionAuth wires the WebAuthn session manager and TOTP-enabled flag so
-// restore's step-up (the admin_token multipart form field) honors 2FA: when
-// TOTP is enabled, the raw admin token in the field counts only on a request
-// the auth middleware admitted as an admin session, and a session token in the
-// field counts only under the admin handle. See stepUpAuthorized. Called after
+// SetTotpEnabled wires the TOTP-enabled flag so restore's step-up (the
+// admin_token multipart form field) honors 2FA: when TOTP is enabled, the
+// typed admin token in the field counts only on a request the auth middleware
+// admitted as an admin session. See stepUpAuthorized. Called after
 // NewBackupHandler in Handler.Register.
-func (h *BackupHandler) SetSessionAuth(sessionMgr WebAuthnSessionManager, totpEnabled func() bool) {
-	h.sessionMgr = sessionMgr
+func (h *BackupHandler) SetTotpEnabled(totpEnabled func() bool) {
 	h.totpEnabled = totpEnabled
 }
 

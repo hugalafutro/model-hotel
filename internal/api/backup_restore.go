@@ -330,17 +330,15 @@ type uploadedDump struct {
 }
 
 // stepUpAuthorized reports whether the restore form's admin_token field
-// authorizes the restore; see saveUploadedDump.
+// authorizes the restore; see saveUploadedDump. Only the admin token counts,
+// never a session token: the dashboard cookie carries the raw session token,
+// so a session accepted here would let a stolen session be its own step-up.
 func (h *BackupHandler) stepUpAuthorized(r *http.Request, formToken string) bool {
-	if h.adminMgr.Validate(formToken) {
-		totpOn := h.totpEnabled != nil && h.totpEnabled()
-		return !totpOn || user.IdentityFrom(r.Context()).IsAdmin()
-	}
-	if h.sessionMgr == nil {
+	if !h.adminMgr.Validate(formToken) {
 		return false
 	}
-	handle, ok := h.sessionMgr.TokenUser(r.Context(), formToken)
-	return ok && string(handle) == "admin"
+	totpOn := h.totpEnabled != nil && h.totpEnabled()
+	return !totpOn || user.IdentityFrom(r.Context()).IsAdmin()
 }
 
 // saveUploadedDump validates the multipart upload (size limit, admin token,
@@ -364,11 +362,9 @@ func (h *BackupHandler) saveUploadedDump(w http.ResponseWriter, r *http.Request)
 	// When TOTP 2FA is enabled the raw admin token is a first factor only, so
 	// it is accepted here only on a request the auth middleware already
 	// admitted as an admin, which with TOTP on means a session that passed the
-	// second factor (the middleware refuses a raw-token bearer). That is how
-	// the dashboard restores: its session rides the HttpOnly cookie it cannot
-	// read, so it can only send the typed token. A header-bearer client may
-	// instead put its session token in the field; only a session under the admin
-	// handle counts, never a users-row account's.
+	// second factor (the middleware refuses a raw-token bearer). The admin
+	// token is the only credential the field accepts, for the dashboard and
+	// header-bearer clients alike; a session token never counts.
 	adminToken := r.FormValue("admin_token")
 	if adminToken == "" {
 		debuglog.Warn("auth: backup restore with missing admin token", "remote_addr", clientip.From(r))
