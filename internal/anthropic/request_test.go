@@ -251,6 +251,69 @@ func TestTranslateRequest_ToolResultArrayAndDroppedBlocks(t *testing.T) {
 	}
 }
 
+func TestTranslateRequest_ToolResultImagesFollowToolMessages(t *testing.T) {
+	// A chat tool message holds text only: the tool_result's image rides a
+	// user message after the LAST tool message, so the two parallel results
+	// stay adjacent, ahead of the turn's trailing text.
+	body := []byte(`{"model":"p/m","max_tokens":10,"messages":[
+		{"role":"user","content":[
+			{"type":"tool_result","tool_use_id":"c1","content":[
+				{"type":"text","text":"shot taken"},
+				{"type":"image","source":{"type":"base64","media_type":"image/png","data":"AAA"}}
+			]},
+			{"type":"tool_result","tool_use_id":"c2","content":"ok"},
+			{"type":"text","text":"what do you see?"}
+		]}
+	]}`)
+	out, _, _, err := TranslateRequest(body)
+	if err != nil {
+		t.Fatalf("TranslateRequest: %v", err)
+	}
+	msgs := decodeOAI(t, out)["messages"].([]any)
+	if len(msgs) != 3 {
+		t.Fatalf("messages = %d, want 3 (tool, tool, user): %v", len(msgs), msgs)
+	}
+	if m := msgs[0].(map[string]any); m["role"] != "tool" || m["content"] != "shot taken" {
+		t.Errorf("first tool msg = %v", m)
+	}
+	if m := msgs[1].(map[string]any); m["role"] != "tool" || m["tool_call_id"] != "c2" {
+		t.Errorf("second tool msg = %v", m)
+	}
+	user := msgs[2].(map[string]any)
+	parts := user["content"].([]any)
+	if user["role"] != "user" || len(parts) != 2 {
+		t.Fatalf("user msg = %v, want image then text", user)
+	}
+	img := parts[0].(map[string]any)
+	if img["type"] != "image_url" || img["image_url"].(map[string]any)["url"] != "data:image/png;base64,AAA" {
+		t.Errorf("image part = %v", img)
+	}
+	if txt := parts[1].(map[string]any); txt["text"] != "what do you see?" {
+		t.Errorf("text part = %v", txt)
+	}
+}
+
+func TestTranslateRequest_ToolUseNullInputIsEmptyObject(t *testing.T) {
+	// "input": null and an absent input both reach the provider as "{}", the
+	// object an arguments string must hold, never the literal "null".
+	body := []byte(`{"model":"p/m","max_tokens":10,"messages":[
+		{"role":"assistant","content":[
+			{"type":"tool_use","id":"c1","name":"now","input":null},
+			{"type":"tool_use","id":"c2","name":"now"}
+		]}
+	]}`)
+	out, _, _, err := TranslateRequest(body)
+	if err != nil {
+		t.Fatalf("TranslateRequest: %v", err)
+	}
+	msgs := decodeOAI(t, out)["messages"].([]any)
+	for _, tc := range msgs[0].(map[string]any)["tool_calls"].([]any) {
+		if args := tc.(map[string]any)["function"].(map[string]any)["arguments"]; args != "{}" {
+			t.Errorf("arguments = %q, want {}", args)
+		}
+	}
+}
+
 func TestTranslateRequest_DocumentBlocks(t *testing.T) {
 	// A base64 document becomes an OpenAI file part carrying a data: URI, named
 	// after the block's title (or document.pdf when it has none); a text

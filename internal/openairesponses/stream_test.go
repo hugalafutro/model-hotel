@@ -184,6 +184,20 @@ func TestStream_UnknownEventsAndTruncation(t *testing.T) {
 	}
 }
 
+// An incomplete response that names content_filter finishes
+// "content_filter", the inverse of the ingress mapping.
+func TestStream_ContentFilterFinish(t *testing.T) {
+	out := feed(t, NewStreamTranslator("m"),
+		`{"type":"response.output_text.delta","delta":"hi"}`,
+		`{"type":"response.incomplete","response":{"status":"incomplete","incomplete_details":{"reason":"content_filter"}}}`,
+	)
+	chunks, _ := collectChunks(t, out)
+	finish := chunks[len(chunks)-1]["choices"].([]any)[0].(map[string]any)
+	if finish["finish_reason"] != "content_filter" {
+		t.Errorf("finish_reason = %v, want content_filter", finish["finish_reason"])
+	}
+}
+
 func TestStream_DecodeErrorOmitsPayload(t *testing.T) {
 	// encoding/json quotes the offending byte and prints an offending literal
 	// verbatim; a stream event carries model output, which must never reach an

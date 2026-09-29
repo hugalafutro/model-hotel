@@ -451,3 +451,37 @@ func TestStreamTranslator_LateSignatureCounted(t *testing.T) {
 		t.Errorf("block id should be the bare call_l: %s", sse)
 	}
 }
+
+func TestStreamTranslator_CachedPromptSplits(t *testing.T) {
+	// The cached share of prompt_tokens surfaces as cache_read_input_tokens on
+	// both message_start (when the usage arrives first) and message_delta,
+	// with input_tokens the uncached rest.
+	var usageChunk, textChunk OAStreamChunk
+	if err := json.Unmarshal([]byte(`{"choices":[],"usage":{"prompt_tokens":100,"completion_tokens":3,"prompt_tokens_details":{"cached_tokens":80}}}`), &usageChunk); err != nil {
+		t.Fatal(err)
+	}
+	if err := json.Unmarshal([]byte(`{"choices":[{"delta":{"content":"hi"},"finish_reason":"stop"}]}`), &textChunk); err != nil {
+		t.Fatal(err)
+	}
+	sse := runTranslator(t, NewStreamTranslator("msg_c", "m"), []OAStreamChunk{usageChunk, textChunk})
+
+	resp := &http.Response{Header: http.Header{}, Body: io.NopCloser(bytes.NewReader(sse))}
+	stream := ssestream.NewStream[sdk.MessageStreamEventUnion](ssestream.NewDecoder(resp), nil)
+	var start, delta [2]int64
+	for stream.Next() {
+		switch ev := stream.Current(); ev.Type {
+		case "message_start":
+			u := ev.AsMessageStart().Message.Usage
+			start = [2]int64{u.InputTokens, u.CacheReadInputTokens}
+		case "message_delta":
+			u := ev.AsMessageDelta().Usage
+			delta = [2]int64{u.InputTokens, u.CacheReadInputTokens}
+		}
+	}
+	if err := stream.Err(); err != nil {
+		t.Fatalf("SDK stream decode error: %v", err)
+	}
+	if want := [2]int64{20, 80}; start != want || delta != want {
+		t.Errorf("message_start usage = %v, message_delta usage = %v, want input/cache_read %v on both", start, delta, want)
+	}
+}

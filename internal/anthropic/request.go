@@ -3,6 +3,7 @@ package anthropic
 import (
 	"encoding/json"
 	"fmt"
+	"slices"
 	"strings"
 
 	"github.com/hugalafutro/model-hotel/internal/egress"
@@ -207,7 +208,9 @@ func TranslateRequest(body []byte) (openaiBody []byte, model string, stream bool
 // messages. A user turn carrying tool_result blocks expands into separate
 // role:"tool" messages (plus a user message for any remaining text/image), and
 // an assistant turn carrying tool_use blocks collapses into a single assistant
-// message with tool_calls.
+// message with tool_calls. A chat tool message holds text only, so the images
+// inside tool_result blocks ride a user message placed after the turn's last
+// tool message (never between two, where it would split a parallel batch).
 func translateMessage(m ReqMessage) ([]oaiMessage, error) {
 	// Plain string content: straight passthrough. Only a genuine JSON string
 	// short-circuits here; an array of blocks must fall through to block
@@ -224,6 +227,7 @@ func translateMessage(m ReqMessage) ([]oaiMessage, error) {
 	var out []oaiMessage
 	var parts []oaiContentPart
 	var toolCalls []oaiToolCall
+	var toolImages []oaiContentPart
 
 	flushUserParts := func() {
 		if len(parts) == 0 {
@@ -242,8 +246,10 @@ func translateMessage(m ReqMessage) ([]oaiMessage, error) {
 				parts = append(parts, oaiContentPart{Type: "image_url", ImageURL: &oaiImageURL{URL: url}})
 			}
 		case "tool_use":
+			// Absent or null input is a call with no arguments: "{}", the
+			// object the arguments string must hold.
 			args := string(b.Input)
-			if args == "" {
+			if args == "" || args == "null" {
 				args = "{}"
 			}
 			id, signature := splitToolUseID(b.ID)
@@ -266,6 +272,7 @@ func translateMessage(m ReqMessage) ([]oaiMessage, error) {
 				ToolCallID: toolCallID,
 				Content:    content,
 			})
+			toolImages = append(toolImages, toolResultImages(b.Content)...)
 		case "document":
 			if part, ok := documentPart(b); ok {
 				parts = append(parts, part)
@@ -285,10 +292,30 @@ func translateMessage(m ReqMessage) ([]oaiMessage, error) {
 		out = append(out, oaiMessage{Role: m.Role, Content: content, ToolCalls: toolCalls})
 		parts = nil
 	} else {
+		parts = slices.Concat(toolImages, parts)
 		flushUserParts()
 	}
 
 	return out, nil
+}
+
+// toolResultImages returns the image blocks of a tool_result's content as
+// chat image_url parts; string content and text blocks yield none.
+func toolResultImages(raw json.RawMessage) []oaiContentPart {
+	var blocks []reqBlock
+	if json.Unmarshal(raw, &blocks) != nil {
+		return nil
+	}
+	var out []oaiContentPart
+	for _, b := range blocks {
+		if b.Type != "image" {
+			continue
+		}
+		if url, ok := imageURL(b.Source); ok {
+			out = append(out, oaiContentPart{Type: "image_url", ImageURL: &oaiImageURL{URL: url}})
+		}
+	}
+	return out
 }
 
 // decodeText returns the string when raw is a JSON string, or the concatenation

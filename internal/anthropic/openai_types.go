@@ -58,8 +58,23 @@ type OAFunctionDelta struct {
 // OAUsage is the OpenAI usage block. Only the token counts matter for the
 // best-effort Anthropic usage mapping.
 type OAUsage struct {
-	PromptTokens     int `json:"prompt_tokens"`
-	CompletionTokens int `json:"completion_tokens"`
+	PromptTokens        int `json:"prompt_tokens"`
+	CompletionTokens    int `json:"completion_tokens"`
+	PromptTokensDetails struct {
+		CachedTokens int `json:"cached_tokens"`
+	} `json:"prompt_tokens_details"`
+}
+
+// splitPrompt divides an OpenAI prompt count the Anthropic way: OpenAI's
+// prompt_tokens includes the cached_tokens served from cache, while Anthropic
+// reports those as cache_read_input_tokens and input_tokens as the rest, so
+// the two always sum to prompt_tokens. A cached figure above the prompt count
+// cannot be a share of it and is dropped.
+func splitPrompt(prompt, cached int) (input, cacheRead int) {
+	if cached <= 0 || cached > prompt {
+		return prompt, 0
+	}
+	return prompt - cached, cached
 }
 
 // mapStopReason maps an OpenAI finish_reason to an Anthropic stop_reason.

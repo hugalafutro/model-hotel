@@ -522,13 +522,14 @@ func decodeTextContent(raw json.RawMessage) string {
 }
 
 // toolResponseValue builds the functionResponse.response object from a tool
-// message's content: a JSON object passes through, anything else is wrapped
-// as {"result": <text>} because Gemini requires an object here.
+// message's content: a JSON object passes through as its original bytes (so
+// key order and integers beyond float64 precision survive), anything else is
+// wrapped as {"result": <text>} because Gemini requires an object here.
 func toolResponseValue(raw json.RawMessage) any {
 	text := decodeTextContent(raw)
-	var obj map[string]any
+	var obj map[string]json.RawMessage
 	if json.Unmarshal([]byte(text), &obj) == nil && obj != nil {
-		return obj
+		return json.RawMessage(text)
 	}
 	return map[string]any{"result": text}
 }

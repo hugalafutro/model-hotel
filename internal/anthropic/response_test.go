@@ -396,3 +396,24 @@ func TestBuildMessageResponse_ToolUseInputIsAlwaysAnObject(t *testing.T) {
 		})
 	}
 }
+
+func TestBuildMessageResponse_CachedPromptSplits(t *testing.T) {
+	// OpenAI counts cached tokens inside prompt_tokens; Anthropic reports them
+	// as cache_read_input_tokens beside an input_tokens of the rest, the two
+	// summing to the prompt.
+	oai := []byte(`{"choices":[{"message":{"role":"assistant","content":"hi"},"finish_reason":"stop"}],
+		"usage":{"prompt_tokens":100,"completion_tokens":4,"prompt_tokens_details":{"cached_tokens":80}}}`)
+	out, err := BuildMessageResponse(oai, "msg_c", "m")
+	if err != nil {
+		t.Fatalf("BuildMessageResponse: %v", err)
+	}
+	var m struct {
+		Usage map[string]int `json:"usage"`
+	}
+	if err := json.Unmarshal(out, &m); err != nil {
+		t.Fatalf("invalid output: %v", err)
+	}
+	if m.Usage["input_tokens"] != 20 || m.Usage["cache_read_input_tokens"] != 80 || m.Usage["output_tokens"] != 4 {
+		t.Errorf("usage = %v, want input 20, cache_read 80, output 4", m.Usage)
+	}
+}

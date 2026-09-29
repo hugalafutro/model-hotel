@@ -299,6 +299,30 @@ func TestTranslateRequest_ToolCallsAndToolResults(t *testing.T) {
 	}
 }
 
+func TestTranslateRequest_ToolResultObjectKeepsBytes(t *testing.T) {
+	// An object tool result reaches functionResponse.response as its own
+	// bytes: an integer past 2^53 keeps every digit and the keys keep their
+	// order, where a map[string]any round trip would round and sort them.
+	body := []byte(`{
+		"model": "gemini-2.5-flash",
+		"messages": [
+			{"role": "user", "content": "id?"},
+			{"role": "assistant", "content": null, "tool_calls": [
+				{"id": "call_1", "type": "function", "function": {"name": "lookup", "arguments": "{}"}}
+			]},
+			{"role": "tool", "tool_call_id": "call_1", "content": "{\"z_id\": 9007199254740993, \"a\": 1}"}
+		]
+	}`)
+	out, _, _, err := TranslateRequest(body)
+	if err != nil {
+		t.Fatalf("TranslateRequest failed: %v", err)
+	}
+	want := `"response":{"z_id":9007199254740993,"a":1}`
+	if !strings.Contains(string(out), want) {
+		t.Errorf("gemini body = %s, want it to contain %s", out, want)
+	}
+}
+
 func TestTranslateRequest_ToolResultsSplitByOtherTurns(t *testing.T) {
 	// Only CONSECUTIVE tool messages coalesce; a tool result after an
 	// intervening turn starts a fresh content.

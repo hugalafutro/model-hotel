@@ -43,6 +43,7 @@ type StreamTranslator struct {
 
 	// Best-effort usage + terminal reason.
 	promptTokens     int
+	cachedTokens     int // prompt_tokens_details.cached_tokens, a share of promptTokens
 	completionTokens int
 	finishReason     string // last OpenAI finish_reason observed
 	finished         bool   // Finish() already emitted
@@ -155,7 +156,7 @@ func (t *StreamTranslator) ensureStarted(buf *bytes.Buffer) error {
 			Content:      []contentBlock{},
 			StopReason:   nil,
 			StopSequence: nil,
-			Usage:        usage{InputTokens: t.promptTokens, OutputTokens: 0},
+			Usage:        t.startUsage(),
 		},
 	}
 	if err := writeEvent(buf, "message_start", start); err != nil {
@@ -237,6 +238,7 @@ func (t *StreamTranslator) Translate(chunk OAStreamChunk) ([]byte, error) {
 	if chunk.Usage != nil {
 		if chunk.Usage.PromptTokens > 0 {
 			t.promptTokens = chunk.Usage.PromptTokens
+			t.cachedTokens = chunk.Usage.PromptTokensDetails.CachedTokens
 		}
 		if chunk.Usage.CompletionTokens > 0 {
 			t.completionTokens = chunk.Usage.CompletionTokens
@@ -336,7 +338,7 @@ func (t *StreamTranslator) Finish() ([]byte, error) {
 	if err := writeEvent(&buf, "message_delta", messageDeltaEvent{
 		Type:  "message_delta",
 		Delta: messageDeltaBody{StopReason: &stop, StopSequence: nil},
-		Usage: messageDeltaUsage{InputTokens: t.promptTokens, OutputTokens: t.completionTokens},
+		Usage: t.deltaUsage(),
 	}); err != nil {
 		return nil, err
 	}
@@ -344,4 +346,17 @@ func (t *StreamTranslator) Finish() ([]byte, error) {
 		return nil, err
 	}
 	return buf.Bytes(), nil
+}
+
+// startUsage is the message_start usage: the prompt split the Anthropic way
+// (see splitPrompt) and no output yet.
+func (t *StreamTranslator) startUsage() usage {
+	input, cacheRead := splitPrompt(t.promptTokens, t.cachedTokens)
+	return usage{InputTokens: input, CacheReadInputTokens: cacheRead}
+}
+
+// deltaUsage is the cumulative message_delta usage, split like startUsage.
+func (t *StreamTranslator) deltaUsage() messageDeltaUsage {
+	input, cacheRead := splitPrompt(t.promptTokens, t.cachedTokens)
+	return messageDeltaUsage{InputTokens: input, CacheReadInputTokens: cacheRead, OutputTokens: t.completionTokens}
 }
