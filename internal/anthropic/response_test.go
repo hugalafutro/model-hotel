@@ -417,3 +417,22 @@ func TestBuildMessageResponse_CachedPromptSplits(t *testing.T) {
 		t.Errorf("usage = %v, want input 20, cache_read 80, output 4", m.Usage)
 	}
 }
+
+func TestBuildMessageResponse_DeepSeekCacheHitsSplit(t *testing.T) {
+	// DeepSeek reports its cache hits top-level as prompt_cache_hit_tokens.
+	oai := []byte(`{"choices":[{"message":{"role":"assistant","content":"hi"},"finish_reason":"stop"}],
+		"usage":{"prompt_tokens":100,"completion_tokens":4,"prompt_cache_hit_tokens":70,"prompt_cache_miss_tokens":30}}`)
+	out, err := BuildMessageResponse(oai, "msg_d", "m")
+	if err != nil {
+		t.Fatalf("BuildMessageResponse: %v", err)
+	}
+	var m struct {
+		Usage map[string]int `json:"usage"`
+	}
+	if err := json.Unmarshal(out, &m); err != nil {
+		t.Fatalf("invalid output: %v", err)
+	}
+	if m.Usage["input_tokens"] != 30 || m.Usage["cache_read_input_tokens"] != 70 {
+		t.Errorf("usage = %v, want input 30, cache_read 70", m.Usage)
+	}
+}

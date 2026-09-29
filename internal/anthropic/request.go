@@ -264,6 +264,13 @@ func translateMessage(m ReqMessage) ([]oaiMessage, error) {
 			// pending user parts first so ordering is preserved.
 			flushUserParts()
 			content, _ := decodeText(b.Content)
+			images := toolResultImages(b.Content)
+			if content == "" && len(images) > 0 {
+				// The images travel in the user message that follows; some
+				// OpenAI-compatible upstreams refuse an empty tool message, so
+				// the tool message says where they went.
+				content = "[image]"
+			}
 			// The result names the call by the id the client was given,
 			// signature and all; the provider knows the call by the bare id.
 			toolCallID, _ := splitToolUseID(b.ToolUseID)
@@ -272,7 +279,7 @@ func translateMessage(m ReqMessage) ([]oaiMessage, error) {
 				ToolCallID: toolCallID,
 				Content:    content,
 			})
-			toolImages = append(toolImages, toolResultImages(b.Content)...)
+			toolImages = append(toolImages, images...)
 		case "document":
 			if part, ok := documentPart(b); ok {
 				parts = append(parts, part)

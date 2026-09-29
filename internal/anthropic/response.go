@@ -73,7 +73,7 @@ func readOAUsage(raw json.RawMessage) usage {
 	if err := util.DecodeCounts(raw, &u); err != nil && util.ShapeError(raw, err) == nil {
 		return usage{}
 	}
-	input, cacheRead := splitPrompt(u.PromptTokens, u.PromptTokensDetails.CachedTokens)
+	input, cacheRead := splitPrompt(u.PromptTokens, u.cachedTokens())
 	return usage{InputTokens: input, CacheReadInputTokens: cacheRead, OutputTokens: u.CompletionTokens}
 }
 

@@ -510,3 +510,27 @@ func TestTranslateRequest_ToolUseCarriesThoughtSignature(t *testing.T) {
 		t.Errorf("tool result for the plain call names %v, want call_8", id)
 	}
 }
+
+func TestTranslateRequest_ImageOnlyToolResultIsNotEmpty(t *testing.T) {
+	// An image-only tool_result leaves no text for the tool message; some
+	// OpenAI-compatible upstreams refuse an empty one, so it names where the
+	// image went.
+	body := []byte(`{"model":"p/m","max_tokens":10,"messages":[
+		{"role":"user","content":[
+			{"type":"tool_result","tool_use_id":"c1","content":[
+				{"type":"image","source":{"type":"base64","media_type":"image/png","data":"AAA"}}
+			]}
+		]}
+	]}`)
+	out, _, _, err := TranslateRequest(body)
+	if err != nil {
+		t.Fatalf("TranslateRequest: %v", err)
+	}
+	msgs := decodeOAI(t, out)["messages"].([]any)
+	if len(msgs) != 2 {
+		t.Fatalf("messages = %d, want 2 (tool, user): %v", len(msgs), msgs)
+	}
+	if m := msgs[0].(map[string]any); m["role"] != "tool" || m["content"] != "[image]" {
+		t.Errorf("tool msg = %v, want content [image]", m)
+	}
+}

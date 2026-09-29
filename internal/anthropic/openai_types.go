@@ -63,6 +63,19 @@ type OAUsage struct {
 	PromptTokensDetails struct {
 		CachedTokens int `json:"cached_tokens"`
 	} `json:"prompt_tokens_details"`
+	// PromptCacheHitTokens is DeepSeek's top-level spelling of the cached
+	// share of prompt_tokens.
+	PromptCacheHitTokens int `json:"prompt_cache_hit_tokens"`
+}
+
+// cachedTokens is the cached share of the prompt, in whichever spelling the
+// upstream used: DeepSeek's prompt_cache_hit_tokens first (as the proxy's
+// metering reads it), else OpenAI's prompt_tokens_details.cached_tokens.
+func (u OAUsage) cachedTokens() int {
+	if u.PromptCacheHitTokens > 0 {
+		return u.PromptCacheHitTokens
+	}
+	return u.PromptTokensDetails.CachedTokens
 }
 
 // splitPrompt divides an OpenAI prompt count the Anthropic way: OpenAI's

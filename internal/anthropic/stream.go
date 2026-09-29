@@ -238,7 +238,7 @@ func (t *StreamTranslator) Translate(chunk OAStreamChunk) ([]byte, error) {
 	if chunk.Usage != nil {
 		if chunk.Usage.PromptTokens > 0 {
 			t.promptTokens = chunk.Usage.PromptTokens
-			t.cachedTokens = chunk.Usage.PromptTokensDetails.CachedTokens
+			t.cachedTokens = chunk.Usage.cachedTokens()
 		}
 		if chunk.Usage.CompletionTokens > 0 {
 			t.completionTokens = chunk.Usage.CompletionTokens
