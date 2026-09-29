@@ -53,7 +53,7 @@ func (p *Poller) PollVersionsOnce(ctx context.Context) {
 		versionChanged := cur.Version != build.Version || cur.Commit != build.Commit
 		cur.Version = build.Version
 		cur.Commit = build.Commit
-		p.statuses[m.ID] = cur
+		p.putStatus(m.ID, cur)
 		wasAlerting := p.versionFailures[m.ID] >= versionFetchFailThreshold
 		delete(p.versionFailures, m.ID)
 		p.mu.Unlock()
@@ -98,7 +98,7 @@ func (p *Poller) clearBuild(memberID string) bool {
 	had := cur.Version != ""
 	cur.Version = ""
 	cur.Commit = ""
-	p.statuses[memberID] = cur
+	p.putStatus(memberID, cur)
 	return had
 }
 

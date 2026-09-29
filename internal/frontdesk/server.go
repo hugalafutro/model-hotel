@@ -182,9 +182,15 @@ type Server struct {
 	// unknownPrimaryPasses counts consecutive auto-sync passes that found the
 	// primary's build unread; see skipForUnknownPrimaryBuild.
 	unknownPrimaryPasses atomic.Int32
-	// passMu serialises convergence passes (the tick loop's and the kick's), so
-	// two passes never measure and push to the same members at once.
+	// passMu serialises the auto-sync's passes (the tick loop's and the kick's)
+	// from the config read through the last push (lockPass), so two of them never
+	// measure and push to the same members at once. The manual config sync does
+	// not take it: an operator's push runs alongside, and the next pass measures
+	// whatever it left.
 	passMu sync.Mutex
+	// primaryReadFailures counts consecutive passes that could not read the
+	// primary's config hash; see primaryConfigHash.
+	primaryReadFailures atomic.Int32
 	// kickMu guards kickRunning and kickPending, which coalesce the enable-time
 	// kicks: a kick arriving while one runs leaves one follow-up behind instead
 	// of a pass of its own (kickAutoSync).
@@ -239,9 +245,8 @@ func (d detachedCtx) Value(key any) any { return d.values.Value(key) }
 // owns: the request's values with the server's lifetime. Dropping the request's
 // cancellation is what stops a client hanging up from aborting a run half-way;
 // keeping the server's is what stops that same run from writing into a store
-// Shutdown has closed. Hand it to StartBackground (or StartBackgroundTimeout, to
-// bound the run as well), never to a bare goroutine: the lifetime only helps if
-// the drain waits for the work it ends.
+// Shutdown has closed. Hand it to StartBackground, never to a bare goroutine: the lifetime
+// only helps if the drain waits for the work it ends.
 func (s *Server) detachedContext(r *http.Request) context.Context {
 	return detachedCtx{Context: s.shutdownCtx, values: r.Context()}
 }
@@ -385,23 +390,6 @@ func (s *Server) StartBackground(ctx context.Context, fn func(context.Context)) 
 		return false
 	}
 	s.bgWG.Go(func() { fn(ctx) })
-	return true
-}
-
-// StartBackgroundTimeout is StartBackground for detached work that needs its own
-// deadline: it derives a time-bounded context from parent, hands it to fn, and
-// releases it exactly once whichever way the registration goes. fn's own run
-// releases it on the way out; a refusal releases it here, so a caller that is too
-// late to start work never leaks the context it prepared.
-func (s *Server) StartBackgroundTimeout(parent context.Context, d time.Duration, fn func(context.Context)) (started bool) {
-	ctx, cancel := context.WithTimeout(parent, d)
-	if !s.StartBackground(ctx, func(c context.Context) {
-		defer cancel()
-		fn(c)
-	}) {
-		cancel()
-		return false
-	}
 	return true
 }
 

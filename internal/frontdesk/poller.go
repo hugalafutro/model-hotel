@@ -108,12 +108,23 @@ type Poller struct {
 	staleNotified         bool
 	autoSyncStaleNotified bool
 	// autoSyncIdleSince is when an enabled auto-sync last found its primary
-	// unusable (no token, removed, unreachable), zero while it can run or is
-	// off. Written by the auto-sync loop, read by every staleness grading
-	// (autoSyncStaleTier). In-memory: a restart re-learns it on the first tick.
+	// unusable (no token, removed, refusing it, or not answering), zero while it
+	// can run or is off. Written by the auto-sync passes, read by every
+	// staleness grading (autoSyncStaleTier). In-memory: the first idle verdict
+	// after a restart is dated back to the fleet's last sync
+	// (Server.markAutoSyncIdle), which autoSyncIdleObserved tells it to do.
 	autoSyncIdleSince time.Time
-	versionFailures   map[string]int // consecutive version-fetch failures, keyed by member ID
-	healthFailures    map[string]int // consecutive failed health polls, keyed by member ID
+	// autoSyncIdleSet is true once any pass this process has recorded an idle
+	// verdict, either way.
+	autoSyncIdleSet bool
+	// forgotten holds the IDs of members removed this process (forgetMember),
+	// so a poll that measured one before its removal drops its status write
+	// instead of re-adding it (putStatus).
+	// ponytail: one ID per removed member for the process lifetime; members are
+	// removed rarely and IDs are never reused, so it is never pruned.
+	forgotten       map[string]bool
+	versionFailures map[string]int // consecutive version-fetch failures, keyed by member ID
+	healthFailures  map[string]int // consecutive failed health polls, keyed by member ID
 	// maintenanceDown marks a member whose confirmed-down was recorded as
 	// health.maintenance (it was drained at the time), so its recovery ends the
 	// episode on the same type, and re-activating it while still down pages.
@@ -147,6 +158,7 @@ func NewPoller(store *Store, bus *events.Bus, traefikAPI string) *Poller {
 		maintenanceDown:  make(map[string]bool),
 		traefikNonUp:     make(map[string]int),
 		conflictNotified: make(map[string]bool),
+		forgotten:        make(map[string]bool),
 	}
 }
 
@@ -166,21 +178,33 @@ func (p *Poller) RecordConfigPoll() {
 	p.mu.Unlock()
 }
 
-// setAutoSyncIdle records whether an enabled auto-sync could reach its primary
-// this tick, and reports whether that flipped, so the caller logs the change
-// once rather than on every tick. The idle clock keeps its first instant while
-// the auto-sync stays idle.
-func (p *Poller) setAutoSyncIdle(idle bool) (changed bool) {
+// setAutoSyncIdle records whether an enabled auto-sync can run, and reports
+// whether that flipped, so the caller logs the change once rather than on every
+// pass. A new idle spell is dated since, or now when since is zero; the idle
+// clock keeps that instant while the auto-sync stays idle.
+func (p *Poller) setAutoSyncIdle(idle bool, since time.Time) (changed bool) {
 	p.mu.Lock()
 	defer p.mu.Unlock()
+	p.autoSyncIdleSet = true
 	if idle == !p.autoSyncIdleSince.IsZero() {
 		return false
 	}
 	p.autoSyncIdleSince = time.Time{}
 	if idle {
-		p.autoSyncIdleSince = p.now()
+		if since.IsZero() {
+			since = p.now()
+		}
+		p.autoSyncIdleSince = since
 	}
 	return true
+}
+
+// autoSyncIdleObserved reports whether this process has recorded an idle
+// verdict yet (setAutoSyncIdle).
+func (p *Poller) autoSyncIdleObserved() bool {
+	p.mu.RLock()
+	defer p.mu.RUnlock()
+	return p.autoSyncIdleSet
 }
 
 // autoSyncIdle returns when the enabled auto-sync went idle, zero while it runs.
@@ -191,18 +215,30 @@ func (p *Poller) autoSyncIdle() time.Time {
 }
 
 // forgetMember drops every per-member entry the poller keeps for a removed
-// member, so a re-added member starts clean and the maps do not grow with every
-// member ever removed. A poll round already in flight may write one entry back;
-// every reader goes through the live member list, so that entry is inert.
+// member, so the maps do not grow with every member ever removed, and marks it
+// removed so a poll already in flight cannot write its status back (putStatus):
+// statuses is served whole by the Traefik status endpoint. That poll may still
+// write back a failure counter; those are only read per member, by rounds that
+// iterate the live member list, so such an entry is inert.
 func (p *Poller) forgetMember(id string) {
 	p.mu.Lock()
 	defer p.mu.Unlock()
+	p.forgotten[id] = true
 	delete(p.statuses, id)
 	delete(p.versionFailures, id)
 	delete(p.healthFailures, id)
 	delete(p.maintenanceDown, id)
 	delete(p.traefikNonUp, id)
 	delete(p.conflictNotified, id)
+}
+
+// putStatus stores a member's status, unless the member was removed while the
+// poll that measured it was in flight (forgetMember). The caller holds p.mu.
+func (p *Poller) putStatus(id string, st MemberStatus) {
+	if p.forgotten[id] {
+		return
+	}
+	p.statuses[id] = st
 }
 
 // Snapshot returns a copy of the current per-member status map.
@@ -243,7 +279,7 @@ func (p *Poller) SetAutoSyncVerified(memberID string, at time.Time) {
 	defer p.mu.Unlock()
 	st := p.statuses[memberID]
 	st.AutoSyncVerifiedAt = &at
-	p.statuses[memberID] = st
+	p.putStatus(memberID, st)
 }
 
 // Run starts the poll loops and blocks until ctx is cancelled. Each loop reads
@@ -386,7 +422,7 @@ func (p *Poller) applyHealth(ctx context.Context, m *Member, hs HealthStatus, th
 			cur.Health = hs
 		}
 	}
-	p.statuses[m.ID] = cur
+	p.putStatus(m.ID, cur)
 	p.mu.Unlock()
 
 	// The rendered badge is a function of both Known and Healthy (unknown vs

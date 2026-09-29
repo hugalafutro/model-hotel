@@ -820,3 +820,18 @@ func TestApplyHealthEpisodeKeepsItsType(t *testing.T) {
 		t.Errorf("recovery after the page: %+v, want health.up", ev)
 	}
 }
+
+// TestForgottenMemberStatusIsNotWrittenBack: a health poll that measured a
+// member before its removal lands after forgetMember. Its write must not
+// re-add the member to the status map, which the Traefik status endpoint serves
+// whole.
+func TestForgottenMemberStatusIsNotWrittenBack(t *testing.T) {
+	p, _, _ := newTestPoller(t, "")
+	m := &Member{ID: "gone", Name: "gone"}
+	p.applyHealth(t.Context(), m, HealthStatus{Known: true, Healthy: true}, 3)
+	p.forgetMember(m.ID)
+	p.applyHealth(t.Context(), m, HealthStatus{Known: true, Healthy: true}, 3)
+	if _, ok := p.Snapshot()[m.ID]; ok {
+		t.Error("a poll landing after the member's removal re-added its status")
+	}
+}

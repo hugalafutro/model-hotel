@@ -1322,3 +1322,159 @@ func TestAutoSyncStaleTierIdle(t *testing.T) {
 		})
 	}
 }
+
+// TestAutoSyncIdleNeedsRepeatedPrimaryFailures: a primary that fails one read
+// and answers the next is a blip, not an idle auto-sync, and logs no warning.
+// primaryUnreachableIdleThreshold failures in a row are, and warn once. A
+// pass whose own context ended records nothing either way. A primary that
+// refuses the stored token cannot be retried into working, so it is idle at
+// once.
+func TestAutoSyncIdleNeedsRepeatedPrimaryFailures(t *testing.T) {
+	logs := captureLogs(t)
+	const warn = "frontdesk: auto-sync is enabled but cannot run: primary unavailable"
+	warnings := func() int {
+		n := 0
+		for _, r := range logs.snapshot() {
+			if r.msg == warn {
+				n++
+			}
+		}
+		return n
+	}
+	f := newHashFleet(t, func(*stubAutoMember) {})
+	setVersionCode := func(code int) {
+		f.primary.mu.Lock()
+		f.primary.versionCode = code
+		f.primary.mu.Unlock()
+	}
+
+	setVersionCode(http.StatusBadGateway)
+	f.tick(t)
+	setVersionCode(http.StatusOK)
+	f.tick(t)
+	if !f.srv.poller.autoSyncIdle().IsZero() || warnings() != 0 {
+		t.Fatalf("one failed read then a good one: idle %v, %d warnings; want running, none", f.srv.poller.autoSyncIdle(), warnings())
+	}
+
+	setVersionCode(http.StatusBadGateway)
+	cancelled, cancel := context.WithCancel(t.Context())
+	cancel()
+	cfg, _ := f.store.GetAutoSync(t.Context())
+	for range primaryUnreachableIdleThreshold {
+		f.srv.primaryConfigHash(cancelled, cfg)
+	}
+	if !f.srv.poller.autoSyncIdle().IsZero() {
+		t.Fatal("reads cut short by their own context marked the auto-sync idle")
+	}
+	for range primaryUnreachableIdleThreshold - 1 {
+		f.tick(t)
+	}
+	if !f.srv.poller.autoSyncIdle().IsZero() {
+		t.Fatalf("%d failed reads marked the auto-sync idle, want %d", primaryUnreachableIdleThreshold-1, primaryUnreachableIdleThreshold)
+	}
+	f.tick(t)
+	f.tick(t)
+	if f.srv.poller.autoSyncIdle().IsZero() || warnings() != 1 {
+		t.Errorf("failing reads in a row: idle %v, %d warnings; want idle, one", f.srv.poller.autoSyncIdle(), warnings())
+	}
+
+	setVersionCode(http.StatusOK)
+	f.tick(t)
+	f.primary.mu.Lock()
+	f.primary.token = "rotated" // the stored token now answers 401
+	f.primary.mu.Unlock()
+	f.tick(t)
+	if f.srv.poller.autoSyncIdle().IsZero() {
+		t.Error("a primary refusing the stored token did not mark the auto-sync idle at once")
+	}
+}
+
+// TestAutoSyncIdleAfterRestartAgesFromLastSync: the idle clock is in memory, so
+// the first idle verdict after a start is dated back to the fleet's last sync.
+// A Front Desk restarted daily whose primary stopped being usable days ago is
+// stale straight away, not a full threshold after each start. A later idle
+// spell, following a pass that ran, is dated when it began.
+func TestAutoSyncIdleAfterRestartAgesFromLastSync(t *testing.T) {
+	srv, store := newTestServer(t)
+	primary := newStubAutoMember(t, "ptoken")
+	pm, _ := store.CreateMember(t.Context(), "primary", primary.srv.URL, "")
+	store.CreateMember(t.Context(), "replica", "http://127.0.0.1:9", "rtoken")
+	enableAutoSync(t, store, pm.ID)
+	lastSync := time.Now().Add(-4 * 24 * time.Hour).UTC().Truncate(time.Second)
+	if err := store.SetFleetSyncState(t.Context(), pm.ID, "primary", lastSync); err != nil {
+		t.Fatalf("SetFleetSyncState: %v", err)
+	}
+
+	srv.autoSyncOnce(t.Context(), "")
+	if got := srv.poller.autoSyncIdle(); !got.Equal(lastSync) {
+		t.Errorf("first idle verdict after start dated %v, want the last sync %v", got, lastSync)
+	}
+	rec := do(t, srv, http.MethodGet, "/api/fleet/autosync", "", true)
+	var got autoSyncStatus
+	if err := json.Unmarshal(rec.Body.Bytes(), &got); err != nil {
+		t.Fatalf("decode: %v", err)
+	}
+	if !got.Stale {
+		t.Error("idle since a sync four days ago, right after start, is not reported stale")
+	}
+
+	if err := store.SetMemberToken(t.Context(), pm.ID, "ptoken"); err != nil {
+		t.Fatalf("SetMemberToken: %v", err)
+	}
+	srv.autoSyncOnce(t.Context(), "")
+	if err := store.SetMemberToken(t.Context(), pm.ID, ""); err != nil {
+		t.Fatalf("clear token: %v", err)
+	}
+	before := time.Now()
+	srv.autoSyncOnce(t.Context(), "")
+	if got := srv.poller.autoSyncIdle(); got.Before(before) {
+		t.Errorf("an idle spell after a pass ran dated %v, want its start (after %v)", got, before)
+	}
+}
+
+// TestAutoSyncIdleStartsNeverSyncedFleetAtStart: with no sync on record, the
+// first idle verdict after a start is dated to the start.
+func TestAutoSyncIdleStartsNeverSyncedFleetAtStart(t *testing.T) {
+	srv, store := newTestServer(t)
+	pm, _ := store.CreateMember(t.Context(), "primary", "http://127.0.0.1:9", "")
+	store.CreateMember(t.Context(), "replica", "http://127.0.0.1:9", "rtoken")
+	enableAutoSync(t, store, pm.ID)
+	srv.autoSyncOnce(t.Context(), "")
+	if got := srv.poller.autoSyncIdle(); !got.Equal(srv.startedAt) {
+		t.Errorf("first idle verdict of a never-synced fleet dated %v, want the start %v", got, srv.startedAt)
+	}
+}
+
+// TestPutAutoSyncChangeClearsIdle: switching auto-sync off or on, or
+// repointing it, starts the idle question over even when no pass runs in
+// between; a PUT that changes nothing leaves it alone.
+func TestPutAutoSyncChangeClearsIdle(t *testing.T) {
+	srv, store := newTestServer(t)
+	pm, _ := store.CreateMember(t.Context(), "primary", "http://127.0.0.1:9", "ptoken")
+	store.CreateMember(t.Context(), "replica", "http://127.0.0.1:9", "rtoken")
+	enableAutoSync(t, store, pm.ID)
+	idleAt := time.Now().Add(-time.Hour)
+	put := func(enabled bool) {
+		t.Helper()
+		body := `{"enabled":` + map[bool]string{true: "true", false: "false"}[enabled] + `,"primary_id":"` + pm.ID + `"}`
+		if rec := do(t, srv, http.MethodPut, "/api/fleet/autosync", body, true); rec.Code != http.StatusOK {
+			t.Fatalf("put %s = %d (%s)", body, rec.Code, rec.Body.String())
+		}
+		srv.Wait() // the kick's single failed read is below the idle threshold
+	}
+
+	srv.poller.setAutoSyncIdle(true, idleAt)
+	put(true)
+	if got := srv.poller.autoSyncIdle(); !got.Equal(idleAt) {
+		t.Errorf("a PUT changing nothing moved the idle clock to %v", got)
+	}
+	put(false)
+	if got := srv.poller.autoSyncIdle(); !got.IsZero() {
+		t.Errorf("disabling left the idle clock at %v", got)
+	}
+	srv.poller.setAutoSyncIdle(true, idleAt)
+	put(true)
+	if got := srv.poller.autoSyncIdle(); !got.IsZero() {
+		t.Errorf("re-enabling left the idle clock at %v", got)
+	}
+}

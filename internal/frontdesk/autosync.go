@@ -195,6 +195,10 @@ func (s *Server) RunAutoSync(ctx context.Context) {
 // not the primary's config moved. A member is only measured by a pass, so a fleet
 // that stopped running them would stop noticing a member drifting on its own.
 func (s *Server) autoSyncOnce(ctx context.Context, prev string) string {
+	if !s.lockPass(ctx) {
+		return prev
+	}
+	defer s.passMu.Unlock()
 	cfg, err := s.store.GetAutoSync(ctx)
 	if err != nil {
 		debuglog.Warn("frontdesk: auto-sync: read config", "error", err)
@@ -207,7 +211,7 @@ func (s *Server) autoSyncOnce(ctx context.Context, prev string) string {
 		// over too: whatever primary is designated next is a new question.
 		s.autoSyncEvaluated.Store(true)
 		s.unknownPrimaryPasses.Store(0)
-		s.poller.setAutoSyncIdle(false)
+		s.clearAutoSyncIdle()
 		return ""
 	}
 
@@ -236,6 +240,10 @@ func (s *Server) autoSyncOnce(ctx context.Context, prev string) string {
 // own goroutine with a detached context, and a no-op when auto-sync is off or has
 // no primary. Failures log and the loop retries.
 func (s *Server) forceAutoSyncNow(ctx context.Context) {
+	if !s.lockPass(ctx) {
+		return
+	}
+	defer s.passMu.Unlock()
 	cfg, err := s.store.GetAutoSync(ctx)
 	if err != nil {
 		debuglog.Warn("frontdesk: auto-sync kick: read config", "error", err)
@@ -254,29 +262,19 @@ func (s *Server) forceAutoSyncNow(ctx context.Context) {
 	s.convergeFleet(ctx, primary, primaryToken, hash, primarySections, autoSyncKickReason, cfg.Gen)
 }
 
-// primaryConfigHash resolves the designated primary, loads its admin token, and
-// reads its current syncable-config hash together with its per-section hashes.
-// ok is false when the primary was removed, lost its token, or is unreachable,
-// in which case the caller skips this round and retries later. Either answer is
-// recorded as the auto-sync's idle state (Poller.setAutoSyncIdle), which feeds
-// the staleness grading, and a change of it is logged once rather than per tick.
-func (s *Server) primaryConfigHash(ctx context.Context, cfg AutoSyncConfig) (primary *Member, token, hash string, sections map[string]string, ok bool) {
-	primary, token, err := s.memberTokenOrErr(ctx, cfg.PrimaryID)
-	if err == nil {
-		hash, sections, err = s.fetchMemberConfigVersion(ctx, primary, token)
+// lockPass takes passMu for a tick or kick pass and reports whether the pass
+// should run. The lock is taken before the pass reads the auto-sync config and
+// the primary's hash, so a pass that waited behind another converges against
+// what the primary holds once it gets its turn, not what it held when it
+// started waiting. A waiter whose ctx ended meanwhile (shutdown, or the kick's
+// own deadline) releases the lock and runs nothing.
+func (s *Server) lockPass(ctx context.Context) bool {
+	s.passMu.Lock()
+	if ctx.Err() != nil {
+		s.passMu.Unlock()
+		return false
 	}
-	if s.poller.setAutoSyncIdle(err != nil) {
-		if err != nil {
-			debuglog.Warn("frontdesk: auto-sync is enabled but cannot run: primary unavailable", "primary_id", cfg.PrimaryID, "error", err)
-		} else {
-			debuglog.Info("frontdesk: auto-sync can run again: primary available", "member", primary.Name)
-		}
-	}
-	if err != nil {
-		debuglog.Debug("frontdesk: auto-sync: primary unavailable", "primary_id", cfg.PrimaryID, "error", err)
-		return nil, "", "", nil, false
-	}
-	return primary, token, hash, sections, true
+	return true
 }
 
 // convergeFleet pushes the primary's config to every member that needs it and
@@ -355,8 +353,6 @@ func (s *Server) skipForUnknownPrimaryBuild(primary *Member) (memberBuild, bool)
 // heartbeat when a member's hash matches, the diverged flag and amber badge when
 // it does not.
 func (s *Server) convergeFleet(ctx context.Context, primary *Member, primaryToken, hash string, primarySections map[string]string, reason string, gen int64) {
-	s.passMu.Lock()
-	defer s.passMu.Unlock()
 	primaryBuild, skip := s.skipForUnknownPrimaryBuild(primary)
 	if skip {
 		// Not a verdict on any member: autoSyncEvaluated stays as it was, so a
@@ -765,6 +761,9 @@ func (s *Server) fetchMemberConfigVersion(ctx context.Context, m *Member, token 
 	status, body, err := callMemberWith(ctx, s.readClient, http.MethodGet, m.URL, memberConfigVersionPath, token, nil)
 	if err != nil {
 		return "", nil, err
+	}
+	if status == http.StatusUnauthorized || status == http.StatusForbidden {
+		return "", nil, fmt.Errorf("%w: member config-version returned %d", errMemberAuthRefused, status)
 	}
 	if status != http.StatusOK {
 		return "", nil, fmt.Errorf("member config-version returned %d", status)

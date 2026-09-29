@@ -1,6 +1,9 @@
 package frontdesk
 
-import "context"
+import (
+	"context"
+	"time"
+)
 
 // startRearmWatch spawns a pass's rearm watcher and returns the stop func that
 // cancels it and blocks until it has returned.
@@ -62,7 +65,12 @@ func (s *Server) watchRearm(ctx context.Context, rearmCh <-chan struct{}, gen in
 // N concurrent ones pushing the same export. The follow-up is not optional: each
 // PUT bumps the rearm generation, which cancels the pass already running, so the
 // latest setup is only converged by a pass that starts after it.
-func (s *Server) kickAutoSync(ctx context.Context) {
+//
+// ctx is the server's lifetime (detachedContext), and only its end stops the
+// loop. Each pass, the follow-up included, gets its own passTimeout
+// (autoSyncKickTimeout in production) from it, so a pass that ran out its deadline neither drops the follow-up a later PUT
+// left nor hands it the few moments that deadline had left.
+func (s *Server) kickAutoSync(ctx context.Context, passTimeout time.Duration) {
 	s.kickMu.Lock()
 	if s.kickRunning {
 		s.kickPending = true
@@ -72,7 +80,9 @@ func (s *Server) kickAutoSync(ctx context.Context) {
 	s.kickRunning = true
 	s.kickMu.Unlock()
 	for {
-		s.forceAutoSyncNow(ctx)
+		passCtx, cancel := context.WithTimeout(ctx, passTimeout)
+		s.forceAutoSyncNow(passCtx)
+		cancel()
 		s.kickMu.Lock()
 		if !s.kickPending || ctx.Err() != nil {
 			s.kickRunning, s.kickPending = false, false

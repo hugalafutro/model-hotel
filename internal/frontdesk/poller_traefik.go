@@ -53,7 +53,7 @@ func (p *Poller) PollTraefikOnce(ctx context.Context) {
 		}
 		if cur.TraefikStatus != next {
 			cur.TraefikStatus = next
-			p.statuses[m.ID] = cur
+			p.putStatus(m.ID, cur)
 			changed = append(changed, m.ID)
 		}
 	}
@@ -94,7 +94,7 @@ func (p *Poller) noteTraefikAPIFailure(ctx context.Context) {
 	for id, cur := range p.statuses {
 		if cur.TraefikStatus != "" {
 			cur.TraefikStatus = ""
-			p.statuses[id] = cur
+			p.putStatus(id, cur)
 			changed = append(changed, id)
 		}
 		delete(p.traefikNonUp, id)
