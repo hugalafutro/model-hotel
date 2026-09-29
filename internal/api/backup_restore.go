@@ -361,8 +361,9 @@ func (h *BackupHandler) saveUploadedDump(w http.ResponseWriter, r *http.Request)
 	// The form field is the restore's step-up: the admin token, re-typed.
 	// When TOTP 2FA is enabled the raw admin token is a first factor only, so
 	// it is accepted here only on a request the auth middleware already
-	// admitted as an admin, which with TOTP on means a session that passed the
-	// second factor (the middleware refuses a raw-token bearer). The admin
+	// admitted as an admin, which with TOTP on means an admin session (a
+	// password and TOTP, passkey or SSO login; the middleware refuses a
+	// raw-token bearer). The admin
 	// token is the only credential the field accepts, for the dashboard and
 	// header-bearer clients alike; a session token never counts.
 	adminToken := r.FormValue("admin_token")

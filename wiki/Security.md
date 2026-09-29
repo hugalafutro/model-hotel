@@ -404,7 +404,7 @@ While `ValidateProviderURL` blocks dangerous URLs at configuration time, the **S
 
 The same list backs both provider-URL validation and the runtime dialer, so the two layers cannot drift apart.
 
-A NAT64 address under the well-known prefix `64:ff9b::/96` is judged by the IPv4 address it embeds, since that is where the translator delivers it. A local-use NAT64 address (`64:ff9b:1::/48`, RFC 8215) is refused outright, because its prefix length is operator-chosen and the embedded address cannot be read with certainty; for a provider on such a network, `ALLOWED_PROVIDER_HOSTS` is the escape hatch.
+A NAT64 address under the well-known prefix `64:ff9b::/96` is judged by the IPv4 address it embeds, since that is where the translator delivers it. A local-use NAT64 address (`64:ff9b:1::/48`, RFC 8215) is refused outright, because its prefix length is operator-chosen and the embedded address cannot be read with certainty; for a provider on such a network, `ALLOWED_PROVIDER_HOSTS` is the escape hatch. Setting it turns provider URL validation into an allowlist, so every custom provider host then has to be listed.
 
 ---
 
