@@ -17,6 +17,7 @@ import (
 
 	"github.com/hugalafutro/model-hotel/internal/ctxkeys"
 	"github.com/hugalafutro/model-hotel/internal/failover"
+	"github.com/hugalafutro/model-hotel/internal/gemini"
 	"github.com/hugalafutro/model-hotel/internal/httpx"
 	"github.com/hugalafutro/model-hotel/internal/model"
 	"github.com/hugalafutro/model-hotel/internal/provider"
@@ -1372,5 +1373,35 @@ func TestAttemptPassthroughCandidate_ADefiniteErrorCreditsTheModelItAsked(t *tes
 	h.circuitBreaker.RecordFailure(cand.provider.ID, cand.provider.Name, m.ModelID, failover.Cause{})
 	if got := h.circuitBreaker.GetState(cand.provider.ID, m.ModelID); got == failover.StateOpen {
 		t.Error("the 400 credited a circuit other than the model it asked for: an earlier failure was still on the clock")
+	}
+}
+
+// The slot follows the breaker's line: a body the provider could not produce
+// is settled unclean, while one that failed for the caller's own reason (a
+// safety-blocked prompt, an oversized body) or an abandoned read settles
+// neutral, so the provider keeps its clean run.
+func TestRejectUntranslatableBody_SettlesTheSlotLikeTheBreaker(t *testing.T) {
+	cases := []struct {
+		name string
+		err  error
+		req  *http.Request
+		want slotOutcome
+	}{
+		{"provider fault", errors.New("not a gemini object"), httptest.NewRequest("POST", "/v1/chat/completions", http.NoBody), slotUnclean},
+		{"prompt blocked", fmt.Errorf("gemini: %w", gemini.ErrPromptBlocked), httptest.NewRequest("POST", "/v1/chat/completions", http.NoBody), slotNeutral},
+		{"body oversized", errEgressBodyOversized, httptest.NewRequest("POST", "/v1/chat/completions", http.NoBody), slotNeutral},
+		{"abandoned read", errors.New("read: connection reset"), cancelledRequest(), slotNeutral},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			h := &Handler{circuitBreaker: failover.NewCircuitBreaker(nil)}
+			var got slotOutcome = -1
+			st := &requestState{circuitBreakerEnabled: true, attemptSlot: &attemptSlot{fire: func(o slotOutcome) { got = o }}}
+			candidate := modelCandidate{provider: &provider.Provider{ID: uuid.New(), Name: "p"}}
+			h.rejectUntranslatableBody(st, candidate, &requestLogData{modelID: "m", providerName: "p"}, "gemini", 200, tc.err, 0, tc.req)
+			if got != tc.want {
+				t.Errorf("slot settled %d, want %d", got, tc.want)
+			}
+		})
 	}
 }
