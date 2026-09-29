@@ -416,7 +416,7 @@ func (s *Server) putAutoSync(w http.ResponseWriter, r *http.Request) {
 	// idle state: whatever the previous setup's passes concluded does not carry
 	// over, even when no pass ran in between to clear it.
 	if req.PrimaryID == "" || req.PrimaryID != cur.PrimaryID || req.Enabled != cur.Enabled {
-		s.clearAutoSyncIdle()
+		s.clearAutoSyncIdle(r.Context())
 	}
 	s.emit(r.Context(), Event{
 		Type: "settings.changed", Severity: "info", Source: "frontdesk",
@@ -440,7 +440,7 @@ func (s *Server) putAutoSync(w http.ResponseWriter, r *http.Request) {
 	// running takes the server's lifetime from detachedContext, so shutdown ends
 	// it instead of leaving the drain to wait out a fifteen-minute pass.
 	if status.Enabled && status.PrimaryID != "" {
-		s.StartBackground(s.detachedContext(r), func(ctx context.Context) { s.kickAutoSync(ctx, autoSyncKickTimeout) })
+		s.StartBackground(s.detachedContext(r), func(ctx context.Context) { s.kickAutoSync(ctx) })
 	}
 	writeJSON(w, http.StatusOK, status)
 }

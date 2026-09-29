@@ -1389,46 +1389,84 @@ func TestAutoSyncIdleNeedsRepeatedPrimaryFailures(t *testing.T) {
 	}
 }
 
-// TestAutoSyncIdleAfterRestartAgesFromLastSync: the idle clock is in memory, so
-// the first idle verdict after a start is dated back to the fleet's last sync.
-// A Front Desk restarted daily whose primary stopped being usable days ago is
-// stale straight away, not a full threshold after each start. A later idle
-// spell, following a pass that ran, is dated when it began.
-func TestAutoSyncIdleAfterRestartAgesFromLastSync(t *testing.T) {
-	srv, store := newTestServer(t)
-	primary := newStubAutoMember(t, "ptoken")
-	pm, _ := store.CreateMember(t.Context(), "primary", primary.srv.URL, "")
-	store.CreateMember(t.Context(), "replica", "http://127.0.0.1:9", "rtoken")
-	enableAutoSync(t, store, pm.ID)
-	lastSync := time.Now().Add(-4 * 24 * time.Hour).UTC().Truncate(time.Second)
-	if err := store.SetFleetSyncState(t.Context(), pm.ID, "primary", lastSync); err != nil {
-		t.Fatalf("SetFleetSyncState: %v", err)
-	}
-
-	srv.autoSyncOnce(t.Context(), "")
-	if got := srv.poller.autoSyncIdle(); !got.Equal(lastSync) {
-		t.Errorf("first idle verdict after start dated %v, want the last sync %v", got, lastSync)
-	}
+// getAutoSyncStale reads GET /api/fleet/autosync's stale verdict.
+func getAutoSyncStale(t *testing.T, srv *Server) bool {
+	t.Helper()
 	rec := do(t, srv, http.MethodGet, "/api/fleet/autosync", "", true)
 	var got autoSyncStatus
 	if err := json.Unmarshal(rec.Body.Bytes(), &got); err != nil {
 		t.Fatalf("decode: %v", err)
 	}
-	if !got.Stale {
-		t.Error("idle since a sync four days ago, right after start, is not reported stale")
+	return got.Stale
+}
+
+// TestAutoSyncIdleAfterRestartTakesPersistedSpell: an idle spell a previous
+// process persisted dates the first idle verdict after a restart, so a Front
+// Desk restarted daily whose primary stopped being usable days ago is stale
+// straight away. A pass that runs drops the record, and a later spell is dated
+// when it began and persisted in turn.
+func TestAutoSyncIdleAfterRestartTakesPersistedSpell(t *testing.T) {
+	srv, store := newTestServer(t)
+	primary := newStubAutoMember(t, "ptoken")
+	pm, _ := store.CreateMember(t.Context(), "primary", primary.srv.URL, "")
+	store.CreateMember(t.Context(), "replica", "http://127.0.0.1:9", "rtoken")
+	enableAutoSync(t, store, pm.ID)
+	idleSince := time.Now().Add(-4 * 24 * time.Hour).UTC()
+	if err := store.SetAutoSyncIdleSince(t.Context(), idleSince); err != nil {
+		t.Fatalf("SetAutoSyncIdleSince: %v", err)
+	}
+
+	srv.autoSyncOnce(t.Context(), "")
+	if got := srv.poller.autoSyncIdle(); !got.Equal(idleSince) {
+		t.Errorf("first idle verdict after start dated %v, want the persisted %v", got, idleSince)
+	}
+	if !getAutoSyncStale(t, srv) {
+		t.Error("idle for four days per the persisted spell, right after start, is not reported stale")
 	}
 
 	if err := store.SetMemberToken(t.Context(), pm.ID, "ptoken"); err != nil {
 		t.Fatalf("SetMemberToken: %v", err)
 	}
 	srv.autoSyncOnce(t.Context(), "")
+	if got, err := store.AutoSyncIdleSince(t.Context()); err != nil || !got.IsZero() {
+		t.Errorf("a pass that ran left the persisted idle spell at %v (err %v)", got, err)
+	}
 	if err := store.SetMemberToken(t.Context(), pm.ID, ""); err != nil {
 		t.Fatalf("clear token: %v", err)
 	}
 	before := time.Now()
 	srv.autoSyncOnce(t.Context(), "")
-	if got := srv.poller.autoSyncIdle(); got.Before(before) {
+	got := srv.poller.autoSyncIdle()
+	if got.Before(before) {
 		t.Errorf("an idle spell after a pass ran dated %v, want its start (after %v)", got, before)
+	}
+	if persisted, err := store.AutoSyncIdleSince(t.Context()); err != nil || !persisted.Equal(got.UTC()) {
+		t.Errorf("persisted idle spell %v (err %v), want %v", persisted, err, got)
+	}
+}
+
+// TestAutoSyncIdleAfterRestartWithoutRecordStartsAtStart: with no idle spell
+// on record, a primary slow to answer after a restart is idle from the start,
+// not from the fleet's last sync a week ago, so it is not reported stale at
+// once.
+func TestAutoSyncIdleAfterRestartWithoutRecordStartsAtStart(t *testing.T) {
+	srv, store := newTestServer(t)
+	pm, _ := store.CreateMember(t.Context(), "primary", "http://127.0.0.1:9", "ptoken")
+	store.CreateMember(t.Context(), "replica", "http://127.0.0.1:9", "rtoken")
+	enableAutoSync(t, store, pm.ID)
+	lastSync := time.Now().Add(-7 * 24 * time.Hour).UTC()
+	if err := store.SetFleetSyncState(t.Context(), pm.ID, "primary", lastSync); err != nil {
+		t.Fatalf("SetFleetSyncState: %v", err)
+	}
+
+	for range primaryUnreachableIdleThreshold {
+		srv.autoSyncOnce(t.Context(), "")
+	}
+	if got := srv.poller.autoSyncIdle(); !got.Equal(srv.startedAt) {
+		t.Errorf("first idle verdict after start dated %v, want the start %v", got, srv.startedAt)
+	}
+	if getAutoSyncStale(t, srv) {
+		t.Error("a primary unanswered since this start is reported stale from the week-old last sync")
 	}
 }
 

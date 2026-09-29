@@ -47,36 +47,61 @@ func (s *Server) primaryConfigHash(ctx context.Context, cfg AutoSyncConfig) (pri
 		}
 		return nil, "", "", nil, false
 	}
-	if s.clearAutoSyncIdle() {
+	if s.clearAutoSyncIdle(ctx) {
 		debuglog.Info("frontdesk: auto-sync can run again: primary available", "member", primary.Name)
 	}
 	return primary, token, hash, sections, true
 }
 
 // markAutoSyncIdle records the enabled auto-sync as unable to run and reports
-// whether it was running until now. The first idle verdict after this process
-// started is dated back to the fleet's last sync (the start of this process if
-// it never synced): the auto-sync may have been idle through the restart, and
-// dating it now would let a Front Desk restarted daily never report the fleet
-// stale. Later verdicts follow a pass that ran, so they are dated now.
+// whether it was running until now. A new idle spell is persisted
+// (Store.SetAutoSyncIdleSince), so the first idle verdict after this process
+// started takes the spell a previous process recorded, and a Front Desk
+// restarted daily still reports a fleet idle for days as stale. With nothing on
+// record that verdict is dated to this process's start, not further back: a
+// primary slow to answer after a restart is not an idle spell that began at the
+// fleet's last sync. Later spells follow a pass that ran, so they are dated now.
 func (s *Server) markAutoSyncIdle(ctx context.Context) bool {
+	s.idleMu.Lock()
+	defer s.idleMu.Unlock()
 	var since time.Time // zero: the poller dates it now
 	if !s.poller.autoSyncIdleObserved() {
 		since = s.startedAt
-		if state, found, err := s.store.GetFleetSyncState(ctx); err == nil {
-			if members, err := s.store.ListMembers(ctx); err == nil {
-				if last, have := fleetLastSync(members, state.LastRunAt, found); have {
-					since = last
-				}
-			}
+		if persisted, err := s.store.AutoSyncIdleSince(ctx); err != nil {
+			debuglog.Warn("frontdesk: auto-sync: read idle since", "error", err)
+		} else if !persisted.IsZero() {
+			since = persisted
 		}
 	}
-	return s.poller.setAutoSyncIdle(true, since)
+	changed := s.poller.setAutoSyncIdle(true, since)
+	if changed {
+		s.persistAutoSyncIdle(ctx, s.poller.autoSyncIdle())
+	}
+	return changed
 }
 
-// clearAutoSyncIdle records the auto-sync as running (or off) and starts the
-// primary's failure count over. It reports whether it was idle until now.
-func (s *Server) clearAutoSyncIdle() bool {
+// clearAutoSyncIdle records the auto-sync as running (or off), drops the
+// persisted idle spell, and starts the primary's failure count over. It reports
+// whether it was idle until now. The first verdict of a process clears the
+// record even when nothing changed in memory, since a spell a previous process
+// persisted is over too.
+func (s *Server) clearAutoSyncIdle(ctx context.Context) bool {
 	s.primaryReadFailures.Store(0)
-	return s.poller.setAutoSyncIdle(false, time.Time{})
+	s.idleMu.Lock()
+	defer s.idleMu.Unlock()
+	first := !s.poller.autoSyncIdleObserved()
+	changed := s.poller.setAutoSyncIdle(false, time.Time{})
+	if changed || first {
+		s.persistAutoSyncIdle(ctx, time.Time{})
+	}
+	return changed
+}
+
+// persistAutoSyncIdle writes the idle spell's start, zero to clear it. A failed
+// write is logged: the in-memory verdict stands, and only a restart reads the
+// record.
+func (s *Server) persistAutoSyncIdle(ctx context.Context, since time.Time) {
+	if err := s.store.SetAutoSyncIdleSince(ctx, since); err != nil {
+		debuglog.Warn("frontdesk: auto-sync: persist idle since", "error", err)
+	}
 }

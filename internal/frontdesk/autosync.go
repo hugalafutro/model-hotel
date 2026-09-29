@@ -211,7 +211,7 @@ func (s *Server) autoSyncOnce(ctx context.Context, prev string) string {
 		// over too: whatever primary is designated next is a new question.
 		s.autoSyncEvaluated.Store(true)
 		s.unknownPrimaryPasses.Store(0)
-		s.clearAutoSyncIdle()
+		s.clearAutoSyncIdle(ctx)
 		return ""
 	}
 

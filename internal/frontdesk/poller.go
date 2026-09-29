@@ -110,8 +110,8 @@ type Poller struct {
 	// autoSyncIdleSince is when an enabled auto-sync last found its primary
 	// unusable (no token, removed, refusing it, or not answering), zero while it
 	// can run or is off. Written by the auto-sync passes, read by every
-	// staleness grading (autoSyncStaleTier). In-memory: the first idle verdict
-	// after a restart is dated back to the fleet's last sync
+	// staleness grading (autoSyncStaleTier). The Server persists it alongside,
+	// and the first idle verdict after a restart takes the persisted instant
 	// (Server.markAutoSyncIdle), which autoSyncIdleObserved tells it to do.
 	autoSyncIdleSince time.Time
 	// autoSyncIdleSet is true once any pass this process has recorded an idle

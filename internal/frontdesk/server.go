@@ -191,6 +191,10 @@ type Server struct {
 	// primaryReadFailures counts consecutive passes that could not read the
 	// primary's config hash; see primaryConfigHash.
 	primaryReadFailures atomic.Int32
+	// idleMu serialises the auto-sync idle verdicts (markAutoSyncIdle,
+	// clearAutoSyncIdle) with their store writes, so the persisted idle-since
+	// always matches the poller's in-memory one.
+	idleMu sync.Mutex
 	// kickMu guards kickRunning and kickPending, which coalesce the enable-time
 	// kicks: a kick arriving while one runs leaves one follow-up behind instead
 	// of a pass of its own (kickAutoSync).
