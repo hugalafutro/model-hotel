@@ -34,15 +34,12 @@ func TestIsBlockedIP(t *testing.T) {
 		{"nat64 private", "64:ff9b::a00:5", true},
 		{"nat64 loopback", "64:ff9b::127.0.0.1", true},
 		{"nat64 public", "64:ff9b::8.8.8.8", false},
-		{"nat64 local-use /96 metadata", "64:ff9b:1::a9fe:a9fe", true},
-		{"nat64 local-use /96 public", "64:ff9b:1::808:808", false},
-		{"nat64 local-use /48 public", "64:ff9b:1:808:8:800::", false},
-		{"nat64 local-use /48 private", "64:ff9b:1:a00:0:5::", true},
-		{"nat64 local-use /64 metadata", "64:ff9b:1:0:a9:fea9:fe00:0", true},
-		// A /96 encoding of a public address whose subnet ID reads as
-		// 169.254.0.0 under the /48 layout: fail closed across layouts.
-		{"nat64 local-use layouts disagree", "64:ff9b:1:a9fe::808:808", true},
-		{"nat64 local-use all zero", "64:ff9b:1::", true},
+		// The local-use prefix is refused whatever it embeds: its layout is the
+		// operator's choice and cannot be read off the address.
+		{"nat64 local-use metadata", "64:ff9b:1::a9fe:a9fe", true},
+		{"nat64 local-use public /96", "64:ff9b:1::808:808", true},
+		{"nat64 local-use public /48", "64:ff9b:1:808:8:800::", true},
+		{"nat64 local-use hiding 0.1.2.3 under /96", "64:ff9b:1:808:808:800:1:203", true},
 		{"public v4", "8.8.8.8", false},
 		{"public v4 2", "93.184.216.34", false},
 		{"just below cgnat", "100.63.255.255", false},

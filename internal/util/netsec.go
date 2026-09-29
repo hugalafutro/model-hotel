@@ -15,9 +15,10 @@ var _, cgnatNet, _ = net.ParseCIDR("100.64.0.0/10")
 // IsBlockedIP reports whether an IP falls into a range that must never be
 // dialled by the proxy or accepted as a provider base URL: unspecified,
 // loopback, private (RFC 1918 + IPv6 ULA), link-local, carrier-grade NAT
-// (RFC 6598), or cloud-metadata. A NAT64 address is judged by the IPv4
-// addresses it embeds (see NAT64IPv4s). It is shared by the runtime SafeDialer and
-// provider-URL validation so the two layers stay in lockstep.
+// (RFC 6598), or cloud-metadata. A well-known-prefix NAT64 address is judged
+// by the IPv4 address it embeds; a local-use one is refused (see NAT64IPv4s).
+// It is shared by the runtime SafeDialer and provider-URL validation so the
+// two layers stay in lockstep.
 func IsBlockedIP(ip net.IP) bool {
 	if ip == nil {
 		return false
@@ -60,50 +61,32 @@ var (
 	nat64LocalUse  = netip.MustParsePrefix("64:ff9b:1::/48")
 )
 
-// nat64Layouts are the byte positions of the embedded IPv4 address in the
-// RFC 6052 section 2.2 layouts that fit inside a /48: prefix lengths 48, 56,
-// 64 and 96. Byte 8 is the u-octet, which never carries address bits.
-var nat64Layouts = [][4]int{
-	{6, 7, 9, 10},
-	{7, 9, 10, 11},
-	{9, 10, 11, 12},
-	{12, 13, 14, 15},
-}
-
 // NAT64IPv4s returns the IPv4 destinations a NAT64 translator could deliver ip
 // to, or nil when ip is not under a NAT64 prefix. Each guard applies its own
 // policy to every returned address and blocks ip when any of them is blocked.
 //
-// The well-known prefix 64:ff9b::/96 has one layout, so it yields one address.
-// Under the local-use prefix 64:ff9b:1::/48 the operator picks the prefix
-// length (/48 to /96), which the address alone does not reveal, so every
-// layout's reading is returned and the guard fails closed across them: an
-// attacker cannot pick an encoding whose reading under the gateway's actual
-// layout differs from the one judged. A reading inside 0.0.0.0/8 is dropped,
-// since the zero bytes of one layout (its suffix or subnet ID) land there under
-// another and a translator does not forward to 0.0.0.0/8 ("this host", a
-// source-only range per RFC 6890); if every reading is dropped, 0.0.0.0 is
-// returned so the guard still blocks.
+// The well-known prefix 64:ff9b::/96 has one layout, so its embedded address
+// is exact. The local-use prefix 64:ff9b:1::/48 is refused outright (0.0.0.0,
+// which both guards block): its operator picks the prefix length, which the
+// address alone does not reveal, so no reading of it is certain to be the one
+// the gateway delivers to, and every rule that tries to pick one either lets a
+// hidden destination through or blocks most real deployments. A provider on a
+// local-use NAT64 network is reached through ALLOWED_PROVIDER_HOSTS, which the
+// proxy dialer and provider base_url validation honour. netguard's clients (SSO
+// identity providers, apprise, Front Desk members) have no such list, so a
+// local-use NAT64 address stays unreachable for them.
 func NAT64IPv4s(ip net.IP) []net.IP {
 	a, ok := netip.AddrFromSlice(ip)
 	if !ok {
 		return nil
 	}
-	b := a.As16()
-	if nat64WellKnown.Contains(a) {
+	switch {
+	case nat64WellKnown.Contains(a):
+		b := a.As16()
 		return []net.IP{net.IPv4(b[12], b[13], b[14], b[15])}
-	}
-	if !nat64LocalUse.Contains(a) {
+	case nat64LocalUse.Contains(a):
+		return []net.IP{net.IPv4zero}
+	default:
 		return nil
 	}
-	var out []net.IP
-	for _, l := range nat64Layouts {
-		if b[l[0]] != 0 {
-			out = append(out, net.IPv4(b[l[0]], b[l[1]], b[l[2]], b[l[3]]))
-		}
-	}
-	if out == nil {
-		out = []net.IP{net.IPv4zero}
-	}
-	return out
 }
