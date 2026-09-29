@@ -258,3 +258,16 @@ func TestFinishReasonRoundTrip(t *testing.T) {
 		}
 	}
 }
+
+// An explicit incomplete reason wins over function calls: a filtered or
+// truncated turn's call arguments must not read as tool_calls to run.
+func TestFinishReason_IncompleteBeatsToolCalls(t *testing.T) {
+	for reason, want := range map[string]string{"content_filter": "content_filter", "max_output_tokens": "length"} {
+		if got := mapStatusFinishReason("incomplete", &IncompleteDetails{Reason: reason}, true); got != want {
+			t.Errorf("%s with tool calls -> %s, want %s", reason, got, want)
+		}
+	}
+	if got := mapStatusFinishReason("completed", nil, true); got != "tool_calls" {
+		t.Errorf("completed with tool calls -> %s, want tool_calls", got)
+	}
+}

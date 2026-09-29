@@ -258,13 +258,11 @@ type chatDelta struct {
 // mapStatusFinishReason maps a terminal Responses status to the chat
 // finish_reason vocabulary, the inverse of statusForFinish: an incomplete
 // response that names max_output_tokens finishes "length", one that names
-// content_filter finishes "content_filter". hasToolCalls wins over
-// everything: a turn that produced function calls finishes "tool_calls"
-// regardless of status.
+// content_filter finishes "content_filter". An explicit incomplete reason
+// wins over function calls: a filtered or truncated turn's call arguments
+// are not ones a client should run, so it must not read as "tool_calls".
+// Otherwise a turn that produced function calls finishes "tool_calls".
 func mapStatusFinishReason(status string, details *IncompleteDetails, hasToolCalls bool) string {
-	if hasToolCalls {
-		return "tool_calls"
-	}
 	if status == "incomplete" && details != nil {
 		switch details.Reason {
 		case "max_output_tokens":
@@ -272,6 +270,9 @@ func mapStatusFinishReason(status string, details *IncompleteDetails, hasToolCal
 		case "content_filter":
 			return "content_filter"
 		}
+	}
+	if hasToolCalls {
+		return "tool_calls"
 	}
 	return "stop"
 }

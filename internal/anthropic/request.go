@@ -296,13 +296,15 @@ func translateMessage(m ReqMessage) ([]oaiMessage, error) {
 		if text := joinTextParts(parts); text != "" {
 			content = text
 		}
-		out = append(out, oaiMessage{Role: m.Role, Content: content, ToolCalls: toolCalls})
-		parts = nil
 		if len(toolImages) > 0 {
 			// A turn mixing tool_result and tool_use blocks is off-spec, but
-			// its tool results are still translated, so their images are too.
+			// its tool results are still translated, so their images are too:
+			// ahead of the new tool calls, since nothing may come between a
+			// call and its result.
 			out = append(out, oaiMessage{Role: "user", Content: toolImages})
 		}
+		out = append(out, oaiMessage{Role: m.Role, Content: content, ToolCalls: toolCalls})
+		parts = nil
 	} else {
 		parts = slices.Concat(toolImages, parts)
 		flushUserParts()

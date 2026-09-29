@@ -551,9 +551,17 @@ func TestTranslateRequest_ToolResultImagesSurviveAMixedTurn(t *testing.T) {
 		t.Fatalf("TranslateRequest: %v", err)
 	}
 	msgs := decodeOAI(t, out)["messages"].([]any)
-	last := msgs[len(msgs)-1].(map[string]any)
-	parts, _ := last["content"].([]any)
-	if last["role"] != "user" || len(parts) != 1 || parts[0].(map[string]any)["type"] != "image_url" {
-		t.Fatalf("last message = %v, want a user message carrying the image", last)
+	// The whole sequence: the result, the image, then the new call, so
+	// nothing sits between a call and a result that answers it.
+	var roles []string
+	for _, m := range msgs {
+		roles = append(roles, m.(map[string]any)["role"].(string))
+	}
+	if strings.Join(roles, ",") != "tool,user,assistant" {
+		t.Fatalf("roles = %v, want tool,user,assistant", roles)
+	}
+	parts, _ := msgs[1].(map[string]any)["content"].([]any)
+	if len(parts) != 1 || parts[0].(map[string]any)["type"] != "image_url" {
+		t.Fatalf("user message = %v, want the image", msgs[1])
 	}
 }
