@@ -44,9 +44,12 @@ type contentBlock struct {
 
 // usage carries Anthropic token accounting. output_tokens is always present
 // (Anthropic emits 0 on message_start); input_tokens is present on message_start.
+// cache_read_input_tokens is the cache-served share of the prompt, beside
+// input_tokens rather than inside it.
 type usage struct {
-	InputTokens  int `json:"input_tokens"`
-	OutputTokens int `json:"output_tokens"`
+	InputTokens          int `json:"input_tokens"`
+	CacheReadInputTokens int `json:"cache_read_input_tokens,omitempty"`
+	OutputTokens         int `json:"output_tokens"`
 }
 
 // message is the Anthropic Message object. stop_reason / stop_sequence are
@@ -111,8 +114,9 @@ type messageDeltaBody struct {
 // streaming usually reveals the prompt count only in the terminal usage chunk,
 // long after message_start has gone out.
 type messageDeltaUsage struct {
-	InputTokens  int `json:"input_tokens"`
-	OutputTokens int `json:"output_tokens"`
+	InputTokens          int `json:"input_tokens"`
+	CacheReadInputTokens int `json:"cache_read_input_tokens,omitempty"`
+	OutputTokens         int `json:"output_tokens"`
 }
 
 type messageDeltaEvent struct {

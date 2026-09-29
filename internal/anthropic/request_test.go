@@ -251,6 +251,69 @@ func TestTranslateRequest_ToolResultArrayAndDroppedBlocks(t *testing.T) {
 	}
 }
 
+func TestTranslateRequest_ToolResultImagesFollowToolMessages(t *testing.T) {
+	// A chat tool message holds text only: the tool_result's image rides a
+	// user message after the LAST tool message, so the two parallel results
+	// stay adjacent, ahead of the turn's trailing text.
+	body := []byte(`{"model":"p/m","max_tokens":10,"messages":[
+		{"role":"user","content":[
+			{"type":"tool_result","tool_use_id":"c1","content":[
+				{"type":"text","text":"shot taken"},
+				{"type":"image","source":{"type":"base64","media_type":"image/png","data":"AAA"}}
+			]},
+			{"type":"tool_result","tool_use_id":"c2","content":"ok"},
+			{"type":"text","text":"what do you see?"}
+		]}
+	]}`)
+	out, _, _, err := TranslateRequest(body)
+	if err != nil {
+		t.Fatalf("TranslateRequest: %v", err)
+	}
+	msgs := decodeOAI(t, out)["messages"].([]any)
+	if len(msgs) != 3 {
+		t.Fatalf("messages = %d, want 3 (tool, tool, user): %v", len(msgs), msgs)
+	}
+	if m := msgs[0].(map[string]any); m["role"] != "tool" || m["content"] != "shot taken" {
+		t.Errorf("first tool msg = %v", m)
+	}
+	if m := msgs[1].(map[string]any); m["role"] != "tool" || m["tool_call_id"] != "c2" {
+		t.Errorf("second tool msg = %v", m)
+	}
+	user := msgs[2].(map[string]any)
+	parts := user["content"].([]any)
+	if user["role"] != "user" || len(parts) != 2 {
+		t.Fatalf("user msg = %v, want image then text", user)
+	}
+	img := parts[0].(map[string]any)
+	if img["type"] != "image_url" || img["image_url"].(map[string]any)["url"] != "data:image/png;base64,AAA" {
+		t.Errorf("image part = %v", img)
+	}
+	if txt := parts[1].(map[string]any); txt["text"] != "what do you see?" {
+		t.Errorf("text part = %v", txt)
+	}
+}
+
+func TestTranslateRequest_ToolUseNullInputIsEmptyObject(t *testing.T) {
+	// "input": null and an absent input both reach the provider as "{}", the
+	// object an arguments string must hold, never the literal "null".
+	body := []byte(`{"model":"p/m","max_tokens":10,"messages":[
+		{"role":"assistant","content":[
+			{"type":"tool_use","id":"c1","name":"now","input":null},
+			{"type":"tool_use","id":"c2","name":"now"}
+		]}
+	]}`)
+	out, _, _, err := TranslateRequest(body)
+	if err != nil {
+		t.Fatalf("TranslateRequest: %v", err)
+	}
+	msgs := decodeOAI(t, out)["messages"].([]any)
+	for _, tc := range msgs[0].(map[string]any)["tool_calls"].([]any) {
+		if args := tc.(map[string]any)["function"].(map[string]any)["arguments"]; args != "{}" {
+			t.Errorf("arguments = %q, want {}", args)
+		}
+	}
+}
+
 func TestTranslateRequest_DocumentBlocks(t *testing.T) {
 	// A base64 document becomes an OpenAI file part carrying a data: URI, named
 	// after the block's title (or document.pdf when it has none); a text
@@ -445,5 +508,60 @@ func TestTranslateRequest_ToolUseCarriesThoughtSignature(t *testing.T) {
 	}
 	if id := msgs[3].(map[string]any)["tool_call_id"]; id != "call_8" {
 		t.Errorf("tool result for the plain call names %v, want call_8", id)
+	}
+}
+
+func TestTranslateRequest_ImageOnlyToolResultIsNotEmpty(t *testing.T) {
+	// An image-only tool_result leaves no text for the tool message; some
+	// OpenAI-compatible upstreams refuse an empty one, so it names where the
+	// image went.
+	body := []byte(`{"model":"p/m","max_tokens":10,"messages":[
+		{"role":"user","content":[
+			{"type":"tool_result","tool_use_id":"c1","content":[
+				{"type":"image","source":{"type":"base64","media_type":"image/png","data":"AAA"}}
+			]}
+		]}
+	]}`)
+	out, _, _, err := TranslateRequest(body)
+	if err != nil {
+		t.Fatalf("TranslateRequest: %v", err)
+	}
+	msgs := decodeOAI(t, out)["messages"].([]any)
+	if len(msgs) != 2 {
+		t.Fatalf("messages = %d, want 2 (tool, user): %v", len(msgs), msgs)
+	}
+	if m := msgs[0].(map[string]any); m["role"] != "tool" || m["content"] != "[image]" {
+		t.Errorf("tool msg = %v, want content [image]", m)
+	}
+}
+
+func TestTranslateRequest_ToolResultImagesSurviveAMixedTurn(t *testing.T) {
+	// Off-spec but tolerated: one message carrying a tool_result with an image
+	// and a tool_use. The image still reaches the upstream.
+	body := []byte(`{"model":"p/m","max_tokens":10,"messages":[
+		{"role":"assistant","content":[
+			{"type":"tool_result","tool_use_id":"c1","content":[
+				{"type":"image","source":{"type":"base64","media_type":"image/png","data":"AAA"}}
+			]},
+			{"type":"tool_use","id":"c2","name":"f","input":{}}
+		]}
+	]}`)
+	out, _, _, err := TranslateRequest(body)
+	if err != nil {
+		t.Fatalf("TranslateRequest: %v", err)
+	}
+	msgs := decodeOAI(t, out)["messages"].([]any)
+	// The whole sequence: the result, the image, then the new call, so
+	// nothing sits between a call and a result that answers it.
+	var roles []string
+	for _, m := range msgs {
+		roles = append(roles, m.(map[string]any)["role"].(string))
+	}
+	if strings.Join(roles, ",") != "tool,user,assistant" {
+		t.Fatalf("roles = %v, want tool,user,assistant", roles)
+	}
+	parts, _ := msgs[1].(map[string]any)["content"].([]any)
+	if len(parts) != 1 || parts[0].(map[string]any)["type"] != "image_url" {
+		t.Fatalf("user message = %v, want the image", msgs[1])
 	}
 }

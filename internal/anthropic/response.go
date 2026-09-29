@@ -63,8 +63,8 @@ type oaiRespToolCall struct {
 //
 // util.DecodeCounts reads a count written as "12" or 12.0; the shape tolerance
 // (util.ShapeError) keeps the figure beside a member this translator has no
-// field for, or one that is not a count in any spelling. Both counts are read
-// straight off their own member, so an unreadable one costs only itself.
+// field for, or one that is not a count in any spelling. Every count is read
+// straight off its own member, so an unreadable one costs only itself.
 //
 // Absent, null and unreadable all land on the same zeros. No JSONMemberSet
 // guard: usage is mandatory here and nothing accumulates across chunks.
@@ -73,7 +73,8 @@ func readOAUsage(raw json.RawMessage) usage {
 	if err := util.DecodeCounts(raw, &u); err != nil && util.ShapeError(raw, err) == nil {
 		return usage{}
 	}
-	return usage{InputTokens: u.PromptTokens, OutputTokens: u.CompletionTokens}
+	input, cacheRead := splitPrompt(u.PromptTokens, u.cachedTokens())
+	return usage{InputTokens: input, CacheReadInputTokens: cacheRead, OutputTokens: u.CompletionTokens}
 }
 
 // BuildMessageResponse converts a non-streaming OpenAI chat-completion response
