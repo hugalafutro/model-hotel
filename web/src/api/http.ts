@@ -203,11 +203,18 @@ export function isAuthenticated(): boolean {
 export function clearAuth(): void {
 	// biome-ignore lint/suspicious/noDocumentCookie: must be synchronous; see the doc comment above.
 	document.cookie = `${CSRF_COOKIE}=; path=/; max-age=0`;
-	// The quota payloads useQuotaData mirrors into localStorage carry provider
-	// account details; they belong to the session that ends here, not to
-	// whoever logs into this browser next. Cleared wherever the auth signal
-	// drops (logout, a 401, a password change), so no teardown path keeps
-	// them. Chat history and UI preferences use other keys and stay.
+	clearSessionCache();
+}
+
+/** clearSessionCache drops the quota payloads useQuotaData mirrors into
+ * localStorage. They carry provider account details and belong to the session
+ * that ended, not to whoever logs into this browser next: cleared wherever the
+ * auth signal drops (clearAuth: logout, a 401, a password change) and when the
+ * login screen shows, so a session that expired with no tab open does not keep
+ * them. The login screen calls this rather than clearAuth, because another tab
+ * may log in between its render and its effect, and that tab's new CSRF cookie
+ * must survive. Chat history and UI preferences use other keys and stay. */
+export function clearSessionCache(): void {
 	try {
 		for (const key of Object.keys(localStorage)) {
 			if (key.startsWith(`${LOCAL_CACHE_PREFIX}:`))
@@ -219,7 +226,7 @@ export function clearAuth(): void {
 }
 
 /** LOCAL_CACHE_PREFIX namespaces the localStorage mirror of per-session
- * server payloads (useQuotaData's cache helpers); clearAuth wipes it. */
+ * server payloads (useQuotaData's cache helpers); clearSessionCache wipes it. */
 export const LOCAL_CACHE_PREFIX = "model-hotel";
 
 /** getAuthHeaders returns the headers for an authenticated mutating request:

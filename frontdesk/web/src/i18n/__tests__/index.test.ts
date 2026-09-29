@@ -1,5 +1,5 @@
-import { describe, expect, it } from "vitest";
-import { lazyLocaleBackend } from "../index";
+import { afterEach, describe, expect, it } from "vitest";
+import i18next, { lazyLocaleBackend } from "../index";
 
 // Front Desk's own backend, wired to the real catalogs: proves the glob is
 // hooked up and that a language it does not ship is reported rather than
@@ -28,5 +28,17 @@ describe("lazyLocaleBackend", () => {
 		expect(err).toBeInstanceOf(Error);
 		expect((err as Error).message).toContain("zz");
 		expect(data).toBeNull();
+	});
+});
+
+// The active language reaches <html> on every screen: the listener sits on
+// i18next, not on a component.
+describe("document language", () => {
+	afterEach(() => i18next.changeLanguage("en"));
+
+	it("sets lang on <html> for each language change", async () => {
+		await i18next.changeLanguage("de");
+		expect(document.documentElement.lang).toBe("de");
+		expect(document.documentElement.dir).toBe("ltr");
 	});
 });

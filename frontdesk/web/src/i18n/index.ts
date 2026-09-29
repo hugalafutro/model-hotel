@@ -1,4 +1,8 @@
-import { createLocaleBackend, localeCodes } from "@web-shared/i18n";
+import {
+	createLocaleBackend,
+	localeCodes,
+	setDocumentLanguage,
+} from "@web-shared/i18n";
 import i18next from "i18next";
 import LanguageDetector from "i18next-browser-languagedetector";
 import { initReactI18next } from "react-i18next";
@@ -25,6 +29,13 @@ const localeLoaders = import.meta.glob<{ default: object }>([
 const SUPPORTED_LANGUAGES = ["en", ...localeCodes(localeLoaders)];
 
 export const lazyLocaleBackend = createLocaleBackend(localeLoaders);
+
+// Registered before init so the detected language is applied too.
+// resolvedLanguage, so a catalog that failed to load leaves the page on the
+// fallback it renders rather than a direction its text does not have.
+i18next.on("languageChanged", (lng) =>
+	setDocumentLanguage(i18next.resolvedLanguage ?? lng),
+);
 
 i18next
 	.use(lazyLocaleBackend)
