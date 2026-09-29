@@ -97,8 +97,8 @@ The web UI embeds the JetBrains Mono, Onest, and Schibsted Grotesk typefaces, an
 | [@simplewebauthn/browser](https://github.com/MasterKale/SimpleWebAuthn/tree/master/packages/browser#readme) | 14.0.0 | npm | MIT |
 | [@standard-schema/spec](https://standardschema.dev) | 1.1.0 | npm | MIT |
 | [@standard-schema/utils](https://github.com/standard-schema/standard-schema#readme) | 0.3.0 | npm | MIT |
-| [@tanstack/query-core](https://tanstack.com/query) | 5.103.2 | npm | MIT |
-| [@tanstack/react-query](https://tanstack.com/query) | 5.103.2 | npm | MIT |
+| [@tanstack/query-core](https://tanstack.com/query) | 5.103.3 | npm | MIT |
+| [@tanstack/react-query](https://tanstack.com/query) | 5.103.3 | npm | MIT |
 | [@tanstack/react-virtual](https://tanstack.com/virtual) | 3.14.13 | npm | MIT |
 | [@tanstack/virtual-core](https://tanstack.com/virtual) | 3.17.11 | npm | MIT |
 | [@types/d3-array](https://github.com/DefinitelyTyped/DefinitelyTyped/tree/master/types/d3-array) | 3.2.2 | npm | MIT |
@@ -1075,7 +1075,7 @@ SOFTWARE.
 
 Copyright (c) 2021-present Tanner Linsley
 
-Applies to: `@tanstack/query-core@5.103.2`, `@tanstack/react-query@5.103.2`, `@tanstack/react-virtual@3.14.13`, `@tanstack/virtual-core@3.17.11`
+Applies to: `@tanstack/query-core@5.103.3`, `@tanstack/react-query@5.103.3`, `@tanstack/react-virtual@3.14.13`, `@tanstack/virtual-core@3.17.11`
 
 ```
 MIT License
