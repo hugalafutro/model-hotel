@@ -6,6 +6,7 @@ import (
 	"errors"
 	"net/http"
 	"net/url"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -87,7 +88,7 @@ func TestAutoSyncStale(t *testing.T) {
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			if got := autoSyncStale(tc.cfg, tc.lastSync, tc.haveSync, now); got != tc.want {
+			if got := autoSyncStale(tc.cfg, tc.lastSync, tc.haveSync, time.Time{}, now); got != tc.want {
 				t.Errorf("autoSyncStale = %v, want %v", got, tc.want)
 			}
 		})
@@ -891,7 +892,7 @@ func TestAutoSyncStaleTier(t *testing.T) {
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			if got := autoSyncStaleTier(tc.cfg, tc.lastSync, tc.haveSync, now); got != tc.want {
+			if got := autoSyncStaleTier(tc.cfg, tc.lastSync, tc.haveSync, time.Time{}, now); got != tc.want {
 				t.Errorf("tier = %d, want %d", got, tc.want)
 			}
 		})
@@ -1237,5 +1238,87 @@ func TestSupersededByNewerPass_ReadFailureIsBenign(t *testing.T) {
 	cancel()
 	if !srv.supersededByNewerPass(ctx, 1) {
 		t.Error("a failed generation read must read as superseded (benign)")
+	}
+}
+
+// TestAutoSyncEnabledButIdleGoesStale: an enabled auto-sync whose primary has no
+// stored token can never run, so it converges nothing. It is graded like an
+// auto-sync that is off, aged from the moment it went idle, and the polled status
+// endpoint says so; a primary that answers again clears it.
+func TestAutoSyncEnabledButIdleGoesStale(t *testing.T) {
+	srv, store := newTestServer(t)
+	primary := newStubAutoMember(t, "ptoken")
+	pm, _ := store.CreateMember(t.Context(), "primary", primary.srv.URL, "")
+	store.CreateMember(t.Context(), "replica", "http://127.0.0.1:9", "rtoken")
+	enableAutoSync(t, store, pm.ID)
+
+	read := func() autoSyncStatus {
+		t.Helper()
+		rec := do(t, srv, http.MethodGet, "/api/fleet/autosync", "", true)
+		var got autoSyncStatus
+		if err := json.Unmarshal(rec.Body.Bytes(), &got); err != nil {
+			t.Fatalf("decode: %v", err)
+		}
+		return got
+	}
+
+	srv.autoSyncOnce(t.Context(), "")
+	first := srv.poller.autoSyncIdle()
+	if first.IsZero() {
+		t.Fatal("a primary with no token did not mark the enabled auto-sync idle")
+	}
+	srv.autoSyncOnce(t.Context(), "")
+	if got := srv.poller.autoSyncIdle(); !got.Equal(first) {
+		t.Errorf("idle clock restarted on a repeat tick: %v, want %v", got, first)
+	}
+	if got := read(); got.Stale {
+		t.Errorf("idle for a moment = %+v, want not stale yet", got)
+	}
+
+	srv.poller.mu.Lock()
+	srv.poller.autoSyncIdleSince = time.Now().Add(-25 * time.Hour)
+	srv.poller.mu.Unlock()
+	got := read()
+	if !got.Stale || !slices.Contains(got.FleetStateReasons, reasonAutosyncStale) {
+		t.Errorf("idle for a day = stale %v reasons %v, want stale with %s", got.Stale, got.FleetStateReasons, reasonAutosyncStale)
+	}
+
+	if err := store.SetMemberToken(t.Context(), pm.ID, "ptoken"); err != nil {
+		t.Fatalf("SetMemberToken: %v", err)
+	}
+	srv.autoSyncOnce(t.Context(), "")
+	if !srv.poller.autoSyncIdle().IsZero() {
+		t.Error("a reachable primary did not clear the idle state")
+	}
+	if got := read(); got.Stale {
+		t.Errorf("running again = %+v, want not stale", got)
+	}
+}
+
+// TestAutoSyncStaleTierIdle: the tier function's idle cases. Enabled and running
+// is never stale; enabled and idle ages from the later of the last sync and the
+// moment it went idle.
+func TestAutoSyncStaleTierIdle(t *testing.T) {
+	now := time.Now().UTC()
+	on := AutoSyncConfig{Enabled: true, PrimaryID: "m1"}
+	cases := []struct {
+		name      string
+		lastSync  time.Time
+		haveSync  bool
+		idleSince time.Time
+		want      int
+	}{
+		{"running, never synced", time.Time{}, false, time.Time{}, 0},
+		{"idle a minute, never synced", time.Time{}, false, now.Add(-time.Minute), 0},
+		{"idle two days, synced a week ago", now.Add(-7 * 24 * time.Hour), true, now.Add(-48 * time.Hour), 1},
+		{"idle four days, never synced", time.Time{}, false, now.Add(-96 * time.Hour), 2},
+		{"idle a week, synced an hour ago", now.Add(-time.Hour), true, now.Add(-7 * 24 * time.Hour), 0},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			if got := autoSyncStaleTier(on, tc.lastSync, tc.haveSync, tc.idleSince, now); got != tc.want {
+				t.Errorf("tier = %d, want %d", got, tc.want)
+			}
+		})
 	}
 }

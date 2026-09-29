@@ -107,8 +107,13 @@ type Poller struct {
 	configWatchdogArmedAt time.Time
 	staleNotified         bool
 	autoSyncStaleNotified bool
-	versionFailures       map[string]int // consecutive version-fetch failures, keyed by member ID
-	healthFailures        map[string]int // consecutive failed health polls, keyed by member ID
+	// autoSyncIdleSince is when an enabled auto-sync last found its primary
+	// unusable (no token, removed, unreachable), zero while it can run or is
+	// off. Written by the auto-sync loop, read by every staleness grading
+	// (autoSyncStaleTier). In-memory: a restart re-learns it on the first tick.
+	autoSyncIdleSince time.Time
+	versionFailures   map[string]int // consecutive version-fetch failures, keyed by member ID
+	healthFailures    map[string]int // consecutive failed health polls, keyed by member ID
 	// maintenanceDown marks a member whose confirmed-down was recorded as
 	// health.maintenance (it was drained at the time), so its recovery ends the
 	// episode on the same type, and re-activating it while still down pages.
@@ -159,6 +164,45 @@ func (p *Poller) RecordConfigPoll() {
 	p.lastConfigPollAt = p.now()
 	p.staleNotified = false
 	p.mu.Unlock()
+}
+
+// setAutoSyncIdle records whether an enabled auto-sync could reach its primary
+// this tick, and reports whether that flipped, so the caller logs the change
+// once rather than on every tick. The idle clock keeps its first instant while
+// the auto-sync stays idle.
+func (p *Poller) setAutoSyncIdle(idle bool) (changed bool) {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	if idle == !p.autoSyncIdleSince.IsZero() {
+		return false
+	}
+	p.autoSyncIdleSince = time.Time{}
+	if idle {
+		p.autoSyncIdleSince = p.now()
+	}
+	return true
+}
+
+// autoSyncIdle returns when the enabled auto-sync went idle, zero while it runs.
+func (p *Poller) autoSyncIdle() time.Time {
+	p.mu.RLock()
+	defer p.mu.RUnlock()
+	return p.autoSyncIdleSince
+}
+
+// forgetMember drops every per-member entry the poller keeps for a removed
+// member, so a re-added member starts clean and the maps do not grow with every
+// member ever removed. A poll round already in flight may write one entry back;
+// every reader goes through the live member list, so that entry is inert.
+func (p *Poller) forgetMember(id string) {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	delete(p.statuses, id)
+	delete(p.versionFailures, id)
+	delete(p.healthFailures, id)
+	delete(p.maintenanceDown, id)
+	delete(p.traefikNonUp, id)
+	delete(p.conflictNotified, id)
 }
 
 // Snapshot returns a copy of the current per-member status map.

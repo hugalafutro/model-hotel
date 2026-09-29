@@ -96,14 +96,28 @@ const (
 )
 
 // autoSyncStaleTier grades the fleet's silent-drift risk: 0 fresh (or auto-sync
-// on / no primary designated, where staleness is meaningless), 1 unsynced beyond
-// autoSyncStaleThreshold (degraded), 2 beyond autoSyncFaultyThreshold (faulty).
-// A fleet with no recorded sync at all is tier 1: there is no timestamp to age
-// against, so it cannot honestly escalate to tier 2. haveSync is false when no
-// successful sync has ever been recorded.
-func autoSyncStaleTier(cfg AutoSyncConfig, lastSync time.Time, haveSync bool, now time.Time) int {
-	if cfg.Enabled || cfg.PrimaryID == "" {
+// running / no primary designated, where staleness is meaningless), 1 unsynced
+// beyond autoSyncStaleThreshold (degraded), 2 beyond autoSyncFaultyThreshold
+// (faulty). A fleet with no recorded sync at all is tier 1: there is no
+// timestamp to age against, so it cannot honestly escalate to tier 2. haveSync
+// is false when no successful sync has ever been recorded.
+//
+// idleSince is when an enabled auto-sync last became unable to run (its
+// primary lost its token, was removed, or stopped answering; see
+// Poller.setAutoSyncIdle), zero while it runs. An enabled but idle auto-sync
+// converges nothing, so it is graded as if it were off, with the moment it went
+// idle standing in for a sync: until then it was keeping the fleet converged.
+func autoSyncStaleTier(cfg AutoSyncConfig, lastSync time.Time, haveSync bool, idleSince, now time.Time) int {
+	if cfg.PrimaryID == "" {
 		return 0
+	}
+	if cfg.Enabled {
+		if idleSince.IsZero() {
+			return 0
+		}
+		if !haveSync || idleSince.After(lastSync) {
+			lastSync, haveSync = idleSince, true
+		}
 	}
 	if !haveSync {
 		return 1
@@ -150,8 +164,8 @@ func fleetLastSync(members []*Member, lastSync time.Time, haveSync bool) (time.T
 	return latest, have
 }
 
-func autoSyncStale(cfg AutoSyncConfig, lastSync time.Time, haveSync bool, now time.Time) bool {
-	return autoSyncStaleTier(cfg, lastSync, haveSync, now) >= 1
+func autoSyncStale(cfg AutoSyncConfig, lastSync time.Time, haveSync bool, idleSince, now time.Time) bool {
+	return autoSyncStaleTier(cfg, lastSync, haveSync, idleSince, now) >= 1
 }
 
 // RunAutoSync samples the designated primary on a fixed tick and converges the
@@ -193,6 +207,7 @@ func (s *Server) autoSyncOnce(ctx context.Context, prev string) string {
 		// over too: whatever primary is designated next is a new question.
 		s.autoSyncEvaluated.Store(true)
 		s.unknownPrimaryPasses.Store(0)
+		s.poller.setAutoSyncIdle(false)
 		return ""
 	}
 
@@ -241,19 +256,24 @@ func (s *Server) forceAutoSyncNow(ctx context.Context) {
 
 // primaryConfigHash resolves the designated primary, loads its admin token, and
 // reads its current syncable-config hash together with its per-section hashes.
-// ok is false (with a debug log) when the primary was removed, lost its token,
-// or is unreachable, in which case the caller skips this round and retries
-// later.
+// ok is false when the primary was removed, lost its token, or is unreachable,
+// in which case the caller skips this round and retries later. Either answer is
+// recorded as the auto-sync's idle state (Poller.setAutoSyncIdle), which feeds
+// the staleness grading, and a change of it is logged once rather than per tick.
 func (s *Server) primaryConfigHash(ctx context.Context, cfg AutoSyncConfig) (primary *Member, token, hash string, sections map[string]string, ok bool) {
 	primary, token, err := s.memberTokenOrErr(ctx, cfg.PrimaryID)
-	if err != nil {
-		// No source to sync from: the primary was removed or lost its token.
-		debuglog.Debug("frontdesk: auto-sync: primary unavailable", "error", err)
-		return nil, "", "", nil, false
+	if err == nil {
+		hash, sections, err = s.fetchMemberConfigVersion(ctx, primary, token)
 	}
-	hash, sections, err = s.fetchMemberConfigVersion(ctx, primary, token)
+	if s.poller.setAutoSyncIdle(err != nil) {
+		if err != nil {
+			debuglog.Warn("frontdesk: auto-sync is enabled but cannot run: primary unavailable", "primary_id", cfg.PrimaryID, "error", err)
+		} else {
+			debuglog.Info("frontdesk: auto-sync can run again: primary available", "member", primary.Name)
+		}
+	}
 	if err != nil {
-		debuglog.Debug("frontdesk: auto-sync: read primary version", "member", primary.Name, "error", err)
+		debuglog.Debug("frontdesk: auto-sync: primary unavailable", "primary_id", cfg.PrimaryID, "error", err)
 		return nil, "", "", nil, false
 	}
 	return primary, token, hash, sections, true
@@ -335,6 +355,8 @@ func (s *Server) skipForUnknownPrimaryBuild(primary *Member) (memberBuild, bool)
 // heartbeat when a member's hash matches, the diverged flag and amber badge when
 // it does not.
 func (s *Server) convergeFleet(ctx context.Context, primary *Member, primaryToken, hash string, primarySections map[string]string, reason string, gen int64) {
+	s.passMu.Lock()
+	defer s.passMu.Unlock()
 	primaryBuild, skip := s.skipForUnknownPrimaryBuild(primary)
 	if skip {
 		// Not a verdict on any member: autoSyncEvaluated stays as it was, so a

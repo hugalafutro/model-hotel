@@ -260,9 +260,9 @@ func (p *Poller) ConfigPollWarm(ctx context.Context, since time.Time) bool {
 	return p.now().Sub(since) > window
 }
 
-// checkAutoSyncStale emits a single warning when auto-sync is off and the fleet
-// has not been synced within autoSyncStaleThreshold (autoSyncStale holds the
-// exact rule). Like checkConfigStaleness it de-dups on an in-memory flag so it
+// checkAutoSyncStale emits a single warning when auto-sync is off (or enabled
+// but idle, unable to reach its primary) and the fleet has not been synced
+// within autoSyncStaleThreshold (autoSyncStale holds the exact rule). Like checkConfigStaleness it de-dups on an in-memory flag so it
 // fires once per stale episode, not every tick; the flag disarms silently when
 // the condition clears (auto-sync re-enabled, or a fresh sync recorded), so a
 // later stale episode alerts again. A restart resets the flag, so an
@@ -287,7 +287,7 @@ func (p *Poller) checkAutoSyncStale(ctx context.Context) {
 		return
 	}
 	lastSync, haveSync := fleetLastSync(members, state.LastRunAt, found)
-	stale := autoSyncStale(cfg, lastSync, haveSync, p.now())
+	stale := autoSyncStale(cfg, lastSync, haveSync, p.autoSyncIdle(), p.now())
 
 	p.mu.Lock()
 	notified := p.autoSyncStaleNotified
@@ -299,7 +299,7 @@ func (p *Poller) checkAutoSyncStale(ctx context.Context) {
 	if stale && !notified {
 		p.recordEvent(ctx, Event{
 			Type: "config.autosync_stale", Severity: "warning", Source: "frontdesk-poller",
-			Message: "Auto-sync is off and the fleet has not been synced in over a day; replicas may be drifting from the primary",
+			Message: "Auto-sync is off or cannot reach its primary, and the fleet has not been synced in over a day; replicas may be drifting from the primary",
 		})
 	}
 }

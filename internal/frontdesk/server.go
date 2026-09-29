@@ -182,6 +182,15 @@ type Server struct {
 	// unknownPrimaryPasses counts consecutive auto-sync passes that found the
 	// primary's build unread; see skipForUnknownPrimaryBuild.
 	unknownPrimaryPasses atomic.Int32
+	// passMu serialises convergence passes (the tick loop's and the kick's), so
+	// two passes never measure and push to the same members at once.
+	passMu sync.Mutex
+	// kickMu guards kickRunning and kickPending, which coalesce the enable-time
+	// kicks: a kick arriving while one runs leaves one follow-up behind instead
+	// of a pass of its own (kickAutoSync).
+	kickMu      sync.Mutex
+	kickRunning bool
+	kickPending bool
 	// startedAt anchors fleetInputsWarm's Traefik grace: with no config poll
 	// recorded yet, the staleness input only counts as observed once a full
 	// staleness window has passed since this process started.
@@ -746,10 +755,6 @@ func (s *Server) handleHealthz(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) handleTraefikConfig(w http.ResponseWriter, r *http.Request) {
-	// Recorded after the gate, so a rejected poll cannot keep the staleness
-	// watchdog quiet while a token mismatch is starving the real Traefik.
-	s.poller.RecordConfigPoll()
-
 	members, err := s.store.ListMembers(r.Context())
 	if err != nil {
 		writeError(w, err)
@@ -760,5 +765,9 @@ func (s *Server) handleTraefikConfig(w http.ResponseWriter, r *http.Request) {
 		writeError(w, err)
 		return
 	}
+	// Recorded only once the config is built, behind the gate: a rejected poll
+	// (a token mismatch starving the real Traefik) or a failed store read (Traefik
+	// keeps serving its last config) must not keep the staleness watchdog quiet.
+	s.poller.RecordConfigPoll()
 	writeJSON(w, http.StatusOK, BuildTraefikConfig(members, set))
 }

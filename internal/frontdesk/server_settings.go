@@ -158,7 +158,7 @@ func (s *Server) autoSyncStatusNow(ctx context.Context) (autoSyncStatus, error) 
 	}
 	status := autoSyncStatus{
 		AutoSyncConfig: cfg,
-		Stale:          autoSyncStale(cfg, state.LastRunAt, found, time.Now().UTC()),
+		Stale:          autoSyncStale(cfg, state.LastRunAt, found, s.poller.autoSyncIdle(), time.Now().UTC()),
 	}
 	// The member list feeds the staleness (fleetLastSync), the fleet-state
 	// fields and the last_sync_at garnish, so it is read once here and reused
@@ -167,7 +167,7 @@ func (s *Server) autoSyncStatusNow(ctx context.Context) (autoSyncStatus, error) 
 	// the time this runs), so the derived fields degrade to the marker alone.
 	if members, err := s.store.ListMembers(ctx); err == nil {
 		latestSync, haveLatest := fleetLastSync(members, state.LastRunAt, found)
-		status.Stale = autoSyncStale(cfg, latestSync, haveLatest, time.Now().UTC())
+		status.Stale = autoSyncStale(cfg, latestSync, haveLatest, s.poller.autoSyncIdle(), time.Now().UTC())
 		status.FleetState, status.FleetStateReasons = s.fleetStateFrom(ctx, members, cfg, state, found)
 		status.EffectivePrimaryID = effectivePrimaryID(members, cfg, state.PrimaryID)
 		var lastSync time.Time
@@ -434,7 +434,7 @@ func (s *Server) putAutoSync(w http.ResponseWriter, r *http.Request) {
 	// server's lifetime from detachedContext, so shutdown ends it instead of
 	// leaving the drain to wait out a fifteen-minute pass.
 	if status.Enabled && status.PrimaryID != "" {
-		s.StartBackgroundTimeout(s.detachedContext(r), autoSyncKickTimeout, s.forceAutoSyncNow)
+		s.StartBackgroundTimeout(s.detachedContext(r), autoSyncKickTimeout, s.kickAutoSync)
 	}
 	writeJSON(w, http.StatusOK, status)
 }

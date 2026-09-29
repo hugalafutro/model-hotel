@@ -54,3 +54,32 @@ func (s *Server) watchRearm(ctx context.Context, rearmCh <-chan struct{}, gen in
 		cancel()
 	}
 }
+
+// kickAutoSync is the enable-time kick PUT /api/fleet/autosync fires: it runs
+// forceAutoSyncNow, coalescing a burst. A kick arriving while another runs only
+// marks a follow-up and returns, and the running kick makes one more pass once
+// its own ends, so N PUTs landing together cost at most two passes rather than
+// N concurrent ones pushing the same export. The follow-up is not optional: each
+// PUT bumps the rearm generation, which cancels the pass already running, so the
+// latest setup is only converged by a pass that starts after it.
+func (s *Server) kickAutoSync(ctx context.Context) {
+	s.kickMu.Lock()
+	if s.kickRunning {
+		s.kickPending = true
+		s.kickMu.Unlock()
+		return
+	}
+	s.kickRunning = true
+	s.kickMu.Unlock()
+	for {
+		s.forceAutoSyncNow(ctx)
+		s.kickMu.Lock()
+		if !s.kickPending || ctx.Err() != nil {
+			s.kickRunning, s.kickPending = false, false
+			s.kickMu.Unlock()
+			return
+		}
+		s.kickPending = false
+		s.kickMu.Unlock()
+	}
+}
