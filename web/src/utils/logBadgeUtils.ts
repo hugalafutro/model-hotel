@@ -1,3 +1,4 @@
+import { formatLocale } from "./format";
 /* =========================================================
    Shared utility functions for log badge rendering
    ===================================================== */
@@ -90,7 +91,7 @@ export const formatLogTimestamp = (ts: string) => {
 		if (Number.isNaN(d.getTime())) {
 			return ts;
 		}
-		return d.toLocaleString(undefined, {
+		return d.toLocaleString(formatLocale(), {
 			year: "numeric",
 			month: "2-digit",
 			day: "2-digit",

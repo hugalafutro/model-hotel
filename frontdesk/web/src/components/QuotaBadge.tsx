@@ -141,7 +141,7 @@ function contentFor(
 				(i) => i.currency === "USD",
 			)?.total_balance;
 			return {
-				label: `$${usd ?? "-"}`,
+				label: usd == null ? "-" : formatDollars(Number(usd)),
 				title: t("quota.badge.deepseekBalance", { provider }),
 			};
 		}

@@ -1,14 +1,15 @@
 import i18next from "i18next";
+import { formatLocale } from "./format";
 
 // formatRelative renders an ISO timestamp as a localized relative time
 // ("5 minutes ago"), falling back to "never" for an empty/zero value. Uses the
-// active i18next language so it tracks the rest of the UI.
+// format locale (the app language) so it tracks the rest of the UI.
 export function formatRelative(iso: string | undefined): string {
 	if (!iso) return i18next.t("common.never");
 	const then = new Date(iso).getTime();
 	if (Number.isNaN(then) || then <= 0) return i18next.t("common.never");
 	const diffMs = then - Date.now();
-	const rtf = new Intl.RelativeTimeFormat(i18next.language, {
+	const rtf = new Intl.RelativeTimeFormat(formatLocale(), {
 		numeric: "auto",
 	});
 	const units: [Intl.RelativeTimeFormatUnit, number][] = [
@@ -26,7 +27,7 @@ export function formatRelative(iso: string | undefined): string {
 
 // fmt is the shared body of the absolute formatters below: guard an empty or
 // unparseable value with the caller's fallback, then render the date with the
-// caller's Intl options in the active i18next language.
+// caller's Intl options in the format locale.
 function fmt(
 	iso: string | undefined,
 	opts: Intl.DateTimeFormatOptions,
@@ -35,7 +36,7 @@ function fmt(
 	if (!iso) return invalid;
 	const d = new Date(iso);
 	if (Number.isNaN(d.getTime())) return invalid;
-	return new Intl.DateTimeFormat(i18next.language, opts).format(d);
+	return new Intl.DateTimeFormat(formatLocale(), opts).format(d);
 }
 
 // formatTimeOfDay renders an ISO timestamp as the active locale's wall-clock

@@ -23,7 +23,7 @@ import { InfoHint } from "../../components/InfoHint";
 import { DetailItem } from "../../components/LogDetailItem";
 import { Modal } from "../../components/Modal";
 import { Toggle } from "../../components/Toggle";
-import { formatNumber } from "../../utils/format";
+import { formatLocale, formatNumber } from "../../utils/format";
 import { ProviderAccessPicker } from "./ProviderAccessPicker";
 import { RateLimitField } from "./RateLimitField";
 import { SectionHeader } from "./SectionHeader";
@@ -301,14 +301,14 @@ export function KeyDetailModal({
 								label={t("virtualkeys.modal.labels.lastUsed")}
 								value={
 									vk.last_used_at
-										? new Date(vk.last_used_at).toLocaleString()
+										? new Date(vk.last_used_at).toLocaleString(formatLocale())
 										: t("common.never")
 								}
 							/>
 							<DetailItem
 								icon={CalendarPlus}
 								label={t("virtualkeys.modal.labels.created")}
-								value={new Date(vk.created_at).toLocaleString()}
+								value={new Date(vk.created_at).toLocaleString(formatLocale())}
 							/>
 							<DetailItem
 								icon={ShieldCheck}

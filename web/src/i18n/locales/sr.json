@@ -845,7 +845,7 @@
 			"discoveredModels_one": "Откривен {{count}} модел…",
 			"discoveredModels_few": "Откривена {{count}} модела…",
 			"discoveredModels_other": "Откривено {{count}} модела…",
-			"deepseekBalance": "Откривено DeepSeek стање: ${{balance}}",
+			"deepseekBalance": "Откривено DeepSeek стање: {{balance}}",
 			"deepseekBalanceDetected": "Детектован баланс DeepSeek-а",
 			"openrouterBalance": "Откривен баланс OpenRouter-а: ${{balance}}",
 			"baseUrl": "Основни УРЛ",
@@ -3039,7 +3039,7 @@
 			"kimiCodeUsed": "Искоришћена квота Kimi Code - кликните за детаље",
 			"openCodeGoRemaining": "Преостала квота OpenCode Go, месечно {{monthly}} - кликните за детаље",
 			"openCodeGoUsed": "Искоришћена квота OpenCode Go, месечно {{monthly}} - кликните за детаље",
-			"deepseekBalance": "DeepSeek баланс: ${{usd}} USD {{refreshed}} - кликните да освежите",
+			"deepseekBalance": "DeepSeek баланс: {{usd}} {{refreshed}} - кликните да освежите",
 			"deepseekBalanceUnavailable": "DeepSeek баланс недоступан",
 			"openrouterBalance": "OpenRouter: стање кључа - кликните за детаље",
 			"openrouterBalanceUnavailable": "OpenRouter стање недоступно",
@@ -3190,7 +3190,8 @@
 			"noImageSupport": "Овај модел не подржава унос слика.",
 			"imageTooLarge": "Слика мора бити мања од 20 MB",
 			"audioTooLarge": "Аудио мора бити мањи од 25 МБ",
-			"imagePasted": "Слика налепљена са међуспремника"
+			"imagePasted": "Слика налепљена са међуспремника",
+			"readFailed": "Датотека није могла да се прочита"
 		},
 		"useChatPersistence": {
 			"storageFullChat": "Место за складиштење пуно - историја ћаскања није сачувана"

@@ -1,5 +1,6 @@
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import i18next from "i18next";
 import { describe, expect, it, vi } from "vitest";
 import type { QuotaSnapshot } from "../../api/types";
 import type { QuotaBadgeModel } from "../../utils/quota";
@@ -256,6 +257,38 @@ describe("QuotaBadge", () => {
 		);
 	});
 
+	it("writes the DeepSeek balance the locale's way, as OpenRouter's is", () => {
+		const saved = i18next.language;
+		i18next.language = "de";
+		vi.spyOn(navigator, "languages", "get").mockReturnValue(["de-DE"]);
+		try {
+			render(
+				<QuotaBadge
+					model={model(
+						{ type: "deepseek" },
+						{
+							is_available: true,
+							balance_infos: [{ currency: "USD", total_balance: "12.5" }],
+						},
+					)}
+					barMode="remaining"
+					onClick={vi.fn()}
+				/>,
+			);
+			expect(
+				screen.getByTestId("quota-badge-deepseek:p").textContent,
+			).toContain(
+				new Intl.NumberFormat("de-DE", {
+					style: "currency",
+					currency: "USD",
+				}).format(12.5),
+			);
+		} finally {
+			i18next.language = saved;
+			vi.restoreAllMocks();
+		}
+	});
+
 	it("renders a dash for DeepSeek when no USD balance entry is found", () => {
 		render(
 			<QuotaBadge
@@ -271,7 +304,7 @@ describe("QuotaBadge", () => {
 			/>,
 		);
 		expect(screen.getByTestId("quota-badge-deepseek:p")).toHaveTextContent(
-			"$-",
+			/^DS-$/,
 		);
 	});
 

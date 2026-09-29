@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { formatLocale } from "../../../utils/format";
 import { bucketLabel } from "../bucketLabel";
 
 describe("bucketLabel", () => {
@@ -6,10 +7,10 @@ describe("bucketLabel", () => {
 	// dates are built the same way the chart's Date(p.bucket) ends up.
 	const at = (h: number, m: number) => new Date(2024, 5, 15, h, m);
 
-	it("labels a week bucket with the day, in the browser's locale", () => {
+	it("labels a week bucket with the day, in the formatting locale", () => {
 		const date = at(14, 35);
 		expect(bucketLabel(date, "1w")).toBe(
-			new Intl.DateTimeFormat(undefined, {
+			new Intl.DateTimeFormat(formatLocale(), {
 				month: "short",
 				day: "numeric",
 			}).format(date),

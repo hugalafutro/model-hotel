@@ -1,16 +1,30 @@
+import {
+	formatDecimal,
+	formatLocale,
+	setFormatLanguage,
+} from "@web-shared/format";
 import i18next from "i18next";
 
-// The locale-independent formatters live once in web-shared/ and are re-exported
-// here, so every existing "utils/format" import keeps working and the two
-// dashboards cannot drift on how a magnitude reads. Everything defined below
-// phrases itself through i18next and is the dashboard's own.
+// The magnitude formatters and the format locale live once in web-shared/ and
+// are re-exported here, so every existing "utils/format" import keeps working
+// and the two dashboards cannot drift on how a figure reads. Everything defined
+// below phrases itself through i18next and is the dashboard's own.
+
 export {
 	formatCompact,
+	formatDecimal,
 	formatDollars,
 	formatKwh,
+	formatLocale,
 	formatSpend,
 	formatTokens,
 } from "@web-shared/format";
+
+// Every number and date the dashboard shows, the shared formatters included,
+// follows the app language, so a language change re-renders them all with the
+// t() strings around them.
+setFormatLanguage(() => i18next.language);
+
 /** Encode a value as base64, handling Unicode characters safely. */
 export function encodeCursor(obj: unknown): string {
 	const json = JSON.stringify(obj);
@@ -23,7 +37,7 @@ export function encodeCursor(obj: unknown): string {
 
 export function formatDuration(ms: number): string {
 	if (ms < 1000) return `${ms}ms`;
-	return `${(ms / 1000).toFixed(1)}s`;
+	return `${formatDecimal(ms / 1000, 1)}s`;
 }
 
 export function formatRelativeTime(dateStr: string | null): string {
@@ -42,11 +56,11 @@ export function formatRelativeTime(dateStr: string | null): string {
 
 export function formatNumber(n: number | null | undefined): string {
 	if (n == null) return "-";
-	return n.toLocaleString();
+	return n.toLocaleString(formatLocale());
 }
 
 export function formatTimestamp(ts: number | string): string {
-	return new Date(ts).toLocaleString(undefined, {
+	return new Date(ts).toLocaleString(formatLocale(), {
 		day: "numeric",
 		month: "short",
 		year: "numeric",
@@ -74,20 +88,20 @@ export function formatTimestamp(ts: number | string): string {
 export function countLabel(count: number | undefined, key: string): string {
 	const n = count ?? 0;
 	if (n === 0) return i18next.t(`${key}_other`);
-	return `${n} ${i18next.t(key, { count: n })}`;
+	return `${formatNumber(n)} ${i18next.t(key, { count: n })}`;
 }
 
 export function formatDate(ts: number | string): string {
-	return new Date(ts).toLocaleDateString(undefined, {
+	return new Date(ts).toLocaleDateString(formatLocale(), {
 		day: "numeric",
 		month: "short",
 		year: "numeric",
 	});
 }
 
-/** Clock time alone, in the browser's locale and its 12/24-hour convention. */
+/** Clock time alone, in formatLocale() and its 12/24-hour convention. */
 export function formatTime(ts: number | string): string {
-	return new Date(ts).toLocaleTimeString(undefined, {
+	return new Date(ts).toLocaleTimeString(formatLocale(), {
 		hour: "2-digit",
 		minute: "2-digit",
 	});
@@ -97,15 +111,12 @@ export function formatTime(ts: number | string): string {
 export const formatDateTimeShort = formatTimestamp;
 
 export function formatWithCommas(n: number): string {
-	return Math.round(n).toLocaleString();
+	return Math.round(n).toLocaleString(formatLocale());
 }
 
+/** `v` to at most `decimals` places, trailing zeros dropped ("1.50" reads "1.5"). */
 export function dropTrailingZero(v: number, decimals: number): string {
-	const s = v.toFixed(decimals);
-	if (decimals > 0 && s.includes(".")) {
-		return s.replace(/\.?0+$/, "");
-	}
-	return s;
+	return formatDecimal(v, decimals, { trim: true });
 }
 
 /**
@@ -117,8 +128,8 @@ export function dropTrailingZero(v: number, decimals: number): string {
  * - 0 → "<0.1%" (rounding artifact; provider wouldn't appear with zero traffic)
  */
 export function formatPercent(value: number): string {
-	if (value < 0.05) return "<0.1%";
-	return `${value.toFixed(1)}%`;
+	if (value < 0.05) return `<${formatDecimal(0.1, 1)}%`;
+	return `${formatDecimal(value, 1)}%`;
 }
 
 export function formatTimeUntil(ts: number): string {
@@ -131,7 +142,7 @@ export function formatTimeUntil(ts: number): string {
 	// rather than reading as a whole "0 hours" away.
 	if (diff < 1000 * 60 * 60) {
 		const minutes = Math.max(1, Math.floor(diff / 60000));
-		return new Intl.RelativeTimeFormat(i18next.language, {
+		return new Intl.RelativeTimeFormat(formatLocale(), {
 			numeric: "always",
 		}).format(minutes, "minute");
 	}
@@ -190,7 +201,7 @@ export function formatTimeUntil(ts: number): string {
 export function formatLatency(ms: number): string {
 	if (ms >= 1000) {
 		const sec = ms / 1000;
-		return sec >= 10 ? `${Math.round(sec)}s` : `${sec.toFixed(1)}s`;
+		return sec >= 10 ? `${Math.round(sec)}s` : `${formatDecimal(sec, 1)}s`;
 	}
 	return `${Math.round(ms)}ms`;
 }
@@ -208,7 +219,7 @@ export function formatBytes(bytes: number): string {
 		Math.floor(Math.log(bytes) / Math.log(k)),
 		sizes.length - 1,
 	);
-	return `${Number.parseFloat((bytes / k ** i).toFixed(1))} ${sizes[i]}`;
+	return `${formatDecimal(bytes / k ** i, 1, { trim: true })} ${sizes[i]}`;
 }
 
 /**

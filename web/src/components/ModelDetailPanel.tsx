@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { RotateCcw, Settings, X } from "@/lib/icons";
 import type { GenerationParams, Model } from "../api/types";
+import { formatLocale } from "../utils/format";
 import {
 	formatPrice,
 	nonTextOutputs,
@@ -202,7 +203,7 @@ export function ModelDetailPanel({
 									{t("components.modelDetailPanel.context")}
 								</span>
 								<div className="text-(--text-primary) font-medium">
-									{model.context_length?.toLocaleString() ?? "-"}
+									{model.context_length?.toLocaleString(formatLocale()) ?? "-"}
 								</div>
 							</div>
 							<div>
@@ -210,7 +211,8 @@ export function ModelDetailPanel({
 									{t("components.modelDetailPanel.maxOut")}
 								</span>
 								<div className="text-(--text-primary) font-medium">
-									{model.max_output_tokens?.toLocaleString() ?? "-"}
+									{model.max_output_tokens?.toLocaleString(formatLocale()) ??
+										"-"}
 								</div>
 							</div>
 						</div>

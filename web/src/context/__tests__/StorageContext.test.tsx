@@ -1,8 +1,65 @@
 import { act, renderHook } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { StorageProvider, useStorage } from "../StorageContext";
 
 describe("StorageContext", () => {
+	it("turning every persistence off survives a storage that refuses removal", () => {
+		const { result } = renderHook(() => useStorage(), {
+			wrapper: StorageProvider,
+		});
+		act(() => {
+			result.current.setPersistChat(true);
+			result.current.setPersistArena(true);
+			result.current.setPersistConversation(true);
+			result.current.setArenaHistoryEnabled(true);
+		});
+		const remove = vi
+			.spyOn(Storage.prototype, "removeItem")
+			.mockImplementation(() => {
+				throw new DOMException("blocked", "SecurityError");
+			});
+		try {
+			act(() => {
+				result.current.setPersistChat(false);
+				result.current.setPersistArena(false);
+				result.current.setPersistConversation(false);
+				result.current.setArenaHistoryEnabled(false);
+			});
+			expect(remove).toHaveBeenCalled();
+		} finally {
+			remove.mockRestore();
+		}
+		expect(result.current.persistChat).toBe(false);
+		expect(result.current.persistArena).toBe(false);
+		expect(result.current.persistConversation).toBe(false);
+		expect(result.current.arenaHistoryEnabled).toBe(false);
+	});
+
+	it("a key that refuses removal does not keep the others", () => {
+		const { result } = renderHook(() => useStorage(), {
+			wrapper: StorageProvider,
+		});
+		act(() => result.current.setPersistChat(true));
+		localStorage.setItem("chatSystemPrompt", "be brief");
+		localStorage.setItem("chatActivePersonaId", "p1");
+		const real = Storage.prototype.removeItem;
+		const remove = vi
+			.spyOn(Storage.prototype, "removeItem")
+			.mockImplementation(function (this: Storage, key: string) {
+				if (key === "chatMessages") {
+					throw new DOMException("blocked", "SecurityError");
+				}
+				real.call(this, key);
+			});
+		try {
+			act(() => result.current.setPersistChat(false));
+		} finally {
+			remove.mockRestore();
+		}
+		expect(localStorage.getItem("chatSystemPrompt")).toBeNull();
+		expect(localStorage.getItem("chatActivePersonaId")).toBeNull();
+	});
+
 	it("useStorage returns default values when no localStorage", () => {
 		const { result } = renderHook(() => useStorage(), {
 			wrapper: StorageProvider,

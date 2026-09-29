@@ -845,7 +845,7 @@
 			"discoveredModels_one": "התגלה {{count}} דגם…",
 			"discoveredModels_two": "התגלו {{count}} דגמים…",
 			"discoveredModels_other": "התגלו {{count}} דגמים…",
-			"deepseekBalance": "יתרת DeepSeek שזוהתה:{{balance}} דולר",
+			"deepseekBalance": "יתרת DeepSeek שזוהתה: {{balance}}",
 			"deepseekBalanceDetected": "זוהתה יתרת DeepSeek",
 			"openrouterBalance": "זוהתה יתרת OpenRouter: ${{balance}}",
 			"baseUrl": "כתובת URL בסיסית",
@@ -3039,7 +3039,7 @@
 			"kimiCodeUsed": "Kimi: מכסת השימוש בקוד - לחץ לפרטים",
 			"openCodeGoRemaining": "OpenCode Go: מכסה שנותרה, חודשי {{monthly}} - לחץ לפרטים",
 			"openCodeGoUsed": "OpenCode Go: מכסה שנוצלה, חודשי {{monthly}} - לחץ לפרטים",
-			"deepseekBalance": "יתרת DeepSeek: ${{usd}} USD {{refreshed}} - לחץ כדי לרענן",
+			"deepseekBalance": "יתרת DeepSeek: {{usd}} {{refreshed}} - לחץ כדי לרענן",
 			"deepseekBalanceUnavailable": "יתרת DeepSeek אינה זמינה",
 			"openrouterBalance": "יתרת מפתחות ב-OpenRouter - לחץ לפרטים",
 			"openrouterBalanceUnavailable": "היתרה ב-OpenRouter אינה זמינה",
@@ -3190,7 +3190,8 @@
 			"noImageSupport": "דגם זה אינו תומך בקלט תמונות",
 			"imageTooLarge": "גודל התמונה חייב להיות פחות מ-20 מגה-בייט",
 			"audioTooLarge": "גודל הקובץ חייב להיות פחות מ-25 מגה-בייט",
-			"imagePasted": "תמונה שהודבקה מהלוח"
+			"imagePasted": "תמונה שהודבקה מהלוח",
+			"readFailed": "לא ניתן לקרוא את הקובץ"
 		},
 		"useChatPersistence": {
 			"storageFullChat": "הזיכרון מלא - היסטוריית הצ'אט לא נשמרה"

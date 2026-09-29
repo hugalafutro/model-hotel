@@ -35,6 +35,19 @@ const StorageContext = createContext<StorageContextType>({
 	setArenaHistoryLimit: () => {},
 });
 
+// Drops persisted content when its persistence is switched off. A blocked
+// store (private mode, site data disabled) throws on access and holds nothing
+// to drop, so the toggle still flips.
+function removeKeys(keys: readonly string[]) {
+	for (const key of keys) {
+		try {
+			localStorage.removeItem(key);
+		} catch {
+			/* blocked storage: nothing to remove; the other keys still go */
+		}
+	}
+}
+
 // eslint-disable-next-line react-refresh/only-export-components -- the consumer hook lives beside its provider
 export function useStorage() {
 	return useContext(StorageContext);
@@ -68,16 +81,14 @@ export function StorageProvider({ children }: { children: ReactNode }) {
 	const setPersistChat = (v: boolean) => {
 		setPersistChatRaw(v);
 		if (!v) {
-			localStorage.removeItem("chatMessages");
-			localStorage.removeItem("chatSystemPrompt");
-			localStorage.removeItem("chatActivePersonaId");
+			removeKeys(["chatMessages", "chatSystemPrompt", "chatActivePersonaId"]);
 		}
 	};
 
 	const setPersistArena = (v: boolean) => {
 		setPersistArenaRaw(v);
 		if (!v) {
-			for (const key of ARENA_STORAGE_KEYS) localStorage.removeItem(key);
+			removeKeys(ARENA_STORAGE_KEYS);
 		}
 	};
 
@@ -87,18 +98,20 @@ export function StorageProvider({ children }: { children: ReactNode }) {
 			// The same content the chat branch drops, for the two-model mode: the
 			// transcript and the prompts driving it. The model picks are settings,
 			// not content, so they stay.
-			localStorage.removeItem("conversationMessages");
-			localStorage.removeItem("conversationSystemPromptA");
-			localStorage.removeItem("conversationSystemPromptB");
-			localStorage.removeItem("conversationActivePersonaIdA");
-			localStorage.removeItem("conversationActivePersonaIdB");
+			removeKeys([
+				"conversationMessages",
+				"conversationSystemPromptA",
+				"conversationSystemPromptB",
+				"conversationActivePersonaIdA",
+				"conversationActivePersonaIdB",
+			]);
 		}
 	};
 
 	const setArenaHistoryEnabled = (v: boolean) => {
 		setArenaHistoryEnabledRaw(v);
 		if (!v) {
-			localStorage.removeItem(ARENA_HISTORY_KEY);
+			removeKeys([ARENA_HISTORY_KEY]);
 		}
 	};
 

@@ -845,7 +845,7 @@
 			"discoveredModels_one": "Descobert el model {{count}}…",
 			"discoveredModels_many": "Descoberts els models {{count}}…",
 			"discoveredModels_other": "Descoberts els models {{count}}…",
-			"deepseekBalance": "Saldo de DeepSeek detectat: ${{balance}}",
+			"deepseekBalance": "Saldo de DeepSeek detectat: {{balance}}",
 			"deepseekBalanceDetected": "Saldo de DeepSeek detectat",
 			"openrouterBalance": "Saldo d'OpenRouter detectat: ${{balance}}",
 			"baseUrl": "URL base",
@@ -3039,7 +3039,7 @@
 			"kimiCodeUsed": "Kimi Code quota utilitzada - fes clic per a més detalls",
 			"openCodeGoRemaining": "Quota restant d'OpenCode Go, mensual {{monthly}} - fes clic per a més detalls",
 			"openCodeGoUsed": "Quota utilitzada d'OpenCode Go, mensual {{monthly}} - fes clic per a més detalls",
-			"deepseekBalance": "Saldo de DeepSeek: ${{usd}} USD {{refreshed}} - fes clic per refrescar",
+			"deepseekBalance": "Saldo de DeepSeek: {{usd}} {{refreshed}} - fes clic per refrescar",
 			"deepseekBalanceUnavailable": "El saldo de DeepSeek no està disponible",
 			"openrouterBalance": "Saldo de claus de l'OpenRouter - feu clic per a més detalls",
 			"openrouterBalanceUnavailable": "El saldo d'OpenRouter no està disponible",
@@ -3190,7 +3190,8 @@
 			"noImageSupport": "Aquest model no admet la introducció d'imatges.",
 			"imageTooLarge": "La imatge ha de ser inferior a 20 MB.",
 			"audioTooLarge": "L'àudio ha de ser inferior a 25 MB.",
-			"imagePasted": "Imatge enganxada des del porta-retalls"
+			"imagePasted": "Imatge enganxada des del porta-retalls",
+			"readFailed": "No s'ha pogut llegir el fitxer"
 		},
 		"useChatPersistence": {
 			"storageFullChat": "L'emmagatzematge està ple: l'historial de xat no s'ha desat"

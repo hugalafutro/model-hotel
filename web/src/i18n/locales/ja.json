@@ -821,7 +821,7 @@
 			"providerFallback": "プロバイダー",
 			"discoveredModels_one": "{{count}} 個のモデルを検出中…",
 			"discoveredModels_other": "発見された {{count}} モデル…",
-			"deepseekBalance": "DeepSeek 残高が検出されました: ${{balance}}",
+			"deepseekBalance": "DeepSeek 残高が検出されました: {{balance}}",
 			"deepseekBalanceDetected": "DeepSeek残高が検出されました",
 			"openrouterBalance": "OpenRouter の残高が検出されました: ${{balance}}",
 			"baseUrl": "ベースURL",
@@ -2966,7 +2966,7 @@
 			"kimiCodeUsed": "Kimi Code の使用済みクォータ - 詳細はクリック",
 			"openCodeGoRemaining": "OpenCode Go の残りクォータ、月間 {{monthly}} - 詳細はクリック",
 			"openCodeGoUsed": "OpenCode Go の使用済みクォータ、月間 {{monthly}} - 詳細はクリック",
-			"deepseekBalance": "DeepSeek 残高: ${{usd}} USD {{refreshed}} - クリックして更新",
+			"deepseekBalance": "DeepSeek 残高: {{usd}} {{refreshed}} - クリックして更新",
 			"deepseekBalanceUnavailable": "DeepSeek残高が利用できません",
 			"openrouterBalance": "OpenRouter キー残高 - 詳細についてはクリックしてください",
 			"openrouterBalanceUnavailable": "OpenRouter balance unavailable",
@@ -3114,7 +3114,8 @@
 			"noImageSupport": "このモデルは画像入力をサポートしていません",
 			"imageTooLarge": "画像は 20 MB 未満である必要があります",
 			"audioTooLarge": "オーディオは 25 MB 未満である必要があります",
-			"imagePasted": "クリップボードから画像を貼り付け"
+			"imagePasted": "クリップボードから画像を貼り付け",
+			"readFailed": "ファイルを読み込めませんでした"
 		},
 		"useChatPersistence": {
 			"storageFullChat": "ストレージがいっぱいです - チャット履歴は保存されていません"

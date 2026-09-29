@@ -71,6 +71,11 @@ export function useAssistantStream({
 	// "effect-only" and forbid mutation in event handlers - which is perfectly
 	// valid React.
 	const cleanupAbortRef = useRef<AbortController | null>(null);
+	// Advances when a reply starts or is stopped; a reply that settles after
+	// either (a stopped stream whose abort lands late) leaves the streaming
+	// flag and abort refs alone, as they now belong to a later reply or
+	// conversation.
+	const replySeqRef = useRef(0);
 
 	// Cleanup on unmount only: abort the in-flight request.
 	useEffect(() => {
@@ -124,13 +129,14 @@ export function useAssistantStream({
 	/**
 	 * Streams one reply and reports its outcome: an error the stream captured
 	 * is toasted, a user abort is not, and the streaming flag and abort refs
-	 * are cleared however it ends.
+	 * are cleared however it ends, unless a newer reply has started since.
 	 */
 	const runReply = useCallback(
 		async (
 			model: string,
 			chatMessages: Array<{ role: string; content: MessageContent }>,
 		) => {
+			const seq = ++replySeqRef.current;
 			try {
 				const result = await streamAssistantReply(model, chatMessages);
 				if (result.error && !result.aborted) toast(result.error, "error");
@@ -139,9 +145,11 @@ export function useAssistantStream({
 					toast(errorMessage(err, t("common.unknownError")), "error");
 				}
 			} finally {
-				setIsStreaming(false);
-				abortRef.current = null;
-				cleanupAbortRef.current = null;
+				if (replySeqRef.current === seq) {
+					setIsStreaming(false);
+					abortRef.current = null;
+					cleanupAbortRef.current = null;
+				}
 			}
 		},
 		[streamAssistantReply, toast, setIsStreaming, t],
@@ -213,6 +221,7 @@ export function useAssistantStream({
 	]);
 
 	const handleStop = useCallback(() => {
+		replySeqRef.current++;
 		abortRef.current?.abort();
 		abortRef.current = null;
 		cleanupAbortRef.current = null;

@@ -887,7 +887,7 @@
 			"urlRejected": "رفض Model Hotel هذا العنوان: {{detail}}. يجب إدراج أي عنوان خاص أو محلي أو محجوز في ALLOWED_PROVIDER_HOSTS، كما أن Model Hotel العامل داخل حاوية لا يمكنه الوصول إلى جهازك عبر localhost: استخدم عنوان الجهاز على الشبكة.",
 			"duplicateAddressBlocked": "يوجد بالفعل مزوّد لهذا العنوان (\"{{name}}\"). لا يمكن إضافة خادم ذاتي الاستضافة مرتين: فالمزوّد الثاني سيكتشف النماذج نفسها مرة أخرى فحسب.",
 			"providerFallback": "موفر",
-			"deepseekBalance": "تم اكتشاف رصيد DeepSeek: ${{balance}}",
+			"deepseekBalance": "تم اكتشاف رصيد DeepSeek: {{balance}}",
 			"deepseekBalanceDetected": "تم اكتشاف رصيد DeepSeek",
 			"openrouterBalance": "تم اكتشاف رصيد OpenRouter : ${{balance}}",
 			"baseUrl": "الرابط الأساسي",
@@ -3258,7 +3258,7 @@
 			"kimiCodeUsed": "ترميز Kimi الحصة المستخدمة - انقر للحصول على التفاصيل",
 			"openCodeGoRemaining": "حصة OpenCode Go المتبقية، شهريًا {{monthly}} - انقر للحصول على التفاصيل",
 			"openCodeGoUsed": "حصة OpenCode Go المستخدمة، شهريًا {{monthly}} - انقر للحصول على التفاصيل",
-			"deepseekBalance": "رصيد DeepSeek: ${{usd}} USD {{refreshed}} - انقر للتحديث",
+			"deepseekBalance": "رصيد DeepSeek: {{usd}} {{refreshed}} - انقر للتحديث",
 			"deepseekBalanceUnavailable": "رصيد DeepSeek غير متوفر",
 			"openrouterBalance": "رصيد مفتاح OpenRouter - انقر للحصول على التفاصيل",
 			"openrouterBalanceUnavailable": "OpenRouter balance unavailable",
@@ -3418,7 +3418,8 @@
 			"noImageSupport": "هذا النموذج لا يدعم إدخال الصورة",
 			"imageTooLarge": "يجب أن تكون الصورة أقل من 20 ميغابايت",
 			"audioTooLarge": "يجب أن يكون الصوت أقل من 25 ميغابايت",
-			"imagePasted": "تم لصق صورة من الحافظة"
+			"imagePasted": "تم لصق صورة من الحافظة",
+			"readFailed": "تعذرت قراءة الملف"
 		},
 		"useChatPersistence": {
 			"storageFullChat": "التخزين الكامل - سجل المحادثة لم يتم حفظه"

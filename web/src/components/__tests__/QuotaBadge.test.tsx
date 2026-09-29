@@ -1,4 +1,5 @@
 import { act, render, screen, waitFor } from "@testing-library/react";
+import i18next from "i18next";
 import type {
 	DeepSeekBalance,
 	NanoGPTUsage,
@@ -456,7 +457,7 @@ describe("QuotaBadge", () => {
 					deepseekBalance={mockDeepSeekBalance}
 				/>,
 			);
-			expect(screen.getByText("25.5 USD")).toBeInTheDocument();
+			expect(screen.getByText("$25.50")).toBeInTheDocument();
 		});
 
 		it("renders with deepseek sidebar variant", () => {
@@ -467,7 +468,37 @@ describe("QuotaBadge", () => {
 					deepseekBalance={mockDeepSeekBalance}
 				/>,
 			);
-			expect(screen.getByText("$25.5")).toBeInTheDocument();
+			expect(screen.getByText("$25.50")).toBeInTheDocument();
+		});
+
+		it("writes the balance and its tooltip the locale's way, as OpenRouter's is", () => {
+			const saved = i18next.language;
+			i18next.language = "de";
+			vi.spyOn(navigator, "languages", "get").mockReturnValue(["de-DE"]);
+			try {
+				render(
+					<QuotaBadge
+						type="deepseek"
+						variant="card"
+						deepseekBalance={mockDeepSeekBalance}
+					/>,
+				);
+				const amount = new Intl.NumberFormat("de-DE", {
+					style: "currency",
+					currency: "USD",
+				}).format(25.5);
+				const badge = screen.getByRole("button");
+				expect(badge.textContent).toContain(amount);
+				// The tooltip takes the formatted amount as is: no second
+				// currency mark around it.
+				const title = badge.getAttribute("title") ?? "";
+				expect(title).toContain(amount);
+				expect(title.split("$")).toHaveLength(2);
+				expect(title).not.toContain("USD");
+			} finally {
+				i18next.language = saved;
+				vi.restoreAllMocks();
+			}
 		});
 
 		it("handles missing USD balance", () => {
@@ -489,7 +520,7 @@ describe("QuotaBadge", () => {
 					deepseekBalance={balanceNoUSD}
 				/>,
 			);
-			expect(screen.getByText("- USD")).toBeInTheDocument();
+			expect(screen.getByText("-")).toBeInTheDocument();
 		});
 
 		it("handles null deepseekBalance", () => {

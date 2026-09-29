@@ -1,3 +1,4 @@
+import { formatCount } from "@web-shared/format";
 import i18next from "i18next";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
@@ -8,9 +9,12 @@ import {
 	formatCompact,
 	formatDate,
 	formatDateOnly,
+	formatDecimal,
 	formatDollars,
 	formatDuration,
 	formatKwh,
+	formatLatency,
+	formatLocale,
 	formatNumber,
 	formatPercent,
 	formatRelativeTime,
@@ -74,6 +78,145 @@ describe("formatRelativeTime", () => {
 	it("returns days ago for older dates", () => {
 		const date = new Date(Date.now() - 5 * 24 * 60 * 60 * 1000);
 		expect(formatRelativeTime(date.toISOString())).toBe("5d ago");
+	});
+});
+
+describe("formatLocale", () => {
+	const setLocales = (app: string, browser: readonly string[]) => {
+		i18next.language = app;
+		vi.spyOn(navigator, "languages", "get").mockReturnValue(browser);
+		vi.spyOn(navigator, "language", "get").mockReturnValue(browser[0] ?? "");
+	};
+	let saved: string;
+	beforeEach(() => {
+		saved = i18next.language;
+	});
+	afterEach(() => {
+		i18next.language = saved;
+		vi.restoreAllMocks();
+	});
+
+	it.each([
+		["en", ["en-GB", "en"], "en-GB"],
+		["en", ["de-DE", "de"], "en"],
+		["de", ["de-AT", "de"], "de-AT"],
+		["de", ["en-US", "en"], "de"],
+	])("app %s with browser %j formats as %s", (app, browser, want) => {
+		setLocales(app, browser);
+		expect(formatLocale()).toBe(want);
+	});
+
+	it("takes the first browser language that shares the app's base", () => {
+		setLocales("fr", ["de-DE", "fr-CA", "fr-FR"]);
+		expect(formatLocale()).toBe("fr-CA");
+	});
+
+	it("falls back to navigator.language when languages is empty", () => {
+		setLocales("pt", []);
+		vi.spyOn(navigator, "language", "get").mockReturnValue("pt-BR");
+		expect(formatLocale()).toBe("pt-BR");
+	});
+
+	it("keeps Latin digits for Arabic, whatever the region's default", () => {
+		setLocales("ar", ["ar-EG"]);
+		expect(formatLocale()).toBe("ar-EG-u-nu-latn");
+		expect(formatNumber(1234)).toMatch(/^1\D?234$/);
+	});
+
+	it("keeps Latin digits for an Arabic browser entry that carries its own extension", () => {
+		setLocales("ar", ["ar-SA-u-ca-islamic"]);
+		expect(formatLocale()).toBe("ar-SA-u-nu-latn");
+		expect(formatNumber(1234)).toMatch(/^1\D?234$/);
+		expect(formatSpend(0.5)).toMatch(/0\D50/);
+	});
+
+	it("skips a malformed browser entry instead of throwing", () => {
+		setLocales("de", ["de-!!", "de-AT"]);
+		expect(formatLocale()).toBe("de-AT");
+		expect(formatNumber(1234)).toBe(
+			new Intl.NumberFormat("de-AT").format(1234),
+		);
+		setLocales("en", ["en_GB-x-", "@@"]);
+		expect(formatLocale()).toBe("en");
+		expect(formatNumber(1234)).toBe("1,234");
+	});
+
+	it("falls back to en when the app language itself is malformed", () => {
+		setLocales("!!", ["de-DE"]);
+		expect(formatLocale()).toBe("en");
+	});
+
+	it.each([
+		["no", ["nb-NO"], "nb-NO"],
+		["no", ["nn-NO"], "nn-NO"],
+		["nb", ["no-NO"], "no-NO"],
+	])(
+		"treats Norwegian app %s and browser %j as one language: %s",
+		(app, browser, want) => {
+			setLocales(app, browser);
+			expect(formatLocale()).toBe(want);
+		},
+	);
+
+	it("formats the shared magnitudes in the same locale as formatNumber", () => {
+		setLocales("de", ["de-DE"]);
+		expect(formatNumber(1234567)).toBe("1.234.567");
+		expect(formatDollars(1234.56)).toBe(
+			new Intl.NumberFormat("de-DE", {
+				style: "currency",
+				currency: "USD",
+			}).format(1234.56),
+		);
+		expect(formatKwh(1234.5)).toBe("1.234,5");
+		expect(formatCompact(1_500_000)).toBe("1,5M");
+		expect(formatTokens(2_000)).toBe("2K");
+		expect(formatCount(1249)).toBe("1.249");
+	});
+
+	it("formatDecimal keeps toFixed's digits and rounding with the locale's separator", () => {
+		setLocales("de", ["de-DE"]);
+		expect(formatDecimal(1234.5, 2)).toBe("1234,50");
+		expect(formatDecimal(1234.5, 2, { grouping: true })).toBe("1.234,50");
+		expect(formatDecimal(1.05, 1)).toBe((1.05).toFixed(1).replace(".", ","));
+		expect(formatDecimal(2.5, 0)).toBe("3");
+		expect(formatDecimal(1.5, 2, { trim: true })).toBe("1,5");
+		expect(formatDecimal(2, 2, { trim: true })).toBe("2");
+		expect(dropTrailingZero(1.25, 1)).toBe("1,3");
+		// Where Intl's own rounding and toFixed's part ways.
+		expect(formatDecimal(1.005, 2)).toBe((1.005).toFixed(2).replace(".", ","));
+		expect(formatDecimal(-0, 2)).toBe("0,00");
+		expect(formatDecimal(-0.001, 2)).toBe("0,00");
+		expect(formatDecimal(Number.NaN, 2)).toBe("NaN");
+	});
+
+	it("durations, percents, latencies and byte sizes take the locale's decimal separator", () => {
+		setLocales("de", ["de-DE"]);
+		expect(formatDuration(1500)).toBe("1,5s");
+		expect(formatDuration(500)).toBe("500ms");
+		expect(formatPercent(76.64)).toBe("76,6%");
+		expect(formatPercent(0.02)).toBe("<0,1%");
+		expect(formatLatency(8400)).toBe("8,4s");
+		expect(formatLatency(15_000)).toBe("15s");
+		expect(formatBytes(1536)).toBe("1,5 KB");
+		expect(formatBytes(1024)).toBe("1 KB");
+	});
+
+	it("formatNumber groups digits the way the app language and browser region do", () => {
+		setLocales("de", ["de-CH"]);
+		expect(formatNumber(1234567)).toBe(
+			new Intl.NumberFormat("de-CH").format(1234567),
+		);
+		setLocales("de", ["en-US"]);
+		expect(formatNumber(1234567)).toBe("1.234.567");
+		expect(formatWithCommas(1234.5)).toBe("1.235");
+	});
+
+	it("formatDate orders day and month by the browser's region of the app language", () => {
+		const ts = "2024-06-15T12:00:00Z";
+		setLocales("en", ["en-GB"]);
+		expect(formatDate(ts)).toBe("15 Jun 2024");
+		setLocales("en", ["en-US"]);
+		expect(formatDate(ts)).toBe("Jun 15, 2024");
 	});
 });
 
@@ -211,6 +354,24 @@ describe("countLabel", () => {
 		expect(countLabel(2, KEY)).toBe("2 RU-FEW");
 		expect(countLabel(5, KEY)).toBe("5 RU-MANY");
 		expect(countLabel(22, KEY)).toBe("22 RU-FEW");
+	});
+
+	it("writes the numeral the locale's way and picks the form from the count", async () => {
+		i18next.addResourceBundle(
+			"de",
+			"translation",
+			{ [`${KEY}_one`]: "DE-ONE", [`${KEY}_other`]: "DE-OTHER" },
+			true,
+			true,
+		);
+		await i18next.changeLanguage("de");
+		vi.spyOn(navigator, "languages", "get").mockReturnValue(["de-DE"]);
+		try {
+			expect(countLabel(1234, KEY)).toBe("1.234 DE-OTHER");
+			expect(countLabel(1, KEY)).toBe("1 DE-ONE");
+		} finally {
+			vi.restoreAllMocks();
+		}
 	});
 });
 

@@ -3,6 +3,7 @@ import { type ReactNode, useId } from "react";
 import { useTranslation } from "react-i18next";
 import { api } from "../api/client";
 import { useIdentity } from "../context/IdentityContext";
+import { formatDecimal, formatLocale } from "../utils/format";
 import {
 	CollapseBody,
 	CollapsibleToggle,
@@ -285,7 +286,7 @@ export function SystemStatus() {
 												: t("layout.tooltips.cpu")
 										}
 									>
-										{cpuPct.toFixed(1)}
+										{formatDecimal(cpuPct, 1)}
 										<span className={unitClass}>%</span>
 									</StatHint>
 									{procs != null && procs > 0 && (
@@ -376,7 +377,7 @@ export function SystemStatus() {
 						<span
 							className={`text-(--text-secondary) ${dc(app?.goroutines, 300, 1000)}`}
 						>
-							{app ? app.goroutines.toLocaleString() : dash}
+							{app ? app.goroutines.toLocaleString(formatLocale()) : dash}
 						</span>
 					</div>
 
@@ -432,7 +433,7 @@ export function SystemStatus() {
 										className="text-(--text-secondary)"
 										title={t("layout.tooltips.dbTxPerSec")}
 									>
-										{stats.db.tx_per_sec.toFixed(1)}
+										{formatDecimal(stats.db.tx_per_sec, 1)}
 										<span className={unitClass}>
 											{" "}
 											{t("layout.stats.txPerSec")}

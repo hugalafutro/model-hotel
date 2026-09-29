@@ -821,7 +821,7 @@
 			"providerFallback": "Anbieter",
 			"discoveredModels_one": "Entdeckte {{count}} Modell…",
 			"discoveredModels_other": "Entdeckte {{count}} Modelle…",
-			"deepseekBalance": "DeepSeek Saldo erkannt: ${{balance}}",
+			"deepseekBalance": "DeepSeek Saldo erkannt: {{balance}}",
 			"deepseekBalanceDetected": "DeepSeek Saldo erkannt",
 			"openrouterBalance": "OpenRouter Saldo erkannt: ${{balance}}",
 			"baseUrl": "Basis-URL",
@@ -2966,7 +2966,7 @@
 			"kimiCodeUsed": "Kimi Code verbrauchtes Kontingent - für Details klicken",
 			"openCodeGoRemaining": "OpenCode Go verbleibendes Kontingent, monatlich {{monthly}} - für Details klicken",
 			"openCodeGoUsed": "OpenCode Go verbrauchtes Kontingent, monatlich {{monthly}} - für Details klicken",
-			"deepseekBalance": "DeepSeek Kontostand: ${{usd}} USD {{refreshed}} - Klicke zum Aktualisieren",
+			"deepseekBalance": "DeepSeek Kontostand: {{usd}} {{refreshed}} - Klicke zum Aktualisieren",
 			"deepseekBalanceUnavailable": "DeepSeek Guthaben nicht verfügbar",
 			"openrouterBalance": "OpenRouter Schlüssel-Kontostand - für Details klicken",
 			"openrouterBalanceUnavailable": "OpenRouter balance unavailable",
@@ -3114,7 +3114,8 @@
 			"noImageSupport": "Dieses Modell unterstützt keine Bildeingabe",
 			"imageTooLarge": "Bild muss unter 20 MB liegen",
 			"audioTooLarge": "Audio muss unter 25 MB liegen",
-			"imagePasted": "Bild aus der Zwischenablage eingefügt"
+			"imagePasted": "Bild aus der Zwischenablage eingefügt",
+			"readFailed": "Die Datei konnte nicht gelesen werden"
 		},
 		"useChatPersistence": {
 			"storageFullChat": "Speicher voll - Chatverlauf nicht gespeichert"
