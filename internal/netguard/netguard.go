@@ -45,9 +45,9 @@ func parseHTTPURL(rawURL string) (*url.URL, error) {
 // dialled by an internal-facing outbound client: the whole "this host on this
 // network" block (0.0.0.0/8 and ::, per RFC 1122), or link-local
 // unicast/multicast (169.254.0.0/16 and fe80::/10, which cover the
-// cloud-metadata endpoint). A NAT64 address is judged by the IPv4 addresses it
-// embeds (util.NAT64IPv4s), since a NAT64 gateway on the path delivers it
-// there. Private and loopback ranges are intentionally allowed so internal
+// cloud-metadata endpoint). A well-known-prefix NAT64 address is judged by the
+// IPv4 address it embeds, since a NAT64 gateway on the path delivers it there;
+// a local-use one is refused (util.NAT64IPv4s). Private and loopback ranges are intentionally allowed so internal
 // IdPs, the apprise-api container, and Front Desk members keep working.
 func BlockedIP(ip net.IP) bool {
 	if ip == nil {
