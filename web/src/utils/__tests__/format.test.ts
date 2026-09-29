@@ -9,9 +9,11 @@ import {
 	formatCompact,
 	formatDate,
 	formatDateOnly,
+	formatDecimal,
 	formatDollars,
 	formatDuration,
 	formatKwh,
+	formatLatency,
 	formatLocale,
 	formatNumber,
 	formatPercent,
@@ -169,6 +171,29 @@ describe("formatLocale", () => {
 		expect(formatCompact(1_500_000)).toBe("1,5M");
 		expect(formatTokens(2_000)).toBe("2K");
 		expect(formatCount(1249)).toBe("1.249");
+	});
+
+	it("formatDecimal keeps toFixed's digits and rounding with the locale's separator", () => {
+		setLocales("de", ["de-DE"]);
+		expect(formatDecimal(1234.5, 2)).toBe("1234,50");
+		expect(formatDecimal(1234.5, 2, { grouping: true })).toBe("1.234,50");
+		expect(formatDecimal(1.05, 1)).toBe((1.05).toFixed(1).replace(".", ","));
+		expect(formatDecimal(2.5, 0)).toBe("3");
+		expect(formatDecimal(1.5, 2, { trim: true })).toBe("1,5");
+		expect(formatDecimal(2, 2, { trim: true })).toBe("2");
+		expect(dropTrailingZero(1.25, 1)).toBe("1,3");
+	});
+
+	it("durations, percents, latencies and byte sizes take the locale's decimal separator", () => {
+		setLocales("de", ["de-DE"]);
+		expect(formatDuration(1500)).toBe("1,5s");
+		expect(formatDuration(500)).toBe("500ms");
+		expect(formatPercent(76.64)).toBe("76,6%");
+		expect(formatPercent(0.02)).toBe("<0,1%");
+		expect(formatLatency(8400)).toBe("8,4s");
+		expect(formatLatency(15_000)).toBe("15s");
+		expect(formatBytes(1536)).toBe("1,5 KB");
+		expect(formatBytes(1024)).toBe("1 KB");
 	});
 
 	it("formatNumber groups digits the way the app language and browser region do", () => {

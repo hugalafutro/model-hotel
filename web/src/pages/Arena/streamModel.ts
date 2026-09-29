@@ -3,7 +3,7 @@ import { produce } from "immer";
 import { API_BASE, getAuthHeaders } from "../../api/client";
 import type { GenerationParams } from "../../api/types";
 import { errorMessage } from "../../utils/errors";
-import { tokensPerSecond } from "../../utils/format";
+import { formatDecimal, tokensPerSecond } from "../../utils/format";
 import { hasAnyParam } from "../../utils/params";
 import { readSSEStream, type StreamChunk } from "../../utils/sse";
 import { fetchWithRetry } from "../../utils/stagger";
@@ -95,7 +95,7 @@ export async function streamArenaResponse(
 							model,
 							status: status || t("hooks.useArenaRunner.networkError"),
 							attempt,
-							delay: (delayMs / 1000).toFixed(1),
+							delay: formatDecimal(delayMs / 1000, 1),
 						}),
 						"info",
 					);

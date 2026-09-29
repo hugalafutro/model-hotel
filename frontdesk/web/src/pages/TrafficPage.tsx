@@ -13,6 +13,7 @@ import {
 import { api } from "../api/client";
 import type { MemberTraffic, MemberView } from "../api/types";
 import { useMembers } from "../hooks/useMembers";
+import { formatDecimal } from "../utils/format";
 import { formatHourTick, formatTimeOfDay } from "../utils/time";
 
 // The Traffic page auto-refreshes every graph on this interval while it is not
@@ -22,7 +23,7 @@ const AUTO_REFRESH_MS = 5000;
 
 function errorRate(tr: MemberTraffic): string {
 	if (tr.total_requests === 0) return "0%";
-	return `${((tr.total_errors / tr.total_requests) * 100).toFixed(1)}%`;
+	return `${formatDecimal((tr.total_errors / tr.total_requests) * 100, 1)}%`;
 }
 
 function MemberTrafficCard({

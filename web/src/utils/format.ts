@@ -1,4 +1,8 @@
-import { formatLocale, setFormatLanguage } from "@web-shared/format";
+import {
+	formatDecimal,
+	formatLocale,
+	setFormatLanguage,
+} from "@web-shared/format";
 import i18next from "i18next";
 
 // The magnitude formatters and the format locale live once in web-shared/ and
@@ -8,6 +12,7 @@ import i18next from "i18next";
 
 export {
 	formatCompact,
+	formatDecimal,
 	formatDollars,
 	formatKwh,
 	formatLocale,
@@ -32,7 +37,7 @@ export function encodeCursor(obj: unknown): string {
 
 export function formatDuration(ms: number): string {
 	if (ms < 1000) return `${ms}ms`;
-	return `${(ms / 1000).toFixed(1)}s`;
+	return `${formatDecimal(ms / 1000, 1)}s`;
 }
 
 export function formatRelativeTime(dateStr: string | null): string {
@@ -109,12 +114,9 @@ export function formatWithCommas(n: number): string {
 	return Math.round(n).toLocaleString(formatLocale());
 }
 
+/** `v` to at most `decimals` places, trailing zeros dropped ("1.50" reads "1.5"). */
 export function dropTrailingZero(v: number, decimals: number): string {
-	const s = v.toFixed(decimals);
-	if (decimals > 0 && s.includes(".")) {
-		return s.replace(/\.?0+$/, "");
-	}
-	return s;
+	return formatDecimal(v, decimals, { trim: true });
 }
 
 /**
@@ -126,8 +128,8 @@ export function dropTrailingZero(v: number, decimals: number): string {
  * - 0 → "<0.1%" (rounding artifact; provider wouldn't appear with zero traffic)
  */
 export function formatPercent(value: number): string {
-	if (value < 0.05) return "<0.1%";
-	return `${value.toFixed(1)}%`;
+	if (value < 0.05) return `<${formatDecimal(0.1, 1)}%`;
+	return `${formatDecimal(value, 1)}%`;
 }
 
 export function formatTimeUntil(ts: number): string {
@@ -199,7 +201,7 @@ export function formatTimeUntil(ts: number): string {
 export function formatLatency(ms: number): string {
 	if (ms >= 1000) {
 		const sec = ms / 1000;
-		return sec >= 10 ? `${Math.round(sec)}s` : `${sec.toFixed(1)}s`;
+		return sec >= 10 ? `${Math.round(sec)}s` : `${formatDecimal(sec, 1)}s`;
 	}
 	return `${Math.round(ms)}ms`;
 }
@@ -217,7 +219,7 @@ export function formatBytes(bytes: number): string {
 		Math.floor(Math.log(bytes) / Math.log(k)),
 		sizes.length - 1,
 	);
-	return `${Number.parseFloat((bytes / k ** i).toFixed(1))} ${sizes[i]}`;
+	return `${formatDecimal(bytes / k ** i, 1, { trim: true })} ${sizes[i]}`;
 }
 
 /**

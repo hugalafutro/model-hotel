@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import type { Model, ModelTestResult } from "../../api/types";
 import { errorMessage } from "../../utils/errors";
+import { formatDecimal } from "../../utils/format";
 
 export type { ModelTestResult };
 
@@ -80,7 +81,7 @@ export function useModelActions({
 				const content = result.response.replace(/\n/g, " ").slice(0, 80);
 				const isStreaming = result.streaming;
 				const ttftPart = isStreaming
-					? ` | TTFT: ${(result.ttft_ms / 1000).toFixed(1)}s`
+					? ` | TTFT: ${formatDecimal(result.ttft_ms / 1000, 1)}s`
 					: "";
 				onToast(
 					t(
@@ -95,7 +96,7 @@ export function useModelActions({
 							content,
 							count: result.ranked_results,
 							ttftPart,
-							duration: (result.duration_ms / 1000).toFixed(1),
+							duration: formatDecimal(result.duration_ms / 1000, 1),
 						},
 					),
 					"success",

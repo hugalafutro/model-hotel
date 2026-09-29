@@ -15,7 +15,12 @@ import {
 	Zap,
 } from "@/lib/icons";
 import type { LogEntry } from "../api/types";
-import { formatLocale, formatNumber, formatSpend } from "../utils/format";
+import {
+	formatDecimal,
+	formatLocale,
+	formatNumber,
+	formatSpend,
+} from "../utils/format";
 import { formatLogTimestamp } from "../utils/logBadgeUtils";
 import { formatMs } from "../utils/logHelpers";
 import { AttemptTrail } from "./AttemptTrail";
@@ -173,7 +178,7 @@ export function RequestLogDetail({
 						}
 					>
 						{(requestLog.tokens_per_second ?? 0) > 0
-							? (requestLog.tokens_per_second as number).toFixed(1)
+							? formatDecimal(requestLog.tokens_per_second as number, 1)
 							: "-"}
 					</div>
 					<div className="flex items-center justify-center gap-1 ui-overline">

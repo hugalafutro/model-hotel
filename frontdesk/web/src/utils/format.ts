@@ -13,6 +13,7 @@ setFormatLanguage(() => i18next.language);
 export {
 	formatCompact,
 	formatCount,
+	formatDecimal,
 	formatDollars,
 	formatKwh,
 	formatLocale,

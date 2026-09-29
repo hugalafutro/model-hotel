@@ -14,7 +14,7 @@ import {
 import { ActionIconButton } from "../../components/ActionIconButton";
 import { ConfirmDialog } from "../../components/ConfirmDialog";
 import { autoExpandTextarea } from "../../utils/dom";
-import { formatTokens } from "../../utils/format";
+import { formatDecimal, formatTokens } from "../../utils/format";
 import { shortModelName } from "../../utils/model";
 import type { ChatRefs, ChatView } from "./useChat";
 
@@ -240,7 +240,7 @@ export function ChatInputArea({
 									</span>
 									<span className="flex items-center gap-1.5">
 										<Timer size={14} />
-										{(chat.totalDuration / 1000).toFixed(1)}s
+										{formatDecimal(chat.totalDuration / 1000, 1)}s
 									</span>
 									<span className="flex items-center gap-1.5">
 										<Bot size={14} />

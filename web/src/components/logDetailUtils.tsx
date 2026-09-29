@@ -1,8 +1,9 @@
 /* eslint-disable react-refresh/only-export-components -- splitDuration lives beside the figure that formats with it */
+import { formatDecimal } from "../utils/format";
 
 export function splitDuration(ms: number): { value: string; unit: string } {
 	if (ms >= 1000) {
-		return { value: (ms / 1000).toFixed(2), unit: "s" };
+		return { value: formatDecimal(ms / 1000, 2), unit: "s" };
 	}
 	return { value: String(Math.round(ms)), unit: "ms" };
 }

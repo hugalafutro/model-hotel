@@ -3,6 +3,7 @@ import { Activity, Gauge, RefreshCw } from "@/lib/icons";
 import type { NeuralWattQuotaResponse } from "../../api/types";
 import {
 	formatDate,
+	formatDecimal,
 	formatDollars,
 	formatKwh,
 	formatTokens,
@@ -125,7 +126,7 @@ export function NeuralWattQuotaModal({
 							)
 						}
 					>
-						{`${kwhUsed.toFixed(1)}% ${t("components.providerModals.used")}. ${formatKwh(quota.subscription.kwh_remaining)} kWh ${t("components.providerModals.remaining")}${
+						{`${formatDecimal(kwhUsed, 1)}% ${t("components.providerModals.used")}. ${formatKwh(quota.subscription.kwh_remaining)} kWh ${t("components.providerModals.remaining")}${
 							quota.subscription.current_period_end
 								? ` · ${t("components.providerModals.resets")} ${formatDate(quota.subscription.current_period_end)}`
 								: ""

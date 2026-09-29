@@ -3,6 +3,7 @@ import { RefreshCw } from "@/lib/icons";
 import type { NanoGPTUsage } from "../../api/types";
 import {
 	formatDate,
+	formatDecimal,
 	formatTimestamp,
 	formatTimeUntil,
 	formatTokens,
@@ -94,7 +95,7 @@ export function NanoGPTQuotaModal({
 					fillTestId="weekly-progress-fill"
 				>
 					{weeklyLimit > 0
-						? `${(100 - weeklyRemaining).toFixed(1)}% ${t("components.providerModals.used")}`
+						? `${formatDecimal(100 - weeklyRemaining, 1)}% ${t("components.providerModals.used")}`
 						: t("components.providerModals.noLimitSet")}
 					{usage.weeklyInputTokens?.resetAt
 						? `. ${t("components.providerModals.resets")} ${formatTimestamp(usage.weeklyInputTokens.resetAt)}\n${formatTimeUntil(usage.weeklyInputTokens.resetAt)}`
@@ -113,7 +114,7 @@ export function NanoGPTQuotaModal({
 						barMode={barMode}
 						fillTestId="nanogpt-daily-images-fill"
 					>
-						{`${usage.dailyImages.percentUsed.toFixed(1)}% ${t("components.providerModals.used")}. ${resetAtLabel(usage.dailyImages.resetAt, t)}`}
+						{`${formatDecimal(usage.dailyImages.percentUsed, 1)}% ${t("components.providerModals.used")}. ${resetAtLabel(usage.dailyImages.resetAt, t)}`}
 					</QuotaBar>
 				)}
 
@@ -129,7 +130,7 @@ export function NanoGPTQuotaModal({
 						barMode={barMode}
 						fillTestId="nanogpt-daily-input-tokens-fill"
 					>
-						{`${usage.dailyInputTokens.percentUsed.toFixed(1)}% ${t("components.providerModals.used")}. ${resetAtLabel(usage.dailyInputTokens.resetAt, t)}`}
+						{`${formatDecimal(usage.dailyInputTokens.percentUsed, 1)}% ${t("components.providerModals.used")}. ${resetAtLabel(usage.dailyInputTokens.resetAt, t)}`}
 					</QuotaBar>
 				)}
 
