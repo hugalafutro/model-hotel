@@ -256,6 +256,7 @@ func (h *Handler) finalizeStream(st *streamState, sink *streamSink, scanErr erro
 	tps := tokensPerSecond(st.completionTokens, totalDuration, ttftForTPS)
 
 	errMsg := deriveStreamError(st, scanErr, opts, logData)
+	injectDone := false
 	if errMsg == "" && !st.sawDone && opts.rawPassthrough != nil {
 		// Native passthrough: a Messages stream ends with a message_stop event
 		// and a Responses stream with response.completed, plus EOF, and neither
@@ -277,20 +278,31 @@ func (h *Handler) finalizeStream(st *streamState, sink *streamSink, scanErr erro
 		// scanner did not error, inject the sentinel downstream so the client
 		// knows the stream completed normally.
 		if !st.clientDisconnected && scanErr == nil && st.chunkCount > 0 {
-			debuglog.Info("proxy: upstream omitted [DONE] sentinel; injecting for downstream", "model", logData.modelID, "provider", logData.providerName, "chunks", st.chunkCount)
-			if err := sink.write([]byte("data: [DONE]\n\n")); err != nil {
-				debuglog.Warn("proxy: failed to write injected [DONE]", "model", logData.modelID, "provider", logData.providerName, "error", err)
-			} else {
-				sink.flush()
-			}
-			// Stream was complete; the missing sentinel is benign.
-			debuglog.Info("proxy: stream completed (upstream omitted [DONE])", "model", logData.modelID, "provider", logData.providerName, "chunks", st.chunkCount)
+			// Stream was complete; the missing sentinel is benign. The sentinel
+			// is written after the slot settles, below.
+			injectDone = true
 		} else {
 			// No content received, or a scanner error: genuinely truncated.
 			errMsg = "stream truncated: upstream closed connection without [DONE] sentinel"
 			logData.errorKind = KindProviderError
 			debuglog.Warn("proxy: stream ended without [DONE] sentinel", "model", logData.modelID, "provider", logData.providerName, "chunks", st.chunkCount)
 		}
+	}
+
+	// The outcome is classified, so the in-flight slot settles here, before the
+	// client, request-log and token writes below: a provider at a window of one
+	// or two must not stay busy through this request's bookkeeping, nor behind
+	// a slow client reading the injected sentinel.
+	opts.slot.settle(streamSlotOutcome(st, logData, errMsg))
+
+	if injectDone {
+		debuglog.Info("proxy: upstream omitted [DONE] sentinel; injecting for downstream", "model", logData.modelID, "provider", logData.providerName, "chunks", st.chunkCount)
+		if err := sink.write([]byte("data: [DONE]\n\n")); err != nil {
+			debuglog.Warn("proxy: failed to write injected [DONE]", "model", logData.modelID, "provider", logData.providerName, "error", err)
+		} else {
+			sink.flush()
+		}
+		debuglog.Info("proxy: stream completed (upstream omitted [DONE])", "model", logData.modelID, "provider", logData.providerName, "chunks", st.chunkCount)
 	}
 
 	logData.statusCode = statusCode
@@ -366,6 +378,25 @@ func (h *Handler) finalizeStream(st *streamState, sink *streamSink, scanErr erro
 		debuglog.Info("proxy: recording token usage despite client disconnect", "model", logData.modelID, "provider", logData.providerName, "prompt_tokens", st.promptTokens, "completion_tokens", st.completionTokens)
 	}
 	h.recordTokenUsage(opts.vkHash, logData, promptTokens, completionTokens, reasoningTokens)
+}
+
+// streamSlotOutcome is the in-flight slot's settlement, taken from the same
+// verdict the breaker gets so the two cannot disagree: a stream the breaker
+// credits settles clean, one it charges settles unclean, and one it records
+// nothing for (a client hangup, a shutdown, the gateway's own deadline, an
+// error after useful output, frames this gateway could not read) settles
+// neutral. It is judged as though the breaker were on: switching the breaker
+// off must not freeze every learned window.
+func streamSlotOutcome(st *streamState, logData *requestLogData, errMsg string) slotOutcome {
+	v := judgeStreamForBreaker(st, logData, errMsg, true)
+	switch {
+	case v.success:
+		return slotClean
+	case v.failureReason != "":
+		return slotUnclean
+	default:
+		return slotNeutral
+	}
 }
 
 // deriveStreamError classifies how the stream ended into the error message

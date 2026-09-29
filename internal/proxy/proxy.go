@@ -410,31 +410,40 @@ func (h *Handler) probeFirstToken(
 	closeProbe := func() { closeProbeOnce.Do(func() { close(probeDone) }) }
 	defer closeProbe()
 
-	// Atomic flag set the instant a data line is detected, before any
-	// string processing. The goroutine checks this as a last guard before
-	// closing the body, closing a narrow race where the timer fires at the
-	// same instant the scanner returns a data line.
-	var probeSucceeded atomic.Bool
+	// The body is claimed exactly once: kept by a probe about to commit to it
+	// (it is replayed and read on), or closed by the deadline goroutine. A
+	// flag the goroutine checks and the probe sets later leaves a window, after
+	// Scan returns the token and before the store, in which the goroutine
+	// closes a body the probe then commits to, cutting the stream right after
+	// the replay. The compare-and-swap leaves no window: whichever side claims
+	// first wins, and a probe that lost the claim reports the timeout.
+	const (
+		bodyOpen int32 = iota
+		bodyKept
+		bodyClosed
+	)
+	var claim atomic.Int32
+	keepBody := func() bool {
+		claim.CompareAndSwap(bodyOpen, bodyKept)
+		return claim.Load() == bodyKept
+	}
+	lostToDeadline := func() error {
+		if probeCtx.Err() == context.DeadlineExceeded {
+			return fmt.Errorf("TTFT timeout: no first token within %s", ttftTimeout)
+		}
+		return fmt.Errorf("TTFT probe: %w", probeCtx.Err())
+	}
 
 	// Goroutine closes body when the probe context is cancelled (TTFT timeout
-	// or parent context cancellation), unblocking the scanner. The double-
-	// check of probeDone handles the narrow race where the probe succeeds
-	// at the same instant the context fires; probeSucceeded is the final
-	// guard to prevent closing a body that's about to be replayed.
+	// or parent context cancellation), unblocking the scanner, unless the
+	// probe already claimed the body for replay.
 	go func() {
 		select {
 		case <-probeDone:
 			// Probe finished: leave the body alone.
 			return
 		case <-probeCtx.Done():
-			// Double-check: probe may have just finished between the
-			// outer select and here.
-			select {
-			case <-probeDone:
-				return
-			default:
-			}
-			if !probeSucceeded.Load() {
+			if claim.CompareAndSwap(bodyOpen, bodyClosed) {
 				_ = body.Close()
 			}
 		}
@@ -455,9 +464,11 @@ func (h *Handler) probeFirstToken(
 	// producing, runs into the timeout and fails over.
 	sawFrame := false
 	emptyAnswer := func() (*bytes.Buffer, float64, error) {
-		// Stored first, as on every other success return: the deadline
+		// Claimed first, as on every other success return: the deadline
 		// goroutine must not close a body that is about to be replayed.
-		probeSucceeded.Store(true)
+		if !keepBody() {
+			return nil, 0, lostToDeadline()
+		}
 		ttft := util.MillisSince(startTime)
 		debuglog.Info("proxy: TTFT probe saw the stream end behind frames carrying no output; committing an empty answer", "ttft_ms", ttft)
 		closeProbe()
@@ -474,18 +485,12 @@ func (h *Handler) probeFirstToken(
 			content := strings.TrimSpace(raw)
 			verdict, envelopeMsg := classifyProbeFrame(content)
 			if verdict == probeFrameNotAToken {
-				// Carries nothing, so it decides nothing. The watchdog must
-				// stay armed across it, which is why probeSucceeded is set
+				// Carries nothing, so it decides nothing. The deadline must
+				// stay armed across it, which is why the body is claimed
 				// below rather than on any "data:" prefix.
 				sawFrame = sawFrame || content != ""
 				continue
 			}
-			// Signal the goroutine that a meaningful frame was found, so the
-			// body is not closed underneath the read. Set as early as possible
-			// so the goroutine sees it even if the timer fires at the same
-			// instant; the scanner-error recovery below covers the rest of
-			// that window.
-			probeSucceeded.Store(true)
 			if verdict == probeFrameEmptyStream && sawFrame {
 				return emptyAnswer()
 			}
@@ -513,7 +518,13 @@ func (h *Handler) probeFirstToken(
 				closeProbe()
 				return nil, 0, &upstreamFrameError{msg: msg}
 			}
-			// First real data chunk found.
+			// First real data chunk found. Claim the body before committing
+			// to it, so the goroutine does not close it underneath the
+			// replay. A lost claim means it already has: the deadline fired
+			// first, and committing now would hand the caller a closed body.
+			if !keepBody() {
+				return nil, 0, lostToDeadline()
+			}
 			ttft := util.MillisSince(startTime)
 			debuglog.Info("proxy: TTFT probe found first token", "ttft_ms", ttft)
 			closeProbe()
@@ -526,17 +537,14 @@ func (h *Handler) probeFirstToken(
 	// returns io.EOF from Err(); on clean EOF, Scan() returns false with
 	// Err() == nil, handled by the fallback after this block.
 	if scanErr := scanner.Err(); scanErr != nil {
-		// Race recovery: the goroutine may close the body between the
-		// scanner reading a complete data line and probeSucceeded being
-		// checked. TeeReader writes to buf before scanner.Scan() returns,
-		// so the data is captured. Success is only returned while the probe
-		// context is still valid: once it expires the goroutine has closed the
-		// body, and returning success would hand the caller a closed body,
-		// truncating the stream after buffer replay.
+		// Recovery: a read can fail after the TeeReader has already put a
+		// complete data line into buf. It is recovered only while the probe
+		// context is still valid and the body is claimed first: a body the
+		// deadline goroutine closed must not be committed to, since the
+		// stream would end right after the replay.
 		// A frame past the cap has no complete line to recover, and the
 		// recovery would copy the whole capped buffer twice to find that out.
-		if probeCtx.Err() == nil && !isLineCapErr(scanErr) {
-			probeSucceeded.Store(true) // mirror the main loop: store before any processing
+		if probeCtx.Err() == nil && !isLineCapErr(scanErr) && keepBody() {
 			// Every outcome logs, including the ones that refuse: the log is
 			// the only way an operator learns this branch fired.
 			if probeBuf, ttft, err, recovered := recoverFirstToken(&buf, startTime, scanErr); recovered {

@@ -723,6 +723,25 @@ func inflightLimitFor(h *Handler, cand modelCandidate) int {
 	return -1
 }
 
+// assertAbandonedWinSettlesNeutral abandons a won probe the way the
+// orchestrator abandons a runner-up and checks the slot settled neutral: freed,
+// the capped window not grown, and the clean-run count left where it was.
+func assertAbandonedWinSettlesNeutral(t *testing.T, h *Handler, cand modelCandidate, res hedgeResult) {
+	t.Helper()
+	if res.resp == nil {
+		t.Fatal("a win carries no response")
+	}
+	const earned = 5
+	h.inflight.mu.Lock()
+	h.inflight.windows[cand.provider.ID].goodRuns = earned
+	h.inflight.mu.Unlock()
+	abandonHedgeWin(res.resp, res.slot)
+	w := h.inflight.windowFor(t, cand.provider.ID)
+	if w.inflight != 0 || w.limit != 1 || w.goodRuns != earned {
+		t.Errorf("after an abandoned win: inflight=%d limit=%d goodRuns=%d, want 0, 1, %d", w.inflight, w.limit, w.goodRuns, earned)
+	}
+}
+
 func TestProbeStreamingCandidate(t *testing.T) {
 	h := newIntegrationHandler()
 	defer stopUnitHandler(h)
@@ -741,14 +760,11 @@ func TestProbeStreamingCandidate(t *testing.T) {
 		if !res.won {
 			t.Fatalf("expected a win, got reqErr=%+v", res.reqErr)
 		}
-		if res.resp != nil {
-			_ = res.resp.Body.Close()
-		}
-		// The hold is lowered once the token is in: the winner's close settles
-		// clean and the capped window grows.
-		if got := inflightLimitFor(h, cand); got != 2 {
-			t.Errorf("window limit after a hedged win = %d, want 2", got)
-		}
+		// A runner-up the orchestrator abandons settles neutral: losing the
+		// race to a faster candidate is no consumed success, so the capped
+		// window does not grow, and no failure either, so the clean-run count
+		// the provider already earned survives.
+		assertAbandonedWinSettlesNeutral(t, h, cand, res)
 	})
 
 	t.Run("silent 200 is provider_timeout", func(t *testing.T) {
@@ -763,8 +779,8 @@ func TestProbeStreamingCandidate(t *testing.T) {
 		defer srv.Close()
 
 		st, cand := probeStateForServer(srv.URL)
-		// The in-flight slot a hedged attempt holds settles from the close
-		// the probe performs on its timeout; a probe that failed is not a
+		// The probe's timeout closes the body under the verdict hold, and the
+		// attempt settles the failure itself: a probe that failed is not a
 		// consumed success, so the provider's learned window must not grow.
 		cappedWindow(t, h, st, cand)
 		res := h.probeStreamingCandidate(context.Background(), st, cand, 0, 100*time.Millisecond, 30*time.Millisecond)
@@ -788,20 +804,21 @@ func TestProbeStreamingCandidate(t *testing.T) {
 		defer srv.Close()
 
 		st, cand := probeStateForServer(srv.URL)
+		cappedWindow(t, h, st, cand)
 		// ttftTimeout == 0 disables the probe: a 200 is an immediate win.
 		res := h.probeStreamingCandidate(context.Background(), st, cand, 0, 0, 30*time.Second)
 		if !res.won {
 			t.Fatalf("expected immediate win with probe disabled, got reqErr=%+v", res.reqErr)
 		}
-		if res.resp != nil {
-			_ = res.resp.Body.Close()
-		}
+		// With no probe the verdict hold is still raised before the win, so
+		// a runner-up closed unserved is not settled clean from its 2xx.
+		assertAbandonedWinSettlesNeutral(t, h, cand, res)
 	})
 
 	t.Run("a refused model still strikes", func(t *testing.T) {
 		// The third and last path that drops a candidate's error body. A hedged
 		// race discards every loser here, so a dead model in a hedged group only
-		// ever accrued strikes on the runs it happened to WIN — and a model
+		// ever accrued strikes on the runs it happened to WIN, and a model
 		// answering 404 loses the first-token race to anything that works. Delete
 		// this and traffic-driven retirement is silently off for every streaming
 		// failover group whenever hedging is enabled.

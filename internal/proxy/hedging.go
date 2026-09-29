@@ -45,6 +45,9 @@ type hedgeResult struct {
 	// with the snapshot and a terminal all-busy response would fall back to
 	// the class-default Retry-After instead of the provider's own ask.
 	rateLimit rateLimitVerdict
+	// slot is the attempt's held in-flight admission, handed to the winner's
+	// stream so its finalizer's verdict is what settles it.
+	slot *attemptSlot
 	// busy marks a candidate skipped at its provider's in-flight window: no
 	// request was made, so an all-busy race is worth waiting out (see the
 	// orchestrator's exhaustion branch) instead of failing in milliseconds.
@@ -312,6 +315,7 @@ func (h *Handler) probeStreamingCandidate(ctx context.Context, st *requestState,
 		st.logData.noteBreaker(breakerNoop)
 		return res
 	}
+	res.slot = st.attemptSlot
 
 	// Same stamp beginAttempt makes at attempt start, before the request is
 	// built: launching an attempt against this provider counts as use, whether
@@ -321,7 +325,7 @@ func (h *Handler) probeStreamingCandidate(ctx context.Context, st *requestState,
 	var dialMs float64
 	proxyReq, providerType, _, err := h.buildCandidateRequest(ctx, st, candidate)
 	if err != nil {
-		st.attemptSlot.settle(false)
+		st.attemptSlot.settle(slotOutcomeFor(KindInternal))
 		res.reqErr = reqError{Kind: KindInternal, Attempt: attempt, Provider: candidate.provider.Name, Underlying: errString(err)}
 		return res
 	}
@@ -332,7 +336,7 @@ func (h *Handler) probeStreamingCandidate(ctx context.Context, st *requestState,
 	if !ok {
 		// doUpstream set st.lastReqErr (on the private snapshot) and recorded any
 		// breaker failure.
-		st.attemptSlot.settle(false)
+		st.attemptSlot.settle(slotOutcomeFor(st.lastReqErr.Kind))
 		res.reqErr = st.lastReqErr
 		return res
 	}
@@ -407,16 +411,18 @@ func (h *Handler) probeStreamingCandidate(ctx context.Context, st *requestState,
 		resp.Body = anthropicegress.NewStreamAdapter(resp.Body, st.reqModel)
 	}
 
+	// Same hold as dispatchStreaming, raised before either win below: from
+	// here the body's close settles nothing, so neither the probe's own close
+	// nor the orchestrator closing a runner-up it will never stream can settle
+	// the slot clean from the 2xx. Each exit settles explicitly: a failed
+	// probe here, an abandoned win in abandonHedgeWin, the winner's stream at
+	// its finalizer.
+	st.attemptSlot.holdVerdict()
 	if ttftTimeout <= 0 {
 		// No TTFT probe configured: a success status is an immediate win (backward compat).
 		return commitHedgeWin(ctx, res, resp, nil, 0, candidate)
 	}
 
-	// Same hold as dispatchStreaming: the probe closes the body itself when
-	// its context ends, from its own goroutine, and that close settles the
-	// slot clean from the 2xx unless the hold says otherwise. Raised until a
-	// first token proves the stream delivers, lowered after.
-	st.attemptSlot.holdForProbe(true)
 	probeBuf, trueTtftMs, probeErr := h.probeFirstToken(ctx, resp.Body, ttftTimeout, st.startTime)
 	if probeErr != nil {
 		_ = resp.Body.Close()
@@ -432,6 +438,7 @@ func (h *Handler) probeStreamingCandidate(ctx context.Context, st *requestState,
 			// before the cut is still charged below, as classifyProbeError
 			// promises.
 			res.reqErr = reqError{Kind: KindHedgeSuperseded, Attempt: attempt, Provider: candidate.provider.Name}
+			st.attemptSlot.settle(slotNeutral)
 			return res
 		}
 		// clientGone uses the attempt context: a fast cancel with zero tokens
@@ -441,6 +448,7 @@ func (h *Handler) probeStreamingCandidate(ctx context.Context, st *requestState,
 		clientGone := ctx.Err() != nil
 		elapsed := time.Since(st.startTime)
 		re, recordFailure := classifyProbeError(probeErr, candidate.provider.Name, newCredentialMasker(candidate.apiKey), st.logData.fence(), clientGone, elapsed, stallTimeout, ttftTimeout, attempt)
+		st.attemptSlot.settle(slotOutcomeFor(re.Kind))
 		if recordFailure {
 			// What only this site knows about the probe, beside the charge line
 			// chargeBreaker writes.
@@ -450,8 +458,6 @@ func (h *Handler) probeStreamingCandidate(ctx context.Context, st *requestState,
 		res.reqErr = re
 		return res
 	}
-	st.attemptSlot.holdForProbe(false)
-
 	// No breaker success here either: the winner's stream is judged by
 	// finalizeStream, and a runner-up whose stream is never read is no evidence
 	// of anything. See judgeStreamForBreaker.
@@ -461,11 +467,11 @@ func (h *Handler) probeStreamingCandidate(ctx context.Context, st *requestState,
 // commitHedgeWin finalizes a streamable probe success on the partially-built res
 // (which already carries the attempt's timing fields). If the attempt's context
 // was cancelled in the meantime (the orchestrator already picked another winner),
-// the open body is closed and the result is downgraded to a client-disconnect drop
-// so no runner-up connection leaks.
+// the open body is abandoned and the result is downgraded to a non-win, so no
+// runner-up connection or in-flight slot leaks.
 func commitHedgeWin(ctx context.Context, res hedgeResult, resp *http.Response, preReadBuf *bytes.Buffer, trueTtftMs float64, candidate modelCandidate) hedgeResult {
 	if ctx.Err() != nil {
-		_ = resp.Body.Close()
+		abandonHedgeWin(resp, res.slot)
 		res.reqErr = reqError{Kind: hedgeAbandonKind(ctx), Attempt: res.idx, Provider: candidate.provider.Name}
 		return res
 	}
@@ -499,7 +505,7 @@ func settleHedgeLaunches(logData *requestLogData, results <-chan hedgeResult, ca
 			inFlight--
 			settled[res.idx] = true
 			if res.resp != nil {
-				_ = res.resp.Body.Close()
+				abandonHedgeWin(res.resp, res.slot)
 			}
 			if res.won {
 				logData.appendAttemptRecord(hedgeAbandonedRecord(res.idx, candidates[res.idx], launchedAt[res.idx], kind, detail))
@@ -526,9 +532,19 @@ func drainHedgeResults(results <-chan hedgeResult, n int) {
 	for range n {
 		res := <-results
 		if res.resp != nil {
-			_ = res.resp.Body.Close()
+			abandonHedgeWin(res.resp, res.slot)
 		}
 	}
+}
+
+// abandonHedgeWin releases a won probe whose stream will never be served: the
+// connection is closed and the in-flight slot, whose verdict hold keeps the
+// close from settling it, is settled neutral. Losing the race to a faster
+// candidate, or being left behind by a caller who hung up, says nothing about
+// the provider, so its learned window neither grows nor restarts its count.
+func abandonHedgeWin(resp *http.Response, slot *attemptSlot) {
+	_ = resp.Body.Close()
+	slot.settle(slotNeutral)
 }
 
 // serveHedgeWinner stamps the winning candidate's identity and accumulated timings
@@ -564,6 +580,7 @@ func (h *Handler) serveHedgeWinner(w http.ResponseWriter, r *http.Request, st *r
 		attempt:            res.idx,
 		cancelOrigin:       "failover_timeout",
 		masker:             logData.masker,
+		slot:               res.slot,
 	}
 	// attempt is the 0-based failover_attempt this request is logged and stored
 	// with; it must match the value stream_finalize reports for the same request.

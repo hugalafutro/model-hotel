@@ -588,6 +588,10 @@ type streamOptions struct {
 	// error message. Copied from requestLogData.masker, the per-attempt stamp;
 	// the zero value masks by shape only.
 	masker credentialMasker
+	// slot is the attempt's held in-flight admission (nil when none is held).
+	// The stream keeps its verdict hold raised and lowers it only once the
+	// finalizer has judged the stream completed.
+	slot *attemptSlot
 }
 
 // ChatCompletionRequest is the request body for /v1/chat/completions.

@@ -3,7 +3,6 @@ package proxy
 import (
 	"bytes"
 	"encoding/json"
-	"io"
 	"net/http"
 	"strings"
 	"time"
@@ -20,14 +19,22 @@ func (h *Handler) handleStreamingResponse(w http.ResponseWriter, r *http.Request
 	// alive, so the watchdog timeout extends to tolerate tool-call pauses and
 	// long reasoning chains.
 
+	// The in-flight slot's verdict hold is raised for the whole stream (the
+	// dispatch already raised it for the TTFT probe), so neither the upstream's
+	// EOF nor a stall, shutdown or final close settles the slot on the 2xx
+	// alone. finalizeStream settles it once the stream's outcome is classified.
+	// The deferred settle is the safety net for an exit that never reaches the
+	// finalizer (a panic): unclean, since nothing proved the stream served, and
+	// a no-op once the finalizer has settled.
+	//
+	// The body is closed, never drained. A stream that reached its EOF has
+	// nothing left to drain; one that stopped early (a [DONE] or terminal
+	// event, an abort, a disconnect) may still be sending, and a drain would
+	// hold this goroutine until the upstream ended or the attempt deadline.
+	opts.slot.holdVerdict()
 	defer func() {
-		// Drain remaining bytes so the Transport reuses the connection, unless
-		// the client already disconnected: the upstream body may be large and
-		// draining it would block the goroutine for no benefit.
-		if r.Context().Err() == nil {
-			_, _ = io.Copy(io.Discard, resp.Body)
-		}
 		_ = resp.Body.Close()
+		opts.slot.settle(slotUnclean)
 	}()
 	debuglog.Debug("proxy: handleStreamingResponse entered", "model", logData.modelID, "provider", logData.providerName, "upstream_status", resp.StatusCode, "attempt", opts.attempt, "response_header_ms", opts.responseHeaderMs, "true_ttft_ms", opts.trueTtftMs, "has_probe_buf", opts.preReadBuf != nil)
 
@@ -96,12 +103,8 @@ func (h *Handler) handleStreamingResponse(w http.ResponseWriter, r *http.Request
 			if h.emitDone(sink, st, ev, chunkCount, logData) {
 				goto logUpdate
 			}
-			// [DONE] ends the stream. The deferred drain below reads until the
-			// upstream's EOF, and one that lingers past its own sentinel would
-			// hold this handler, and the caller's end of stream, until the
-			// attempt deadline. Closed rather than drained, like the native
-			// path's terminal event.
-			_ = resp.Body.Close()
+			// [DONE] ends the stream: nothing past it is read, so an upstream
+			// that lingers past its own sentinel does not hold this handler.
 			break
 		}
 
@@ -115,12 +118,10 @@ func (h *Handler) handleStreamingResponse(w http.ResponseWriter, r *http.Request
 			// The dialect's terminal event ends the stream the way [DONE] ends
 			// an OpenAI one. Reading on for the upstream's EOF let a client
 			// that hangs up on the terminal event (Codex does) be logged as a
-			// disconnect on a request it was fully served. The body is closed
-			// here rather than drained for reuse: the upstream said it was
-			// done, and one that lingers past its own terminal event would
-			// hold this goroutine until the stall watchdog fired.
+			// disconnect on a request it was fully served, and one that
+			// lingers past its own terminal event would hold this goroutine
+			// until the stall watchdog fired.
 			if st.sawTerminalEvent {
-				_ = resp.Body.Close()
 				break
 			}
 		} else if h.handleDataChunk(sink, st, ev, stripReasoning, chunkCount, logData) {
@@ -135,6 +136,9 @@ logUpdate:
 	// Stop the watchdog before reading its stall flag: close, then read the
 	// atomic.
 	reader.Close()
+	// Nothing is read past here, so the upstream connection is released now
+	// rather than held through the finalizer's bookkeeping.
+	_ = resp.Body.Close()
 	// st was accumulated in place by the loop; fill in the reader-owned fields
 	// it could not (the final chunk count and the stall flag, read after
 	// watchdog teardown), then finalize.

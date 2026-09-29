@@ -6,7 +6,10 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"net/http"
+	"net/http/httptest"
 	"strings"
+	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -133,31 +136,65 @@ func TestClassifyProbeError_LineCapMatchesTheStreamPath(t *testing.T) {
 	}
 }
 
-type closingBody struct {
-	io.Reader
-	closed atomic.Bool
+// A stream that stops before the upstream's EOF must not wait for it: the
+// upstream may go on sending, and reading it out would hold the handler until
+// the upstream ended or the attempt deadline passed. Each body here gives its
+// bytes and then blocks until it is closed, the way a live upstream that
+// keeps the connection open does.
+func TestHandleStreamingResponse_EarlyStopDoesNotWaitForTheUpstream(t *testing.T) {
+	cases := map[string]io.ReadCloser{
+		"too many empty lines": newBlockUntilClosedReader("data: {\"choices\":[{\"delta\":{\"content\":\"hi\"}}]}\n\n" + strings.Repeat("\n", emptyMessagesLimit+2)),
+		"a line past the cap":  &endlessLineUntilClosed{closed: make(chan struct{})},
+	}
+	for name, body := range cases {
+		t.Run(name, func(t *testing.T) {
+			h := newUnitHandler()
+			defer stopUnitHandler(h)
+			resp := &http.Response{StatusCode: http.StatusOK, Body: body, Header: make(http.Header)}
+			req := withAuthContext(httptest.NewRequest("GET", "/", http.NoBody))
+			logData := streamingLog()
+
+			done := make(chan struct{})
+			go func() {
+				defer close(done)
+				h.handleStreamingResponse(httptest.NewRecorder(), req, logData, resp, time.Now(), streamOptions{cancelOrigin: "failover_timeout"})
+			}()
+			select {
+			case <-done:
+			case <-time.After(5 * time.Second):
+				_ = body.Close() // release the handler so the test can end
+				<-done
+				t.Fatal("the handler waited on an upstream that was still sending")
+			}
+			if logData.state != "failed" {
+				t.Errorf("state = %q, want failed", logData.state)
+			}
+		})
+	}
 }
 
-func (c *closingBody) Close() error { c.closed.Store(true); return nil }
+// endlessLineUntilClosed streams one endless line until it is closed, then
+// reports EOF.
+type endlessLineUntilClosed struct {
+	closed chan struct{}
+	once   sync.Once
+}
 
-// A line past the cap ends the stream on ErrTooLong and closes the upstream
-// body at once: the orchestrator drains the body before closing it, and a
-// drain of an endless line would run to the attempt's deadline.
-func TestStreamReader_LinePastTheCapClosesTheBody(t *testing.T) {
-	t.Parallel()
-	body := &closingBody{Reader: io.MultiReader(strings.NewReader("data: "), neverEnding{})}
-	reader := newStreamReader(context.Background(), body, streamOptions{}, &requestLogData{modelID: "m", providerName: "p"}, nil)
-	defer reader.Close()
+func (e *endlessLineUntilClosed) Read(p []byte) (int, error) {
+	select {
+	case <-e.closed:
+		return 0, io.EOF
+	default:
+	}
+	for i := range p {
+		p[i] = 'A'
+	}
+	return len(p), nil
+}
 
-	if _, ok := reader.Next(); ok {
-		t.Fatal("a line past the cap must end the stream")
-	}
-	if !errors.Is(reader.err(), bufio.ErrTooLong) {
-		t.Fatalf("reader error = %v, want bufio.ErrTooLong", reader.err())
-	}
-	if !body.closed.Load() {
-		t.Fatal("the body must be closed so the drain cannot run on")
-	}
+func (e *endlessLineUntilClosed) Close() error {
+	e.once.Do(func() { close(e.closed) })
+	return nil
 }
 
 // neverEnding is a reader that always has more of the same line.

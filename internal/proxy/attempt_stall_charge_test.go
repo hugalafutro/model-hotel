@@ -89,9 +89,10 @@ func TestAttemptDeadline_IsCutAtTheOverallDeadline(t *testing.T) {
 // attempt holds settles unclean, so the provider's learned window does not
 // grow on a stream that never delivered a token. The body is wrapped exactly
 // as finishAttemptAdmission wraps it, clean from the 2xx, so the close alone
-// would have credited the attempt. Two ways a probe fails: a read error the
-// dispatch's own close settles, and the TTFT timeout, where the probe closes
-// the body from its own goroutine before the dispatch gets to. The third case
+// would have credited the attempt; the verdict hold keeps it from settling
+// anything, and the dispatch settles the failure explicitly. Two ways a probe
+// fails: a read error, and the TTFT timeout, where the probe closes the body
+// from its own goroutine before the dispatch gets to. The third case
 // wraps the release the way the translated dialects do (the probe never sees
 // the release itself), which is why the verdict lives on the slot.
 func TestDispatchStreaming_ProbeFailureSettlesTheSlotUnclean(t *testing.T) {
@@ -117,8 +118,8 @@ func TestDispatchStreaming_ProbeFailureSettlesTheSlotUnclean(t *testing.T) {
 		{"TTFT timeout behind a dialect adapter", newBlockUntilClosedReader(""), true},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			settled := make(chan bool, 1)
-			slot := &attemptSlot{fire: func(clean bool) { settled <- clean }}
+			settled := make(chan slotOutcome, 1)
+			slot := &attemptSlot{fire: func(o slotOutcome) { settled <- o }}
 			var body io.ReadCloser = &inflightRelease{ReadCloser: tc.body, slot: slot, clean: true, onEOF: true}
 			if tc.wrap {
 				body = struct{ io.ReadCloser }{body}
@@ -146,9 +147,9 @@ func TestDispatchStreaming_ProbeFailureSettlesTheSlotUnclean(t *testing.T) {
 				t.Fatalf("outcome = %v, want failover", got)
 			}
 			select {
-			case clean := <-settled:
-				if clean {
-					t.Error("the slot settled clean on a probe that failed")
+			case o := <-settled:
+				if o != slotUnclean {
+					t.Errorf("the slot settled %d on a probe the provider failed, want unclean", o)
 				}
 			default:
 				t.Fatal("the slot never settled")
@@ -170,15 +171,15 @@ func (d dataErrReader) Read(p []byte) (int, error) {
 }
 
 // The first token and the upstream's EOF can arrive in one read. The probe's
-// hold keeps that EOF from settling the slot while the verdict is still
-// "unclean until a token"; once the token is in, the stream's own end settles
-// it clean, so a delivered one-read stream keeps its credit.
+// hold keeps that EOF from settling the slot before any verdict is in; the
+// stream's finalizer then settles it clean, so a delivered one-read stream
+// keeps its credit.
 func TestDispatchStreaming_FirstTokenAndEOFInOneReadSettlesClean(t *testing.T) {
 	h := newIntegrationHandler()
 	defer stopUnitHandlerIntegration(h)
 
-	settled := make(chan bool, 1)
-	slot := &attemptSlot{fire: func(clean bool) { settled <- clean }}
+	settled := make(chan slotOutcome, 1)
+	slot := &attemptSlot{fire: func(o slotOutcome) { settled <- o }}
 	oneRead := dataErrReader{r: strings.NewReader("data: {\"choices\":[{\"index\":0,\"delta\":{\"content\":\"hi\"}}]}\n\n")}
 	resp := &http.Response{
 		StatusCode: http.StatusOK,
@@ -207,8 +208,8 @@ func TestDispatchStreaming_FirstTokenAndEOFInOneReadSettlesClean(t *testing.T) {
 		t.Fatalf("outcome = %v, want served: %s", got, w.Body.String())
 	}
 	select {
-	case clean := <-settled:
-		if !clean {
+	case o := <-settled:
+		if o != slotClean {
 			t.Error("a delivered one-read stream settled unclean")
 		}
 	default:

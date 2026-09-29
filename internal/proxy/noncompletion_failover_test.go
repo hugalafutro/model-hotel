@@ -760,7 +760,7 @@ func TestRejected2xx_DoesNotEarnACleanRun(t *testing.T) {
 		if !limiter.tryAcquire(pid, 0) {
 			t.Fatal("setup: slot not acquired")
 		}
-		limiter.release(pid, true, 0, 0)
+		limiter.release(pid, slotClean, 0, 0)
 	}
 	before := *limiter.windowFor(t, pid)
 	if before.goodRuns != defaultInflightGrowAfter-1 {
@@ -1000,7 +1000,7 @@ func TestUntranslatableEgress2xx_NeitherGrowsTheWindowNorLeaksTheSlot(t *testing
 		if !limiter.tryAcquire(pid, 0) {
 			t.Fatal("setup: slot not acquired")
 		}
-		limiter.release(pid, true, 0, 0)
+		limiter.release(pid, slotClean, 0, 0)
 	}
 	before := *limiter.windowFor(t, pid)
 	if before.goodRuns != defaultInflightGrowAfter-1 {

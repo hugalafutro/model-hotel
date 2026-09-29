@@ -156,7 +156,7 @@ func (h *Handler) attemptCandidate(w http.ResponseWriter, r *http.Request, st *r
 				st.proxyOverhead = st.timings.proxyOverheadMs(st.parseMs)
 			}
 			if res.cont {
-				st.attemptSlot.settle(false)
+				st.attemptSlot.settle(slotOutcomeFor(res.lastReqErr.Kind))
 				st.setReqErr(res.lastReqErr)
 				logData.closeAttemptRecord(0, res.lastReqErr.Kind, res.lastReqErr.Underlying, "", 0)
 				return outcomeFailover
@@ -351,20 +351,19 @@ func (h *Handler) dispatchStreaming(w http.ResponseWriter, r *http.Request, st *
 		cancelOrigin:       streamCancelOrigin,
 		rawPassthrough:     st.nativeAttempt(),
 		masker:             logData.masker,
+		slot:               st.attemptSlot,
 	}
 
 	if ttftTimeout > 0 {
-		// The in-flight slot settles from the body's close, and the probe
+		// The in-flight slot would settle from the body's close, and the probe
 		// closes the body itself, from its own goroutine, when its context
-		// ends (the TTFT timeout, or the caller leaving). So the verdict has
-		// to be on the slot BEFORE the probe runs: unclean until a first token
-		// proves the stream delivers, lifted once one has. The hold also
-		// defers an EOF that arrives in the same read as that first token,
-		// so a one-read stream is not settled before the verdict is in. A
-		// probe that failed is not a consumed success whoever ended it, so
-		// the provider's learned window does not grow on it; the breaker
-		// charge below still spares a caller who left.
-		st.attemptSlot.holdForProbe(true)
+		// ends (the TTFT timeout, or the caller leaving). So the verdict hold
+		// goes on the slot BEFORE the probe runs, and from then on the slot
+		// settles only explicitly: below on a failed probe, by the stream's
+		// finalizer otherwise (see handleStreamingResponse). The hold also
+		// defers an EOF that arrives in the same read as the first token, so
+		// a one-read stream is not settled before the verdict is in.
+		st.attemptSlot.holdVerdict()
 		// TTFT probe: read until first real data chunk.
 		probeBuf, trueTtftMs, probeErr := h.probeFirstToken(r.Context(), resp.Body, ttftTimeout, st.startTime)
 		if probeErr != nil {
@@ -379,6 +378,10 @@ func (h *Handler) dispatchStreaming(w http.ResponseWriter, r *http.Request, st *
 			_ = resp.Body.Close()
 			elapsed := time.Since(st.startTime)
 			re, recordFailure := classifyProbeError(probeErr, candidate.provider.Name, newCredentialMasker(candidate.apiKey), logData.fence(), clientGone, elapsed, stallTimeout, ttftTimeout, attempt)
+			// A failed probe is no consumed success, so the learned window
+			// never grows on it; a caller who left is no evidence against the
+			// provider either, and is settled neutral.
+			st.attemptSlot.settle(slotOutcomeFor(re.Kind))
 			if recordFailure {
 				h.chargeBreaker(st, candidate, resp.StatusCode, "TTFT probe failed")
 			}
@@ -393,7 +396,6 @@ func (h *Handler) dispatchStreaming(w http.ResponseWriter, r *http.Request, st *
 			debuglog.Warn("proxy: TTFT probe failed", "attempt", attempt+1, "provider", candidate.provider.Name, "client_gone", clientGone, "elapsed", elapsed, "kind", string(re.Kind), "charged", recordFailure, "error", re.Underlying)
 			return outcomeFailover
 		}
-		st.attemptSlot.holdForProbe(false)
 		// First token confirmed. No breaker success is recorded here: a first
 		// token is not a served stream, and recording one would zero
 		// consecutiveFails on every request, so the finalizer's own failure
@@ -466,7 +468,7 @@ func (h *Handler) beginAttempt(failoverCtx context.Context, st *requestState, ca
 
 	proxyReq, providerType, targetURL, err := h.buildCandidateRequest(failoverCtx, st, candidate)
 	if err != nil {
-		st.attemptSlot.settle(false)
+		st.attemptSlot.settle(slotOutcomeFor(KindInternal))
 		st.setReqErr(reqError{Kind: KindInternal, Attempt: attempt, Provider: candidate.provider.Name, Underlying: errString(err)})
 		logData.closeAttemptRecord(0, KindInternal, errString(err), "", 0)
 		return nil, providerType, targetURL, false, false
@@ -474,7 +476,7 @@ func (h *Handler) beginAttempt(failoverCtx context.Context, st *requestState, ca
 
 	resp, upstreamOK := h.doUpstream(failoverCtx, proxyReq, st, candidate, attempt, dialMs)
 	if !upstreamOK {
-		st.attemptSlot.settle(false)
+		st.attemptSlot.settle(slotOutcomeFor(st.lastReqErr.Kind))
 		// doUpstream set st.lastReqErr; no response was seen, so no status.
 		logData.closeAttemptRecord(0, st.lastReqErr.Kind, st.lastReqErr.Underlying, "", 0)
 		return nil, providerType, targetURL, false, false

@@ -106,13 +106,43 @@ func (l *inflightLimiter) canAdmit(providerID uuid.UUID, ceiling int) bool {
 	return limit <= 0 || w.inflight < limit
 }
 
-// release returns one slot. clean says the request completed as a success
-// (a 2xx that was consumed to its end), which is what grows a capped window:
+// slotOutcome is what a settled attempt says about its provider's allowance.
+type slotOutcome int8
+
+const (
+	// slotUnclean is a failure: it resets the clean-run count.
+	slotUnclean slotOutcome = iota
+	// slotClean is a consumed success (a 2xx read to its end, or a stream the
+	// finalizer judged completed): it counts toward growing the window.
+	slotClean
+	// slotNeutral is an attempt that ended for a reason that is no evidence
+	// about the provider (the client left, another hedge candidate won, the
+	// gateway is restarting): it frees the slot and changes nothing else.
+	slotNeutral
+)
+
+// slotOutcomeFor maps a failed attempt's error kind to its settlement: the
+// causes the provider did not produce (the client leaving, a lost hedge race,
+// an internal failure) are neutral, every other failure is unclean. A failover
+// or retry deadline that expires before the headers is unclean: doUpstream
+// charges the breaker for it as a provider stall, and the window has to learn
+// from the same overload. (Mid-stream, streamSlotOutcome follows the breaker,
+// which does not charge those deadlines.)
+func slotOutcomeFor(kind ErrorKind) slotOutcome {
+	switch kind {
+	case KindClientDisconnect, KindHedgeSuperseded, KindInternal:
+		return slotNeutral
+	default:
+		return slotUnclean
+	}
+}
+
+// release returns one slot. A clean outcome is what grows a capped window:
 // +1 per growAfter consecutive clean completions, and back to uncapped once
-// the window has gone forgetAfter without a cut. Failures only reset the
-// clean-run count: shrinking is the cut's job, and only a saturated 429 proves
-// the allowance too high.
-func (l *inflightLimiter) release(providerID uuid.UUID, clean bool, growAfter int, forgetAfter time.Duration) {
+// the window has gone forgetAfter without a cut. An unclean one only resets
+// the clean-run count: shrinking is the cut's job, and only a saturated 429
+// proves the allowance too high. A neutral one leaves the count alone.
+func (l *inflightLimiter) release(providerID uuid.UUID, outcome slotOutcome, growAfter int, forgetAfter time.Duration) {
 	if l == nil {
 		return
 	}
@@ -134,13 +164,13 @@ func (l *inflightLimiter) release(providerID uuid.UUID, clean bool, growAfter in
 			// and holding a stale cap is a self-inflicted saturation.
 			w.limit = 0
 			w.goodRuns = 0
-		case clean:
+		case outcome == slotClean:
 			w.goodRuns++
 			if w.goodRuns >= growAfter {
 				w.limit++
 				w.goodRuns = 0
 			}
-		default:
+		case outcome == slotUnclean:
 			w.goodRuns = 0
 		}
 	}
@@ -261,41 +291,40 @@ func (l *inflightLimiter) snapshot() []metrics.InflightState {
 // overlap.
 type attemptSlot struct {
 	once sync.Once
-	fire func(clean bool)
-	// probing, while raised, makes a settle unclean whatever verdict it
-	// carries and stops the body's EOF from settling at all. The streaming
-	// dispatch raises it for the TTFT probe, whose failure closes the body
-	// (and so settles the slot, clean from the 2xx) from the probe's own
-	// goroutine, before the dispatch could say the attempt failed; and whose
-	// success can arrive in the same read as the upstream's EOF, which must
-	// not settle either, since the verdict is only lowered afterwards (the
-	// stream's close, or its next EOF, settles clean then). It lives on the
-	// slot, not the body wrapper, because the translated dialects wrap the
-	// body again before the probe sees it.
-	probing atomic.Bool
+	fire func(slotOutcome)
+	// held, once raised, stops the body's EOF and close from settling the slot
+	// at all, leaving it to an explicit settle. A streaming attempt raises it
+	// before the TTFT probe: the probe closes the body from its own goroutine
+	// when its context ends, the stall watchdog and the shutdown close it from
+	// theirs, and the upstream's EOF arrives before the finalizer has judged
+	// the stream, and none of those knows the verdict. The exit that does (a
+	// probe failure, an abandoned hedge win, the stream's finalizer) settles
+	// explicitly. It lives on the slot, not the body wrapper, because the
+	// translated dialects wrap the body again before the probe sees it.
+	held atomic.Bool
 }
 
-// settle releases the slot. clean says the attempt completed as a consumed
-// success; only the first settle counts, so a later duplicate (a drain closing
-// a body whose EOF already fired, a forced settle before a cut) is a no-op.
-func (s *attemptSlot) settle(clean bool) {
+// settle releases the slot with the given outcome; only the first settle
+// counts, so a later duplicate (a close after the finalizer settled, a forced
+// settle before a cut) is a no-op.
+func (s *attemptSlot) settle(outcome slotOutcome) {
 	if s == nil {
 		return
 	}
-	s.once.Do(func() { s.fire(clean && !s.probing.Load()) })
+	s.once.Do(func() { s.fire(outcome) })
 }
 
-// holdForProbe raises (or lowers) the probe hold: while raised, a settle is
-// unclean and an EOF does not settle.
-func (s *attemptSlot) holdForProbe(on bool) {
+// holdVerdict raises the verdict hold: from here on the body's EOF and close
+// release nothing, and the slot waits for an explicit settle.
+func (s *attemptSlot) holdVerdict() {
 	if s != nil {
-		s.probing.Store(on)
+		s.held.Store(true)
 	}
 }
 
-// probeHeld reports whether the probe hold is raised.
-func (s *attemptSlot) probeHeld() bool {
-	return s != nil && s.probing.Load()
+// verdictHeld reports whether the verdict hold is raised.
+func (s *attemptSlot) verdictHeld() bool {
+	return s != nil && s.held.Load()
 }
 
 // inflightRelease wraps an upstream body so the attempt's slot settles when
@@ -305,14 +334,16 @@ func (s *attemptSlot) probeHeld() bool {
 // whichever comes first; every attempt path closes the body on every exit
 // (client disconnect and hedge loss included), so a leaked count, a slow
 // self-inflicted saturation, would need a leaked body, which the bodyclose
-// lint forbids.
+// lint forbids. A slot whose verdict hold is raised is the exception: its
+// close settles nothing, and the exit that knows the verdict settles it.
 //
 // onEOF is what holdSlotForVerdict turns off. clean is fixed from the response
-// status at header time, which is the whole truth for a stream (its verdict
-// arrives with its last frame, after which the body is closed at once) and not
-// for a path that reads a whole body and only then decides whether the 2xx
-// carried an answer: there the EOF is reached while the verdict is still being
-// formed, so those paths hold the slot until their own close.
+// status at header time, which is not the whole truth for a path that reads a
+// whole body and only then decides whether the 2xx carried an answer: there
+// the EOF is reached while the verdict is still being formed, so those paths
+// hold the slot until their own close. A stream's verdict arrives later still,
+// at its finalizer, so a stream raises the slot's verdict hold and settles it
+// explicitly (see attemptSlot.held).
 type inflightRelease struct {
 	io.ReadCloser
 	slot  *attemptSlot
@@ -336,16 +367,25 @@ func holdSlotForVerdict(resp *http.Response) {
 
 func (b *inflightRelease) Read(p []byte) (int, error) {
 	n, err := b.ReadCloser.Read(p)
-	if err == io.EOF && b.onEOF && !b.slot.probeHeld() {
-		b.slot.settle(b.clean)
+	if err == io.EOF && b.onEOF && !b.slot.verdictHeld() {
+		b.slot.settle(b.outcome())
 	}
 	return n, err
 }
 
 func (b *inflightRelease) Close() error {
 	err := b.ReadCloser.Close()
-	b.slot.settle(b.clean)
+	if !b.slot.verdictHeld() {
+		b.slot.settle(b.outcome())
+	}
 	return err
+}
+
+func (b *inflightRelease) outcome() slotOutcome {
+	if b.clean {
+		return slotClean
+	}
+	return slotUnclean
 }
 
 // admitCandidate is the admission gate an attempt passes before anything is
@@ -368,12 +408,12 @@ func (h *Handler) admitCandidate(st *requestState, candidate modelCandidate) boo
 	pid := candidate.provider.ID
 	limiter := h.inflight
 	settings := h.settingsRepo
-	st.attemptSlot = &attemptSlot{fire: func(clean bool) {
+	st.attemptSlot = &attemptSlot{fire: func(outcome slotOutcome) {
 		// Settings are read at settle time (a stream can end minutes after
 		// admission) on a background context: the values are cached, and a
 		// client's cancelled context must not turn a real read into defaults.
 		ctx := context.Background()
-		limiter.release(pid, clean,
+		limiter.release(pid, outcome,
 			settings.GetInt(ctx, "inflight_grow_after", defaultInflightGrowAfter),
 			settings.GetDuration(ctx, "inflight_forget_after", defaultInflightForgetAfter))
 	}}

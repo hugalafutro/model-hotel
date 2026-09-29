@@ -342,12 +342,14 @@ func (h *Handler) rejectUntranslatableBody(st *requestState, candidate modelCand
 	// still being formed, and nothing said afterwards could take the credit
 	// back.
 	//
-	// Not for an abandoned request. The caller leaving says nothing about the
-	// provider, and a slot knows only clean or not, so it settles clean from its
-	// 2xx at the close that follows and the provider keeps the run: the same
-	// line the breaker draws above, where an abandoned read is not charged.
-	if !abandoned {
-		st.attemptSlot.settle(false)
+	// An abandoned request settles neutral: the caller leaving says nothing
+	// about the provider, so the provider keeps its clean run without being
+	// credited another, the same line the breaker draws above, where an
+	// abandoned read is not charged.
+	if abandoned {
+		st.attemptSlot.settle(slotNeutral)
+	} else {
+		st.attemptSlot.settle(slotUnclean)
 	}
 	st.setReqErr(reqError{Kind: kind, Attempt: attempt, Provider: candidate.provider.Name, Underlying: errString(err)})
 	logData.failoverAttempt = attempt
