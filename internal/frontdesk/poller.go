@@ -241,6 +241,21 @@ func (p *Poller) forgetMember(id string) {
 	delete(p.conflictNotified, id)
 }
 
+// tombstone marks a member removed before the store removes it, so a poll
+// landing between the delete's commit and forgetMember commits nothing;
+// untombstone takes the mark back when the delete did not remove it.
+func (p *Poller) tombstone(id string) {
+	p.mu.Lock()
+	p.forgotten[id] = true
+	p.mu.Unlock()
+}
+
+func (p *Poller) untombstone(id string) {
+	p.mu.Lock()
+	delete(p.forgotten, id)
+	p.mu.Unlock()
+}
+
 // putStatus stores a member's status, unless the member was removed while the
 // poll that measured it was in flight (forgetMember), and reports whether it
 // stored it. The caller holds p.mu.

@@ -337,7 +337,15 @@ func (s *Server) deleteMember(w http.ResponseWriter, r *http.Request) {
 	// removing a member from a two-member fleet disbands the whole fleet, primary
 	// included (the UI warns before this call). Every guard runs inside the
 	// delete statement itself, so a concurrent repoint cannot race past it.
+	// The poller stops committing for the target before the store deletes it:
+	// marked afterwards, a poll landing in between would persist and publish
+	// an alert for a member already gone. A delete that removes nothing takes
+	// the mark back.
+	s.poller.tombstone(id)
 	outcome, removed, err := s.store.DeleteMemberOrDisband(r.Context(), id)
+	if err != nil || outcome == DeleteRefusedPrimary {
+		s.poller.untombstone(id)
+	}
 	if err != nil {
 		// Removing the last active member of a 3+ fleet would empty the routing
 		// pool; refuse with the same stable code the drain guard uses (drain

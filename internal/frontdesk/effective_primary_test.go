@@ -399,8 +399,21 @@ func TestDeleteMember_RefusesTheMarkerPrimary(t *testing.T) {
 	if rec := do(t, srv, http.MethodDelete, "/api/members/"+ids[0], "", true); rec.Code != http.StatusConflict {
 		t.Errorf("DELETE marker primary = %d, want 409", rec.Code)
 	}
+	// A refused delete removed nothing, so the member's polls still commit.
+	srv.poller.mu.Lock()
+	refusedStillPolled := !srv.poller.forgotten[ids[0]]
+	srv.poller.mu.Unlock()
+	if !refusedStillPolled {
+		t.Error("a refused delete left the member marked removed, so its polls would commit nothing")
+	}
 	if rec := do(t, srv, http.MethodDelete, "/api/members/"+ids[1], "", true); rec.Code != http.StatusNoContent {
 		t.Errorf("DELETE other member = %d, want 204", rec.Code)
+	}
+	srv.poller.mu.Lock()
+	removedMarked := srv.poller.forgotten[ids[1]]
+	srv.poller.mu.Unlock()
+	if !removedMarked {
+		t.Error("a removed member is not marked removed")
 	}
 }
 
