@@ -100,9 +100,29 @@ func MaskKeyShapedTokens(body []byte) []byte {
 	return secretParamShape.ReplaceAll(body, []byte("${1}${2}=[redacted]"))
 }
 
+// mayHoldShape is a literal check every shape pattern implies: the prefixed
+// keys need "-" or "_", a bearer token the word "bearer", a parameter "=",
+// URL userinfo "://", and the rest their fixed prefixes. Text without any of
+// them skips the regexp scans, which on a multi-megabyte prompt cost seconds.
+func mayHoldShape(s string) bool {
+	if strings.ContainsAny(s, "-_=") || strings.Contains(s, "://") || strings.Contains(s, "AIza") ||
+		strings.Contains(s, "AKIA") || strings.Contains(s, "eyJ") {
+		return true
+	}
+	for i := 0; i+len("bearer") <= len(s); i++ {
+		if (s[i] == 'b' || s[i] == 'B') && strings.EqualFold(s[i:i+len("bearer")], "bearer") {
+			return true
+		}
+	}
+	return false
+}
+
 // maskShapes is MaskKeyShapedTokens over a string. Text no pattern matches,
 // nearly every log line, is returned as is: no copy, no replacement pass.
 func maskShapes(s string) string {
+	if !mayHoldShape(s) {
+		return s
+	}
 	if !ambiguousKeyShape.MatchString(s) && !unambiguousKeyShape.MatchString(s) &&
 		!URLUserinfoRE.MatchString(s) && !secretParamShape.MatchString(s) {
 		return s

@@ -1,7 +1,9 @@
 package util
 
 import (
+	"math/rand/v2"
 	"net/url"
+	"regexp"
 	"strings"
 	"testing"
 	"unsafe"
@@ -333,5 +335,40 @@ func TestMaskCredentials_ReturnsCleanTextUncopied(t *testing.T) {
 	in := strings.Repeat("proxy: an ordinary log line with nothing in it ", 4)
 	if got := MaskCredentials(nil, in); unsafe.StringData(got) != unsafe.StringData(in) {
 		t.Fatal("clean text was copied")
+	}
+}
+
+// The literal check must never skip text a shape pattern would match: every
+// match found in random text over the patterns' own characters (minus the
+// literals, so misses are common) must pass the check, and each pattern's
+// shortest match passes it.
+func TestMayHoldShape_ImpliedByEveryPattern(t *testing.T) {
+	t.Parallel()
+	patterns := []*regexp.Regexp{ambiguousKeyShape, unambiguousKeyShape, URLUserinfoRE, secretParamShape, uuidPattern}
+	for _, s := range []string{
+		"sk-0123456789abcdef0", "Authorization: BeArEr abcdefghijklmnopq", "AIza" + strings.Repeat("a", 30),
+		"AKIA0123456789ABCDEF", "eyJabcdefghij.abcdefghijk", "https://u:p@host", " token=x",
+		"793ac38b-0211-43e6-baa7-aa7054c39931",
+	} {
+		if !mayHoldShape(s) {
+			t.Errorf("%q skipped", s)
+		}
+	}
+	const alphabet = "abeikrsxyzAIKJZ0189 .:/@?&\"'\\\n\tBRE"
+	rng := rand.New(rand.NewPCG(1, 2))
+	for range 200000 {
+		b := make([]byte, 4+rng.IntN(40))
+		for i := range b {
+			b[i] = alphabet[rng.IntN(len(alphabet))]
+		}
+		s := string(b)
+		if mayHoldShape(s) {
+			continue
+		}
+		for _, p := range patterns {
+			if p.MatchString(s) {
+				t.Fatalf("%q skipped but %v matches it", s, p)
+			}
+		}
 	}
 }
