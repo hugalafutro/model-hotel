@@ -7,9 +7,7 @@
 # work across CI runners instead:
 #
 #   - a HEAVY package (more than HEAVY_MIN top-level tests) is run on every
-#     shard, its tests dealt longest-first to the least-loaded shard: each
-#     test weighs 1 unless scripts/ci/go-race-weights.txt names it (a test
-#     that alone outweighs a third of its package's others);
+#     shard, each shard taking every TOTAL-th of its tests by sorted name;
 #   - every other package runs whole on one shard, dealt round-robin.
 #
 # Test names are read from the _test.go sources, not from `go test -list`: the
@@ -44,49 +42,14 @@ tests_in() {
 		sed -E 's/^func //; s/\($//' | grep -vx 'TestMain' | sort -u || true
 }
 
-# deal DIR TOTAL prints "SHARD NAME" for every test of a heavy package: weights
-# from WEIGHTS (default 1), heaviest first and then by name, each to the shard
-# with the least weight so far (the lowest-numbered on a tie). Every shard
-# computes the same deal, so the shards partition the package.
-WEIGHTS="scripts/ci/go-race-weights.txt"
-deal() {
-	tests_in "$1" | awk -v d="$1" -v t="$2" -v wf="$WEIGHTS" '
-		BEGIN {
-			while ((getline line < wf) > 0) {
-				if (line ~ /^#/ || line ~ /^[[:space:]]*$/) continue
-				split(line, f, /[[:space:]]+/)
-				if (f[1] == d) w[f[2]] = f[3]
-			}
-		}
-		{ names[NR] = $0; wt[$0] = ($0 in w) ? w[$0] : 1 }
-		END {
-			n = NR
-			# Heaviest first, then by name: an insertion sort, fine at a few
-			# thousand tests.
-			for (i = 2; i <= n; i++) {
-				x = names[i]; j = i - 1
-				while (j >= 1 && (wt[names[j]] < wt[x] || (wt[names[j]] == wt[x] && names[j] > x))) {
-					names[j + 1] = names[j]; j--
-				}
-				names[j + 1] = x
-			}
-			for (s = 1; s <= t; s++) load[s] = 0
-			for (i = 1; i <= n; i++) {
-				best = 1
-				for (s = 2; s <= t; s++) if (load[s] < load[best]) best = s
-				load[best] += wt[names[i]]
-				print best, names[i]
-			}
-		}'
-}
-
 # plan SHARD TOTAL prints "heavy DIR NAME" and "light DIR" lines for the shard.
 plan() {
 	local shard=$1 total=$2 i=0 dir n
 	while read -r dir; do
 		n=$(tests_in "$dir" | wc -l)
 		if [ "$n" -gt "$HEAVY_MIN" ]; then
-			deal "$dir" "$total" | awk -v s="$shard" -v d="$dir" '$1 == s { print "heavy", d, $2 }'
+			tests_in "$dir" | awk -v s="$shard" -v t="$total" -v d="$dir" \
+				'(NR - 1) % t == s - 1 { print "heavy", d, $0 }'
 		else
 			if [ $((i % total)) -eq $((shard - 1)) ]; then
 				echo "light $dir"
