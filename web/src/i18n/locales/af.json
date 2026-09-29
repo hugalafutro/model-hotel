@@ -877,7 +877,6 @@
 				"onlyOneValid": "Slegs een geldige verskaffer bly oor na snoei (failover benodig ten minste twee)"
 			},
 			"error": "Fout",
-			"failover": "Failover-groepe",
 			"field": {
 				"context_length": "Kontekslengte",
 				"input_price": "Invoerprys",
@@ -939,7 +938,6 @@
 			"dismissedSummary_other": "{{count}} modelle afgewys",
 			"empty": "Geen ontbrekende of onstabiele modelle nie. Alles stem ooreen met die verskaffers se lyste.",
 			"error": "Fout",
-			"failover": "Failover-groepe",
 			"flapWindowTooltip_one": "{{count}} skommeling in die laaste 30 dae",
 			"flapWindowTooltip_other": "{{count}} skommelings in die laaste 30 dae",
 			"flapped_one": "{{count}} skommeling",
@@ -992,7 +990,9 @@
 			"unpinTooltip": "Gee hierdie model terug aan outomatiese bestuur. As dit uit die verskaffer se lys bly, word dit ná twee skanderings weer gedeaktiveer.",
 			"unpinned": "{{model}} ontspeld",
 			"updated": "Metagegewens bygewerk",
-			"unpinManagedTooltip": "Vaspennings word deur die vloot se primêre instansie bestuur en word met die volgende konfigurasiesinkronisasie vervang. Ontspeld hierdie model op die primêre instansie."
+			"unpinManagedTooltip": "Vaspennings word deur die vloot se primêre instansie bestuur en word met die volgende konfigurasiesinkronisasie vervang. Ontspeld hierdie model op die primêre instansie.",
+			"failoverSync": "Failover-sinkronisering",
+			"groupsChanged": "Groepe verander"
 		},
 		"toast_quota_detected_minimax": "MiniMax-kwota opgespoor",
 		"toast_quota_detected_opencode_go": "OpenCode Go-kwota opgespoor",

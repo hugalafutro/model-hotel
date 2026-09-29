@@ -871,7 +871,6 @@
 			"unchanged": "Unchanged",
 			"failoverDeleted": "Failover groups deleted",
 			"failoverUpdated": "Failover groups updated",
-			"failover": "Failover groups",
 			"unset": "—",
 			"removedCount": "Removed: {{count}}",
 			"addedCount": "Added: {{count}}",
@@ -945,7 +944,6 @@
 			"dismissedSummary_other": "{{count}} models dismissed",
 			"empty": "No missing or unstable models. Everything matches the provider listings.",
 			"error": "Error",
-			"failover": "Failover groups",
 			"flapWindowTooltip_one": "{{count}} fluctuation in the last 30 days",
 			"flapWindowTooltip_other": "{{count}} fluctuations in the last 30 days",
 			"flapped_one": "{{count}} fluctuation",
@@ -998,7 +996,9 @@
 			"unpinTooltip": "Hand this model back to automatic management. If it stays missing from the provider's listing it will be disabled again after two scans.",
 			"unpinned": "Unpinned {{model}}",
 			"updated": "Metadata updated",
-			"unpinManagedTooltip": "Pins are managed by the fleet primary and are replaced on the next config sync. Unpin this model on the primary."
+			"unpinManagedTooltip": "Pins are managed by the fleet primary and are replaced on the next config sync. Unpin this model on the primary.",
+			"failoverSync": "Failover sync",
+			"groupsChanged": "Groups changed"
 		},
 		"toast_refresh_success_one": "Refreshed {{count}} quota/balance",
 		"toast_refresh_success_other": "Refreshed {{count}} quotas/balances",

@@ -877,7 +877,6 @@
 				"onlyOneValid": "Na het opschonen blijft er slechts één geldige provider over (failover heeft er minstens twee nodig)"
 			},
 			"error": "Fout",
-			"failover": "Failover-groepen",
 			"field": {
 				"context_length": "Lengte van de context",
 				"input_price": "Invoerprijs",
@@ -939,7 +938,6 @@
 			"dismissedSummary_other": "{{count}} modellen genegeerd",
 			"empty": "Geen ontbrekende of instabiele modellen. Alles komt overeen met de lijsten van de providers.",
 			"error": "Fout",
-			"failover": "Failover-groepen",
 			"flapWindowTooltip_one": "{{count}} schommeling in de afgelopen 30 dagen",
 			"flapWindowTooltip_other": "{{count}} schommelingen in de afgelopen 30 dagen",
 			"flapped_one": "{{count}} schommeling",
@@ -992,7 +990,9 @@
 			"unpinTooltip": "Geeft dit model terug aan automatisch beheer. Als het uit de lijst van de provider blijft, wordt het na twee scans opnieuw uitgeschakeld.",
 			"unpinned": "{{model}} losgemaakt",
 			"updated": "Metadata bijgewerkt",
-			"unpinManagedTooltip": "Vastzettingen worden beheerd door de primaire instantie van de vloot en worden bij de volgende configuratiesynchronisatie vervangen. Maak dit model los op de primaire instantie."
+			"unpinManagedTooltip": "Vastzettingen worden beheerd door de primaire instantie van de vloot en worden bij de volgende configuratiesynchronisatie vervangen. Maak dit model los op de primaire instantie.",
+			"failoverSync": "Failover-synchronisatie",
+			"groupsChanged": "Groepen gewijzigd"
 		},
 		"toast_quota_detected_minimax": "MiniMax quotum gedetecteerd",
 		"toast_quota_detected_opencode_go": "OpenCode Go quotum gedetecteerd",

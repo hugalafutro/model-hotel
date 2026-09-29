@@ -877,7 +877,6 @@
 				"onlyOneValid": "Endast en giltig leverantör återstår efter rensningen (failover kräver minst två)"
 			},
 			"error": "Fel",
-			"failover": "Failover-grupper",
 			"field": {
 				"context_length": "Kontextlängd",
 				"input_price": "Inmatningspris",
@@ -939,7 +938,6 @@
 			"dismissedSummary_other": "{{count}} modeller avvisade",
 			"empty": "Inga saknade eller instabila modeller. Allt stämmer överens med leverantörernas listor.",
 			"error": "Fel",
-			"failover": "Failover-grupper",
 			"flapWindowTooltip_one": "{{count}} fluktuation under de senaste 30 dagarna",
 			"flapWindowTooltip_other": "{{count}} fluktuationer under de senaste 30 dagarna",
 			"flapped_one": "{{count}} fluktuation",
@@ -992,7 +990,9 @@
 			"unpinTooltip": "Lämnar tillbaka den här modellen till automatisk hantering. Om den fortsätter saknas i leverantörens lista inaktiveras den igen efter två skanningar.",
 			"unpinned": "{{model}} lossad",
 			"updated": "Metadata uppdaterad",
-			"unpinManagedTooltip": "Fästningar hanteras av flottans primära instans och ersätts vid nästa konfigurationssynkronisering. Lossa den här modellen på den primära instansen."
+			"unpinManagedTooltip": "Fästningar hanteras av flottans primära instans och ersätts vid nästa konfigurationssynkronisering. Lossa den här modellen på den primära instansen.",
+			"failoverSync": "Failover-synkronisering",
+			"groupsChanged": "Grupper ändrade"
 		},
 		"toast_quota_detected_minimax": "MiniMax-kvot upptäckt",
 		"toast_quota_detected_opencode_go": "OpenCode Go-kvot upptäckt",

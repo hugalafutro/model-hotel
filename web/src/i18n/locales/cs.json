@@ -925,7 +925,6 @@
 				"onlyOneValid": "Po prořezání zbyl jen jeden platný poskytovatel (převzetí služeb vyžaduje alespoň dva)"
 			},
 			"error": "Chyba",
-			"failover": "Skupiny pro převzetí služeb při výpadku",
 			"field": {
 				"context_length": "Délka kontextu",
 				"input_price": "Vstupní cena",
@@ -1003,7 +1002,6 @@
 			"dismissedSummary_other": "{{count}} modelů zamítnuto",
 			"empty": "Žádné chybějící ani nestabilní modely. Vše odpovídá seznamům poskytovatelů.",
 			"error": "Chyba",
-			"failover": "Skupiny pro převzetí služeb při výpadku",
 			"flapWindowTooltip_few": "{{count}} výkyvy za posledních 30 dní",
 			"flapWindowTooltip_many": "{{count}} výkyvu za posledních 30 dní",
 			"flapWindowTooltip_one": "{{count}} výkyv za posledních 30 dní",
@@ -1072,7 +1070,9 @@
 			"unpinTooltip": "Vrátí tento model automatické správě. Pokud bude v nabídce poskytovatele dál chybět, po dvou kontrolách se znovu zakáže.",
 			"unpinned": "Model {{model}} odepnut",
 			"updated": "Aktualizovaná metadata",
-			"unpinManagedTooltip": "Připnutí spravuje primární instance flotily a při příští synchronizaci konfigurace se nahradí. Zrušte připnutí tohoto modelu na primární instanci."
+			"unpinManagedTooltip": "Připnutí spravuje primární instance flotily a při příští synchronizaci konfigurace se nahradí. Zrušte připnutí tohoto modelu na primární instanci.",
+			"failoverSync": "Synchronizace převzetí služeb při výpadku",
+			"groupsChanged": "Změněné skupiny"
 		},
 		"toast_quota_detected_minimax": "Zjištěna kvóta MiniMax",
 		"toast_quota_detected_opencode_go": "Zjištěna kvóta OpenCode Go",

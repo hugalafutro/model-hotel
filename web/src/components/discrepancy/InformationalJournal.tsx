@@ -67,9 +67,11 @@ export function InformationalJournal({
 				className="space-y-2 rounded-(--radius-box) border border-(--border-default) bg-(--surface-elevated) px-2.5 py-2"
 			>
 				<div className="flex items-baseline justify-between gap-2">
-					<span className="truncate text-xs font-semibold text-(--accent)">
-						{entry.provider_name ||
-							t("providers.discoverySummary.failover", "Failover")}
+					<span
+						data-testid="discrepancy-informational-source"
+						className="truncate text-xs font-semibold text-(--accent)"
+					>
+						{entry.provider_name || t("providers.discrepancies.failoverSync")}
 					</span>
 					<span className="shrink-0 text-[11px] text-(--text-tertiary)">
 						{formatRelativeTime(entry.detected_at)}
@@ -127,7 +129,7 @@ export function InformationalJournal({
 						sign="⇄"
 						count={failover.length}
 						badgeVariant="ui-badge-orange"
-						label={t("providers.discrepancies.failover")}
+						label={t("providers.discrepancies.groupsChanged")}
 						testId="discrepancy-informational-failover"
 					>
 						<div className="flex flex-wrap gap-1.5">

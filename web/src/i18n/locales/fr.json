@@ -901,7 +901,6 @@
 				"onlyOneValid": "Un seul fournisseur valide subsiste après l'élagage (le basculement en exige au moins deux)"
 			},
 			"error": "Erreur",
-			"failover": "Groupes de basculement",
 			"field": {
 				"context_length": "Longueur du contexte",
 				"input_price": "Prix d'entrée",
@@ -971,7 +970,6 @@
 			"dismissedSummary_other": "{{count}} modèles ignorés",
 			"empty": "Aucun modèle manquant ni instable. Tout correspond aux listes des fournisseurs.",
 			"error": "Erreur",
-			"failover": "Groupes de basculement",
 			"flapWindowTooltip_many": "{{count}} fluctuations au cours des 30 derniers jours",
 			"flapWindowTooltip_one": "{{count}} fluctuation au cours des 30 derniers jours",
 			"flapWindowTooltip_other": "{{count}} fluctuations au cours des 30 derniers jours",
@@ -1032,7 +1030,9 @@
 			"unpinTooltip": "Rend ce modèle à la gestion automatique. S'il reste absent de la liste du fournisseur, il sera de nouveau désactivé après deux analyses.",
 			"unpinned": "{{model}} désépinglé",
 			"updated": "Métadonnées mises à jour",
-			"unpinManagedTooltip": "Les épinglages sont gérés par l'instance principale de la flotte et sont remplacés à la prochaine synchronisation de configuration. Désépinglez ce modèle sur l'instance principale."
+			"unpinManagedTooltip": "Les épinglages sont gérés par l'instance principale de la flotte et sont remplacés à la prochaine synchronisation de configuration. Désépinglez ce modèle sur l'instance principale.",
+			"failoverSync": "Synchronisation du basculement",
+			"groupsChanged": "Groupes modifiés"
 		},
 		"toast_quota_detected_minimax": "Quota MiniMax détecté",
 		"toast_quota_detected_opencode_go": "Quota OpenCode Go détecté",

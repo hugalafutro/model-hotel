@@ -925,7 +925,6 @@
 				"onlyOneValid": "Po vyčistení zostal len jeden platný poskytovateľ (prepnutie pri zlyhaní vyžaduje aspoň dvoch)"
 			},
 			"error": "Chyba",
-			"failover": "Skupiny prechodu na záložný systém",
 			"field": {
 				"context_length": "Dĺžka kontextu",
 				"input_price": "Vstupná cena",
@@ -1003,7 +1002,6 @@
 			"dismissedSummary_other": "{{count}} modelov zamietnutých",
 			"empty": "Žiadne chýbajúce ani nestabilné modely. Všetko zodpovedá zoznamom poskytovateľov.",
 			"error": "Chyba",
-			"failover": "Skupiny prechodu na záložný systém",
 			"flapWindowTooltip_few": "{{count}} výkyvy za posledných 30 dní",
 			"flapWindowTooltip_many": "{{count}} výkyvu za posledných 30 dní",
 			"flapWindowTooltip_one": "{{count}} výkyv za posledných 30 dní",
@@ -1072,7 +1070,9 @@
 			"unpinTooltip": "Vráti tento model automatickej správe. Ak bude v ponuke poskytovateľa naďalej chýbať, po dvoch kontrolách sa znova zakáže.",
 			"unpinned": "Model {{model}} odopnutý",
 			"updated": "Aktualizované metadáta",
-			"unpinManagedTooltip": "Pripnutia spravuje primárna inštancia flotily a pri ďalšej synchronizácii konfigurácie sa nahradia. Zrušte pripnutie tohto modelu na primárnej inštancii."
+			"unpinManagedTooltip": "Pripnutia spravuje primárna inštancia flotily a pri ďalšej synchronizácii konfigurácie sa nahradia. Zrušte pripnutie tohto modelu na primárnej inštancii.",
+			"failoverSync": "Synchronizácia prechodu na záložný systém",
+			"groupsChanged": "Zmenené skupiny"
 		},
 		"toast_quota_detected_minimax": "Zistená kvóta MiniMax",
 		"toast_quota_detected_opencode_go": "Zistená kvóta OpenCode Go",

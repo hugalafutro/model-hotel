@@ -877,7 +877,6 @@
 				"onlyOneValid": "Nach der Bereinigung bleibt nur ein gültiger Anbieter übrig (Failover benötigt mindestens zwei)"
 			},
 			"error": "Fehler",
-			"failover": "Failover-Gruppen",
 			"field": {
 				"context_length": "Kontextlänge",
 				"input_price": "Eingabepreis",
@@ -939,7 +938,6 @@
 			"dismissedSummary_other": "{{count}} Modelle verworfen",
 			"empty": "Keine fehlenden oder instabilen Modelle. Alles stimmt mit den Anbieterlisten überein.",
 			"error": "Fehler",
-			"failover": "Failover-Gruppen",
 			"flapWindowTooltip_one": "{{count}} Schwankung in den letzten 30 Tagen",
 			"flapWindowTooltip_other": "{{count}} Schwankungen in den letzten 30 Tagen",
 			"flapped_one": "{{count}} Schwankung",
@@ -992,7 +990,9 @@
 			"unpinTooltip": "Gibt dieses Modell an die automatische Verwaltung zurück. Fehlt es weiterhin in der Liste des Anbieters, wird es nach zwei Scans wieder deaktiviert.",
 			"unpinned": "Anheftung von {{model}} aufgehoben",
 			"updated": "Metadaten aktualisiert",
-			"unpinManagedTooltip": "Anheftungen verwaltet die Flotten-Primärinstanz; sie werden bei der nächsten Konfigurationssynchronisierung ersetzt. Lösen Sie dieses Modell auf der Primärinstanz."
+			"unpinManagedTooltip": "Anheftungen verwaltet die Flotten-Primärinstanz; sie werden bei der nächsten Konfigurationssynchronisierung ersetzt. Lösen Sie dieses Modell auf der Primärinstanz.",
+			"failoverSync": "Failover-Synchronisierung",
+			"groupsChanged": "Gruppen geändert"
 		},
 		"toast_quota_detected_minimax": "MiniMax Kontingent erkannt",
 		"toast_quota_detected_opencode_go": "OpenCode Go Kontingent erkannt",

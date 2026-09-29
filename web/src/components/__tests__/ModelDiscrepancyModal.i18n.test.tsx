@@ -103,6 +103,18 @@ describe("ModelDiscrepancyModal i18n", () => {
 					],
 				},
 			},
+			// No provider: the card falls back to the failover sync title.
+			{
+				provider_id: "",
+				provider_name: "",
+				source: "background",
+				detected_at: "2026-07-24T00:00:00Z",
+				diff: {
+					failover_updated_groups: [
+						{ display_model: "g2", added_model_ids: ["m2"] },
+					],
+				},
+			},
 		];
 		const { container } = render(
 			<ModelDiscrepancyModal

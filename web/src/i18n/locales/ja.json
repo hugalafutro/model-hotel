@@ -877,7 +877,6 @@
 				"onlyOneValid": "整理後に有効なプロバイダーが 1 つしか残っていません (フェイルオーバーには 2 つ以上必要です)"
 			},
 			"error": "エラー",
-			"failover": "フェイルオーバーグループ",
 			"field": {
 				"context_length": "コンテキストの長さ",
 				"input_price": "入力価格",
@@ -939,7 +938,6 @@
 			"dismissedSummary_other": "{{count}} 件のモデルを対応済み",
 			"empty": "欠落しているモデルも不安定なモデルもありません。すべてプロバイダーのリストと一致しています。",
 			"error": "エラー",
-			"failover": "フェイルオーバーグループ",
 			"flapWindowTooltip_one": "過去 30 日間に変動 {{count}} 回",
 			"flapWindowTooltip_other": "過去 30 日間に変動 {{count}} 回",
 			"flapped_one": "変動 {{count}} 回",
@@ -992,7 +990,9 @@
 			"unpinTooltip": "このモデルを自動管理に戻します。プロバイダーの一覧に載らないままなら、2 回のスキャンのあとで再び無効になります。",
 			"unpinned": "{{model}} の固定を解除しました",
 			"updated": "メタデータが更新されました",
-			"unpinManagedTooltip": "ピン留めはフリートのプライマリが管理し、次回の設定同期時に置き換えられます。このモデルのピン留めはプライマリで解除してください。"
+			"unpinManagedTooltip": "ピン留めはフリートのプライマリが管理し、次回の設定同期時に置き換えられます。このモデルのピン留めはプライマリで解除してください。",
+			"failoverSync": "フェイルオーバー同期",
+			"groupsChanged": "変更されたグループ"
 		},
 		"toast_quota_detected_minimax": "MiniMax のクオータを検出しました",
 		"toast_quota_detected_opencode_go": "OpenCode Go のクオータを検出しました",

@@ -901,7 +901,6 @@
 				"onlyOneValid": "Solo queda un proveedor válido tras la depuración (la conmutación por error necesita al menos dos)"
 			},
 			"error": "Error",
-			"failover": "Grupos de conmutación por error",
 			"field": {
 				"context_length": "Longitud del contexto",
 				"input_price": "Precio de entrada",
@@ -971,7 +970,6 @@
 			"dismissedSummary_other": "{{count}} modelos descartados",
 			"empty": "No hay modelos ausentes ni inestables. Todo coincide con las listas de los proveedores.",
 			"error": "Error",
-			"failover": "Grupos de conmutación por error",
 			"flapWindowTooltip_many": "{{count}} fluctuaciones en los últimos 30 días",
 			"flapWindowTooltip_one": "{{count}} fluctuación en los últimos 30 días",
 			"flapWindowTooltip_other": "{{count}} fluctuaciones en los últimos 30 días",
@@ -1032,7 +1030,9 @@
 			"unpinTooltip": "Devuelve este modelo a la gestión automática. Si sigue ausente del listado del proveedor, se desactivará de nuevo tras dos escaneos.",
 			"unpinned": "{{model}} desfijado",
 			"updated": "Metadatos actualizados",
-			"unpinManagedTooltip": "Las fijaciones las gestiona la instancia primaria de la flota y se reemplazan en la próxima sincronización de configuración. Quita la fijación de este modelo en la instancia primaria."
+			"unpinManagedTooltip": "Las fijaciones las gestiona la instancia primaria de la flota y se reemplazan en la próxima sincronización de configuración. Quita la fijación de este modelo en la instancia primaria.",
+			"failoverSync": "Sincronización de conmutación por error",
+			"groupsChanged": "Grupos modificados"
 		},
 		"toast_quota_detected_minimax": "Cuota de MiniMax detectada",
 		"toast_quota_detected_opencode_go": "Cuota de OpenCode Go detectada",
