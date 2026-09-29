@@ -3190,7 +3190,8 @@
 			"noImageSupport": "Este modelo não suporta entrada de imagem",
 			"imageTooLarge": "A imagem deve ter menos de 20 MB",
 			"audioTooLarge": "O áudio deve ter menos de 25 MB",
-			"imagePasted": "Imagem colada da área de transferência"
+			"imagePasted": "Imagem colada da área de transferência",
+			"readFailed": "Não foi possível ler o arquivo"
 		},
 		"useChatPersistence": {
 			"storageFullChat": "Armazenamento cheio - histórico de bate-papo não salvo"

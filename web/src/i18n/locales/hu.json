@@ -3114,7 +3114,8 @@
 			"noImageSupport": "Ez a modell nem támogatja a képek bevitelét",
 			"imageTooLarge": "A kép mérete nem haladhatja meg a 20 MB-ot",
 			"audioTooLarge": "Az audiofájl mérete nem haladhatja meg a 25 MB-ot",
-			"imagePasted": "A vágólapról beillesztett kép"
+			"imagePasted": "A vágólapról beillesztett kép",
+			"readFailed": "A fájl nem olvasható be"
 		},
 		"useChatPersistence": {
 			"storageFullChat": "A tárhely megtelt – a csevegési előzmények nem kerültek mentésre"

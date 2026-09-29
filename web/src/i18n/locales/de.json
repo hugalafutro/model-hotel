@@ -3114,7 +3114,8 @@
 			"noImageSupport": "Dieses Modell unterstützt keine Bildeingabe",
 			"imageTooLarge": "Bild muss unter 20 MB liegen",
 			"audioTooLarge": "Audio muss unter 25 MB liegen",
-			"imagePasted": "Bild aus der Zwischenablage eingefügt"
+			"imagePasted": "Bild aus der Zwischenablage eingefügt",
+			"readFailed": "Die Datei konnte nicht gelesen werden"
 		},
 		"useChatPersistence": {
 			"storageFullChat": "Speicher voll - Chatverlauf nicht gespeichert"

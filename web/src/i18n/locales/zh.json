@@ -3114,7 +3114,8 @@
 			"noImageSupport": "此模型不支持图像输入",
 			"imageTooLarge": "图片必须低于20MB",
 			"audioTooLarge": "音频必须小于 25 MB",
-			"imagePasted": "从剪贴板粘贴图像"
+			"imagePasted": "从剪贴板粘贴图像",
+			"readFailed": "无法读取文件"
 		},
 		"useChatPersistence": {
 			"storageFullChat": "存储满-聊天记录未保存"

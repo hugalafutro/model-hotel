@@ -3114,7 +3114,8 @@
 			"noImageSupport": "Denna modell stöder inte bildinmatning",
 			"imageTooLarge": "Bilden måste vara under 20 MB",
 			"audioTooLarge": "Ljudet måste vara under 25 MB",
-			"imagePasted": "Bild klistrad från urklipp"
+			"imagePasted": "Bild klistrad från urklipp",
+			"readFailed": "Filen kunde inte läsas"
 		},
 		"useChatPersistence": {
 			"storageFullChat": "Lagring fullt - chatt historik sparades inte"

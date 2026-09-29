@@ -3190,7 +3190,8 @@
 			"noImageSupport": "Ce modèle ne prend pas en charge la saisie d'image",
 			"imageTooLarge": "L'image doit être inférieure à 20 Mo",
 			"audioTooLarge": "L'audio doit être inférieur à 25 Mo",
-			"imagePasted": "Image collée depuis le presse-papiers"
+			"imagePasted": "Image collée depuis le presse-papiers",
+			"readFailed": "Impossible de lire le fichier"
 		},
 		"useChatPersistence": {
 			"storageFullChat": "Stockage complet - historique de discussion non sauvegardé"

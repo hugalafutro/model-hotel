@@ -22,7 +22,7 @@ import type {
 import { useToast } from "../../context/ToastContext";
 import { useCopyToClipboard } from "../../hooks/useCopyToClipboard";
 import { onActivateKey } from "../../utils/a11y";
-import { formatTokens } from "../../utils/format";
+import { formatLocale, formatTokens } from "../../utils/format";
 import {
 	type EntryCircuitView,
 	entryCircuitStatus,
@@ -286,7 +286,7 @@ export function FailoverGroupCard({
 										? t("failoverGroups.card.allEntriesDarkRetry", {
 												when: new Date(
 													summary.earliestRetryAt,
-												).toLocaleTimeString(),
+												).toLocaleTimeString(formatLocale()),
 											})
 										: t("failoverGroups.card.allEntriesDark")}
 								</span>

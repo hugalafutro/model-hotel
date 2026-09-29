@@ -24,7 +24,12 @@ import {
 	getZaiCodingFiveHourLimit,
 	getZaiCodingWeeklyLimit,
 } from "../hooks/useQuotaData";
-import { formatDollars, formatKwh, formatTokens } from "../utils/format";
+import {
+	formatDollars,
+	formatKwh,
+	formatLocale,
+	formatTokens,
+} from "../utils/format";
 import { PROVIDER_PREFIXES } from "../utils/providerBrands";
 
 /** Quota bar display mode — persisted to localStorage, shared with modals. */
@@ -131,7 +136,7 @@ function percentPairContent(
 function refreshedAt(dataUpdatedAt?: number): string {
 	return dataUpdatedAt
 		? i18next.t("components.quotaBadge.updated", {
-				time: new Date(dataUpdatedAt).toLocaleTimeString(),
+				time: new Date(dataUpdatedAt).toLocaleTimeString(formatLocale()),
 			})
 		: "";
 }
@@ -238,7 +243,7 @@ function ollamaCloudBadgeContent(
 			plan,
 			endDate: new Date(
 				account.subscription_period_end.time,
-			).toLocaleDateString(),
+			).toLocaleDateString(formatLocale()),
 			refreshed,
 		});
 	}

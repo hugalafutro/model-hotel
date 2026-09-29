@@ -3114,7 +3114,8 @@
 			"noImageSupport": "This model does not support image input",
 			"imageTooLarge": "Image must be under 20 MB",
 			"audioTooLarge": "Audio must be under 25 MB",
-			"imagePasted": "Image pasted from clipboard"
+			"imagePasted": "Image pasted from clipboard",
+			"readFailed": "Could not read the file"
 		},
 		"useChatPersistence": {
 			"storageFullChat": "Storage full - chat history not saved"

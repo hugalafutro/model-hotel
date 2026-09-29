@@ -3114,7 +3114,8 @@
 			"noImageSupport": "Dit model ondersteunt geen invoer van afbeeldingen",
 			"imageTooLarge": "Afbeelding moet minder dan 20 MB zijn",
 			"audioTooLarge": "Audio moet minder dan 25 MB zijn",
-			"imagePasted": "Afbeelding geplakt van klembord"
+			"imagePasted": "Afbeelding geplakt van klembord",
+			"readFailed": "Het bestand kon niet worden gelezen"
 		},
 		"useChatPersistence": {
 			"storageFullChat": "Opslag volledig - chatgeschiedenis niet opgeslagen"

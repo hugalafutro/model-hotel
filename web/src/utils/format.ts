@@ -11,6 +11,25 @@ export {
 	formatSpend,
 	formatTokens,
 } from "@web-shared/format";
+/**
+ * The locale every number and date the dashboard shows is formatted in: the
+ * app language, with the region of the first browser language that shares its
+ * base. App "en" with browser "en-GB" formats as en-GB; app "en" with browser
+ * "de-DE" stays plain "en". Read at call time, so a component re-rendered by a
+ * language change formats in the new language, as its t() strings do. Arabic
+ * keeps Latin digits (some Arabic regions default to Arabic-Indic ones), as
+ * the app's other figures are Latin.
+ */
+export function formatLocale(): string {
+	const app = (i18next.language || "en").split("-")[0].toLowerCase();
+	const browser = navigator.languages?.length
+		? navigator.languages
+		: [navigator.language];
+	const tag =
+		browser.find((l) => l?.split("-")[0].toLowerCase() === app) ?? app;
+	return app === "ar" ? `${tag}-u-nu-latn` : tag;
+}
+
 /** Encode a value as base64, handling Unicode characters safely. */
 export function encodeCursor(obj: unknown): string {
 	const json = JSON.stringify(obj);
@@ -42,11 +61,11 @@ export function formatRelativeTime(dateStr: string | null): string {
 
 export function formatNumber(n: number | null | undefined): string {
 	if (n == null) return "-";
-	return n.toLocaleString();
+	return n.toLocaleString(formatLocale());
 }
 
 export function formatTimestamp(ts: number | string): string {
-	return new Date(ts).toLocaleString(undefined, {
+	return new Date(ts).toLocaleString(formatLocale(), {
 		day: "numeric",
 		month: "short",
 		year: "numeric",
@@ -78,16 +97,16 @@ export function countLabel(count: number | undefined, key: string): string {
 }
 
 export function formatDate(ts: number | string): string {
-	return new Date(ts).toLocaleDateString(undefined, {
+	return new Date(ts).toLocaleDateString(formatLocale(), {
 		day: "numeric",
 		month: "short",
 		year: "numeric",
 	});
 }
 
-/** Clock time alone, in the browser's locale and its 12/24-hour convention. */
+/** Clock time alone, in formatLocale() and its 12/24-hour convention. */
 export function formatTime(ts: number | string): string {
-	return new Date(ts).toLocaleTimeString(undefined, {
+	return new Date(ts).toLocaleTimeString(formatLocale(), {
 		hour: "2-digit",
 		minute: "2-digit",
 	});
@@ -97,7 +116,7 @@ export function formatTime(ts: number | string): string {
 export const formatDateTimeShort = formatTimestamp;
 
 export function formatWithCommas(n: number): string {
-	return Math.round(n).toLocaleString();
+	return Math.round(n).toLocaleString(formatLocale());
 }
 
 export function dropTrailingZero(v: number, decimals: number): string {
@@ -131,7 +150,7 @@ export function formatTimeUntil(ts: number): string {
 	// rather than reading as a whole "0 hours" away.
 	if (diff < 1000 * 60 * 60) {
 		const minutes = Math.max(1, Math.floor(diff / 60000));
-		return new Intl.RelativeTimeFormat(i18next.language, {
+		return new Intl.RelativeTimeFormat(formatLocale(), {
 			numeric: "always",
 		}).format(minutes, "minute");
 	}

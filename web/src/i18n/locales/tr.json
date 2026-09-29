@@ -3114,7 +3114,8 @@
 			"noImageSupport": "Bu model resim girişini desteklemiyor",
 			"imageTooLarge": "Resmin boyutu 20 MB'den az olmalıdır",
 			"audioTooLarge": "Ses dosyasının boyutu 25 MB'den az olmalıdır",
-			"imagePasted": "Panodan yapıştırılan resim"
+			"imagePasted": "Panodan yapıştırılan resim",
+			"readFailed": "Dosya okunamadı"
 		},
 		"useChatPersistence": {
 			"storageFullChat": "Depolama alanı dolu - sohbet geçmişi kaydedilmedi"

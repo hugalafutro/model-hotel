@@ -12,6 +12,7 @@ import { ToastContext } from "../../../context/ToastContext";
 import { mockModel, mockProvider, mockStats } from "../../../test/mocks/data";
 import { server } from "../../../test/mocks/server";
 import { AllProviders } from "../../../test/utils";
+import { formatLocale } from "../../../utils/format";
 import { useDashboard } from "../useDashboard";
 
 describe("useDashboard", () => {
@@ -678,7 +679,7 @@ describe("useDashboard", () => {
 			});
 
 			const expected = new Date("2025-01-15T10:30:00Z").toLocaleDateString(
-				undefined,
+				formatLocale(),
 				{
 					month: "short",
 					day: "numeric",

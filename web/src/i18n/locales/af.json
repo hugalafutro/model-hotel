@@ -3114,7 +3114,8 @@
 			"noImageSupport": "Hierdie model ondersteun nie beeldinvoer nie.",
 			"imageTooLarge": "Die beeld moet onder 20 MB wees.",
 			"audioTooLarge": "Oudio moet onder 25 MB wees.",
-			"imagePasted": "Beeld ingevoeg vanaf die knipbord"
+			"imagePasted": "Beeld ingevoeg vanaf die knipbord",
+			"readFailed": "Kon nie die lêer lees nie"
 		},
 		"useChatPersistence": {
 			"storageFullChat": "Stoor vol - kletsgeskiedenis nie gestoor nie"

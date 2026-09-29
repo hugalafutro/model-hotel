@@ -3190,7 +3190,8 @@
 			"noImageSupport": "Acest model nu suportă introducerea imaginii",
 			"imageTooLarge": "Imaginea trebuie să aibă sub 20 MB",
 			"audioTooLarge": "Fișierul audio trebuie să aibă sub 25 MB",
-			"imagePasted": "Imagine inserată din clipboard"
+			"imagePasted": "Imagine inserată din clipboard",
+			"readFailed": "Fișierul nu a putut fi citit"
 		},
 		"useChatPersistence": {
 			"storageFullChat": "Stocare completă - istoricul chat-ului nu a fost salvat"

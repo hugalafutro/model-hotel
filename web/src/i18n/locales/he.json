@@ -3190,7 +3190,8 @@
 			"noImageSupport": "דגם זה אינו תומך בקלט תמונות",
 			"imageTooLarge": "גודל התמונה חייב להיות פחות מ-20 מגה-בייט",
 			"audioTooLarge": "גודל הקובץ חייב להיות פחות מ-25 מגה-בייט",
-			"imagePasted": "תמונה שהודבקה מהלוח"
+			"imagePasted": "תמונה שהודבקה מהלוח",
+			"readFailed": "לא ניתן לקרוא את הקובץ"
 		},
 		"useChatPersistence": {
 			"storageFullChat": "הזיכרון מלא - היסטוריית הצ'אט לא נשמרה"

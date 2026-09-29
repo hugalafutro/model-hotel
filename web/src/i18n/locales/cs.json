@@ -3266,7 +3266,8 @@
 			"noImageSupport": "Tento model nepodporuje vstup v podobě obrázků",
 			"imageTooLarge": "Velikost obrázku nesmí přesáhnout 20 MB",
 			"audioTooLarge": "Velikost zvukového souboru nesmí přesáhnout 25 MB",
-			"imagePasted": "Obrázek vložen ze schránky"
+			"imagePasted": "Obrázek vložen ze schránky",
+			"readFailed": "Soubor se nepodařilo přečíst"
 		},
 		"useChatPersistence": {
 			"storageFullChat": "Úložiště je plné – historie chatu se neuložila"

@@ -1,4 +1,4 @@
-import i18next from "i18next";
+import { formatLocale } from "../utils/format";
 /* =========================================================
    Date helpers for the accent-themed calendar picker
    ===================================================== */
@@ -30,7 +30,7 @@ export function firstDayOfMonth(year: number, month: number): number {
 export function formatDateRangeShort(
 	from: string,
 	to: string,
-	locale: string = i18next.language,
+	locale: string = formatLocale(),
 ): string {
 	// Use toISODate to convert any input (plain date or ISO timestamp)
 	// to local date components, then parse components directly to avoid

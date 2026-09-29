@@ -14,6 +14,7 @@ import type {
 } from "../../../api/types";
 import type { useQuotaData } from "../../../hooks/useQuotaData";
 import { AllProviders } from "../../../test/utils";
+import { formatLocale } from "../../../utils/format";
 import { ProviderCard } from "../ProviderCard";
 
 // The real English copy for this key ships in a later i18n task; captured at
@@ -188,7 +189,7 @@ describe("ProviderCard", () => {
 			const badge = screen.getByText("1.3M tokens").closest("span[title]");
 			// Locale-independent: assert the title contains the same string formatDate produces.
 			expect(badge?.getAttribute("title")).toContain(
-				new Date("2026-01-15T10:00:00Z").toLocaleDateString(undefined, {
+				new Date("2026-01-15T10:00:00Z").toLocaleDateString(formatLocale(), {
 					day: "numeric",
 					month: "short",
 					year: "numeric",
@@ -994,7 +995,7 @@ describe("ProviderCard", () => {
 			expect(icon).toBeInTheDocument();
 			// Locale-independent: assert the title contains the same string formatDate produces.
 			expect(icon.getAttribute("title")).toContain(
-				new Date("2030-06-20T00:00:00").toLocaleDateString(undefined, {
+				new Date("2030-06-20T00:00:00").toLocaleDateString(formatLocale(), {
 					day: "numeric",
 					month: "short",
 					year: "numeric",

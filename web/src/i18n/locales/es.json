@@ -3190,7 +3190,8 @@
 			"noImageSupport": "Este modelo no soporta entrada de imagen",
 			"imageTooLarge": "La imagen debe tener menos de 20 MB",
 			"audioTooLarge": "El audio debe tener menos de 25 MB",
-			"imagePasted": "Imagen pegada desde el portapapeles"
+			"imagePasted": "Imagen pegada desde el portapapeles",
+			"readFailed": "No se pudo leer el archivo"
 		},
 		"useChatPersistence": {
 			"storageFullChat": "Almacenamiento completo - historial de chat no guardado"

@@ -3190,7 +3190,8 @@
 			"noImageSupport": "Aquest model no admet la introducció d'imatges.",
 			"imageTooLarge": "La imatge ha de ser inferior a 20 MB.",
 			"audioTooLarge": "L'àudio ha de ser inferior a 25 MB.",
-			"imagePasted": "Imatge enganxada des del porta-retalls"
+			"imagePasted": "Imatge enganxada des del porta-retalls",
+			"readFailed": "No s'ha pogut llegir el fitxer"
 		},
 		"useChatPersistence": {
 			"storageFullChat": "L'emmagatzematge està ple: l'historial de xat no s'ha desat"

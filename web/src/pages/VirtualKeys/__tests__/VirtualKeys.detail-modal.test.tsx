@@ -9,6 +9,7 @@ import {
 } from "../../../test/mocks/data";
 import { server } from "../../../test/mocks/server";
 import { renderWithProviders } from "../../../test/utils";
+import { formatLocale } from "../../../utils/format";
 import { VirtualKeys } from "../../VirtualKeys";
 
 describe("VirtualKeys", () => {
@@ -54,13 +55,15 @@ describe("VirtualKeys", () => {
 			expect(within(dialog).getByText("50,000")).toBeInTheDocument();
 			expect(
 				within(dialog).getByText(
-					new Date(mockVirtualKey.created_at).toLocaleString(),
+					new Date(mockVirtualKey.created_at).toLocaleString(formatLocale()),
 				),
 			).toBeInTheDocument();
 			// mockVirtualKey.last_used_at is "2026-05-11T08:00:00Z" in test data
 			expect(
 				within(dialog).getByText(
-					new Date(mockVirtualKey.last_used_at as string).toLocaleString(),
+					new Date(mockVirtualKey.last_used_at as string).toLocaleString(
+						formatLocale(),
+					),
 				),
 			).toBeInTheDocument();
 		});

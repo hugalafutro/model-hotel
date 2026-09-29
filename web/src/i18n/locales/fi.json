@@ -3114,7 +3114,8 @@
 			"noImageSupport": "Tämä malli ei tue kuvansyöttöä",
 			"imageTooLarge": "Kuvan on oltava alle 20 Mt",
 			"audioTooLarge": "Äänen on oltava alle 25 Mt",
-			"imagePasted": "Kuva liitetty leikepöydältä"
+			"imagePasted": "Kuva liitetty leikepöydältä",
+			"readFailed": "Tiedostoa ei voitu lukea"
 		},
 		"useChatPersistence": {
 			"storageFullChat": "Tallennustila täynnä - chat-historiaa ei tallennettu"

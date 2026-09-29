@@ -3190,7 +3190,8 @@
 			"noImageSupport": "Questo modello non supporta l'input dell'immagine",
 			"imageTooLarge": "L'immagine deve essere inferiore a 20 MB",
 			"audioTooLarge": "L'audio deve essere inferiore a 25 MB",
-			"imagePasted": "Immagine incollata dagli appunti"
+			"imagePasted": "Immagine incollata dagli appunti",
+			"readFailed": "Impossibile leggere il file"
 		},
 		"useChatPersistence": {
 			"storageFullChat": "Spazio di archiviazione esaurito - cronologia chat non salvata"

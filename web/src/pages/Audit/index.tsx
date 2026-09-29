@@ -31,7 +31,7 @@ import { useLocalStorage } from "../../hooks/useLocalStorage";
 import { useModalNav } from "../../hooks/useModalNav";
 import { useVirtualRows } from "../../hooks/useVirtualRows";
 import { onActivateKey } from "../../utils/a11y";
-import { formatRelativeTime } from "../../utils/format";
+import { formatLocale, formatRelativeTime } from "../../utils/format";
 
 const METHODS = ["POST", "PUT", "PATCH", "DELETE"] as const;
 const PAGE_SIZE = 50;
@@ -335,7 +335,7 @@ function AuditCells({ entry: e }: { entry: AuditEntry }) {
 		<>
 			<td
 				className="px-4 py-3 text-sm text-gray-400 whitespace-nowrap"
-				title={new Date(e.created_at).toLocaleString()}
+				title={new Date(e.created_at).toLocaleString(formatLocale())}
 			>
 				{formatRelativeTime(e.created_at)}
 			</td>

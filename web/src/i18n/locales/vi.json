@@ -3114,7 +3114,8 @@
 			"noImageSupport": "Mô hình này không hỗ trợ đầu vào hình ảnh",
 			"imageTooLarge": "Kích thước hình ảnh phải nhỏ hơn 20 MB",
 			"audioTooLarge": "Dung lượng tệp âm thanh phải dưới 25 MB",
-			"imagePasted": "Hình ảnh được dán từ khay nhớ tạm"
+			"imagePasted": "Hình ảnh được dán từ khay nhớ tạm",
+			"readFailed": "Không thể đọc tệp"
 		},
 		"useChatPersistence": {
 			"storageFullChat": "Bộ nhớ đầy - lịch sử trò chuyện không được lưu"

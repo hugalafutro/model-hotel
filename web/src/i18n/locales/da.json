@@ -3114,7 +3114,8 @@
 			"noImageSupport": "Denne model understøtter ikke billedinput",
 			"imageTooLarge": "Billedet skal være under 20 MB",
 			"audioTooLarge": "Lyd skal være under 25 MB",
-			"imagePasted": "Billede indsat fra udklipsholder"
+			"imagePasted": "Billede indsat fra udklipsholder",
+			"readFailed": "Filen kunne ikke læses"
 		},
 		"useChatPersistence": {
 			"storageFullChat": "Opbevaring fuld - chathistorik ikke gemt"

@@ -3114,7 +3114,8 @@
 			"noImageSupport": "이 모델은 이미지 입력을 지원하지 않습니다",
 			"imageTooLarge": "이미지 크기는 20MB 미만이어야 합니다.",
 			"audioTooLarge": "오디오 파일 크기는 25MB 미만이어야 합니다.",
-			"imagePasted": "클립보드에서 붙여넣은 이미지"
+			"imagePasted": "클립보드에서 붙여넣은 이미지",
+			"readFailed": "파일을 읽을 수 없습니다"
 		},
 		"useChatPersistence": {
 			"storageFullChat": "저장 공간이 부족합니다 - 채팅 기록이 저장되지 않았습니다"

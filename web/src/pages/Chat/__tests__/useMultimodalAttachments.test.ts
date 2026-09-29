@@ -277,6 +277,50 @@ describe("useMultimodalAttachments", () => {
 		});
 	});
 
+	describe("a file read that does not complete", () => {
+		const selectAudio = (
+			handle: (e: React.ChangeEvent<HTMLInputElement>) => void,
+		) =>
+			handle({
+				target: {
+					files: [new File(["x"], "clip.mp3", { type: "audio/mpeg" })],
+					value: "",
+				},
+			} as unknown as React.ChangeEvent<HTMLInputElement>);
+
+		it.each(["onerror", "onabort"] as const)(
+			"%s rejects the read, toasts it and attaches nothing",
+			async (handler) => {
+				class FailingReader {
+					onload: (() => void) | null = null;
+					onerror: (() => void) | null = null;
+					onabort: (() => void) | null = null;
+					error = new DOMException("read failed", "NotReadableError");
+					readAsDataURL() {
+						setTimeout(() => this[handler]?.(), 0);
+					}
+				}
+				vi.stubGlobal("FileReader", FailingReader);
+				try {
+					const { result } = renderHook(() =>
+						useMultimodalAttachments(false, mockToast),
+					);
+					act(() => selectAudio(result.current.handleAudioSelect));
+					await waitFor(() =>
+						expect(mockToast).toHaveBeenCalledWith(
+							"Could not read the file",
+							"error",
+						),
+					);
+					expect(result.current.pendingAudio).toBeNull();
+					expect(result.current.pendingImage).toBeNull();
+				} finally {
+					vi.stubGlobal("FileReader", MockFileReader);
+				}
+			},
+		);
+	});
+
 	describe("handleImageSelect", () => {
 		it("sets pendingImage when valid image file selected", async () => {
 			const { result } = renderHook(() =>

@@ -11,6 +11,7 @@ import {
 	formatDollars,
 	formatDuration,
 	formatKwh,
+	formatLocale,
 	formatNumber,
 	formatPercent,
 	formatRelativeTime,
@@ -74,6 +75,67 @@ describe("formatRelativeTime", () => {
 	it("returns days ago for older dates", () => {
 		const date = new Date(Date.now() - 5 * 24 * 60 * 60 * 1000);
 		expect(formatRelativeTime(date.toISOString())).toBe("5d ago");
+	});
+});
+
+describe("formatLocale", () => {
+	const setLocales = (app: string, browser: readonly string[]) => {
+		i18next.language = app;
+		vi.spyOn(navigator, "languages", "get").mockReturnValue(browser);
+		vi.spyOn(navigator, "language", "get").mockReturnValue(browser[0] ?? "");
+	};
+	let saved: string;
+	beforeEach(() => {
+		saved = i18next.language;
+	});
+	afterEach(() => {
+		i18next.language = saved;
+		vi.restoreAllMocks();
+	});
+
+	it.each([
+		["en", ["en-GB", "en"], "en-GB"],
+		["en", ["de-DE", "de"], "en"],
+		["de", ["de-AT", "de"], "de-AT"],
+		["de", ["en-US", "en"], "de"],
+	])("app %s with browser %j formats as %s", (app, browser, want) => {
+		setLocales(app, browser);
+		expect(formatLocale()).toBe(want);
+	});
+
+	it("takes the first browser language that shares the app's base", () => {
+		setLocales("fr", ["de-DE", "fr-CA", "fr-FR"]);
+		expect(formatLocale()).toBe("fr-CA");
+	});
+
+	it("falls back to navigator.language when languages is empty", () => {
+		setLocales("pt", []);
+		vi.spyOn(navigator, "language", "get").mockReturnValue("pt-BR");
+		expect(formatLocale()).toBe("pt-BR");
+	});
+
+	it("keeps Latin digits for Arabic, whatever the region's default", () => {
+		setLocales("ar", ["ar-EG"]);
+		expect(formatLocale()).toBe("ar-EG-u-nu-latn");
+		expect(formatNumber(1234)).toMatch(/^1\D?234$/);
+	});
+
+	it("formatNumber groups digits the way the app language and browser region do", () => {
+		setLocales("de", ["de-CH"]);
+		expect(formatNumber(1234567)).toBe(
+			new Intl.NumberFormat("de-CH").format(1234567),
+		);
+		setLocales("de", ["en-US"]);
+		expect(formatNumber(1234567)).toBe("1.234.567");
+		expect(formatWithCommas(1234.5)).toBe("1.235");
+	});
+
+	it("formatDate orders day and month by the browser's region of the app language", () => {
+		const ts = "2024-06-15T12:00:00Z";
+		setLocales("en", ["en-GB"]);
+		expect(formatDate(ts)).toBe("15 Jun 2024");
+		setLocales("en", ["en-US"]);
+		expect(formatDate(ts)).toBe("Jun 15, 2024");
 	});
 });
 

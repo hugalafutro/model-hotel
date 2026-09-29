@@ -3114,7 +3114,8 @@
 			"noImageSupport": "このモデルは画像入力をサポートしていません",
 			"imageTooLarge": "画像は 20 MB 未満である必要があります",
 			"audioTooLarge": "オーディオは 25 MB 未満である必要があります",
-			"imagePasted": "クリップボードから画像を貼り付け"
+			"imagePasted": "クリップボードから画像を貼り付け",
+			"readFailed": "ファイルを読み込めませんでした"
 		},
 		"useChatPersistence": {
 			"storageFullChat": "ストレージがいっぱいです - チャット履歴は保存されていません"

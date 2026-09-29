@@ -3114,7 +3114,8 @@
 			"noImageSupport": "Denne modellen støtter ikke bildeinndata",
 			"imageTooLarge": "Bilde må være under 20 MB",
 			"audioTooLarge": "Lyd må være under 25 MB",
-			"imagePasted": "Bilde limt inn fra utklippstavle"
+			"imagePasted": "Bilde limt inn fra utklippstavle",
+			"readFailed": "Kunne ikke lese filen"
 		},
 		"useChatPersistence": {
 			"storageFullChat": "Lagringsplass fullt - chat-loggen er ikke lagret"
