@@ -139,7 +139,7 @@ func TestClassifyProbeError_LineCapMatchesTheStreamPath(t *testing.T) {
 		t.Errorf("breaker reason = %q", got)
 	}
 	timedOut, _ := classifyProbeFailure("p", "", false, time.Minute, time.Second, time.Second, 1)
-	if got := probeBreakerReason("hedged TTFT probe", timedOut); got != "hedged TTFT probe: no first token in time" {
+	if got := probeBreakerReason("hedged TTFT probe", timedOut); got != "hedged TTFT probe: no first token" {
 		t.Errorf("breaker reason = %q", got)
 	}
 }

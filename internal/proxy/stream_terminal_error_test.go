@@ -110,6 +110,42 @@ func TestHandleStreamingResponse_StallClosedAsANetworkErrorTellsTheClientItStall
 	}
 }
 
+// The shutdown twin: a body the restart closed also reads back as a socket
+// error, and the client still gets the restart notice.
+func TestHandleStreamingResponse_ShutdownClosedAsANetworkErrorTellsTheClientItRestarted(t *testing.T) {
+	h := newIntegrationHandler()
+	defer stopUnitHandlerIntegration(h)
+	h.shutdown = make(chan struct{})
+	prevGrace := shutdownStreamGrace
+	shutdownStreamGrace = 20 * time.Millisecond
+	defer func() { shutdownStreamGrace = prevGrace }()
+
+	body := &netErrOnCloseReader{newBlockUntilClosedReader("data: {\"choices\":[{\"delta\":{\"content\":\"hi\"}}]}\n\n")}
+	resp := &http.Response{StatusCode: http.StatusOK, Body: body}
+
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest("POST", "/v1/chat/completions", http.NoBody)
+	logData := streamingLog()
+	h.insertRequestLogAsync(logData)
+	time.Sleep(20 * time.Millisecond)
+
+	go func() {
+		time.Sleep(30 * time.Millisecond)
+		close(h.shutdown)
+	}()
+
+	opts := streamOptions{responseHeaderMs: 10, streamStallTimeout: 0, vkHash: "test-hash", attempt: 1, circuitBreakerOn: true}
+	h.handleStreamingResponse(w, req, logData, resp, time.Now(), opts)
+
+	e := lastSSEError(t, w.Body.String())
+	if e == nil {
+		t.Fatalf("expected a terminal error frame, got: %s", w.Body.String())
+	}
+	if msg, _ := e["message"].(string); msg != "stream interrupted: gateway restarting" {
+		t.Errorf("message = %q, want the restart notice the row records", msg)
+	}
+}
+
 // netErrOnCloseReader ends the way a real upstream body does once the watchdog
 // closes it: with the socket's error rather than io.EOF.
 type netErrOnCloseReader struct{ *blockUntilClosedReader }

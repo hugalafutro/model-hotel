@@ -127,6 +127,7 @@ func TestProbeStreamingCandidate_ErrorFrameLosesAndIsChargedToTheProvider(t *tes
 	if got := h.circuitBreaker.GetState(cand.provider.ID, cand.model.ModelID); got != failover.StateOpen {
 		t.Errorf("circuit = %s, want open: an error-frame probe is a provider failure", got)
 	}
+	assertLastVerdict(t, h.circuitBreaker, cand.provider.ID, "hedged TTFT probe: no usable first frame", http.StatusOK)
 }
 
 // The incident, end to end. Two candidates race: the broken one answers with an
@@ -1142,6 +1143,7 @@ func TestDispatchStreaming_EmptyStreamsOpenTheCircuit(t *testing.T) {
 	if got := h.circuitBreaker.GetState(providerID, cand.model.ModelID); got != failover.StateOpen {
 		t.Errorf("circuit = %s after %d empty streams, want open", got, attempts)
 	}
+	assertLastVerdict(t, h.circuitBreaker, providerID, "TTFT probe: no usable first frame", http.StatusOK)
 }
 
 // A tool call IS output. A completion whose only product is a function call has

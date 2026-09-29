@@ -309,7 +309,7 @@ func classifyProbeError(probeErr error, providerName string, masker credentialMa
 func probeBreakerReason(probe string, re reqError) string {
 	switch {
 	case re.Kind == KindProviderTimeout:
-		return probe + ": no first token in time"
+		return probe + ": no first token"
 	case re.Underlying == lineCapErrMsg:
 		return probe + ": a frame exceeded the line limit"
 	default:
