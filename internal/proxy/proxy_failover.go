@@ -156,7 +156,7 @@ func (h *Handler) attemptCandidate(w http.ResponseWriter, r *http.Request, st *r
 				st.proxyOverhead = st.timings.proxyOverheadMs(st.parseMs)
 			}
 			if res.cont {
-				st.attemptSlot.settle(slotUnclean)
+				st.attemptSlot.settle(slotOutcomeFor(res.lastReqErr.Kind))
 				st.setReqErr(res.lastReqErr)
 				logData.closeAttemptRecord(0, res.lastReqErr.Kind, res.lastReqErr.Underlying, "", 0)
 				return outcomeFailover
@@ -468,7 +468,7 @@ func (h *Handler) beginAttempt(failoverCtx context.Context, st *requestState, ca
 
 	proxyReq, providerType, targetURL, err := h.buildCandidateRequest(failoverCtx, st, candidate)
 	if err != nil {
-		st.attemptSlot.settle(slotUnclean)
+		st.attemptSlot.settle(slotOutcomeFor(KindInternal))
 		st.setReqErr(reqError{Kind: KindInternal, Attempt: attempt, Provider: candidate.provider.Name, Underlying: errString(err)})
 		logData.closeAttemptRecord(0, KindInternal, errString(err), "", 0)
 		return nil, providerType, targetURL, false, false
@@ -476,7 +476,7 @@ func (h *Handler) beginAttempt(failoverCtx context.Context, st *requestState, ca
 
 	resp, upstreamOK := h.doUpstream(failoverCtx, proxyReq, st, candidate, attempt, dialMs)
 	if !upstreamOK {
-		st.attemptSlot.settle(slotUnclean)
+		st.attemptSlot.settle(slotOutcomeFor(st.lastReqErr.Kind))
 		// doUpstream set st.lastReqErr; no response was seen, so no status.
 		logData.closeAttemptRecord(0, st.lastReqErr.Kind, st.lastReqErr.Underlying, "", 0)
 		return nil, providerType, targetURL, false, false

@@ -325,7 +325,7 @@ func (h *Handler) probeStreamingCandidate(ctx context.Context, st *requestState,
 	var dialMs float64
 	proxyReq, providerType, _, err := h.buildCandidateRequest(ctx, st, candidate)
 	if err != nil {
-		st.attemptSlot.settle(slotUnclean)
+		st.attemptSlot.settle(slotOutcomeFor(KindInternal))
 		res.reqErr = reqError{Kind: KindInternal, Attempt: attempt, Provider: candidate.provider.Name, Underlying: errString(err)}
 		return res
 	}
@@ -336,7 +336,7 @@ func (h *Handler) probeStreamingCandidate(ctx context.Context, st *requestState,
 	if !ok {
 		// doUpstream set st.lastReqErr (on the private snapshot) and recorded any
 		// breaker failure.
-		st.attemptSlot.settle(slotUnclean)
+		st.attemptSlot.settle(slotOutcomeFor(st.lastReqErr.Kind))
 		res.reqErr = st.lastReqErr
 		return res
 	}

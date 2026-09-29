@@ -1,6 +1,7 @@
 package proxy
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -625,5 +626,94 @@ func TestHandleStreamingResponse_SettlesBeforeTheRequestLogWrite(t *testing.T) {
 	}
 	logData.insertWg.Done()
 	released = true
+	<-done
+}
+
+// The slot's settlement follows the breaker's verdict, so the two never
+// disagree about a stream.
+func TestStreamSlotOutcome_FollowsTheBreakerVerdict(t *testing.T) {
+	cases := []struct {
+		name   string
+		st     *streamState
+		kind   ErrorKind
+		errMsg string
+		want   slotOutcome
+	}{
+		{"delivered and done", &streamState{sawDone: true, sawContent: true}, "", "", slotClean},
+		{"completed but empty", &streamState{sawDone: true}, "", "", slotUnclean},
+		{"failed without output", &streamState{}, KindProviderError, "stream failed", slotUnclean},
+		{"failed after output", &streamState{sawContent: true, deliveredBytes: 9}, KindProviderError, "stream failed", slotNeutral},
+		{"client left", &streamState{clientDisconnected: true}, KindClientDisconnect, "client disconnected", slotNeutral},
+		{"gateway deadline", &streamState{}, KindFailoverTimeout, "stream interrupted", slotNeutral},
+		{"shutdown", &streamState{interrupted: true}, KindInternal, "stream interrupted: gateway restarting", slotNeutral},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			if got := streamSlotOutcome(tc.st, &requestLogData{errorKind: tc.kind}, tc.errMsg); got != tc.want {
+				t.Errorf("got %d, want %d", got, tc.want)
+			}
+		})
+	}
+}
+
+// Pre-header failures the provider did not cause settle neutral.
+func TestSlotOutcomeFor(t *testing.T) {
+	for _, k := range []ErrorKind{KindClientDisconnect, KindHedgeSuperseded, KindFailoverTimeout, KindRetryTimeout, KindInternal} {
+		if slotOutcomeFor(k) != slotNeutral {
+			t.Errorf("%s settles %d, want neutral", k, slotOutcomeFor(k))
+		}
+	}
+	for _, k := range []ErrorKind{KindProviderError, KindProviderTimeout, KindProviderSaturated} {
+		if slotOutcomeFor(k) != slotUnclean {
+			t.Errorf("%s settles %d, want unclean", k, slotOutcomeFor(k))
+		}
+	}
+}
+
+// blockingWriter is a client that stops reading at the [DONE] sentinel: that
+// write waits until the gate closes.
+type blockingWriter struct {
+	*httptest.ResponseRecorder
+	gate chan struct{}
+}
+
+func (b blockingWriter) Write(p []byte) (int, error) {
+	if bytes.Contains(p, []byte("[DONE]")) {
+		<-b.gate
+	}
+	return b.ResponseRecorder.Write(p)
+}
+
+// The sentinel injected for an upstream that omitted [DONE] is written after
+// the slot settles, so a client that stops reading does not keep the
+// provider's slot.
+func TestHandleStreamingResponse_SettlesBeforeTheInjectedSentinel(t *testing.T) {
+	h := newIntegrationHandler()
+	defer stopUnitHandlerIntegration(h)
+	settled := make(chan slotOutcome, 1)
+	slot := &attemptSlot{fire: func(o slotOutcome) { settled <- o }}
+	slot.holdVerdict()
+	resp := &http.Response{
+		StatusCode: http.StatusOK,
+		Header:     make(http.Header),
+		Body:       &inflightRelease{ReadCloser: io.NopCloser(strings.NewReader("data: {\"choices\":[{\"delta\":{\"content\":\"hi\"}}]}\n\n")), slot: slot, clean: true, onEOF: true},
+	}
+	w := blockingWriter{ResponseRecorder: httptest.NewRecorder(), gate: make(chan struct{})}
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		req := withAuthContext(httptest.NewRequest("GET", "/", http.NoBody))
+		h.handleStreamingResponse(w, req, streamingLog(), resp, time.Now(), streamOptions{streamStallTimeout: time.Minute, slot: slot})
+	}()
+
+	select {
+	case o := <-settled:
+		if o != slotClean {
+			t.Errorf("a completed stream settled %d, want clean", o)
+		}
+	case <-time.After(2 * time.Second):
+		t.Error("the slot was still held while the injected sentinel waited on the client")
+	}
+	close(w.gate)
 	<-done
 }

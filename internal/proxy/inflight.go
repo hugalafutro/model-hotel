@@ -122,11 +122,12 @@ const (
 )
 
 // slotOutcomeFor maps a failed attempt's error kind to its settlement: the
-// causes the provider did not produce are neutral, every other failure is
-// unclean.
+// causes the provider did not produce (the client leaving, a lost hedge race,
+// the gateway's own deadlines and internal failures) are neutral, every other
+// failure is unclean.
 func slotOutcomeFor(kind ErrorKind) slotOutcome {
 	switch kind {
-	case KindClientDisconnect, KindHedgeSuperseded:
+	case KindClientDisconnect, KindHedgeSuperseded, KindFailoverTimeout, KindRetryTimeout, KindInternal:
 		return slotNeutral
 	default:
 		return slotUnclean
