@@ -523,7 +523,7 @@ targeting it:
 |-----|-------------|
 | `Changed Surfaces` | Classifies what the push or PR touched; every job below is gated on its output |
 | `Go Test` | `go test -timeout 10m ./...` against PostgreSQL 16, then a 90% coverage threshold (`cmd/` and `tools/` excluded) |
-| `Go Race` | `go test -race -count=1 -timeout 20m ./...` |
+| `Go Race (shard N/3)` | `scripts/ci/go-race-shard.sh N 3`: `go test -race` over a third of every large package's tests plus a share of the small packages |
 | `Go Lint` | `golangci-lint` v2.13 |
 | `Go Vet` | `go vet ./...` |
 | `Go Vulncheck` | `govulncheck`, which fails only on vulnerable functions the code actually calls |
