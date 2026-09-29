@@ -12,6 +12,7 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/hugalafutro/model-hotel/internal/authcookie"
+	"github.com/hugalafutro/model-hotel/internal/config"
 	"github.com/hugalafutro/model-hotel/internal/user"
 	"github.com/hugalafutro/model-hotel/internal/webauthn"
 )
@@ -142,6 +143,37 @@ func TestListAuthSessions_PassesIdentityAndCandidates(t *testing.T) {
 	}
 	if !result.Sessions[1].Current || result.Sessions[1].UserAgent != "here" {
 		t.Errorf("rows lost fields: %+v", result.Sessions)
+	}
+}
+
+// On a read-only demo every visitor is the same admin identity, so the list
+// narrows to the calling session: one visitor must not read the others' IPs
+// and user agents.
+func TestListAuthSessions_DemoReadOnlyShowsOnlyTheCallersSession(t *testing.T) {
+	h := &Handler{cfg: &config.Config{DemoReadOnly: true}}
+	h.SetWebAuthnSessionManager(&mockWebAuthnSessionMgr{
+		listFn: func(context.Context, []byte, ...string) ([]webauthn.AuthSessionInfo, error) {
+			return []webauthn.AuthSessionInfo{
+				{ID: uuid.MustParse("11111111-1111-4111-8111-111111111111"), IP: "198.51.100.9", UserAgent: "other visitor"},
+				{ID: uuid.MustParse("22222222-2222-4222-8222-222222222222"), IP: "203.0.113.7", UserAgent: "here", Current: true},
+			}, nil
+		},
+	})
+
+	req := httptest.NewRequest(http.MethodGet, "/auth/sessions", http.NoBody)
+	req = req.WithContext(user.WithIdentity(req.Context(), user.AdminIdentity()))
+	w := httptest.NewRecorder()
+	h.ListAuthSessions(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("status = %d, want 200 (%s)", w.Code, w.Body.String())
+	}
+	var result listSessionsResult
+	if err := json.Unmarshal(w.Body.Bytes(), &result); err != nil {
+		t.Fatalf("parse: %v", err)
+	}
+	if len(result.Sessions) != 1 || !result.Sessions[0].Current || result.Sessions[0].UserAgent != "here" {
+		t.Fatalf("sessions = %+v, want only the calling session", result.Sessions)
 	}
 }
 

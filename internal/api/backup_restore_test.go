@@ -19,6 +19,7 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
+	"github.com/hugalafutro/model-hotel/internal/authcookie"
 	"github.com/hugalafutro/model-hotel/internal/webauthn"
 )
 
@@ -1545,7 +1546,8 @@ func TestSaveUploadedDump_MkdirAllFailure(t *testing.T) {
 }
 
 // TestBackupRestore_TotpOn_RejectsRawTokenInForm verifies that with TOTP on,
-// a multipart restore with admin_token = raw admin token is rejected.
+// a multipart restore with admin_token = raw admin token is rejected when no
+// admin session admitted the request (the router here has no auth middleware).
 func TestBackupRestore_TotpOn_RejectsRawTokenInForm(t *testing.T) {
 	r := backupTOTPRouter(t, true, nil) // nil sessionMgr: only raw-token path is possible
 
@@ -1626,5 +1628,94 @@ func TestBackupRestore_TotpOff_AcceptsRawTokenInForm(t *testing.T) {
 	}
 	if !strings.Contains(w.Body.String(), "dump") {
 		t.Errorf("expected a dump-related error (auth passed), got: %s", w.Body.String())
+	}
+}
+
+// cookieRestoreRequest builds the restore the SPA sends: the session in the
+// HttpOnly cookie, the CSRF pair, and the typed-in admin token as the form's
+// step-up field. No dump rides along, so a request past the auth gate answers
+// 400 "missing dump file" rather than touching the database.
+func cookieRestoreRequest(t *testing.T, sessionToken, formToken string) *http.Request {
+	t.Helper()
+	var buf bytes.Buffer
+	writer := multipart.NewWriter(&buf)
+	if err := writer.WriteField("admin_token", formToken); err != nil {
+		t.Fatal(err)
+	}
+	if err := writer.Close(); err != nil {
+		t.Fatal(err)
+	}
+	req := httptest.NewRequest(http.MethodPost, "/backups/restore", &buf)
+	req.Header.Set("Content-Type", writer.FormDataContentType())
+	req.AddCookie(&http.Cookie{Name: authcookie.SessionCookie, Value: sessionToken})
+	req.AddCookie(&http.Cookie{Name: authcookie.CSRFCookie, Value: "csrf-pair"})
+	req.Header.Set(authcookie.CSRFHeader, "csrf-pair")
+	return req
+}
+
+// With TOTP on, the dashboard's restore rides a cookie session the SPA cannot
+// read, so the form carries the admin token the operator types. The session
+// already passed the second factor, so that request must reach the upload.
+func TestRestoreBackup_TotpOnCookieSession_AcceptsTypedAdminToken(t *testing.T) {
+	h := newTestHandler(t)
+	sessionMgr := webauthn.NewSessionManager(webauthn.NewRepository(h.Pool().Pool()))
+	h.SetWebAuthnSessionManager(sessionMgr)
+	h.SetTotpStatus(&stubTotpStatus{enabled: true})
+	h.totpEnabled.Store(true)
+	r := chi.NewRouter()
+	r.Use(h.AuthMiddleware)
+	h.Register(r)
+
+	ctx := context.Background()
+	session, err := sessionMgr.CreateAuthToken(ctx, []byte("admin"), nil, webauthn.SessionMeta{})
+	if err != nil {
+		t.Fatalf("CreateAuthToken: %v", err)
+	}
+	t.Cleanup(func() { sessionMgr.RevokeAuthToken(ctx, session) })
+
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, cookieRestoreRequest(t, session, "test-admin-token"))
+	if w.Code != http.StatusBadRequest || !strings.Contains(w.Body.String(), "dump") {
+		t.Fatalf("status = %d body = %q, want 400 missing dump (auth passed)", w.Code, w.Body.String())
+	}
+
+	// A wrong typed token is still refused: the step-up is not waived.
+	w = httptest.NewRecorder()
+	r.ServeHTTP(w, cookieRestoreRequest(t, session, "wrong-token"))
+	if w.Code != http.StatusUnauthorized {
+		t.Fatalf("wrong typed token: status = %d, want 401", w.Code)
+	}
+}
+
+// The form field accepts a session token only when it is an admin session: a
+// non-admin account's session in the field is not the admin's step-up.
+func TestRestoreBackup_TotpOn_RejectsNonAdminSessionInForm(t *testing.T) {
+	if apiTestDBURL == "" {
+		t.Fatal("test database not available")
+	}
+	pool, err := pgxpool.New(context.Background(), apiTestDBURL)
+	if err != nil {
+		t.Fatalf("test database not available: %v", err)
+	}
+	t.Cleanup(pool.Close)
+	sessionMgr := webauthn.NewSessionManager(webauthn.NewRepository(pool))
+	ctx := context.Background()
+	token, err := sessionMgr.CreateAuthToken(ctx, []byte("0b5c7a3e-9d8f-4c1a-8e2b-1f3d5a7c9e0b"), nil, webauthn.SessionMeta{})
+	if err != nil {
+		t.Fatalf("CreateAuthToken: %v", err)
+	}
+	t.Cleanup(func() { sessionMgr.RevokeAuthToken(ctx, token) })
+
+	r := backupTOTPRouter(t, true, sessionMgr)
+	var buf bytes.Buffer
+	writer := multipart.NewWriter(&buf)
+	_ = writer.WriteField("admin_token", token)
+	_ = writer.Close()
+	req := httptest.NewRequest(http.MethodPost, "/backups/restore", &buf)
+	req.Header.Set("Content-Type", writer.FormDataContentType())
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+	if w.Code != http.StatusUnauthorized {
+		t.Fatalf("non-admin session in form: status = %d, want 401 (%s)", w.Code, w.Body.String())
 	}
 }
