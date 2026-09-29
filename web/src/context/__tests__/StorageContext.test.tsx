@@ -35,6 +35,31 @@ describe("StorageContext", () => {
 		expect(result.current.arenaHistoryEnabled).toBe(false);
 	});
 
+	it("a key that refuses removal does not keep the others", () => {
+		const { result } = renderHook(() => useStorage(), {
+			wrapper: StorageProvider,
+		});
+		act(() => result.current.setPersistChat(true));
+		localStorage.setItem("chatSystemPrompt", "be brief");
+		localStorage.setItem("chatActivePersonaId", "p1");
+		const real = Storage.prototype.removeItem;
+		const remove = vi
+			.spyOn(Storage.prototype, "removeItem")
+			.mockImplementation(function (this: Storage, key: string) {
+				if (key === "chatMessages") {
+					throw new DOMException("blocked", "SecurityError");
+				}
+				real.call(this, key);
+			});
+		try {
+			act(() => result.current.setPersistChat(false));
+		} finally {
+			remove.mockRestore();
+		}
+		expect(localStorage.getItem("chatSystemPrompt")).toBeNull();
+		expect(localStorage.getItem("chatActivePersonaId")).toBeNull();
+	});
+
 	it("useStorage returns default values when no localStorage", () => {
 		const { result } = renderHook(() => useStorage(), {
 			wrapper: StorageProvider,

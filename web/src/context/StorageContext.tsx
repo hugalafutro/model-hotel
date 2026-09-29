@@ -39,10 +39,12 @@ const StorageContext = createContext<StorageContextType>({
 // store (private mode, site data disabled) throws on access and holds nothing
 // to drop, so the toggle still flips.
 function removeKeys(keys: readonly string[]) {
-	try {
-		for (const key of keys) localStorage.removeItem(key);
-	} catch {
-		/* blocked storage: nothing to remove */
+	for (const key of keys) {
+		try {
+			localStorage.removeItem(key);
+		} catch {
+			/* blocked storage: nothing to remove; the other keys still go */
+		}
 	}
 }
 
