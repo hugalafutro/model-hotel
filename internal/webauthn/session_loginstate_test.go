@@ -68,6 +68,12 @@ func TestConsumeLoginStateWrongType(t *testing.T) {
 	if _, err := sm.ConsumeLoginState(ctx, id); err == nil {
 		t.Fatal("ConsumeLoginState should reject a non-oidc_login record")
 	}
+	// The SSO callback takes this id from a cookie the caller controls, so a
+	// rejected consume must leave the row alone: otherwise any session is
+	// deletable by its UUID.
+	if _, err := repo.GetSession(ctx, id); err != nil {
+		t.Fatalf("the auth_token session was deleted by a rejected consume: %v", err)
+	}
 }
 
 func TestConsumeLoginStateExpired(t *testing.T) {

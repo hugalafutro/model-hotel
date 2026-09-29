@@ -1122,14 +1122,14 @@ func setupBackupRouterWithSettings(t *testing.T, ss SettingsStore) (chi.Router, 
 
 // --- B2: TOTP gate for backup restore form-field auth ---
 
-// backupTOTPRouter builds a BackupHandler with the given totp flag + session
-// manager, mounts it on a chi router, and returns the router.
-func backupTOTPRouter(t *testing.T, totpOn bool, sessionMgr WebAuthnSessionManager) chi.Router {
+// backupTOTPRouter builds a BackupHandler with the given totp flag, mounts it
+// on a chi router, and returns the router.
+func backupTOTPRouter(t *testing.T, totpOn bool) chi.Router {
 	t.Helper()
 	dir := t.TempDir()
 	adminMgr := &mockAdminAuth{validateFn: func(token string) bool { return token == "valid-raw-token" }}
 	h := NewBackupHandler("postgres://invalid:invalid@127.0.0.1:1/nonexistent", dir, adminMgr, nil)
-	h.SetSessionAuth(sessionMgr, func() bool { return totpOn })
+	h.SetTotpEnabled(func() bool { return totpOn })
 	r := chi.NewRouter()
 	h.Register(r)
 	return r
