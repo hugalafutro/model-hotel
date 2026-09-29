@@ -54,3 +54,18 @@ export function localeCodes(loaders: LocaleLoaders): string[] {
 		p.slice("./locales/".length, -".json".length),
 	);
 }
+
+// Languages written right to left, by base subtag.
+const RTL_LANGUAGES = new Set(["ar", "fa", "he", "ur"]);
+
+/**
+ * setDocumentLanguage puts the active language on <html>: `lang` for screen
+ * readers, hyphenation and the browser's translate prompt, and `dir` for the
+ * layout. Both apps hand it to i18next's languageChanged event, so it holds on
+ * every screen, the login screen included.
+ */
+export function setDocumentLanguage(language: string): void {
+	const root = document.documentElement;
+	root.lang = language;
+	root.dir = RTL_LANGUAGES.has(language.split("-")[0]) ? "rtl" : "ltr";
+}

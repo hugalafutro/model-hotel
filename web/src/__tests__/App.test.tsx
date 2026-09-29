@@ -332,6 +332,16 @@ describe("AppContent", () => {
 		expect(screen.getByRole("button", { name: "Sign In" })).toBeInTheDocument();
 	});
 
+	it("clears the storage mirror of a session that expired with no tab open", () => {
+		localStorage.setItem("model-hotel:quota:1", "{}");
+		localStorage.setItem("chatMessages", "[]");
+
+		renderWithProviders(<App />);
+
+		expect(localStorage.getItem("model-hotel:quota:1")).toBeNull();
+		expect(localStorage.getItem("chatMessages")).toBe("[]");
+	});
+
 	it("renders Layout with routes when session cookie present", async () => {
 		document.cookie = "mh_csrf=existing-token; path=/";
 

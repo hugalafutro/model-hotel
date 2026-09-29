@@ -1,4 +1,8 @@
-import { createLocaleBackend, localeCodes } from "@web-shared/i18n";
+import {
+	createLocaleBackend,
+	localeCodes,
+	setDocumentLanguage,
+} from "@web-shared/i18n";
 import i18next from "i18next";
 import LanguageDetector from "i18next-browser-languagedetector";
 import { initReactI18next } from "react-i18next";
@@ -25,6 +29,9 @@ const localeLoaders = import.meta.glob<{ default: object }>([
 const SUPPORTED_LANGUAGES = ["en", ...localeCodes(localeLoaders)];
 
 export const lazyLocaleBackend = createLocaleBackend(localeLoaders);
+
+// Registered before init so the detected language is applied too.
+i18next.on("languageChanged", setDocumentLanguage);
 
 i18next
 	.use(lazyLocaleBackend)

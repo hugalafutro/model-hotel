@@ -4,7 +4,7 @@ import { lazy, Suspense, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Navigate, Route, Routes } from "react-router";
 import { Eye, EyeOff, Fingerprint, GithubLogo, LogIn } from "@/lib/icons";
-import { api, isAuthenticated } from "./api/client";
+import { api, clearAuth, isAuthenticated } from "./api/client";
 import { CopyablePill } from "./components/CopyablePill";
 import { ErrorCallout } from "./components/ErrorCallout";
 import { Layout } from "./components/Layout";
@@ -74,6 +74,11 @@ function LoginScreen() {
 	const [totpForced, setTotpForced] = useState(false);
 	const [totpCode, setTotpCode] = useState("");
 	const [username, setUsername] = useState("");
+
+	// A session that expired while no tab was open never ran the teardown, so
+	// its storage mirror is still here: the login screen is logged out by
+	// definition, and clears it.
+	useEffect(clearAuth, []);
 	const [userPassword, setUserPassword] = useState("");
 	const [userLoading, setUserLoading] = useState(false);
 	// Set when the server answers 401 {"totp_required": true}: the account has

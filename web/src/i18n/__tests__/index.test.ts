@@ -1,4 +1,4 @@
-import { lazyLocaleBackend } from "../index";
+import i18next, { lazyLocaleBackend } from "../index";
 
 // The dashboard's own backend, wired to the real catalogs: proves the glob and
 // the alias table are hooked up. The backend's own branches are covered against
@@ -34,5 +34,22 @@ describe("lazyLocaleBackend", () => {
 		expect(err).toBeInstanceOf(Error);
 		expect((err as Error).message).toContain("zz");
 		expect(data).toBeNull();
+	});
+});
+
+// The active language reaches <html>, so screen readers and the layout follow
+// it on every screen: the listener sits on i18next, not on a component.
+describe("document language", () => {
+	afterEach(() => i18next.changeLanguage("en"));
+
+	it("sets lang and dir on <html> for each language change", async () => {
+		await i18next.changeLanguage("ar");
+		expect(document.documentElement.lang).toBe("ar");
+		expect(document.documentElement.dir).toBe("rtl");
+		await i18next.changeLanguage("he");
+		expect(document.documentElement.dir).toBe("rtl");
+		await i18next.changeLanguage("de");
+		expect(document.documentElement.lang).toBe("de");
+		expect(document.documentElement.dir).toBe("ltr");
 	});
 });

@@ -50,12 +50,6 @@ export function LanguageSelector() {
 
 	const current = i18n.resolvedLanguage ?? i18n.language;
 
-	// Set document direction for RTL languages
-	useEffect(() => {
-		const rtlLanguages = new Set(["ar", "he"]);
-		document.documentElement.dir = rtlLanguages.has(current) ? "rtl" : "ltr";
-	}, [current]);
-
 	useClickOutside(ref, () => setOpen(false), { enabled: open });
 
 	// Scroll the active language into view when dropdown opens

@@ -206,8 +206,8 @@ export function clearAuth(): void {
 	// The quota payloads useQuotaData mirrors into localStorage carry provider
 	// account details; they belong to the session that ends here, not to
 	// whoever logs into this browser next. Cleared wherever the auth signal
-	// drops (logout, a 401, a password change), so no teardown path keeps
-	// them. Chat history and UI preferences use other keys and stay.
+	// drops (logout, a 401, a password change) and whenever the login screen
+	// shows, so a session that expired with no tab open does not keep them. Chat history and UI preferences use other keys and stay.
 	try {
 		for (const key of Object.keys(localStorage)) {
 			if (key.startsWith(`${LOCAL_CACHE_PREFIX}:`))
