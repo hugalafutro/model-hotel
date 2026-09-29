@@ -303,6 +303,20 @@ func classifyProbeError(probeErr error, providerName string, masker credentialMa
 	return classifyProbeFailure(providerName, fencedFrameMessage(fence, masker, errString(probeErr)), clientGone, elapsed, stallTimeout, ttftTimeout, attempt)
 }
 
+// probeBreakerReason is the breaker's last cause for a charged probe failure,
+// named by what the probe saw so the circuits page does not have to be read
+// beside the request log.
+func probeBreakerReason(probe string, re reqError) string {
+	switch {
+	case re.Kind == KindProviderTimeout:
+		return probe + ": no first token"
+	case re.Underlying == lineCapErrMsg:
+		return probe + ": a frame exceeded the line limit"
+	default:
+		return probe + ": no usable first frame"
+	}
+}
+
 // classifyProbeFailure decides how a zero-token TTFT probe failure is recorded.
 // The provider is at fault (provider_timeout, charged to the breaker and
 // eligible for failover) when the gateway's own TTFT timer fired, or when the
@@ -383,7 +397,7 @@ func (h *Handler) dispatchStreaming(w http.ResponseWriter, r *http.Request, st *
 			// provider either, and is settled neutral.
 			st.attemptSlot.settle(slotOutcomeFor(re.Kind))
 			if recordFailure {
-				h.chargeBreaker(st, candidate, resp.StatusCode, "TTFT probe failed")
+				h.chargeBreaker(st, candidate, resp.StatusCode, probeBreakerReason("TTFT probe", re))
 			}
 			st.setReqErr(re)
 			logData.failoverAttempt = attempt

@@ -335,6 +335,8 @@ func TestAttemptCandidate_EgressBodyStalledPastTheAttemptDeadlineIsNotAClientDis
 			if h.circuitBreaker.GetState(tc.cand.provider.ID, tc.cand.model.ModelID) != failover.StateOpen {
 				t.Error("a provider that stalled its body past the attempt deadline was not charged")
 			}
+			// The circuits page names the stall, not a translation failure.
+			assertLastVerdict(t, h.circuitBreaker, tc.cand.provider.ID, "upstream body stalled", http.StatusOK)
 		})
 	}
 }
