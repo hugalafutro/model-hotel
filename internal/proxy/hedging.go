@@ -453,7 +453,7 @@ func (h *Handler) probeStreamingCandidate(ctx context.Context, st *requestState,
 			// What only this site knows about the probe, beside the charge line
 			// chargeBreaker writes.
 			debuglog.Warn("proxy: hedged TTFT probe failed", "provider", candidate.provider.Name, "provider_id", candidate.provider.ID, "model", candidate.model.ModelID, "attempt", attempt, "kind", string(re.Kind), "duration_ms", elapsed.Milliseconds(), "error", re.Underlying)
-			h.chargeBreaker(st, candidate, resp.StatusCode, "hedged TTFT probe failed")
+			h.chargeBreaker(st, candidate, resp.StatusCode, probeBreakerReason("hedged TTFT probe", re))
 		}
 		res.reqErr = re
 		return res

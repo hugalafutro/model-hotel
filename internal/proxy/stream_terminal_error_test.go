@@ -2,6 +2,7 @@ package proxy
 
 import (
 	"encoding/json"
+	"errors"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -79,6 +80,46 @@ func TestHandleStreamingResponse_StallEndsWithErrorFrame(t *testing.T) {
 	if logData.state != "failed" {
 		t.Errorf("state = %q, want failed", logData.state)
 	}
+}
+
+// A stalled body closed by the watchdog reads back as a network error, whose
+// text names both addresses. The client gets the stall the row records, not
+// "upstream connection error".
+func TestHandleStreamingResponse_StallClosedAsANetworkErrorTellsTheClientItStalled(t *testing.T) {
+	h := newIntegrationHandler()
+	defer stopUnitHandlerIntegration(h)
+
+	body := &netErrOnCloseReader{newBlockUntilClosedReader("data: {\"choices\":[{\"delta\":{\"content\":\"hi\"}}]}\n\n")}
+	resp := &http.Response{StatusCode: http.StatusOK, Body: body}
+
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest("POST", "/v1/chat/completions", http.NoBody)
+	logData := streamingLog()
+	h.insertRequestLogAsync(logData)
+	time.Sleep(20 * time.Millisecond)
+
+	opts := streamOptions{responseHeaderMs: 10, streamStallTimeout: 30 * time.Millisecond, vkHash: "test-hash", attempt: 1}
+	h.handleStreamingResponse(w, req, logData, resp, time.Now(), opts)
+
+	e := lastSSEError(t, w.Body.String())
+	if e == nil {
+		t.Fatalf("expected a terminal error frame, got: %s", w.Body.String())
+	}
+	if msg, _ := e["message"].(string); !strings.HasPrefix(msg, "stream stalled: no data for") {
+		t.Errorf("message = %q, want the stall the row records", msg)
+	}
+}
+
+// netErrOnCloseReader ends the way a real upstream body does once the watchdog
+// closes it: with the socket's error rather than io.EOF.
+type netErrOnCloseReader struct{ *blockUntilClosedReader }
+
+func (r *netErrOnCloseReader) Read(p []byte) (int, error) {
+	n, err := r.blockUntilClosedReader.Read(p)
+	if errors.Is(err, io.EOF) {
+		err = errors.New("read tcp 10.0.0.1:50000->10.0.0.2:443: use of closed network connection")
+	}
+	return n, err
 }
 
 // A process shutdown mid-stream ends the client stream with a restart error

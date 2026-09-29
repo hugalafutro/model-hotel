@@ -327,7 +327,11 @@ func (h *Handler) rejectUntranslatableBody(st *requestState, candidate modelCand
 		kind = KindProviderError
 	}
 	if !abandoned && translationIsProviderFault(err) {
-		h.chargeBreaker(st, candidate, status, "upstream body could not be translated")
+		reason := "upstream body could not be translated"
+		if kind == KindProviderTimeout {
+			reason = "upstream body stalled"
+		}
+		h.chargeBreaker(st, candidate, status, reason)
 	}
 	// The attempt is over and it did not serve, so its in-flight slot settles as
 	// the failure it was. finishAttemptAdmission fixed the slot's clean flag
