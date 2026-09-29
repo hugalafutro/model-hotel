@@ -326,12 +326,20 @@ func (m *SessionManager) CreateLoginState(ctx context.Context, data []byte, ttl 
 // ConsumeLoginState fetches the OIDC login-state record by id and deletes it,
 // enforcing single use: a replayed callback finds nothing the second time. It
 // returns the stored blob only when the record exists, is of type "oidc_login",
-// and has not expired. The delete runs regardless of expiry so stale records
-// don't linger until the hourly cleanup.
+// and has not expired. Only an "oidc_login" record is ever deleted: the id comes
+// from a cookie the caller controls, so any other session under that id is left
+// alone. An expired login-state record is still deleted so it doesn't linger
+// until the hourly cleanup.
 func (m *SessionManager) ConsumeLoginState(ctx context.Context, id uuid.UUID) ([]byte, error) {
 	session, err := m.store.GetSession(ctx, id)
 	if err != nil {
 		return nil, err
+	}
+	// Checking the type before the delete is race-free: a row's id and type
+	// never change after insert and ids are random, so the row the delete below
+	// removes, if any, is the one read here.
+	if session.Type != "oidc_login" {
+		return nil, errInvalidLoginState
 	}
 	// The delete is the atomic single-use claim: DeleteSession reports an error
 	// (ErrNotFound / 0 rows affected) when no row was removed, so under a
@@ -339,9 +347,6 @@ func (m *SessionManager) ConsumeLoginState(ctx context.Context, id uuid.UUID) ([
 	// proceeds; any other reader that saw the same row before the delete is
 	// rejected here. This closes the read-then-delete TOCTOU on the guard.
 	if delErr := m.store.DeleteSession(ctx, id); delErr != nil {
-		return nil, errInvalidLoginState
-	}
-	if session.Type != "oidc_login" {
 		return nil, errInvalidLoginState
 	}
 	if session.ExpiresAt.Before(time.Now()) {

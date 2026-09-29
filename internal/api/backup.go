@@ -34,9 +34,8 @@ type BackupHandler struct {
 	backupMu             sync.Mutex
 	adminMgr             AdminAuthenticator
 	settingsRepo         SettingsStore
-	sessionMgr           WebAuthnSessionManager // set via SetSessionAuth; nil when WebAuthn not wired (raw admin token still accepted when TOTP off)
-	totpEnabled          func() bool            // set via SetSessionAuth; nil -> treated as false (TOTP off) so raw admin token is accepted
-	masterKey            string                 // set via SetSigningKey; empty disables backup signing and verification
+	totpEnabled          func() bool // set via SetTotpEnabled; nil -> treated as false (TOTP off) so the typed admin token is accepted on its own
+	masterKey            string      // set via SetSigningKey; empty disables backup signing and verification
 	schedulerCancelMu    sync.Mutex
 	schedulerCancel      context.CancelFunc
 	// schedulerStopped is the running scheduler's join channel, so a second
@@ -60,13 +59,12 @@ func NewBackupHandler(databaseURL, backupDir string, adminMgr AdminAuthenticator
 	}
 }
 
-// SetSessionAuth wires the WebAuthn session manager and TOTP-enabled flag so
-// restore (a destructive, second independent auth gate via multipart form
-// field) honors 2FA: when TOTP is enabled, a raw admin token in the form field
-// is rejected and a session token from /totp/login is required instead. Mirrors
-// Handler.AuthMiddleware's gate. Called after NewBackupHandler in Handler.Register.
-func (h *BackupHandler) SetSessionAuth(sessionMgr WebAuthnSessionManager, totpEnabled func() bool) {
-	h.sessionMgr = sessionMgr
+// SetTotpEnabled wires the TOTP-enabled flag so restore's step-up (the
+// admin_token multipart form field) honors 2FA: when TOTP is enabled, the
+// typed admin token in the field counts only on a request the auth middleware
+// admitted as an admin session. See stepUpAuthorized. Called after
+// NewBackupHandler in Handler.Register.
+func (h *BackupHandler) SetTotpEnabled(totpEnabled func() bool) {
 	h.totpEnabled = totpEnabled
 }
 

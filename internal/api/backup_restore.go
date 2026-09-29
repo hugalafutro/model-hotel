@@ -17,6 +17,7 @@ import (
 	"github.com/hugalafutro/model-hotel/internal/db"
 	"github.com/hugalafutro/model-hotel/internal/debuglog"
 	"github.com/hugalafutro/model-hotel/internal/events"
+	"github.com/hugalafutro/model-hotel/internal/user"
 )
 
 // restoreResult is returned after a successful restore.
@@ -328,6 +329,18 @@ type uploadedDump struct {
 	signature string
 }
 
+// stepUpAuthorized reports whether the restore form's admin_token field
+// authorizes the restore; see saveUploadedDump. Only the admin token counts,
+// never a session token: the dashboard cookie carries the raw session token,
+// so a session accepted here would let a stolen session be its own step-up.
+func (h *BackupHandler) stepUpAuthorized(r *http.Request, formToken string) bool {
+	if !h.adminMgr.Validate(formToken) {
+		return false
+	}
+	totpOn := h.totpEnabled != nil && h.totpEnabled()
+	return !totpOn || user.IdentityFrom(r.Context()).IsAdmin()
+}
+
 // saveUploadedDump validates the multipart upload (size limit, admin token,
 // dump file) and streams it to a temp file in the backup dir, returning it for
 // the caller to verify and clean up. It writes the appropriate HTTP error and
@@ -345,24 +358,21 @@ func (h *BackupHandler) saveUploadedDump(w http.ResponseWriter, r *http.Request)
 		return uploadedDump{}, false
 	}
 
-	// Validate admin token from form field. When TOTP 2FA is enabled, the raw
-	// admin token is a first factor only and must not unlock this destructive
-	// op; a session token from /totp/login is required. Mirrors AuthMiddleware's
-	// gate so the form-field guard cannot be used to bypass 2FA.
+	// The form field is the restore's step-up: the admin token, re-typed.
+	// When TOTP 2FA is enabled the raw admin token is a first factor only, so
+	// it is accepted here only on a request the auth middleware already
+	// admitted as an admin, which with TOTP on means an admin session (a
+	// password and TOTP, passkey or SSO login; the middleware refuses a
+	// raw-token bearer). The admin
+	// token is the only credential the field accepts, for the dashboard and
+	// header-bearer clients alike; a session token never counts.
 	adminToken := r.FormValue("admin_token")
 	if adminToken == "" {
 		debuglog.Warn("auth: backup restore with missing admin token", "remote_addr", clientip.From(r))
 		respondError(w, "invalid admin token", nil, http.StatusUnauthorized)
 		return uploadedDump{}, false
 	}
-	authed := false
-	totpOn := h.totpEnabled != nil && h.totpEnabled()
-	if !totpOn && h.adminMgr.Validate(adminToken) {
-		authed = true
-	} else if h.sessionMgr != nil && h.sessionMgr.Validate(r.Context(), adminToken) {
-		authed = true
-	}
-	if !authed {
+	if !h.stepUpAuthorized(r, adminToken) {
 		// respondError stays silent for a 401 with no err, so log the failed
 		// restore attempt here (remote address only, never the token).
 		debuglog.Warn("auth: backup restore with invalid admin token", "remote_addr", clientip.From(r))
