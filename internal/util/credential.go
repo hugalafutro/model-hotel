@@ -97,7 +97,15 @@ func MaskKeyShapedTokens(body []byte) []byte {
 	})
 	body = unambiguousKeyShape.ReplaceAll(body, []byte("[redacted]"))
 	body = URLUserinfoRE.ReplaceAll(body, []byte("${1}[redacted]@"))
-	return secretParamShape.ReplaceAll(body, []byte("${1}${2}=[redacted]"))
+	// A value already masked matches again up to its closing bracket; kept as
+	// is, so that masking twice does not append another "]".
+	return secretParamShape.ReplaceAllFunc(body, func(m []byte) []byte {
+		eq := bytes.IndexByte(m, '=') + 1
+		if string(m[eq:]) == "[redacted" {
+			return m
+		}
+		return append(m[:eq:eq], "[redacted]"...)
+	})
 }
 
 // mayHoldShape is a literal check every shape pattern implies: the prefixed

@@ -301,6 +301,11 @@ func TestMaskCredentials_MasksNamedParametersAndURLUserinfo(t *testing.T) {
 		if got := MaskCredentials(nil, tc.in); got != tc.want {
 			t.Errorf("MaskCredentials(%q) = %q, want %q", tc.in, got, tc.want)
 		}
+		// Text is masked again on its way to storage: a second pass must
+		// leave it alone, not grow a "]" per pass.
+		if got := MaskCredentials(nil, tc.want); got != tc.want {
+			t.Errorf("MaskCredentials(%q) again = %q", tc.want, got)
+		}
 	}
 }
 
