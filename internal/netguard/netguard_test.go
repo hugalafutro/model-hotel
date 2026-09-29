@@ -53,6 +53,9 @@ func TestBlockedIP(t *testing.T) {
 		{"64:ff9b:1::169.254.169.254", true}, // RFC 8215 local-use prefix, embedded metadata
 		{"64:ff9b::8.8.8.8", false},          // NAT64 to a public address
 		{"64:ff9b::10.0.0.5", false},         // NAT64 to a private address, allowed like the v4 form
+		{"64:ff9b:1:a9fe:a9:fe00::", true},   // local-use prefix, /48 layout of 169.254.169.254
+		{"64:ff9b:1:a00:0:5::", false},       // local-use prefix, /48 layout of 10.0.0.5
+		{"64:ff9b:1:808:8:800::", false},     // local-use prefix, /48 layout of 8.8.8.8
 	}
 	for _, tc := range cases {
 		ip := net.ParseIP(tc.ip)

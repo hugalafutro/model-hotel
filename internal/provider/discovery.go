@@ -352,20 +352,24 @@ func (d *DiscoveryService) fetchURL(ctx context.Context, method, rawURL string, 
 	}
 	defer func() { _ = resp.Body.Close() }()
 
+	if resp.StatusCode != http.StatusOK {
+		// The body goes to the debuglog only, read under the small error cap
+		// and best-effort, so an oversized or cut-off error page still reports
+		// its status. The returned error reaches the stored provider error, the
+		// discovery.provider_failed event and the API's 500 body, so it carries
+		// the status alone: an upstream that answers a listing with a page of
+		// its own text cannot push that text into the operator's view. Info,
+		// not Warn: some statuses are expected every scan, and the callers
+		// that treat one as a failure log their own Warn or Error.
+		body, _ := io.ReadAll(io.LimitReader(resp.Body, httpx.MaxErrorBody))
+		debuglog.Info("discovery: fetch returned non-200 status",
+			"host", last.URL.Host, "status", resp.StatusCode, "body", maskRequestSecrets(last, string(body), 2000))
+		return nil, &httpError{StatusCode: resp.StatusCode}
+	}
+
 	bodyBytes, err := httpx.ReadCappedBody(resp.Body, discoveryBodyCap)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read response: %w", err)
-	}
-
-	if resp.StatusCode != http.StatusOK {
-		// The body goes to the debuglog only. The returned error reaches the
-		// stored provider error, the discovery.provider_failed event and the
-		// API's 500 body, so it carries the status alone: an upstream that
-		// answers a listing with a page of its own text cannot push that text
-		// into the operator's view.
-		debuglog.Warn("discovery: fetch returned non-200 status",
-			"host", last.URL.Host, "status", resp.StatusCode, "body", maskRequestSecrets(last, string(bodyBytes), 2000))
-		return nil, &httpError{StatusCode: resp.StatusCode}
 	}
 
 	return bodyBytes, nil

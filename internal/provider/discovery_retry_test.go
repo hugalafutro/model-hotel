@@ -11,6 +11,7 @@ import (
 	"strings"
 	"sync/atomic"
 	"testing"
+	"testing/iotest"
 	"time"
 
 	"github.com/google/uuid"
@@ -220,5 +221,28 @@ func TestDiscoverOllama_TagsRetriesTransientFailure(t *testing.T) {
 	}
 	if got := tagCalls.Load(); got != 2 {
 		t.Errorf("expected 2 tags attempts, got %d", got)
+	}
+}
+
+// cutBodyTransport answers every request with a 401 whose body fails partway,
+// the shape of an error page the upstream drops mid-send.
+type cutBodyTransport struct{}
+
+func (cutBodyTransport) RoundTrip(*http.Request) (*http.Response, error) {
+	return &http.Response{
+		StatusCode: http.StatusUnauthorized,
+		Header:     http.Header{},
+		Body:       io.NopCloser(io.MultiReader(strings.NewReader("denied"), iotest.ErrReader(errors.New("connection reset")))),
+	}, nil
+}
+
+func TestFetchURL_NonOKWithFailingBodyReportsTheStatus(t *testing.T) {
+	// The status decides before the body is read: a 401 whose error page cannot
+	// be read whole is still reported as a 401, not as a read failure.
+	d := &DiscoveryService{httpClient: &http.Client{Transport: cutBodyTransport{}}}
+	_, err := d.fetchURL(context.Background(), "GET", "http://example.invalid/models", nil)
+	httpErr := httpErrorFrom(err)
+	if httpErr == nil || httpErr.StatusCode != http.StatusUnauthorized {
+		t.Fatalf("expected the 401 status error, got %v", err)
 	}
 }

@@ -548,6 +548,70 @@ func TestScanProviderUnreachable(t *testing.T) {
 	}
 }
 
+// TestScanProviderCatalogFallbackWithholdsMisses pins the sweep's handling of a
+// catalog-fallback listing: an xAI account answering 403 still gets its catalog
+// models, but the listing omits live-only models without their being gone, so
+// the scan records no misses, reports not-ok (keeping its retired rows out of
+// the prune) and does not count as a failed provider. Miss recording is skipped
+// outright rather than left to the confirmation probes, so the listing is
+// fetched once: a probe would re-list 15 seconds later only to land on the
+// same fallback.
+func TestScanProviderCatalogFallbackWithholdsMisses(t *testing.T) {
+	if cmdTestDB == nil {
+		t.Fatal("test DB unavailable")
+	}
+	wipeDiscoveryState(t)
+	ctx := context.Background()
+	var listings atomic.Int32
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/v1/language-models" {
+			listings.Add(1)
+		}
+		http.Error(w, "no credits", http.StatusForbidden)
+	}))
+	t.Cleanup(srv.Close)
+
+	deps := testDiscoveryDeps(t)
+	p, err := deps.providerRepo.Create(ctx, provider.CreateProviderRequest{
+		Name:         "cmdserver-xai-fallback",
+		BaseURL:      srv.URL + "/v1",
+		ProviderType: "xai",
+	}, nil, nil, nil)
+	if err != nil {
+		t.Fatalf("failed to create provider: %v", err)
+	}
+	// An enabled live-only row the catalog does not name: a trusted scan would
+	// count it missing.
+	if _, err := deps.pool.Exec(ctx, `
+		INSERT INTO models (id, provider_id, model_id, name, enabled)
+		VALUES ($1, $2, 'grok-live-only', 'grok-live-only', true)`, uuid.New(), p.ID); err != nil {
+		t.Fatalf("seed live-only row: %v", err)
+	}
+
+	var result DiscoveryResult
+	_, ok := scanProvider(ctx, deps, deps.discovery, p, "test", &result)
+	if ok {
+		t.Error("a catalog-fallback scan reported ok, which would let the prune delete retired rows")
+	}
+	if result.ProvidersFailed != 0 || len(result.Errors) != 0 {
+		t.Errorf("a catalog fallback is not a failed scan, got %+v", result)
+	}
+	if result.ModelsDiscovered == 0 {
+		t.Error("expected the catalog models to be discovered")
+	}
+	var enabled bool
+	var missing int
+	if err := deps.pool.QueryRow(ctx, `SELECT enabled, missing_scans FROM models WHERE provider_id = $1 AND model_id = 'grok-live-only'`, p.ID).Scan(&enabled, &missing); err != nil {
+		t.Fatalf("read row: %v", err)
+	}
+	if !enabled || missing != 0 {
+		t.Errorf("a catalog-fallback scan recorded a miss: enabled=%v missing_scans=%d", enabled, missing)
+	}
+	if got := listings.Load(); got != 1 {
+		t.Errorf("listing fetched %d times, want 1 (no confirmation probe)", got)
+	}
+}
+
 func TestTouchLastDiscoveredError(t *testing.T) {
 	if cmdTestDB == nil {
 		t.Fatal("test DB unavailable")

@@ -18,8 +18,11 @@ import (
 	"net/http"
 	"net/netip"
 	"net/url"
+	"slices"
 	"syscall"
 	"time"
+
+	"github.com/hugalafutro/model-hotel/internal/util"
 )
 
 // parseHTTPURL parses rawURL and requires an http/https scheme and a non-empty
@@ -42,21 +45,16 @@ func parseHTTPURL(rawURL string) (*url.URL, error) {
 // dialled by an internal-facing outbound client: the whole "this host on this
 // network" block (0.0.0.0/8 and ::, per RFC 1122), or link-local
 // unicast/multicast (169.254.0.0/16 and fe80::/10, which cover the
-// cloud-metadata endpoint). A NAT64 address is judged by the IPv4 address it
-// embeds, since a NAT64 gateway on the path delivers it there. Private and
-// loopback ranges are intentionally allowed so internal IdPs, the apprise-api
-// container, and Front Desk members keep working.
+// cloud-metadata endpoint). A NAT64 address is judged by the IPv4 addresses it
+// embeds (util.NAT64IPv4s), since a NAT64 gateway on the path delivers it
+// there. Private and loopback ranges are intentionally allowed so internal
+// IdPs, the apprise-api container, and Front Desk members keep working.
 func BlockedIP(ip net.IP) bool {
 	if ip == nil {
 		return false
 	}
-	if a, ok := netip.AddrFromSlice(ip); ok {
-		for _, p := range nat64Prefixes {
-			if p.Contains(a) {
-				b := a.As16()
-				return BlockedIP(net.IPv4(b[12], b[13], b[14], b[15]))
-			}
-		}
+	if v4s := util.NAT64IPv4s(ip); v4s != nil {
+		return slices.ContainsFunc(v4s, BlockedIP)
 	}
 	// IsUnspecified covers only 0.0.0.0 and ::, but every address in 0.0.0.0/8
 	// is "this host": a Linux dial to 0.1.2.3 lands on the local machine the
@@ -69,17 +67,6 @@ func BlockedIP(ip net.IP) bool {
 	return ip.IsUnspecified() ||
 		ip.IsLinkLocalUnicast() ||
 		ip.IsLinkLocalMulticast()
-}
-
-// nat64Prefixes are the NAT64 prefixes whose addresses carry an IPv4
-// destination: the RFC 6052 well-known prefix and the RFC 8215 local-use one.
-// ponytail: the embedded address is read from the last four bytes, the /96
-// layout the well-known prefix always uses; a local-use deployment on a shorter
-// prefix (RFC 6052 /48 to /64 layouts) places it elsewhere and is judged as
-// plain IPv6. Decode per prefix length if such a deployment turns up.
-var nat64Prefixes = []netip.Prefix{
-	netip.MustParsePrefix("64:ff9b::/96"),
-	netip.MustParsePrefix("64:ff9b:1::/48"),
 }
 
 // ErrBlockedAddress is the dial guard's denial: the resolved address is one

@@ -242,9 +242,10 @@ func scanProvider(ctx context.Context, deps discoveryDeps, discoverySvc *provide
 	// when the snapshot is unavailable (absentees cannot be confirmed),
 	// any upsert failed (a DB error must not count a listed model as
 	// missing), or the listing is a catalog fallback (it omits live-only
-	// models without their being gone, so the prune is withheld too). Absent models get a second opinion via confirmation
-	// probes, and a model is disabled only after
-	// model.MissingScanThreshold consecutive confirmed-missing scans.
+	// models without their being gone, so the prune is withheld too).
+	// Absent models get a second opinion via confirmation probes, and a
+	// model is disabled only after model.MissingScanThreshold consecutive
+	// confirmed-missing scans.
 	var disabledRefs []model.DisabledModelRef
 	missTrusted := !catalogFallback
 	if snapErr == nil && !upsertFailed && !catalogFallback {
