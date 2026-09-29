@@ -752,9 +752,9 @@ func TestDeleteMemberClearsPrimary(t *testing.T) {
 	}
 }
 
-// TestDeleteMemberForgetsItsInMemoryState: the three per-member flags Front Desk
-// keeps outside the store (skew hold, config divergence, stale backups) are
-// dropped when the member is removed, so a member re-added later starts clean and
+// TestDeleteMemberForgetsItsInMemoryState: the per-member state Front Desk keeps
+// outside the store (skew hold, config divergence, stale backups, and the
+// poller's status and failure counters) is dropped when the member is removed, so a member re-added later starts clean and
 // the maps do not accumulate an entry per member ever removed.
 func TestDeleteMemberForgetsItsInMemoryState(t *testing.T) {
 	srv, store := newTestServer(t)
@@ -770,6 +770,13 @@ func TestDeleteMemberForgetsItsInMemoryState(t *testing.T) {
 	srv.syncHeld[gone.ID] = memberBuild{Version: "dev", Commit: "old"}.key()
 	srv.syncIncomplete[gone.ID] = incompleteState{diverged: true, lastAttempt: time.Now()}
 	srv.backupStale[gone.ID] = true
+	p := srv.poller
+	p.statuses[gone.ID] = MemberStatus{Version: "dev"}
+	p.versionFailures[gone.ID] = 1
+	p.healthFailures[gone.ID] = 1
+	p.maintenanceDown[gone.ID] = true
+	p.traefikNonUp[gone.ID] = 1
+	p.conflictNotified[gone.ID] = true
 
 	rec := do(t, srv, http.MethodDelete, "/api/members/"+gone.ID, "", true)
 	if rec.Code != http.StatusNoContent {
@@ -785,7 +792,21 @@ func TestDeleteMemberForgetsItsInMemoryState(t *testing.T) {
 	if srv.backupStale[gone.ID] {
 		t.Error("backup staleness flag survived the member's removal")
 	}
+	for name, held := range map[string]bool{
+		"status":            hasKey(p.statuses, gone.ID),
+		"version failures":  hasKey(p.versionFailures, gone.ID),
+		"health failures":   hasKey(p.healthFailures, gone.ID),
+		"maintenance down":  hasKey(p.maintenanceDown, gone.ID),
+		"traefik non-up":    hasKey(p.traefikNonUp, gone.ID),
+		"announce conflict": hasKey(p.conflictNotified, gone.ID),
+	} {
+		if held {
+			t.Errorf("poller %s survived the member's removal", name)
+		}
+	}
 }
+
+func hasKey[V any](m map[string]V, k string) bool { _, ok := m[k]; return ok }
 
 // TestAutoSyncDisabledIsNoop: with auto-sync off, the loop touches nothing.
 func TestAutoSyncDisabledIsNoop(t *testing.T) {

@@ -96,14 +96,28 @@ const (
 )
 
 // autoSyncStaleTier grades the fleet's silent-drift risk: 0 fresh (or auto-sync
-// on / no primary designated, where staleness is meaningless), 1 unsynced beyond
-// autoSyncStaleThreshold (degraded), 2 beyond autoSyncFaultyThreshold (faulty).
-// A fleet with no recorded sync at all is tier 1: there is no timestamp to age
-// against, so it cannot honestly escalate to tier 2. haveSync is false when no
-// successful sync has ever been recorded.
-func autoSyncStaleTier(cfg AutoSyncConfig, lastSync time.Time, haveSync bool, now time.Time) int {
-	if cfg.Enabled || cfg.PrimaryID == "" {
+// running / no primary designated, where staleness is meaningless), 1 unsynced
+// beyond autoSyncStaleThreshold (degraded), 2 beyond autoSyncFaultyThreshold
+// (faulty). A fleet with no recorded sync at all is tier 1: there is no
+// timestamp to age against, so it cannot honestly escalate to tier 2. haveSync
+// is false when no successful sync has ever been recorded.
+//
+// idleSince is when an enabled auto-sync last became unable to run (its
+// primary lost its token, was removed, or stopped answering; see
+// Poller.setAutoSyncIdle), zero while it runs. An enabled but idle auto-sync
+// converges nothing, so it is graded as if it were off, with the moment it went
+// idle standing in for a sync: until then it was keeping the fleet converged.
+func autoSyncStaleTier(cfg AutoSyncConfig, lastSync time.Time, haveSync bool, idleSince, now time.Time) int {
+	if cfg.PrimaryID == "" {
 		return 0
+	}
+	if cfg.Enabled {
+		if idleSince.IsZero() {
+			return 0
+		}
+		if !haveSync || idleSince.After(lastSync) {
+			lastSync, haveSync = idleSince, true
+		}
 	}
 	if !haveSync {
 		return 1
@@ -150,8 +164,8 @@ func fleetLastSync(members []*Member, lastSync time.Time, haveSync bool) (time.T
 	return latest, have
 }
 
-func autoSyncStale(cfg AutoSyncConfig, lastSync time.Time, haveSync bool, now time.Time) bool {
-	return autoSyncStaleTier(cfg, lastSync, haveSync, now) >= 1
+func autoSyncStale(cfg AutoSyncConfig, lastSync time.Time, haveSync bool, idleSince, now time.Time) bool {
+	return autoSyncStaleTier(cfg, lastSync, haveSync, idleSince, now) >= 1
 }
 
 // RunAutoSync samples the designated primary on a fixed tick and converges the
@@ -181,6 +195,10 @@ func (s *Server) RunAutoSync(ctx context.Context) {
 // not the primary's config moved. A member is only measured by a pass, so a fleet
 // that stopped running them would stop noticing a member drifting on its own.
 func (s *Server) autoSyncOnce(ctx context.Context, prev string) string {
+	if !s.lockPass(ctx) {
+		return prev
+	}
+	defer s.passMu.Unlock()
 	cfg, err := s.store.GetAutoSync(ctx)
 	if err != nil {
 		debuglog.Warn("frontdesk: auto-sync: read config", "error", err)
@@ -193,6 +211,7 @@ func (s *Server) autoSyncOnce(ctx context.Context, prev string) string {
 		// over too: whatever primary is designated next is a new question.
 		s.autoSyncEvaluated.Store(true)
 		s.unknownPrimaryPasses.Store(0)
+		s.clearAutoSyncIdle(ctx)
 		return ""
 	}
 
@@ -221,6 +240,14 @@ func (s *Server) autoSyncOnce(ctx context.Context, prev string) string {
 // own goroutine with a detached context, and a no-op when auto-sync is off or has
 // no primary. Failures log and the loop retries.
 func (s *Server) forceAutoSyncNow(ctx context.Context) {
+	if !s.lockPass(ctx) {
+		return
+	}
+	defer s.passMu.Unlock()
+	// The deadline starts once the pass holds the lock, so time spent queued
+	// behind another pass is not taken from it.
+	ctx, cancel := context.WithTimeout(ctx, autoSyncKickTimeout)
+	defer cancel()
 	cfg, err := s.store.GetAutoSync(ctx)
 	if err != nil {
 		debuglog.Warn("frontdesk: auto-sync kick: read config", "error", err)
@@ -239,24 +266,19 @@ func (s *Server) forceAutoSyncNow(ctx context.Context) {
 	s.convergeFleet(ctx, primary, primaryToken, hash, primarySections, autoSyncKickReason, cfg.Gen)
 }
 
-// primaryConfigHash resolves the designated primary, loads its admin token, and
-// reads its current syncable-config hash together with its per-section hashes.
-// ok is false (with a debug log) when the primary was removed, lost its token,
-// or is unreachable, in which case the caller skips this round and retries
-// later.
-func (s *Server) primaryConfigHash(ctx context.Context, cfg AutoSyncConfig) (primary *Member, token, hash string, sections map[string]string, ok bool) {
-	primary, token, err := s.memberTokenOrErr(ctx, cfg.PrimaryID)
-	if err != nil {
-		// No source to sync from: the primary was removed or lost its token.
-		debuglog.Debug("frontdesk: auto-sync: primary unavailable", "error", err)
-		return nil, "", "", nil, false
+// lockPass takes passMu for a tick or kick pass and reports whether the pass
+// should run. The lock is taken before the pass reads the auto-sync config and
+// the primary's hash, so a pass that waited behind another converges against
+// what the primary holds once it gets its turn, not what it held when it
+// started waiting. A waiter whose ctx ended meanwhile (shutdown, or the kick's
+// own deadline) releases the lock and runs nothing.
+func (s *Server) lockPass(ctx context.Context) bool {
+	s.passMu.Lock()
+	if ctx.Err() != nil {
+		s.passMu.Unlock()
+		return false
 	}
-	hash, sections, err = s.fetchMemberConfigVersion(ctx, primary, token)
-	if err != nil {
-		debuglog.Debug("frontdesk: auto-sync: read primary version", "member", primary.Name, "error", err)
-		return nil, "", "", nil, false
-	}
-	return primary, token, hash, sections, true
+	return true
 }
 
 // convergeFleet pushes the primary's config to every member that needs it and
@@ -743,6 +765,9 @@ func (s *Server) fetchMemberConfigVersion(ctx context.Context, m *Member, token 
 	status, body, err := callMemberWith(ctx, s.readClient, http.MethodGet, m.URL, memberConfigVersionPath, token, nil)
 	if err != nil {
 		return "", nil, err
+	}
+	if status == http.StatusUnauthorized || status == http.StatusForbidden {
+		return "", nil, fmt.Errorf("%w: member config-version returned %d", errMemberAuthRefused, status)
 	}
 	if status != http.StatusOK {
 		return "", nil, fmt.Errorf("member config-version returned %d", status)

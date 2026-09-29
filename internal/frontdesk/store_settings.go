@@ -240,3 +240,33 @@ func (s *Store) SetMemberLastSync(ctx context.Context, id string, at time.Time, 
 	)
 	return affectedOrNotFound(res, err)
 }
+
+// AutoSyncIdleSince returns when the enabled auto-sync last went idle, as
+// persisted by SetAutoSyncIdleSince, zero when no idle spell is on record.
+func (s *Store) AutoSyncIdleSince(ctx context.Context) (time.Time, error) {
+	var at int64
+	if err := s.db.QueryRowContext(ctx,
+		`SELECT auto_sync_idle_since FROM settings WHERE id = 1`,
+	).Scan(&at); err != nil {
+		return time.Time{}, fmt.Errorf("frontdesk: read auto-sync idle since: %w", err)
+	}
+	if at == 0 {
+		return time.Time{}, nil
+	}
+	return time.Unix(0, at).UTC(), nil
+}
+
+// SetAutoSyncIdleSince persists when the enabled auto-sync went idle; a zero
+// time clears the record.
+func (s *Store) SetAutoSyncIdleSince(ctx context.Context, at time.Time) error {
+	var v int64
+	if !at.IsZero() {
+		v = at.UTC().UnixNano()
+	}
+	if _, err := s.db.ExecContext(ctx,
+		`UPDATE settings SET auto_sync_idle_since = ? WHERE id = 1`, v,
+	); err != nil {
+		return fmt.Errorf("frontdesk: set auto-sync idle since: %w", err)
+	}
+	return nil
+}

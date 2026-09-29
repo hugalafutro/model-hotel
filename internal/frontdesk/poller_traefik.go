@@ -39,6 +39,9 @@ func (p *Poller) PollTraefikOnce(ctx context.Context) {
 	p.traefikBlanked = false
 	var changed []string
 	for _, m := range members {
+		if p.forgotten[m.ID] {
+			continue // removed since the roster was read (forgetMember)
+		}
 		cur := p.statuses[m.ID]
 		// Key by the same URL BuildTraefikConfig publishes: a legacy row can
 		// still carry userinfo, which the emitted config strips.
@@ -53,7 +56,7 @@ func (p *Poller) PollTraefikOnce(ctx context.Context) {
 		}
 		if cur.TraefikStatus != next {
 			cur.TraefikStatus = next
-			p.statuses[m.ID] = cur
+			p.putStatus(m.ID, cur)
 			changed = append(changed, m.ID)
 		}
 	}
@@ -94,7 +97,7 @@ func (p *Poller) noteTraefikAPIFailure(ctx context.Context) {
 	for id, cur := range p.statuses {
 		if cur.TraefikStatus != "" {
 			cur.TraefikStatus = ""
-			p.statuses[id] = cur
+			p.putStatus(id, cur)
 			changed = append(changed, id)
 		}
 		delete(p.traefikNonUp, id)

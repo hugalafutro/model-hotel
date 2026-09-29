@@ -4,7 +4,9 @@ import (
 	"context"
 	"net/http"
 	"net/http/httptest"
+	"slices"
 	"strings"
+	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -818,5 +820,85 @@ func TestApplyHealthEpisodeKeepsItsType(t *testing.T) {
 	p.applyHealth(ctx, b, HealthStatus{Known: true, Healthy: true}, thr)
 	if ev := next(); ev.Type != "health.up" {
 		t.Errorf("recovery after the page: %+v, want health.up", ev)
+	}
+}
+
+// TestForgottenMemberStatusIsNotWrittenBack: a health poll that measured a
+// member before its removal lands after forgetMember. Its write must not
+// re-add the member to the status map, which the Traefik status endpoint serves
+// whole.
+func TestForgottenMemberStatusIsNotWrittenBack(t *testing.T) {
+	p, _, _ := newTestPoller(t, "")
+	m := &Member{ID: "gone", Name: "gone"}
+	p.applyHealth(t.Context(), m, HealthStatus{Known: true, Healthy: true}, 3)
+	p.forgetMember(m.ID)
+	p.applyHealth(t.Context(), m, HealthStatus{Known: true, Healthy: true}, 3)
+	if _, ok := p.Snapshot()[m.ID]; ok {
+		t.Error("a poll landing after the member's removal re-added its status")
+	}
+}
+
+// TestPollOfRemovedMemberCommitsNothing: health, version and announce polls
+// whose requests are in flight when the member is removed land after
+// forgetMember. With a health threshold of 1 the late failure would confirm the
+// member down; none of them may write state back or emit an event for it.
+func TestPollOfRemovedMemberCommitsNothing(t *testing.T) {
+	p, store, bus := newTestPoller(t, "")
+	ctx := t.Context()
+	set, err := store.GetSettings(ctx)
+	if err != nil {
+		t.Fatalf("get settings: %v", err)
+	}
+	set.HealthFailThreshold = 1
+	if err := store.UpdateSettings(ctx, set); err != nil {
+		t.Fatalf("update settings: %v", err)
+	}
+	const polls = 3 // health, version, announce
+	entered := make(chan struct{}, polls)
+	release := make(chan struct{})
+	member := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		entered <- struct{}{}
+		<-release
+		if r.URL.Path == memberAnnouncePath {
+			w.WriteHeader(http.StatusConflict)
+			return
+		}
+		w.WriteHeader(http.StatusInternalServerError)
+	}))
+	t.Cleanup(member.Close)
+	m, err := store.CreateMember(ctx, "gone", member.URL, "tok")
+	if err != nil {
+		t.Fatalf("create member: %v", err)
+	}
+	ch := bus.Subscribe()
+
+	var wg sync.WaitGroup
+	for _, poll := range []func(context.Context){p.PollHealthOnce, p.PollVersionsOnce, p.PollAnnounceOnce} {
+		wg.Go(func() { poll(ctx) })
+	}
+	for range polls {
+		<-entered
+	}
+	if err := store.DeleteMember(ctx, m.ID); err != nil {
+		t.Fatalf("delete member: %v", err)
+	}
+	p.forgetMember(m.ID)
+	close(release)
+	wg.Wait()
+
+	p.mu.RLock()
+	_, status := p.statuses[m.ID]
+	state := []bool{status, p.healthFailures[m.ID] != 0, p.versionFailures[m.ID] != 0, p.conflictNotified[m.ID]}
+	p.mu.RUnlock()
+	if slices.Contains(state, true) {
+		t.Errorf("state written back for the removed member (status, health, version, conflict): %v", state)
+	}
+	if _, total, _ := store.ListEvents(ctx, EventFilter{}); total != 0 {
+		t.Errorf("%d events recorded for the removed member, want none", total)
+	}
+	select {
+	case ev := <-ch:
+		t.Errorf("published %s for the removed member", ev.Type)
+	default:
 	}
 }
