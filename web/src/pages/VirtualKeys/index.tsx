@@ -22,7 +22,11 @@ import { useToast } from "../../context/ToastContext";
 import { useManaged } from "../../hooks/useManaged";
 import { useReadOnly } from "../../hooks/useReadOnly";
 import { useWheelPaging } from "../../hooks/useWheelPaging";
-import { formatNumber, formatRelativeTime } from "../../utils/format";
+import {
+	formatLocale,
+	formatNumber,
+	formatRelativeTime,
+} from "../../utils/format";
 import { proxyOrigin } from "../../utils/snippets";
 import { CreateKeyModal } from "./CreateKeyModal";
 import { KeyDetailModal } from "./KeyDetailModal";
@@ -386,7 +390,7 @@ export function VirtualKeys() {
 										<BudgetCell vk={vk} />
 									</td>
 									<td className="px-4 py-3 text-sm text-gray-400">
-										{new Date(vk.created_at).toLocaleString()}
+										{new Date(vk.created_at).toLocaleString(formatLocale())}
 									</td>
 									<td className="px-4 py-3 text-sm text-gray-400 font-mono">
 										{formatNumber(vk.tokens_used)}

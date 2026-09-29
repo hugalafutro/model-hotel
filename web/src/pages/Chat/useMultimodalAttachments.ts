@@ -29,11 +29,14 @@ interface UseMultimodalAttachmentsReturn {
 const MAX_IMAGE_BYTES = 20 * 1024 * 1024;
 const MAX_AUDIO_BYTES = 25 * 1024 * 1024;
 
-/** The file as a data URL, the form the content-parts API expects. */
+/** The file as a data URL, the form the content-parts API expects. A read
+ * that fails or is aborted rejects, so the caller can say so. */
 function readAsDataUrl(file: File): Promise<string> {
-	return new Promise((resolve) => {
+	return new Promise((resolve, reject) => {
 		const reader = new FileReader();
 		reader.onload = () => resolve(reader.result as string);
+		reader.onerror = () => reject(reader.error);
+		reader.onabort = () => reject(reader.error);
 		reader.readAsDataURL(file);
 	});
 }
@@ -57,6 +60,17 @@ export function useMultimodalAttachments(
 	} | null>(null);
 	const imageInputRef = useRef<HTMLInputElement>(null);
 	const audioInputRef = useRef<HTMLInputElement>(null);
+
+	/** Reads the file and hands its data URL to `attach`; a failed read is
+	 * reported like the other rejected attachments and attaches nothing. */
+	const readThen = useCallback(
+		(file: File, attach: (dataUrl: string) => void) => {
+			void readAsDataUrl(file).then(attach, () =>
+				toast(t("hooks.useMultimodalAttachments.readFailed"), "error"),
+			);
+		},
+		[t, toast],
+	);
 
 	const handlePaste = useCallback(
 		(e: React.ClipboardEvent<HTMLTextAreaElement>) => {
@@ -87,7 +101,7 @@ export function useMultimodalAttachments(
 						return;
 					}
 
-					void readAsDataUrl(file).then((dataUrl) => {
+					readThen(file, (dataUrl) => {
 						setPendingImage({
 							dataUrl,
 							name: file.name || "pasted-image",
@@ -102,7 +116,7 @@ export function useMultimodalAttachments(
 
 			// Allow normal text paste through — no image found
 		},
-		[hasVision, toast, t],
+		[hasVision, toast, t, readThen],
 	);
 
 	const handleImageSelect = useCallback(
@@ -113,14 +127,14 @@ export function useMultimodalAttachments(
 				toast(t("hooks.useMultimodalAttachments.imageTooLarge"), "error");
 				return;
 			}
-			void readAsDataUrl(file).then((dataUrl) => {
+			readThen(file, (dataUrl) => {
 				setPendingImage({ dataUrl, name: file.name });
 				setPendingAudio(null); // only one attachment at a time
 			});
 			// Reset so the same file can be re-selected
 			e.target.value = "";
 		},
-		[t, toast],
+		[t, toast, readThen],
 	);
 
 	const handleAudioSelect = useCallback(
@@ -133,13 +147,13 @@ export function useMultimodalAttachments(
 			}
 			// The extension is the format the API wants ("mp3", "wav", …).
 			const format = file.name.split(".").pop()?.toLowerCase() || "mp3";
-			void readAsDataUrl(file).then((dataUrl) => {
+			readThen(file, (dataUrl) => {
 				setPendingAudio({ dataUrl, name: file.name, format });
 				setPendingImage(null); // only one attachment at a time
 			});
 			e.target.value = "";
 		},
-		[t, toast],
+		[t, toast, readThen],
 	);
 
 	return {

@@ -1,4 +1,5 @@
 import { PRICE_SOURCES, type PriceSource } from "../api/types";
+import { formatDecimal } from "./format";
 
 export function normalizeProviderName(name: string): string {
 	return name.replace(/ /g, "-");
@@ -114,12 +115,13 @@ export function nonTextOutputs(m: { output_modalities?: string }): string[] {
 	);
 }
 
-// A price to at most four decimals. Number#toString already prints the
-// shortest round-trip form, so the rounded value never carries trailing zeros
-// to trim.
+// A price rounded to at most four decimals.
+const roundPrice = (n: number) => Math.round(n * 10000) / 10000;
+
+/** A price for display: at most four decimals, in the format locale. */
 export function formatPrice(n: number | null | undefined): string {
 	if (n == null) return "-";
-	return String(Math.round(n * 10000) / 10000);
+	return formatDecimal(roundPrice(n), 4, { trim: true });
 }
 
 /**
@@ -137,7 +139,10 @@ export function priceSourceKey(
 
 /** The same price for a text input, where absent reads as an empty field. */
 export function formatPriceInput(n: number | null | undefined): string {
-	return n == null ? "" : formatPrice(n);
+	// Number#toString, not formatPrice: the box parses its value back, so it
+	// keeps the "." separator in every locale. It prints the shortest
+	// round-trip form, so the rounded value carries no trailing zeros to trim.
+	return n == null ? "" : String(roundPrice(n));
 }
 
 /**

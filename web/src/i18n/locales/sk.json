@@ -869,7 +869,7 @@
 			"discoveredModels_few": "Zistené {{count}} modely…",
 			"discoveredModels_many": "Zistených {{count}} modelu…",
 			"discoveredModels_other": "Zistených {{count}} modelov…",
-			"deepseekBalance": "Zistený zostatok na účte DeepSeek:{{balance}} USD",
+			"deepseekBalance": "Zistený zostatok na účte DeepSeek: {{balance}}",
 			"deepseekBalanceDetected": "Zistený zostatok DeepSeek",
 			"openrouterBalance": "Zistený zostatok na účte OpenRouter:{{balance}}",
 			"baseUrl": "Základná URL adresa",
@@ -3112,7 +3112,7 @@
 			"kimiCodeUsed": "Kimi Code – využitá kvóta – kliknite pre podrobnosti",
 			"openCodeGoRemaining": "OpenCode Go – zostávajúca kvóta, mesačne {{monthly}} – kliknite pre podrobnosti",
 			"openCodeGoUsed": "OpenCode Go – využitá kvóta, mesačne {{monthly}} – kliknite pre podrobnosti",
-			"deepseekBalance": "Zostatok na účte DeepSeek: ${{usd}} USD {{refreshed}} – kliknutím obnovíte",
+			"deepseekBalance": "Zostatok na účte DeepSeek: {{usd}} {{refreshed}} – kliknutím obnovíte",
 			"deepseekBalanceUnavailable": "Zostatok na účte DeepSeek nie je k dispozícii",
 			"openrouterBalance": "Zostatok kľúča OpenRouter – kliknite pre podrobnosti",
 			"openrouterBalanceUnavailable": "Informácie o zostatku na účte OpenRouter nie sú k dispozícii",
@@ -3266,7 +3266,8 @@
 			"noImageSupport": "Tento model nepodporuje vkladanie obrázkov",
 			"imageTooLarge": "Veľkosť obrázku nesmie presiahnuť 20 MB",
 			"audioTooLarge": "Veľkosť zvukového súboru nesmie presiahnuť 25 MB",
-			"imagePasted": "Obrázok vložený zo schránky"
+			"imagePasted": "Obrázok vložený zo schránky",
+			"readFailed": "Súbor sa nepodarilo prečítať"
 		},
 		"useChatPersistence": {
 			"storageFullChat": "Úložisko je plné – história chatu sa neuložila"

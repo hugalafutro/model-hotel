@@ -869,7 +869,7 @@
 			"discoveredModels_few": "Odkryto {{count}} modele…",
 			"discoveredModels_many": "Odkryto {{count}} modeli…",
 			"discoveredModels_other": "Odkryto {{count}} modelu…",
-			"deepseekBalance": "Wykryto saldo DeepSeek: ${{balance}}",
+			"deepseekBalance": "Wykryto saldo DeepSeek: {{balance}}",
 			"deepseekBalanceDetected": "Wykryto saldo DeepSeek",
 			"openrouterBalance": "Saldo OpenRouter wykryte: ${{balance}}",
 			"baseUrl": "Podstawowy adres URL",
@@ -3112,7 +3112,7 @@
 			"kimiCodeUsed": "Kod Kimi użyty limit - kliknij po szczegóły",
 			"openCodeGoRemaining": "Pozostały limit OpenCode Go, miesięcznie {{monthly}} - kliknij po szczegóły",
 			"openCodeGoUsed": "Wykorzystany limit OpenCode Go, miesięcznie {{monthly}} - kliknij po szczegóły",
-			"deepseekBalance": "Saldo DeepSeek: ${{usd}} USD {{refreshed}} - kliknij, aby odświeżyć",
+			"deepseekBalance": "Saldo DeepSeek: {{usd}} {{refreshed}} - kliknij, aby odświeżyć",
 			"deepseekBalanceUnavailable": "Saldo DeepSeek niedostępne",
 			"openrouterBalance": "Saldo kluczy OpenRouter - kliknij po szczegóły",
 			"openrouterBalanceUnavailable": "OpenRouter balance unavailable",
@@ -3266,7 +3266,8 @@
 			"noImageSupport": "Ten model nie obsługuje wprowadzania obrazu",
 			"imageTooLarge": "Obraz musi być mniejszy niż 20 MB",
 			"audioTooLarge": "Dźwięk musi być mniejszy niż 25 MB",
-			"imagePasted": "Obraz wklejony ze schowka"
+			"imagePasted": "Obraz wklejony ze schowka",
+			"readFailed": "Nie udało się odczytać pliku"
 		},
 		"useChatPersistence": {
 			"storageFullChat": "Pamięć pełna - historia czatu nie została zapisana"

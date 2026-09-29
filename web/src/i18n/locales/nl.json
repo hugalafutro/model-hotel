@@ -821,7 +821,7 @@
 			"providerFallback": "Leverancier",
 			"discoveredModels_one": "Ontdekt {{count}} model…",
 			"discoveredModels_other": "Ontdekte {{count}} modellen…",
-			"deepseekBalance": "DeepSeek saldo gedetecteerd: ${{balance}}",
+			"deepseekBalance": "DeepSeek saldo gedetecteerd: {{balance}}",
 			"deepseekBalanceDetected": "DeepSeek saldo gedetecteerd",
 			"openrouterBalance": "OpenRouter-saldo gedetecteerd: ${{balance}}",
 			"baseUrl": "Basis URL",
@@ -2966,7 +2966,7 @@
 			"kimiCodeUsed": "Kimi Code gebruikte quota - klik voor details",
 			"openCodeGoRemaining": "OpenCode Go resterend quotum, maandelijks {{monthly}} - klik voor details",
 			"openCodeGoUsed": "OpenCode Go gebruikte quota, maandelijks {{monthly}} - klik voor details",
-			"deepseekBalance": "DeepSeek saldo: ${{usd}} USD {{refreshed}} - klik om te vernieuwen",
+			"deepseekBalance": "DeepSeek saldo: {{usd}} {{refreshed}} - klik om te vernieuwen",
 			"deepseekBalanceUnavailable": "DeepSeek saldo niet beschikbaar",
 			"openrouterBalance": "OpenRouter-sleutelsaldo - klik voor details",
 			"openrouterBalanceUnavailable": "OpenRouter balance unavailable",
@@ -3114,7 +3114,8 @@
 			"noImageSupport": "Dit model ondersteunt geen invoer van afbeeldingen",
 			"imageTooLarge": "Afbeelding moet minder dan 20 MB zijn",
 			"audioTooLarge": "Audio moet minder dan 25 MB zijn",
-			"imagePasted": "Afbeelding geplakt van klembord"
+			"imagePasted": "Afbeelding geplakt van klembord",
+			"readFailed": "Het bestand kon niet worden gelezen"
 		},
 		"useChatPersistence": {
 			"storageFullChat": "Opslag volledig - chatgeschiedenis niet opgeslagen"

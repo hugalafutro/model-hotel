@@ -1,4 +1,4 @@
-import { formatDuration } from "./format";
+import { formatDecimal, formatDuration } from "./format";
 
 /**
  * Error kinds (request_logs.error_kind) that represent an interruption rather
@@ -163,8 +163,8 @@ export const getRowStatusVariant = (
 
 /** Tokens per second for the log tables' TPS cell; absent or zero reads as "-". */
 export const formatTPS = (v: number | null): string =>
-	v == null || v === 0 ? "-" : v.toFixed(1);
+	v == null || v === 0 ? "-" : formatDecimal(v, 1);
 
 /** A sub-second latency in milliseconds; absent or zero reads as "-". */
 export const formatMs = (v: number | null | undefined, decimals = 2): string =>
-	v == null || v === 0 ? "-" : `${v.toFixed(decimals)}ms`;
+	v == null || v === 0 ? "-" : `${formatDecimal(v, decimals)}ms`;

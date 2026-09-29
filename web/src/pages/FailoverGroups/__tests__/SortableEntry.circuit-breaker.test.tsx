@@ -6,6 +6,7 @@ import type {
 	FailoverGroup,
 } from "../../../api/types";
 import { renderWithProviders } from "../../../test/utils";
+import { formatLocale } from "../../../utils/format";
 import { SortableEntry } from "../SortableEntry";
 
 // Mock dnd-kit modules at top level
@@ -555,7 +556,7 @@ describe("SortableEntry - Circuit Breaker Fuse Outline", () => {
 			const pinnedTitle = getWrapperDiv(pinned.container)?.getAttribute(
 				"title",
 			);
-			expect(pinnedTitle).toContain(resetAt.toLocaleString());
+			expect(pinnedTitle).toContain(resetAt.toLocaleString(formatLocale()));
 
 			// The same cooldown without the pin keeps the generic copy and never
 			// claims a reset time it does not have.
@@ -567,7 +568,9 @@ describe("SortableEntry - Circuit Breaker Fuse Outline", () => {
 			const ordinaryTitle = getWrapperDiv(ordinary.container)?.getAttribute(
 				"title",
 			);
-			expect(ordinaryTitle).not.toContain(resetAt.toLocaleString());
+			expect(ordinaryTitle).not.toContain(
+				resetAt.toLocaleString(formatLocale()),
+			);
 			expect(ordinaryTitle).not.toEqual(pinnedTitle);
 		});
 
@@ -582,7 +585,9 @@ describe("SortableEntry - Circuit Breaker Fuse Outline", () => {
 				backed_off: true,
 				next_retry_at: retryAt.toISOString(),
 			});
-			expect(titleOf(backedOff)).toContain(retryAt.toLocaleString());
+			expect(titleOf(backedOff)).toContain(
+				retryAt.toLocaleString(formatLocale()),
+			);
 
 			// The same deadline without the flag keeps the generic copy: an
 			// ordinary cooldown has nothing to explain.
@@ -591,7 +596,9 @@ describe("SortableEntry - Circuit Breaker Fuse Outline", () => {
 				consecutive_fails: 5,
 				next_retry_at: retryAt.toISOString(),
 			});
-			expect(titleOf(ordinary)).not.toContain(retryAt.toLocaleString());
+			expect(titleOf(ordinary)).not.toContain(
+				retryAt.toLocaleString(formatLocale()),
+			);
 
 			// A quota pin outranks a backoff: it names the cause, and a circuit can
 			// carry both.
@@ -615,7 +622,9 @@ describe("SortableEntry - Circuit Breaker Fuse Outline", () => {
 				next_retry_at: retryAt.toISOString(),
 			});
 			expect(titleOf(skipped)).toContain("alpha-1, alpha-2");
-			expect(titleOf(skipped)).not.toContain(retryAt.toLocaleString());
+			expect(titleOf(skipped)).not.toContain(
+				retryAt.toLocaleString(formatLocale()),
+			);
 		});
 
 		it("names the models a provider-wide skip rests on", () => {

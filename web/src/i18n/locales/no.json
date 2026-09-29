@@ -821,7 +821,7 @@
 			"providerFallback": "Leverandør",
 			"discoveredModels_one": "Oppdaget {{count}} modell…",
 			"discoveredModels_other": "Oppdaget {{count}} modeller…",
-			"deepseekBalance": "DeepSeek balansen funnet: ${{balance}}",
+			"deepseekBalance": "DeepSeek balansen funnet: {{balance}}",
 			"deepseekBalanceDetected": "DeepSeek saldo oppdaget",
 			"openrouterBalance": "OpenRouter-saldo funnet: ${{balance}}",
 			"baseUrl": "Basis-URL",
@@ -2966,7 +2966,7 @@
 			"kimiCodeUsed": "Kimi Code - brukt kvote - klikk for detaljer",
 			"openCodeGoRemaining": "OpenCode Go - gjenstående kvote, månedlig {{monthly}} - klikk for detaljer",
 			"openCodeGoUsed": "OpenCode Go - brukt kvote, månedlig {{monthly}} - klikk for detaljer",
-			"deepseekBalance": "DeepSeek saldo: ${{usd}} USD {{refreshed}} - klikk for å oppdatere",
+			"deepseekBalance": "DeepSeek saldo: {{usd}} {{refreshed}} - klikk for å oppdatere",
 			"deepseekBalanceUnavailable": "DeepSeek saldo er utilgjengelig",
 			"openrouterBalance": "OpenRouter nøkkelsaldo - klikk for detaljer",
 			"openrouterBalanceUnavailable": "OpenRouter balance unavailable",
@@ -3114,7 +3114,8 @@
 			"noImageSupport": "Denne modellen støtter ikke bildeinndata",
 			"imageTooLarge": "Bilde må være under 20 MB",
 			"audioTooLarge": "Lyd må være under 25 MB",
-			"imagePasted": "Bilde limt inn fra utklippstavle"
+			"imagePasted": "Bilde limt inn fra utklippstavle",
+			"readFailed": "Kunne ikke lese filen"
 		},
 		"useChatPersistence": {
 			"storageFullChat": "Lagringsplass fullt - chat-loggen er ikke lagret"

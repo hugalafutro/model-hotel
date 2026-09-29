@@ -1,3 +1,4 @@
+import { formatLocale } from "../../utils/format";
 import type { Range } from "./types";
 
 /**
@@ -8,7 +9,7 @@ import type { Range } from "./types";
  */
 export function bucketLabel(date: Date, range: Range): string {
 	if (range === "1w") {
-		return date.toLocaleDateString(undefined, {
+		return date.toLocaleDateString(formatLocale(), {
 			month: "short",
 			day: "numeric",
 		});

@@ -1,6 +1,6 @@
 import { screen, waitFor, within } from "@testing-library/react";
 import { HttpResponse, http } from "msw";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
 	mockProvider,
 	mockProvider2,
@@ -16,9 +16,15 @@ describe("VirtualKeys", () => {
 		server.resetHandlers();
 		vi.clearAllMocks();
 	});
+	afterEach(() => {
+		vi.restoreAllMocks();
+	});
 
 	describe("Key Detail Modal", () => {
 		it("displays key details correctly", async () => {
+			// A browser region neither CI (en-US) nor a UK host shares, so the dates
+			// only match when the modal formats them in formatLocale().
+			vi.spyOn(navigator, "languages", "get").mockReturnValue(["en-CA"]);
 			server.use(
 				http.get("/api/virtual-keys", () =>
 					HttpResponse.json([mockVirtualKey]),
@@ -54,13 +60,15 @@ describe("VirtualKeys", () => {
 			expect(within(dialog).getByText("50,000")).toBeInTheDocument();
 			expect(
 				within(dialog).getByText(
-					new Date(mockVirtualKey.created_at).toLocaleString(),
+					new Date(mockVirtualKey.created_at).toLocaleString("en-CA"),
 				),
 			).toBeInTheDocument();
 			// mockVirtualKey.last_used_at is "2026-05-11T08:00:00Z" in test data
 			expect(
 				within(dialog).getByText(
-					new Date(mockVirtualKey.last_used_at as string).toLocaleString(),
+					new Date(mockVirtualKey.last_used_at as string).toLocaleString(
+						"en-CA",
+					),
 				),
 			).toBeInTheDocument();
 		});

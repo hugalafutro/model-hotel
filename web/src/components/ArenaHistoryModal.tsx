@@ -28,7 +28,7 @@ import {
 	type HistoryResponse,
 } from "../utils/arenaHistory";
 import { getRoundLabel } from "../utils/arenaRounds";
-import { formatDate, formatTime } from "../utils/format";
+import { formatDate, formatDecimal, formatTime } from "../utils/format";
 import { shortModelName } from "../utils/model";
 
 interface ArenaHistoryModalProps {
@@ -287,11 +287,11 @@ export function ArenaHistoryModal({
 								{resp.metrics && (
 									<span className="text-[10px] text-(--text-tertiary) ml-auto">
 										{resp.metrics.durationMs > 0
-											? `${(resp.metrics.durationMs / 1000).toFixed(1)}s`
+											? `${formatDecimal(resp.metrics.durationMs / 1000, 1)}s`
 											: ""}
 										{resp.metrics.tokensPerSecond !== null &&
 											resp.metrics.tokensPerSecond > 0 &&
-											` · ${resp.metrics.tokensPerSecond.toFixed(0)} tok/s`}
+											` · ${formatDecimal(resp.metrics.tokensPerSecond, 0)} tok/s`}
 									</span>
 								)}
 							</div>

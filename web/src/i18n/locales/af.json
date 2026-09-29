@@ -821,7 +821,7 @@
 			"providerFallback": "Verskaffer",
 			"discoveredModels_one": "Ontdek {{count}} -model…",
 			"discoveredModels_other": "Ontdek {{count}} modelle…",
-			"deepseekBalance": "DeepSeek-balans opgespoor: ${{balance}}",
+			"deepseekBalance": "DeepSeek-balans opgespoor: {{balance}}",
 			"deepseekBalanceDetected": "DeepSeek-balans opgespoor",
 			"openrouterBalance": "OpenRouter-balans opgespoor: ${{balance}}",
 			"baseUrl": "Basis-URL",
@@ -2966,7 +2966,7 @@
 			"kimiCodeUsed": "Kimi Koding het kwota gebruik - klik vir besonderhede",
 			"openCodeGoRemaining": "OpenCode Go oorblywende kwota, maandeliks {{monthly}} - klik vir besonderhede",
 			"openCodeGoUsed": "OpenCode Go gebruikte kwota, maandeliks {{monthly}} - klik vir besonderhede",
-			"deepseekBalance": "DeepSeek balans: ${{usd}} USD {{refreshed}} - klik om te verfris",
+			"deepseekBalance": "DeepSeek balans: {{usd}} {{refreshed}} - klik om te verfris",
 			"deepseekBalanceUnavailable": "DeepSeek-balans nie beskikbaar nie",
 			"openrouterBalance": "OpenRouter sleutelbalans - klik vir besonderhede",
 			"openrouterBalanceUnavailable": "OpenRouter-balans onbeskikbaar",
@@ -3114,7 +3114,8 @@
 			"noImageSupport": "Hierdie model ondersteun nie beeldinvoer nie.",
 			"imageTooLarge": "Die beeld moet onder 20 MB wees.",
 			"audioTooLarge": "Oudio moet onder 25 MB wees.",
-			"imagePasted": "Beeld ingevoeg vanaf die knipbord"
+			"imagePasted": "Beeld ingevoeg vanaf die knipbord",
+			"readFailed": "Kon nie die lêer lees nie"
 		},
 		"useChatPersistence": {
 			"storageFullChat": "Stoor vol - kletsgeskiedenis nie gestoor nie"

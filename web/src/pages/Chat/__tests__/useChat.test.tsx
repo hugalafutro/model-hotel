@@ -599,6 +599,65 @@ describe("useChat", () => {
 			expect(params.setTurnCountdown).toHaveBeenCalledWith(0);
 			expect(result.current.isStreaming).toBe(false);
 		});
+
+		it("aborts a streaming chat reply without an error toast", async () => {
+			const Streaming = await import("../chatStreaming");
+			mockChatModelsList.push({
+				provider_name: "Ollama",
+				model_id: "llama3",
+				enabled: true,
+			});
+			let finish: (v: unknown) => void = () => {};
+			mockStreamModelResponse.mockReturnValue(
+				new Promise((resolve) => {
+					finish = resolve;
+				}),
+			);
+			mockGetApiMessagesForModel.mockReturnValue([
+				{ role: "user", content: "Hello" },
+			]);
+			const { result, rerender } = renderHook(() => useChat());
+			act(() => {
+				result.current.setInput("Hello");
+				result.current.setSelectedModel("Ollama/llama3");
+			});
+			act(() => {
+				void result.current.handleSend();
+			});
+			expect(result.current.isStreaming).toBe(true);
+			const ctrl = vi
+				.mocked(Streaming.streamModelResponse)
+				.mock.calls.at(-1)?.[3];
+			if (!ctrl) throw new Error("stream not started");
+
+			vi.mocked(SidebarModeContext.useSidebarMode).mockReturnValue({
+				chatSubMode: "conversation",
+				setChatSubMode: vi.fn(),
+				arenaSubMode: "competition",
+				setArenaSubMode: vi.fn(),
+				logsSubMode: "request",
+				setLogsSubMode: vi.fn(),
+			});
+			rerender();
+			await waitFor(() => expect(ctrl.signal.aborted).toBe(true));
+			expect(result.current.isStreaming).toBe(false);
+
+			await act(async () => {
+				finish({
+					rawContent: "",
+					content: "",
+					thinkingContent: "",
+					tokensPerSecond: 0,
+					durationMs: 0,
+					promptTokens: 0,
+					completionTokens: 0,
+					error: "aborted",
+					aborted: true,
+				});
+			});
+			expect(result.current.isStreaming).toBe(false);
+			expect(mockToast).not.toHaveBeenCalled();
+		});
 	});
 
 	describe("failedConversationModel", () => {

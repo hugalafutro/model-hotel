@@ -169,48 +169,6 @@ export function useChat() {
 		};
 	}, []);
 
-	// Reset conversation state when chatSubMode changes (e.g. sidebar click),
-	// loading the transcript that mode persisted, and skip the initial mount
-	// so we don't wipe persisted messages.
-	const prevChatSubModeRef = useRef(chatSubMode);
-	useEffect(() => {
-		if (prevChatSubModeRef.current !== chatSubMode) {
-			prevChatSubModeRef.current = chatSubMode;
-			// A conversation still running would go on appending to the
-			// transcript loaded below through the shared setter, and persist
-			// the mix as the other mode's history. Stopped the way
-			// handleStopConversation does: the abort ends its loop, the running
-			// flag cleared first skips its own state cleanup, and no prompt is
-			// put back into the input emptied here.
-			conversationRunningRef.current = false;
-			lastPromptRef.current = "";
-			cleanupConvAbortRef.current?.abort();
-			cleanupConvAbortRef.current = null;
-			conversationAbortRef.current = null;
-			// The runner skips its own cleanup once the running flag is down, so
-			// the streaming flag and the countdown it was showing are cleared
-			// here, as handleStopConversation clears them.
-			setIsStreaming(false);
-			setTurnCountdown(0);
-			setMessages(
-				readPersistedMessages(chatSubMode, persistChat, persistConversation),
-			);
-			setMessagesMode(chatSubMode);
-			setConversationState("idle");
-			setCurrentTurn(0);
-			setInput("");
-		}
-	}, [
-		chatSubMode,
-		persistChat,
-		persistConversation,
-		setCurrentTurn,
-		setConversationState,
-		setTurnCountdown,
-		conversationRunningRef,
-		conversationAbortRef,
-	]);
-
 	const selectedModelObj = findChatModel(enabledModels, selectedModel);
 	const selectedModelObjB = findChatModel(enabledModels, selectedModelB);
 
@@ -339,6 +297,52 @@ export function useChat() {
 		setCurrentTurn,
 		setTurnCountdown,
 	});
+
+	// Reset conversation state when chatSubMode changes (e.g. sidebar click),
+	// loading the transcript that mode persisted, and skip the initial mount
+	// so we don't wipe persisted messages.
+	const prevChatSubModeRef = useRef(chatSubMode);
+	useEffect(() => {
+		if (prevChatSubModeRef.current !== chatSubMode) {
+			prevChatSubModeRef.current = chatSubMode;
+			// A conversation still running would go on appending to the
+			// transcript loaded below through the shared setter, and persist
+			// the mix as the other mode's history. Stopped the way
+			// handleStopConversation does: the abort ends its loop, the running
+			// flag cleared first skips its own state cleanup, and no prompt is
+			// put back into the input emptied here.
+			conversationRunningRef.current = false;
+			lastPromptRef.current = "";
+			cleanupConvAbortRef.current?.abort();
+			cleanupConvAbortRef.current = null;
+			conversationAbortRef.current = null;
+			// A chat reply still streaming is stopped as the Stop button stops
+			// it, so its upstream request does not run on to completion.
+			handleStop();
+			// The runner skips its own cleanup once the running flag is down, so
+			// the streaming flag and the countdown it was showing are cleared
+			// here, as handleStopConversation clears them.
+			setIsStreaming(false);
+			setTurnCountdown(0);
+			setMessages(
+				readPersistedMessages(chatSubMode, persistChat, persistConversation),
+			);
+			setMessagesMode(chatSubMode);
+			setConversationState("idle");
+			setCurrentTurn(0);
+			setInput("");
+		}
+	}, [
+		chatSubMode,
+		persistChat,
+		persistConversation,
+		setCurrentTurn,
+		setConversationState,
+		setTurnCountdown,
+		conversationRunningRef,
+		conversationAbortRef,
+		handleStop,
+	]);
 
 	const handleDeleteMessage = useDeleteMessage({
 		messages,

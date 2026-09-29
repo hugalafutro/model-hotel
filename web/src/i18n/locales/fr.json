@@ -845,7 +845,7 @@
 			"discoveredModels_one": "A découvert le modèle {{count}}…",
 			"discoveredModels_many": "Découvert les modèles {{count}}…",
 			"discoveredModels_other": "Découvert les modèles {{count}}…",
-			"deepseekBalance": "Solde DeepSeek détecté : ${{balance}}",
+			"deepseekBalance": "Solde DeepSeek détecté : {{balance}}",
 			"deepseekBalanceDetected": "Solde DeepSeek détecté",
 			"openrouterBalance": "Solde OpenRouter détecté : ${{balance}}",
 			"baseUrl": "URL de base",
@@ -3039,7 +3039,7 @@
 			"kimiCodeUsed": "Quota Kimi Code utilisé - cliquez pour plus de détails",
 			"openCodeGoRemaining": "Quota OpenCode Go restant, mensuel {{monthly}} - cliquez pour plus de détails",
 			"openCodeGoUsed": "Quota OpenCode Go utilisé, mensuel {{monthly}} - cliquez pour plus de détails",
-			"deepseekBalance": "Solde DeepSeek : ${{usd}} USD {{refreshed}} - cliquez pour actualiser",
+			"deepseekBalance": "Solde DeepSeek : {{usd}} {{refreshed}} - cliquez pour actualiser",
 			"deepseekBalanceUnavailable": "Solde DeepSeek indisponible",
 			"openrouterBalance": "Solde de clé OpenRouter - cliquez pour plus de détails",
 			"openrouterBalanceUnavailable": "OpenRouter balance unavailable",
@@ -3190,7 +3190,8 @@
 			"noImageSupport": "Ce modèle ne prend pas en charge la saisie d'image",
 			"imageTooLarge": "L'image doit être inférieure à 20 Mo",
 			"audioTooLarge": "L'audio doit être inférieur à 25 Mo",
-			"imagePasted": "Image collée depuis le presse-papiers"
+			"imagePasted": "Image collée depuis le presse-papiers",
+			"readFailed": "Impossible de lire le fichier"
 		},
 		"useChatPersistence": {
 			"storageFullChat": "Stockage complet - historique de discussion non sauvegardé"

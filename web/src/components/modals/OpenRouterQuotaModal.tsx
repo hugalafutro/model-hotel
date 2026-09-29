@@ -2,6 +2,7 @@ import { useTranslation } from "react-i18next";
 import { DollarSign } from "@/lib/icons";
 import type { OpenRouterBalance } from "../../api/types";
 import {
+	formatDecimal,
 	formatDollars,
 	formatTimestamp,
 	formatTimeUntil,
@@ -148,7 +149,7 @@ export function OpenRouterQuotaModal({
 						</div>
 						<p className="ui-hint mt-1 whitespace-pre-line">
 							{balance.limit > 0
-								? `${(barMode === "used" ? 100 - limitPct : limitPct).toFixed(1)}% ${barMode === "used" ? t("components.providerModals.used") : t("components.providerModals.remaining")}`
+								? `${formatDecimal(barMode === "used" ? 100 - limitPct : limitPct, 1)}% ${barMode === "used" ? t("components.providerModals.used") : t("components.providerModals.remaining")}`
 								: balance.limit === 0
 									? `$0 ${t("components.providerModals.limitReset")}`
 									: t("components.providerModals.noLimitSet")}

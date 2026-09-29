@@ -49,11 +49,16 @@ func (p *Poller) PollVersionsOnce(ctx context.Context) {
 			continue
 		}
 		p.mu.Lock()
+		if p.forgotten[m.ID] {
+			// Removed while this read was in flight (forgetMember).
+			p.mu.Unlock()
+			continue
+		}
 		cur := p.statuses[m.ID]
 		versionChanged := cur.Version != build.Version || cur.Commit != build.Commit
 		cur.Version = build.Version
 		cur.Commit = build.Commit
-		p.statuses[m.ID] = cur
+		p.putStatus(m.ID, cur)
 		wasAlerting := p.versionFailures[m.ID] >= versionFetchFailThreshold
 		delete(p.versionFailures, m.ID)
 		p.mu.Unlock()
@@ -98,8 +103,7 @@ func (p *Poller) clearBuild(memberID string) bool {
 	had := cur.Version != ""
 	cur.Version = ""
 	cur.Commit = ""
-	p.statuses[memberID] = cur
-	return had
+	return p.putStatus(memberID, cur) && had
 }
 
 // noteVersionFetchFailure tracks consecutive version-fetch failures for a member
@@ -109,9 +113,14 @@ func (p *Poller) clearBuild(memberID string) bool {
 // (possibly hostile or misconfigured) URL is surfaced for the operator rather
 // than retried silently at Debug level forever. The fetch error is logged but
 // never put in the event payload (it can embed a fragment of the member's HTTP
-// response).
+// response). A member removed while the read was in flight (forgetMember)
+// counts nothing and reports 0.
 func (p *Poller) noteVersionFetchFailure(ctx context.Context, m *Member, fetchErr error) int {
 	p.mu.Lock()
+	if p.forgotten[m.ID] {
+		p.mu.Unlock()
+		return 0
+	}
 	p.versionFailures[m.ID]++
 	n := p.versionFailures[m.ID]
 	p.mu.Unlock()
@@ -260,9 +269,9 @@ func (p *Poller) ConfigPollWarm(ctx context.Context, since time.Time) bool {
 	return p.now().Sub(since) > window
 }
 
-// checkAutoSyncStale emits a single warning when auto-sync is off and the fleet
-// has not been synced within autoSyncStaleThreshold (autoSyncStale holds the
-// exact rule). Like checkConfigStaleness it de-dups on an in-memory flag so it
+// checkAutoSyncStale emits a single warning when auto-sync is off (or enabled
+// but idle, unable to reach its primary) and the fleet has not been synced
+// within autoSyncStaleThreshold (autoSyncStale holds the exact rule). Like checkConfigStaleness it de-dups on an in-memory flag so it
 // fires once per stale episode, not every tick; the flag disarms silently when
 // the condition clears (auto-sync re-enabled, or a fresh sync recorded), so a
 // later stale episode alerts again. A restart resets the flag, so an
@@ -287,7 +296,7 @@ func (p *Poller) checkAutoSyncStale(ctx context.Context) {
 		return
 	}
 	lastSync, haveSync := fleetLastSync(members, state.LastRunAt, found)
-	stale := autoSyncStale(cfg, lastSync, haveSync, p.now())
+	stale := autoSyncStale(cfg, lastSync, haveSync, p.autoSyncIdle(), p.now())
 
 	p.mu.Lock()
 	notified := p.autoSyncStaleNotified
@@ -299,7 +308,7 @@ func (p *Poller) checkAutoSyncStale(ctx context.Context) {
 	if stale && !notified {
 		p.recordEvent(ctx, Event{
 			Type: "config.autosync_stale", Severity: "warning", Source: "frontdesk-poller",
-			Message: "Auto-sync is off and the fleet has not been synced in over a day; replicas may be drifting from the primary",
+			Message: "Auto-sync is off or cannot reach its primary, and the fleet has not been synced in over a day; replicas may be drifting from the primary",
 		})
 	}
 }

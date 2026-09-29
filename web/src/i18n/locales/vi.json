@@ -821,7 +821,7 @@
 			"providerFallback": "Nhà cung cấp",
 			"discoveredModels_one": "Đã phát hiện {{count}} mô hình…",
 			"discoveredModels_other": "Đã phát hiện {{count}} mô hình…",
-			"deepseekBalance": "Số dư DeepSeek được phát hiện: ${{balance}}",
+			"deepseekBalance": "Số dư DeepSeek được phát hiện: {{balance}}",
 			"deepseekBalanceDetected": "Đã phát hiện số dư DeepSeek",
 			"openrouterBalance": "Phát hiện số dư OpenRouter: ${{balance}}",
 			"baseUrl": "URL gốc",
@@ -2966,7 +2966,7 @@
 			"kimiCodeUsed": "Hạn ngạch Kimi Code đã dùng - nhấp để xem chi tiết",
 			"openCodeGoRemaining": "Hạn ngạch OpenCode Go còn lại, hàng tháng {{monthly}} - nhấp để xem chi tiết",
 			"openCodeGoUsed": "Hạn ngạch OpenCode Go đã dùng, hàng tháng {{monthly}} - nhấp để xem chi tiết",
-			"deepseekBalance": "Số dư DeepSeek: ${{usd}} USD {{refreshed}} – nhấp để làm mới",
+			"deepseekBalance": "Số dư DeepSeek: {{usd}} {{refreshed}} – nhấp để làm mới",
 			"deepseekBalanceUnavailable": "Không thể truy cập số dư DeepSeek",
 			"openrouterBalance": "Số dư khóa OpenRouter - nhấp vào để xem chi tiết",
 			"openrouterBalanceUnavailable": "Không thể truy cập OpenRouter Balance",
@@ -3114,7 +3114,8 @@
 			"noImageSupport": "Mô hình này không hỗ trợ đầu vào hình ảnh",
 			"imageTooLarge": "Kích thước hình ảnh phải nhỏ hơn 20 MB",
 			"audioTooLarge": "Dung lượng tệp âm thanh phải dưới 25 MB",
-			"imagePasted": "Hình ảnh được dán từ khay nhớ tạm"
+			"imagePasted": "Hình ảnh được dán từ khay nhớ tạm",
+			"readFailed": "Không thể đọc tệp"
 		},
 		"useChatPersistence": {
 			"storageFullChat": "Bộ nhớ đầy - lịch sử trò chuyện không được lưu"

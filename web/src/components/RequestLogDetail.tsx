@@ -15,7 +15,12 @@ import {
 	Zap,
 } from "@/lib/icons";
 import type { LogEntry } from "../api/types";
-import { formatNumber, formatSpend } from "../utils/format";
+import {
+	formatDecimal,
+	formatLocale,
+	formatNumber,
+	formatSpend,
+} from "../utils/format";
 import { formatLogTimestamp } from "../utils/logBadgeUtils";
 import { formatMs } from "../utils/logHelpers";
 import { AttemptTrail } from "./AttemptTrail";
@@ -173,7 +178,7 @@ export function RequestLogDetail({
 						}
 					>
 						{(requestLog.tokens_per_second ?? 0) > 0
-							? (requestLog.tokens_per_second as number).toFixed(1)
+							? formatDecimal(requestLog.tokens_per_second as number, 1)
 							: "-"}
 					</div>
 					<div className="flex items-center justify-center gap-1 ui-overline">
@@ -186,7 +191,7 @@ export function RequestLogDetail({
 				<div className="p-3 ui-stat-tile text-center">
 					<Gauge size={16} className="mx-auto mb-1 text-(--accent)" />
 					<div className="text-lg font-bold text-(--text-primary)">
-						{totalTokens > 0 ? totalTokens.toLocaleString() : "-"}
+						{totalTokens > 0 ? totalTokens.toLocaleString(formatLocale()) : "-"}
 					</div>
 					<div className="flex items-center justify-center gap-1 ui-overline">
 						{t("common.tokens")}
@@ -322,7 +327,7 @@ export function RequestLogDetail({
 											</span>
 										</>
 									) : (
-										value.toLocaleString()
+										value.toLocaleString(formatLocale())
 									)}
 								</div>
 							</div>

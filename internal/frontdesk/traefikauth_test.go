@@ -177,3 +177,19 @@ func TestTraefikConfigWhitespaceTokenIsUnset(t *testing.T) {
 		t.Fatalf("unauthenticated poll with whitespace token = %d, want 200", rec.Code)
 	}
 }
+
+// TestTraefikConfigStoreFailureIsNotAPoll: a poll the store cannot answer hands
+// Traefik an error, so Traefik keeps serving its last config. Recording it as a
+// poll would tell the staleness watchdog the config is fresh while it is not.
+func TestTraefikConfigStoreFailureIsNotAPoll(t *testing.T) {
+	srv, store := newTestServer(t)
+	if err := store.db.Close(); err != nil {
+		t.Fatalf("close db: %v", err)
+	}
+	if rec := pollConfig(t, srv, ""); rec.Code == http.StatusOK {
+		t.Fatalf("poll against a closed store = 200, want an error")
+	}
+	if !lastConfigPollAtIsZero(srv) {
+		t.Error("a failed config read refreshed the config-poll timestamp")
+	}
+}

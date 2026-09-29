@@ -827,7 +827,7 @@
 			"providerFallback": "Provider",
 			"discoveredModels_one": "Discovered {{count}} model…",
 			"discoveredModels_other": "Discovered {{count}} models…",
-			"deepseekBalance": "DeepSeek balance detected: ${{balance}}",
+			"deepseekBalance": "DeepSeek balance detected: {{balance}}",
 			"deepseekBalanceDetected": "DeepSeek balance detected",
 			"openrouterBalance": "OpenRouter balance detected: ${{balance}}",
 			"baseUrl": "Base URL",
@@ -2968,7 +2968,7 @@
 			"openCodeGoUsed": "OpenCode Go used quota, monthly {{monthly}} - click for details",
 			"miniMaxRemaining": "MiniMax remaining quota - click for details",
 			"miniMaxUsed": "MiniMax used quota - click for details",
-			"deepseekBalance": "DeepSeek balance: ${{usd}} USD {{refreshed}} - click to refresh",
+			"deepseekBalance": "DeepSeek balance: {{usd}} {{refreshed}} - click to refresh",
 			"deepseekBalanceUnavailable": "DeepSeek balance unavailable",
 			"openrouterBalance": "OpenRouter key balance - click for details",
 			"openrouterBalanceUnavailable": "OpenRouter balance unavailable",
@@ -3114,7 +3114,8 @@
 			"noImageSupport": "This model does not support image input",
 			"imageTooLarge": "Image must be under 20 MB",
 			"audioTooLarge": "Audio must be under 25 MB",
-			"imagePasted": "Image pasted from clipboard"
+			"imagePasted": "Image pasted from clipboard",
+			"readFailed": "Could not read the file"
 		},
 		"useChatPersistence": {
 			"storageFullChat": "Storage full - chat history not saved"

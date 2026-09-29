@@ -12,6 +12,7 @@ import {
 	YAxis,
 } from "recharts";
 import { Spinner } from "../../components/Spinner";
+import { formatLocale } from "../../utils/format";
 import { formatAxisTick } from "./axisFormat";
 import { MetricToggle, RangeToggle } from "./ToggleGroup";
 import type {
@@ -139,7 +140,7 @@ export function TimeSeriesChart({
 		yesterday.setDate(yesterday.getDate() - 1);
 		const isYesterday = d.toDateString() === yesterday.toDateString();
 
-		const dateStr = d.toLocaleDateString(undefined, {
+		const dateStr = d.toLocaleDateString(formatLocale(), {
 			day: "numeric",
 			month: "short",
 			year: "numeric",
@@ -380,7 +381,7 @@ export function TimeSeriesChart({
 													<span style={{ fontWeight: 600 }}>
 														{formatValue
 															? formatValue(val)
-															: val.toLocaleString(undefined, {
+															: val.toLocaleString(formatLocale(), {
 																	maximumFractionDigits: allowDecimals ? 2 : 0,
 																})}
 													</span>

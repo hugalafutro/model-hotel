@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { ChevronLeft, ChevronRight } from "@/lib/icons";
+import { formatLocale } from "../utils/format";
 import {
 	daysInMonth,
 	firstDayOfMonth,
@@ -34,9 +35,10 @@ export function AccentCalendar({
 	const days = daysInMonth(year, month);
 	const blanks = firstDayOfMonth(year, month);
 
+	const locale = formatLocale();
 	const monthName = useMemo(
-		() => new Date(year, month, 1).toLocaleString(undefined, { month: "long" }),
-		[year, month],
+		() => new Date(year, month, 1).toLocaleString(locale, { month: "long" }),
+		[year, month, locale],
 	);
 
 	const weekdays = useMemo(
@@ -44,11 +46,11 @@ export function AccentCalendar({
 			Array.from({ length: 7 }, (_, i) => {
 				// Use a known Sunday (2024-01-07) as anchor for Sun-first grid
 				const date = new Date(2024, 0, 7 + i);
-				return new Intl.DateTimeFormat(undefined, {
+				return new Intl.DateTimeFormat(locale, {
 					weekday: "narrow",
 				}).format(date);
 			}),
-		[],
+		[locale],
 	);
 
 	const handlePrev = () => {

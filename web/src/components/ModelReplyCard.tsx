@@ -4,7 +4,7 @@ import { Bot, Clock, Copy, Maximize2, PowerOff, Zap } from "@/lib/icons";
 import type { GenerationParams } from "../api/types";
 import { useCopyToClipboard } from "../hooks/useCopyToClipboard";
 import { onActivateKey } from "../utils/a11y";
-import { formatDuration, formatNumber } from "../utils/format";
+import { formatDecimal, formatDuration, formatNumber } from "../utils/format";
 import { is5xxError, shortModelName } from "../utils/model";
 import { CARD_TINT_CLASS, type CardTint } from "./cardTint";
 import { InfoHint } from "./InfoHint";
@@ -208,7 +208,7 @@ export const ModelReplyCard = memo(function ModelReplyCard({
 				{metrics.tokensPerSecond !== null && (
 					<span className={`${cell}flex items-center gap-1`}>
 						<Zap size={iconSize} />
-						{metrics.tokensPerSecond.toFixed(1)}{" "}
+						{formatDecimal(metrics.tokensPerSecond, 1)}{" "}
 						{t("components.modelReplyCard.tokPerSec")}
 					</span>
 				)}

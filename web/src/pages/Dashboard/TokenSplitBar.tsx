@@ -3,6 +3,7 @@ import { Target } from "@/lib/icons";
 import { Spinner } from "../../components/Spinner";
 import { useResizeObserver } from "../../hooks/useResizeObserver";
 import {
+	formatDecimal,
 	formatPercent,
 	formatTokens,
 	formatWithCommas,
@@ -118,8 +119,8 @@ export function TokenSplitBar({
 				className="relative flex gap-0.5 h-6"
 				role="img"
 				aria-label={t("dashboard.tokens.mixAriaLabel", {
-					promptPct: promptPct.toFixed(1),
-					completionPct: completionPct.toFixed(1),
+					promptPct: formatDecimal(promptPct, 1),
+					completionPct: formatDecimal(completionPct, 1),
 				})}
 			>
 				{tiles.map((tile, i) => (
@@ -141,16 +142,16 @@ export function TokenSplitBar({
 						title={
 							tile.type === "cache_hit"
 								? t("dashboard.tokens.cacheHitTooltip", {
-										pct: cacheHitPct.toFixed(1),
+										pct: formatDecimal(cacheHitPct, 1),
 										count: formatWithCommas(cacheHit),
 									})
 								: tile.type === "prompt"
 									? t("dashboard.tokens.promptTooltip", {
-											pct: uncachedPct.toFixed(1),
+											pct: formatDecimal(uncachedPct, 1),
 											count: formatWithCommas(uncachedPrompt),
 										})
 									: t("dashboard.tokens.completionTooltip", {
-											pct: completionPct.toFixed(1),
+											pct: formatDecimal(completionPct, 1),
 											count: formatWithCommas(completion),
 										})
 						}

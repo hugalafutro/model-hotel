@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { formatLocale } from "../utils/format";
 
 /** Dims the unit that trails a figure, so the number reads first. */
 export const unitClass = "text-(--text-muted)";
@@ -46,17 +47,24 @@ export function formatUptime(
 	return figure(m, units.minute);
 }
 
+// One decimal, always shown ("1.0K"), with the format locale's separator.
+const oneDecimal = (v: number) =>
+	v.toLocaleString(formatLocale(), {
+		minimumFractionDigits: 1,
+		maximumFractionDigits: 1,
+	});
+
 /** Counts abbreviated to one decimal past a thousand: "1.2K", "3.4M". */
 export function formatCount(n: number) {
-	if (n >= 1_000_000) return figure((n / 1_000_000).toFixed(1), "M");
-	if (n >= 1_000) return figure((n / 1_000).toFixed(1), "K");
-	return n.toLocaleString();
+	if (n >= 1_000_000) return figure(oneDecimal(n / 1_000_000), "M");
+	if (n >= 1_000) return figure(oneDecimal(n / 1_000), "K");
+	return n.toLocaleString(formatLocale());
 }
 
 /** Memory in the unit that keeps it readable: "0.5 MB", "512 MB", "1.5 GB". */
 export function formatMemoryMB(mb: number) {
-	if (mb < 1) return figure(mb.toFixed(1), " MB");
-	if (mb >= 1024) return figure((mb / 1024).toFixed(1), " GB");
+	if (mb < 1) return figure(oneDecimal(mb), " MB");
+	if (mb >= 1024) return figure(oneDecimal(mb / 1024), " GB");
 	return figure(Math.round(mb), " MB");
 }
 
@@ -64,8 +72,8 @@ export function formatMemoryMB(mb: number) {
 export function formatThroughput(bytesPerSec: number) {
 	if (bytesPerSec <= 0) return figure(0, " B/s");
 	if (bytesPerSec >= 1024 * 1024)
-		return figure((bytesPerSec / 1024 / 1024).toFixed(1), " MB/s");
+		return figure(oneDecimal(bytesPerSec / 1024 / 1024), " MB/s");
 	if (bytesPerSec >= 1024)
-		return figure((bytesPerSec / 1024).toFixed(1), " KB/s");
+		return figure(oneDecimal(bytesPerSec / 1024), " KB/s");
 	return figure(Math.round(bytesPerSec), " B/s");
 }

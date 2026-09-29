@@ -182,6 +182,32 @@ type Server struct {
 	// unknownPrimaryPasses counts consecutive auto-sync passes that found the
 	// primary's build unread; see skipForUnknownPrimaryBuild.
 	unknownPrimaryPasses atomic.Int32
+	// passMu serialises the auto-sync's passes (the tick loop's and the kick's)
+	// from the config read through the last push (lockPass), so two of them never
+	// measure and push to the same members at once. The manual config sync does
+	// not take it: an operator's push runs alongside, and the next pass measures
+	// whatever it left.
+	passMu sync.Mutex
+	// idleMu serialises the auto-sync idle verdicts (recordPrimaryVerdict,
+	// clearAutoSyncIdle) with their store writes, so the persisted idle-since
+	// follows the poller's in-memory one, and guards the three fields below.
+	idleMu sync.Mutex
+	// primaryReadFailures counts consecutive passes that could not read the
+	// primary's config hash; see recordPrimaryVerdict.
+	primaryReadFailures int
+	// idleSpellUndated is true while the current idle spell is dated to this
+	// process's start only because the persisted record could not be read
+	// (markAutoSyncIdleLocked).
+	idleSpellUndated bool
+	// idleRecordDirty is true while the persisted idle spell may not match the
+	// in-memory one because its last write failed (persistAutoSyncIdle).
+	idleRecordDirty bool
+	// kickMu guards kickRunning and kickPending, which coalesce the enable-time
+	// kicks: a kick arriving while one runs leaves one follow-up behind instead
+	// of a pass of its own (kickAutoSync).
+	kickMu      sync.Mutex
+	kickRunning bool
+	kickPending bool
 	// startedAt anchors fleetInputsWarm's Traefik grace: with no config poll
 	// recorded yet, the staleness input only counts as observed once a full
 	// staleness window has passed since this process started.
@@ -230,9 +256,8 @@ func (d detachedCtx) Value(key any) any { return d.values.Value(key) }
 // owns: the request's values with the server's lifetime. Dropping the request's
 // cancellation is what stops a client hanging up from aborting a run half-way;
 // keeping the server's is what stops that same run from writing into a store
-// Shutdown has closed. Hand it to StartBackground (or StartBackgroundTimeout, to
-// bound the run as well), never to a bare goroutine: the lifetime only helps if
-// the drain waits for the work it ends.
+// Shutdown has closed. Hand it to StartBackground, never to a bare goroutine: the lifetime
+// only helps if the drain waits for the work it ends.
 func (s *Server) detachedContext(r *http.Request) context.Context {
 	return detachedCtx{Context: s.shutdownCtx, values: r.Context()}
 }
@@ -376,23 +401,6 @@ func (s *Server) StartBackground(ctx context.Context, fn func(context.Context)) 
 		return false
 	}
 	s.bgWG.Go(func() { fn(ctx) })
-	return true
-}
-
-// StartBackgroundTimeout is StartBackground for detached work that needs its own
-// deadline: it derives a time-bounded context from parent, hands it to fn, and
-// releases it exactly once whichever way the registration goes. fn's own run
-// releases it on the way out; a refusal releases it here, so a caller that is too
-// late to start work never leaks the context it prepared.
-func (s *Server) StartBackgroundTimeout(parent context.Context, d time.Duration, fn func(context.Context)) (started bool) {
-	ctx, cancel := context.WithTimeout(parent, d)
-	if !s.StartBackground(ctx, func(c context.Context) {
-		defer cancel()
-		fn(c)
-	}) {
-		cancel()
-		return false
-	}
 	return true
 }
 
@@ -746,10 +754,6 @@ func (s *Server) handleHealthz(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) handleTraefikConfig(w http.ResponseWriter, r *http.Request) {
-	// Recorded after the gate, so a rejected poll cannot keep the staleness
-	// watchdog quiet while a token mismatch is starving the real Traefik.
-	s.poller.RecordConfigPoll()
-
 	members, err := s.store.ListMembers(r.Context())
 	if err != nil {
 		writeError(w, err)
@@ -760,5 +764,9 @@ func (s *Server) handleTraefikConfig(w http.ResponseWriter, r *http.Request) {
 		writeError(w, err)
 		return
 	}
+	// Recorded only once the config is built, behind the gate: a rejected poll
+	// (a token mismatch starving the real Traefik) or a failed store read (Traefik
+	// keeps serving its last config) must not keep the staleness watchdog quiet.
+	s.poller.RecordConfigPoll()
 	writeJSON(w, http.StatusOK, BuildTraefikConfig(members, set))
 }
