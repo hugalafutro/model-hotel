@@ -156,14 +156,17 @@ jobs:
   # scripts/ci/go-race-shard.sh gives each shard a third of every large
   # package's tests plus a share of the small packages whole, reading test names
   # from the sources (`go test -list` would run every package's database setup).
-  # Go Race is not a required check, so the matrix may be skipped as a job.
+  # Go Race is not a required check, so the matrix may be skipped as a job. The
+  # name stays static for that reason: a job-level skip never expands the
+  # matrix, so "${{ matrix.shard }}" in the name would show literally. GitHub
+  # appends the shard to each leg that runs: "Go Race (1)".
   #
   # Un-raced, the suites written for exactly this (internal/failover/
   # circuitbreaker_race_test.go among them) pass while a data race goes
   # unreported. The first run of this job found one, in the app-log writer's
   # flush interval.
   go-race:
-    name: Go Race (shard ${{ matrix.shard }}/3)
+    name: Go Race
     needs: changes
     if: needs.changes.outputs.go != 'false'
     runs-on: ubuntu-latest
