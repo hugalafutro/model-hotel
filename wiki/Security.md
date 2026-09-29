@@ -404,6 +404,8 @@ While `ValidateProviderURL` blocks dangerous URLs at configuration time, the **S
 
 The same list backs both provider-URL validation and the runtime dialer, so the two layers cannot drift apart.
 
+A NAT64 address under the well-known prefix `64:ff9b::/96` is judged by the IPv4 address it embeds, since that is where the translator delivers it. A local-use NAT64 address (`64:ff9b:1::/48`, RFC 8215) is refused outright, because its prefix length is operator-chosen and the embedded address cannot be read with certainty; for a provider on such a network, `ALLOWED_PROVIDER_HOSTS` is the escape hatch. Setting it turns provider URL validation into an allowlist, so every custom provider host then has to be listed.
+
 ---
 
 ## netguard (Admin-Configured Endpoints)
@@ -422,6 +424,12 @@ that are never a legitimate destination and are the classic SSRF targets.
 | Unspecified (`0.0.0.0`, `::`) | **Blocked** | Unusable address |
 | Private (`10.0.0.0/8`, `172.16.0.0/12`, `192.168.0.0/16`, `fc00::/7`) | Allowed | Where an internal IdP or the apprise container lives |
 | Loopback (`127.0.0.0/8`, `::1`) | Allowed | Same-host deployments |
+
+netguard reads NAT64 addresses the same way SafeDialer does: a well-known-prefix
+address is judged by the IPv4 address it embeds, and a local-use (RFC 8215) one
+is refused. `ALLOWED_PROVIDER_HOSTS` does not apply here, so an identity
+provider, apprise container, or Front Desk member behind a local-use NAT64
+prefix is unreachable; give it an address outside that prefix.
 
 It backs the OIDC SSO handler (discovery, token exchange, JWKS, UserInfo), the
 GitHub SSO handler, and the alert dispatcher. Without it, `go-oidc` and `oauth2`

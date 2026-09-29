@@ -464,7 +464,7 @@ func (h *Handler) registerAdminOnly(r chi.Router) {
 	bh := NewBackupHandler(h.cfg.DatabaseURL, filepath.Join(h.cfg.DataDir, "backups"), h.adminMgr, h.settingsRepo)
 	bh.SetSigningKey(h.cfg.MasterKey)
 	bh.SetDemoReadOnly(h.cfg.DemoReadOnly)
-	bh.SetSessionAuth(h.webauthnSessionMgr, h.TotpEnabled)
+	bh.SetTotpEnabled(h.TotpEnabled)
 	bh.Register(r)
 	h.backupScheduler = bh
 
