@@ -828,7 +828,9 @@
 			"baseUrlHelperDefault": "Nhập địa chỉ mà máy chủ của bạn đang lắng nghe, cổng nào cũng được. Trước khi lưu, Model Hotel kiểm tra máy chủ có đúng là loại bạn chọn hay không, nên máy chủ phải đang chạy.",
 			"baseUrlHelperFull": "URL gốc của API đầy đủ, bao gồm cả tiền tố đường dẫn. Các mô hình sẽ được tìm thấy tại \"<base_url>\"/models",
 			"apiKey": "Khóa API",
-			"baseUrlHelperAnthropicMessages": "URL cơ sở của một điểm cuối nói Anthropic Messages API. Yêu cầu được gửi tới \"<base_url>\"/v1/messages và các mô hình được phát hiện từ \"<base_url>\"/v1/models"
+			"baseUrlHelperAnthropicMessages": "URL cơ sở của một điểm cuối nói Anthropic Messages API. Yêu cầu được gửi tới \"<base_url>\"/v1/messages và các mô hình được phát hiện từ \"<base_url>\"/v1/models",
+			"nameHasSlash": "Tên nhà cung cấp không được chứa \"/\". Mô hình được gọi theo dạng nhà-cung-cấp/mô-hình, nên tên sẽ bị cắt tại dấu \"/\" đầu tiên và không bao giờ truy cập được nhà cung cấp này.",
+			"nameReserved": "\"hotel\" là tên dành riêng: các tên mô hình bắt đầu bằng hotel/ được chuyển đến nhóm failover, nên nhà cung cấp mang tên này không bao giờ gọi trực tiếp được."
 		},
 		"edit": {
 			"typeHelper": "Chỉ thay đổi để sửa loại bị đoán sai khi nhập hoặc nâng cấp. Loại máy chủ tự vận hành sẽ được đối chiếu với máy chủ trước khi lưu.",

@@ -828,7 +828,9 @@
 			"baseUrlHelperDefault": "Angiv den adresse, din server lytter på, uanset port. Model Hotel kontrollerer før lagring, at serveren rent faktisk er den valgte type, så den skal køre.",
 			"baseUrlHelperFull": "Fuld API base URL herunder enhver sti prefix. Modeller vil blive opdaget fra \"<base_url>\"/models",
 			"apiKey": "API Nøgle",
-			"baseUrlHelperAnthropicMessages": "Basis-URL for et endpoint, der taler Anthropic Messages API. Forespørgsler går til \"<base_url>\"/v1/messages, og modeller opdages fra \"<base_url>\"/v1/models"
+			"baseUrlHelperAnthropicMessages": "Basis-URL for et endpoint, der taler Anthropic Messages API. Forespørgsler går til \"<base_url>\"/v1/messages, og modeller opdages fra \"<base_url>\"/v1/models",
+			"nameHasSlash": "Et udbydernavn må ikke indeholde \"/\". Modeller kaldes som udbyder/model, så navnet ville blive afskåret ved første \"/\", og udbyderen kunne aldrig nås.",
+			"nameReserved": "\"hotel\" er reserveret: modelnavne, der starter med hotel/, går til failover-grupper, så en udbyder med dette navn kunne aldrig kaldes direkte."
 		},
 		"edit": {
 			"typeHelper": "Ret kun dette for at rette en type, der blev gættet forkert ved import eller opgradering. En selvhostet type kontrolleres mod serveren, før den gemmes.",

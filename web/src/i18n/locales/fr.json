@@ -852,7 +852,9 @@
 			"baseUrlHelperDefault": "Saisissez l'adresse sur laquelle votre serveur écoute, quel que soit le port. Model Hotel vérifie avant l'enregistrement que le serveur est bien du type choisi, il doit donc être démarré.",
 			"baseUrlHelperFull": "URL de base de l'API complète, y compris n'importe quel préfixe de chemin. Les modèles seront découverts dans \"<base_url>\"/models",
 			"apiKey": "Clé API",
-			"baseUrlHelperAnthropicMessages": "URL de base d'un point de terminaison qui parle l'API Anthropic Messages. Les requêtes vont vers \"<base_url>\"/v1/messages et les modèles sont découverts depuis \"<base_url>\"/v1/models"
+			"baseUrlHelperAnthropicMessages": "URL de base d'un point de terminaison qui parle l'API Anthropic Messages. Les requêtes vont vers \"<base_url>\"/v1/messages et les modèles sont découverts depuis \"<base_url>\"/v1/models",
+			"nameHasSlash": "Le nom d'un fournisseur ne peut pas contenir « / ». Les modèles sont appelés sous la forme fournisseur/modèle : le nom serait coupé au premier « / » et le fournisseur serait injoignable.",
+			"nameReserved": "« hotel » est réservé : les noms de modèle commençant par hotel/ vont aux groupes de failover, un fournisseur portant ce nom ne pourrait donc jamais être appelé directement."
 		},
 		"edit": {
 			"typeHelper": "Ne le modifiez que pour corriger un type mal deviné lors de l'import ou de la mise à niveau. Un type auto-hébergé est vérifié auprès du serveur avant d'être enregistré.",

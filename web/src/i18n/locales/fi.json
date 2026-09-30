@@ -828,7 +828,9 @@
 			"baseUrlHelperDefault": "Anna osoite, jota palvelimesi kuuntelee, missä tahansa portissa. Model Hotel tarkistaa ennen tallennusta, että palvelin todella on valitsemaasi tyyppiä, joten sen on oltava käynnissä.",
 			"baseUrlHelperFull": "Täysi API base URL mukaan lukien mahdollinen polun etuliite. Mallit löydetään osoitteesta \"<base_url>\"/models",
 			"apiKey": "Api Avain",
-			"baseUrlHelperAnthropicMessages": "Anthropic Messages API:a puhuvan päätepisteen perus-URL. Pyynnöt menevät osoitteeseen \"<base_url>\"/v1/messages ja mallit haetaan osoitteesta \"<base_url>\"/v1/models"
+			"baseUrlHelperAnthropicMessages": "Anthropic Messages API:a puhuvan päätepisteen perus-URL. Pyynnöt menevät osoitteeseen \"<base_url>\"/v1/messages ja mallit haetaan osoitteesta \"<base_url>\"/v1/models",
+			"nameHasSlash": "Palveluntarjoajan nimessä ei saa olla merkkiä \"/\". Malleja kutsutaan muodossa palveluntarjoaja/malli, joten nimi katkeaisi ensimmäiseen \"/\"-merkkiin eikä palveluntarjoajaa voisi koskaan tavoittaa.",
+			"nameReserved": "\"hotel\" on varattu: hotel/-alkuiset mallinimet ohjataan failover-ryhmille, joten tämännimistä palveluntarjoajaa ei voisi koskaan kutsua suoraan."
 		},
 		"edit": {
 			"typeHelper": "Muuta tätä vain korjataksesi tyypin, joka arvattiin väärin tuonnin tai päivityksen yhteydessä. Itse ylläpidetty tyyppi tarkistetaan palvelimelta ennen tallennusta.",

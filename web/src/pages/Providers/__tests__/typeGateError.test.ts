@@ -84,4 +84,18 @@ describe("providerTypeGateMessage", () => {
 			providerTypeGateMessage(new ApiError("nope", 400, "some_other_code"), t),
 		).toBeNull();
 	});
+	it("explains a provider name the proxy could never route to", () => {
+		expect(
+			providerTypeGateMessage(
+				new ApiError("boom", 400, "provider_name_slash", {}),
+				t,
+			),
+		).toBe("providers.add.nameHasSlash");
+		expect(
+			providerTypeGateMessage(
+				new ApiError("boom", 400, "provider_name_reserved", {}),
+				t,
+			),
+		).toBe("providers.add.nameReserved");
+	});
 });

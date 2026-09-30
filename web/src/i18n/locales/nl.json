@@ -828,7 +828,9 @@
 			"baseUrlHelperDefault": "Voer het adres in waarop je server luistert, op welke poort dan ook. Model Hotel controleert vóór het opslaan of de server echt het gekozen type is, dus die moet draaien.",
 			"baseUrlHelperFull": "Volledige API basis-URL inclusief elk pad voorvoegsel. Models worden ontdekt uit \"<base_url>\"/models",
 			"apiKey": "API Sleutel",
-			"baseUrlHelperAnthropicMessages": "Basis-URL van een endpoint dat de Anthropic Messages API spreekt. Verzoeken gaan naar \"<base_url>\"/v1/messages en modellen worden ontdekt via \"<base_url>\"/v1/models"
+			"baseUrlHelperAnthropicMessages": "Basis-URL van een endpoint dat de Anthropic Messages API spreekt. Verzoeken gaan naar \"<base_url>\"/v1/messages en modellen worden ontdekt via \"<base_url>\"/v1/models",
+			"nameHasSlash": "Een providernaam mag geen \"/\" bevatten. Modellen worden aangeroepen als provider/model, dus de naam zou bij de eerste \"/\" worden afgekapt en de provider zou nooit bereikbaar zijn.",
+			"nameReserved": "\"hotel\" is gereserveerd: modelnamen die met hotel/ beginnen gaan naar failover-groepen, dus een provider met deze naam zou nooit rechtstreeks aangeroepen kunnen worden."
 		},
 		"edit": {
 			"typeHelper": "Wijzig dit alleen om een type te corrigeren dat bij import of upgrade verkeerd is geraden. Een zelfgehost type wordt vóór het opslaan bij de server gecontroleerd.",

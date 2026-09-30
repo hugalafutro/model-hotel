@@ -900,7 +900,9 @@
 			"discoveredModels_few": "تم اكتشاف {{count}} نماذج…",
 			"discoveredModels_many": "تم اكتشاف {{count}} نموذجًا…",
 			"discoveredModels_other": "تم اكتشاف {{count}} نموذج…",
-			"baseUrlHelperAnthropicMessages": "عنوان URL الأساسي لنقطة نهاية تتحدث بواجهة Anthropic Messages API. تُرسل الطلبات إلى \"<base_url>\"/v1/messages ويتم اكتشاف النماذج من \"<base_url>\"/v1/models"
+			"baseUrlHelperAnthropicMessages": "عنوان URL الأساسي لنقطة نهاية تتحدث بواجهة Anthropic Messages API. تُرسل الطلبات إلى \"<base_url>\"/v1/messages ويتم اكتشاف النماذج من \"<base_url>\"/v1/models",
+			"nameHasSlash": "لا يمكن أن يحتوي اسم المزوّد على \"/\". تُستدعى النماذج بالصيغة provider/model، لذا سيُقطع الاسم عند أول \"/\" ولن يمكن الوصول إلى المزوّد أبدًا.",
+			"nameReserved": "الاسم \"hotel\" محجوز: أسماء النماذج التي تبدأ بـ hotel/ تذهب إلى مجموعات التبديل الاحتياطي، لذا لا يمكن استدعاء مزوّد بهذا الاسم مباشرةً أبدًا."
 		},
 		"edit": {
 			"typeHelper": "غيّر هذا فقط لتصحيح نوع خُمِّن خطأً عند استيراد المزوّد أو ترقيته. ويُتحقَّق من النوع الذاتي الاستضافة لدى الخادم قبل الحفظ.",

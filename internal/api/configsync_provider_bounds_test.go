@@ -95,6 +95,14 @@ func TestValidateSyncedProvider_UsesTheSharedRule(t *testing.T) {
 			t.Fatalf("%s: not refused with the sentinel: %v", tc.name, err)
 		}
 	}
+	// The admin API refuses these as new names, but a primary that held one
+	// before the rule keeps it, so the import applies names the admin API
+	// refuses rather than stall the fleet on them.
+	for _, name := range []string{"a/b", "hotel"} {
+		if err := validateSyncedProvider(ExportProvider{Name: name, BaseURL: "https://p.example.test/v1"}); err != nil {
+			t.Fatalf("a provider named %q must still apply on import: %v", name, err)
+		}
+	}
 	past := ExportProvider{Name: "p", BaseURL: "https://p.example.test/v1", ScheduledDisableOn: new("2020-01-01")}
 	if err := validateSyncedProvider(past); err != nil {
 		t.Fatalf("a past disable date must be accepted on import: %v", err)
