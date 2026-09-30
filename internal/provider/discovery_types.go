@@ -71,7 +71,8 @@ type NeuralWattQuotaResponse struct {
 // the OpenRouter shape) reports each model's input modalities under
 // architecture and, once a model is loaded, the context it runs with under
 // meta.n_ctx; vLLM reports the context it serves as max_model_len. All are
-// kept raw and read leniently (listingInputModalities, listingContext): a
+// kept raw and read leniently (listingInputModalities, listingContext,
+// wholePositive): a
 // server that sends one in a shape of its own must not fail the decode of the
 // whole listing.
 type OpenAIModel struct {
