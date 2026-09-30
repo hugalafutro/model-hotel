@@ -132,6 +132,7 @@ func TestAccessLogger_DashboardPollsStayOutOfTheInfoStream(t *testing.T) {
 		"/api/members",
 		"/api/devices",
 		"/api/quota",
+		"/api/fleet/autosync",
 		"/api/members/9d1f0e5a-0000-4000-8000-000000000001/traffic",
 	}
 	for _, target := range polled {
@@ -155,6 +156,7 @@ func TestAccessLogger_OnlyReadsAreNoise(t *testing.T) {
 		{http.MethodDelete, "/api/devices"},
 		{http.MethodPost, "/api/quota"},
 		{http.MethodPost, "/api/sse"},
+		{http.MethodPut, "/api/fleet/autosync"},
 	}
 	for _, tc := range tests {
 		t.Run(tc.method+" "+tc.target, func(t *testing.T) {

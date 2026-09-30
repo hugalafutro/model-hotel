@@ -161,7 +161,7 @@ func doVersionCheck(t *testing.T, srv *Server, primaryID string) versionCheckRes
 // nothing: the check reports what the run would refuse.
 func TestFleetVersionCheckUnreadBuildIsSkewed(t *testing.T) {
 	srv, store := newTestServer(t)
-	fake := func(version, token string) *httptest.Server {
+	fake := func(version string) *httptest.Server {
 		s := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			if r.Method == http.MethodGet && r.URL.Path == "/api/settings" {
 				_ = json.NewEncoder(w).Encode(map[string]string{"app_version": version, "app_commit": "d18a96d1f84d"})
@@ -172,9 +172,9 @@ func TestFleetVersionCheckUnreadBuildIsSkewed(t *testing.T) {
 		t.Cleanup(s.Close)
 		return s
 	}
-	primary := fake("v1.0.0", "ptoken")
+	primary := fake("v1.0.0")
 	pm, _ := store.CreateMember(t.Context(), "primary", primary.URL, "ptoken")
-	blip := fake("v1.0.0", "btoken")
+	blip := fake("v1.0.0")
 	bm, _ := store.CreateMember(t.Context(), "blip", blip.URL, "btoken")
 
 	// Seed both builds from a good read, then fail the member's next one.
@@ -197,7 +197,7 @@ func TestFleetVersionCheckUnreadBuildIsSkewed(t *testing.T) {
 	}
 
 	// An unread primary lists every member: the run would hold them all.
-	aligned := fake("v1.0.0", "atoken")
+	aligned := fake("v1.0.0")
 	am, _ := store.CreateMember(t.Context(), "aligned", aligned.URL, "atoken")
 	srv.poller.PollVersionsOnce(t.Context())
 	primary.Close()

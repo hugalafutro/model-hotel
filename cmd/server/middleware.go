@@ -98,6 +98,13 @@ func maxRequestSizeMiddleware(maxBytes int64) func(http.Handler) http.Handler {
 // traffic that at ~24/min/member would otherwise flood app_logs (the App Logs
 // page). A settings mutation is a real admin action, so only the GET is demoted.
 //
+// The dashboard reads cover every page, not only the one open: the layout's
+// Failover badge reads the circuit-breaker status every 15s and the discrepancy
+// check reads discovery status every minute, the Logs page tails the request log
+// through its cursor, and quota badges re-read each provider's usage, balance or
+// account. Front Desk adds the circuit ledger every 15s and the primary's quota
+// snapshots every minute.
+//
 // path arrives slash-normalized from httpx.AccessLogger, so a trailing slash
 // from a client or a reverse proxy cannot defeat an exact match.
 func isNoisyGatewayPath(method, path string) bool {
@@ -108,8 +115,27 @@ func isNoisyGatewayPath(method, path string) bool {
 		return false
 	}
 	switch path {
-	case "/api/logs", "/api/system", "/api/events", "/api/stats", "/api/stats/timeseries",
-		"/api/stats/provider-distribution", "/api/models", "/api/providers", "/api/settings":
+	case "/api/logs", "/api/logs/cursor", "/api/system", "/api/events", "/api/stats", "/api/stats/timeseries",
+		"/api/stats/provider-distribution", "/api/models", "/api/providers", "/api/settings",
+		"/api/failover-groups/circuit-breaker-status", "/api/discovery/status", "/api/config/quota-snapshots":
+		return true
+	}
+	return isProviderQuotaRead(path)
+}
+
+// isProviderQuotaRead matches GET /api/providers/{id}/usage, /balance and
+// /account, the per-provider quota reads the badges repeat on a timer.
+func isProviderQuotaRead(path string) bool {
+	rest, ok := strings.CutPrefix(path, "/api/providers/")
+	if !ok {
+		return false
+	}
+	id, kind, ok := strings.Cut(rest, "/")
+	if !ok || id == "" {
+		return false
+	}
+	switch kind {
+	case "usage", "balance", "account":
 		return true
 	}
 	return false

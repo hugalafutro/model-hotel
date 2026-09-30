@@ -424,6 +424,23 @@ func TestIsNoisyGatewayPath(t *testing.T) {
 		// Trailing slashes must not defeat the exact-path noise match.
 		{"fleet announce POST trailing slash", "/api/fleet/announce/", "POST", true},
 		{"api settings GET trailing slash", "/api/settings/", "GET", true},
+		// Timer reads the dashboard layout, Logs page, quota badges and Front
+		// Desk repeat while nobody is doing anything.
+		{"circuit breaker status GET", "/api/failover-groups/circuit-breaker-status", "GET", true},
+		{"discovery status GET", "/api/discovery/status", "GET", true},
+		{"request log cursor GET", "/api/logs/cursor", "GET", true},
+		{"quota snapshots GET", "/api/config/quota-snapshots", "GET", true},
+		{"provider usage GET", "/api/providers/abc/usage", "GET", true},
+		{"provider balance GET", "/api/providers/abc/balance", "GET", true},
+		{"provider account GET trailing slash", "/api/providers/abc/account/", "GET", true},
+		// Near misses and mutations of the same paths stay at info.
+		{"quota snapshots POST", "/api/config/quota-snapshots", "POST", false},
+		{"circuit breaker status POST", "/api/failover-groups/circuit-breaker-status", "POST", false},
+		{"provider usage without id", "/api/providers//usage", "GET", false},
+		{"provider discover POST", "/api/providers/abc/discover", "POST", false},
+		{"provider other subpath GET", "/api/providers/abc/models", "GET", false},
+		{"provider usage deeper GET", "/api/providers/abc/usage/x", "GET", false},
+		{"refresh quotas POST", "/api/providers/refresh-quotas", "POST", false},
 		// A mutation of a polled path is a real admin action, never noise.
 		{"api settings POST", "/api/settings", "POST", false},
 		{"api models POST", "/api/models", "POST", false},
