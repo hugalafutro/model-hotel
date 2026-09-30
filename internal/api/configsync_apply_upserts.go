@@ -129,10 +129,11 @@ func providerTypeForImport(p ExportProvider) string {
 // the fleet every provider is new. The worst such a name does is leave one
 // provider unreachable by name, which is no harm to guard against.
 //
-// A disable date in the past is accepted: the member's own sweep fires it immediately, which is what the
-// operator asked for. The URL's length is not bounded here, because a long URL
-// is harmless where an unprintable or ten-thousand-character name reaches logs,
-// the dashboard and hotel/ model strings. The name is validated as sent and
+// A disable date in the past is accepted: the member's own sweep fires it
+// immediately, which is what the operator asked for. The URL's length is not
+// bounded here, because a long URL is harmless where an unprintable or
+// ten-thousand-character name reaches logs, the dashboard and hotel/ model
+// strings. The name is validated as sent and
 // stored as sent (the admin API stores it trimmed): storing a trimmed copy would
 // diverge from the primary's hash and re-sync forever.
 func validateSyncedProvider(p ExportProvider) error {
