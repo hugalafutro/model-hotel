@@ -567,21 +567,27 @@ func listAnswerDelivered(body []byte, keys ...string) bool {
 }
 
 // imageEntriesDeliver reports whether an images answer's "data" list carries a
-// picture. It is false only when every entry is an object that names a picture
-// field (b64_json or url) and leaves every one it names empty. An entry of any
-// other shape counts as delivered, for the reason listAnswerDelivered gives: not
-// understanding a shape is no evidence that it carries nothing.
+// picture. It is false only when every entry is null or an object that names a
+// picture field (b64_json or url) and leaves every named one empty. An entry of
+// any other shape counts as delivered, for the reason listAnswerDelivered
+// gives: not understanding a shape is no evidence that it carries nothing. A
+// "data" that is absent, empty or not a list is left to listAnswerDelivered's
+// verdict, which the caller asks first. The member is read by its exact name,
+// as listAnswerDelivered reads it, so both judge the same list.
 func imageEntriesDeliver(body []byte) bool {
-	var out struct {
-		Data []json.RawMessage `json:"data"`
-	}
-	if json.Unmarshal(body, &out) != nil || len(out.Data) == 0 {
+	var members map[string]json.RawMessage
+	var entries []json.RawMessage
+	if json.Unmarshal(body, &members) != nil || json.Unmarshal(members["data"], &entries) != nil || len(entries) == 0 {
 		return true
 	}
-	for _, raw := range out.Data {
+	for _, raw := range entries {
 		var entry map[string]json.RawMessage
 		if json.Unmarshal(raw, &entry) != nil {
 			return true
+		}
+		if entry == nil {
+			// A null entry carries no picture.
+			continue
 		}
 		b64, hasB64 := entry["b64_json"]
 		url, hasURL := entry["url"]
