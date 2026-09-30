@@ -14,9 +14,10 @@ import (
 
 // stubBackupMember is a fake Model Hotel member exposing the two routes the
 // backup watchdog reads: GET /api/backups (the listing, each entry carrying the
-// origin the member itself derived) and GET /api/settings (backup_interval). Origin is set per entry by the test, deliberately
-// independent of the filename, so a test can model a manual backup whose name
-// happens to contain the word frontdesk.
+// origin the member itself derived) and GET /api/settings (backup_interval).
+// Origin is set per entry by the test, deliberately independent of the
+// filename, so a test can model a manual backup whose name happens to contain
+// the word frontdesk.
 type stubBackupMember struct {
 	token string
 
