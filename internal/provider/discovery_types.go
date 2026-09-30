@@ -1,5 +1,7 @@
 package provider
 
+import "encoding/json"
+
 // NeuralWattQuotaBalance contains balance/credit information.
 // CreditsRemainingUSD is a pointer on purpose: the snapshot path re-marshals
 // this struct verbatim to both dashboards, and a bare float64 would turn an
@@ -65,27 +67,19 @@ type NeuralWattQuotaResponse struct {
 // OpenAIModel represents a model from the OpenAI API.
 //
 // Architecture and Meta are not OpenAI's: they are what self-hosted servers
-// add to the same listing. llama.cpp's llama-server (and the OpenRouter shape
-// it copies) reports each model's input modalities under architecture, and
-// once a model is loaded, the context it actually runs with under meta.n_ctx.
+// add to the same listing. llama.cpp's llama-server (in the OpenRouter shape)
+// reports each model's input modalities under architecture, and once a model
+// is loaded, the context it actually runs with under meta.n_ctx. Both are kept
+// raw and read leniently (listingInputModalities, listingContext): a server
+// that sends either in a shape of its own must not fail the decode of the
+// whole listing.
 type OpenAIModel struct {
-	ID           string                   `json:"id"`
-	Object       string                   `json:"object"`
-	Created      int64                    `json:"created"`
-	OwnedBy      string                   `json:"owned_by"`
-	Architecture *OpenAIModelArchitecture `json:"architecture,omitempty"`
-	Meta         *OpenAIModelMeta         `json:"meta,omitempty"`
-}
-
-// OpenAIModelArchitecture is the optional architecture block of a /models entry.
-type OpenAIModelArchitecture struct {
-	InputModalities []string `json:"input_modalities"`
-}
-
-// OpenAIModelMeta is llama.cpp's runtime block of a /models entry, present
-// while the model is loaded.
-type OpenAIModelMeta struct {
-	NCtx int `json:"n_ctx"`
+	ID           string          `json:"id"`
+	Object       string          `json:"object"`
+	Created      int64           `json:"created"`
+	OwnedBy      string          `json:"owned_by"`
+	Architecture json.RawMessage `json:"architecture,omitempty"`
+	Meta         json.RawMessage `json:"meta,omitempty"`
 }
 
 // OpenAIModelsResponse is the response from the OpenAI models endpoint.

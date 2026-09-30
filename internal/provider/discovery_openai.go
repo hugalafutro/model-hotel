@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"math"
 
 	"github.com/hugalafutro/model-hotel/internal/debuglog"
 	"github.com/hugalafutro/model-hotel/internal/model"
@@ -44,15 +45,17 @@ func (d *DiscoveryService) discoverOpenAI(ctx context.Context, provider *Provide
 		live = append(live, applyListingExtras(liveModelStub(m.ID, m.OwnedBy, provider.ID), m))
 	}
 
-	// Backfill-only (no union): discoverOpenAI is the fallback for unknown/custom
-	// hosts, so the gpt-5.x catalog must enrich matching models without adding
-	// phantom OpenAI models to a custom provider. For real OpenAI the catalog is
-	// a subset of the live listing, so there is nothing to union regardless.
-	// models.dev still enriches the rest. An empty listing stays empty, so
-	// RecordMissingModels is a no-op.
-	// A custom endpoint is not backfilled either: it serves whatever its
-	// operator loaded, and a model it names gpt-5.1 is not OpenAI's.
-	if operatorServed(TypeOf(provider)) {
+	// A provider the operator added as custom or as a self-hosted server is
+	// neither backfilled here nor enriched by models.dev: it serves whatever
+	// its operator loaded, and a model it names gpt-5.5-pro is not OpenAI's.
+	//
+	// Otherwise backfill-only (no union): discoverOpenAI is also the fallback
+	// for the generic openai type on unknown hosts, so the gpt-5.x catalog must
+	// enrich matching models without adding phantom OpenAI models to it. For
+	// real OpenAI the catalog is a subset of the live listing, so there is
+	// nothing to union regardless, and models.dev enriches the rest. An empty
+	// listing stays empty, so RecordMissingModels is a no-op.
+	if operatorServedProvider(provider) {
 		debuglog.Info("discovery: openai-compatible discovered models", "provider", provider.Name, "provider_id", provider.ID, "live", len(live))
 		return live, nil
 	}
@@ -68,17 +71,46 @@ func (d *DiscoveryService) discoverOpenAI(ctx context.Context, provider *Provide
 // its embedding and reranking models too, and the name decides those. The
 // context length is what the server runs the model with right now, so it is
 // marked live; it is only there while the model is loaded, and a scan that
-// finds it unloaded leaves the stored value alone.
+// finds it unloaded leaves the stored value alone. A listing that carries
+// neither block (OpenAI's own, most servers) is unaffected.
 func applyListingExtras(m *model.Model, entry OpenAIModel) *model.Model {
-	if a := entry.Architecture; a != nil && len(a.InputModalities) > 0 {
-		if b, err := json.Marshal(canonicalizeModalityList(a.InputModalities)); err == nil {
+	if input := listingInputModalities(entry.Architecture); len(input) > 0 {
+		if b, err := json.Marshal(input); err == nil {
 			m.InputModalities = string(b)
 		}
 	}
-	if meta := entry.Meta; meta != nil && meta.NCtx > 0 {
-		n := meta.NCtx
+	if n := listingContext(entry.Meta); n > 0 {
 		m.ContextLength = &n
 		m.MarkLiveMetaFromCurrent()
 	}
 	return m
+}
+
+// listingInputModalities reads architecture.input_modalities, returning nil for
+// any other shape.
+func listingInputModalities(raw json.RawMessage) []string {
+	var arch struct {
+		InputModalities []string `json:"input_modalities"`
+	}
+	if len(raw) == 0 || json.Unmarshal(raw, &arch) != nil {
+		return nil
+	}
+	return canonicalizeModalityList(arch.InputModalities)
+}
+
+// listingContext reads meta.n_ctx as a positive whole number (written as an
+// integer, a float such as 4096.0, or a quoted number), returning 0 for any
+// other shape.
+func listingContext(raw json.RawMessage) int {
+	var meta struct {
+		NCtx json.Number `json:"n_ctx"`
+	}
+	if len(raw) == 0 || json.Unmarshal(raw, &meta) != nil {
+		return 0
+	}
+	f, err := meta.NCtx.Float64()
+	if err != nil || f <= 0 || f > math.MaxInt32 || f != math.Trunc(f) {
+		return 0
+	}
+	return int(f)
 }

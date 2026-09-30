@@ -712,11 +712,17 @@ var lastUnpriced sync.Map
 // known; the operator fills the rest in by hand.
 func EnrichAndNormalize(p *Provider, models []*model.Model) int {
 	enriched := 0
-	if cache := GetModelsDevCache(); cache != nil && !operatorServed(TypeOf(p)) {
+	if cache := GetModelsDevCache(); cache != nil && !operatorServedProvider(p) {
 		enriched = cache.EnrichModels(models, TypeOf(p))
 	}
 	NormalizeModels(models)
-	ReportUnpricedModels(p.Name, models)
+	// A self-hosted server's models are unpriced by design, so reporting them
+	// (with advice to add a catalog override) is noise. A custom endpoint is
+	// still reported: it may be a hosted API metering at zero until its
+	// operator prices it.
+	if !IsLocalServerType(TypeOf(p)) {
+		ReportUnpricedModels(p.Name, models)
+	}
 	return enriched
 }
 
@@ -768,10 +774,14 @@ func looksLikeDateOrVersion(suffix string) bool {
 	return false
 }
 
-// operatorServed reports a provider type whose models are whatever its operator
-// loaded: a custom endpoint and the self-hosted servers. No catalog or
-// models.dev entry can speak for them, since a file of any content can be
-// served under any name.
-func operatorServed(providerType string) bool {
-	return providerType == "custom" || IsLocalServerType(providerType)
+// operatorServedProvider reports a provider whose models are whatever its
+// operator loaded: one the operator added as custom, or as a self-hosted
+// server. No catalog or models.dev entry can speak for them, since a file of
+// any content can be served under any name. It goes by the type the operator
+// chose: the generic openai type (what an API client that names no type gets
+// for an unknown host) keeps enrichment, as every OpenAI-compatible provider
+// did before.
+func operatorServedProvider(p *Provider) bool {
+	t := TypeOf(p)
+	return t == "custom" || IsLocalServerType(t)
 }

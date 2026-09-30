@@ -314,6 +314,11 @@ func TestDiscoverOpenAI_CustomTakesOnlyWhatTheListingSays(t *testing.T) {
 	if c := capsOf("gemma-3-4b-it"); c.StructuredOutput || c.ToolCalling {
 		t.Errorf("gemma: %+v, want nothing models.dev says about the name", c)
 	}
+	// Unloaded, so no meta: no context, and nothing marked live to overwrite
+	// a stored one.
+	if g := byID["gemma-3-4b-it"]; g.ContextLength != nil || g.LiveMeta.ContextLength {
+		t.Errorf("gemma: context %v live %v, want none for an unloaded model", g.ContextLength, g.LiveMeta.ContextLength)
+	}
 	if l := byID["llama-3.2-3b-instruct"]; l.ContextLength == nil || *l.ContextLength != 8192 || !l.LiveMeta.ContextLength {
 		t.Errorf("llama: context %v live %v, want the server's running 8192, live", l.ContextLength, l.LiveMeta.ContextLength)
 	}
@@ -327,5 +332,43 @@ func TestDiscoverOpenAI_CustomTakesOnlyWhatTheListingSays(t *testing.T) {
 	}
 	if p := byID["gpt-5.5-pro"]; p.ContextLength != nil || p.Description != "" {
 		t.Errorf("gpt-5.5-pro on a custom server took OpenAI catalog data: context %v, description %q", p.ContextLength, p.Description)
+	}
+}
+
+// The self-hosted extras are read leniently: a server that sends architecture
+// or meta in a shape of its own gets them ignored, and the rest of the listing
+// still decodes and is discovered.
+func TestDiscoverOpenAI_ListingExtrasOfAnotherShapeAreIgnored(t *testing.T) {
+	body := `{"object":"list","data":[
+		{"id":"a","owned_by":"x","architecture":"llama","meta":{"n_ctx":"8192.5"}},
+		{"id":"b","owned_by":"x","architecture":["LlamaForCausalLM"],"meta":null},
+		{"id":"c","owned_by":"x","architecture":{"input_modalities":[]},"meta":{"n_ctx":-1}},
+		{"id":"d","owned_by":"x","meta":{"n_ctx":4096.0}}
+	]}`
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(body))
+	}))
+	defer server.Close()
+
+	prov := &Provider{ID: uuid.New(), BaseURL: server.URL + "/v1", ProviderType: "custom"}
+	models, err := NewDiscoveryService(nil, nil).discoverOpenAI(context.Background(), prov, "")
+	if err != nil {
+		t.Fatalf("discoverOpenAI: %v", err)
+	}
+	if len(models) != 4 {
+		t.Fatalf("discovered %d models, want all 4", len(models))
+	}
+	for _, m := range models {
+		if m.InputModalities != "[]" {
+			t.Errorf("%s: input %s, want the stub's empty array", m.ModelID, m.InputModalities)
+		}
+		if m.ModelID == "d" {
+			if m.ContextLength == nil || *m.ContextLength != 4096 {
+				t.Errorf("d: context %v, want 4096 from a whole-number float", m.ContextLength)
+			}
+		} else if m.ContextLength != nil {
+			t.Errorf("%s: context %d, want none from a malformed meta", m.ModelID, *m.ContextLength)
+		}
 	}
 }

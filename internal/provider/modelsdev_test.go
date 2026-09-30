@@ -915,14 +915,24 @@ func TestEnrichAndNormalize_SkipsOperatorServedTypes(t *testing.T) {
 	setupCacheWithModels(t, map[string]*ModelsDevModelSpec{
 		"gpt-oss:20b": {ID: "gpt-oss:20b", ToolCall: true, Limit: ModelsDevLimit{Context: ctx}},
 	})
-	for providerType, wantEnriched := range map[string]bool{
-		"custom": false, "ollama": false, "lmstudio": false, "koboldcpp": false,
-		"openai": true, "ollama-cloud": true,
+	for _, tc := range []struct {
+		providerType, baseURL string
+		wantEnriched          bool
+	}{
+		{"custom", "http://10.0.0.5:8082/v1", false},
+		{"ollama", "http://10.0.0.5:11434", false},
+		{"lmstudio", "http://10.0.0.5:1234", false},
+		{"koboldcpp", "http://10.0.0.5:5001", false},
+		// The generic OpenAI-compatible type keeps enrichment on any host: the
+		// rule follows the type the operator chose.
+		{"openai", "https://relay.example.com/v1", true},
+		{"openai", "https://api.openai.com/v1", true},
+		{"ollama-cloud", "https://ollama.com", true},
 	} {
 		m := &model.Model{ModelID: "gpt-oss:20b", Capabilities: `{"streaming":true}`, InputModalities: "[]", OutputModalities: "[]"}
-		EnrichAndNormalize(&Provider{ID: uuid.New(), ProviderType: providerType}, []*model.Model{m})
-		if got := m.ContextLength != nil; got != wantEnriched {
-			t.Errorf("%s: enriched=%v, want %v", providerType, got, wantEnriched)
+		EnrichAndNormalize(&Provider{ID: uuid.New(), ProviderType: tc.providerType, BaseURL: tc.baseURL}, []*model.Model{m})
+		if got := m.ContextLength != nil; got != tc.wantEnriched {
+			t.Errorf("%s at %s: enriched=%v, want %v", tc.providerType, tc.baseURL, got, tc.wantEnriched)
 		}
 	}
 }
