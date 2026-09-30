@@ -80,16 +80,17 @@ func (d *DiscoveryService) discoverOllama(ctx context.Context, provider *Provide
 			// The model IS listed by /api/tags; a failed detail probe must not
 			// drop it from the results, or RecordMissingModels would disable a
 			// model that merely had a flaky metadata fetch. Emit it with an
-			// empty show response: capabilities default to streaming-only and
-			// context length stays nil (fill-only, preserved at upsert).
+			// empty show response: its capabilities are a placeholder (kept
+			// out of the upsert below) and context length stays nil
+			// (fill-only, preserved at upsert).
 			debuglog.Warn("discovery: ollama show model failed, keeping model with default metadata", "provider", provider.Name, "provider_id", provider.ID, "model", r.modelID, "error", r.err)
 			skipped++
 			show = &OllamaShowResponse{}
 		}
 
 		m := d.buildOllamaModel(provider, r.modelID, show)
-		// The stub's streaming-only capabilities are a placeholder, not a
-		// reading: the upsert keeps whatever the last successful probe stored.
+		// The stub's capabilities are a placeholder, not a reading: the
+		// upsert keeps whatever the last successful probe stored.
 		m.PreserveCapabilities = r.err != nil
 		models = append(models, m)
 	}
@@ -147,10 +148,9 @@ func (d *DiscoveryService) ollamaShowModel(ctx context.Context, apiBase, apiKey,
 }
 
 func (d *DiscoveryService) buildOllamaModel(provider *Provider, modelID string, show *OllamaShowResponse) *model.Model {
-	caps := model.Capability{Streaming: true}
-	isVision := false
-	inputMods := `["text"]`
-	outputMods := "[]"
+	var caps model.Capability
+	input := []string{"text"}
+	var output []string
 
 	hasCompletion, hasEmbedding := false, false
 	for _, c := range show.Capabilities {
@@ -161,15 +161,13 @@ func (d *DiscoveryService) buildOllamaModel(provider *Provider, modelID string, 
 			caps.Reasoning = true
 		case "vision":
 			caps.Vision = true
-			isVision = true
-			inputMods = `["text","image"]`
+			input = []string{"text", "image"}
 		case "completion":
 			hasCompletion = true
 		case "embedding":
 			hasEmbedding = true
 		}
 	}
-	capJSON, _ := json.Marshal(caps)
 
 	// Ollama reports capabilities authoritatively: an embedding-only model lists
 	// "embedding" and not "completion", so it must be hidden from the chat
@@ -183,15 +181,36 @@ func (d *DiscoveryService) buildOllamaModel(provider *Provider, modelID string, 
 	// heuristics decide from the name.
 	modality := ""
 	switch {
-	case !hasCompletion && !isVision && hasEmbedding:
-		outputMods = `["embedding"]`
+	case !hasCompletion && !caps.Vision && hasEmbedding:
+		output = []string{"embedding"}
 	case hasCompletion && !hasEmbedding:
-		outputMods = `["text"]`
+		output = []string{"text"}
 		modality = "chat"
 	case hasCompletion:
 		// Both capabilities: the listing has not said which endpoint the
 		// model is for, so the name decides.
-		outputMods = `["text"]`
+		output = []string{"text"}
+	}
+
+	// Streaming and structured output (Ollama's OpenAI endpoint honours
+	// response_format with a JSON schema) go to exactly the models filed as
+	// chat, decided once from the same arrays the model is filed with, so an
+	// embeddings model carries neither and the pills never disagree with the
+	// class.
+	class := modality
+	if class == "" {
+		class = DeriveModelClass(input, output, modelID)
+	}
+	if class == "chat" {
+		caps.Streaming = true
+		caps.StructuredOutput = true
+	}
+	capJSON, _ := json.Marshal(caps)
+	inputMods, _ := json.Marshal(input)
+	outputMods := "[]"
+	if len(output) > 0 {
+		b, _ := json.Marshal(output)
+		outputMods = string(b)
 	}
 
 	var contextLength *int
@@ -220,7 +239,7 @@ func (d *DiscoveryService) buildOllamaModel(provider *Provider, modelID string, 
 		DisplayName:      modelID,
 		Capabilities:     string(capJSON),
 		Params:           "{}",
-		InputModalities:  inputMods,
+		InputModalities:  string(inputMods),
 		OutputModalities: outputMods,
 		Modality:         modality,
 		ContextLength:    contextLength,

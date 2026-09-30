@@ -884,3 +884,38 @@ func TestDiscoverOllama_NoAuthHeaderWithoutKey(t *testing.T) {
 		}
 	}
 }
+
+// Capabilities follow what Ollama reports and the class the model is filed
+// under: a chat model streams and takes a JSON schema, an embeddings model
+// does neither, and tools, thinking and vision come from the listing.
+func TestBuildOllamaModel_Capabilities(t *testing.T) {
+	service := &DiscoveryService{}
+	provider := &Provider{ID: uuid.New()}
+	for _, tc := range []struct {
+		id   string
+		caps []string
+		want model.Capability
+	}{
+		{"llama3.2:3b", []string{"completion", "tools"}, model.Capability{Streaming: true, StructuredOutput: true, ToolCalling: true}},
+		{"gemma3:4b", []string{"completion", "vision"}, model.Capability{Streaming: true, StructuredOutput: true, Vision: true}},
+		{"qwen3:1.7b", []string{"completion", "tools", "thinking"}, model.Capability{Streaming: true, StructuredOutput: true, ToolCalling: true, Reasoning: true}},
+		{"embeddinggemma:latest", []string{"embedding"}, model.Capability{}},
+		// Older Ollama reports nothing: the name decides, and so do the pills.
+		{"mxbai-embed-large", nil, model.Capability{}},
+		{"llama2:7b", nil, model.Capability{Streaming: true, StructuredOutput: true}},
+	} {
+		m := service.buildOllamaModel(provider, tc.id, &OllamaShowResponse{Capabilities: tc.caps})
+		var got model.Capability
+		if err := json.Unmarshal([]byte(m.Capabilities), &got); err != nil {
+			t.Fatalf("%s: capabilities %q: %v", tc.id, m.Capabilities, err)
+		}
+		if got != tc.want {
+			t.Errorf("%s: capabilities = %+v, want %+v", tc.id, got, tc.want)
+		}
+		// The pills agree with the class the model is filed under.
+		NormalizeModelClassification(m)
+		if got.Streaming != (m.Modality == "chat") {
+			t.Errorf("%s: streaming=%v but class %q", tc.id, got.Streaming, m.Modality)
+		}
+	}
+}

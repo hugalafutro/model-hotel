@@ -530,8 +530,11 @@ Two of the six rows are not price overrides but the only source of the model at 
 | Input modalities | Vision → `["text","image"]`, else `["text"]` |
 | Output modalities | `"embedding"` with no `"completion"` → `["embedding"]`, otherwise `["text"]` |
 | Endpoint class | `"completion"` with no `"embedding"` beside it is stated as an explicit `chat` class, so the central name heuristics cannot reclassify a chat model whose name merely contains "embed". A listing naming both, or neither (older Ollama), leaves the class to be derived. |
+| Streaming, structured output | Set on exactly the models filed as chat (the class above, or the one derived from the same arrays and the name), since Ollama's OpenAI endpoint streams and honours `response_format` with a JSON schema on every chat model. An embeddings model carries neither. |
 
 Ollama reports capabilities authoritatively, so an embedding-only model is kept out of the chat pickers rather than guessed at.
+
+Context length is the model's trained context (`*.context_length`). A local Ollama serves a smaller window unless it is configured otherwise: it picks 4k below 24 GiB of VRAM, 32k up to 48 GiB and 256k above, overridden by `OLLAMA_CONTEXT_LENGTH` on the server. Set that if clients rely on the advertised figure.
 
 **Hardcoded / missing:**
 
