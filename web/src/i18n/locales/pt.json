@@ -1119,7 +1119,9 @@
 			"searchPrice": "Preço por pesquisa",
 			"perThousandSearches": "/1K pesquisas",
 			"testSuccessRanked": "Sucesso | Resultados classificados: {{count}}{{ttftPart}} | Duração: {{duration}}s",
-			"limitsPinned": "Limites de contexto e saída fixados pelo operador"
+			"limitsPinned": "Limites de contexto e saída fixados pelo operador",
+			"capabilitiesPinned": "Capacidades definidas pelo operador",
+			"capabilitiesEditHint": "Os provedores personalizados informam apenas o que a sua listagem diz. Ative o que este modelo suporta."
 		},
 		"table": {
 			"sortByModelName": "Classificar por nome do modelo",

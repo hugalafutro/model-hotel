@@ -1119,7 +1119,9 @@
 			"searchPrice": "מחיר חיפוש",
 			"perThousandSearches": "/1K חיפושים",
 			"testSuccessRanked": "הצלחה | תוצאות מדורגות: {{count}}{{ttftPart}} | משך: {{duration}}שניות",
-			"limitsPinned": "מגבלות ההקשר והפלט הוצמדו על ידי המפעיל"
+			"limitsPinned": "מגבלות ההקשר והפלט הוצמדו על ידי המפעיל",
+			"capabilitiesPinned": "יכולות שהוגדרו על ידי המפעיל",
+			"capabilitiesEditHint": "ספקים מותאמים אישית מדווחים רק על מה שהרשימה שלהם אומרת. הפעל את מה שהמודל הזה תומך בו."
 		},
 		"table": {
 			"sortByModelName": "מיין לפי שם הדגם",

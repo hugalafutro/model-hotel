@@ -68,6 +68,9 @@ export function ModelDetailModal({
 		discardEdit,
 		handleSave,
 		revertField,
+		capsEditable,
+		editCaps,
+		toggleCap,
 	} = useModelEditor({ model, onUpdate: onUpdate ?? (() => {}) });
 	const [confirmDelete, setConfirmDelete] = useState(false);
 	const {
@@ -201,7 +204,59 @@ export function ModelDetailModal({
 				</div>
 			)}
 
-			{caps && (
+			{/* A custom provider's capabilities are the operator's to set; the
+			    edit pins them (capabilities_customized) until an unpin hands
+			    them back to the next scan. */}
+			{model.capabilities_customized && (
+				<div
+					data-testid="caps-pin-banner"
+					className="mb-4 flex items-center gap-2 text-xs text-gray-500"
+				>
+					<Pin className="h-3.5 w-3.5 shrink-0" />
+					<span>{t("models.detail.capabilitiesPinned")}</span>
+					{manageable && !editing && (
+						<button
+							type="button"
+							className="ui-link-accent"
+							data-testid="caps-pin-reset"
+							onClick={() =>
+								onUpdate?.(model.id, {
+									capabilities_customized: false,
+								} as Partial<Model>)
+							}
+						>
+							{t("models.detail.resetPricesToSource")}
+						</button>
+					)}
+				</div>
+			)}
+
+			{editing && capsEditable ? (
+				<div className="mb-4" data-testid="caps-editor">
+					<DetailSectionHeader icon={Sparkles}>
+						{t("models.detail.capabilities")}
+					</DetailSectionHeader>
+					<p className="text-xs text-gray-500 mb-2">
+						{t("models.detail.capabilitiesEditHint")}
+					</p>
+					<div className="flex flex-wrap gap-1">
+						{CAP_META.map((m) => (
+							<button
+								key={m.key}
+								type="button"
+								aria-pressed={editCaps[m.key]}
+								data-testid={`caps-toggle-${m.key}`}
+								onClick={() => toggleCap(m.key)}
+								className={`ui-badge inline-flex items-center px-1.5 py-0.5 text-[11px] font-medium border cursor-pointer ${
+									editCaps[m.key] ? m.style : m.muted
+								}`}
+							>
+								{t(m.labelKey)}
+							</button>
+						))}
+					</div>
+				</div>
+			) : (
 				<div className="mb-4">
 					<DetailSectionHeader icon={Sparkles}>
 						{t("models.detail.capabilities")}

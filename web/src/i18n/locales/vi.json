@@ -1075,7 +1075,9 @@
 			"searchPrice": "Giá tìm kiếm",
 			"perThousandSearches": "/1K lượt tìm kiếm",
 			"testSuccessRanked": "Thành công | Kết quả xếp hạng: {{count}}{{ttftPart}} | Thời lượng: {{duration}}giây",
-			"limitsPinned": "Giới hạn ngữ cảnh và đầu ra được người vận hành ghim"
+			"limitsPinned": "Giới hạn ngữ cảnh và đầu ra được người vận hành ghim",
+			"capabilitiesPinned": "Khả năng do nhà vận hành đặt",
+			"capabilitiesEditHint": "Nhà cung cấp tùy chỉnh chỉ báo cáo những gì danh sách của họ nêu. Bật những gì mô hình này hỗ trợ."
 		},
 		"table": {
 			"sortByModelName": "Sắp xếp theo tên mô hình",

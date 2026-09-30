@@ -1075,7 +1075,9 @@
 			"searchPrice": "Søkepris",
 			"perThousandSearches": "/1K søk",
 			"testSuccessRanked": "Suksess | Rangerte resultater: {{count}}{{ttftPart}} | Varighet: {{duration}}s",
-			"limitsPinned": "Kontekst- og utdatagrenser festet av operatøren"
+			"limitsPinned": "Kontekst- og utdatagrenser festet av operatøren",
+			"capabilitiesPinned": "Egenskaper satt av operatør",
+			"capabilitiesEditHint": "Egendefinerte leverandører rapporterer bare det listen deres sier. Slå på det denne modellen støtter."
 		},
 		"table": {
 			"sortByModelName": "Sorter etter modellnavn",

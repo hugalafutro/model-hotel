@@ -679,13 +679,15 @@ Cursor (keyset) pagination walks the list by passing the previous response's `ne
     "disabled_manually": false,
     "price_customized": false,
     "limits_customized": false,
+    "capabilities_customized": false,
+    "provider_type": "openai",
     "created_at": "2024-01-01T00:00:00Z",
     "last_seen_at": "2024-01-01T00:00:00Z"
   }
 ]
 ```
 
-`capabilities`, `params`, `input_modalities` and `output_modalities` are JSON documents carried as strings (`"{}"` / `"[]"` when unknown), so a client parses them a second time. `search_price_per_thousand` is the rerank price per 1,000 search units, `null` for token-billed models. `disabled_manually` marks a model an operator switched off (as opposed to one discovery disabled); `price_customized` and `limits_customized` mark prices and context limits pinned against discovery.
+`capabilities`, `params`, `input_modalities` and `output_modalities` are JSON documents carried as strings (`"{}"` / `"[]"` when unknown), so a client parses them a second time. `search_price_per_thousand` is the rerank price per 1,000 search units, `null` for token-billed models. `disabled_manually` marks a model an operator switched off (as opposed to one discovery disabled); `price_customized`, `limits_customized` and `capabilities_customized` mark prices, context limits and capabilities pinned against discovery. `provider_type` is the stored type of the model's provider.
 
 `price_sources` says where each stored price came from, keyed by price field: `provider` (the provider's own listing), `catalog` (Model Hotel's embedded override), `modelsdev` (enrichment) or `manual` (an operator edit). A key is absent while that price is unset or was stored before sources were recorded.
 
@@ -705,6 +707,8 @@ Cursor (keyset) pagination walks the list by passing the previous response's `ne
   "search_price_per_thousand": 2.0,
   "price_customized": true,
   "limits_customized": true,
+  "capabilities": {"streaming": true, "vision": true, "tool_calling": true},
+  "capabilities_customized": true,
   "enabled": true
 }
 ```
@@ -718,6 +722,8 @@ Cursor (keyset) pagination walks the list by passing the previous response's `ne
 - `output_price_per_million`: 0-1000
 - `search_price_per_thousand`: 0-1000
 - `limits_customized`: boolean; any edit of `context_length` or `max_output_tokens` pins both against discovery, and `false` clears the pin and both limits so the next scan refills them
+- `capabilities`: object of capability flags (`streaming`, `vision`, `video_input`, `audio_input`, `reasoning`, `tool_calling`, `parallel_tool_calls`, `structured_output`, `pdf_upload`), a custom provider's models only; replaces the stored flags whole (an omitted flag is `false`) and pins them against discovery
+- `capabilities_customized`: boolean, a custom provider's models only; `false` clears the pin so the next scan writes the listing's reading again. Either capabilities field on another provider type's model is a `400` with code `capabilities_custom_only`
 - `price_customized`: boolean; marks the prices as operator-set so discovery enrichment leaves them alone. An edited price is recorded as `manual` in the model's `price_sources`; unpinning clears the prices and their sources so the next scan writes both afresh.
 
 #### DELETE `/api/models/{id}`

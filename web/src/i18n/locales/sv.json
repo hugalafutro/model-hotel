@@ -1075,7 +1075,9 @@
 			"searchPrice": "Sökpris",
 			"perThousandSearches": "/1K sökningar",
 			"testSuccessRanked": "Lyckad | Rankade resultat: {{count}}{{ttftPart}} | Varaktighet: {{duration}}s",
-			"limitsPinned": "Kontext- och utdatagränser fästa av operatören"
+			"limitsPinned": "Kontext- och utdatagränser fästa av operatören",
+			"capabilitiesPinned": "Förmågor inställda av operatören",
+			"capabilitiesEditHint": "Anpassade leverantörer rapporterar bara vad deras lista säger. Slå på det som den här modellen stöder."
 		},
 		"table": {
 			"sortByModelName": "Sortera efter modellnamn",

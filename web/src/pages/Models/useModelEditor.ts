@@ -1,7 +1,8 @@
 import { useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import type { Model } from "../../api/types";
-import { formatPriceInput } from "../../utils/model";
+import { CAP_META, type CapKey } from "../../components/capMeta";
+import { formatPriceInput, parseCapabilities } from "../../utils/model";
 
 interface UseModelEditorParams {
 	model: Model;
@@ -55,6 +56,14 @@ export const FIELD_LABEL_KEYS: Record<keyof EditData, string> = {
 	search_price_per_thousand: "models.detail.searchPrice",
 };
 
+/** The capability flags a custom provider's operator can switch, as stored. */
+export function editCapsFrom(model: Pick<Model, "capabilities">) {
+	const caps = parseCapabilities(model.capabilities);
+	return Object.fromEntries(
+		CAP_META.map((m) => [m.key, Boolean(caps[m.key])]),
+	) as Record<CapKey, boolean>;
+}
+
 export function useModelEditor({ model, onUpdate }: UseModelEditorParams) {
 	const { t } = useTranslation();
 	const [editing, setEditing] = useState(false);
@@ -64,6 +73,12 @@ export function useModelEditor({ model, onUpdate }: UseModelEditorParams) {
 	const [editData, setEditData] = useState<EditData>(() =>
 		editValuesFrom(model),
 	);
+	// Only a custom provider's capabilities are the operator's to set: every
+	// other type's come from its own API or the vendor data.
+	const capsEditable = model.provider_type === "custom";
+	const [editCaps, setEditCaps] = useState(() => editCapsFrom(model));
+	const toggleCap = (key: CapKey) =>
+		setEditCaps((prev) => ({ ...prev, [key]: !prev[key] }));
 
 	// The discovered values a field reverts to, in form (string) shape.
 	const discoveredDefaults = useMemo(
@@ -76,20 +91,26 @@ export function useModelEditor({ model, onUpdate }: UseModelEditorParams) {
 	if (editing && currentEditVersion !== editVersion) {
 		setEditVersion(currentEditVersion);
 		setEditData(editValuesFrom(model));
+		setEditCaps(editCapsFrom(model));
 	}
 	// Outside edit mode the form follows the model, so a change made elsewhere
 	// (a price reset to source after a save in this same modal) is what the
 	// next edit starts from, not the values typed last time. Otherwise the
 	// stale prices counted as edits and the next save re-pinned them.
-	const seedKey = JSON.stringify(editValuesFrom(model));
+	const seedKey = JSON.stringify([editValuesFrom(model), editCapsFrom(model)]);
 	const [seededKey, setSeededKey] = useState(seedKey);
 	if (!editing && seedKey !== seededKey) {
 		setSeededKey(seedKey);
 		setEditData(editValuesFrom(model));
+		setEditCaps(editCapsFrom(model));
 	}
 
 	const getFieldLabel = (key: string): string =>
-		key in FIELD_LABEL_KEYS ? t(FIELD_LABEL_KEYS[key as keyof EditData]) : key;
+		key === "capabilities"
+			? t("models.detail.capabilities")
+			: key in FIELD_LABEL_KEYS
+				? t(FIELD_LABEL_KEYS[key as keyof EditData])
+				: key;
 
 	const getChangedFields = (): string[] => {
 		const fields: string[] = [];
@@ -122,6 +143,11 @@ export function useModelEditor({ model, onUpdate }: UseModelEditorParams) {
 		] as const) {
 			if (priceChanged(field)) fields.push(field);
 		}
+		if (
+			capsEditable &&
+			JSON.stringify(editCaps) !== JSON.stringify(editCapsFrom(model))
+		)
+			fields.push("capabilities");
 		return fields;
 	};
 
@@ -139,6 +165,7 @@ export function useModelEditor({ model, onUpdate }: UseModelEditorParams) {
 		setConfirmFields(null);
 		setEditing(false);
 		setEditData(editValuesFrom(model));
+		setEditCaps(editCapsFrom(model));
 	};
 
 	const handleSave = () => {
@@ -172,6 +199,13 @@ export function useModelEditor({ model, onUpdate }: UseModelEditorParams) {
 			updates.search_price_per_thousand = Number(
 				editData.search_price_per_thousand,
 			);
+		// The API replaces capabilities whole, so the flags the form does not
+		// show (streaming) go back as stored.
+		if (changed.includes("capabilities"))
+			updates.capabilities = {
+				...parseCapabilities(model.capabilities),
+				...editCaps,
+			};
 		if (Object.keys(updates).length > 0) {
 			onUpdate(model.id, updates as Partial<Model>);
 		}
@@ -196,5 +230,8 @@ export function useModelEditor({ model, onUpdate }: UseModelEditorParams) {
 		discardEdit,
 		handleSave,
 		revertField,
+		capsEditable,
+		editCaps,
+		toggleCap,
 	};
 }

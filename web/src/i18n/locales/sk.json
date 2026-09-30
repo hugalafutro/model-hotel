@@ -1163,7 +1163,9 @@
 			"searchPrice": "Cena za vyhľadávanie",
 			"perThousandSearches": "/1K vyhľadávaní",
 			"testSuccessRanked": "Úspech | Zoradené výsledky: {{count}}{{ttftPart}} | Trvanie: {{duration}}s",
-			"limitsPinned": "Limity kontextu a výstupu pripnuté operátorom"
+			"limitsPinned": "Limity kontextu a výstupu pripnuté operátorom",
+			"capabilitiesPinned": "Schopnosti nastavené operátorom",
+			"capabilitiesEditHint": "Vlastní poskytovatelia hlásia len to, čo uvádza ich zoznam. Zapnite, čo tento model podporuje."
 		},
 		"table": {
 			"sortByModelName": "Zoradiť podľa názvu modelu",

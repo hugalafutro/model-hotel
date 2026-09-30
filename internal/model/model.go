@@ -2,6 +2,7 @@ package model
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"strings"
 	"time"
@@ -44,6 +45,10 @@ type Model struct {
 	// scan the way PriceCustomized pins the prices: set by any edit of either,
 	// cleared by an explicit limits_customized=false (migration 092).
 	LimitsCustomized bool `json:"limits_customized"`
+	// CapabilitiesCustomized pins capabilities against the scan the same way:
+	// set by a capability edit, which the API takes for custom providers only,
+	// cleared by an explicit capabilities_customized=false (migration 095).
+	CapabilitiesCustomized bool `json:"capabilities_customized"`
 	// PriceSources records where each stored price came from; see
 	// PriceSources for the vocabulary.
 	PriceSources    PriceSources `json:"price_sources"`
@@ -51,6 +56,9 @@ type Model struct {
 	LastSeenAt      time.Time    `json:"last_seen_at"`
 	ProviderName    string       `json:"provider_name"`
 	ProviderEnabled bool         `json:"provider_enabled"`
+	// ProviderType is the stored provider_type of the model's provider, read
+	// with the model so the API can tell a custom provider's model apart.
+	ProviderType string `json:"provider_type"`
 
 	// LiveMeta marks which context-limit fields on THIS in-memory model were
 	// populated directly from the provider's live API during the current scan
@@ -151,9 +159,9 @@ func (m *Model) StampPriceSources(source string) {
 	}
 }
 
-const modelColumns = `m.id, m.provider_id, m.model_id, COALESCE(m.name, ''), COALESCE(m.description, ''), COALESCE(m.display_name, ''), COALESCE(m.capabilities, '{}'), COALESCE(m.params, '{}'), COALESCE(m.modality, ''), COALESCE(m.input_modalities, '[]'), COALESCE(m.output_modalities, '[]'), m.context_length, m.max_output_tokens, m.input_price_per_million, m.input_price_per_million_cache_hit, m.output_price_per_million, m.search_price_per_thousand, COALESCE(m.owned_by, ''), m.enabled, m.disabled_manually, m.display_name_customized, m.price_customized, m.limits_customized, COALESCE(m.price_sources, '{}'::jsonb), m.created_at, COALESCE(m.last_seen_at, m.created_at), p.name, COALESCE(p.enabled, false)`
+const modelColumns = `m.id, m.provider_id, m.model_id, COALESCE(m.name, ''), COALESCE(m.description, ''), COALESCE(m.display_name, ''), COALESCE(m.capabilities, '{}'), COALESCE(m.params, '{}'), COALESCE(m.modality, ''), COALESCE(m.input_modalities, '[]'), COALESCE(m.output_modalities, '[]'), m.context_length, m.max_output_tokens, m.input_price_per_million, m.input_price_per_million_cache_hit, m.output_price_per_million, m.search_price_per_thousand, COALESCE(m.owned_by, ''), m.enabled, m.disabled_manually, m.display_name_customized, m.price_customized, m.limits_customized, m.capabilities_customized, COALESCE(m.price_sources, '{}'::jsonb), m.created_at, COALESCE(m.last_seen_at, m.created_at), p.name, COALESCE(p.enabled, false), COALESCE(p.provider_type, '')`
 
-const upsertColumns = `id, provider_id, model_id, COALESCE(name, ''), COALESCE(description, ''), COALESCE(display_name, ''), COALESCE(capabilities, '{}'), COALESCE(params, '{}'), COALESCE(modality, ''), COALESCE(input_modalities, '[]'), COALESCE(output_modalities, '[]'), context_length, max_output_tokens, input_price_per_million, input_price_per_million_cache_hit, output_price_per_million, search_price_per_thousand, COALESCE(owned_by, ''), enabled, disabled_manually, display_name_customized, price_customized, limits_customized, COALESCE(price_sources, '{}'::jsonb), created_at, COALESCE(last_seen_at, created_at)`
+const upsertColumns = `id, provider_id, model_id, COALESCE(name, ''), COALESCE(description, ''), COALESCE(display_name, ''), COALESCE(capabilities, '{}'), COALESCE(params, '{}'), COALESCE(modality, ''), COALESCE(input_modalities, '[]'), COALESCE(output_modalities, '[]'), context_length, max_output_tokens, input_price_per_million, input_price_per_million_cache_hit, output_price_per_million, search_price_per_thousand, COALESCE(owned_by, ''), enabled, disabled_manually, display_name_customized, price_customized, limits_customized, capabilities_customized, COALESCE(price_sources, '{}'::jsonb), created_at, COALESCE(last_seen_at, created_at)`
 
 // Upsert inserts or updates a model based on provider_id and model_id.
 func (r *Repository) Upsert(ctx context.Context, m *Model) error {
@@ -165,7 +173,9 @@ func (r *Repository) Upsert(ctx context.Context, m *Model) error {
 			name = EXCLUDED.name,
 			description = EXCLUDED.description,
 			display_name = CASE WHEN models.display_name_customized THEN models.display_name ELSE EXCLUDED.display_name END,
-			capabilities = CASE WHEN $23 THEN COALESCE(models.capabilities, EXCLUDED.capabilities) ELSE EXCLUDED.capabilities END,
+			-- Stored capabilities stand when the operator pinned them or the scan's
+			-- are a placeholder ($23); otherwise the scan's reading replaces them.
+			capabilities = CASE WHEN models.capabilities_customized OR $23 THEN COALESCE(models.capabilities, EXCLUDED.capabilities) ELSE EXCLUDED.capabilities END,
 			params = EXCLUDED.params,
 			modality = EXCLUDED.modality,
 			input_modalities = EXCLUDED.input_modalities,
@@ -265,7 +275,7 @@ func (r *Repository) Upsert(ctx context.Context, m *Model) error {
 		&m.ID, &m.ProviderID, &m.ModelID, &m.Name, &m.Description, &m.DisplayName, &m.Capabilities,
 		&m.Params, &m.Modality, &m.InputModalities, &m.OutputModalities,
 		&m.ContextLength, &m.MaxOutputTokens, &m.InputPricePerMillion, &m.InputPricePerMillionCacheHit, &m.OutputPricePerMillion, &m.SearchPricePerThousand,
-		&m.OwnedBy, &m.Enabled, &m.DisabledManually, &m.DisplayNameCustomized, &m.PriceCustomized, &m.LimitsCustomized, &m.PriceSources, &m.CreatedAt, &m.LastSeenAt,
+		&m.OwnedBy, &m.Enabled, &m.DisabledManually, &m.DisplayNameCustomized, &m.PriceCustomized, &m.LimitsCustomized, &m.CapabilitiesCustomized, &m.PriceSources, &m.CreatedAt, &m.LastSeenAt,
 	)
 
 	if err != nil {
@@ -283,7 +293,7 @@ func scanModel(row pgx.Row) (*Model, error) {
 		&m.ID, &m.ProviderID, &m.ModelID, &m.Name, &m.Description, &m.DisplayName, &m.Capabilities,
 		&m.Params, &m.Modality, &m.InputModalities, &m.OutputModalities,
 		&m.ContextLength, &m.MaxOutputTokens, &m.InputPricePerMillion, &m.InputPricePerMillionCacheHit, &m.OutputPricePerMillion, &m.SearchPricePerThousand,
-		&m.OwnedBy, &m.Enabled, &m.DisabledManually, &m.DisplayNameCustomized, &m.PriceCustomized, &m.LimitsCustomized, &m.PriceSources, &m.CreatedAt, &m.LastSeenAt, &m.ProviderName, &m.ProviderEnabled,
+		&m.OwnedBy, &m.Enabled, &m.DisabledManually, &m.DisplayNameCustomized, &m.PriceCustomized, &m.LimitsCustomized, &m.CapabilitiesCustomized, &m.PriceSources, &m.CreatedAt, &m.LastSeenAt, &m.ProviderName, &m.ProviderEnabled, &m.ProviderType,
 	); err != nil {
 		return nil, err
 	}
@@ -507,7 +517,32 @@ type UpdateModelRequest struct {
 	// LimitsCustomized false clears the limits pin and nulls both limits so
 	// the next scan refills them; true (or any limit edit) pins them.
 	LimitsCustomized *bool `json:"limits_customized"`
-	Enabled          *bool `json:"enabled"`
+	// Capabilities replaces the model's capabilities whole and pins them;
+	// CapabilitiesCustomized false clears the pin so the next scan writes the
+	// listing's reading again, true pins the stored ones as they are. An
+	// explicit unpin wins over an edit in the same request.
+	Capabilities           *Capability `json:"capabilities"`
+	CapabilitiesCustomized *bool       `json:"capabilities_customized"`
+	Enabled                *bool       `json:"enabled"`
+}
+
+// capabilitiesClauses is Update's SET clauses for the capabilities pin, with
+// placeholders numbered from argIdx: an explicit unpin wins, an edit writes
+// the flags and pins them, a bare pin keeps the stored flags as they are.
+func capabilitiesClauses(req UpdateModelRequest, argIdx int) ([]string, []any, error) {
+	switch {
+	case req.CapabilitiesCustomized != nil && !*req.CapabilitiesCustomized:
+		return []string{"capabilities_customized = false"}, nil, nil
+	case req.Capabilities != nil:
+		b, err := json.Marshal(req.Capabilities)
+		if err != nil {
+			return nil, nil, err
+		}
+		return []string{fmt.Sprintf("capabilities = $%d", argIdx), "capabilities_customized = true"}, []any{string(b)}, nil
+	case req.CapabilitiesCustomized != nil:
+		return []string{"capabilities_customized = true"}, nil, nil
+	}
+	return nil, nil, nil
 }
 
 // Update applies partial updates to a model.
@@ -611,6 +646,13 @@ func (r *Repository) Update(ctx context.Context, id uuid.UUID, req UpdateModelRe
 	if req.PriceCustomized != nil && !unpin || priceEdited {
 		setClauses = append(setClauses, "price_customized = true")
 	}
+	capClauses, capArgs, err := capabilitiesClauses(req, argIdx)
+	if err != nil {
+		return nil, err
+	}
+	setClauses = append(setClauses, capClauses...)
+	args = append(args, capArgs...)
+	argIdx += len(capArgs)
 	if req.Enabled != nil {
 		setClauses = append(setClauses, fmt.Sprintf("enabled = $%d", argIdx))
 		args = append(args, *req.Enabled)

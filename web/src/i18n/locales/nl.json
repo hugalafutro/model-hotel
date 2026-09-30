@@ -1075,7 +1075,9 @@
 			"searchPrice": "Zoekprijs",
 			"perThousandSearches": "/1K zoekopdrachten",
 			"testSuccessRanked": "Succes | Gerangschikte resultaten: {{count}}{{ttftPart}} | Duur: {{duration}}s",
-			"limitsPinned": "Context- en uitvoerlimieten vastgezet door de beheerder"
+			"limitsPinned": "Context- en uitvoerlimieten vastgezet door de beheerder",
+			"capabilitiesPinned": "Mogelijkheden ingesteld door operator",
+			"capabilitiesEditHint": "Aangepaste providers melden alleen wat hun lijst zegt. Schakel in wat dit model ondersteunt."
 		},
 		"table": {
 			"sortByModelName": "Sorteren op modelnaam",

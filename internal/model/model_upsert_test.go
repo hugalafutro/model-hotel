@@ -2,6 +2,7 @@ package model
 
 import (
 	"context"
+	"encoding/json"
 	"math"
 	"testing"
 
@@ -423,5 +424,66 @@ func TestUpsert_LimitsPinBlocksLiveMeta(t *testing.T) {
 	}
 	if got.ContextLength == nil || *got.ContextLength != 200000 {
 		t.Errorf("context_length = %v after unpin + rescan, want the source's 200000", got.ContextLength)
+	}
+}
+
+// An operator's capability edit pins the capabilities (capabilities_customized)
+// so a scan leaves them alone; an explicit unpin hands them back to the scan.
+func TestUpsert_CapabilitiesPinBlocksScan(t *testing.T) {
+	ctx := context.Background()
+	repo := NewRepository(testPool)
+
+	providerID := insertTestProvider(ctx, t, "test-upsert-caps-pin")
+	t.Cleanup(func() { cleanupProvider(ctx, t, providerID) })
+
+	base := newBareModel(providerID, "pinned-caps")
+	base.Capabilities = `{"streaming":true}`
+	if err := repo.Upsert(ctx, base); err != nil {
+		t.Fatalf("initial upsert: %v", err)
+	}
+	edit := &Capability{Streaming: true, Vision: true, ToolCalling: true}
+	if _, err := repo.Update(ctx, base.ID, UpdateModelRequest{Capabilities: edit}); err != nil {
+		t.Fatalf("capability edit: %v", err)
+	}
+	caps := func(label string) (Capability, bool) {
+		t.Helper()
+		got, err := repo.GetByProviderAndModelID(ctx, providerID, "pinned-caps")
+		if err != nil {
+			t.Fatalf("get %s: %v", label, err)
+		}
+		var c Capability
+		if err := json.Unmarshal([]byte(got.Capabilities), &c); err != nil {
+			t.Fatalf("decode %s: %v (%s)", label, err, got.Capabilities)
+		}
+		return c, got.CapabilitiesCustomized
+	}
+
+	rescan := newBareModel(providerID, "pinned-caps")
+	rescan.Capabilities = `{"streaming":true}`
+	if err := repo.Upsert(ctx, rescan); err != nil {
+		t.Fatalf("rescan upsert: %v", err)
+	}
+	if c, pinned := caps("after rescan"); !pinned || c != *edit {
+		t.Fatalf("after a rescan: caps=%+v pinned=%v, want the operator's %+v pinned", c, pinned, *edit)
+	}
+
+	if _, err := repo.Update(ctx, base.ID, UpdateModelRequest{CapabilitiesCustomized: new(false)}); err != nil {
+		t.Fatalf("unpin: %v", err)
+	}
+	rescan2 := newBareModel(providerID, "pinned-caps")
+	rescan2.Capabilities = `{"streaming":true}`
+	if err := repo.Upsert(ctx, rescan2); err != nil {
+		t.Fatalf("post-unpin rescan upsert: %v", err)
+	}
+	if c, pinned := caps("after unpin + rescan"); pinned || c != (Capability{Streaming: true}) {
+		t.Fatalf("after unpin + rescan: caps=%+v pinned=%v, want the scan's streaming only, unpinned", c, pinned)
+	}
+
+	// A bare pin keeps the stored flags exactly as they are.
+	if _, err := repo.Update(ctx, base.ID, UpdateModelRequest{CapabilitiesCustomized: new(true)}); err != nil {
+		t.Fatalf("bare pin: %v", err)
+	}
+	if c, pinned := caps("after a bare pin"); !pinned || c != (Capability{Streaming: true}) {
+		t.Fatalf("after a bare pin: caps=%+v pinned=%v, want streaming only, pinned", c, pinned)
 	}
 }

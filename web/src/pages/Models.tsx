@@ -158,8 +158,10 @@ export function Models() {
 			updateMutation.mutate(
 				{ id, data: updates },
 				{
-					onSuccess: () => {
-						setDetailModel((prev) => (prev ? { ...prev, ...updates } : null));
+					// The server's row, not the request: it carries the pins the
+					// edit set and capabilities in their stored (string) shape.
+					onSuccess: (updated) => {
+						setDetailModel((prev) => (prev ? { ...prev, ...updated } : null));
 						setModelRefreshTrigger((n) => n + 1);
 					},
 				},
