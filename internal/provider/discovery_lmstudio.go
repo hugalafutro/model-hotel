@@ -90,14 +90,14 @@ func (d *DiscoveryService) discoverLMStudioNative(ctx context.Context, provider 
 // using the reported type to set the modality (so embedding models are hidden
 // from the chat picker).
 //
-// The chat capabilities go to chat models (llm, vlm) only: an embeddings model,
-// or any type a newer LM Studio adds, streams nothing and takes no
-// response_format, so claiming either would light pills on it that describe
-// nothing it serves. Tool calling comes from the model's
+// The chat capabilities go to every model but an embeddings one, which streams
+// nothing and takes no response_format. An absent or unknown type is derived
+// as a chat model centrally, so it keeps the chat capabilities that class
+// implies rather than sitting in the chat picker with none. Tool calling comes from the model's
 // own capabilities list, which LM Studio derives from the chat template.
 func buildLMStudioNativeModel(provider *Provider, m LMStudioV0Model) *model.Model {
 	var caps model.Capability
-	if m.Type == "llm" || m.Type == "vlm" {
+	if m.Type != "embeddings" {
 		caps.Streaming = true
 		caps.StructuredOutput = true // LM Studio supports response_format with JSON schema
 		caps.ToolCalling = slices.Contains(m.Capabilities, "tool_use")

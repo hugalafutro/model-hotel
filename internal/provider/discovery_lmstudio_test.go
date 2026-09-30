@@ -325,7 +325,8 @@ func TestDiscoverLMStudio_Native_Capabilities(t *testing.T) {
 			{"id":"qwen3-4b","type":"llm","max_context_length":32768,"capabilities":["tool_use"]},
 			{"id":"llama-3.2-1b","type":"llm","max_context_length":131072},
 			{"id":"qwen3.5-9b","type":"vlm","max_context_length":262144,"capabilities":["tool_use"]},
-			{"id":"text-embedding-nomic","type":"embeddings","max_context_length":2048}
+			{"id":"text-embedding-nomic","type":"embeddings","max_context_length":2048},
+			{"id":"future-type","type":"something-new","max_context_length":4096}
 		]}`))
 	}))
 	defer srv.Close()
@@ -340,6 +341,8 @@ func TestDiscoverLMStudio_Native_Capabilities(t *testing.T) {
 		"llama-3.2-1b":         {Streaming: true, StructuredOutput: true},
 		"qwen3.5-9b":           {Streaming: true, StructuredOutput: true, ToolCalling: true, Vision: true},
 		"text-embedding-nomic": {},
+		// An unknown type is derived as chat, so it keeps chat capabilities.
+		"future-type": {Streaming: true, StructuredOutput: true},
 	}
 	if len(models) != len(want) {
 		t.Fatalf("got %d models, want %d", len(models), len(want))
