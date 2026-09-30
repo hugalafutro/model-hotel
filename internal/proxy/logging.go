@@ -203,7 +203,13 @@ func publishRequestStartedEvent(logEntry *requestLogData) {
 // request.completed; the frontend refetches by id rather than reading these
 // fields, so resolved_model_id is omitted.
 func publishRequestStreamingEvent(logEntry *requestLogData) {
-	events.Publish(events.Event{
+	events.Publish(requestStreamingEvent(logEntry))
+}
+
+// requestStreamingEvent builds the request.streaming event from the entry as it
+// stands, so a caller can capture it now and publish it later.
+func requestStreamingEvent(logEntry *requestLogData) events.Event {
+	return events.Event{
 		Type:     "request.streaming",
 		Severity: "info",
 		Source:   "proxy",
@@ -215,7 +221,7 @@ func publishRequestStreamingEvent(logEntry *requestLogData) {
 			"state":         logEntry.state,
 			"owner_user_id": logEntry.ownerUserID,
 		},
-	})
+	}
 }
 
 // WaitForInsert blocks until the async INSERT goroutine has completed, or timed
@@ -241,6 +247,14 @@ func (h *Handler) WaitForInsert(logEntry *requestLogData) {
 // rows it touched. updateRequestLog runs it twice: a row count of zero means the
 // UPDATE arrived before its own INSERT, and the retry sends the same statement.
 func (h *Handler) execRequestLogUpdate(logEntry *requestLogData) (int64, error) {
+	return h.execRequestLogUpdateArgs(requestLogUpdateArgs(logEntry), false)
+}
+
+// requestLogUpdateArgs reads the UPDATE's arguments from the entry at one
+// moment. The result shares nothing the handler writes afterwards (cache_hits
+// is encoded here), so a goroutine can run the statement later without racing
+// the request that keeps filling the entry in.
+func requestLogUpdateArgs(logEntry *requestLogData) []any {
 	var providerID any
 	if logEntry.providerID != uuid.Nil {
 		providerID = logEntry.providerID
@@ -273,6 +287,28 @@ func (h *Handler) execRequestLogUpdate(logEntry *requestLogData) (int64, error) 
 		cost = c
 	}
 
+	cacheHits, err := json.Marshal(logEntry.cacheHits)
+	if err != nil {
+		// A struct of *bool fields always encodes; this keeps the column NULL
+		// rather than failing the write if that ever changes.
+		cacheHits = nil
+	}
+
+	return []any{
+		logEntry.id, logEntry.modelID, providerID, logEntry.statusCode, logEntry.durationMs,
+		logEntry.proxyOverheadMs, logEntry.parseMs, logEntry.failoverLookupMs, logEntry.modelLookupMs, logEntry.providerLookupMs,
+		logEntry.keyDecryptMs, logEntry.responseHeaderMs, logEntry.tokensPerSecond, logEntry.tokensPrompt,
+		logEntry.tokensCompletion, logEntry.tokensPromptCacheHit, logEntry.tokensPromptCacheMiss,
+		logEntry.errorMessage, logEntry.failoverAttempt, logEntry.state, logEntry.latencyMs,
+		logEntry.dialMs, logEntry.settingsReadMs, logEntry.tokensCompletionReasoning, logEntry.ttftMs,
+		logEntry.resolvedModelID, json.RawMessage(cacheHits), errKind, attempts, cost, logEntry.searchUnits,
+	}
+}
+
+// execRequestLogUpdateArgs runs the UPDATE with arguments from
+// requestLogUpdateArgs. pendingOnly limits it to a row still at 'pending', for
+// a late write that must not undo a later one.
+func (h *Handler) execRequestLogUpdateArgs(args []any, pendingOnly bool) (int64, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
@@ -308,19 +344,59 @@ func (h *Handler) execRequestLogUpdate(logEntry *requestLogData) (int64, error) 
 			attempts = $29,
 			cost_usd = $30,
 			search_units = $31
-		WHERE id = $1`,
-		logEntry.id, logEntry.modelID, providerID, logEntry.statusCode, logEntry.durationMs,
-		logEntry.proxyOverheadMs, logEntry.parseMs, logEntry.failoverLookupMs, logEntry.modelLookupMs, logEntry.providerLookupMs,
-		logEntry.keyDecryptMs, logEntry.responseHeaderMs, logEntry.tokensPerSecond, logEntry.tokensPrompt,
-		logEntry.tokensCompletion, logEntry.tokensPromptCacheHit, logEntry.tokensPromptCacheMiss,
-		logEntry.errorMessage, logEntry.failoverAttempt, logEntry.state, logEntry.latencyMs,
-		logEntry.dialMs, logEntry.settingsReadMs, logEntry.tokensCompletionReasoning, logEntry.ttftMs,
-		logEntry.resolvedModelID, logEntry.cacheHits, errKind, attempts, cost, logEntry.searchUnits,
+		WHERE id = $1 AND (NOT $32 OR state = 'pending')`,
+		append(args, pendingOnly)...,
 	)
 	if err != nil {
 		return 0, err
 	}
 	return tag.RowsAffected(), nil
+}
+
+// retryInterimUpdateIfLost starts retryInterimUpdate when an interim update
+// that skipped the insert wait touched no row, and reports whether it did.
+func (h *Handler) retryInterimUpdateIfLost(logEntry *requestLogData, rows int64, err error, skipWait bool) bool {
+	if err != nil || rows != 0 || !skipWait || isTerminalLogState(logEntry.state) {
+		return false
+	}
+	h.retryInterimUpdate(logEntry)
+	return true
+}
+
+// retryInterimUpdate re-sends an interim UPDATE that ran before its row's
+// INSERT, once the INSERT has finished. The arguments and the event are read
+// now, because the handler keeps writing the entry while it streams. The
+// retry applies only to a row still at 'pending', so a terminal update that
+// landed first is never taken back to 'streaming'. A landed retry re-publishes
+// request.streaming: the dashboard fetched the row on the first event and saw
+// 'pending'.
+func (h *Handler) retryInterimUpdate(logEntry *requestLogData) {
+	args := requestLogUpdateArgs(logEntry)
+	var ev *events.Event
+	if logEntry.state == "streaming" {
+		e := requestStreamingEvent(logEntry)
+		ev = &e
+	}
+	id := logEntry.id
+	debuglog.Debug("proxy: interim log update arrived before its own insert", "request_id", id, "state", logEntry.state)
+	go func() {
+		defer func() {
+			if r := recover(); r != nil {
+				debuglog.Error("proxy: panic in interim log update retry", "request_id", id, "error", r)
+			}
+		}()
+		h.WaitForInsert(logEntry)
+		rows, err := h.execRequestLogUpdateArgs(args, true)
+		switch {
+		case err != nil:
+			debuglog.Error("proxy: failed to retry interim request log update", "request_id", id, "error", err)
+		case rows == 0:
+			// The terminal update got there first, or the INSERT failed.
+			debuglog.Debug("proxy: interim log update retry found no pending row", "request_id", id)
+		case ev != nil:
+			events.Publish(*ev)
+		}
+	}()
 }
 
 // maxLogMessageRunes bounds request_logs.error_message and the
@@ -423,13 +499,19 @@ func (h *Handler) updateRequestLog(logEntry *requestLogData, opts ...updateLogOp
 		rows, err = h.execRequestLogUpdate(logEntry)
 	}
 
+	// An interim update that loses the same race leaves the row at 'pending' for
+	// the whole stream: the dashboard's live row and detail modal read
+	// "Resolving" until the terminal update lands. It runs on the hot path, so
+	// the repair runs in the background instead of making the client wait.
+	interimRetry := h.retryInterimUpdateIfLost(logEntry, rows, err, skipWait)
+
 	// One pricing, read by the budget charge and the metrics observation below.
 	// Nothing between them touches a field terminalCost reads.
 	cost, priced := logEntry.terminalCost()
 	switch {
 	case err != nil:
 		debuglog.Error("proxy: failed to update request log", "request_id", logEntry.id, "error", err)
-	case rows == 0:
+	case rows == 0 && !interimRetry:
 		debuglog.Warn("proxy: updateRequestLog no rows affected", "request_id", logEntry.id)
 	case priced && !logEntry.charged:
 		// Charged once, after the row it is the price of has landed: the repair
