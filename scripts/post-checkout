@@ -1,0 +1,17 @@
+#!/usr/bin/env bash
+# post-checkout: bring the tokensave index up to date with the checked-out branch
+#   $3 == 1 (branch checkout) -> tokensave branch add --if-enabled, then sync
+#   $3 == 0 (file checkout)   -> nothing
+# branch add alone is not enough: for an already-tracked branch it is a no-op,
+# and for a new branch reference-transaction runs it before the working tree
+# switches, so the copied DB is never synced against this branch's files.
+# Runs in the background so the checkout itself is not slowed down.
+set -uo pipefail
+
+[ "${3:-0}" = "1" ] || exit 0
+command -v tokensave >/dev/null 2>&1 || exit 0
+
+(
+	tokensave branch add --if-enabled >/dev/null 2>&1
+	tokensave sync >/dev/null 2>&1
+) &
