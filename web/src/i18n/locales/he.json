@@ -788,7 +788,7 @@
 		"form_name_label": "שם",
 		"toast_ollama_cloud_plan_detected": "זוהתה תוכנית Ollama Cloud {{plan}}",
 		"form_name_placeholder": "למשל, OpenAI",
-		"form_name_hint": "נקודות, רווחים ותווים מיוחדים מוחלפים ב-\"-\" בעת ניתוב.",
+		"form_name_hint": "רווחים הופכים ל-\"-\" במזהי מודלים. שם לא יכול להכיל \"/\" או להיות בדיוק \"hotel\".",
 		"form_base_url_label": "כתובת URL בסיסית",
 		"form_base_url_placeholder": "https://api.openai.com/v1",
 		"form_base_url_hint_preset": "כתובת ה-URL הבסיסית מוגדרת מראש עבור סוג ספק זה",

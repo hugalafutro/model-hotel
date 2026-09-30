@@ -768,7 +768,7 @@
 		"form_name_label": "Nimi",
 		"toast_ollama_cloud_plan_detected": "Ollama Cloud {{plan}} tilaus havaittu",
 		"form_name_placeholder": "esim. OpenAI",
-		"form_name_hint": "Pisteet, välilyönnit ja erikoismerkit korvataan \"-\" reitityksessä.",
+		"form_name_hint": "Välilyönnit muuttuvat mallitunnisteissa merkiksi \"-\". Nimessä ei saa olla merkkiä \"/\", eikä se saa olla tasan \"hotel\".",
 		"form_base_url_label": "Base URL",
 		"form_base_url_placeholder": "https://api.openai.com/v1",
 		"form_base_url_hint_preset": "Base URL on esiasetus tälle palveluntarjoajatyypille",

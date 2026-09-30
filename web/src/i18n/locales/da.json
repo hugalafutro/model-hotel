@@ -768,7 +768,7 @@
 		"form_name_label": "Navn",
 		"toast_ollama_cloud_plan_detected": "Ollama Cloud {{plan}} plan detekteret",
 		"form_name_placeholder": "f.eks. OpenAI",
-		"form_name_hint": "Punkter, mellemrum og specialtegn erstattes med \"-\" under routing.",
+		"form_name_hint": "Mellemrum bliver til \"-\" i model-id'er. Et navn må ikke indeholde \"/\" eller være præcis \"hotel\".",
 		"form_base_url_label": "Base URL",
 		"form_base_url_placeholder": "https://api.openai.com/v1",
 		"form_base_url_hint_preset": "Base URL er forudindstillet for denne udbyder type",

@@ -768,7 +768,7 @@
 		"form_name_label": "Név",
 		"toast_ollama_cloud_plan_detected": "Ollama Cloud {{plan}} csomag észlelve",
 		"form_name_placeholder": "pl. OpenAI",
-		"form_name_hint": "Az átirányítás során a pontok, szóközök és speciális karakterek „-” karakterre cserélődnek.",
+		"form_name_hint": "A szóközökből „-” lesz a modellazonosítókban. A név nem tartalmazhat „/” jelet, és nem lehet pontosan „hotel”.",
 		"form_base_url_label": "Alap-URL",
 		"form_base_url_placeholder": "https://api.openai.com/v1",
 		"form_base_url_hint_preset": "Az alap-URL be van állítva ehhez a szolgáltatótípushoz",

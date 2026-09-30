@@ -842,7 +842,7 @@
 		"form_name_label": "الاسم",
 		"toast_ollama_cloud_plan_detected": "تم اكتشاف خطة Ollama Cloud {{plan}}",
 		"form_name_placeholder": "على سبيل المثال OpenAI",
-		"form_name_hint": "يتم استبدال النقاط والمسافات والأحرف الخاصة بـ \"-\" عند المسار.",
+		"form_name_hint": "تتحول المسافات إلى \"-\" في معرّفات النماذج. لا يمكن أن يحتوي الاسم على \"/\" أو أن يكون \"hotel\" تمامًا.",
 		"form_base_url_label": "الرابط الأساسي",
 		"form_base_url_placeholder": "https://api.openai.com/v1",
 		"form_base_url_hint_preset": "عنوان URL الأساسي معين مسبقاً لهذا النوع من المزود",
