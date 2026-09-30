@@ -39,8 +39,8 @@ func TestCORSMiddleware(t *testing.T) {
 		if got := rec.Header().Get("Access-Control-Allow-Origin"); got != "http://allowed.test" {
 			t.Errorf("expected origin echoed, got %q", got)
 		}
-		if got := rec.Header().Get("Vary"); got != "Origin" {
-			t.Errorf("expected Vary: Origin, got %q", got)
+		if got := rec.Header().Get("Vary"); got != "Origin, Access-Control-Request-Headers" {
+			t.Errorf("expected Vary: Origin, Access-Control-Request-Headers, got %q", got)
 		}
 	})
 
@@ -52,8 +52,8 @@ func TestCORSMiddleware(t *testing.T) {
 		if got := rec.Header().Get("Access-Control-Allow-Origin"); got != "" {
 			t.Errorf("expected no allow-origin for disallowed origin, got %q", got)
 		}
-		if got := rec.Header().Get("Vary"); got != "Origin" {
-			t.Errorf("expected Vary: Origin even when disallowed, got %q", got)
+		if got := rec.Header().Get("Vary"); got != "Origin, Access-Control-Request-Headers" {
+			t.Errorf("expected Vary: Origin, Access-Control-Request-Headers even when disallowed, got %q", got)
 		}
 	})
 

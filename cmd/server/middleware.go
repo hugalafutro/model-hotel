@@ -36,7 +36,8 @@ func corsMiddleware(cfg *config.Config) func(http.Handler) http.Handler {
 
 			allowed := slices.Contains(cfg.CORSOrigins, origin)
 
-			w.Header().Set("Vary", "Origin")
+			// The allowed headers echo the preflight's request, so caches must key on it too.
+			w.Header().Set("Vary", "Origin, Access-Control-Request-Headers")
 
 			if allowed {
 				w.Header().Set("Access-Control-Allow-Origin", origin)

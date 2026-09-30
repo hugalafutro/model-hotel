@@ -343,8 +343,9 @@ Cross-Origin Resource Sharing is controlled by the `CORS_ORIGINS` environment va
 The middleware:
 - Checks the `Origin` header against the allowlist
 - Sets `Access-Control-Allow-Origin` only for matching origins
-- Sets `Access-Control-Allow-Methods: GET, POST, PUT, DELETE, OPTIONS`
-- Sets `Access-Control-Allow-Headers: Content-Type, Authorization`
+- Sets `Access-Control-Allow-Methods: GET, POST, PUT, PATCH, DELETE, OPTIONS`
+- Sets `Access-Control-Allow-Headers` to the headers the preflight names in `Access-Control-Request-Headers` (browser SDKs send their own, such as `anthropic-version` or `x-stainless-*`), or to `Content-Type, Authorization, X-CSRF-Token, x-api-key` when it names none
+- Sends `Vary: Origin, Access-Control-Request-Headers` so a shared cache never replays one preflight's answer to another
 - Sets `Access-Control-Allow-Credentials: true`
 - Sets `Access-Control-Max-Age: 86400` (24-hour preflight cache)
 - Handles `OPTIONS` preflight requests with `204 No Content`

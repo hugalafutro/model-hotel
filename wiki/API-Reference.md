@@ -2169,7 +2169,7 @@ Access-Control-Allow-Credentials: true
 Access-Control-Max-Age: 86400
 ```
 
-A preflight that names its headers in `Access-Control-Request-Headers` gets that list echoed back as `Access-Control-Allow-Headers` instead, so browser SDKs can send their own (`anthropic-version`, `x-stainless-*`). Every request carrying an `Origin` gets `Vary: Origin`.
+A preflight that names its headers in `Access-Control-Request-Headers` gets that list echoed back as `Access-Control-Allow-Headers` instead, so browser SDKs can send their own (`anthropic-version`, `x-stainless-*`). Every request carrying an `Origin` gets `Vary: Origin, Access-Control-Request-Headers`.
 
 **Preflight:** an `OPTIONS` request carrying an `Origin` header returns `204 No Content`; the CORS headers above are added only when the origin is allowed.
 
