@@ -762,13 +762,15 @@ func TestDiscoverKoboldCPP_NoChatModelLoaded(t *testing.T) {
 	}
 }
 
-// A server with no image listing, or one that names nothing, still yields the
-// image model under the fixed fallback ID: the txt2img flag already proved the
-// endpoint is served, and the name is missing for good.
+// A server with no image listing, an answer that is not a listing, or one that
+// names nothing still yields the image model under the fixed fallback ID: the
+// txt2img flag proved image generation is served, and the name is missing for
+// good.
 func TestDiscoverKoboldCPP_ImageModelNameFallback(t *testing.T) {
 	for name, sd := range map[string]string{
 		"no listing (404)": "",
 		"empty listing":    `[]`,
+		"undecodable":      `not json`,
 		"blank name":       `[{"model_name":"  "}]`,
 	} {
 		t.Run(name, func(t *testing.T) {
@@ -785,12 +787,12 @@ func TestDiscoverKoboldCPP_ImageModelNameFallback(t *testing.T) {
 	}
 }
 
-// A failure that may be transient must not rename the image model for a scan:
-// it sits the scan out instead, and the rest of discovery goes ahead.
+// A failed request may be transient and must not rename the image model for a
+// scan: it sits the scan out instead, and the rest of discovery goes ahead.
 func TestDiscoverKoboldCPP_ImageListingTransientFailure(t *testing.T) {
-	for name, respond := range map[string]func(http.ResponseWriter){
-		"server error": func(w http.ResponseWriter) { w.WriteHeader(http.StatusInternalServerError) },
-		"undecodable":  func(w http.ResponseWriter) { _, _ = w.Write([]byte(`not json`)) },
+	for name, status := range map[string]int{
+		"server error": http.StatusInternalServerError,
+		"unavailable":  http.StatusServiceUnavailable,
 	} {
 		t.Run(name, func(t *testing.T) {
 			srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -799,7 +801,7 @@ func TestDiscoverKoboldCPP_ImageListingTransientFailure(t *testing.T) {
 				case "/api/extra/version":
 					_, _ = w.Write([]byte(`{"result":"KoboldCpp","version":"1.122.1","llm":false,"txt2img":true,"tts":true}`))
 				case "/sdapi/v1/sd-models":
-					respond(w)
+					w.WriteHeader(status)
 				default:
 					t.Errorf("unexpected path: %s", r.URL.Path)
 				}
@@ -844,18 +846,23 @@ func TestDiscoverKoboldCPP_InactivePlaceholderWithoutLLMFlag(t *testing.T) {
 	}
 }
 
-// A chat model whose file shares a side model's name keeps the ID: a second row
-// with it would overwrite the chat model's class on every scan.
-func TestDiscoverKoboldCPP_SideModelSharingChatIDIsSkipped(t *testing.T) {
+// The model collected first keeps a shared ID: a second row with it would
+// overwrite the first one's class on every scan. Here the chat file is named
+// tts and the image file whisper, so the chat model keeps koboldcpp/tts, the
+// image model keeps koboldcpp/whisper, and both fixed-ID side models step
+// aside.
+func TestDiscoverKoboldCPP_SharedModelIDsAreSkipped(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		switch r.URL.Path {
 		case "/api/extra/version":
-			_, _ = w.Write([]byte(`{"result":"KoboldCpp","version":"1.122.1","llm":true,"tts":true,"transcribe":true}`))
+			_, _ = w.Write([]byte(`{"result":"KoboldCpp","version":"1.122.1","llm":true,"txt2img":true,"tts":true,"transcribe":true}`))
 		case "/models":
 			_, _ = w.Write([]byte(`{"object":"list","data":[{"id":"koboldcpp/tts","object":"model","created":0,"owned_by":"koboldcpp"}]}`))
 		case "/api/extra/true_max_context_length":
 			_, _ = w.Write([]byte(`{"value":4096}`))
+		case "/sdapi/v1/sd-models":
+			_, _ = w.Write([]byte(`[{"model_name":"whisper"}]`))
 		default:
 			t.Errorf("unexpected path: %s", r.URL.Path)
 		}
@@ -868,13 +875,13 @@ func TestDiscoverKoboldCPP_SideModelSharingChatIDIsSkipped(t *testing.T) {
 		t.Fatalf("discoverKoboldCPP: %v", err)
 	}
 	if len(models) != 2 {
-		t.Fatalf("expected the chat model and koboldcpp/whisper, got %d models", len(models))
+		t.Fatalf("expected the chat and image models only, got %d models", len(models))
 	}
 	if models[0].ModelID != "koboldcpp/tts" || models[0].Modality != "" {
-		t.Errorf("chat model = %q class %q, want koboldcpp/tts left for chat derivation", models[0].ModelID, models[0].Modality)
+		t.Errorf("first model = %q class %q, want the chat model koboldcpp/tts", models[0].ModelID, models[0].Modality)
 	}
-	if models[1].ModelID != "koboldcpp/whisper" {
-		t.Errorf("second model = %q, want koboldcpp/whisper", models[1].ModelID)
+	if models[1].ModelID != "koboldcpp/whisper" || models[1].Modality != "image" {
+		t.Errorf("second model = %q class %q, want the image model koboldcpp/whisper", models[1].ModelID, models[1].Modality)
 	}
 }
 

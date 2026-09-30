@@ -84,15 +84,21 @@ func (d *DiscoveryService) discoverKoboldCPP(ctx context.Context, provider *Prov
 		}
 	}
 
-	// Step 3: the side models the version flags report. The chat model is
-	// named after its file, so a chat file called tts.gguf would share
-	// koboldcpp/tts; the chat model keeps the ID, since the upsert is keyed
-	// on it and a second row with that ID would overwrite its class.
+	// Step 3: the side models the version flags report. The chat and image
+	// models are named after their files, so a chat file called tts.gguf
+	// would share koboldcpp/tts. The model collected first keeps an ID: the
+	// upsert is keyed on it, and a second row with the same ID would
+	// overwrite the first one's class on every scan.
+	seen := make(map[string]bool, len(models))
+	for _, m := range models {
+		seen[m.ModelID] = true
+	}
 	for _, side := range d.koboldcppSideModels(ctx, provider, apiBase, apiKey, versionInfo) {
-		if len(models) > 0 && models[0].ModelID == side.ModelID {
-			debuglog.Info("discovery: koboldcpp side model shares the chat model's ID, skipped", "model", side.ModelID, "provider", provider.Name, "provider_id", provider.ID)
+		if seen[side.ModelID] {
+			debuglog.Info("discovery: koboldcpp side model shares another model's ID, skipped", "model", side.ModelID, "provider", provider.Name, "provider_id", provider.ID)
 			continue
 		}
+		seen[side.ModelID] = true
 		models = append(models, side)
 	}
 
@@ -202,11 +208,13 @@ func (d *DiscoveryService) koboldcppSideModels(ctx context.Context, provider *Pr
 }
 
 // koboldcppImageModelID names the image model from /sdapi/v1/sd-models, which
-// KoboldCPP always answers with the one loaded model. A server that has no such
-// listing (404) or names nothing gets the fixed fallback ID: the flag already
-// proved the endpoint is served, and the name is missing for good.
+// KoboldCPP, where it serves the listing, answers with the one loaded model.
+// When the server has no such listing (404), answers it with something that
+// is not a listing, or names nothing, the image model gets the fixed fallback
+// ID: the txt2img flag proved image generation is served, and the name is
+// missing for good.
 //
-// Any other failure may be transient, and falling back then would swap the
+// A failed request may be transient, and falling back then would swap the
 // model's ID for one scan and back on the next, leaving a stray model and a
 // missing-scan strike on the real one. So ok is false and the image model sits
 // this scan out, which is one strike on an ID that stays put.
@@ -223,7 +231,7 @@ func (d *DiscoveryService) koboldcppImageModelID(ctx context.Context, apiBase, a
 	var list []KoboldCPPSDModel
 	if err := json.Unmarshal(bodyBytes, &list); err != nil {
 		debuglog.Info("discovery: koboldcpp image model listing undecodable", "error", err)
-		return "", false
+		return koboldcppImageFallbackID, true
 	}
 	if len(list) == 0 || strings.TrimSpace(list[0].ModelName) == "" {
 		debuglog.Info("discovery: koboldcpp image model listing names no model")
