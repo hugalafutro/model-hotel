@@ -369,7 +369,9 @@ func (h *Handler) retryInterimUpdateIfLost(logEntry *requestLogData, rows int64,
 // retry applies only to a row still at 'pending', so a terminal update that
 // landed first is never taken back to 'streaming'. A landed retry re-publishes
 // request.streaming: the dashboard fetched the row on the first event and saw
-// 'pending'.
+// 'pending'. That event can reach the dashboard after request.completed when
+// the terminal update follows closely; it only triggers a refetch by id, and
+// the list keeps the fresher copy (keepFresherRow), so the order is harmless.
 func (h *Handler) retryInterimUpdate(logEntry *requestLogData) {
 	args := requestLogUpdateArgs(logEntry)
 	var ev *events.Event
