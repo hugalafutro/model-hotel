@@ -1,0 +1,38 @@
+#!/usr/bin/env bash
+# post-checkout: bring the tokensave index up to date with the checked-out branch
+#   $3 == 1 (branch checkout) -> tokensave branch add --if-enabled, then sync
+#   $3 == 0 (file checkout)   -> nothing
+# branch add alone is not enough: for an already-tracked branch it is a no-op,
+# and for a new branch reference-transaction runs it before the working tree
+# switches, so the copied DB is never synced against this branch's files.
+# Runs in the background so the checkout itself is not slowed down.
+set -uo pipefail
+
+[ "${3:-0}" = "1" ] || exit 0
+command -v tokensave >/dev/null 2>&1 || exit 0
+# Only repos that already have a tokensave index; sync never creates one.
+[ -d "$(git rev-parse --show-toplevel 2>/dev/null)/.tokensave" ] || exit 0
+
+# Redirect the whole subshell: while it holds git's stdout/stderr open, a
+# checkout whose output is piped (IDEs, agents, `| cat`) waits for the sync.
+(
+	tokensave branch add --if-enabled
+	tokensave sync
+) </dev/null >/dev/null 2>&1 &
+
+# The sync above runs silenced, which would hide tokensave's own update notice,
+# so repeat it from the latest version tokensave caches (no network call here).
+# Pre-release suffixes are dropped before comparing: sort -V ranks 7.14.0 below
+# 7.14.0-rc.1, so comparing them as-is would warn the wrong way round.
+state="$HOME/.tokensave/state.toml"
+[ -r "$state" ] || exit 0
+latest="$(sed -n 's/^cached_latest_version = "\(.*\)"$/\1/p' "$state")"
+current="$(tokensave --version 2>/dev/null | awk '{print $NF}')"
+current="${current#v}"
+latest="${latest#v}"
+newest="${latest%%-*}"
+release="${current%%-*}"
+if [ -n "$newest" ] && [ -n "$release" ] && [ "$newest" != "$release" ] &&
+	[ "$(printf '%s\n%s\n' "$release" "$newest" | sort -V | tail -n1)" = "$newest" ]; then
+	echo "tokensave $latest is available (installed: $current). Run \`tokensave upgrade\` to update." >&2
+fi

@@ -7,6 +7,8 @@ set -uo pipefail
 
 state="$1"
 
+command -v tokensave >/dev/null 2>&1 || exit 0
+
 if [ "$state" = "committed" ]; then
 	zero="0000000000000000000000000000000000000000"
 	while read -r old_rev new_rev ref_name; do

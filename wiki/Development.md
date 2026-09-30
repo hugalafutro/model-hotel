@@ -85,7 +85,7 @@ so nothing but Docker has to be installed to get a running gateway.
 ```bash
 git clone https://github.com/hugalafutro/model-hotel.git
 cd model-hotel
-make setup            # points core.hooksPath at scripts/ (pre-commit + pre-push)
+make setup            # points core.hooksPath at scripts/ (git hooks)
 ```
 
 ### 2. Configure Environment
@@ -549,7 +549,8 @@ README/Docker Hub sync, and publishing this wiki.
 
 ### Git Hooks
 
-`make setup` points `core.hooksPath` at `scripts/`, which installs two hooks.
+`make setup` points `core.hooksPath` at `scripts/`, which installs two check hooks and three
+index hooks.
 
 **`scripts/pre-commit`** is formatting only, and aims to finish in under ten seconds:
 
@@ -565,6 +566,20 @@ fails the push if under 90% of the changed lines are covered. The coverage gate 
 suites and can take minutes; skip just that part with `NO_COVERAGE_PREPUSH=1`.
 
 Never bypass either hook with `--no-verify`.
+
+The index hooks keep a local [tokensave](https://github.com/aovestdipaperino/tokensave) code
+graph in step with git. They check nothing, and do nothing to tokensave when it is not installed:
+
+- **`scripts/reference-transaction`** runs `tokensave branch add` when a branch is created and
+  `tokensave branch gc` when one is deleted.
+- **`scripts/post-checkout`** acts only when the checkout has a tokensave index. After every
+  branch checkout it runs `tokensave branch add --if-enabled` and then `tokensave sync` in the
+  background, so each branch's index matches its files. It also prints a one-line warning when
+  tokensave has cached a newer release than the one installed; run `tokensave upgrade` to clear
+  it.
+- **`scripts/post-commit`** calls your global `post-commit` hook, if you have one. Because
+  `core.hooksPath` replaces the global hooks directory, git would otherwise skip it; tokensave's
+  global hook runs `tokensave sync` after each commit.
 
 ### Translations
 
