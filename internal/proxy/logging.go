@@ -287,12 +287,8 @@ func requestLogUpdateArgs(logEntry *requestLogData) []any {
 		cost = c
 	}
 
-	cacheHits, err := json.Marshal(logEntry.cacheHits)
-	if err != nil {
-		// A struct of *bool fields always encodes; this keeps the column NULL
-		// rather than failing the write if that ever changes.
-		cacheHits = nil
-	}
+	// A struct of *bool fields cannot fail to encode.
+	cacheHits, _ := json.Marshal(logEntry.cacheHits)
 
 	return []any{
 		logEntry.id, logEntry.modelID, providerID, logEntry.statusCode, logEntry.durationMs,
