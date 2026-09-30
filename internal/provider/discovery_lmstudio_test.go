@@ -326,7 +326,9 @@ func TestDiscoverLMStudio_Native_Capabilities(t *testing.T) {
 			{"id":"llama-3.2-1b","type":"llm","max_context_length":131072},
 			{"id":"qwen3.5-9b","type":"vlm","max_context_length":262144,"capabilities":["tool_use"]},
 			{"id":"text-embedding-nomic","type":"embeddings","max_context_length":2048},
-			{"id":"future-type","type":"something-new","max_context_length":4096}
+			{"id":"future-type","type":"something-new","max_context_length":4096},
+			{"id":"no-type","max_context_length":8192},
+			{"id":"bge-reranker-v2-m3","type":"rerank","max_context_length":8192}
 		]}`))
 	}))
 	defer srv.Close()
@@ -341,8 +343,12 @@ func TestDiscoverLMStudio_Native_Capabilities(t *testing.T) {
 		"llama-3.2-1b":         {Streaming: true, StructuredOutput: true},
 		"qwen3.5-9b":           {Streaming: true, StructuredOutput: true, ToolCalling: true, Vision: true},
 		"text-embedding-nomic": {},
-		// An unknown type is derived as chat, so it keeps chat capabilities.
-		"future-type": {Streaming: true, StructuredOutput: true},
+		// An absent or unknown type gets what its derived class implies: chat
+		// capabilities when filed as chat, none when its name reads as a
+		// reranker.
+		"future-type":        {Streaming: true, StructuredOutput: true},
+		"no-type":            {Streaming: true, StructuredOutput: true},
+		"bge-reranker-v2-m3": {},
 	}
 	if len(models) != len(want) {
 		t.Fatalf("got %d models, want %d", len(models), len(want))
@@ -354,6 +360,11 @@ func TestDiscoverLMStudio_Native_Capabilities(t *testing.T) {
 		}
 		if got != want[m.ModelID] {
 			t.Errorf("%s: capabilities = %+v, want %+v", m.ModelID, got, want[m.ModelID])
+		}
+		// The pills agree with the class the model is filed under.
+		NormalizeModelClassification(m)
+		if got.Streaming != (m.Modality == "chat") {
+			t.Errorf("%s: streaming=%v but class %q", m.ModelID, got.Streaming, m.Modality)
 		}
 	}
 }
