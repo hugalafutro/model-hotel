@@ -768,7 +768,7 @@
 		"form_name_label": "Ad",
 		"toast_ollama_cloud_plan_detected": "Ollama Cloud {{plan}} planı tespit edildi",
 		"form_name_placeholder": "örneğin, OpenAI",
-		"form_name_hint": "Yönlendirme sırasında noktalar, boşluklar ve özel karakterler \"-\" ile değiştirilir.",
+		"form_name_hint": "Model kimliklerinde boşluklar \"-\" olur. Ad \"/\" içeremez ve tam olarak \"hotel\" olamaz.",
 		"form_base_url_label": "Ana URL",
 		"form_base_url_placeholder": "https://api.openai.com/v1",
 		"form_base_url_hint_preset": "Bu sağlayıcı türü için temel URL önceden ayarlanmıştır",

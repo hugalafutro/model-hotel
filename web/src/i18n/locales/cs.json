@@ -808,7 +808,7 @@
 		"form_name_label": "Jméno",
 		"toast_ollama_cloud_plan_detected": "Zjištěn tarif Ollama Cloud {{plan}}",
 		"form_name_placeholder": "např. OpenAI",
-		"form_name_hint": "Při směrování jsou tečky, mezery a speciální znaky nahrazeny znakem „-“.",
+		"form_name_hint": "Mezery se v ID modelů mění na „-“. Název nesmí obsahovat „/“ ani být přesně „hotel“.",
 		"form_base_url_label": "Základní adresa URL",
 		"form_base_url_placeholder": "https://api.openai.com/v1",
 		"form_base_url_hint_preset": "Pro tento typ poskytovatele je základní URL přednastavena",

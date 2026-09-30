@@ -788,7 +788,7 @@
 		"form_name_label": "Nome",
 		"toast_ollama_cloud_plan_detected": "Ollama Cloud {{plan}} piano rilevato",
 		"form_name_placeholder": "Ad esempio, OpenAI",
-		"form_name_hint": "I punti, gli spazi e i caratteri speciali sono sostituiti con \"-\" durante il routing.",
+		"form_name_hint": "Gli spazi diventano \"-\" negli ID dei modelli. Un nome non può contenere \"/\" né essere esattamente \"hotel\".",
 		"form_base_url_label": "Url Base",
 		"form_base_url_placeholder": "https://api.openai.com/v1",
 		"form_base_url_hint_preset": "L'URL di base è preimpostato per questo tipo di provider",

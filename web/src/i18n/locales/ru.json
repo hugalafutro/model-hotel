@@ -808,7 +808,7 @@
 		"form_name_label": "Наименование",
 		"toast_ollama_cloud_plan_detected": "Обнаружен план Ollama Cloud {{plan}}",
 		"form_name_placeholder": "например, OpenAI",
-		"form_name_hint": "Точки, пробелы и специальные символы заменяются на \"-\" при маршрутизации.",
+		"form_name_hint": "В идентификаторах моделей пробелы становятся «-». Имя не может содержать «/» или быть ровно «hotel».",
 		"form_base_url_label": "Базовый URL",
 		"form_base_url_placeholder": "https://api.openai.com/v1",
 		"form_base_url_hint_preset": "Базовый URL-адрес предустановлен для данного типа провайдера",

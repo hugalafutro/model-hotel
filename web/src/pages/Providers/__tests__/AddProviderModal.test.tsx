@@ -143,9 +143,7 @@ describe("AddProviderModal", () => {
 		it("shows helper text for name field", () => {
 			renderWithProviders(<AddProviderModal {...defaultProps} />);
 			expect(
-				screen.getByText(
-					/Dots, spaces, and special characters are replaced with/,
-				),
+				screen.getByText(/Spaces become "-" in model IDs/),
 			).toBeInTheDocument();
 		});
 

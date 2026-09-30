@@ -788,7 +788,7 @@
 		"form_name_label": "Име",
 		"toast_ollama_cloud_plan_detected": "Ollama Cloud {{plan}} план откривен",
 		"form_name_placeholder": "нпр., OpenAI",
-		"form_name_hint": "Тачке, размаци и посебни знакови замењују се са \"-\" при рутирању.",
+		"form_name_hint": "Размаци постају „-“ у ИД-овима модела. Име не може да садржи „/“ нити да буде тачно „hotel“.",
 		"form_base_url_label": "Основни УРЛ",
 		"form_base_url_placeholder": "https://api.openai.com/v1",
 		"form_base_url_hint_preset": "Основни URL је унапред подешен за ову врсту провајдера.",

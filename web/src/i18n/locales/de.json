@@ -768,7 +768,7 @@
 		"form_name_label": "Name",
 		"toast_ollama_cloud_plan_detected": "Ollama Cloud {{plan}}-Tarif erkannt",
 		"form_name_placeholder": "z. B. OpenAI",
-		"form_name_hint": "Punkte, Leerzeichen und Sonderzeichen werden beim Routen durch \"-\" ersetzt.",
+		"form_name_hint": "Leerzeichen werden in Modell-IDs zu „-“. Ein Name darf kein „/“ enthalten und nicht genau „hotel“ lauten.",
 		"form_base_url_label": "Basis-URL",
 		"form_base_url_placeholder": "https://api.openai.com/v1",
 		"form_base_url_hint_preset": "Basis-URL ist für diesen Anbietertyp voreingestellt",

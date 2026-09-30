@@ -768,7 +768,7 @@
 		"form_name_label": "名称",
 		"toast_ollama_cloud_plan_detected": "检测到 Ollama Cloud {{plan}} 套餐",
 		"form_name_placeholder": "例如：OpenAI",
-		"form_name_hint": "路由时，点、空格和特殊字符被替换为“-”。",
+		"form_name_hint": "模型 ID 中的空格会变成“-”。名称不能包含“/”，也不能恰好是“hotel”。",
 		"form_base_url_label": "基本网址",
 		"form_base_url_placeholder": "https://api.openai.com/v1",
 		"form_base_url_hint_preset": "此提供者类型的基础URL预设值",

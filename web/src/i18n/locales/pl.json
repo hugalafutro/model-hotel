@@ -808,7 +808,7 @@
 		"form_name_label": "Nazwa",
 		"toast_ollama_cloud_plan_detected": "Wykryto plan Ollama Cloud {{plan}}",
 		"form_name_placeholder": "np. OpenAI",
-		"form_name_hint": "Kropki, spacje i znaki specjalne są zastępowane przez \"-\" podczas przekierowywania.",
+		"form_name_hint": "Spacje w identyfikatorach modeli zmieniają się w „-”. Nazwa nie może zawierać „/” ani brzmieć dokładnie „hotel”.",
 		"form_base_url_label": "Podstawowy adres URL",
 		"form_base_url_placeholder": "https://api.openai.com/v1",
 		"form_base_url_hint_preset": "Podstawowy adres URL jest ustawiony dla tego typu dostawcy",

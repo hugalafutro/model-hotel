@@ -768,7 +768,7 @@
 		"form_name_label": "Όνομα",
 		"toast_ollama_cloud_plan_detected": "Εντοπίστηκε πρόγραμμα Ollama Cloud {{plan}}",
 		"form_name_placeholder": "π.χ., OpenAI",
-		"form_name_hint": "Οι τελείες, τα κενά και οι ειδικοί χαρακτήρες αντικαθίστανται με \"-\" κατά τη δρομολόγηση.",
+		"form_name_hint": "Τα κενά γίνονται \"-\" στα αναγνωριστικά μοντέλων. Ένα όνομα δεν μπορεί να περιέχει \"/\" ούτε να είναι ακριβώς \"hotel\".",
 		"form_base_url_label": "Βασικό URL",
 		"form_base_url_placeholder": "https://api.openai.com/v1",
 		"form_base_url_hint_preset": "Η βασική διεύθυνση URL είναι προκαθορισμένη για αυτόν τον τύπο παρόχου",

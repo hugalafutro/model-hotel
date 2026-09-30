@@ -768,7 +768,7 @@
 		"form_name_label": "Namn",
 		"toast_ollama_cloud_plan_detected": "Ollama Cloud {{plan}} plan upptäckt",
 		"form_name_placeholder": "t.ex., OpenAI",
-		"form_name_hint": "Prickar, mellanslag och specialtecken ersätts med \"-\" vid dirigering.",
+		"form_name_hint": "Mellanslag blir \"-\" i modell-ID:n. Ett namn får inte innehålla \"/\" eller vara exakt \"hotel\".",
 		"form_base_url_label": "Bas URL",
 		"form_base_url_placeholder": "https://api.openai.com/v1",
 		"form_base_url_hint_preset": "Bas-URL är förinställd för denna leverantörstyp",

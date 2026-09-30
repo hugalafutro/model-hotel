@@ -768,7 +768,7 @@
 		"form_name_label": "Tên",
 		"toast_ollama_cloud_plan_detected": "Ollama Cloud {{plan}} gói dịch vụ đã được phát hiện",
 		"form_name_placeholder": "Ví dụ: OpenAI",
-		"form_name_hint": "Khi định tuyến, các dấu chấm, khoảng trắng và ký tự đặc biệt sẽ được thay thế bằng dấu gạch ngang \"-\".",
+		"form_name_hint": "Dấu cách trở thành \"-\" trong ID mô hình. Tên không được chứa \"/\" và không được đúng là \"hotel\".",
 		"form_base_url_label": "URL gốc",
 		"form_base_url_placeholder": "https://api.openai.com/v1",
 		"form_base_url_hint_preset": "URL cơ sở đã được cài đặt sẵn cho loại nhà cung cấp này",

@@ -788,7 +788,7 @@
 		"form_name_label": "Nome:",
 		"toast_ollama_cloud_plan_detected": "Plano Ollama Cloud {{plan}} detectado",
 		"form_name_placeholder": "e.g., OpenAI",
-		"form_name_hint": "Pontos e espaços e caracteres especiais são substituídos por \"-\" ao rotear.",
+		"form_name_hint": "Os espaços viram \"-\" nos IDs de modelo. Um nome não pode conter \"/\" nem ser exatamente \"hotel\".",
 		"form_base_url_label": "URL Base",
 		"form_base_url_placeholder": "https://api.openai.com/v1",
 		"form_base_url_hint_preset": "URL base é predefinida para este tipo de provedor",

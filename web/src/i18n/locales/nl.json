@@ -768,7 +768,7 @@
 		"form_name_label": "naam",
 		"toast_ollama_cloud_plan_detected": "Ollama Cloud {{plan}} plan gedetecteerd",
 		"form_name_placeholder": "bijv. OpenAI",
-		"form_name_hint": "Punten, spaties en speciale tekens worden vervangen door \"-\" bij het routeren.",
+		"form_name_hint": "Spaties worden \"-\" in model-ID's. Een naam mag geen \"/\" bevatten en niet precies \"hotel\" zijn.",
 		"form_base_url_label": "Basis URL",
 		"form_base_url_placeholder": "https://api.openai.com/v1",
 		"form_base_url_hint_preset": "Basis-URL is voorinstelling voor dit type provider",

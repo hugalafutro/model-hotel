@@ -808,7 +808,7 @@
 		"form_name_label": "Meno",
 		"toast_ollama_cloud_plan_detected": "Zistený plán Ollama Cloud {{plan}}",
 		"form_name_placeholder": "napr. OpenAI",
-		"form_name_hint": "Pri smerovaní sa bodky, medzery a špeciálne znaky nahrádzajú znakom „-“.",
+		"form_name_hint": "Medzery sa v ID modelov menia na „-“. Názov nesmie obsahovať „/“ ani byť presne „hotel“.",
 		"form_base_url_label": "Základná URL adresa",
 		"form_base_url_placeholder": "https://api.openai.com/v1",
 		"form_base_url_hint_preset": "Pre tento typ poskytovateľa je prednastavená základná URL adresa",

@@ -768,7 +768,7 @@
 		"form_name_label": "이름",
 		"toast_ollama_cloud_plan_detected": "Ollama Cloud {{plan}} 요금제 감지됨",
 		"form_name_placeholder": "예: OpenAI",
-		"form_name_hint": "라우팅 과정에서 점, 공백 및 특수 문자는 \"-\"로 대체됩니다.",
+		"form_name_hint": "모델 ID에서 공백은 \"-\"로 바뀝니다. 이름에는 \"/\"를 넣을 수 없고 정확히 \"hotel\"일 수도 없습니다.",
 		"form_base_url_label": "기본 URL",
 		"form_base_url_placeholder": "https://api.openai.com/v1",
 		"form_base_url_hint_preset": "이 제공자 유형에 대해 기본 URL이 미리 설정되어 있습니다",
