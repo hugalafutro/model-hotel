@@ -1,6 +1,7 @@
 package provider
 
 import (
+	"encoding/json"
 	"strings"
 	"testing"
 
@@ -470,5 +471,31 @@ func TestDeriveModelClass_TextOutputYieldsToAnEmbeddingOrRerankName(t *testing.T
 	NormalizeModelClassification(flagged)
 	if flagged.InputModalities != `["text","image"]` || flagged.Modality != "chat" {
 		t.Errorf("explicit chat with vision flag: input %s class %q, want image input kept and chat", flagged.InputModalities, flagged.Modality)
+	}
+}
+
+// An embedding or rerank model carries no chat-only capability, whatever set
+// it (a discovery stub's streaming default, a flag merged in by name), on the
+// derived path and the explicit one alike. Speech keeps streaming.
+func TestNormalizeModelClassification_ClearsChatCapsOnEmbeddingAndRerank(t *testing.T) {
+	chatCaps := `{"streaming":true,"structured_output":true,"tool_calling":true,"parallel_tool_calls":true,"reasoning":true}`
+	for _, tc := range []struct {
+		name     string
+		m        *model.Model
+		wantChat bool
+	}{
+		{"derived embedding", &model.Model{ModelID: "text-embedding-3-small", Capabilities: chatCaps}, false},
+		{"explicit rerank", &model.Model{ModelID: "rerank-v3.5", Modality: "rerank", Capabilities: chatCaps}, false},
+		{"chat keeps them", &model.Model{ModelID: "gpt-4o", Capabilities: chatCaps}, true},
+		{"speech keeps streaming", &model.Model{ModelID: "tts-1", Modality: "tts", Capabilities: `{"streaming":true}`}, true},
+	} {
+		NormalizeModelClassification(tc.m)
+		var c model.Capability
+		if err := json.Unmarshal([]byte(tc.m.Capabilities), &c); err != nil {
+			t.Fatalf("%s: %v", tc.name, err)
+		}
+		if c.Streaming != tc.wantChat || (tc.m.Modality != "tts" && (c.StructuredOutput != tc.wantChat || c.ToolCalling != tc.wantChat || c.Reasoning != tc.wantChat || c.ParallelToolCalls != tc.wantChat)) {
+			t.Errorf("%s (class %s): capabilities %s, want chat capabilities %v", tc.name, tc.m.Modality, tc.m.Capabilities, tc.wantChat)
+		}
 	}
 }

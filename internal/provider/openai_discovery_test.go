@@ -261,3 +261,71 @@ func TestDiscoverOpenAI_NoAuthHeaderWithoutKey(t *testing.T) {
 		t.Errorf("got Authorization=%q, want no header for a keyless server", auth)
 	}
 }
+
+// A custom OpenAI-compatible server is taken at its word and no further:
+// llama.cpp's llama-server (router mode) adds architecture.input_modalities and,
+// for a loaded model, meta.n_ctx to each /models entry, and both are read; its
+// text output for an embedding or reranking model is not, so the name still
+// classifies those, and they carry no chat capabilities. No catalog backfill
+// and no models.dev enrichment reach a custom provider, so a model it names
+// gpt-5.5-pro is not given OpenAI's specs.
+func TestDiscoverOpenAI_CustomTakesOnlyWhatTheListingSays(t *testing.T) {
+	yes := true
+	setupCacheWithModels(t, map[string]*ModelsDevModelSpec{
+		"gemma-3-4b-it":         {ID: "gemma-3-4b-it", StructuredOutput: &yes, ToolCall: true},
+		"llama-3.2-3b-instruct": {ID: "llama-3.2-3b-instruct", StructuredOutput: &yes},
+	})
+	body := `{"object":"list","data":[
+		{"id":"gemma-3-4b-it","owned_by":"llamacpp","architecture":{"input_modalities":["text","image"],"output_modalities":["text"]},"status":{"value":"unloaded"}},
+		{"id":"llama-3.2-3b-instruct","owned_by":"llamacpp","architecture":{"input_modalities":["text"],"output_modalities":["text"]},"meta":{"n_ctx":8192,"n_ctx_train":131072}},
+		{"id":"nomic-embed-text-v1.5","owned_by":"llamacpp","architecture":{"input_modalities":["text"],"output_modalities":["text"]}},
+		{"id":"bge-reranker-v2-m3","owned_by":"llamacpp","architecture":{"input_modalities":["text"],"output_modalities":["text"]}},
+		{"id":"gpt-5.5-pro","owned_by":"llamacpp"}
+	]}`
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(body))
+	}))
+	defer server.Close()
+
+	prov := &Provider{ID: uuid.New(), BaseURL: server.URL + "/v1", ProviderType: "custom"}
+	models, err := NewDiscoveryService(nil, nil).discoverOpenAI(context.Background(), prov, "")
+	if err != nil {
+		t.Fatalf("discoverOpenAI: %v", err)
+	}
+	if enriched := EnrichAndNormalize(prov, models); enriched != 0 {
+		t.Errorf("enriched %d models, want none for a custom provider", enriched)
+	}
+	byID := map[string]*model.Model{}
+	for _, m := range models {
+		byID[m.ModelID] = m
+	}
+	capsOf := func(id string) model.Capability {
+		var c model.Capability
+		if err := json.Unmarshal([]byte(byID[id].Capabilities), &c); err != nil {
+			t.Fatalf("%s capabilities: %v", id, err)
+		}
+		return c
+	}
+
+	if g := byID["gemma-3-4b-it"]; g.InputModalities != `["text","image"]` || !capsOf("gemma-3-4b-it").Vision {
+		t.Errorf("gemma: input %s vision %v, want image input and vision from the listing", g.InputModalities, capsOf("gemma-3-4b-it").Vision)
+	}
+	if c := capsOf("gemma-3-4b-it"); c.StructuredOutput || c.ToolCalling {
+		t.Errorf("gemma: %+v, want nothing models.dev says about the name", c)
+	}
+	if l := byID["llama-3.2-3b-instruct"]; l.ContextLength == nil || *l.ContextLength != 8192 || !l.LiveMeta.ContextLength {
+		t.Errorf("llama: context %v live %v, want the server's running 8192, live", l.ContextLength, l.LiveMeta.ContextLength)
+	}
+	for id, class := range map[string]string{"nomic-embed-text-v1.5": "embedding", "bge-reranker-v2-m3": "rerank"} {
+		if byID[id].Modality != class {
+			t.Errorf("%s: class %q, want %q", id, byID[id].Modality, class)
+		}
+		if c := capsOf(id); c.Streaming || c.StructuredOutput || c.ToolCalling {
+			t.Errorf("%s: %+v, want no chat capabilities", id, c)
+		}
+	}
+	if p := byID["gpt-5.5-pro"]; p.ContextLength != nil || p.Description != "" {
+		t.Errorf("gpt-5.5-pro on a custom server took OpenAI catalog data: context %v, description %q", p.ContextLength, p.Description)
+	}
+}

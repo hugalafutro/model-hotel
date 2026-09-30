@@ -63,11 +63,29 @@ type NeuralWattQuotaResponse struct {
 }
 
 // OpenAIModel represents a model from the OpenAI API.
+//
+// Architecture and Meta are not OpenAI's: they are what self-hosted servers
+// add to the same listing. llama.cpp's llama-server (and the OpenRouter shape
+// it copies) reports each model's input modalities under architecture, and
+// once a model is loaded, the context it actually runs with under meta.n_ctx.
 type OpenAIModel struct {
-	ID      string `json:"id"`
-	Object  string `json:"object"`
-	Created int64  `json:"created"`
-	OwnedBy string `json:"owned_by"`
+	ID           string                   `json:"id"`
+	Object       string                   `json:"object"`
+	Created      int64                    `json:"created"`
+	OwnedBy      string                   `json:"owned_by"`
+	Architecture *OpenAIModelArchitecture `json:"architecture,omitempty"`
+	Meta         *OpenAIModelMeta         `json:"meta,omitempty"`
+}
+
+// OpenAIModelArchitecture is the optional architecture block of a /models entry.
+type OpenAIModelArchitecture struct {
+	InputModalities []string `json:"input_modalities"`
+}
+
+// OpenAIModelMeta is llama.cpp's runtime block of a /models entry, present
+// while the model is loaded.
+type OpenAIModelMeta struct {
+	NCtx int `json:"n_ctx"`
 }
 
 // OpenAIModelsResponse is the response from the OpenAI models endpoint.

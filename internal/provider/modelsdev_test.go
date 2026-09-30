@@ -9,6 +9,8 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/google/uuid"
+
 	"github.com/hugalafutro/model-hotel/internal/debuglog"
 	"github.com/hugalafutro/model-hotel/internal/model"
 )
@@ -901,5 +903,26 @@ func TestEnrichModel_StampsModelsDevSource(t *testing.T) {
 	}
 	if *m.OutputPricePerMillion != 9.0 {
 		t.Errorf("catalog output price overwritten: %v", *m.OutputPricePerMillion)
+	}
+}
+
+// models.dev enriches the models of a hosted provider and never those of a
+// server the operator runs: custom endpoints and the self-hosted types can load
+// any file under any name, so a models.dev entry for that name says nothing
+// about what they serve.
+func TestEnrichAndNormalize_SkipsOperatorServedTypes(t *testing.T) {
+	ctx := 131072
+	setupCacheWithModels(t, map[string]*ModelsDevModelSpec{
+		"gpt-oss:20b": {ID: "gpt-oss:20b", ToolCall: true, Limit: ModelsDevLimit{Context: ctx}},
+	})
+	for providerType, wantEnriched := range map[string]bool{
+		"custom": false, "ollama": false, "lmstudio": false, "koboldcpp": false,
+		"openai": true, "ollama-cloud": true,
+	} {
+		m := &model.Model{ModelID: "gpt-oss:20b", Capabilities: `{"streaming":true}`, InputModalities: "[]", OutputModalities: "[]"}
+		EnrichAndNormalize(&Provider{ID: uuid.New(), ProviderType: providerType}, []*model.Model{m})
+		if got := m.ContextLength != nil; got != wantEnriched {
+			t.Errorf("%s: enriched=%v, want %v", providerType, got, wantEnriched)
+		}
 	}
 }

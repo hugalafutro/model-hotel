@@ -705,9 +705,14 @@ var lastUnpriced sync.Map
 // Normalization runs whether or not the cache is loaded: modality arrays and
 // the derived endpoint class must be consistent even when models.dev is
 // unreachable.
+//
+// A custom or self-hosted provider is not enriched: models.dev can only speak
+// for the models the big providers serve, and a server the operator runs can
+// load anything under any name. What such a server reports is all that is
+// known; the operator fills the rest in by hand.
 func EnrichAndNormalize(p *Provider, models []*model.Model) int {
 	enriched := 0
-	if cache := GetModelsDevCache(); cache != nil {
+	if cache := GetModelsDevCache(); cache != nil && !operatorServed(TypeOf(p)) {
 		enriched = cache.EnrichModels(models, TypeOf(p))
 	}
 	NormalizeModels(models)
@@ -761,4 +766,12 @@ func looksLikeDateOrVersion(suffix string) bool {
 	}
 
 	return false
+}
+
+// operatorServed reports a provider type whose models are whatever its operator
+// loaded: a custom endpoint and the self-hosted servers. No catalog or
+// models.dev entry can speak for them, since a file of any content can be
+// served under any name.
+func operatorServed(providerType string) bool {
+	return providerType == "custom" || IsLocalServerType(providerType)
 }

@@ -158,6 +158,7 @@ func NormalizeModelClassification(m *model.Model) {
 		if legacy == "chat" {
 			input = canonicalizeModalityList(unionCapsIntoInput(caps, input))
 		}
+		m.Capabilities = clearChatOnlyCaps(legacy, m.Capabilities, caps)
 		m.Capabilities = syncCapsFromInput(m.Capabilities, caps, input)
 		m.InputModalities = marshalModalityList(input)
 		m.OutputModalities = marshalModalityList(output)
@@ -218,10 +219,44 @@ func NormalizeModelClassification(m *model.Model) {
 	}
 
 	input = canonicalizeModalityList(input)
+	m.Capabilities = clearChatOnlyCaps(class, m.Capabilities, caps)
 	m.Capabilities = syncCapsFromInput(m.Capabilities, caps, input)
 	m.InputModalities = marshalModalityList(input)
 	m.OutputModalities = marshalModalityList(output)
 	m.Modality = class
+}
+
+// chatOnlyCapFlags are the capabilities that describe a chat completion, which
+// an embeddings or reranking endpoint never produces: no stream of tokens, no
+// response_format, no tool calls, no reasoning.
+var chatOnlyCapFlags = []string{"streaming", "structured_output", "tool_calling", "parallel_tool_calls", "reasoning"}
+
+// clearChatOnlyCaps turns the chat-only capabilities off on an embedding or
+// rerank model, whatever set them. Discovery stubs default to streaming and
+// models.dev enrichment merges flags in by name, so without this an
+// embeddings model on a listing that carries no type (OpenAI's own
+// text-embedding-*, a llama.cpp or other self-hosted server) shows chat pills
+// and /v1/models advertises them. Other classes keep theirs: speech and image
+// generation can stream.
+func clearChatOnlyCaps(class, raw string, caps map[string]any) string {
+	if class != "embedding" && class != "rerank" {
+		return raw
+	}
+	changed := false
+	for _, flag := range chatOnlyCapFlags {
+		if truthy, ok := caps[flag].(bool); ok && truthy {
+			caps[flag] = false
+			changed = true
+		}
+	}
+	if !changed {
+		return raw
+	}
+	out, err := json.Marshal(caps)
+	if err != nil {
+		return raw
+	}
+	return string(out)
 }
 
 // withoutTextOutputs drops the text and code entries, the shape enrichment

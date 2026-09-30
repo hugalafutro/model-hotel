@@ -41,7 +41,7 @@ func (d *DiscoveryService) discoverOpenAI(ctx context.Context, provider *Provide
 		// embedding/reranker models (and OpenAI's own text-embedding-*,
 		// tts-*, whisper-* models) are classified out of the chat picker by
 		// NormalizeModelClassification's name heuristics.
-		live = append(live, liveModelStub(m.ID, m.OwnedBy, provider.ID))
+		live = append(live, applyListingExtras(liveModelStub(m.ID, m.OwnedBy, provider.ID), m))
 	}
 
 	// Backfill-only (no union): discoverOpenAI is the fallback for unknown/custom
@@ -50,7 +50,35 @@ func (d *DiscoveryService) discoverOpenAI(ctx context.Context, provider *Provide
 	// a subset of the live listing, so there is nothing to union regardless.
 	// models.dev still enriches the rest. An empty listing stays empty, so
 	// RecordMissingModels is a no-op.
+	// A custom endpoint is not backfilled either: it serves whatever its
+	// operator loaded, and a model it names gpt-5.1 is not OpenAI's.
+	if operatorServed(TypeOf(provider)) {
+		debuglog.Info("discovery: openai-compatible discovered models", "provider", provider.Name, "provider_id", provider.ID, "live", len(live))
+		return live, nil
+	}
 	backfilled := backfillLiveFromCatalog(live, opencodeCatalogModels(openaiCatalog, provider.ID, "openai"))
 	debuglog.Info("discovery: openai discovered models", "provider", provider.Name, "provider_id", provider.ID, "live", len(live), "catalog", len(GetOpenAIModels()))
 	return backfilled, nil
+}
+
+// applyListingExtras takes what a self-hosted server adds to the plain /models
+// entry. The input modalities are its own statement of what the model takes
+// (llama.cpp reports image input for a model loaded with a vision projector);
+// the output modalities are not read, since llama.cpp reports text output for
+// its embedding and reranking models too, and the name decides those. The
+// context length is what the server runs the model with right now, so it is
+// marked live; it is only there while the model is loaded, and a scan that
+// finds it unloaded leaves the stored value alone.
+func applyListingExtras(m *model.Model, entry OpenAIModel) *model.Model {
+	if a := entry.Architecture; a != nil && len(a.InputModalities) > 0 {
+		if b, err := json.Marshal(canonicalizeModalityList(a.InputModalities)); err == nil {
+			m.InputModalities = string(b)
+		}
+	}
+	if meta := entry.Meta; meta != nil && meta.NCtx > 0 {
+		n := meta.NCtx
+		m.ContextLength = &n
+		m.MarkLiveMetaFromCurrent()
+	}
+	return m
 }
