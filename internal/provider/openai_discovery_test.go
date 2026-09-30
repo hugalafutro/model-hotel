@@ -372,3 +372,35 @@ func TestDiscoverOpenAI_ListingExtrasOfAnotherShapeAreIgnored(t *testing.T) {
 		}
 	}
 }
+
+// vLLM reports the context it serves as max_model_len on each /models entry;
+// a custom provider takes it as a live context, and a malformed one is ignored.
+func TestDiscoverOpenAI_VLLMMaxModelLen(t *testing.T) {
+	body := `{"object":"list","data":[
+		{"id":"qwen3-0.6b","object":"model","owned_by":"vllm","root":"/models/Qwen3-0.6B","parent":null,"max_model_len":8192},
+		{"id":"odd","object":"model","owned_by":"vllm","max_model_len":"lots"}
+	]}`
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(body))
+	}))
+	defer server.Close()
+
+	prov := &Provider{ID: uuid.New(), BaseURL: server.URL + "/v1", ProviderType: "custom"}
+	models, err := NewDiscoveryService(nil, nil).discoverOpenAI(context.Background(), prov, "")
+	if err != nil {
+		t.Fatalf("discoverOpenAI: %v", err)
+	}
+	for _, m := range models {
+		switch m.ModelID {
+		case "qwen3-0.6b":
+			if m.ContextLength == nil || *m.ContextLength != 8192 || !m.LiveMeta.ContextLength {
+				t.Errorf("qwen3-0.6b: context %v live %v, want 8192 live", m.ContextLength, m.LiveMeta.ContextLength)
+			}
+		case "odd":
+			if m.ContextLength != nil {
+				t.Errorf("odd: context %d, want none from a malformed max_model_len", *m.ContextLength)
+			}
+		}
+	}
+}

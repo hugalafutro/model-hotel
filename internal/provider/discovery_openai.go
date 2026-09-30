@@ -69,17 +69,22 @@ func (d *DiscoveryService) discoverOpenAI(ctx context.Context, provider *Provide
 // (llama.cpp reports image input for a model loaded with a vision projector);
 // the output modalities are not read, since llama.cpp reports text output for
 // its embedding and reranking models too, and the name decides those. The
-// context length is what the server runs the model with right now, so it is
-// marked live; it is only there while the model is loaded, and a scan that
-// finds it unloaded leaves the stored value alone. A listing that carries
-// neither block (OpenAI's own, most servers) is unaffected.
+// context length is what the server runs the model with (llama.cpp's
+// meta.n_ctx, only there while the model is loaded; vLLM's max_model_len), so
+// it is marked live, and a scan that finds none leaves the stored value
+// alone. A listing that carries none of these (OpenAI's own, most servers) is
+// unaffected.
 func applyListingExtras(m *model.Model, entry OpenAIModel) *model.Model {
 	if input := listingInputModalities(entry.Architecture); len(input) > 0 {
 		if b, err := json.Marshal(input); err == nil {
 			m.InputModalities = string(b)
 		}
 	}
-	if n := listingContext(entry.Meta); n > 0 {
+	n := listingContext(entry.Meta)
+	if n == 0 {
+		n = wholePositive(entry.MaxModelLen)
+	}
+	if n > 0 {
 		m.ContextLength = &n
 		m.MarkLiveMetaFromCurrent()
 	}
@@ -98,17 +103,27 @@ func listingInputModalities(raw json.RawMessage) []string {
 	return canonicalizeModalityList(arch.InputModalities)
 }
 
-// listingContext reads meta.n_ctx as a positive whole number (written as an
-// integer, a float such as 4096.0, or a quoted number), returning 0 for any
+// listingContext reads meta.n_ctx (see wholePositive), returning 0 for any
 // other shape.
 func listingContext(raw json.RawMessage) int {
 	var meta struct {
-		NCtx json.Number `json:"n_ctx"`
+		NCtx json.RawMessage `json:"n_ctx"`
 	}
 	if len(raw) == 0 || json.Unmarshal(raw, &meta) != nil {
 		return 0
 	}
-	f, err := meta.NCtx.Float64()
+	return wholePositive(meta.NCtx)
+}
+
+// wholePositive reads a JSON value as a positive whole number no larger than
+// an int32 (written as an integer, a float such as 4096.0, or a quoted
+// number), returning 0 for anything else.
+func wholePositive(raw json.RawMessage) int {
+	var n json.Number
+	if len(raw) == 0 || json.Unmarshal(raw, &n) != nil {
+		return 0
+	}
+	f, err := n.Float64()
 	if err != nil || f <= 0 || f > math.MaxInt32 || f != math.Trunc(f) {
 		return 0
 	}
