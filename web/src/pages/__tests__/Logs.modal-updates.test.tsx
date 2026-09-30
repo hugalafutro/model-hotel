@@ -9,14 +9,24 @@ import { Logs } from "../Logs";
 vi.mock("../../components/LogDetailModal", () => ({
 	LogDetailModal: ({
 		log,
+		nav,
+		clock,
 		onClose,
 	}: {
 		log: { id: string; state: string };
+		nav?: { onNext: () => void };
+		clock?: { nowMs: number };
 		onClose: () => void;
 	}) => (
 		<div data-testid="log-detail-modal">
 			<span>Log Detail: {log.id}</span>
 			<span>Modal state: {log.state}</span>
+			<span>Modal clock: {clock ? "yes" : "no"}</span>
+			{nav && (
+				<button type="button" onClick={nav.onNext}>
+					Next row
+				</button>
+			)}
 			<button type="button" onClick={onClose}>
 				Close
 			</button>
@@ -240,6 +250,113 @@ describe("Logs", () => {
 			expect(
 				await screen.findByText("Modal state: completed"),
 			).toBeInTheDocument();
+			expect(screen.getByText("Modal clock: yes")).toBeInTheDocument();
+		});
+
+		it("keeps the newest state once a refetch pushes the open row off the page", async () => {
+			const row = (state: "pending" | "completed") =>
+				createMockLogEntry({
+					id: "log-1",
+					model_id: "live-model",
+					state,
+					status_code: state === "completed" ? 200 : 0,
+					duration_ms: state === "completed" ? 6000 : 0,
+				});
+			const other = createMockLogEntry({
+				id: "log-2",
+				model_id: "other-model",
+			});
+			// Each phase is one refetch of the page the Logs view is showing.
+			const pages = [
+				[row("pending"), other],
+				[row("completed"), other],
+				[createMockLogEntry({ id: "log-3", model_id: "newer-model" })],
+			];
+			let phase = 0;
+			server.use(
+				http.get("/api/logs", () =>
+					HttpResponse.json(createMockLogs(pages[phase])),
+				),
+			);
+			const refetch = async () => {
+				phase++;
+				await act(async () => {
+					window.dispatchEvent(
+						new CustomEvent("server-event", {
+							detail: {
+								type: "request.streaming",
+								metadata: { request_id: "log-1", model_id: "live-model" },
+							},
+						}),
+					);
+				});
+			};
+
+			const { user } = renderWithProviders(<Logs />);
+			const cell = await screen.findByText("live-model");
+			await user.click(cell.closest("tr") as HTMLElement);
+			expect(
+				await screen.findByText("Modal state: pending"),
+			).toBeInTheDocument();
+
+			await refetch();
+			expect(
+				await screen.findByText("Modal state: completed"),
+			).toBeInTheDocument();
+
+			await refetch();
+			await screen.findByText("newer-model");
+			expect(screen.getByText("Modal state: completed")).toBeInTheDocument();
+			expect(
+				screen.queryByText("Modal state: pending"),
+			).not.toBeInTheDocument();
+		});
+
+		it("steps to the next row from a live-replaced row", async () => {
+			const row = (state: "pending" | "completed") =>
+				createMockLogEntry({
+					id: "log-1",
+					model_id: "live-model",
+					state,
+					status_code: state === "completed" ? 200 : 0,
+				});
+			const other = createMockLogEntry({
+				id: "log-2",
+				model_id: "other-model",
+			});
+			let completed = false;
+			server.use(
+				http.get("/api/logs", () =>
+					HttpResponse.json(
+						createMockLogs([row(completed ? "completed" : "pending"), other]),
+					),
+				),
+			);
+
+			const { user } = renderWithProviders(<Logs />);
+			const cell = await screen.findByText("live-model");
+			await user.click(cell.closest("tr") as HTMLElement);
+			expect(
+				await screen.findByText("Modal state: pending"),
+			).toBeInTheDocument();
+
+			completed = true;
+			await act(async () => {
+				window.dispatchEvent(
+					new CustomEvent("server-event", {
+						detail: {
+							type: "request.streaming",
+							metadata: { request_id: "log-1", model_id: "live-model" },
+						},
+					}),
+				);
+			});
+			expect(
+				await screen.findByText("Modal state: completed"),
+			).toBeInTheDocument();
+
+			await user.click(screen.getByText("Next row"));
+			expect(await screen.findByText("Log Detail: log-2")).toBeInTheDocument();
 		});
 	});
 

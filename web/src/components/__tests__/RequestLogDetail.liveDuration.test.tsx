@@ -68,6 +68,31 @@ describe("RequestLogDetail live duration", () => {
 		expect(screen.getByText("850")).toBeInTheDocument();
 	});
 
+	// Terminal rows that still carry duration_ms 0 must not count up: a failed
+	// request, a live-shaped row past the stale threshold, and a cancelled one.
+	it.each([
+		[
+			"failed",
+			{ ...baseLog, state: "failed", duration_ms: 0 },
+			staleThresholdMs,
+		],
+		["stale", live, 500],
+		[
+			"cancelled",
+			{ ...live, error_kind: "client_disconnect" } as LogEntry,
+			staleThresholdMs,
+		],
+	])("does not count up a %s request", (_name, log, threshold) => {
+		renderWithProviders(
+			<RequestLogDetail
+				requestLog={log}
+				clock={{ nowMs: created + 750, staleThresholdMs: threshold }}
+				onClose={() => {}}
+			/>,
+		);
+		expect(screen.queryByText("750")).not.toBeInTheDocument();
+	});
+
 	it("keeps a finished request's recorded duration", () => {
 		renderWithProviders(
 			<RequestLogDetail

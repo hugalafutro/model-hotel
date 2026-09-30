@@ -234,9 +234,12 @@ function RequestLogs() {
 	const navEntries = viewMode === "scroll" ? scrollEntries : displayEntries;
 	// The modal reads the row's current version from the list, so live updates
 	// (pending -> streaming -> completed) reach it the same way they reach the
-	// row. The clicked snapshot only stands in once the row leaves the list.
-	const openLog =
-		navEntries.find((entry) => entry.id === selectedLog?.id) ?? selectedLog;
+	// row. Each newer version is kept as the selection, so a row that later
+	// leaves the list (a refetch pushed it to another page) stays at the last
+	// state the modal showed instead of going back to the clicked copy.
+	const listedLog = navEntries.find((entry) => entry.id === selectedLog?.id);
+	if (listedLog && listedLog !== selectedLog) setSelectedLog(listedLog);
+	const openLog = listedLog ?? selectedLog;
 	const logNav = useModalNav(
 		navEntries,
 		openLog,
@@ -245,10 +248,11 @@ function RequestLogs() {
 	);
 
 	// The clock ticks fast while a live row is on screen, whichever list that
-	// is: the scroll list in scroll mode, the page in paginate mode.
+	// is: the scroll list in scroll mode, the page in paginate mode. The open
+	// row counts too, since it can be live after leaving the list.
 	const { nowMs, staleThresholdMs } = useStaleClock(
 		settings?.stale_request_timeout,
-		navEntries,
+		openLog ? [openLog, ...navEntries] : navEntries,
 	);
 	const columns = requestLogColumns(t);
 
