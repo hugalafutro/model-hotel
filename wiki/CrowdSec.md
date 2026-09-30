@@ -67,12 +67,12 @@ A request path is written by whoever made the request, and it is logged as an at
 Three rules make it inert:
 
 - Classification reads only the message, captured by position and matched from its start, so a copy of a message sitting inside an attribute value matches nothing.
-- The address is taken from the first `remote_addr=` token on the line (or the first of whichever address key that call site uses) and only then checked for validity. A line whose real address is malformed therefore yields no address at all, rather than falling through to whatever a caller wrote further along.
-- A line naming the address twice is refused outright. No call site does that, so a second occurrence means a `key=value` pair came out of a value; the event then carries no `source_ip`, and every scenario requires one.
+- The address is taken from the attribute text, skipping over every quoted value, from the first `remote_addr=` token (or the first of whichever address key that call site uses), and only then checked for validity. A forged address inside a quoted request path is never read, and a line whose real address is malformed yields no address at all, rather than falling through to whatever a caller wrote further along.
+- A line naming the address twice outside every quoted value is refused. No call site does that, so a second bare occurrence means a `key=value` pair came out of where an attribute belongs; the event then carries no `source_ip`, and every scenario requires one. A forged address inside a quoted value does not refuse the line, so appending one to your own requests cannot keep your failures out of the buckets.
 
-From **v0.9.99** the gateway also escapes attribute values, spaces included. That last part is what matters: a quoted value still containing ` remote_addr=203.0.113.9 ` reads as a `key=value` token to anything that splits on whitespace before it considers quotes, which is what a grok, a fail2ban regex and an awk one-liner all do. It protects every reader of these logs, not only CrowdSec.
+The gateway writes plain logfmt: a value holding a space, an `=` or a quote is quoted, and nothing else is escaped. The protection lives in the parser rules above, not in the log format, so another reader that splits on whitespace before it considers quotes (a grok, a fail2ban regex, an awk one-liner) needs the same care. `LOG_FORMAT=json` removes the ambiguity entirely, since every attribute is its own field.
 
-The hubtest fixtures pin each case in both the escaped and the bare form, so a filter rewritten with a plain substring search fails the suite.
+The hubtest fixtures pin each case: an injected access line that must not classify, a real failure carrying a forged address inside a quoted value whose real client must survive, and a line naming the address twice in bare text that must resolve to no address.
 
 ## Limits
 

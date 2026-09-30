@@ -49,7 +49,7 @@ This is a security trade-off: caching reduces Argon2id computation overhead on h
 
 ### Virtual Keys
 
-Virtual keys use the `sk-` prefix (e.g., `sk-a1b2c3d4e5f6a7b8`) and are stored as **SHA-256 hashes** only:
+Virtual keys use the `sk-` prefix (e.g., `sk-a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6`) and are stored as **SHA-256 hashes** only:
 
 - The raw key is generated using `crypto/rand` (16 random bytes, hex-encoded with the `sk-` prefix)
 - The raw key is shown **once** on creation, then discarded - it is never stored in plaintext
@@ -65,7 +65,8 @@ The admin token is **SHA-256 hashed** before storage:
 - Hash stored in `<DATA_DIR>/admin-token` with `0600` permissions (owner read/write only)
 - Regenerate by deleting the file and restarting
 - **Constant-time comparison** via `crypto/subtle.ConstantTimeCompare` prevents timing attacks
-- Legacy plaintext token files are migrated on startup: a file whose contents are neither `sha256:`-prefixed nor exactly 64 hex characters is assumed to be plaintext, so it is hashed and rewritten with the `sha256:` prefix
+- Legacy plaintext token files are migrated on startup: a file whose contents are neither `sha256:`-prefixed nor exactly 64 characters long is assumed to be plaintext, so it is hashed and rewritten with the `sha256:` prefix
+- A malformed hash is an error, not a token to migrate: a `sha256:` prefix not followed by exactly 64 hex characters, or a bare 64-character value that is not hex, stops startup with a message naming the file
 - A bare 64-character hex hash is read as a hash and deliberately left alone: rewriting a file that already stores a valid hash would buy nothing
 
 The generated token is 32 hex characters (derived from a random UUID hashed with SHA-256, truncated).
@@ -179,7 +180,7 @@ Time-based one-time passwords (RFC 6238) add a second factor to admin login, ind
 
 | Route | Method | Auth | Description |
 |-------|--------|------|-------------|
-| `/api/totp/status` | GET | None (public) | Report whether TOTP is enabled (login UI gating) |
+| `/api/totp/status` | GET | None (public), IP rate-limited | Report whether TOTP is enabled (login UI gating) |
 | `/api/totp/login` | POST | IP rate-limited; failures back off per IP and per account | Exchange admin token + 6-digit code (or a recovery code) for a session token. Body must be `application/json` (415 otherwise) |
 | `/api/totp/enroll/start` | POST | Admin/session token | Begin enrollment; returns the otpauth URI + base32 secret |
 | `/api/totp/enroll/verify` | POST | Admin/session token | Verify the first code, enable TOTP, return recovery codes + a session token. 409 while TOTP is already on; wrong codes back off |
@@ -214,32 +215,35 @@ The issuer URL is the provider's bare origin (e.g. `https://auth.example.com`), 
 
 | Route | Method | Auth | Description |
 |-------|--------|------|-------------|
-| `/api/auth/oidc/status` | GET | None (public) | Report whether SSO is enabled and the provider display name (login UI gating) |
+| `/api/auth/oidc/status` | GET | None (public), IP rate-limited | Report whether SSO is enabled and the provider display name (login UI gating) |
 | `/api/auth/oidc/start` | GET | IP rate-limited | Begin login: build PKCE + state, redirect to the provider |
 | `/api/auth/oidc/callback` | GET | IP rate-limited | Provider redirect target: verify state/PKCE/ID token, enforce the allowlist, mint a session token |
-| `/api/auth/github/status` | GET | None (public) | Report whether GitHub login is enabled (login UI gating) |
-| `/api/auth/github/start` | GET | None (public) | Begin GitHub OAuth: build state, redirect to GitHub |
-| `/api/auth/github/callback` | GET | None (public) | GitHub redirect target: verify state, enforce the allowlist, mint a session token |
+| `/api/auth/github/status` | GET | None (public), IP rate-limited | Report whether GitHub login is enabled (login UI gating) |
+| `/api/auth/github/start` | GET | IP rate-limited | Begin GitHub OAuth: build state, redirect to GitHub |
+| `/api/auth/github/callback` | GET | IP rate-limited | GitHub redirect target: verify state, enforce the allowlist, mint a session token |
 
-Status is deliberately outside the limiter: the login screen polls it, it reads a few cached settings keys and makes no outbound call. Start and callback write a login-state row per request, so they carry the limiter. The GitHub callback is covered by the per-key backoff described above rather than the request limiter; GitHub OAuth Apps support neither PKCE nor a nonce, which is why its flow is state-only.
+Every route under `/api`, the status routes included, sits behind the per-IP limiter, which charges a request once however many times it is mounted. Status routes need no authentication: the login screen polls them, and they read a few cached settings keys and make no outbound call. Start and callback write a login-state row per request. The GitHub callback is additionally covered by the per-key backoff described above; GitHub OAuth Apps support neither PKCE nor a nonce, which is why its flow is state-only.
 
 Configuration lives entirely in the settings store (no migration): `oidc_enabled`, `oidc_issuer_url`, `oidc_client_id`, `oidc_client_secret` (encrypted), `oidc_public_base_url`, and `oidc_allowed_emails`.
 
 ### Proxy API Authentication (Virtual Keys)
 
-The proxy API requires a virtual key in the `Authorization` header:
+The proxy API requires a virtual key, in the `Authorization` header or (for Anthropic-style clients) the `x-api-key` header:
 
 ```
 Authorization: Bearer <virtual-key>
+x-api-key: <virtual-key>
 ```
 
 **Validation flow:**
-1. Extract key from `Authorization: Bearer` header
+1. Extract the key from `Authorization: Bearer`, falling back to `x-api-key`; neither present is HTTP 401 `missing authorization header`
 2. Compute SHA-256 hash of provided key
-3. Look up hash in `virtual_keys` database table
-4. On success: store key hash in request context for downstream middleware
-5. On success: update `last_used_at` timestamp asynchronously (fire-and-forget with 5-second timeout)
-6. Return HTTP 401 with generic "Invalid virtual key" message on failure
+3. Look up the hash in the `virtual_keys` table, bounded by its own 10-second timeout so a wedged database cannot park requests here. An unknown hash is HTTP 401 `invalid virtual key`; a lookup failure is HTTP 500, or 499 when the client disconnected mid-lookup
+4. A key whose owner account is disabled is HTTP 401 `virtual key disabled: owner account is disabled`
+5. On success: store the key's identity, limits, budgets and owner's aggregate limits in the request context for downstream middleware
+6. On success: update `last_used_at` timestamp asynchronously (fire-and-forget with 5-second timeout)
+
+Every 401 from this middleware sets `Connection: close`. See [[Virtual Keys]] for the full context contract.
 
 The generic error message prevents enumeration attacks (attackers cannot determine if a key format is valid vs. completely invalid).
 
@@ -274,6 +278,7 @@ Applied after authentication:
   - `rate_limit_burst` (default: 20)
 - Per-key overrides supported (set when creating virtual key)
 - Unlimited mode: set `rate_limit_rps=0` to disable limiting for specific keys
+- An owned key also counts against its owner's aggregate RPS and TPM caps, shared across every key that user owns, and on a Front Desk fleet member each cap is divided by the number of active members (fleet fair-share); see [[Virtual Keys]]
 - Optional per-key **token rate limit** (`rate_limit_tpm`): caps tokens/minute
   (prompt + completion; reasoning is part of completion); over-budget keys get `429` until the
   minute budget refills. Null falls back to the global `rate_limit_tpm` setting
@@ -306,6 +311,8 @@ This provides smoother handling of bursty traffic while still enforcing limits.
 Two ceilings apply, and the tighter one wins.
 
 The gateway's router caps every request at `MAX_REQUEST_SIZE` (default: 50 MB, sized for multipart audio uploads to the `/v1/audio/*` endpoints). The middleware uses `http.MaxBytesReader` which enforces the limit at the stream level - the entire request body is never buffered beyond this limit. On `/v1` the gateway does not buffer the body until the virtual key has been verified: an unauthenticated request is answered 401 from its headers and the refusal closes the connection, so a client without a key cannot make the gateway hold an upload in memory. (Go's HTTP server still discards up to 256 KB of such a body after the refusal, under the body read deadline above, so a trickling client holds the connection no longer than that deadline.)
+
+The backup restore upload (`POST /api/backups/restore`) is the one exemption: it skips this cap and sets its own 100 MB bound in the handler, so a dump is not cut at the general ceiling.
 
 Control-plane JSON routes (the dashboard API, the auth ceremonies, and every Front Desk endpoint) are bounded again at 1 MB, because 50 MB is sized for an audio upload and is the wrong bound for a login body. Two routes carry their own ceiling instead: a config-sync import (8 MB) and the fleet announce heartbeat (1 KB). Front Desk runs as its own binary and mounts no global size middleware, so for its handlers the per-route ceiling is the only one.
 
@@ -367,7 +374,7 @@ Two of those are conditional:
 
 The `ValidateProviderURL` function enforces multiple security checks to prevent SSRF (Server-Side Request Forgery):
 
-1. **HTTPS by default** - HTTP is only allowed if `ALLOW_HTTP_PROVIDERS=true`
+1. **HTTPS by default** - HTTP is only allowed if `ALLOW_HTTP_PROVIDERS=true` (this scheme check runs in the provider API handler, `internal/api/providers.go`, just before `ValidateProviderURL`)
 2. **Loopback block** - `localhost`, `127.0.0.1`, `::1` are rejected by default (prevents SSRF)
 3. **IP resolution check** - the host is resolved and every returned address is checked against the same blocked ranges the runtime dialer enforces (see [SafeDialer](#safedialer-runtime-ssrf-protection)), so a `base_url` accepted here cannot be silently refused later at dial time. A resolution that fails outright is not treated as a rejection: the name may simply be unresolvable from the box doing the saving, and the dial-time check is the authoritative one
 4. **Allowed hosts** - optional allowlist via `ALLOWED_PROVIDER_HOSTS`:
@@ -394,7 +401,7 @@ While `ValidateProviderURL` blocks dangerous URLs at configuration time, the **S
 
 | Category | CIDR/Address | Reason |
 |----------|-------------|--------|
-| Unspecified | `0.0.0.0`, `::` | Unusable addresses |
+| Unspecified / "this network" | `0.0.0.0/8`, `::` | A dial to any of them lands on the local machine |
 | Loopback | `127.0.0.0/8`, `::1` | Localhost |
 | Private | `10.0.0.0/8`, `172.16.0.0/12`, `192.168.0.0/16`, `fc00::/7` | Internal networks |
 | Carrier-grade NAT | `100.64.0.0/10` | Internal networks (RFC 6598, not covered by Go's private-address check) |
@@ -421,7 +428,7 @@ that are never a legitimate destination and are the classic SSRF targets.
 |-------------|----------|--------|
 | Link-local unicast (`169.254.0.0/16`, `fe80::/10`) | **Blocked** | Contains the `169.254.169.254` cloud-metadata endpoint |
 | Link-local multicast | **Blocked** | Never a legitimate HTTP endpoint |
-| Unspecified (`0.0.0.0`, `::`) | **Blocked** | Unusable address |
+| Unspecified / "this network" (`0.0.0.0/8`, `::`) | **Blocked** | A dial to any of them lands on the local machine |
 | Private (`10.0.0.0/8`, `172.16.0.0/12`, `192.168.0.0/16`, `fc00::/7`) | Allowed | Where an internal IdP or the apprise container lives |
 | Loopback (`127.0.0.0/8`, `::1`) | Allowed | Same-host deployments |
 
@@ -549,7 +556,7 @@ App Logs view and its source filter.
 | `COOKIE_SECURE` | `always` | `Secure` attribute on the session cookie pair: `always`, `auto` (only over TLS), or `never`. Unset or unrecognized values fall back to `always`. |
 | `ALLOW_EMBED` | `false` | Allows any origin to embed the dashboard in an iframe by dropping `X-Frame-Options` and the CSP `frame-ancestors` directive. |
 | `METRICS_TOKEN` | (empty) | Bearer token for `/metrics` scrapes. Empty means the endpoint falls back to normal admin auth. |
-| `DEMO_READONLY` | `false` | Refuses every mutating request on the admin CRUD surface with a 403. Admin chat and the public proxy stay usable, and refused attempts are still recorded in the audit trail. |
+| `DEMO_READONLY` | `false` | Refuses every mutating request on the admin CRUD surface with a 403, and also refuses passkey management, backup download, config export and reading stored alert targets. Admin chat and the public proxy stay usable, and refused attempts are still recorded in the audit trail. |
 | `DEMO_SHOW_TOKEN` | `false` | Publishes the admin token on the login screen for a public demo. Inert (and warned about at startup) unless `DEMO_READONLY` is also on. |
 | `PWNED_PASSWORD_CHECK_ENABLED` | `true` | Hard kill-switch for breached-password screening of new dashboard passwords (Have I Been Pwned range API, k-anonymity: only a five-character SHA-1 prefix leaves the box, fail-open). `false` disables it outright; the runtime toggle under Settings > Authentication > Password policy cannot re-enable it. See [Configuration](Configuration#breached-password-screening). |
 | `PWNED_PASSWORD_API_URL` | `https://api.pwnedpasswords.com` | Base URL of the range API; point at a self-hosted mirror for air-gapped deployments. |

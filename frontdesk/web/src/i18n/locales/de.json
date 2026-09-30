@@ -125,7 +125,7 @@
 		"urlLabel": "Basis-URL",
 		"urlPlaceholder": "https://hotel-1.example.com",
 		"tokenLabel": "Admin-Token",
-		"tokenHint": "Erforderlich. Verschlüsselt gespeichert. Front Desk verifiziert den Host damit beim Hinzufügen und nutzt es für Versions- und Traffic-Auslesung sowie Admin-Token-Sync.",
+		"tokenHint": "Erforderlich. Verschlüsselt gespeichert. Front Desk verifiziert den Host damit beim Hinzufügen und nutzt es für Versions- und Traffic-Auslesung, Konfigurationssync und Backup-Prüfungen.",
 		"tokenPlaceholder": "Der aktuelle ADMIN_TOKEN dieses Mitglieds",
 		"removeTitle": "{{name}} entfernen?",
 		"removeBody": "Front Desk hört auf, {{name}} zu überwachen, und entfernt es aus dem Traefik-Backend-Pool. Die Instanz selbst wird nicht angetastet. Laufende Anfragen werden nicht abgeschlossen; drainen Sie zuerst für eine verlustfreie Entfernung.",

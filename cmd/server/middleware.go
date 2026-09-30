@@ -20,7 +20,11 @@ import (
 )
 
 // corsMiddleware allows the configured origins (CORS_ORIGINS) and answers
-// preflight requests.
+// preflight requests. The allowed methods and headers cover everything the API
+// takes: PATCH (model updates), X-CSRF-Token (cookie-authenticated mutations)
+// and x-api-key (the Anthropic-style virtual key on /v1). A preflight that
+// names its headers gets them echoed back: browser SDKs add their own
+// (anthropic-version, x-stainless-*), and the origin is already trusted.
 func corsMiddleware(cfg *config.Config) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -36,8 +40,12 @@ func corsMiddleware(cfg *config.Config) func(http.Handler) http.Handler {
 
 			if allowed {
 				w.Header().Set("Access-Control-Allow-Origin", origin)
-				w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
-				w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
+				w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, PATCH, DELETE, OPTIONS")
+				allowHeaders := "Content-Type, Authorization, X-CSRF-Token, x-api-key"
+				if requested := r.Header.Get("Access-Control-Request-Headers"); requested != "" {
+					allowHeaders = requested
+				}
+				w.Header().Set("Access-Control-Allow-Headers", allowHeaders)
 				w.Header().Set("Access-Control-Allow-Credentials", "true")
 				w.Header().Set("Access-Control-Max-Age", "86400")
 			}

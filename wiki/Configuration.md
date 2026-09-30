@@ -9,8 +9,24 @@ Everything else on this page has a working default.
 
 Reach for the rest only when something specific applies to you: a reverse proxy in front
 (`TRUSTED_PROXIES`, `COOKIE_SECURE`), a self-hosted LLM server on a private address
-(`ALLOWED_PROVIDER_HOSTS` or `KNOWN_PROXIES`), passkey login (`WEBAUTHN_RP_ID`), or a log
+(`ALLOWED_PROVIDER_HOSTS`), passkey login (`WEBAUTHN_RP_ID`), or a log
 collector (`LOG_FORMAT`, `METRICS_TOKEN`, `OTEL_EXPORTER_OTLP_ENDPOINT`).
+
+> [!IMPORTANT]
+> With the stock `docker-compose.yml`, putting a variable in `.env` is not enough. The app
+> service has no `env_file:`; it receives only the explicit `environment:` list, and Compose
+> reads `.env` just to fill in the `${...}` references in that list. The stock file passes
+> through `MASTER_KEY`, `POSTGRES_USER`, `POSTGRES_PASSWORD`, `POSTGRES_DB`, `ADMIN_TOKEN`,
+> `WEBAUTHN_RP_ID` and `WEBAUTHN_RP_ORIGINS` from `.env` (and uses `HOST_PORT` for the port
+> mapping and in `CORS_ORIGINS`). It hardcodes `POSTGRES_HOST=db`, `DATA_DIR=/data`,
+> `ALLOW_HTTP_PROVIDERS=false`, `ALLOW_EMBED=false`, `RATE_LIMIT_ENABLED=true`,
+> `DEBUG_LOG=false`, `CORS_ORIGINS`, and empty `ALLOWED_PROVIDER_HOSTS`, `TRUSTED_PROXIES` and
+> `KNOWN_PROXIES`. Any other variable on this page (`COOKIE_SECURE`, `LOG_FORMAT`,
+> `METRICS_TOKEN`, `OTEL_*`, the rate-limit and pool sizes, and so on) takes effect only once you
+> add it to the app service's `environment:` block, e.g. `- COOKIE_SECURE=${COOKIE_SECURE:-always}`,
+> or edit the hardcoded value there. `compose.dev.yml` additionally passes through
+> `KNOWN_PROXIES`, `TRUSTED_PROXIES`, `LOG_FORMAT`, `METRICS_TOKEN`,
+> `OTEL_EXPORTER_OTLP_ENDPOINT` and `OTEL_SERVICE_NAME`.
 
 Runtime behaviour (timeouts, retries, rate limits, discovery, backups) is changed in the
 Settings UI, not in `.env`: those live in the database and take effect without a restart.
@@ -19,7 +35,7 @@ Settings UI, not in `.env`: those live in the database and take effect without a
 
 ## Environment Variables
 
-Environment variables are read once at server startup and cannot be changed at runtime. The application loads them from a `.env` file (via `godotenv`) or from the process environment.
+Environment variables are read once at server startup and cannot be changed at runtime. The application reads the process environment, plus a `.env` file in its working directory (via `godotenv`; variables already set win). The Docker image excludes `.env` files, so in a container only the service's `environment:` list counts (see above); the `.env` file is loaded directly only when the binary runs outside Docker.
 
 ### Required Variables
 
@@ -53,9 +69,9 @@ Environment variables are read once at server startup and cannot be changed at r
 | `PWNED_PASSWORD_API_URL` | string | `https://api.pwnedpasswords.com` | Base URL of the breach range API. Point at a self-hosted mirror (e.g. `http://hibp-api:8000`) for offline/egress-restricted deployments. Request path is `<base>/range/<prefix>`. See [Breached-password screening](#breached-password-screening). |
 | `MAX_REQUEST_SIZE` | int | `52428800` | Maximum request body size in bytes. Clamped to 1KB–100MB. Default is 50 MB, sized for multipart audio uploads to `/v1/audio/transcriptions` (OpenAI's audio file limit is 25 MB). Also sizes the body read budget (see Security: Slow-Client Protection), so a larger ceiling lengthens the longest hold a hostile body can buy. |
 | `CORS_ORIGINS` | string (comma-separated) | `http://localhost:5173,http://localhost:8081` | Comma-separated list of allowed CORS origins. Must include the scheme (e.g. `http://`). Wildcard `*` is explicitly rejected (incompatible with credentials=true). |
-| `ALLOWED_PROVIDER_HOSTS` | string (comma-separated) | (empty) | Comma-separated list of additional allowed provider hosts. Built-in provider hosts are **always** allowed regardless of this setting. Hosts listed here bypass loopback blocking, so `localhost` can be added for local Ollama. E.g. `localhost,api.example.com` |
+| `ALLOWED_PROVIDER_HOSTS` | string (comma-separated) | (empty) | Comma-separated provider host allowlist (exact hostnames, case-insensitive). Empty: any public host is accepted and private/loopback addresses are refused. **Non-empty: it becomes a strict allowlist.** A provider `base_url` must then be a built-in provider host (below) or be listed here; every other host is rejected, public ones included (e.g. `api.moonshot.ai`, Azure, Bedrock, regional Vertex hosts, any OpenAI-compatible reseller). Hosts listed here bypass the private/loopback checks at save time and at dial time, so `localhost` or an internal hostname can be added for a local Ollama. E.g. `localhost,api.example.com` |
 | `TRUSTED_PROXIES` | string (comma-separated CIDR) | (none) | Comma-separated CIDR ranges for trusted reverse proxies (e.g. `10.0.0.0/8,172.16.0.0/12`). When set, `X-Forwarded-For` headers from these IPs are trusted everywhere a client address is used: rate limiting, access and auth log lines, the audit trail, and the active-sessions list. List only proxies you control (never `0.0.0.0/0`): a trusted peer's header dictates the address these records store. This controls **inbound** trust only; it is unrelated to outbound SSRF protection (see `KNOWN_PROXIES`). |
-| `KNOWN_PROXIES` | string (comma-separated CIDR) | (none) | Comma-separated CIDR ranges for internal LLM servers on private networks (e.g. `10.0.0.0/8,192.168.1.0/24`). IPs within these CIDRs bypass the SSRF protection (SafeDialer private-IP blocking) so the proxy can reach self-hosted providers like Ollama or KoboldCPP running on private subnets, while still blocking all other private/loopback addresses. Unlike `ALLOWED_PROVIDER_HOSTS` (which allows by hostname and bypasses all SSRF checks), this operates at the network/CIDR level and only bypasses the private-IP block. |
+| `KNOWN_PROXIES` | string (comma-separated CIDR) | (none) | Comma-separated CIDR ranges (e.g. `10.0.0.0/8,192.168.1.0/24`) that the outbound SafeDialer may connect to despite being private. It only relaxes the **dial-time** check: provider URL validation at save time ignores it, so it does **not** let you add a provider whose host is (or resolves to) a private address; that needs `ALLOWED_PROVIDER_HOSTS`. It matters for a host that passed validation but resolves into one of these ranges when dialed (split-horizon DNS, for instance), while every other private/loopback address stays blocked. |
 | `WEBAUTHN_RP_ID` | string | (empty) | Relying Party ID for WebAuthn/FIDO2 passkey authentication (typically your domain, e.g. `example.com`). When empty, passkey login is disabled. When set, users can register and log in with passkeys (Touch ID, Windows Hello, YubiKey, etc.) alongside the admin token. |
 | `WEBAUTHN_RP_DISPLAY_NAME` | string | `Model Hotel` | Display name for the WebAuthn relying party, shown in the browser's passkey dialog. |
 | `WEBAUTHN_RP_ORIGINS` | string (comma-separated) | (falls back to `CORS_ORIGINS`) | Comma-separated list of allowed origins for WebAuthn registration/authentication (e.g. `https://example.com`). Falls back to `CORS_ORIGINS` if empty, then to `http://localhost:<port>`. |
@@ -100,18 +116,25 @@ needs no allowlist entry: `.nano-gpt.com`, `.z.ai`, `.kimi.com`, `.minimax.io`, 
 `.anthropic.com`, `.ollama.com`, `.opencode.ai`, `.x.ai`, `.cohere.com`, `.cohere.ai`,
 `.openrouter.ai`, `.neuralwatt.com`.
 
-These correspond to the vendor hosts recognised by `detectByHost` in `internal/provider/discovery.go`.
-Runtime dialing still applies the private/reserved-IP checks to them.
+These correspond to most of the vendor hosts recognised by `detectByHost` in
+`internal/provider/discovery.go`, but not all: Azure (`*.openai.azure.com`,
+`*.services.ai.azure.com`), Bedrock (`bedrock-mantle.<region>.api.aws`) and regional Vertex or
+Gemini hosts (e.g. `us-central1-aiplatform.googleapis.com`) are detected yet **not** always
+allowed, so once `ALLOWED_PROVIDER_HOSTS` is set they must be listed in it.
+
+At dial time the SafeDialer skips its IP checks for the exact hostnames in the list above and
+for every `ALLOWED_PROVIDER_HOSTS` entry. Hosts accepted only through a subdomain suffix are
+still resolved and IP-checked on every connection.
 
 ### Notes
 
 - `MASTER_KEY` is **never used directly** as an AES key. It is fed through Argon2id key derivation (per-provider random salt in v2) to produce the 256-bit AES key. See [Security](Security) for details.
 - `ADMIN_TOKEN` is stored as a SHA-256 hash. Legacy plaintext tokens are automatically migrated to hashed format on first validation.
 - `RATE_LIMIT_ENABLED` is a **hard kill-switch** - when `false`, the rate-limiting middleware is always mounted but becomes a complete pass-through (no buckets, no headers, no 429s). The DB setting `rate_limit_enabled` has no effect when the env var is `false`.
-- **SSRF protection** (server-side request forgery: tricking the server into calling an address it should not) has two layers. Provider URL validation runs when a provider is saved; the SafeDialer re-checks the resolved IP on every outbound connection, so a hostname that later resolves to a private address is still blocked.
+- **SSRF protection** (server-side request forgery: tricking the server into calling an address it should not) has two layers. Provider URL validation runs when a provider is saved; the SafeDialer re-checks the resolved IP on every outbound connection (except to the exact built-in hostnames and `ALLOWED_PROVIDER_HOSTS` entries, which it trusts by name), so a hostname that later resolves to a private address is still blocked.
 - `TRUSTED_PROXIES` is about **inbound** metadata (which reverse proxies may set `X-Forwarded-For`). `KNOWN_PROXIES` is about **outbound** connections (which private CIDRs the SafeDialer may dial). They point in opposite directions.
-- `ALLOWED_PROVIDER_HOSTS` names specific hostnames and bypasses both SSRF layers. `KNOWN_PROXIES` names CIDR ranges and bypasses only the SafeDialer's private-IP block, so provider URL validation still applies. Stable hostname: use the first. A subnet with changing hostnames: use the second. Built-in provider hosts need neither.
-- Self-hosted providers (Ollama, LM Studio, KoboldCPP) run on an address you choose and are not in the built-in host allowlist; add them to `ALLOWED_PROVIDER_HOSTS` or `KNOWN_PROXIES` as needed. The same URL validation applies to the probe that confirms the server type when the provider is added: a host the validation rejects (a private address with `ALLOWED_PROVIDER_HOSTS` unset, for instance) cannot be added at all.
+- `ALLOWED_PROVIDER_HOSTS` names specific hostnames and bypasses both SSRF layers. `KNOWN_PROXIES` names CIDR ranges and bypasses only the SafeDialer's private-IP block, so provider URL validation still applies and still refuses a private address. A provider on a private address therefore always needs an `ALLOWED_PROVIDER_HOSTS` entry; `KNOWN_PROXIES` alone cannot get it created. Built-in provider hosts need neither. Remember that setting `ALLOWED_PROVIDER_HOSTS` turns it into a strict allowlist for every non-built-in host.
+- Self-hosted providers (Ollama, LM Studio, KoboldCPP) run on an address you choose and are not in the built-in host allowlist; add them to `ALLOWED_PROVIDER_HOSTS`. The same URL validation applies to the probe that confirms the server type when the provider is added: a host the validation rejects (a private address with `ALLOWED_PROVIDER_HOSTS` unset, for instance) cannot be added at all.
 - Neither variable applies to the **admin-configured** endpoints (OIDC issuer, apprise-api, Front Desk members). Those go through a separate guard that already allows private and loopback addresses and blocks only link-local/metadata ones, so an internal IdP needs no allowlisting at all. It has no env vars; see [netguard](Security#netguard-admin-configured-endpoints).
 - `WEBAUTHN_RP_ID` is empty by default, meaning passkey login is disabled. Set it to your domain to enable FIDO2/WebAuthn passkey authentication. `WEBAUTHN_RP_ORIGINS` falls back to `CORS_ORIGINS` and then to `http://localhost:<port>`.
 - `DATABASE_MAX_CONNS` and `DATABASE_MIN_CONNS` are each clamped to the range 1–1000, independently of one another.
@@ -133,7 +156,7 @@ These settings are stored in the `settings` table and can be changed at runtime 
 
 ### Settings Reference
 
-All 61 writable keys, grouped by the area they govern. Keys owned by another page get a
+All 62 writable keys, grouped by the area they govern. Keys owned by another page get a
 one-line row here and their full treatment there. This table is also the reference for what a
 **Reset to Defaults** restores.
 
@@ -144,7 +167,7 @@ one-line row here and their full treatment there. This table is also the referen
 | `discovery_on_provider_create` | bool string | `true` | Run discovery when a provider is added. Enforced in the dashboard, not on the server: the frontend reads the flag and decides whether to fire discovery after creating the provider. | `true`, `false` |
 | `model_prune_days` | int string | `7` | Days a model the provider stopped listing stays in the table as a disabled row before the scheduled discovery pass deletes it. `0` keeps every row. | `0`..`180` |
 | `discovery_claim_alert_days` | int string | `7` | Age at which an unaddressed discovery claim raises an alert. The ceiling is derived from the 30-day claim window and served read-only as `discovery_claim_window_days`. See [Alerting](Alerting). | `1`..`29` |
-| `log_retention` | duration string | (empty) | How long to keep request and app logs. Any Go duration; the dashboard slider stores whole days as hours. Legacy `1d`/`1w`/`1m` still accepted (`1m` is the 30-day token, not one minute). Empty, `0`, or a zero duration keeps logs forever; unreadable values are skipped and logged as a warning. Cleanup runs hourly. | `24h`, `48h`, `168h`, `720h`, `1w`, (empty) |
+| `log_retention` | duration string | (empty) | How long to keep request and app logs. Any Go duration; the dashboard slider stores whole days as hours. Legacy `1d`/`1w`/`1m` still accepted (`1m` is the 30-day token, not one minute). Empty, `0`, or a zero duration keeps logs forever; unreadable values are skipped and logged as a warning. Cleanup runs hourly. `request_logs` rows still inside an open budget period of any virtual key or user are kept regardless of the window (budgets are summed from them), and if the budgets cannot be read that hour `request_logs` are left alone. | `24h`, `48h`, `168h`, `720h`, `1w`, (empty) |
 | `stale_request_timeout` | duration string | `30m0s` | Timeout for marking in-progress request logs as failed. Rows stuck in `pending` or `streaming` state longer than this are marked `failed`. | `30m`, `1h`, etc. |
 | `request_timeout` | duration string | `1m0s` | Per-request timeout for non-streaming requests. Streaming requests use 10x this value. | `30s`, `1m`, `5m`, `10m` |
 | `key_cache_ttl` | duration string | `10m0s` | How long a decrypted provider API key is held in memory before it must be derived again. | `1m`, `10m`, `1h`, etc. |
@@ -189,7 +212,7 @@ one-line row here and their full treatment there. This table is also the referen
 | `alert_enabled` | bool string | `false` | Master switch for outbound alerting. See [Alerting](Alerting). | `true`, `false` |
 | `alert_apprise_api_url` | URL | (empty) | Base URL of the apprise-api container, validated against SSRF. See [Alerting](Alerting). | `http://apprise:8000` |
 | `alert_apprise_targets` | string | (empty) | Notification destination URLs. Encrypted at rest and masked on read. See [Alerting](Alerting). | Apprise URLs |
-| `alert_events` | string | `circuit_breaker.open,circuit_breaker.closed,failover.sync_error` | CSV of the event types that fire an alert. See [Alerting](Alerting#choosing-which-events-fire). | event-type CSV |
+| `alert_events` | string | the 9 default-on events: `circuit_breaker.open,circuit_breaker.closed,failover.sync_error,fleet.conflict,quota.schema_drift,model.auto_disabled_gone,provider.scheduled_disable,budget.warning,budget.exceeded` | CSV of the event types that fire an alert. See [Alerting](Alerting#choosing-which-events-fire). | event-type CSV |
 | `oidc_enabled` | bool string | `false` | Enable OpenID Connect single sign-on. See [Security](Security#single-sign-on-openid-connect). | `true`, `false` |
 | `oidc_issuer_url` | URL | (empty) | OIDC discovery base URL, validated against SSRF. See [Security](Security#single-sign-on-openid-connect). | issuer URL |
 | `oidc_client_id` | string | (empty) | OAuth client id. See [Security](Security#single-sign-on-openid-connect). | client id |
@@ -545,6 +568,9 @@ environment:
   - KNOWN_PROXIES=
 ```
 
+There is no `env_file:`, so this list is everything the app receives: a variable set only in
+`.env` and not referenced here has no effect. Add a line for it (or edit the hardcoded value).
+
 **Graceful shutdown.** On SIGTERM (`docker compose stop`, `docker compose down`, a container
 restart) the server winds down in stages rather than dropping what is in flight. It cancels the
 background maintenance loops, ends every open SSE stream and proxied stream so they finish with a
@@ -666,8 +692,12 @@ can write to it.
 
 The template lives in the repository:
 [`.env.example`](https://github.com/hugalafutro/model-hotel/blob/master/.env.example). Copy it to
-`.env` and edit that copy. It is a starting point, not the full list: every variable in the
-tables above is read from the environment whether or not the template mentions it.
+`.env` and edit that copy. It is a starting point, not the full list: the app reads every
+variable in the tables above from its process environment whether or not the template mentions
+it. Under Docker Compose, though, a `.env` entry reaches the app only if the app service's
+`environment:` block in `docker-compose.yml` references it (see
+[What you actually need to touch](#what-you-actually-need-to-touch) for the stock list); add a
+line there for anything else you set.
 
 What you must set before the first start:
 
@@ -682,7 +712,7 @@ What you must set before the first start:
 | Category | Count | Runtime Changeable |
 |----------|-------|-------------------|
 | Environment Variables | 37 (one of them, `HOST_PORT`, is read by Docker Compose rather than the app) | No (restart required) |
-| Database Settings | 61 | Yes (via API/UI) |
+| Database Settings | 62 | Yes (via API/UI) |
 | Frontend localStorage | 14 | Yes (client-side only) |
 
 **Key Architecture Points:**
@@ -690,5 +720,5 @@ What you must set before the first start:
 1. **Environment variables** are loaded once at startup via `godotenv.Load()` and the `config.Load()` function.
 2. **Database settings** use a 30-second cache with change notifications via `Subscribe()` for immediate updates.
 3. **Rate limiting** has a hard kill-switch (`RATE_LIMIT_ENABLED` env var) that completely disables the middleware when `false`.
-4. **Provider host validation** always allows built-in providers; `ALLOWED_PROVIDER_HOSTS` is only for custom/local providers.
+4. **Provider host validation** always allows built-in providers; `ALLOWED_PROVIDER_HOSTS` is for custom/local providers and, once non-empty, is a strict allowlist for every other host.
 5. **Admin token** is auto-generated on first run and stored as a SHA-256 hash.

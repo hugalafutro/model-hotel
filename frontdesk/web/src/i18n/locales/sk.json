@@ -125,7 +125,7 @@
 		"urlLabel": "Základná URL",
 		"urlPlaceholder": "https://hotel-1.example.com",
 		"tokenLabel": "Token správcu",
-		"tokenHint": "Povinné. Uložené šifrovane. Front Desk ním pri pridaní overí hostiteľa a používa ho na čítanie verzií a prevádzky a na synchronizáciu cez admin token.",
+		"tokenHint": "Povinné. Uložené šifrovane. Front Desk ním pri pridaní overí hostiteľa a používa ho na čítanie verzií a prevádzky, synchronizáciu konfigurácie a kontrolu záloh.",
 		"tokenPlaceholder": "Aktuálny ADMIN_TOKEN tohto člena",
 		"removeTitle": "Odstrániť {{name}}?",
 		"removeBody": "Front Desk prestane sledovať {{name}} a odoberie ho z poolu backendov Traefik. Samotná inštancia zostane nedotknutá. Toto nevyberie prebiehajúce požiadavky z prevádzky; pre bezstratové odstránenie najprv vyberte člena z prevádzky.",

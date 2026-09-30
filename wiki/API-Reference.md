@@ -12,7 +12,7 @@ OpenAI-compatible endpoints that require a virtual key. The proxy covers chat co
 Authorization: Bearer <virtual-key>
 ```
 
-Virtual keys use the `sk-` prefix (e.g. `sk-a1b2c3d4e5f6a7b8`). Keys are created via the Admin API and are shown only once at creation time.
+Virtual keys use the `sk-` prefix (`sk-` plus 32 hex characters, e.g. `sk-a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6`). Keys are created via the Admin API and are shown only once at creation time.
 
 The `x-api-key` header (what the Anthropic SDKs send) carries the virtual key just as well, on every `/v1` route rather than only `/v1/messages`. `Authorization: Bearer` is preferred when both are present.
 
@@ -97,7 +97,7 @@ curl -X POST http://localhost:8081/v1/chat/completions \
 | `frequency_penalty` | number | No | Frequency penalty |
 | `presence_penalty` | number | No | Presence penalty |
 | `stop` | array/string | No | Stop sequences |
-| `stream_options` | object | No | Streaming options (e.g. `include_usage: true`). **Note:** The proxy automatically injects `stream_options: {include_usage: true}` for all streaming requests to ensure token usage is reported. |
+| `stream_options` | object | No | Streaming options (e.g. `include_usage: true`). **Note:** on a streaming request the proxy sets `stream_options` to `{include_usage: true}` so token usage is reported, replacing whatever the client sent. Provider types that reject the field (`anthropic`, `anthropic-messages`, `google`, `cohere`, `opencode-go`, `opencode-zen`) are left alone. |
 
 **Message normalization:** if a message in `messages` carries `tool_calls: []` (an empty array), the proxy removes the field before forwarding. Some clients serialize aborted or filtered tool-call turns this way, and strict providers reject the whole request with a 400 (`Invalid 'messages[N].tool_calls': empty array`), which permanently breaks any conversation carrying such a turn in its history. Non-empty `tool_calls` and all other message content pass through untouched.
 
@@ -109,7 +109,7 @@ This is invisible to the client: ordinary Chat Completions in and out, streaming
 
 **Model Routing:**
 
-- `hotel/<model>` - Failover routing (tries all providers that offer the model, with automatic failover on 5xx and optionally on 429)
+- `hotel/<model>` - Failover routing (tries all providers that offer the model, moving to the next one on an upstream 5xx, 401, 402, 403, 404 or 499, and on 429 while `failover_on_rate_limit` is on, the default)
 - `<provider>/<model>` - Direct routing to a specific named provider (no failover). The provider name is carried in the form routing uses, with every space replaced by a hyphen: a provider named `my provider` is addressed as `my-provider/<model>`
 
 **Streaming Response Format:**
@@ -183,7 +183,7 @@ The gateway keeps no conversation state, so every turn re-sends the transcript (
 
 The multimodal endpoints are **transparent pass-through**: the request is forwarded to the resolved provider with only the `model` field rewritten to the upstream model ID, and the provider's response is returned verbatim (JSON, SSE stream, or binary audio). The proxy extracts token counts from the `usage` object for metering; request and response **content is never inspected or logged** (see [Privacy](Privacy)).
 
-Failover applies the same way as chat: with `hotel/<model>` routing, an upstream 5xx/429/401/403/404 moves to the next provider in the group. Failover happens only before any response byte has been forwarded; once a binary or SSE stream starts, the proxy is committed to that provider.
+Failover applies the same way as chat: with `hotel/<model>` routing, an upstream 5xx, 401, 402, 403, 404 or 499 (and a 429 while `failover_on_rate_limit` is on) moves to the next provider in the group. Failover happens only before any response byte has been forwarded; once a binary or SSE stream starts, the proxy is committed to that provider.
 
 #### POST `/v1/embeddings`
 
@@ -277,7 +277,7 @@ The message names the limiter that refused: `rate limit exceeded` for a per-key 
 
 ## Admin API (`/api/*`)
 
-Requires the admin token for all management operations.
+Requires a signed-in identity: the admin token, or a session. What a caller may reach depends on its role and grants.
 
 ### Authentication
 
@@ -285,7 +285,21 @@ Requires the admin token for all management operations.
 Authorization: Bearer <admin-token>
 ```
 
-The admin token is generated on first startup and saved to `.data/admin-token`. It is shown only once in the startup logs.
+The admin token is generated on first startup (or taken from `ADMIN_TOKEN`) and its hash saved to `<DATA_DIR>/admin-token` (`/data/admin-token` in the Docker Compose setup). The plaintext is shown only once in the startup logs. With TOTP enabled the bare admin token no longer authorizes `/api/*` and must be exchanged via `/api/totp/login`.
+
+A session works in its place. Every login front-end mints one: password (`/api/auth/login`), passkey, TOTP, OIDC or GitHub SSO, or the admin-token exchange (`/api/auth/admin-exchange`). The dashboard carries it in an HttpOnly cookie, and a cookie-authenticated `POST`/`PUT`/`PATCH`/`DELETE` must also send a matching `X-CSRF-Token` header (`403` otherwise); a session token sent as `Authorization: Bearer` needs no CSRF header.
+
+**Roles and grants.** The admin token and admin accounts reach everything. A non-admin user account reaches only what its grants open:
+
+| Grant | Routes it opens |
+|-------|-----------------|
+| `chat` | `/api/chat/*`; `GET /api/models` and `/api/models/cursor` |
+| `usage` | `/api/stats/*`; `GET /api/models`, `/api/models/cursor`; `GET /api/providers` and `/api/providers/{id}` |
+| `logs` | `GET /api/logs`, `/api/logs/cursor`, `/api/logs/{id}` (own keys' rows only); `request.*` events on `/api/events` for its own keys |
+| `models` | `GET /api/models` and `/api/models/cursor` |
+| `virtual_keys` | `/api/virtual-keys` (full CRUD on its own keys); `GET /api/providers` and `/api/providers/{id}` |
+
+Any signed-in identity, grants or not, may use `/api/auth/me`, `/api/auth/password`, `/api/auth/sessions*`, the per-user `/api/auth/totp/*` routes, `/api/system`, `/api/version/latest` and `/api/events`. Everything else is admin only: provider writes, discovery, quota (`/usage`, `/balance`, `/account`), model writes and tests, `/api/logs/purge`, app logs, audit, settings, alerts, failover groups, backups, users, config sync and fleet routes. A missing grant is a `403`.
 
 ### Providers
 
@@ -417,21 +431,25 @@ Triggers manual model discovery for a specific provider.
     "added": [{"model_id": "gpt-4o-2024-11", "reason": "new_model"}],
     "reenabled": [{"model_id": "o3-mini", "reason": "reappeared"}],
     "disabled": [{"model_id": "gpt-4o-2024-05", "reason": "not_listed"}],
+    "updated": [{"model_id": "gpt-4o", "changes": [{"field": "input_price", "old": 5.0, "new": 2.5}]}],
     "failover_deleted_groups": [
       {"display_model": "o1-preview", "reason": "only 1 enabled provider (need 2+ for failover)", "provider_count": 1, "provider_names": []}
     ],
     "failover_updated_groups": [
       {"display_model": "glm-4.6", "removed_model_ids": ["uuid-old"], "added_model_ids": ["uuid-new"]}
+    ],
+    "failover_disabled_groups": [
+      {"display_model": "my-custom-group", "effective_count": 1, "reason": "..."}
     ]
   }
 }
 ```
 
-The `diff` summarizes what the scan changed (all sections omitted when empty). Reasons are machine-readable codes: `new_model`, `reappeared`, `not_listed`. Failover groups of newly disabled models are re-synced as part of the scan; the resulting group changes appear in the two `failover_*` sections. The dashboard shows this diff as a post-scan summary modal.
+The `diff` summarizes what the scan changed (all sections omitted when empty). Reasons are machine-readable codes: `new_model`, `reappeared`, `not_listed`. `updated` lists existing models whose metadata changed, one `changes` entry per field (`input_price`, `output_price`, `input_price_cache`, `search_price`, `context_length`), with `old` / `new` omitted when that side was unset. Failover groups of newly disabled models are re-synced as part of the scan; the resulting group changes appear in the three `failover_*` sections, `failover_disabled_groups` naming custom groups switched off because fewer than two routable members remain (their membership is kept). The dashboard shows this diff as a post-scan summary modal.
 
 #### GET `/api/providers/{id}/usage`
 
-Returns usage/quota information for supported providers.
+Returns usage/quota information for supported providers. Answers come from the stored quota snapshot (fetched live once on a cold miss), with the snapshot time in the `X-Quota-Fetched-At` header (RFC3339). A provider with no quota data to report (a NeuralWatt free-tier key, an OpenCode Go key with no subscription) answers `204 No Content`; a dead or revoked provider key answers `424 Failed Dependency`; a provider whose type serves a different kind (or none) is a `400`. The same applies to `/balance` and `/account`.
 
 **Supported providers:**
 - `zai-coding` (Z.AI)
@@ -442,14 +460,31 @@ Returns usage/quota information for supported providers.
 - `minimax` (MiniMax - returns 5-hour/weekly Token Plan quota per model class)
 - `opencode-go` (OpenCode Go - returns rolling/weekly/monthly subscription usage; a `403 EntitlementError` from the upstream usage endpoint means a key with no active Go subscription and yields no data)
 
-**Response (Z.AI example):**
+**Response (Z.AI example, abbreviated):**
 ```json
 {
-  "total_quota": 1000000,
-  "used_quota": 50000,
-  "remaining_quota": 950000
+  "code": 200,
+  "msg": "Operation successful",
+  "success": true,
+  "data": {
+    "level": "pro",
+    "limits": [
+      {
+        "type": "TOKENS_LIMIT",
+        "unit": 3,
+        "number": 5,
+        "usage": 800000000,
+        "currentValue": 12000000,
+        "remaining": 788000000,
+        "percentage": 1.5,
+        "nextResetTime": 1784491200000,
+        "usageDetails": [{"modelCode": "glm-4.6", "usage": 12000000}]
+      }
+    ]
+  }
 }
 ```
+The service decodes the Z.AI quota payload into its modelled fields (the ones shown) and re-serializes them; `usageDetails` is omitted when empty and `nextResetTime` is epoch milliseconds.
 
 **Response (Kimi Code example, abbreviated):**
 ```json
@@ -463,7 +498,7 @@ Returns usage/quota information for supported providers.
   "subType": "coding"
 }
 ```
-The service decodes the Kimi Code `/usages` payload into its modelled fields and re-serializes them (fields it does not model are dropped); the dashboard derives 5-hour and weekly percentages from the `limits` array by matching each window's `duration` (300 minutes = 5h, 10080 minutes = weekly).
+The service decodes the Kimi Code `/usages` payload into its modelled fields and re-serializes them (fields it does not model are dropped). Besides those shown, the modelled fields are a top-level `usage` and `totalQuota` block, and every `detail`, `usage` and `totalQuota` block carries `limit`, `used`, `remaining` and `resetTime`, all strings, empty when Kimi omitted them; the dashboard derives 5-hour and weekly percentages from the `limits` array by matching each window's `duration` (300 minutes = 5h, 10080 minutes = weekly).
 
 **Response (OpenCode Go example):**
 ```json
@@ -483,6 +518,10 @@ The service re-serializes the modelled fields of the `/usage` payload; fields no
   "model_remains": [
     {
       "model_name": "general",
+      "current_interval_total_count": 4500,
+      "current_interval_usage_count": 0,
+      "current_weekly_total_count": 45000,
+      "current_weekly_usage_count": 0,
       "current_interval_status": 1,
       "current_interval_remaining_percent": 100,
       "current_weekly_status": 1,
@@ -490,13 +529,15 @@ The service re-serializes the modelled fields of the `/usage` payload; fields no
       "start_time": 1784473200000,
       "end_time": 1784491200000,
       "remains_time": 16420081,
+      "weekly_start_time": 1784073600000,
+      "weekly_end_time": 1784678400000,
       "weekly_remains_time": 30820081
     }
   ],
   "base_resp": {"status_code": 0, "status_msg": "success"}
 }
 ```
-The service decodes the MiniMax `/token_plan/remains` payload into its modelled fields, including `base_resp`, and re-serializes them (fields it does not model are dropped). MiniMax reports business errors (such as `2062` for "no active token plan subscription") inside an HTTP 200 response, so the dashboard checks `base_resp.status_code` rather than the HTTP status to decide whether quota data is available.
+The service decodes the MiniMax `/token_plan/remains` payload into its modelled fields, including `base_resp`, and re-serializes them (fields it does not model are dropped). Times are epoch milliseconds and `*_remains_time` a countdown in milliseconds to the window's reset; `*_usage_count` is what was used of `*_total_count`, while the `*_remaining_percent` fields are what remains, not what was consumed (some plans report all-zero counts, leaving the percentage as the only signal). MiniMax reports business errors (such as `2062` for "no active token plan subscription") inside an HTTP 200 response, so the dashboard checks `base_resp.status_code` rather than the HTTP status to decide whether quota data is available.
 
 #### GET `/api/providers/{id}/balance`
 
@@ -508,10 +549,13 @@ Returns balance information for supported providers.
 **Response:**
 ```json
 {
-  "balance": 100.50,
-  "currency": "CNY"
+  "is_available": true,
+  "balance_infos": [
+    {"currency": "CNY", "total_balance": "100.50", "granted_balance": "0.00", "topped_up_balance": "100.50"}
+  ]
 }
 ```
+DeepSeek's `/user/balance` payload, re-serialized from its modelled fields. The balances are strings, one entry per currency.
 
 #### GET `/api/providers/{id}/account`
 
@@ -523,11 +567,18 @@ Returns account information for supported providers.
 **Response:**
 ```json
 {
-  "account_id": "...",
-  "email": "...",
-  "credits_remaining": 1000000
+  "id": "...",
+  "email": "user@example.com",
+  "name": "...",
+  "plan": "pro",
+  "customer_id": {"string": "cus_...", "valid": true},
+  "subscription_id": {"string": "sub_...", "valid": true},
+  "subscription_period_start": {"time": "2026-09-01T00:00:00Z", "valid": true},
+  "subscription_period_end": {"time": "2026-10-01T00:00:00Z", "valid": true},
+  "suspended_at": {"time": "0001-01-01T00:00:00Z", "valid": false}
 }
 ```
+Ollama Cloud's `/api/me` payload, re-serialized from its modelled fields. Nullable values arrive as `{string|time, valid}` pairs, `valid: false` meaning null. No credit or usage figure is reported.
 
 #### POST `/api/providers/discover-all`
 
@@ -607,19 +658,25 @@ Cursor (keyset) pagination walks the list by passing the previous response's `ne
     "input_price_per_million": 5.0,
     "output_price_per_million": 15.0,
     "input_price_per_million_cache_hit": 2.5,
+    "search_price_per_thousand": null,
     "price_sources": {"input": "provider", "cache_hit": "modelsdev", "output": "provider"},
     "owned_by": "openai",
     "description": "Most capable model",
-    "params": {"temperature": 0.7},
+    "params": "{\"temperature\":0.7}",
     "modality": "text",
-    "input_modalities": ["text", "image"],
-    "output_modalities": ["text"],
+    "input_modalities": "[\"text\",\"image\"]",
+    "output_modalities": "[\"text\"]",
     "enabled": true,
+    "disabled_manually": false,
+    "price_customized": false,
+    "limits_customized": false,
     "created_at": "2024-01-01T00:00:00Z",
     "last_seen_at": "2024-01-01T00:00:00Z"
   }
 ]
 ```
+
+`capabilities`, `params`, `input_modalities` and `output_modalities` are JSON documents carried as strings (`"{}"` / `"[]"` when unknown), so a client parses them a second time. `search_price_per_thousand` is the rerank price per 1,000 search units, `null` for token-billed models. `disabled_manually` marks a model an operator switched off (as opposed to one discovery disabled); `price_customized` and `limits_customized` mark prices and context limits pinned against discovery.
 
 `price_sources` says where each stored price came from, keyed by price field: `provider` (the provider's own listing), `catalog` (Model Hotel's embedded override), `modelsdev` (enrichment) or `manual` (an operator edit). A key is absent while that price is unset or was stored before sources were recorded.
 
@@ -636,7 +693,9 @@ Cursor (keyset) pagination walks the list by passing the previous response's `ne
   "input_price_per_million": 5.0,
   "input_price_per_million_cache_hit": 2.5,
   "output_price_per_million": 15.0,
+  "search_price_per_thousand": 2.0,
   "price_customized": true,
+  "limits_customized": true,
   "enabled": true
 }
 ```
@@ -648,6 +707,8 @@ Cursor (keyset) pagination walks the list by passing the previous response's `ne
 - `input_price_per_million`: 0-1000
 - `input_price_per_million_cache_hit`: 0-1000
 - `output_price_per_million`: 0-1000
+- `search_price_per_thousand`: 0-1000
+- `limits_customized`: boolean; any edit of `context_length` or `max_output_tokens` pins both against discovery, and `false` clears the pin and both limits so the next scan refills them
 - `price_customized`: boolean; marks the prices as operator-set so discovery enrichment leaves them alone. An edited price is recorded as `manual` in the model's `price_sources`; unpinning clears the prices and their sources so the next scan writes both afresh.
 
 #### DELETE `/api/models/{id}`
@@ -662,16 +723,21 @@ Tests a model by sending a minimal prompt and measuring response. A rerank model
 ```json
 {
   "success": true,
+  "streaming": true,
   "duration_ms": 234,
   "ttft_ms": 123,
+  "response_header_ms": 98,
   "response": "Hi"
 }
 ```
+
+`streaming` says whether the probe streamed; `ttft_ms` and `response_header_ms` are omitted when not measured.
 
 For a rerank model:
 ```json
 {
   "success": true,
+  "streaming": false,
   "duration_ms": 296,
   "response": "",
   "ranked_results": 1
@@ -682,6 +748,7 @@ On error:
 ```json
 {
   "success": false,
+  "streaming": false,
   "duration_ms": 5000,
   "error": "HTTP 401: Invalid API key"
 }
@@ -719,16 +786,20 @@ On error:
       "description": "Primary failover group",
       "group_enabled": true,
       "auto_created": false,
+      "auto_disabled": false,
       "entries": [
         {
           "model_uuid": "uuid",
           "model_id": "z-ai/glm-4.6",
+          "provider_id": "uuid",
           "provider_name": "OpenRouter",
           "display_name": "GLM 4.6",
           "enabled": true,
           "model_enabled": true,
           "provider_enabled": true,
-          "context_length": 200000
+          "disabled_manually": false,
+          "context_length": 200000,
+          "owned_by": "z-ai"
         }
       ],
       "total_tokens": 123456,
@@ -739,6 +810,8 @@ On error:
   "last_synced_at": "2024-01-01T00:00:00Z"
 }
 ```
+
+`auto_disabled` marks a group switched off because it fell below two routable members (by sync or by the dashboard's floor cascade), not by an operator. An entry's `disabled_manually` tells an operator-disabled model from one discovery disabled.
 
 ![Failover Groups Page](screenshots/failover.png)
 
@@ -789,6 +862,7 @@ On error:
 | `group_enabled` | boolean | Enable/disable entire group |
 | `priority_order` | array | New priority order of model UUIDs |
 | `entry_enabled` | object | Map of model UUID to enabled state |
+| `floor_disabled` | boolean | Marks a `group_enabled: false` as the dashboard's floor cascade (a member toggle left fewer than two routable members) rather than an operator's choice. The server re-checks the count and ignores the flag on a viable group; only such a disable is stamped `auto_disabled` |
 
 **Validation:** an active group must keep at least one enabled entry. Turning a group on (the off to on transition only) additionally requires at least 2 routable members, meaning entries whose model and whose provider are both enabled; short of that the request is a `400`.
 
@@ -816,10 +890,14 @@ Re-synchronizes all failover groups with current model database state.
 ```json
 {
   "deleted_groups": [],
-  "purged_entries": [],
+  "updated_groups": [{"display_model": "glm-4.6", "removed_model_ids": ["uuid-old"], "added_model_ids": ["uuid-new"]}],
+  "purged_entries": [{"group_display_model": "glm-4.6", "pruned_model_ids": ["uuid-gone"]}],
+  "disabled_groups": [{"display_model": "my-custom-group", "effective_count": 1, "reason": "..."}],
   "sync_errors": []
 }
 ```
+
+`deleted_groups` is always present; the other four are omitted when empty.
 
 #### GET `/api/failover-groups/candidates`
 
@@ -945,10 +1023,16 @@ This endpoint is **deliberately API only: there is no UI control for it, by deci
     "rate_limit_burst": null,
     "rate_limit_tpm": null,
     "allowed_providers": null,
-    "strip_reasoning": false
+    "strip_reasoning": false,
+    "owner_user_id": "uuid",
+    "owner_username": "maya",
+    "budget_usd": null,
+    "budget_period": null
   }
 ]
 ```
+
+`owner_user_id` is the account that owns the key (`null` for an unowned key) and `owner_username` its name, omitted when there is none. A non-admin caller sees and edits only its own keys, and a key it creates is always its own: `owner_user_id` in the body is honoured for admins only.
 
 ![Virtual Keys Page](screenshots/virtual_keys.png)
 
@@ -976,6 +1060,7 @@ This endpoint is **deliberately API only: there is no UI control for it, by deci
 | `budget_period` | string | No | `day`, `week` (Monday to Sunday) or `month`, all UTC; null when `budget_usd` is null |
 | `allowed_providers` | array of UUID strings | No | Restrict this key to the listed provider IDs (null = all providers accessible; an empty array is rejected) |
 | `strip_reasoning` | boolean | No | Strip `reasoning`/`reasoning_content` fields from streaming output for this key |
+| `owner_user_id` | UUID string | No | Admins only: the account that owns the key (null or absent = unowned on create; on update, null unassigns and omitting it keeps the current owner). Ignored for a non-admin caller, whose keys are always its own |
 
 **Response:** `201 Created`
 ```json
@@ -1035,7 +1120,7 @@ This endpoint is **deliberately API only: there is no UI control for it, by deci
 | `client_ip` | string | - | Filter by the resolved client address |
 | `owner_user_id` | UUID | - | Filter by the account that owns the key (admins only; a non-admin caller is scoped to their own rows regardless) |
 | `status_code` | string | - | Filter by status code (`4xx`, `5xx`, or exact integer; `0` = no response) |
-| `endpoint_type` | string | - | Filter by endpoint family: `chat`, `messages`, `embeddings`, `rerank`, `image`, `tts`, `stt` (unknown values are ignored) |
+| `endpoint_type` | string | - | Filter by endpoint family: `chat`, `messages`, `responses`, `embeddings`, `rerank`, `image`, `tts`, `stt` (unknown values are ignored) |
 | `from` | RFC3339 | - | Start timestamp |
 | `to` | RFC3339 | - | End timestamp |
 | `attempt_provider_id` | UUID | - | Select requests whose per-attempt trail names this provider on ANY attempt, whoever served the request in the end ("every request in which Neuralwatt answered") |
@@ -1073,17 +1158,20 @@ This endpoint is **deliberately API only: there is no UI control for it, by deci
       "tokens_completion_reasoning": 0,
       "tokens_prompt_cache_hit": 0,
       "tokens_prompt_cache_miss": 0,
+      "search_units": 0,
       "cost_usd": 0.0039,
       "streaming": true,
       "virtual_key_name": "Production Key",
       "virtual_key_deleted": false,
       "virtual_key_id": "uuid",
+      "client_ip": "203.0.113.7",
       "error_message": "",
       "error_kind": "",
       "failover_attempt": 1,
       "state": "completed",
       "endpoint_type": "chat",
       "created_at": "2024-01-01T00:00:00Z",
+      "resolved_model_id": "gpt-4o-2024-08-06",
       "attempts": [
         {"attempt": 0, "provider_id": "uuid", "provider": "Neuralwatt", "model": "glm-5.3", "status": 429, "error_kind": "provider_saturated", "detail": "concurrent_budget_exceeded", "phrase": "concurrent_budget_exceeded", "duration_ms": 412, "breaker": "noop"},
         {"attempt": 1, "provider_id": "uuid", "provider": "OpenAI", "model": "gpt-4o", "status": 200, "duration_ms": 8299, "ttft_ms": 123.4, "breaker": "success"}
@@ -1095,6 +1183,8 @@ This endpoint is **deliberately API only: there is no UI control for it, by deci
   "per_page": 20
 }
 ```
+
+`search_units` is what a rerank provider billed (0 on every other row), `client_ip` the resolved client address (empty on older rows and address-less paths), `resolved_model_id` the upstream model id that actually served the request (for a `hotel/` request `model_id` holds the group name). `cost_usd` is `null` when the request could not be priced.
 
 `attempts` is the per-attempt trail: one element per failover attempt, in order, hedged probes (a hedged attempt abandoned in flight appears with no `status` and the exit as its `error_kind`: `hedge_superseded` when another candidate won, `failover_timeout`, `client_disconnect`) and in-flight busy skips included; sorted by `attempt`, skips first. `attempt` is the loop's index (the same numbering as `failover_attempt`); `-1` marks a candidate the circuit breaker refused before any request was made (`breaker: "skipped"`). `status` is the upstream status the attempt reached (omitted when no response was seen), `detail` at most 160 characters of the sanitized, credential-masked upstream error (never request content), `phrase` the rate-limit phrase-table entry a 429 matched, and `breaker` what the attempt did to the circuit: `charge`, `noop`, `success`, `alive`, `skipped` or `disabled`. The field is omitted for rows without a trail (rows from before it existed, rows an older member wrote, requests that never reached a candidate). The terminal attempt's values also stay in the flat columns, so nothing that reads them changes. See [Failover: the per-attempt trail](Failover-and-Hotel-Routing#the-per-attempt-trail).
 
@@ -1119,7 +1209,7 @@ This endpoint is **deliberately API only: there is no UI control for it, by deci
 |----------|--------|-------------|
 | `/api/logs/app` | GET | Query application logs |
 | `/api/logs/app/cursor` | GET | Cursor-paginated app log history |
-| `/api/logs/app` | DELETE | Clear all app logs (ring buffer + DB) |
+| `/api/logs/app` | DELETE | Clear app logs (ring buffer + DB), all or older than a period |
 
 #### GET `/api/logs/app`
 
@@ -1178,10 +1268,19 @@ This endpoint is **deliberately API only: there is no UI control for it, by deci
 
 #### DELETE `/api/logs/app`
 
+**Request Body (optional):**
+```json
+{ "older_than": "1d" }
+```
+
+**Accepted values:** `1h`, `1d`, `1w`, `1m`, `all`. No body (or no `older_than`) means `all`; a body that cannot be read, or another value, is a `400`.
+
 **Response:**
 ```json
 { "deleted": 1234 }
 ```
+
+`deleted` is the number of database rows removed. **Response (503):** the app log writer did not drain its queue in time, so the purge was refused rather than undone by the pending flush; retry it.
 
 ---
 
@@ -1202,6 +1301,7 @@ This endpoint is **deliberately API only: there is no UI control for it, by deci
 |-----------|------|---------|-------------|
 | `limit` | integer | 50 | Page size (max 200) |
 | `cursor` | string | - | Keyset cursor from a previous response's `next_cursor` |
+| `offset` | integer | 0 | Rows to skip, for offset paging instead of the cursor |
 | `actor` | string | - | Filter by actor (exact match: a username, or `admin` for legacy admin-token/passkey/SSO logins) |
 | `method` | string | - | Filter by HTTP method (`POST`, `PUT`, `PATCH`, `DELETE`) |
 | `from` | RFC3339 | - | Start timestamp |
@@ -1271,10 +1371,14 @@ The purge is itself a mutating request and is recorded by the audit middleware, 
   {
     "filename": "backup_20240101_120000_123456.dump",
     "size_bytes": 10485760,
-    "created_at": "2024-01-01T12:00:00Z"
+    "created_at": "2024-01-01T12:00:00Z",
+    "origin": "manual",
+    "signed": true
   }
 ]
 ```
+
+`origin` is `manual` (created from the API or dashboard), `scheduled` (the rotation scheduler) or `frontdesk` (requested with `?origin=frontdesk`); only scheduled backups are rotated. `signed` says a signature sidecar exists, not that it verifies: the check runs on download.
 
 ![Backups Section](screenshots/settings_backup.png)
 
@@ -1287,7 +1391,9 @@ Creates a PostgreSQL backup using `pg_dump` (custom format, zstd-compressed: lev
 {
   "filename": "backup_20240101_120000_123456.dump",
   "size_bytes": 10485760,
-  "created_at": "2024-01-01T12:00:00Z"
+  "created_at": "2024-01-01T12:00:00Z",
+  "origin": "manual",
+  "signed": true
 }
 ```
 
@@ -1301,6 +1407,38 @@ Creates a PostgreSQL backup using `pg_dump` (custom format, zstd-compressed: lev
 Downloads the backup file.
 
 **Response:** File download with `Content-Disposition: attachment`
+
+**Error Responses:**
+- `403 Forbidden` - Read-only demo mode
+- `404 Not Found` - Backup does not exist
+- `409 Conflict` - A signed backup failed its integrity check (contents changed after signing); nothing is served
+- `500 Internal Server Error` - The file or its signature could not be read
+
+#### POST `/api/backups/restore`
+
+Replaces the database with an uploaded dump. `multipart/form-data`, at most 100 MB:
+
+| Field | Required | Description |
+|-------|----------|-------------|
+| `dump` | Yes | The `.dump` file, under its original filename (the signature covers the name) |
+| `admin_token` | Yes | The admin token re-typed as a step-up; a session token never counts. With TOTP enabled it is accepted only on a request that is itself an admin session |
+| `signature` | No | The backup's signature (from `GET /api/backups/{filename}/signature`). A mismatch is refused; an absent one is allowed and raises `backup.restore_unverified` |
+
+Before restoring, the dump is checked with `pg_restore --list`: it must be a Model Hotel backup (carry `schema_migrations`), hold no dangerous objects, and not come from a newer version. The restore runs in a single transaction; on success the process exits and the container restart re-runs any missing migrations.
+
+**Response:**
+```json
+{ "migration_count": 91, "known_count": 92 }
+```
+
+`migration_count` is the migrations recorded in the dump, `known_count` those this build knows.
+
+**Error Responses:**
+- `400 Bad Request` - Unreadable form, missing `dump`, signature mismatch, invalid dump, dangerous objects, no `schema_migrations`, or a dump from a newer version
+- `401 Unauthorized` - Missing or wrong `admin_token`
+- `409 Conflict` - Another backup or restore is in progress
+- `412 Precondition Failed` - `pg_restore` not found
+- `500 Internal Server Error` - Saving, verifying or restoring the dump failed
 
 #### GET `/api/backups/{filename}/signature`
 
@@ -1504,14 +1642,20 @@ A key outside the allowlist below is a `400` (`unknown setting: <key>`), as is a
   "avg_overhead_ms": 1.2,
   "total_tokens_prompt": 500000,
   "total_tokens_completion": 750000,
+  "total_tokens_cache_hit": 120000,
   "total_cost_usd": 12.34,
   "requests_unpriced": 3,
   "avg_tokens_per_request": 101.2,
   "rate_limit_hits": 15,
   "avg_ttft_ms": 123.4,
-  "requests_last_1h": 500
+  "requests_last_1h": 500,
+  "by_provider_latency": [
+    {"provider_name": "OpenAI", "total_ms": 234.5, "overhead_ms": 1.2, "provider_ms": 233.3, "request_count": 8000}
+  ]
 }
 ```
+
+`total_tokens_cache_hit` is the prompt tokens served from the provider's cache. `by_provider_latency` is filled only with `include_latency=true` (the six providers with the highest average total latency) and is `null` otherwise.
 
 `total_cost_usd` sums `request_logs.cost_usd` over the period. Requests the proxy could not price add nothing, and `requests_unpriced` counts the served (2xx) ones among them, so the total is a floor by that many requests. The `by_*` maps carry whichever metric was asked for, so under `metric=cost` their values are dollars.
 
@@ -1527,6 +1671,8 @@ A key outside the allowlist below is a `400` (`unknown setting: <key>`), as is a
       "bucket": "2024-01-01T00:00:00Z",
       "count": 100,
       "tokens": 50000,
+      "tokens_cache_hit": 12000,
+      "tokens_cache_miss": 8000,
       "cost_usd": 0.42,
       "errors": 2,
       "latency_ms": 234.5,
@@ -1613,21 +1759,36 @@ Returns hourly buckets for `1h` and `24h` periods, daily buckets for `7d`. Empty
     "size_mb": 256.0,
     "connections": 10,
     "cache_hit_ratio": 99.5,
+    "cache_window_blocks": 48213,
     "tx_per_sec": 15.3,
     "dead_tuples": 1000,
     "lock_waits": 0
   },
   "docker": {
+    "available": true,
     "cpu_percent": 5.0,
     "memory_usage_bytes": 536870912,
     "memory_limit_bytes": 2147483648,
-    "net_rx_bytes": 1048576,
-    "net_tx_bytes": 2097152,
-    "block_read_bytes": 524288,
-    "block_write_bytes": 262144
-  }
+    "net_rx_bytes_sec": 1024.0,
+    "net_tx_bytes_sec": 2048.0,
+    "disk_read_bytes_sec": 512.0,
+    "disk_write_bytes_sec": 256.0,
+    "procs": 12,
+    "container_count": 3
+  },
+  "fleet": {
+    "state": "member",
+    "is_primary": false,
+    "primary_name": "mh1",
+    "frontdesk_id": "...",
+    "managed_seen_at": "2024-01-01T12:00:00Z",
+    "config_synced_at": "2024-01-01T11:55:00Z"
+  },
+  "instance_id": "uuid"
 }
 ```
+
+`docker` aggregates every container of the Compose project, as rates per second; `available` is `false` when the Docker API cannot be read. `db.cache_window_blocks` is how many block accesses the window behind `cache_hit_ratio` held, omitted when the ratio rests on no fresh activity. `fleet` is this instance's HA membership (`state` is `primary`, `member` or `warning`), omitted for a standalone instance Front Desk has never contacted. `instance_id` is the instance's stable identity, which Front Desk uses to recognize one instance reached under two URLs.
 
 ---
 
@@ -1635,11 +1796,11 @@ Returns hourly buckets for `1h` and `24h` periods, daily buckets for `7d`. Empty
 
 | Endpoint | Method | Description |
 |----------|--------|-------------|
-| `/api/events` | GET | Server-Sent Events stream (requires admin token) |
+| `/api/events` | GET | Server-Sent Events stream (any signed-in identity; events filtered per caller) |
 
 #### GET `/api/events`
 
-Long-lived SSE stream for real-time dashboard updates. Requires admin token in `Authorization` header.
+Long-lived SSE stream for real-time dashboard updates. Any signed-in identity may connect (admin token or session, as on the rest of `/api`). Admins receive every event. A non-admin receives only `request.*` lifecycle events (not `request.discovery.*`), and only when it holds the `logs` grant and the event belongs to one of its own virtual keys; every other event type stays admin only. The credentials are re-checked on every heartbeat, so a changed grant applies mid-stream and a revoked session or disabled account closes the stream after two failed checks.
 
 **Response Headers:**
 ```
@@ -1678,6 +1839,8 @@ data: {"type":"discovery.complete","severity":"success","message":"Discovery com
 | `circuit_breaker.closed` | `success` | A circuit closed (recovered) |
 | `circuit_breaker.unstable` | `warning` | One model opened its circuit 3 times in 24h, so it keeps returning to service still broken |
 | `quota.schema_drift` | `warning` | A provider changed the shape of its quota response |
+| `budget.warning` | `warning` | A virtual key or user reached 80% of its dollar budget for the period |
+| `budget.exceeded` | `error` | A virtual key or user reached its dollar budget; its requests are refused until the period ends |
 | `tokens.error` | `error` | Error counting tokens |
 | `request.started` | `info` | A proxied request started |
 | `request.streaming` | `info` | A proxied request began streaming |
@@ -1747,11 +1910,11 @@ Heartbeat comments (`: heartbeat`) are sent every 30 seconds.
 
 ### WebAuthn / Passkeys
 
-Available only when `WEBAUTHN_RP_ID` is configured (see [Security](Security) for the full authentication flow).
+Available only when `WEBAUTHN_RP_ID` is configured; without it none of these routes is mounted and each answers `404`, `/api/webauthn/available` included (see [Security](Security) for the full authentication flow).
 
 | Endpoint | Method | Auth | Description |
 |----------|--------|------|-------------|
-| `/api/webauthn/available` | GET | None (public) | Check if WebAuthn is enabled (`{"enabled": true/false}`) |
+| `/api/webauthn/available` | GET | None (public) | Check if WebAuthn is enabled (`{"enabled": true, "has_credentials": true}`; the login screen offers passkeys only when both are true) |
 | `/api/webauthn/login/start` | POST | IP rate-limited | Begin passkey login |
 | `/api/webauthn/login/finish` | POST | IP rate-limited | Complete passkey login, receive session token |
 | `/api/webauthn/register/start` | POST | Admin/session token | Begin credential registration |
@@ -1767,7 +1930,7 @@ Time-based one-time passwords (RFC 6238) as an admin-login second factor, indepe
 
 | Route | Method | Auth | Description |
 |-------|--------|------|-------------|
-| `/api/totp/status` | GET | None (public) | Report whether TOTP is enabled (`{"enabled": true/false}`) |
+| `/api/totp/status` | GET | None (public) | Report whether TOTP is enabled (`{"enabled": true, "enabled_at": "<RFC3339>"}`; `enabled_at` omitted while disabled) |
 | `/api/totp/login` | POST | IP rate-limited; failures back off per IP and per account | Exchange admin token + 6-digit code (or a recovery code) for a session token. Body must be `application/json` (415 otherwise) |
 | `/api/totp/info` | GET | Admin/session token | Enrollment state and remaining recovery-code count |
 | `/api/totp/enroll/start` | POST | Admin/session token | Begin enrollment; returns the otpauth URI + base32 secret |
@@ -1796,7 +1959,7 @@ When TOTP is enabled, the raw admin token alone no longer authorizes `/api/*`: i
 
 These endpoints proxy through the same completion handler as `/v1/chat/completions`, but authenticate a dashboard session instead of a virtual key: any signed-in identity holding the chat grant may use them, not only an admin. Streaming and non-streaming both work as on `/v1`.
 
-Three limiters apply in order: the per-IP limiter every `/api` route carries, the per-key RPS limiter (bucketed on the route name, `chat`/`arena`/`completions`, since there is no virtual key here), and the caller's own per-user tokens-per-minute cap. A user with a TPM cap is metered here exactly as on `/v1`.
+Four limiters apply in order: the per-IP limiter every `/api` route carries, the per-key RPS limiter (bucketed on the route name, `chat`/`arena`/`completions`, since there is no virtual key here, alongside the caller's per-user request cap), the caller's own per-user tokens-per-minute cap, and the caller's per-user dollar budget. A user with a TPM cap or a budget is metered here exactly as on `/v1`.
 
 **Request/Response:** Same format as `/v1/chat/completions`
 
@@ -1808,7 +1971,7 @@ Routes that exist but have no section of their own. Everything under `/api` carr
 
 | Endpoint | Method | Auth | Description |
 |----------|--------|------|-------------|
-| `/metrics` | GET | `METRICS_TOKEN` or admin token | Prometheus metrics; never anonymous, and outside the per-IP limiter so scrapers are not throttled |
+| `/metrics` | Any (GET in practice) | `METRICS_TOKEN` or admin token | Prometheus metrics; never anonymous, and outside the per-IP limiter so scrapers are not throttled |
 | `/api/public-config` | GET | None (public) | Feature flags the login screen needs (e.g. read-only demo mode) |
 | `/api/demo-login` | GET | None (public) | Demo-mode login helper |
 | `/api/auth/status` | GET | None (public) | Whether password login is available |
@@ -1885,17 +2048,21 @@ Returns `200` with the body `OK` while the database answers, and `503` with the 
 |------|-------------|---------------|
 | `200` | OK | Successful request |
 | `201` | Created | Resource created successfully |
-| `204` | No Content | Successful deletion |
+| `204` | No Content | Successful deletion; a quota endpoint with no data for this key (e.g. a NeuralWatt free tier) |
 | `400` | Bad Request | Invalid request body, validation errors |
 | `401` | Unauthorized | Missing or invalid authentication |
 | `403` | Forbidden | Authenticated but not permitted (missing grant, read-only demo, managed fleet member) |
 | `404` | Not Found | Resource not found |
 | `409` | Conflict | Duplicate resource, operation in progress |
 | `412` | Precondition Failed | Missing dependency (e.g. `pg_dump`) |
+| `415` | Unsupported Media Type | A login route (`/api/auth/login`, `/api/auth/admin-exchange`, `/api/totp/login`) sent a body that is not `application/json` |
+| `424` | Failed Dependency | A quota endpoint (`/usage`, `/balance`, `/account`) whose provider key is dead or revoked |
 | `429` | Too Many Requests | Rate limit exceeded |
 | `499` | Client Closed Request | The caller hung up before the answer (nginx's non-standard code, recorded in the request log) |
 | `500` | Internal Server Error | Server error; on the proxy, `could not resolve model` when the model lookup itself failed (the database, not an unknown model) |
 | `502` | Bad Gateway | Upstream provider error |
+| `503` | Service Unavailable | `/health` with the database down; a budget that cannot be summed yet; the circuit breaker not available; an app log purge the writer could not drain in time |
+| `504` | Gateway Timeout | An `/api` request that outran its 60-second route timeout |
 
 ### Proxy-Specific Errors
 
@@ -1950,8 +2117,8 @@ Returns `200` with the body `OK` while the database answers, and `503` with the 
 | Route Group | Auth Method | Token Format |
 |-------------|-------------|--------------|
 | `/v1/*` | Virtual Key | `Bearer sk-...` |
-| `/api/*` | Admin Token (or WebAuthn/TOTP session) | `Bearer <admin-token>` |
-| `/api/events` | Admin Token (or WebAuthn/TOTP session) | `Bearer <admin-token>` |
+| `/api/*` | Admin token or a session (password, passkey, TOTP, OIDC or GitHub login); non-admin accounts limited by grants | `Bearer <admin-token>`, `Bearer <session-token>`, or session cookie plus `X-CSRF-Token` on unsafe methods |
+| `/api/events` | Any signed-in identity (events filtered per caller) | as `/api/*` |
 | `/api/chat/*` | Any signed-in identity holding the chat grant | `Bearer <admin-token>` or session cookie |
 | `/api/webauthn/available`, `/api/webauthn/login/*` | None (IP rate-limited) | - |
 | `/api/totp/status` | None (public) | - |
@@ -1974,11 +2141,11 @@ X-RateLimit-Remaining: 0
 X-RateLimit-Burst: 20
 ```
 
-`Retry-After` is only set when a wait was computed. The per-IP limiter adds `X-RateLimit-Scope: ip`, so a client can tell an address-wide refusal from a key-wide one.
+`Retry-After` is only set when a wait was computed. `X-RateLimit-Scope` names the stage that refused: `ip` for the per-IP limiter and `ratelimit-tpm` for a tokens-per-minute cap (per key or per user); a per-key or per-user request-rate refusal carries none. A client can so tell an address-wide refusal from a key-wide one.
 
 ### Per-IP Rate Limits
 
-Applied to all routes, configurable via settings:
+Applied to `/api/*`, `/api/chat/*` and `/v1/*` (not to `/health`, `/metrics` or the dashboard's static files), configurable via settings:
 
 | Setting | Default | Description |
 |---------|---------|-------------|
@@ -1996,13 +2163,15 @@ CORS is configurable via the `CORS_ORIGINS` environment variable (comma-separate
 **Response Headers (when origin matches):**
 ```
 Access-Control-Allow-Origin: <origin>
-Access-Control-Allow-Methods: GET, POST, PUT, DELETE, OPTIONS
-Access-Control-Allow-Headers: Content-Type, Authorization
+Access-Control-Allow-Methods: GET, POST, PUT, PATCH, DELETE, OPTIONS
+Access-Control-Allow-Headers: Content-Type, Authorization, X-CSRF-Token, x-api-key
 Access-Control-Allow-Credentials: true
 Access-Control-Max-Age: 86400
 ```
 
-**Preflight:** `OPTIONS` requests return `204 No Content` when the origin is allowed.
+A preflight that names its headers in `Access-Control-Request-Headers` gets that list echoed back as `Access-Control-Allow-Headers` instead, so browser SDKs can send their own (`anthropic-version`, `x-stainless-*`). Every request carrying an `Origin` gets `Vary: Origin`.
+
+**Preflight:** an `OPTIONS` request carrying an `Origin` header returns `204 No Content`; the CORS headers above are added only when the origin is allowed.
 
 ---
 

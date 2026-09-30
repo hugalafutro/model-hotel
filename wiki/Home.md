@@ -49,6 +49,7 @@ See [[Development]] for local setup details.
 
 - [[Model Discovery]] - Automatic model synchronization with per-provider metadata
 - [[Failover and Hotel Routing]] - Transparent failover, hotel routing, circuit breaker
+- [[Observability]] - Prometheus metrics, JSON logs, OTLP log export, and a provisioned Grafana dashboard
 - [[Alerting]] - Outbound notifications for operational events, via Telegram, email, Discord, Slack, Matrix, webhooks, and more
 - [[High Availability]] - Front Desk control plane + Traefik for drop-in multi-instance HA
 - [[Bellhop]] - Android companion app: pair a phone with Front Desk and monitor the fleet

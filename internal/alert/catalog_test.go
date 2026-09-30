@@ -159,3 +159,21 @@ func TestCatalogTypesAreEmitted(t *testing.T) {
 		}
 	}
 }
+
+// TestDashboardAlertEventsDefaultMatchesCatalog: the dashboard's Settings
+// defaults mirror DefaultEnabledCSV by hand, so a new default-on event would
+// otherwise leave the dashboard's reset-to-default value silently short.
+func TestDashboardAlertEventsDefaultMatchesCatalog(t *testing.T) {
+	const path = "../../web/src/pages/Settings/defaults.ts"
+	src, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatalf("read %s: %v", path, err)
+	}
+	m := regexp.MustCompile(`alert_events:\s*"([^"]*)"`).FindSubmatch(src)
+	if m == nil {
+		t.Fatalf("no alert_events default found in %s", path)
+	}
+	if got, want := string(m[1]), DefaultEnabledCSV(); got != want {
+		t.Errorf("%s alert_events = %q, want alert.DefaultEnabledCSV() = %q", path, got, want)
+	}
+}

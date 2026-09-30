@@ -78,9 +78,9 @@ Virtual keys are **never stored in plaintext**: the key is hashed with SHA-256 a
 `ProxyKeyMiddleware` runs ahead of every `/v1` handler:
 
 1. **Extract**: read the key from `Authorization: Bearer` or, failing that, `x-api-key`. Neither present is a `401` with `missing authorization header`.
-2. **Hash and look up**: SHA-256 the key and fetch the row by hash, joining the owning user. The lookup carries its own 10-second timeout so a wedged database refuses requests (`500 internal error`) instead of parking them.
+2. **Hash and look up**: SHA-256 the key and fetch the row by hash, joining the owning user. The lookup carries its own 10-second timeout so a wedged database refuses requests (`500 internal error`) instead of parking them; a client that disconnects mid-lookup gets `499` instead.
 3. **Refuse cleanly**: an unknown hash is `401 invalid virtual key`; a key whose owner account is disabled is `401 virtual key disabled: owner account is disabled`. Every `401` from this middleware sets `Connection: close`, so a client trickling a body with no valid key hears the refusal immediately rather than after the body deadline.
-4. **Populate context**: key name, id, hash, the per-key RPS/burst/TPM overrides, `allowed_providers`, `strip_reasoning`, and, for an owned key, the owner id plus that account's aggregate limits and provider cap.
+4. **Populate context**: key name, id, hash, the per-key RPS/burst/TPM overrides, `allowed_providers`, `strip_reasoning`, the key's dollar budget when it has one, and, for an owned key, the owner id plus that account's aggregate limits, provider cap and dollar budget.
 5. **Touch**: update `last_used_at` in a fire-and-forget goroutine with a 5-second timeout, so the proxy path never waits on it.
 
 Rejections are logged at warn level with the remote address and, where known, the key name. Request and response content is never logged.
@@ -92,20 +92,22 @@ After successful authentication, the following values are available in request c
 | Key | Type | Purpose |
 |-----|------|---------|
 | `virtual_key_name` | `string` | Human-readable key name (e.g., "production-app") |
-| `virtual_key_id` | `uuid.UUID` | Database primary key |
+| `virtual_key_id` | `string` | Database primary key (UUID string) |
 | `virtual_key_hash` | `string` | SHA-256 hash (64 hex chars) |
 | `virtual_key_rate_limit_rps` | `*float64` | Per-key RPS override (nil = use global) |
 | `virtual_key_rate_limit_burst` | `*int` | Per-key burst override (nil = use global) |
 | `virtual_key_rate_limit_tpm` | `*int` | Per-key tokens-per-minute cap (nil = no cap / global default) |
 | `virtual_key_allowed_providers` | `*[]string` | Provider access restriction (nil = all providers) |
 | `virtual_key_strip_reasoning` | `bool` | Whether to strip reasoning fields from streaming output |
-| `virtual_key_owner_id` | `uuid.UUID` | Owning dashboard user (absent for an unowned key) |
+| `key_budget` | `*budget.Subject` | The key's dollar budget (absent when the key has none) |
+| `virtual_key_owner_id` | `string` | Owning dashboard user's UUID (absent for an unowned key) |
 | `user_rate_limit_rps` | `*float64` | Owner's aggregate RPS cap (nil = no cap) |
 | `user_rate_limit_burst` | `*int` | Owner's aggregate burst (nil = no cap) |
 | `user_rate_limit_tpm` | `*int` | Owner's aggregate tokens-per-minute cap (nil = no cap) |
 | `user_allowed_providers` | `*[]string` | Owner's account provider cap (nil = no cap) |
+| `user_budget` | `*budget.Subject` | Owner's account dollar budget (absent when the account has none) |
 
-The five owner values are set only when the key has an owner.
+The six owner values are set only when the key has an owner, and `user_budget` only when that account has a budget.
 
 ## Database Schema
 
@@ -126,11 +128,18 @@ CREATE TABLE IF NOT EXISTS virtual_keys (
     allowed_providers TEXT[] DEFAULT NULL,
     strip_reasoning BOOLEAN NOT NULL DEFAULT false,
     owner_user_id   UUID REFERENCES users(id) ON DELETE SET NULL,
+    budget_usd      DOUBLE PRECISION,
+    budget_period   TEXT,
 
     CONSTRAINT virtual_keys_rate_limit_bounds CHECK (
         (rate_limit_rps   IS NULL OR rate_limit_rps   >= 0) AND
         (rate_limit_burst IS NULL OR rate_limit_burst >= 1) AND
         (rate_limit_tpm   IS NULL OR rate_limit_tpm   >= 1)
+    ),
+    CONSTRAINT virtual_keys_budget_check CHECK (
+        (budget_usd IS NULL) = (budget_period IS NULL)
+        AND (budget_usd IS NULL OR (budget_usd > 0 AND budget_usd <= 10000000))
+        AND (budget_period IS NULL OR budget_period IN ('day', 'week', 'month'))
     )
 );
 
@@ -156,6 +165,8 @@ CREATE INDEX IF NOT EXISTS idx_virtual_keys_owner
 | `allowed_providers` | `TEXT[]` | NULLABLE | Provider IDs this key may use (null = all providers accessible) |
 | `strip_reasoning` | `BOOLEAN` | NOT NULL, DEFAULT false | Strip `reasoning`/`reasoning_content` fields from streaming output for this key |
 | `owner_user_id` | `UUID` | NULLABLE, FK `users(id)` ON DELETE SET NULL | Owning dashboard user (null = unowned) |
+| `budget_usd` | `DOUBLE PRECISION` | NULLABLE, above 0 and at most 10,000,000 | Dollar spending cap per period (null = no budget) |
+| `budget_period` | `TEXT` | NULLABLE, `day`, `week` or `month` | Calendar period (UTC) the budget resets on; set exactly when `budget_usd` is |
 
 Deleting a user orphans their keys (`owner_user_id` becomes null) instead of deleting them, so an account cleanup cannot silently kill production traffic.
 
@@ -173,6 +184,8 @@ Deleting a user orphans their keys (`owner_user_id` becomes null) instead of del
 | `051` | `internal/db/migrations/051_user_limits_vk_ownership.sql` | Added `owner_user_id` plus its index, and the matching per-user limit columns |
 | `064` | `internal/db/migrations/064_rate_limit_bounds.sql` | Nulled out-of-bounds limits and added the `CHECK` that keeps them in range |
 | `074` | `internal/db/migrations/074_request_log_vk_index.sql` | Indexed `request_logs.virtual_key_id` for the Logs page's virtual-key filter |
+| `081` | `internal/db/migrations/081_rate_limit_ceilings.sql` | Clamped per-key (and per-user) limits above the API ceilings (RPS and burst 10000, TPM 100000000); no `CHECK`, since config sync accepts above-ceiling values |
+| `087` | `internal/db/migrations/087_budgets.sql` | Added `budget_usd` + `budget_period` and the `virtual_keys_budget_check` pairing constraint (the same pair on `users`) |
 
 ## API Reference
 
@@ -208,6 +221,8 @@ Two things narrow that further:
 | `allowed_providers` | `array of UUID strings` | No | Restrict the key to the listed provider IDs (null/omitted = all providers; empty array rejected) |
 | `strip_reasoning` | `boolean` | No | Strip `reasoning`/`reasoning_content` from streaming output (default false) |
 | `owner_user_id` | `UUID string` | No | Dashboard user to own the key. Admin callers only: a non-admin's key is always created as their own, whatever the body says. Null or empty = unowned |
+| `budget_usd` | `number` | No | Dollar spending cap per period, above 0 and at most 10,000,000. Sent together with `budget_period` or not at all (null = no budget) |
+| `budget_period` | `string` | No | `day`, `week` or `month` (UTC calendar periods); required with `budget_usd` |
 
 **Reserved Names** (cannot be used, compared case-insensitively):
 - `chat`
@@ -586,8 +601,8 @@ debited by.
 
 - **When**: After proxy request completion
 - **What**: `prompt_tokens + completion_tokens` from the provider response (`reasoning_tokens` is a breakdown of completion, never added on top). Each figure is clamped to a sane bound before it is charged, so a nonsense count from an upstream cannot poison the tally, and a total of zero or less is not written at all
-- **How**: Async fire-and-forget with 5-second timeout
-- **Accuracy**: Best-effort tally - may lag behind actual usage
+- **How**: Synchronously at the end of the request, on a detached context with a 5-second timeout (so a client that has already gone does not cancel the write). A failed write publishes a `tokens.error` event rather than failing the request
+- **Accuracy**: Best-effort tally - a failed write is not retried
 - **Keyless requests**: Admin chat has no virtual key, so it updates no key row. Its tokens are still debited from the owner's TPM budget
 
 ### Last Used Timestamp

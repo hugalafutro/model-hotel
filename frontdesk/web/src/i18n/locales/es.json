@@ -125,7 +125,7 @@
 		"urlLabel": "URL base",
 		"urlPlaceholder": "https://hotel-1.example.com",
 		"tokenLabel": "Token de administrador",
-		"tokenHint": "Obligatorio. Se almacena cifrado. Front Desk verifica el host con al añadirlo y lo usa para lecturas de versión y tráfico y la sincronización del token de administrador.",
+		"tokenHint": "Obligatorio. Se almacena cifrado. Front Desk verifica el host con él al añadirlo y lo usa para lecturas de versión y tráfico, la sincronización de la configuración y la comprobación de copias de seguridad.",
 		"tokenPlaceholder": "El ADMIN_TOKEN actual de este miembro",
 		"removeTitle": "¿Eliminar {{name}}?",
 		"removeBody": "Front Desk deja de rastrear {{name}} y lo elimina del conjunto de backends de Traefik. La instancia en sí no se modifica. Esto no retira las peticiones en curso; retíralo antes para una eliminación sin pérdida.",

@@ -154,7 +154,7 @@ func (s *Server) checkMemberBackups(ctx context.Context) {
 		// misconfigured. util.TrustedAge treats an impossible age as stale.
 		age, aged := util.TrustedAge(time.Now(), newest)
 		if !found || !aged || age > backupStaleAfter(interval) {
-			s.markBackupStale(ctx, m, newest, found)
+			s.markBackupStale(ctx, m, newest, found, backupStaleAfter(interval))
 			continue
 		}
 		s.clearBackupStale(ctx, m)
@@ -220,8 +220,9 @@ func newestScheduledBackup(entries []memberBackupEntry) (time.Time, bool) {
 // the transition in, mirroring holdMemberForSkew: the member is re-read every pass,
 // so a level-triggered event would re-alert until it was fixed. found reports
 // whether newest is a real timestamp; a member with no scheduled backup at all
-// carries an empty newest_backup_at.
-func (s *Server) markBackupStale(ctx context.Context, m *Member, newest time.Time, found bool) {
+// carries an empty newest_backup_at. window is the staleness threshold the member
+// was judged against, named in the message.
+func (s *Server) markBackupStale(ctx context.Context, m *Member, newest time.Time, found bool, window time.Duration) {
 	s.backupStaleMu.Lock()
 	already := s.backupStale[m.ID]
 	s.backupStale[m.ID] = true
@@ -235,7 +236,7 @@ func (s *Server) markBackupStale(ctx context.Context, m *Member, newest time.Tim
 	}
 	s.emit(ctx, Event{
 		Type: "backup.stale", Severity: "warning", Source: "frontdesk",
-		Message:  fmt.Sprintf("%s has no database backup from the last 24 hours", m.Name),
+		Message:  fmt.Sprintf("%s has no database backup from the last %g hours", m.Name, window.Hours()),
 		MemberID: m.ID,
 		Metadata: map[string]any{"newest_backup_at": at},
 	})

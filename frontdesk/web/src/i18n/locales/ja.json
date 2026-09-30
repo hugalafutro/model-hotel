@@ -125,7 +125,7 @@
 		"urlLabel": "ベース URL",
 		"urlPlaceholder": "https://hotel-1.example.com",
 		"tokenLabel": "管理トークン",
-		"tokenHint": "必須。暗号化して保存されます。Front Desk は追加時にこれでホストを検証し、バージョンやトラフィックの読み取り、管理トークンの同期にも使用します。",
+		"tokenHint": "必須。暗号化して保存されます。Front Desk は追加時にこれでホストを検証し、バージョンやトラフィックの読み取り、設定の同期、バックアップの確認にも使用します。",
 		"tokenPlaceholder": "このメンバーの現在の ADMIN_TOKEN",
 		"removeTitle": "{{name}} を削除しますか?",
 		"removeBody": "Front Desk は {{name}} の追跡を停止し、Traefik バックエンドプールから削除します。インスタンス自体は変更されません。処理中のリクエストはドレインされません。損失なく除去するには先にドレインしてください。",

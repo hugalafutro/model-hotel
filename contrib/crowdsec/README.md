@@ -134,13 +134,16 @@ local collection referring to items the hub does not know will not resolve.
 
 ### The acquisition
 
-`acquis/model-hotel.yaml` carries the names the shipped compose files produce, and needs checking
+`acquis/model-hotel.yaml` carries the names the shipped compose files produce (`model-hotel-app-1`
+from `docker-compose.yml`, `model-hotel-ha-frontdesk-1` from `deploy/ha/docker-compose.yml`), plus
+`front-desk-frontdesk-1` for a Front Desk deployed as a project named `front-desk`. It needs checking
 against yours:
 
 ```yaml
 source: docker
 container_name_regexp:
     - "^/?model-hotel-app-1$"
+    - "^/?model-hotel-ha-frontdesk-1$"
     - "^/?front-desk-frontdesk-1$"
 labels:
     type: model-hotel

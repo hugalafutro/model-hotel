@@ -125,7 +125,7 @@
 		"urlLabel": "基础 URL",
 		"urlPlaceholder": "https://hotel-1.example.com",
 		"tokenLabel": "管理员令牌",
-		"tokenHint": "必填。加密存储。Front Desk 在添加时用它验证主机，并用于读取版本和流量数据以及管理员令牌同步。",
+		"tokenHint": "必填。加密存储。Front Desk 在添加时用它验证主机，并用于读取版本和流量数据、同步配置以及检查备份。",
 		"tokenPlaceholder": "此成员当前的 ADMIN_TOKEN",
 		"removeTitle": "移除 {{name}}？",
 		"removeBody": "Front Desk 将停止跟踪 {{name}} 并将其从 Traefik 后端池中移除。实例本身不受影响。此操作不会排空进行中的请求；如需零丢失移除，请先执行排空。",

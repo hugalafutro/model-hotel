@@ -10,14 +10,17 @@
 # re-attaches on its own. The Docker API reports names with a leading slash,
 # hence the optional `/`.
 #
-# The names below are what the shipped compose files produce (project
-# `model-hotel` service `app`, project `front-desk` service `frontdesk`).
+# The first two names are what the shipped compose files produce (project
+# `model-hotel` service `app`; deploy/ha's project `model-hotel-ha` service
+# `frontdesk`). The third covers a Front Desk deployed as a project named
+# `front-desk`.
 # Confirm yours with `docker ps --format '{{.Names}}'` and edit accordingly, and
 # keep the regexp tight: a project also owns its database and sidecar
 # containers, whose logs are not ours to parse.
 source: docker
 container_name_regexp:
   - "^/?model-hotel-app-1$"
+  - "^/?model-hotel-ha-frontdesk-1$"
   - "^/?front-desk-frontdesk-1$"
 # `type` is what the parser filters on (via the stock crowdsecurity/non-syslog
 # parser, which copies it to evt.Parsed.program). Changing it silently stops

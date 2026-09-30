@@ -52,7 +52,7 @@ if settingsRepo.GetBool(ctx, "discovery_on_startup", true) {
 When `discovery_on_provider_create` is `true` (the default), discovery is triggered immediately after a new provider is created. This trigger is **client-side**: after the `POST /api/providers` call succeeds, the frontend checks the setting and calls `POST /api/providers/{id}/discover`. For keyless providers (e.g., OpenCode Zen free models), this still works - the discovery service handles empty API keys.
 
 ```tsx
-// Frontend (Providers.tsx):
+// Frontend (web/src/pages/Providers/AddProviderModal.tsx):
 const shouldDiscover = settings?.discovery_on_provider_create !== "false";
 if (shouldDiscover) {
     const result = await api.providers.discover(newProvider.id);
@@ -214,7 +214,8 @@ The one exception is explicit endpoint knowledge. Where a provider's API states 
 The rest is derivation:
 
 - A `rerank` or `embedding` output wins outright.
-- A text (or `code`) output means `chat`, unless the model id names a transcriber beside an audio input (`stt`) or an embedding/rerank family (`embed`, `rerank`, `bge`, `gte`, `e5`, `minilm`).
+- A text (or `code`) output means `chat`, unless the model id names a transcriber beside an audio input (`stt`), an embedding/rerank family (`embed`, `rerank`, `bge`, `gte`, `e5`, `minilm`), or an image- or video-generation family whose output array also lists that medium (`gpt-image`, `dall-e`/`dalle` with an `image` output derive `image`; a `sora` segment with a `video` output derives `video`). A chat model that also draws (`gemini-2.5-flash-image`) matches no such name and stays `chat`.
+- An `embedding`, `rerank`, `image` or `video` class has the text entries dropped from its output array and the class named first, so the array says what the endpoint serves.
 - Otherwise the output array decides: `video`, then `image`, then audio out as `tts`.
 - With no modality information at all, the model id is the only signal, and anything unrecognized derives `chat` so a new modality never silently disappears from the pickers.
 
@@ -228,9 +229,9 @@ Providers that expose a live model list **and** ship a built-in catalog are comb
 2. **Live wins per field.** For a model present in both sources the live value is authoritative. The catalog only fills fields the live result left empty, nil, or a known placeholder (a `display_name` equal to the `model_id`, or `"[]"` modalities). A stale catalog can therefore never mask fresh live data - at worst it supplies slightly outdated gap-fill.
 3. **Capabilities are OR-merged.** A capability flag is enabled in the result if either source reports it.
 
-models.dev enrichment runs *after* the merge and fills anything still empty, so the final precedence per field is **live → catalog → models.dev → zero value**. If the live fetch fails entirely (network, auth, 403/429 quota), the discoverer falls back to the pure catalog so discovery never goes dark.
+models.dev enrichment runs *after* the merge and fills anything still empty, so the final precedence per field is **live → catalog → models.dev → zero value**. There is no general "live failed, use the catalog" rule; what a failed live fetch does is decided per provider. **Z.AI** and **DeepSeek** abort the scan (the stored models are kept), because their catalogs are subsets of the live listing and a catalog-only result would let the missing-model sweep disable every live-only model. **OpenCode Go** falls back to its catalog only on a `404` and aborts on any other failure. **xAI** falls back to its catalog only on a `403` (no-access key); any other failure of its rich listing retries the minimal `/models` listing, and a second non-403 failure aborts. A catalog fallback is flagged (`ErrCatalogFallback`) so the sweep records no misses from it. A successful but empty listing returns nothing rather than the catalog, for the same reason.
 
-Providers on the merge (union): **Z.AI**, **xAI**, **DeepSeek**, **OpenCode Go**, **OpenCode Zen**. **OpenAI** uses the same live-first model but **backfill-only** (no union) via `backfillLiveFromCatalog`, because discoverOpenAI is the fallback for unknown/custom hosts and must not attach catalog-only gpt-5.x models to them. Providers with a *pricing-only* catalog - **Anthropic**, **Google AI Studio**, **Cohere** - keep their own discoverers: the live API is already the rich model-list source and the catalog only backfills pricing, so there is nothing to union. Pure-live providers (NanoGPT, OpenRouter, Ollama, LM Studio, KoboldCPP, NeuralWatt, Kimi Code, AWS Bedrock, Azure AI Foundry) have no catalog. **MiniMax** is a third, narrower case - call it *live-stub + models.dev*: `discoverMiniMax` has no catalog either, but unlike Kimi Code its live listing is metadata-bare (id and owner only), so every other field (context, pricing, capabilities) comes from models.dev enrichment rather than a rich live payload. **Vertex AI express** is the inverse case: Google exposes no listing route for express keys, so discovery starts from a shipped candidate catalog and validates each entry live (see its section below).
+Providers on the merge (union): **Z.AI**, **xAI**, **DeepSeek**, **OpenCode Go**. **OpenAI** and **OpenCode Zen** use the same live-first model but **backfill-only** (no union) via `backfillLiveFromCatalog`: OpenAI because discoverOpenAI is the fallback for unknown/custom hosts and must not attach catalog-only gpt-5.x models to them, Zen because a model Zen drops from its listing must go with it. **Cohere** keeps its own discoverer with a *pricing-override* catalog: the live API is already the rich model-list source and the catalog only supplies prices the API and models.dev lack, so there is nothing to union. Pure-live providers (Anthropic, Google AI Studio, NanoGPT, OpenRouter, Ollama, LM Studio, KoboldCPP, NeuralWatt, Kimi Code, AWS Bedrock, Azure AI Foundry) have no catalog; Anthropic and Google take their prices from models.dev (Google also filters a shipped retired-model list, which is not a catalog). **MiniMax** is a third, narrower case - call it *live-stub + models.dev*: `discoverMiniMax` has no catalog either, but unlike Kimi Code its live listing is metadata-bare (id and owner only), so every other field (context, pricing, capabilities) comes from models.dev enrichment rather than a rich live payload. **Vertex AI express** is the inverse case: Google exposes no listing route for express keys, so discovery starts from a shipped candidate catalog and validates each entry live (see its section below).
 
 ### Provider Type
 
@@ -258,7 +259,7 @@ Hostname rules (`detectByHost`, exact and suffix matching):
 | `api.openai.com`, `*.openai.com` | - | `openai` (fallback) |
 | `api.anthropic.com`, `*.anthropic.com` | - | `anthropic` |
 | `api.deepseek.com`, `*.deepseek.com` | - | `deepseek` |
-| `api.nano-gpt.com`, `nano-gpt.com` | - | `nanogpt` |
+| `api.nano-gpt.com`, `nano-gpt.com`, `*.nano-gpt.com` | - | `nanogpt` |
 | `api.z.ai`, `z.ai`, `*.z.ai` | - | `zai-coding` |
 | `api.kimi.com`, `kimi.com`, `*.kimi.com` | - | `kimi-code` |
 | `api.minimax.io`, `minimax.io`, `*.minimax.io` | - | `minimax` |
@@ -272,7 +273,7 @@ Hostname rules (`detectByHost`, exact and suffix matching):
 | `bedrock-mantle.{region}.api.aws` | - | `bedrock` |
 | `*.services.ai.azure.com`, `*.openai.azure.com` | - | `azure` |
 | `api.cohere.com`, `api.cohere.ai`, `*.cohere.com`, `*.cohere.ai` | - | `cohere` |
-| `api.neuralwatt.com`, `neuralwatt.com` | - | `neuralwatt` |
+| `api.neuralwatt.com`, `neuralwatt.com`, `*.neuralwatt.com` | - | `neuralwatt` |
 | Any other host | - | `openai` (fallback) |
 
 Self-hosted servers have no entry here: `ollama`, `lmstudio` and `koboldcpp`
@@ -346,13 +347,7 @@ not the family you picked".
 | Tool calling | Hardcoded `true` |
 | Output modalities | Hardcoded `["text"]` |
 
-**Catalog-provided fields:**
-
-| Field | Source |
-|-------|--------|
-| Input price per million | Pricing catalog |
-| Input price cache-hit per million | Pricing catalog |
-| Output price per million | Pricing catalog |
+Prices (input, cache-hit, output) come from models.dev enrichment.
 
 ### Anthropic (Messages API) - `anthropic-messages`
 
@@ -360,7 +355,7 @@ not the family you picked".
 
 **Method:** Identical to Anthropic above, and deliberately so: the models listing is part of the Messages API surface, so any endpoint serving that API answers `GET /v1/models` in the same shape. The type exists for an endpoint that speaks Anthropic's Messages API but is not Anthropic's own: an operator types the base URL, nothing is inferred from the host, and no host rule ever resolves to this type.
 
-Model metadata, `owned_by` included, is produced exactly as for `anthropic`: the listing carries no ownership field, and reporting a different owner per provider type would make the same model look like two different things. (Leaving it empty for this type was tried and reverted, because models.dev enrichment then fills `owned_by` from the model *family*: `claude-fable-5` came back owned by `anthropic` under one provider and `claude-fable` under the other.) The Anthropic pricing catalog still applies to any `claude-*` ID that matches, and models.dev enrichment covers the rest.
+Model metadata, `owned_by` included, is produced exactly as for `anthropic`: the listing carries no ownership field, and reporting a different owner per provider type would make the same model look like two different things. (Leaving it empty for this type was tried and reverted, because models.dev enrichment then fills `owned_by` from the model *family*: `claude-fable-5` came back owned by `anthropic` under one provider and `claude-fable` under the other.) Prices come from models.dev enrichment, as for `anthropic`.
 
 The one real difference from `anthropic`: **every chat request is translated**, not just the ones carrying a document. An `anthropic` provider defaults to Anthropic's OpenAI-compat `/v1/chat/completions` and only re-routes through `internal/anthropicegress` for content that endpoint cannot express; an `anthropic-messages` provider has no compat endpoint at all, so all of its chat traffic goes to `/v1/messages` through the same adapter. A client that speaks Anthropic natively (`/v1/messages` in, see `anthropic_native.go`) is forwarded verbatim in both directions, so `cache_control` and thinking blocks survive.
 
@@ -488,7 +483,7 @@ Two of the six rows are not price overrides but the only source of the model at 
 | Context length | Catalog |
 | Max output tokens | Catalog |
 | Reasoning | Catalog |
-| Vision | Catalog (`vision`, set on the experimental vision model only) |
+| Vision | Catalog (`vision`, set on the five Flash-family rows; `deepseek-v4-pro` has none) |
 | Input modalities | Catalog (`["text"]` unless the row names more) |
 | Input price (cache miss) | Catalog |
 | Input price (cache hit) | Catalog |
@@ -660,8 +655,8 @@ The catalog and model conversion logic is shared with OpenCode Go via `OpenCodeM
 **Method:** Live-plus-catalog merge via [`mergeLiveAndCatalog`](#live--catalog-merge). The live model list is obtained with a tiered strategy, then merged with the catalog:
 
 1. **Funded accounts**: Calls `GET /language-models` - a proprietary endpoint that returns rich data including pricing (cents per 100M tokens, converted to USD per 1M) and input/output modalities. These live fields are kept as-is.
-2. **No-access accounts (403/429)**: xAI returns 403 for unauthorized keys and 429 for accounts that have exhausted credits or reached spending limits. Discovery falls back to the pure static catalog in both cases.
-3. **Other failures / empty list**: Falls back to `GET /v1/models` (minimal OpenAI-compatible: id + owner).
+2. **No-access accounts (403)**: xAI returns 403 for keys that cannot list (unauthorized, or a zero-balance account). Discovery falls back to the pure static catalog, flagged as a fallback so the missing-model sweep records nothing from it.
+3. **Other failures / empty list**: Falls back to `GET /v1/models` (minimal OpenAI-compatible: id + owner). A 403 there also takes the catalog; any other failure aborts the scan (a `429` included), keeping the stored models.
 
 The live result is then merged with the catalog. The 6-row catalog **backfills** the fields xAI's API does not report (context window, max output, reasoning flag, friendly display name) and **unions in** catalog grok models the listing endpoints do not advertise but that remain callable (verified: all catalog grok ids return 200). Its rows carry no price: `/language-models` reports prices when the key can list, and models.dev's `xai` entry prices every row otherwise. Live values always win: the catalog never overrides live data, and no placeholder description or modality is fabricated, so a real catalog description is never masked.
 
@@ -729,7 +724,7 @@ Image-generation models come from a separate listing, `GET /image-generation-mod
 
 ### Google AI Studio (Gemini)
 
-**Source files:** `discovery_google.go`, `google_catalog.go`, `google_types.go`
+**Source files:** `discovery_google.go`, `google_catalog.go` (the retired-model list), `google_types.go`
 
 **Method:** Uses Google's native Gemini API (`GET /v1beta/models`, key in the `x-goog-api-key` header) for discovery, which provides rich metadata including context windows, max output tokens, supported generation methods, and thinking support. The base URL is configured for the OpenAI-compatible proxy endpoint (`/v1beta/openai`), but discovery internally converts to the native API URL.
 
@@ -747,13 +742,7 @@ Model IDs from the native API have a `models/` prefix (e.g., `models/gemini-2.5-
 | Generation methods | API (`supportedGenerationMethods`) |
 | Streaming | Derived (has `generateContent` method) |
 
-**Pricing catalog-provided fields:**
-
-| Field | Source |
-|-------|--------|
-| Input price per million | Pricing catalog |
-| Input price cache-hit per million | Pricing catalog |
-| Output price per million | Pricing catalog |
+Prices (input, cache-hit, output) come from models.dev enrichment (see **Pricing** below).
 
 **Derived from model name:**
 
@@ -778,40 +767,39 @@ Model IDs from the native API have a `models/` prefix (e.g., `models/gemini-2.5-
 
 **Source files:** `discovery_cohere.go`, `cohere_catalog.go`
 
-**Method:** Calls Cohere's native `/v1/models` with pagination, once for the chat endpoint family and once for rerank, and filters out models the API marks `deprecated: true`. Rerank models are listed so the Models page can show them and the proxy's `/v1/rerank` passthrough can route them; a rerank fetch that fails leaves the chat models in place rather than failing the scan. The built-in `cohere.json` catalog is a pricing override channel: 2 per-token rows (`c4ai-aya-expanse-32b`, `c4ai-aya-vision-32b`) and the 5 rerank models, which models.dev does not price, at their per-search price; every other chat model takes its price from the API.
+**Method:** Calls Cohere's native `/v1/models` with pagination (`?endpoint=chat`, then `?endpoint=rerank`, 100 per page), and skips models the API marks `is_deprecated: true`. Rerank models are listed so the Models page can show them and the proxy's `/v1/rerank` passthrough can route them; a rerank fetch that fails leaves the chat models in place rather than failing the scan. The listing carries no prices. The built-in `cohere.json` catalog is a pricing override channel: 2 per-token rows (`c4ai-aya-expanse-32b`, `c4ai-aya-vision-32b`) and the 5 rerank models, which models.dev does not price, at their per-search price; every other model takes its price from models.dev enrichment.
 
 **API-provided fields:**
 
 | Field | Source |
 |-------|--------|
-| Model ID | API |
-| Display name | API (`name`) |
+| Model ID | API (`name`) |
 | Context length | API (`context_length`) |
-| Max output tokens | API (`max_output_tokens`) |
-| Pricing | API (`pricing`) |
-| Tool calling capability | API (`capabilities.tool_calling`) |
-| Structured output | API (`capabilities.structured_output`) |
+| Tool calling | API (`features` contains `tools` or `tool_choice`) |
+| Structured output | API (`features` contains `json_mode` or `json_schema`) |
+| Reasoning | API (`features` contains `reasoning`) |
 | Vision | API (`features` contains `vision`) |
-| Streaming | Hardcoded `true` |
+| Streaming | Hardcoded `true` for chat models |
 | Input modalities | Derived: vision → `["text","image"]`, else `["text"]` |
 | Output modalities | `["rerank"]` for a rerank model (the endpoint listing is authoritative, so the derived class can never mistake one for chat), else `["text"]` |
+| Owned by | Hardcoded `cohere` |
 
-**Capability mapping:** Cohere API `features` array is mapped to capabilities:
-- `tools` → tool calling
-- `json_mode` → structured output
+Rerank models get no capability flags: `features` is read for chat models only.
 
-**Catalog provided fields:**
+**Catalog-provided fields (catalogued models only):**
 
 | Field | Source |
 |-------|--------|
+| Display name | Catalog (an uncatalogued model uses its id) |
+| Description | Catalog |
+| Max output tokens | Catalog |
 | Input price per million | Catalog |
 | Output price per million | Catalog |
-| Cache-hit price | Catalog |
 | Search price per thousand | Catalog (rerank models only) |
 
 Rerank models are billed per search unit rather than per token, so their per-token price fields stay unset and the catalog supplies `search_price_per_thousand` instead (USD per 1,000 searches: 2.00 for the v3 family and v4.0-fast, 2.50 for v4.0-pro, as Cohere lists them). Every catalog figure is optional, so a row states only what the API and models.dev lack. The proxy prices a rerank request from the search units the answer reports (see [Request Logging](Request-Logging#spend)).
 
-**Host detection:** `api.cohere.com`, `api.cohere.ai`, and all subdomains of `cohere.com`
+**Host detection:** `api.cohere.com`, `api.cohere.ai`, and all subdomains of `cohere.com` and `cohere.ai`
 
 ### LMStudio
 
@@ -922,8 +910,8 @@ Models.dev is particularly valuable for providers that lack built-in catalogs or
 | Provider | Built-in Catalog | What models.dev adds |
 |----------|-----------------|---------------------|
 | **OpenAI** (generic) | 2 rows (`gpt-5.5-pro`, `gpt-5.4-pro`) | Pricing and specs for older GPT-4.x, the o-series, and any new models |
-| **Anthropic** | Pricing channel, currently empty | Pricing, capabilities, modalities and context limits for Claude models |
-| **Google AI Studio** | Pricing channel, currently empty | Pricing for Gemini models |
+| **Anthropic** | None | Pricing for Claude models (the live API supplies the rest) |
+| **Google AI Studio** | None | Pricing for Gemini models |
 | **DeepSeek** | 6 rows | Specs for older DeepSeek models and any not yet in the catalog |
 | **Ollama** | None | Pricing, capabilities for well-known models available through Ollama |
 | **OpenRouter** | None (API-driven) | Pricing and specs for any OpenRouter-hosted model not covered by the API |
@@ -959,6 +947,7 @@ Each discovered model is stored in the `models` database table with the followin
 | `disabled_manually` | bool | Whether the model was disabled by a user (not discovery) |
 | `display_name_customized` | bool | The operator renamed it, so discovery leaves `display_name` alone (migration `033`) |
 | `price_customized` | bool | The operator pinned the prices, so no source overwrites them (`071`) |
+| `limits_customized` | bool | The operator pinned `context_length` / `max_output_tokens`, so no source overwrites them (`092`) |
 | `price_sources` | jsonb | Where each stored price came from, keyed `input` / `cache_hit` / `output` / `search`, one of `provider` (the provider's own listing), `catalog` (an embedded override), `modelsdev` (enrichment) or `manual` (an operator edit); a key is absent while that price is unset or was stored before `084`. Merged key by key in the same direction as the prices, so a kept price keeps its source. The dashboard shows it as a hint next to each price. |
 | `missing_scans` | int | Consecutive confirmed-missing scans; 2 disables the model (`054`) |
 | `discovery_dismissed_at` | timestamptz (nullable) | The operator dismissed this model's discrepancy claim (`061`) |
@@ -1019,6 +1008,8 @@ CREATE TABLE IF NOT EXISTS models (
     disabled_manually BOOLEAN DEFAULT false,
     display_name_customized BOOLEAN DEFAULT false,
     price_customized BOOLEAN NOT NULL DEFAULT false,
+    limits_customized BOOLEAN NOT NULL DEFAULT false,
+    price_sources JSONB NOT NULL DEFAULT '{}'::jsonb,
     missing_scans INTEGER NOT NULL DEFAULT 0,
     discovery_dismissed_at TIMESTAMPTZ,
     auto_retired_at        TIMESTAMPTZ,
@@ -1047,6 +1038,7 @@ CREATE TABLE IF NOT EXISTS models (
 - `071_model_price_pin.sql` - Added `price_customized` (the price pin)
 - `084_model_price_sources.sql` - Added `price_sources` (where each stored price came from)
 - `091_rerank_search_price.sql` - Added `search_price_per_thousand` (the per-search price a rerank model bills at)
+- `092_model_limits_customized.sql` - Added `limits_customized` (the limits pin)
 
 Two related migrations live on other tables: `047_discovery_changes.sql` creates the background-discovery journal, and `062_failover_group_auto_disabled.sql` adds `model_failover_groups.auto_disabled_at`.
 
@@ -1110,19 +1102,23 @@ When discovery upserts a model, it uses an `ON CONFLICT` strategy:
 
 - **New models** are inserted with `enabled = true`.
 - **Existing models** (matched by `provider_id + model_id` unique constraint) are updated with all new metadata. The `enabled` flag is set based on the `disabled_manually` flag:
-  - If `disabled_manually = false`, the model is **re-enabled** (it may have been previously disabled by `RecordMissingModels` but is now back).
+  - If `disabled_manually = false` and `auto_retired_at` is unset, the model is **re-enabled** (it may have been previously disabled by `RecordMissingModels` but is now back).
   - If `disabled_manually = true`, the model **stays disabled** - the user's manual override is respected even if the model reappears in the provider API.
+  - If `auto_retired_at` is set, the model **stays disabled** too: the proxy retired it while the provider kept listing it, so a sighting is no new evidence. Only an operator enable or disable clears `auto_retired_at`.
 - `last_seen_at` is always updated to `now()`.
 
 ```sql
-enabled = CASE WHEN models.disabled_manually = false THEN true ELSE models.enabled END
+enabled = CASE
+    WHEN models.disabled_manually = false AND models.auto_retired_at IS NULL THEN true
+    ELSE models.enabled
+END
 ```
 
 ### Stored metadata on re-scan: context is stable, prices follow source
 
 The same `ON CONFLICT` update merges pricing/context per field rather than blindly overwriting:
 
-- **Context length / max output tokens** are *fill-only* unless the value came from the provider's own live API this scan (tracked via transient per-field live provenance): a live value overwrites, a catalog/models.dev value only fills a gap. This keeps stored metadata stable when sources disagree or a probe is flaky.
+- **Context length / max output tokens** are *fill-only* unless the value came from the provider's own live API this scan (tracked via transient per-field live provenance): a live value overwrites, a catalog/models.dev value only fills a gap. An operator-pinned limit (`limits_customized = true`) is never overwritten. This keeps stored metadata stable when sources disagree or a probe is flaky.
 - **Prices follow their source** (`price_customized = false`, the default): the scan's price - live API, embedded catalog, or models.dev enrichment, already merged in that precedence - **overwrites** the stored one; only a scan that carries no price at all keeps the stored value. Vendor price changes and corrected enrichment data therefore propagate to existing rows on the next scan. Installs that upgraded past the random-reseller-price bug (see [Canonical Provider Preference](#canonical-provider-preference)) heal automatically on their first scan, with no migration or manual reset.
 - **Operator-pinned prices** (`price_customized = true`) are untouchable: no source, live included, overwrites them. Editing any price via `PATCH /api/models/{id}` sets the pin implicitly; sending `"price_customized": false` clears it AND nulls the price columns so the next scan re-derives them (the dashboard's model detail modal surfaces this as "Reset to source" on the pin banner).
 
@@ -1173,7 +1169,7 @@ what they see (see [Manual (API)](#4-manual-api)).
    sighting (a scheduled scan, a manual re-test, even a confirmation probe)
    resets the streak to 0. A model carrying the manual-enable pin keeps
    accumulating misses but is never disabled by them: see
-   [The three pins](#the-three-pins).
+   [The pins](#the-pins).
 
 `RecordMissingModels` returns the newly disabled models, which the discovery
 handlers use to (a) re-sync the failover groups those models belonged to,
@@ -1248,15 +1244,17 @@ This sets both `enabled` and `disabled_manually`:
 
 Either direction also clears `auto_retired_at` and `discovery_dismissed_at`: operator intent supersedes a traffic retirement and their own earlier dismissal, and it has to happen in the same statement rather than on the next sighting, since a model retired again before that scan would keep a dismissal nothing could clear.
 
-The `Update` endpoint also supports editing `display_name`, `context_length`, `max_output_tokens`, `input_price_per_million`, `input_price_per_million_cache_hit`, `output_price_per_million`, `search_price_per_thousand`, and `price_customized`.
+The `Update` endpoint also supports editing `display_name`, `context_length`, `max_output_tokens`, `input_price_per_million`, `input_price_per_million_cache_hit`, `output_price_per_million`, `search_price_per_thousand`, `price_customized`, and `limits_customized`.
 
-### The three pins
+### The pins
 
-Editing a model arms a pin that stops discovery from writing over the operator's decision. All three are independent, and only a write that touches the field in question moves its pin.
+Editing a model arms a pin that stops discovery from writing over the operator's decision. All four are independent, and only a write that touches the field in question moves its pin.
 
 **The display-name pin** (`display_name_customized`, migration `033`). Setting `display_name` marks the row customized, and the upsert then keeps the stored name on every later scan: `display_name = CASE WHEN models.display_name_customized THEN models.display_name ELSE EXCLUDED.display_name END`. Clearing the name clears the pin, and discovery goes back to supplying it.
 
-**The price pin** (`price_customized`, migration `071`). Editing any price sets it implicitly. A pinned row's stored prices are untouchable: no source, live included, replaces them. A `NULL` price on a pinned row still fills from the scan, because the pin protects values rather than vetoing gap-fill. Sending `"price_customized": false` clears the pin **and** nulls all three price columns, so the next scan re-derives them; the dashboard's model detail modal surfaces that as "Reset to source" on the pin banner.
+**The price pin** (`price_customized`, migration `071`). Editing any price sets it implicitly. A pinned row's stored prices are untouchable: no source, live included, replaces them. A `NULL` price on a pinned row still fills from the scan, because the pin protects values rather than vetoing gap-fill. Sending `"price_customized": false` clears the pin **and** nulls all four price columns (search price included) and their sources, so the next scan re-derives them; the dashboard's model detail modal surfaces that as "Reset to source" on the pin banner.
+
+**The limits pin** (`limits_customized`, migration `092`). Editing `context_length` or `max_output_tokens` sets it implicitly, and the upsert then keeps the stored limits even when the provider's live listing reports different ones (a `NULL` limit still fills from the scan). Sending `"limits_customized": false` clears the pin and nulls both columns so the next scan refills them.
 
 **The manual-enable pin** (`manually_enabled_at`, migration `070`). Enabling a model by hand stamps it, disabling clears it. The pin exists for one situation: the provider's listing omits a model the operator has verified works, and without it the listing-based auto-disable would turn the model straight back off. While the pin is set:
 
@@ -1287,6 +1285,7 @@ A disabled provider is skipped by discovery entirely, and its models are never p
 | Model disappears from API | `false` | `false` | Will be re-enabled if it reappears |
 | User manually disables | `false` | `true` | Stays disabled even if it reappears |
 | User manually re-enables | `true` | `false` | Normal |
+| Proxy retires it from traffic (`auto_retired_at` set) | `false` | `false` | Stays disabled even though the provider still lists it; only an operator enable or disable clears `auto_retired_at` |
 
 ---
 
@@ -1311,7 +1310,7 @@ Returns all models, optionally filtered by provider ID.
     "provider_id": "uuid",
     "provider_name": "OpenAI",
     "capabilities": "{\"streaming\":true,\"vision\":true}",
-    "modality": "vision",
+    "modality": "chat",
     "input_modalities": "[\"text\",\"image\"]",
     "output_modalities": "[\"text\"]",
     "context_length": 128000,
@@ -1349,8 +1348,9 @@ All fields are optional, but at least one must be present: a body that changes n
 - `input_price_per_million`: 0-1000
 - `input_price_per_million_cache_hit`: 0-1000
 - `output_price_per_million`: 0-1000
+- `search_price_per_thousand`: 0-1000
 
-`"price_customized": false` is the unpin: it clears the pin and nulls all three price columns so the next scan re-derives them. Any price edit sets the pin implicitly. See [The three pins](#the-three-pins).
+`"price_customized": false` is the unpin: it clears the pin and nulls all four price columns (`input_price_per_million`, `input_price_per_million_cache_hit`, `output_price_per_million`, `search_price_per_thousand`) and their `price_sources`, so the next scan re-derives them. Any price edit sets the pin implicitly. `"limits_customized": false` does the same for `context_length` and `max_output_tokens`. See [The pins](#the-pins).
 
 ### Delete Model
 
@@ -1444,15 +1444,18 @@ The table below summarizes what each provider type supplies during model discove
 | Provider | Context Length | Pricing | Capabilities | Modalities | Source |
 |----------|---------------|---------|-------------|------------|--------|
 | OpenAI | Catalog, else models.dev | Catalog, else models.dev | Catalog, else models.dev | Catalog, else models.dev | Live API + 2-row catalog (backfill only) |
-| Anthropic | API | models.dev | API | API | Live API (the pricing catalog ships empty) |
+| Anthropic | API | models.dev | API | API | Live API (no catalog) |
+| Anthropic (Messages API) | API | models.dev | API | API | Live API, same discoverer as Anthropic |
 | DeepSeek | Catalog | Catalog | Catalog | Catalog | Live API + catalog (merge) |
-| Google AI Studio | API | models.dev | API | Derived | Live API (the pricing catalog ships empty) |
+| Google AI Studio | API | models.dev | API | Derived | Live API (no catalog; a shipped retired-model list filters it) |
+| Vertex AI express | models.dev | models.dev | models.dev | models.dev | Shipped candidate catalog, each entry validated live by a `countTokens` probe |
 | xAI | Catalog | API | Catalog | API | Live API + catalog (merge) |
-| Cohere | API | API, 2-row catalog overrides | API | API | Live API + catalog |
+| Cohere | API | Catalog (2 per-token rows + 5 rerank rows), else models.dev | API (`features`) | Derived from `features` | Live API + pricing-override catalog |
 | NanoGPT | API | API | API | API | Live API |
 | Z.AI | Catalog | models.dev (catalog overrides only) | Catalog | Catalog | Live API + catalog (merge) |
 | OpenCode Go | models.dev | models.dev | models.dev | models.dev | Live API + catalog (merge); the catalog is an empty override channel |
-| OpenCode Zen | Catalog | Catalog | Catalog | Catalog | Live API + catalog (merge) |
+| OpenCode Zen | models.dev | models.dev (explicit zero for free models) | models.dev | models.dev, input restricted by 2 catalog rows | Live API + catalog (backfill only, no union) |
+| OpenRouter | API | API | API (`supported_parameters`) | API | Live API |
 | Ollama | API | - | API | API | Live API |
 | Ollama Cloud | API | models.dev (cross-provider index) | API | API | Live API |
 | LMStudio | API | - | API | API | Live API |
@@ -1460,6 +1463,8 @@ The table below summarizes what each provider type supplies during model discove
 | NeuralWatt | models.dev | models.dev | models.dev | models.dev | OpenAI-compatible `GET /v1/models` (no dedicated discovery; enriched via models.dev) |
 | Kimi Code | API | - | API | API | Live API (no catalog, no models.dev) |
 | MiniMax | models.dev | models.dev | models.dev | models.dev | Live API (metadata-bare `GET /models`; no catalog, enriched via models.dev) |
+| AWS Bedrock | models.dev | models.dev | models.dev | models.dev | Live API (mantle `GET /models` stubs, enriched via models.dev; `anthropic.*` skipped) |
+| Azure AI Foundry | models.dev | models.dev | models.dev | models.dev | Live deployments listing (stubs, enriched via models.dev by deployment then base-model name) |
 
 ---
 
