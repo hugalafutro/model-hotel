@@ -823,7 +823,18 @@ Rerank models are billed per search unit rather than per token, so their per-tok
 
 **Source files:** `discovery_koboldcpp.go`
 
-**Method:** KoboldCPP is a self-hosted server exposing an OpenAI-compatible API on whatever address it was started on. Discovery confirms the server via `GET /api/extra/version`, reads the loaded model from `GET /v1/models`, and takes the context size from `GET /api/extra/true_max_context_length`. Image and audio input come from the version endpoint's `vision` and `audio` flags, which describe the adapters the loaded chat model was given. No built-in catalog is used.
+**Method:** KoboldCPP is a self-hosted server exposing an OpenAI-compatible API on whatever address it was started on. Discovery confirms the server via `GET /api/extra/version`, reads the loaded chat model from `GET /v1/models` when the version endpoint's `llm` flag says one is loaded, and takes the context size from `GET /api/extra/true_max_context_length`. Image and audio input come from the version endpoint's `vision` and `audio` flags, which describe the adapters the loaded chat model was given. A KoboldCPP started without a chat model still answers `/v1/models` with a placeholder named `inactive`; it is never listed, whether the `llm` flag says so or the build is too old to report the flag.
+
+KoboldCPP also serves one side model per endpoint, and the version endpoint's flags say which are loaded. Each becomes a model of its own class, so it shows in the matching picker:
+
+| Flag | Model ID | Class |
+|------|----------|-------|
+| `txt2img` | `koboldcpp/<name>` from `GET /sdapi/v1/sd-models`, or `koboldcpp/image` when the server has no such listing or it names nothing. Any other failed or unreadable answer may be transient, so the image model sits that scan out rather than change its ID | `image` |
+| `tts` | `koboldcpp/tts` | `tts` |
+| `transcribe` | `koboldcpp/whisper` | `stt` |
+| `embeddings` | `koboldcpp/embeddings` | `embedding` |
+
+KoboldCPP names only its image model; the others carry fixed IDs, which also stay the same when the file behind them is swapped. When two models would share an ID (a chat file named `tts.gguf`), the one discovered first keeps it (chat, then image, text-to-speech, Whisper, embeddings) and the other is left out. Because automatic failover groups form on the part of the ID after the last `/`, two KoboldCPP servers that both load a text-to-speech, Whisper or embeddings model end up in one group (`hotel/tts`, `hotel/whisper`, `hotel/embeddings`) even when the files differ. For embeddings that matters: vectors from two different models cannot be compared, so if the servers load different embedding models, call each by its provider name rather than through the group. Discovery does not run a model to learn its name; KoboldCPP reports the embeddings model's name only in an embeddings response. KoboldCPP ignores the request's model field on these endpoints, so the ID only has to route. KoboldCPP has no rerank endpoint. No built-in catalog is used.
 
 **Detection:** Chosen by the operator, confirmed by probing `/api/extra/version` when the provider is added or its URL changed.
 
@@ -835,7 +846,7 @@ Rerank models are billed per search unit rather than per token, so their per-tok
 | Max output tokens | Not set |
 | Pricing | None (self-hosted) |
 | Capabilities | Hardcoded: streaming on, tool calling off (KoboldCPP uses its own tool format) |
-| Modalities | Input modalities from the version endpoint's `vision` and `audio` flags, so a vision or audio KoboldCPP is not filed as text-only. `transcribe`, `tts`, `txt2img` and `embeddings` are separate endpoints and are deliberately ignored, and the endpoint class is derived centrally |
+| Modalities | Chat model: input modalities from the version endpoint's `vision` and `audio` flags, so a vision or audio KoboldCPP is not filed as text-only, and the endpoint class is derived centrally. Side models: the class is stated explicitly (see the table above) and the modality arrays follow from it. The `transcribe` flag means a Whisper side model, never audio input on the chat model |
 
 ---
 
