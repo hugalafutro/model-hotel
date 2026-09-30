@@ -2,7 +2,6 @@ package provider
 
 import (
 	"context"
-	"net/url"
 	"testing"
 
 	"github.com/hugalafutro/model-hotel/internal/db"
@@ -15,16 +14,15 @@ import (
 // the execute phase times out and surfaces from rows.Err().
 func TestList_ReadFailure(t *testing.T) {
 	ctx := context.Background()
-	u, err := url.Parse(testDBURL)
-	if err != nil {
-		t.Fatalf("parse test DB URL: %v", err)
-	}
-	q := u.Query()
-	q.Set("statement_timeout", "250")
-	u.RawQuery = q.Encode()
-	slow, err := db.New(ctx, u.String(), 1, 1)
+	// Opened without the timeout, so the migration check db.New runs is not
+	// raced against it (it failed that way under -race in CI); the timeout
+	// is then set on the pool's one connection, for the queries under test.
+	slow, err := db.New(ctx, testDBURL, 1, 1)
 	if err != nil {
 		t.Fatalf("db.New: %v", err)
+	}
+	if _, err := slow.Pool().Exec(ctx, "SET statement_timeout = 250"); err != nil {
+		t.Fatalf("set statement_timeout: %v", err)
 	}
 	defer slow.Close()
 	repo := NewRepository(slow.Pool())

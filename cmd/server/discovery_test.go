@@ -6,7 +6,6 @@ import (
 	"log"
 	"net/http"
 	"net/http/httptest"
-	"net/url"
 	"os"
 	"strings"
 	"sync"
@@ -1112,16 +1111,15 @@ func TestAnyRecentlyDiscovered(t *testing.T) {
 // and an ACCESS EXCLUSIVE lock on models held by another transaction.
 func TestSyncFailoverAfterDiscovery_ModelListFailureIsRecorded(t *testing.T) {
 	ctx := context.Background()
-	u, err := url.Parse(cmdTestDBURL)
-	if err != nil {
-		t.Fatalf("parse test DB URL: %v", err)
-	}
-	q := u.Query()
-	q.Set("statement_timeout", "250")
-	u.RawQuery = q.Encode()
-	slow, err := db.New(ctx, u.String(), 1, 1)
+	// Opened without the timeout, so the migration check db.New runs is not
+	// raced against it (it failed that way under -race in CI); the timeout
+	// is then set on the pool's one connection, for the queries under test.
+	slow, err := db.New(ctx, cmdTestDBURL, 1, 1)
 	if err != nil {
 		t.Fatalf("db.New: %v", err)
+	}
+	if _, err := slow.Pool().Exec(ctx, "SET statement_timeout = 250"); err != nil {
+		t.Fatalf("set statement_timeout: %v", err)
 	}
 	defer slow.Close()
 
