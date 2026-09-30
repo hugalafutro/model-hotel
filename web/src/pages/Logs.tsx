@@ -234,12 +234,17 @@ function RequestLogs() {
 	const navEntries = viewMode === "scroll" ? scrollEntries : displayEntries;
 	// The modal reads the row's current version from the list, so live updates
 	// (pending -> streaming -> completed) reach it the same way they reach the
-	// row. Each newer version is kept as the selection, so a row that later
-	// leaves the list (a refetch pushed it to another page) stays at the last
-	// state the modal showed instead of going back to the clicked copy.
+	// row. Each version at least as fresh as the one shown becomes the
+	// selection: a page fetched before a live merge cannot take the modal
+	// back, and a row that leaves the list (a refetch pushed it to another
+	// page) stays at the last state the modal showed.
 	const listedLog = navEntries.find((entry) => entry.id === selectedLog?.id);
-	if (listedLog && listedLog !== selectedLog) setSelectedLog(listedLog);
-	const openLog = listedLog ?? selectedLog;
+	const listedIsFresh =
+		listedLog !== undefined &&
+		selectedLog !== null &&
+		!keepFresherRow(selectedLog, listedLog);
+	if (listedIsFresh && listedLog !== selectedLog) setSelectedLog(listedLog);
+	const openLog = listedIsFresh ? listedLog : selectedLog;
 	const logNav = useModalNav(
 		navEntries,
 		openLog,
@@ -248,11 +253,10 @@ function RequestLogs() {
 	);
 
 	// The clock ticks fast while a live row is on screen, whichever list that
-	// is: the scroll list in scroll mode, the page in paginate mode. The open
-	// row counts too, since it can be live after leaving the list.
+	// is: the scroll list in scroll mode, the page in paginate mode.
 	const { nowMs, staleThresholdMs } = useStaleClock(
 		settings?.stale_request_timeout,
-		openLog ? [openLog, ...navEntries] : navEntries,
+		navEntries,
 	);
 	const columns = requestLogColumns(t);
 
@@ -263,7 +267,9 @@ function RequestLogs() {
 					log={openLog}
 					type="request"
 					nav={logNav}
-					clock={{ nowMs, staleThresholdMs }}
+					// Only a listed row keeps receiving updates. An unlisted one
+					// shows its last known state rather than counting up forever.
+					clock={listedLog ? { nowMs, staleThresholdMs } : undefined}
 					onClose={() => setSelectedLog(null)}
 				/>
 			)}
