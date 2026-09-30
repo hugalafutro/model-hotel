@@ -1,4 +1,4 @@
-import { screen, waitFor } from "@testing-library/react";
+import { act, screen, waitFor } from "@testing-library/react";
 import { HttpResponse, http } from "msw";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { server } from "../../test/mocks/server";
@@ -11,11 +11,12 @@ vi.mock("../../components/LogDetailModal", () => ({
 		log,
 		onClose,
 	}: {
-		log: { id: string };
+		log: { id: string; state: string };
 		onClose: () => void;
 	}) => (
 		<div data-testid="log-detail-modal">
 			<span>Log Detail: {log.id}</span>
+			<span>Modal state: {log.state}</span>
 			<button type="button" onClick={onClose}>
 				Close
 			</button>
@@ -191,6 +192,54 @@ describe("Logs", () => {
 					).not.toBeInTheDocument();
 				});
 			}
+		});
+		it("shows the row's live state, not the snapshot it opened with", async () => {
+			localStorage.setItem("requestLogsViewMode", "scroll");
+			const pending = createMockLogEntry({
+				id: "log-1",
+				request_hash: "live1",
+				state: "pending",
+				status_code: 0,
+				duration_ms: 0,
+			});
+			server.use(
+				http.get("/api/logs/cursor", () =>
+					HttpResponse.json({
+						entries: [pending],
+						total: 1,
+						has_before: false,
+						has_after: false,
+					}),
+				),
+				http.get("/api/logs/log-1", () =>
+					HttpResponse.json({
+						...pending,
+						state: "completed",
+						status_code: 200,
+					}),
+				),
+			);
+
+			const { user } = renderWithProviders(<Logs />);
+			await user.click(await screen.findByText("live1"));
+			expect(
+				await screen.findByText("Modal state: pending"),
+			).toBeInTheDocument();
+
+			await act(async () => {
+				window.dispatchEvent(
+					new CustomEvent("server-event", {
+						detail: {
+							type: "request.completed",
+							metadata: { request_id: "log-1", model_id: "test-model" },
+						},
+					}),
+				);
+			});
+
+			expect(
+				await screen.findByText("Modal state: completed"),
+			).toBeInTheDocument();
 		});
 	});
 

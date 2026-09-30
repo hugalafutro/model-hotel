@@ -232,9 +232,14 @@ function RequestLogs() {
 
 	// The stepper walks whichever list is on screen behind the modal.
 	const navEntries = viewMode === "scroll" ? scrollEntries : displayEntries;
+	// The modal reads the row's current version from the list, so live updates
+	// (pending -> streaming -> completed) reach it the same way they reach the
+	// row. The clicked snapshot only stands in once the row leaves the list.
+	const openLog =
+		navEntries.find((entry) => entry.id === selectedLog?.id) ?? selectedLog;
 	const logNav = useModalNav(
 		navEntries,
-		selectedLog,
+		openLog,
 		setSelectedLog,
 		(entry) => entry.id,
 	);
@@ -249,11 +254,12 @@ function RequestLogs() {
 
 	return (
 		<>
-			{selectedLog && (
+			{openLog && (
 				<LogDetailModal
-					log={selectedLog}
+					log={openLog}
 					type="request"
 					nav={logNav}
+					clock={{ nowMs, staleThresholdMs }}
 					onClose={() => setSelectedLog(null)}
 				/>
 			)}

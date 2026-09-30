@@ -12,12 +12,14 @@ import { DetailItem } from "./LogDetailItem";
 import { MaybeJsonBlock } from "./MaybeJsonBlock";
 import { Modal } from "./Modal";
 import type { ModalNavProps } from "./ModalNav";
-import { RequestLogDetail } from "./RequestLogDetail";
+import { type LiveClock, RequestLogDetail } from "./RequestLogDetail";
 
 interface LogDetailModalProps {
 	log: LogEntry | AppLogEntry | null;
 	type: "request" | "app";
 	nav?: ModalNavProps;
+	/** Ticks an in-progress request's duration, as the row behind the modal does. */
+	clock?: LiveClock;
 	onClose: () => void;
 }
 
@@ -99,12 +101,20 @@ export function LogDetailModal({
 	log,
 	type,
 	nav,
+	clock,
 	onClose,
 }: LogDetailModalProps) {
 	if (!log) return null;
 
 	if (type === "request" && isRequestLog(log)) {
-		return <RequestLogDetail requestLog={log} nav={nav} onClose={onClose} />;
+		return (
+			<RequestLogDetail
+				requestLog={log}
+				nav={nav}
+				clock={clock}
+				onClose={onClose}
+			/>
+		);
 	}
 
 	return <AppLogDetail log={log as AppLogEntry} nav={nav} onClose={onClose} />;

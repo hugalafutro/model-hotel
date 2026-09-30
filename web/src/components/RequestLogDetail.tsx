@@ -22,7 +22,7 @@ import {
 	formatSpend,
 } from "../utils/format";
 import { formatLogTimestamp } from "../utils/logBadgeUtils";
-import { formatMs } from "../utils/logHelpers";
+import { formatMs, isInProgress, liveDurationMs } from "../utils/logHelpers";
 import { AttemptTrail } from "./AttemptTrail";
 import { CollapseBody, CollapsibleIcon } from "./CollapsibleToggle";
 import { CopyablePill } from "./CopyablePill";
@@ -36,16 +36,31 @@ import { MaybeJsonBlock } from "./MaybeJsonBlock";
 import { Modal } from "./Modal";
 import type { ModalNavProps } from "./ModalNav";
 
+export interface LiveClock {
+	nowMs: number;
+	staleThresholdMs: number;
+}
+
 export function RequestLogDetail({
 	requestLog,
 	nav,
+	clock,
 	onClose,
 }: {
 	requestLog: LogEntry;
 	nav?: ModalNavProps;
+	clock?: LiveClock;
 	onClose: () => void;
 }) {
 	const { t } = useTranslation();
+	// An in-progress request has no final duration yet: count up from
+	// created_at, as its row does.
+	const durationMs =
+		clock &&
+		requestLog.duration_ms === 0 &&
+		isInProgress(requestLog, clock.nowMs, clock.staleThresholdMs)
+			? liveDurationMs(requestLog.created_at, clock.nowMs)
+			: requestLog.duration_ms;
 	// Proxy overhead breakdown starts collapsed: the header shows the total, and
 	// expanding reveals the per-step split.
 	const [overheadOpen, setOverheadOpen] = useState(false);
@@ -118,7 +133,7 @@ export function RequestLogDetail({
 				<div className="p-3 ui-stat-tile text-center">
 					<Clock size={16} className="mx-auto mb-1 text-(--accent)" />
 					<div className="text-lg font-bold text-(--text-primary)">
-						<DurationFigure ms={requestLog.duration_ms} />
+						<DurationFigure ms={durationMs} />
 					</div>
 					<div className="flex items-center justify-center gap-1 ui-overline">
 						{t("components.requestLogDetail.duration")}
