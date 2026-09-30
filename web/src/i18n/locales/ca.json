@@ -852,7 +852,9 @@
 			"baseUrlHelperDefault": "Introdueix l'adreça on escolta el teu servidor, amb qualsevol port. Model Hotel comprova que el servidor sigui realment del tipus que has triat abans de desar-lo, així que ha d'estar en marxa.",
 			"baseUrlHelperFull": "URL base completa de l'API, incloent-hi qualsevol prefix de ruta. Els models es descobriran a \"<base_url>/models\"",
 			"apiKey": "Clau de l'API",
-			"baseUrlHelperAnthropicMessages": "URL base d'un extrem que parla l'API Anthropic Messages. Les sol·licituds van a \"<base_url>\"/v1/messages i els models es descobreixen des de \"<base_url>\"/v1/models"
+			"baseUrlHelperAnthropicMessages": "URL base d'un extrem que parla l'API Anthropic Messages. Les sol·licituds van a \"<base_url>\"/v1/messages i els models es descobreixen des de \"<base_url>\"/v1/models",
+			"nameHasSlash": "El nom d'un proveïdor no pot contenir \"/\". Els models es criden com a proveïdor/model, així que el nom es tallaria al primer \"/\" i el proveïdor mai no es podria assolir.",
+			"nameReserved": "\"hotel\" està reservat: els noms de model que comencen per hotel/ van als grups de failover, així que un proveïdor amb aquest nom mai no es podria cridar directament."
 		},
 		"edit": {
 			"typeHelper": "Canvia-ho només per corregir un tipus que es va deduir malament en importar o actualitzar el proveïdor. Un tipus autoallotjat es comprova amb el servidor abans de desar-lo.",

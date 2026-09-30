@@ -1,6 +1,7 @@
 package api
 
 import (
+	"errors"
 	"fmt"
 	"strings"
 	"unicode"
@@ -73,6 +74,23 @@ func validateMapSize(field string, m map[string]bool, maxEntries int) error {
 		return fmt.Errorf("%s must have at most %d entries", field, maxEntries)
 	}
 	return nil
+}
+
+// validateProviderRoutingName rejects the provider names a request's model
+// string could never reach, returning the error code the dashboard phrases
+// the refusal from. The proxy splits "provider/model" at the first "/", so a
+// name containing one resolves to a provider that does not exist, and every
+// "hotel/..." model is routed to a failover group, so a provider named exactly
+// "hotel" is shadowed by them. Spaces are fine: /v1/models publishes them as
+// hyphens, and both forms resolve.
+func validateProviderRoutingName(name string) (code string, err error) {
+	if strings.Contains(name, "/") {
+		return "provider_name_slash", errors.New(`name must not contain "/": model strings split at the first "/"`)
+	}
+	if name == "hotel" {
+		return "provider_name_reserved", errors.New(`name "hotel" is reserved for failover groups (hotel/<group>)`)
+	}
+	return "", nil
 }
 
 // validateNameString trims, checks length, and rejects control/invisible characters.

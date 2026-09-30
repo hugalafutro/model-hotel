@@ -876,7 +876,9 @@
 			"baseUrlHelperDefault": "Zadajte adresu, na ktorej váš server počúva, na ľubovoľnom porte. Model Hotel pred uložením overí, či je server naozaj zvoleného typu, takže musí bežať.",
 			"baseUrlHelperFull": "Úplná základná adresa URL rozhrania API vrátane akejkoľvek predpony cesty. Modely sa vyhľadajú na adrese „<base_url> “/models",
 			"apiKey": "Kľúč API",
-			"baseUrlHelperAnthropicMessages": "Základná URL koncového bodu, ktorý hovorí Anthropic Messages API. Požiadavky smerujú na \"<base_url>\"/v1/messages a modely sa zisťujú z \"<base_url>\"/v1/models"
+			"baseUrlHelperAnthropicMessages": "Základná URL koncového bodu, ktorý hovorí Anthropic Messages API. Požiadavky smerujú na \"<base_url>\"/v1/messages a modely sa zisťujú z \"<base_url>\"/v1/models",
+			"nameHasSlash": "Názov poskytovateľa nesmie obsahovať „/“. Modely sa volajú ako poskytovateľ/model, takže by sa názov pri prvom „/“ odrezal a poskytovateľ by nikdy nebol dosiahnuteľný.",
+			"nameReserved": "Názov „hotel“ je rezervovaný: názvy modelov začínajúce hotel/ patria failover skupinám, takže poskytovateľa s týmto názvom by nikdy nebolo možné zavolať priamo."
 		},
 		"edit": {
 			"typeHelper": "Meňte len kvôli oprave typu, ktorý bol pri importe alebo aktualizácii odhadnutý zle. Typ vlastného servera sa pred uložením overí voči serveru.",

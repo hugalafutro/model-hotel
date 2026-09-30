@@ -876,7 +876,9 @@
 			"baseUrlHelperDefault": "Podaj adres, na którym nasłuchuje Twój serwer, dowolny port. Przed zapisaniem Model Hotel sprawdza, czy serwer naprawdę jest wybranego typu, więc musi być uruchomiony.",
 			"baseUrlHelperFull": "Pełny bazowy adres URL API wraz z dowolnym prefiksem ścieżki. Modele zostaną odkryte od \"<base_url>\"/models",
 			"apiKey": "Klucz API",
-			"baseUrlHelperAnthropicMessages": "Bazowy adres URL punktu końcowego, który mówi w Anthropic Messages API. Żądania trafiają do \"<base_url>\"/v1/messages, a modele są wykrywane z \"<base_url>\"/v1/models"
+			"baseUrlHelperAnthropicMessages": "Bazowy adres URL punktu końcowego, który mówi w Anthropic Messages API. Żądania trafiają do \"<base_url>\"/v1/messages, a modele są wykrywane z \"<base_url>\"/v1/models",
+			"nameHasSlash": "Nazwa dostawcy nie może zawierać znaku „/”. Modele wywołuje się jako dostawca/model, więc nazwa zostałaby ucięta na pierwszym „/” i dostawca byłby nieosiągalny.",
+			"nameReserved": "Nazwa „hotel” jest zarezerwowana: nazwy modeli zaczynające się od hotel/ trafiają do grup failover, więc dostawcy o tej nazwie nie dałoby się wywołać bezpośrednio."
 		},
 		"edit": {
 			"typeHelper": "Zmieniaj to tylko po to, by poprawić typ błędnie odgadnięty przy imporcie lub aktualizacji. Typ własnego serwera jest przed zapisem sprawdzany na serwerze.",

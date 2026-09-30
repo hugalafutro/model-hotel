@@ -519,3 +519,28 @@ func TestValidateClearableNamePtr_AtMaxLen(t *testing.T) {
 		t.Errorf("expected string of length %d, got %v", 128, result)
 	}
 }
+
+// validateProviderRoutingName refuses only what the proxy cannot route: a "/"
+// anywhere, or exactly "hotel". Spaces, other punctuation and other spellings
+// of hotel all resolve and stay allowed.
+func TestValidateProviderRoutingName(t *testing.T) {
+	for name, wantErr := range map[string]bool{
+		"OpenAI":                    false,
+		"Kimi Code":                 false,
+		"Google AI Studio (Gemini)": false,
+		"Z.ai Coding Plan":          false,
+		"Hotel":                     false,
+		"HOTEL":                     false,
+		"hotel-dev":                 false,
+		"my hotel":                  false,
+		"hotel":                     true,
+		"a/b":                       true,
+		"/leading":                  true,
+		"trailing/":                 true,
+		"hotel/x":                   true,
+	} {
+		if _, err := validateProviderRoutingName(name); (err != nil) != wantErr {
+			t.Errorf("validateProviderRoutingName(%q) = %v, want error %v", name, err, wantErr)
+		}
+	}
+}

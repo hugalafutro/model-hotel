@@ -89,6 +89,8 @@ func TestValidateSyncedProvider_UsesTheSharedRule(t *testing.T) {
 	}{
 		{"over-long name", ExportProvider{Name: strings.Repeat("n", 101), BaseURL: "https://p.example.test/v1"}},
 		{"unprintable name", ExportProvider{Name: "bad\x00name", BaseURL: "https://p.example.test/v1"}},
+		{"name with a slash", ExportProvider{Name: "a/b", BaseURL: "https://p.example.test/v1"}},
+		{"reserved name", ExportProvider{Name: "hotel", BaseURL: "https://p.example.test/v1"}},
 		{"malformed disable date", ExportProvider{Name: "p", BaseURL: "https://p.example.test/v1", ScheduledDisableOn: new("next tuesday")}},
 	} {
 		if err := validateSyncedProvider(tc.p); err == nil || !errors.Is(err, errInvalidSyncedProvider) {

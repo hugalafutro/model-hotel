@@ -55,6 +55,10 @@ export function providerTypeGateMessage(
 			return t("providers.add.urlRejected", {
 				detail: stringField(err.details, "error"),
 			});
+		case "provider_name_slash":
+			return t("providers.add.nameHasSlash");
+		case "provider_name_reserved":
+			return t("providers.add.nameReserved");
 		default:
 			return null;
 	}

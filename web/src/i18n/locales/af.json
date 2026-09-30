@@ -828,7 +828,9 @@
 			"baseUrlHelperDefault": "Voer die adres in waarop jou bediener luister, enige poort. Model Hotel kontroleer dat die bediener werklik die tipe is wat jy gekies het voordat dit gestoor word, dus moet dit loop.",
 			"baseUrlHelperFull": "Volledige API-basis-URL, insluitend enige padvoorsetsel. Modele sal ontdek word vanaf \"<base_url>\"/models",
 			"apiKey": "API-sleutel",
-			"baseUrlHelperAnthropicMessages": "Basis-URL van 'n eindpunt wat die Anthropic Messages API praat. Versoeke gaan na \"<base_url>\"/v1/messages en modelle word vanaf \"<base_url>\"/v1/models ontdek"
+			"baseUrlHelperAnthropicMessages": "Basis-URL van 'n eindpunt wat die Anthropic Messages API praat. Versoeke gaan na \"<base_url>\"/v1/messages en modelle word vanaf \"<base_url>\"/v1/models ontdek",
+			"nameHasSlash": "'n Verskaffernaam mag nie \"/\" bevat nie. Modelle word as verskaffer/model geroep, so die naam sou by die eerste \"/\" afgesny word en die verskaffer sou nooit bereik kon word nie.",
+			"nameReserved": "\"hotel\" is gereserveer: modelname wat met hotel/ begin, gaan na failover-groepe, so 'n verskaffer met hierdie naam kan nooit direk geroep word nie."
 		},
 		"edit": {
 			"typeHelper": "Verander dit net om 'n tipe reg te stel wat verkeerd geraai is toe die verskaffer ingevoer of opgegradeer is. 'n Self-gehuisveste tipe word teen die bediener gekontroleer voordat dit gestoor word.",

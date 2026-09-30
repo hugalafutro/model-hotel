@@ -828,7 +828,9 @@
 			"baseUrlHelperDefault": "Sunucunuzun dinlediği adresi girin, port fark etmez. Model Hotel kaydetmeden önce sunucunun gerçekten seçtiğiniz tür olduğunu doğrular, bu yüzden sunucu çalışıyor olmalıdır.",
 			"baseUrlHelperFull": "Herhangi bir yol önekini de içeren tam API temel URL'si. Modeller \"<base_url>\"/models adresinden bulunacaktır.",
 			"apiKey": "API Anahtarı",
-			"baseUrlHelperAnthropicMessages": "Anthropic Messages API konuşan bir uç noktanın temel URL'si. İstekler \"<base_url>\"/v1/messages adresine gider ve modeller \"<base_url>\"/v1/models adresinden keşfedilir"
+			"baseUrlHelperAnthropicMessages": "Anthropic Messages API konuşan bir uç noktanın temel URL'si. İstekler \"<base_url>\"/v1/messages adresine gider ve modeller \"<base_url>\"/v1/models adresinden keşfedilir",
+			"nameHasSlash": "Sağlayıcı adı \"/\" içeremez. Modeller sağlayıcı/model biçiminde çağrılır; bu yüzden ad ilk \"/\" işaretinde kesilir ve sağlayıcıya asla ulaşılamaz.",
+			"nameReserved": "\"hotel\" ayrılmıştır: hotel/ ile başlayan model adları failover gruplarına gider, bu yüzden bu adı taşıyan bir sağlayıcı asla doğrudan çağrılamaz."
 		},
 		"edit": {
 			"typeHelper": "Bunu yalnızca içe aktarma veya yükseltme sırasında yanlış tahmin edilen bir türü düzeltmek için değiştirin. Kendi sunucunuzun türü kaydedilmeden önce sunucuya karşı doğrulanır.",

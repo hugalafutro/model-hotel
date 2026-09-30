@@ -852,7 +852,9 @@
 			"baseUrlHelperDefault": "הזינו את הכתובת שבה השרת שלכם מאזין, בכל פורט. לפני השמירה Model Hotel בודק שהשרת אכן מהסוג שבחרתם, ולכן הוא חייב לפעול.",
 			"baseUrlHelperFull": "כתובת ה-URL הבסיסית המלאה של ה-API, כולל כל קידומת נתיב. הדגמים יאותרו בכתובת \"<base_url>\"/models",
 			"apiKey": "מפתח API",
-			"baseUrlHelperAnthropicMessages": "כתובת URL בסיסית של נקודת קצה שמדברת ב-Anthropic Messages API. הבקשות נשלחות אל \"<base_url>\"/v1/messages והמודלים מתגלים מתוך \"<base_url>\"/v1/models"
+			"baseUrlHelperAnthropicMessages": "כתובת URL בסיסית של נקודת קצה שמדברת ב-Anthropic Messages API. הבקשות נשלחות אל \"<base_url>\"/v1/messages והמודלים מתגלים מתוך \"<base_url>\"/v1/models",
+			"nameHasSlash": "שם ספק לא יכול להכיל \"/\". מודלים נקראים בתבנית ספק/מודל, ולכן השם ייחתך ב-\"/\" הראשון ולא ניתן יהיה להגיע לספק לעולם.",
+			"nameReserved": "השם \"hotel\" שמור: שמות מודלים שמתחילים ב-hotel/ מופנים לקבוצות failover, ולכן לא ניתן יהיה לקרוא ישירות לספק בשם הזה."
 		},
 		"edit": {
 			"typeHelper": "שנו זאת רק כדי לתקן סוג שנוחש שגוי בעת ייבוא או שדרוג של הספק. סוג של שרת מקומי נבדק מול השרת לפני השמירה.",

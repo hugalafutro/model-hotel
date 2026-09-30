@@ -366,10 +366,17 @@ The plaintext API key is never returned; `masked_key` is a display-only preview.
 
 | Field | Type | Required | Constraints |
 |-------|------|----------|-------------|
-| `name` | string | Yes | 1-100 characters, unique in the routing form (see below) |
+| `name` | string | Yes | 1-100 characters, unique in the routing form (see below), no `/`, and not `hotel` |
 | `base_url` | string | Yes | 1-500 characters, must use HTTPS unless `ALLOW_HTTP_PROVIDERS=true` |
 | `provider_type` | string | No | One of the known types (see [Model Discovery](Model-Discovery#provider-type)). Omitted, it is derived from the vendor hostname |
 | `api_key` | string | No | 1-500 characters (required for most providers, optional for Ollama, KoboldCPP, LMStudio, OpenCode Zen, custom) |
+
+**Names must be routable.** A request names a model as `<provider>/<model>` and
+the proxy splits it at the first `/`, so a name containing `/` could never be
+reached: it is refused with `400` and the code `provider_name_slash`. Every
+`hotel/...` model goes to a failover group, so the exact name `hotel` is refused
+with `provider_name_reserved` (`Hotel` or `my hotel` are fine: the prefix match is
+case-sensitive and whole). Spaces are allowed; see below.
 
 **Names are unique in the form routing uses.** A `<provider>/<model>` id replaces
 every space in the provider name with a hyphen, so `my provider` and

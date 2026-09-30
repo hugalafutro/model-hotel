@@ -828,7 +828,9 @@
 			"baseUrlHelperDefault": "サーバーが待ち受けているアドレスを入力してください。ポートは任意です。保存前に Model Hotel がそのサーバーが選んだ種類かどうかを確認するため、サーバーは起動している必要があります。",
 			"baseUrlHelperFull": "すべてのパスプレフィックスを含むフルAPIベースURL。モデルは \"<base_url>\"/modelsから検出されます。",
 			"apiKey": "API キー",
-			"baseUrlHelperAnthropicMessages": "Anthropic Messages API を話すエンドポイントのベース URL。リクエストは \"<base_url>\"/v1/messages に送信され、モデルは \"<base_url>\"/v1/models から検出されます"
+			"baseUrlHelperAnthropicMessages": "Anthropic Messages API を話すエンドポイントのベース URL。リクエストは \"<base_url>\"/v1/messages に送信され、モデルは \"<base_url>\"/v1/models から検出されます",
+			"nameHasSlash": "プロバイダー名に「/」は使えません。モデルは プロバイダー/モデル の形式で呼び出されるため、名前が最初の「/」で切れてしまい、このプロバイダーには到達できません。",
+			"nameReserved": "「hotel」は予約済みです。hotel/ で始まるモデル名はフェイルオーバーグループに送られるため、この名前のプロバイダーを直接呼び出すことはできません。"
 		},
 		"edit": {
 			"typeHelper": "インポートやアップグレードの際に誤って推測された種類を修正する場合にのみ変更してください。セルフホストの種類は保存前にサーバーと照合されます。",

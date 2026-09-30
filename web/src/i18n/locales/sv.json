@@ -828,7 +828,9 @@
 			"baseUrlHelperDefault": "Ange adressen som din server lyssnar på, valfri port. Model Hotel kontrollerar före sparandet att servern verkligen är den typ du valde, så den måste vara igång.",
 			"baseUrlHelperFull": "Fullständig API-bas-URL inklusive sökvägsprefix. Modeller kommer att upptäckas från \"<base_url>\"/models",
 			"apiKey": "API nyckel",
-			"baseUrlHelperAnthropicMessages": "Bas-URL för en endpoint som talar Anthropic Messages API. Förfrågningar går till \"<base_url>\"/v1/messages och modeller upptäcks från \"<base_url>\"/v1/models"
+			"baseUrlHelperAnthropicMessages": "Bas-URL för en endpoint som talar Anthropic Messages API. Förfrågningar går till \"<base_url>\"/v1/messages och modeller upptäcks från \"<base_url>\"/v1/models",
+			"nameHasSlash": "Ett leverantörsnamn får inte innehålla \"/\". Modeller anropas som leverantör/modell, så namnet skulle kapas vid första \"/\" och leverantören skulle aldrig gå att nå.",
+			"nameReserved": "\"hotel\" är reserverat: modellnamn som börjar med hotel/ går till failover-grupper, så en leverantör med det här namnet skulle aldrig kunna anropas direkt."
 		},
 		"edit": {
 			"typeHelper": "Ändra bara detta för att rätta en typ som gissades fel vid import eller uppgradering. En egen servers typ kontrolleras mot servern innan den sparas.",

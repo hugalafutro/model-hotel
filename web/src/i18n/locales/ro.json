@@ -852,7 +852,9 @@
 			"baseUrlHelperDefault": "Introduceți adresa pe care ascultă serverul dumneavoastră, pe orice port. Înainte de salvare, Model Hotel verifică dacă serverul chiar este tipul ales, deci trebuie să ruleze.",
 			"baseUrlHelperFull": "URL de bază API complet, inclusiv orice prefix de cale. Modelele vor fi descoperite de la \"<base_url>\"/models",
 			"apiKey": "Cheie API",
-			"baseUrlHelperAnthropicMessages": "URL-ul de bază al unui endpoint care vorbește API-ul Anthropic Messages. Cererile merg către \"<base_url>\"/v1/messages, iar modelele sunt descoperite din \"<base_url>\"/v1/models"
+			"baseUrlHelperAnthropicMessages": "URL-ul de bază al unui endpoint care vorbește API-ul Anthropic Messages. Cererile merg către \"<base_url>\"/v1/messages, iar modelele sunt descoperite din \"<base_url>\"/v1/models",
+			"nameHasSlash": "Numele unui furnizor nu poate conține „/”. Modelele sunt apelate ca furnizor/model, așa că numele ar fi tăiat la primul „/” și furnizorul nu ar putea fi accesat niciodată.",
+			"nameReserved": "„hotel” este rezervat: numele de model care încep cu hotel/ merg la grupurile de failover, așa că un furnizor cu acest nume nu ar putea fi apelat niciodată direct."
 		},
 		"edit": {
 			"typeHelper": "Modificați doar pentru a corecta un tip ghicit greșit la import sau la actualizare. Un tip găzduit local este verificat pe server înainte de salvare.",

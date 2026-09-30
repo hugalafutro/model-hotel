@@ -409,7 +409,8 @@ What makes this safe to leave running:
 - **What the dashboard would refuse, sync refuses.** A member applies an envelope
   with the load-bearing checks its own admin API applies on the way in: provider
   `base_url` shape (the same address rules), provider name length and
-  printability, provider names that are one name once spaces become hyphens
+  printability, provider names routing could never reach (a `/` in the name,
+  or exactly `hotel`), provider names that are one name once spaces become hyphens
   (the form routing uses, so such a pair would fight over one routing id), the
   disable date's format, the per-provider `max_in_flight`
   ceiling (1 to 10000, or null: a value below one would read as no ceiling at

@@ -32,6 +32,10 @@ func (h *Handler) CreateProvider(w http.ResponseWriter, r *http.Request) {
 		respondBadRequest(w, "invalid name", err)
 		return
 	}
+	if code, err := validateProviderRoutingName(trimmed); err != nil {
+		writeCodedError(w, http.StatusBadRequest, code, err.Error())
+		return
+	}
 	req.Name = trimmed
 	req.BaseURL = strings.TrimSpace(req.BaseURL)
 
@@ -362,6 +366,10 @@ func (h *Handler) UpdateProvider(w http.ResponseWriter, r *http.Request) {
 		trimmed, err := validateNamePtr("name", req.Name, 1, 100)
 		if err != nil {
 			respondBadRequest(w, "invalid name", err)
+			return
+		}
+		if code, err := validateProviderRoutingName(*trimmed); err != nil {
+			writeCodedError(w, http.StatusBadRequest, code, err.Error())
 			return
 		}
 		req.Name = trimmed
