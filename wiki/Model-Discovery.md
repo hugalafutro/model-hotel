@@ -823,7 +823,18 @@ Rerank models are billed per search unit rather than per token, so their per-tok
 
 **Source files:** `discovery_koboldcpp.go`
 
-**Method:** KoboldCPP is a self-hosted server exposing an OpenAI-compatible API on whatever address it was started on. Discovery confirms the server via `GET /api/extra/version`, reads the loaded model from `GET /v1/models`, and takes the context size from `GET /api/extra/true_max_context_length`. Image and audio input come from the version endpoint's `vision` and `audio` flags, which describe the adapters the loaded chat model was given. No built-in catalog is used.
+**Method:** KoboldCPP is a self-hosted server exposing an OpenAI-compatible API on whatever address it was started on. Discovery confirms the server via `GET /api/extra/version`, reads the loaded chat model from `GET /v1/models`, and takes the context size from `GET /api/extra/true_max_context_length`. Image and audio input come from the version endpoint's `vision` and `audio` flags, which describe the adapters the loaded chat model was given. The chat model is listed only when the version endpoint's `llm` flag is set (builds too old to report it always have one): a KoboldCPP started without a chat model still answers `/v1/models` with a placeholder named `inactive`.
+
+KoboldCPP also serves one side model per endpoint, and the version endpoint's flags say which are loaded. Each becomes a model of its own class, so it shows in the matching picker:
+
+| Flag | Model ID | Class |
+|------|----------|-------|
+| `txt2img` | `koboldcpp/<name>` from `GET /sdapi/v1/sd-models`, or `koboldcpp/image` when that listing is unreadable | `image` |
+| `tts` | `koboldcpp/tts` | `tts` |
+| `transcribe` | `koboldcpp/whisper` | `stt` |
+| `embeddings` | `koboldcpp/embeddings` | `embedding` |
+
+KoboldCPP names only its image model; the others carry fixed IDs, which also stay the same when the file behind them is swapped. KoboldCPP ignores the request's model field on these endpoints, so the ID only has to route. KoboldCPP has no rerank endpoint. No built-in catalog is used.
 
 **Detection:** Chosen by the operator, confirmed by probing `/api/extra/version` when the provider is added or its URL changed.
 
@@ -835,7 +846,7 @@ Rerank models are billed per search unit rather than per token, so their per-tok
 | Max output tokens | Not set |
 | Pricing | None (self-hosted) |
 | Capabilities | Hardcoded: streaming on, tool calling off (KoboldCPP uses its own tool format) |
-| Modalities | Input modalities from the version endpoint's `vision` and `audio` flags, so a vision or audio KoboldCPP is not filed as text-only. `transcribe`, `tts`, `txt2img` and `embeddings` are separate endpoints and are deliberately ignored, and the endpoint class is derived centrally |
+| Modalities | Chat model: input modalities from the version endpoint's `vision` and `audio` flags, so a vision or audio KoboldCPP is not filed as text-only, and the endpoint class is derived centrally. Side models: the class is stated explicitly (see the table above) and the modality arrays follow from it. The `transcribe` flag means a Whisper side model, never audio input on the chat model |
 
 ---
 
