@@ -87,7 +87,8 @@ func isStaticAsset(path string) bool {
 // frontdesk/web/src/components/PairedDevicesPanel.tsx),
 // the Traffic page re-pulls every member's traffic on the same cadence, and the
 // quota panel reads every minute. Bellhop re-reads the members, the quota and
-// the autosync config every 15s (every minute while its event stream is up).
+// the autosync config every 15s (every minute while its event stream is up),
+// plus one member-filtered events read per member while the fleet has none.
 // One idle tab would otherwise write a dozen lines a minute forever, which
 // buries the rejections this log exists for. They are the SPA's and Bellhop's
 // liveness reads, not a person doing anything.
@@ -110,7 +111,7 @@ func isPollingEndpoint(method, path string) bool {
 		return false
 	}
 	switch np {
-	case "/api/sse", "/api/members", "/api/devices", "/api/quota", "/api/fleet/autosync":
+	case "/api/sse", "/api/members", "/api/devices", "/api/quota", "/api/fleet/autosync", "/api/events":
 		return true
 	}
 	// Per-member traffic, which the Traffic page pulls once per member per tick.

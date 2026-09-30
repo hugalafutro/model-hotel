@@ -433,8 +433,8 @@ func TestIsNoisyGatewayPath(t *testing.T) {
 		{"provider usage GET", "/api/providers/abc/usage", "GET", true},
 		{"provider balance GET", "/api/providers/abc/balance", "GET", true},
 		{"provider account GET trailing slash", "/api/providers/abc/account/", "GET", true},
+		{"quota snapshots POST (Front Desk push)", "/api/config/quota-snapshots", "POST", true},
 		// Near misses and mutations of the same paths stay at info.
-		{"quota snapshots POST", "/api/config/quota-snapshots", "POST", false},
 		{"circuit breaker status POST", "/api/failover-groups/circuit-breaker-status", "POST", false},
 		{"provider usage without id", "/api/providers//usage", "GET", false},
 		{"provider discover POST", "/api/providers/abc/discover", "POST", false},

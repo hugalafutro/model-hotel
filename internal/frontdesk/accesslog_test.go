@@ -133,6 +133,7 @@ func TestAccessLogger_DashboardPollsStayOutOfTheInfoStream(t *testing.T) {
 		"/api/devices",
 		"/api/quota",
 		"/api/fleet/autosync",
+		"/api/events",
 		"/api/members/9d1f0e5a-0000-4000-8000-000000000001/traffic",
 	}
 	for _, target := range polled {

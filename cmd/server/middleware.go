@@ -102,13 +102,16 @@ func maxRequestSizeMiddleware(maxBytes int64) func(http.Handler) http.Handler {
 // Failover badge reads the circuit-breaker status every 15s and the discrepancy
 // check reads discovery status every minute, the Logs page tails the request log
 // through its cursor, and quota badges re-read each provider's usage, balance or
-// account. Front Desk adds the circuit ledger every 15s and the primary's quota
-// snapshots every minute.
+// account. Front Desk adds the circuit ledger every 15s and, every minute, reads
+// the primary's quota snapshots and pushes them to every other member; that
+// push is fleet-authed and only Front Desk sends it, so like the announce it is
+// demoted under any method.
 //
 // path arrives slash-normalized from httpx.AccessLogger, so a trailing slash
 // from a client or a reverse proxy cannot defeat an exact match.
 func isNoisyGatewayPath(method, path string) bool {
-	if path == "/health" || path == "/api/fleet/announce" || strings.HasPrefix(path, "/api/logs/app") {
+	if path == "/health" || path == "/api/fleet/announce" || path == "/api/config/quota-snapshots" ||
+		strings.HasPrefix(path, "/api/logs/app") {
 		return true
 	}
 	if method != http.MethodGet {
@@ -117,7 +120,7 @@ func isNoisyGatewayPath(method, path string) bool {
 	switch path {
 	case "/api/logs", "/api/logs/cursor", "/api/system", "/api/events", "/api/stats", "/api/stats/timeseries",
 		"/api/stats/provider-distribution", "/api/models", "/api/providers", "/api/settings",
-		"/api/failover-groups/circuit-breaker-status", "/api/discovery/status", "/api/config/quota-snapshots":
+		"/api/failover-groups/circuit-breaker-status", "/api/discovery/status":
 		return true
 	}
 	return isProviderQuotaRead(path)
