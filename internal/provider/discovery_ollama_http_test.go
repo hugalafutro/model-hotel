@@ -903,6 +903,8 @@ func TestBuildOllamaModel_Capabilities(t *testing.T) {
 		// Older Ollama reports nothing: the name decides, and so do the pills.
 		{"mxbai-embed-large", nil, model.Capability{}},
 		{"llama2:7b", nil, model.Capability{Streaming: true, StructuredOutput: true}},
+		// Both endpoints listed: the name decides the class, and the pills follow.
+		{"nomic-embed-text", []string{"completion", "embedding"}, model.Capability{}},
 	} {
 		m := service.buildOllamaModel(provider, tc.id, &OllamaShowResponse{Capabilities: tc.caps})
 		var got model.Capability
@@ -914,8 +916,60 @@ func TestBuildOllamaModel_Capabilities(t *testing.T) {
 		}
 		// The pills agree with the class the model is filed under.
 		NormalizeModelClassification(m)
-		if got.Streaming != (m.Modality == "chat") {
-			t.Errorf("%s: streaming=%v but class %q", tc.id, got.Streaming, m.Modality)
+		chat := m.Modality == "chat"
+		if got.Streaming != chat || got.StructuredOutput != chat {
+			t.Errorf("%s: streaming=%v structured=%v but class %q", tc.id, got.Streaming, got.StructuredOutput, m.Modality)
+		}
+		wantIn, wantOut := `["text"]`, `["text"]`
+		if got.Vision {
+			wantIn = `["text","image"]`
+		}
+		if m.Modality == "embedding" {
+			wantOut = `["embedding"]`
+		}
+		if m.InputModalities != wantIn || m.OutputModalities != wantOut {
+			t.Errorf("%s: modalities %s -> %s, want %s -> %s", tc.id, m.InputModalities, m.OutputModalities, wantIn, wantOut)
+		}
+	}
+}
+
+// Structured output is advertised only where the schema is enforced. Ollama's
+// cloud accepts response_format and ignores it (ollama/ollama#12362, verified
+// live), so neither the ollama-cloud type nor a local Ollama's cloud-tagged
+// model advertises it; both keep streaming. The name rule is Ollama's own
+// tagging and does not reach another provider type.
+func TestBuildOllamaModel_CloudServedModelsAdvertiseNoStructuredOutput(t *testing.T) {
+	service := &DiscoveryService{}
+	show := &OllamaShowResponse{Capabilities: []string{"completion", "tools"}}
+	for _, tc := range []struct {
+		providerType, id string
+		structured       bool
+	}{
+		{"ollama", "llama3.2:3b", true},
+		{"ollama", "gpt-oss:120b-cloud", false},
+		{"ollama", "kimi-k2:cloud", false},
+		{"ollama-cloud", "gpt-oss:20b", false},
+	} {
+		m := service.buildOllamaModel(&Provider{ID: uuid.New(), ProviderType: tc.providerType}, tc.id, show)
+		var got model.Capability
+		if err := json.Unmarshal([]byte(m.Capabilities), &got); err != nil {
+			t.Fatalf("%s/%s: %v", tc.providerType, tc.id, err)
+		}
+		if got.StructuredOutput != tc.structured || !got.Streaming {
+			t.Errorf("%s/%s: structured=%v streaming=%v, want structured=%v and streaming", tc.providerType, tc.id, got.StructuredOutput, got.Streaming, tc.structured)
+		}
+	}
+	for _, tc := range []struct {
+		providerType, id string
+		want             bool
+	}{
+		{"ollama-cloud", "anything", true},
+		{"ollama", "deepseek-v3.1:671b-cloud", true},
+		{"ollama", "llama3.2:3b", false},
+		{"openrouter", "vendor/model-cloud", false},
+	} {
+		if got := ollamaCloudServed(tc.providerType, tc.id); got != tc.want {
+			t.Errorf("ollamaCloudServed(%q, %q) = %v, want %v", tc.providerType, tc.id, got, tc.want)
 		}
 	}
 }

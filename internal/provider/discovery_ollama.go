@@ -192,18 +192,20 @@ func (d *DiscoveryService) buildOllamaModel(provider *Provider, modelID string, 
 		output = []string{"text"}
 	}
 
-	// Streaming and structured output (Ollama's OpenAI endpoint honours
-	// response_format with a JSON schema) go to exactly the models filed as
-	// chat, decided once from the same arrays the model is filed with, so an
+	// Streaming and structured output go to exactly the models filed as chat,
+	// decided once from the same arrays the model is filed with, so an
 	// embeddings model carries neither and the pills never disagree with the
-	// class.
+	// class. Structured output only where the schema is enforced: a local
+	// Ollama constrains decoding to it, Ollama's cloud accepts response_format
+	// and ignores it (ollama/ollama#12362, verified: cloud models answer in
+	// prose), which is why ollamaCloudServed leaves it off.
 	class := modality
 	if class == "" {
 		class = DeriveModelClass(input, output, modelID)
 	}
 	if class == "chat" {
 		caps.Streaming = true
-		caps.StructuredOutput = true
+		caps.StructuredOutput = !ollamaCloudServed(TypeOf(provider), modelID)
 	}
 	capJSON, _ := json.Marshal(caps)
 	inputMods, _ := json.Marshal(input)
@@ -266,4 +268,22 @@ func (d *DiscoveryService) GetOllamaCloudAccount(ctx context.Context, provider *
 
 	debuglog.Info("discovery: ollama cloud account fetched", "provider", provider.Name, "provider_id", provider.ID, "plan", account.Plan)
 	return &account, nil
+}
+
+// ollamaCloudServed reports a model that Ollama's cloud answers: every model on
+// the ollama-cloud provider type, and a local Ollama's cloud-tagged models
+// (gpt-oss:120b-cloud, deepseek-v3.1:671b-cloud), which the local server
+// forwards there. The cloud ignores a response_format schema, so such a model
+// must not advertise structured output. The name rule is Ollama's tagging, so
+// it applies to the ollama type only: another provider's model that merely
+// ends in "-cloud" is not one.
+func ollamaCloudServed(providerType, modelID string) bool {
+	switch providerType {
+	case "ollama-cloud":
+		return true
+	case "ollama":
+		id := strings.ToLower(modelID)
+		return strings.HasSuffix(id, "-cloud") || strings.HasSuffix(id, ":cloud")
+	}
+	return false
 }

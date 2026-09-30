@@ -480,8 +480,15 @@ func mergeSpecCapabilities(spec *ModelsDevModelSpec, caps *model.Capability) boo
 // a 400 (google-gemini/cookbook#1028); discovery leaves the flag off for
 // them, so the merge must not switch it back on. Reports whether it cleared
 // anything.
+//
+// Ollama's cloud is the other case: it accepts a response_format schema and
+// does not enforce it (ollamaCloudServed), so a flag the catalog merges in for
+// the same model elsewhere must not stand there either.
 func clearRefusedCapabilities(providerType, modelID string, caps *model.Capability) bool {
-	if !caps.StructuredOutput || !googleServedImageModel(providerType, modelID) {
+	if !caps.StructuredOutput {
+		return false
+	}
+	if !googleServedImageModel(providerType, modelID) && !ollamaCloudServed(providerType, modelID) {
 		return false
 	}
 	caps.StructuredOutput = false

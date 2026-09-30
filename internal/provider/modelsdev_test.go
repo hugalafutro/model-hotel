@@ -404,6 +404,41 @@ func TestEnrichModel_GoogleImageModelsKeepJSONModeOff(t *testing.T) {
 	}
 }
 
+// Ollama's cloud ignores a response_format schema, so a structured-output flag
+// models.dev carries for the same model id elsewhere (gpt-oss via OpenAI) must
+// not be merged back onto it, nor onto a local Ollama's cloud-tagged model. A
+// local model keeps taking the flag, and the other flags still merge.
+func TestEnrichModel_OllamaCloudKeepsStructuredOutputOff(t *testing.T) {
+	yes := true
+	setupCacheWithModels(t, map[string]*ModelsDevModelSpec{
+		"gpt-oss:20b":        {ID: "gpt-oss:20b", StructuredOutput: &yes, ToolCall: true},
+		"gpt-oss:120b-cloud": {ID: "gpt-oss:120b-cloud", StructuredOutput: &yes},
+		"llama3.2:3b":        {ID: "llama3.2:3b", StructuredOutput: &yes},
+	})
+	cache := GetModelsDevCache()
+	for _, tc := range []struct {
+		modelID, providerType string
+		wantStructured        bool
+	}{
+		{"gpt-oss:20b", "ollama-cloud", false},
+		{"gpt-oss:120b-cloud", "ollama", false},
+		{"llama3.2:3b", "ollama", true},
+	} {
+		m := &model.Model{ModelID: tc.modelID, Capabilities: `{"streaming":true}`}
+		cache.EnrichModel(m, tc.providerType)
+		var caps model.Capability
+		if err := json.Unmarshal([]byte(m.Capabilities), &caps); err != nil {
+			t.Fatalf("capabilities %q: %v", m.Capabilities, err)
+		}
+		if caps.StructuredOutput != tc.wantStructured {
+			t.Errorf("%s via %s: structured_output = %v, want %v", tc.modelID, tc.providerType, caps.StructuredOutput, tc.wantStructured)
+		}
+		if tc.modelID == "gpt-oss:20b" && !caps.ToolCalling {
+			t.Errorf("only structured output is refused; caps = %s", m.Capabilities)
+		}
+	}
+}
+
 // ---------------------------------------------------------------------------
 // EnrichModels edge cases
 // ---------------------------------------------------------------------------
