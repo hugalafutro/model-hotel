@@ -852,6 +852,47 @@ func TestRepository_Update(t *testing.T) {
 	}
 }
 
+// Re-typing a provider away from custom releases its models' capabilities
+// pins; keeping it custom, or leaving the type alone, does not.
+func TestRepository_Update_RetypeReleasesCapabilitiesPins(t *testing.T) {
+	repo := newTestRepo(t)
+	ctx := context.Background()
+	p, err := repo.Create(ctx, CreateProviderRequest{
+		Name: uniqueName(t), BaseURL: "https://old.example.com", APIKey: "sk-old", ProviderType: "custom",
+	}, []byte("enc"), []byte("nonce"), []byte("salt"))
+	if err != nil {
+		t.Fatalf("Create: %v", err)
+	}
+	if _, err := repo.pool.Exec(ctx,
+		`INSERT INTO models (id, provider_id, model_id, name, enabled, capabilities_customized) VALUES ($1, $2, 'm', 'm', true, true)`,
+		uuid.New(), p.ID); err != nil {
+		t.Fatalf("insert pinned model: %v", err)
+	}
+	pinned := func() bool {
+		t.Helper()
+		var v bool
+		if err := repo.pool.QueryRow(ctx, `SELECT capabilities_customized FROM models WHERE provider_id = $1`, p.ID).Scan(&v); err != nil {
+			t.Fatalf("read pin: %v", err)
+		}
+		return v
+	}
+	custom, openai, name := "custom", "openai", uniqueName(t)
+	for _, req := range []UpdateProviderRequest{{Name: &name}, {ProviderType: &custom}} {
+		if _, err := repo.Update(ctx, p.ID, req, nil, nil, nil); err != nil {
+			t.Fatalf("Update: %v", err)
+		}
+		if !pinned() {
+			t.Fatalf("pin released by %+v, want it kept", req)
+		}
+	}
+	if _, err := repo.Update(ctx, p.ID, UpdateProviderRequest{ProviderType: &openai}, nil, nil, nil); err != nil {
+		t.Fatalf("re-type: %v", err)
+	}
+	if pinned() {
+		t.Fatal("pin kept after re-typing the provider to openai, want it released")
+	}
+}
+
 // Empty (non-nil) key columns clear the stored key, the way a blank api_key on
 // update is applied for a keyless type; nil leaves it in place.
 func TestRepository_Update_EmptyKeyColumnsClearTheKey(t *testing.T) {

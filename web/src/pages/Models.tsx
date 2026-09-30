@@ -159,9 +159,13 @@ export function Models() {
 				{ id, data: updates },
 				{
 					// The server's row, not the request: it carries the pins the
-					// edit set and capabilities in their stored (string) shape.
+					// edit set and capabilities in their stored (string) shape. A
+					// save that lands after the modal moved on to another model
+					// leaves that model alone.
 					onSuccess: (updated) => {
-						setDetailModel((prev) => (prev ? { ...prev, ...updated } : null));
+						setDetailModel((prev) =>
+							prev && prev.id === updated.id ? { ...prev, ...updated } : prev,
+						);
 						setModelRefreshTrigger((n) => n + 1);
 					},
 				},
