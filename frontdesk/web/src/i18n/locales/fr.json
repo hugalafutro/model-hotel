@@ -125,7 +125,7 @@
 		"urlLabel": "URL de base",
 		"urlPlaceholder": "https://hotel-1.example.com",
 		"tokenLabel": "Jeton d'administration",
-		"tokenHint": "Requis. Stocké chiffré. Front Desk vérifie l'hôte avec lors de l'ajout et l'utilise pour les lectures de version et de trafic et la synchronisation du jeton d'administration.",
+		"tokenHint": "Requis. Stocké chiffré. Front Desk s'en sert pour vérifier l'hôte lors de l'ajout, puis pour les lectures de version et de trafic, la synchronisation de la configuration et la vérification des sauvegardes.",
 		"tokenPlaceholder": "ADMIN_TOKEN actuel de ce membre",
 		"removeTitle": "Retirer {{name}} ?",
 		"removeBody": "Front Desk cesse de suivre {{name}} et le retire du pool de backends Traefik. L'instance elle-même n'est pas touchée. Cela ne draine pas les requêtes en cours ; drainez d'abord pour un retrait sans perte.",

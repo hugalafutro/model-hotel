@@ -145,12 +145,14 @@ You have one instance at `ip1:8080`. Move it aside and let the HA stack take ove
    degraded while a member is drained, since routing capacity really is reduced, so "Fleet
    state changed" fires once when the first member leaves the pool and once when the last
    one is back. Re-run the
-   config sync after any provider/key/settings change on the primary. Two floors
+   config sync after any provider/key/settings change on the primary. Three floors
    guard the routing pool. The last active member cannot be drained: Front Desk
    refuses rather than empty Traefik's backend pool, so on a two-member fleet
-   re-activate one before draining the other. And removing a member from a
-   two-member fleet disbands the fleet outright, clearing every member row, the
-   primary designation and auto-sync, rather than leaving a one-member "fleet".
+   re-activate one before draining the other. On a fleet of three or more, the
+   last active member cannot be removed either (the same `409 last_active_member`
+   refusal): re-activate another member or add one first. And removing a member
+   from a two-member fleet disbands the fleet outright, clearing every member row,
+   the primary designation and auto-sync, rather than leaving a one-member "fleet".
 
 <p align="center"><a href="screenshots/frontdesk_addmember.png"><img src="screenshots/frontdesk_addmember.png" width="800" alt="Front Desk: add a member"></a></p>
 
@@ -315,7 +317,7 @@ own HA self-report and refuses a host that already is the primary.
 | Dashboard user accounts | Passkeys / TOTP (auth is per-instance) |
 | Failover groups, custom and auto-formed (entry order and toggles) | |
 | Models you switched off by hand | Discovered models themselves |
-| Syncable settings (discovery, timeouts, circuit breaker, hedging, backups, retention) | Alerting destination (apprise URL/targets) |
+| Syncable settings (discovery, timeouts, circuit breaker, hedging, backups, retention, the alerting on/off switch and event selection) | Alerting destination (apprise URL/targets) |
 | SSO email allowlists (who may log in, fleet-wide) | SSO provider config (enable flags, issuer, client credentials, callback base URL - each member chooses which IdPs it offers) |
 | Password policy (breached-password check) | Tab timeout (per-instance operator preference) |
 
@@ -740,9 +742,11 @@ live **Check**, the kind of destination (phone via the ntfy app, Bellhop,
 Telegram, Discord, email, or a raw Apprise URL), its details as plain fields, a
 test to that destination alone, the destination list, the events, and **Finish**.
 Nothing is written until **Finish**, so cancelling changes nothing. The event
-picker starts on the high-signal HA events (a member going down or recovering, a
-config sync failing, a member's version read failing repeatedly); membership and
-routing events are available but off by default.
+picker starts on the high-signal HA events (a member going down or recovering,
+the fleet state changing, a config sync failing, held or left incomplete, auto-sync
+drifting stale, a member's version read failing repeatedly, and a member's backups
+going stale); membership, routing, maintenance, routine sync and recovery notes are available
+but off by default.
 
 Saved destinations then sit on the card as a plaintext, admin-only
 **Destinations** list with per-row **Copy**, **Test** and **Remove**, and

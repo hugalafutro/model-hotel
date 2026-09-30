@@ -65,11 +65,12 @@ export const SETTING_DEFAULTS = {
 
 	// Alerting (Apprise). alert_events MUST match Go's alert.DefaultEnabledCSV()
 	// (internal/alert/catalog.go): the comma-joined default-on event types.
+	// TestDashboardAlertEventsDefaultMatchesCatalog enforces it.
 	alert_enabled: "false",
 	alert_apprise_api_url: "",
 	alert_apprise_targets: "",
 	alert_events:
-		"circuit_breaker.open,circuit_breaker.closed,failover.sync_error",
+		"circuit_breaker.open,circuit_breaker.closed,failover.sync_error,fleet.conflict,quota.schema_drift,model.auto_disabled_gone,provider.scheduled_disable,budget.warning,budget.exceeded",
 	// Days an unaddressed discovery claim may sit in the Models badge before
 	// discovery.claims_outstanding fires. Matches DefaultClaimAlertDays in
 	// internal/api/discovery_claim_alert.go. The ceiling is NOT here: it is

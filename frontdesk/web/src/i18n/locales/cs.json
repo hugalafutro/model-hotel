@@ -125,7 +125,7 @@
 		"urlLabel": "Základní URL",
 		"urlPlaceholder": "https://hotel-1.example.com",
 		"tokenLabel": "Administrátorský token",
-		"tokenHint": "Povinné. Uloženo šifrovaně. Front Desk jím při přidání ověří hostitele a používá jej ke čtení verze a provozu a k synchronizaci admin tokenu.",
+		"tokenHint": "Povinné. Uloženo šifrovaně. Front Desk jím při přidání ověří hostitele a používá jej ke čtení verze a provozu, k synchronizaci konfigurace a ke kontrole záloh.",
 		"tokenPlaceholder": "Aktuální ADMIN_TOKEN tohoto člena",
 		"removeTitle": "Odebrat {{name}}?",
 		"removeBody": "Front Desk přestane sledovat {{name}} a odstraní jej z poolu backendů Traefik. Samotná instance zůstane nedotčena. Tím se nevyřadí rozpracované požadavky; pro ztrátové odebrání nejprve instanci vyřaďte z provozu.",

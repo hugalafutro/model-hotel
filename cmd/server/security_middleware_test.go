@@ -39,8 +39,8 @@ func TestCORSMiddleware(t *testing.T) {
 		if got := rec.Header().Get("Access-Control-Allow-Origin"); got != "http://allowed.test" {
 			t.Errorf("expected origin echoed, got %q", got)
 		}
-		if got := rec.Header().Get("Vary"); got != "Origin" {
-			t.Errorf("expected Vary: Origin, got %q", got)
+		if got := rec.Header().Get("Vary"); got != "Origin, Access-Control-Request-Headers" {
+			t.Errorf("expected Vary: Origin, Access-Control-Request-Headers, got %q", got)
 		}
 	})
 
@@ -52,8 +52,8 @@ func TestCORSMiddleware(t *testing.T) {
 		if got := rec.Header().Get("Access-Control-Allow-Origin"); got != "" {
 			t.Errorf("expected no allow-origin for disallowed origin, got %q", got)
 		}
-		if got := rec.Header().Get("Vary"); got != "Origin" {
-			t.Errorf("expected Vary: Origin even when disallowed, got %q", got)
+		if got := rec.Header().Get("Vary"); got != "Origin, Access-Control-Request-Headers" {
+			t.Errorf("expected Vary: Origin, Access-Control-Request-Headers even when disallowed, got %q", got)
 		}
 	})
 
@@ -69,6 +69,42 @@ func TestCORSMiddleware(t *testing.T) {
 		}
 		if called {
 			t.Error("expected preflight to short-circuit before the handler")
+		}
+	})
+	// A preflight must admit every method and header the API takes, or a
+	// cross-origin client fails before its request is ever sent.
+	t.Run("preflight_allows_api_methods_and_headers", func(t *testing.T) {
+		rec := httptest.NewRecorder()
+		req := httptest.NewRequest(http.MethodOptions, "/", http.NoBody)
+		req.Header.Set("Origin", "http://allowed.test")
+		mw(okHandler()).ServeHTTP(rec, req)
+		methods := rec.Header().Get("Access-Control-Allow-Methods")
+		if !strings.Contains(methods, "PATCH") {
+			t.Errorf("Allow-Methods %q lacks PATCH", methods)
+		}
+		headers := strings.ToLower(rec.Header().Get("Access-Control-Allow-Headers"))
+		for _, h := range []string{"content-type", "authorization", "x-csrf-token", "x-api-key"} {
+			if !strings.Contains(headers, h) {
+				t.Errorf("Allow-Headers %q lacks %s", headers, h)
+			}
+		}
+	})
+	// Browser SDKs send headers of their own; an allowed origin's preflight
+	// gets the requested list back, a disallowed origin's gets nothing.
+	t.Run("preflight_echoes_requested_headers", func(t *testing.T) {
+		const want = "anthropic-version, anthropic-dangerous-direct-browser-access, x-stainless-os"
+		for _, tc := range []struct {
+			origin string
+			want   string
+		}{{"http://allowed.test", want}, {"http://evil.test", ""}} {
+			rec := httptest.NewRecorder()
+			req := httptest.NewRequest(http.MethodOptions, "/", http.NoBody)
+			req.Header.Set("Origin", tc.origin)
+			req.Header.Set("Access-Control-Request-Headers", want)
+			mw(okHandler()).ServeHTTP(rec, req)
+			if got := rec.Header().Get("Access-Control-Allow-Headers"); got != tc.want {
+				t.Errorf("origin %s: Allow-Headers = %q, want %q", tc.origin, got, tc.want)
+			}
 		}
 	})
 }

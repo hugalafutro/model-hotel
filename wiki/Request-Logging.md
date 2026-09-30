@@ -17,7 +17,7 @@ All fields are written to the `request_logs` PostgreSQL table.
 | `request_hash` | TEXT | Random 16-character hex request identifier (8 random bytes from `crypto/rand`). Not content-derived. |
 | `model_id` | TEXT | The requested model (e.g. `deepseek/deepseek-chat` or `hotel/gpt-4`) |
 | `provider_id` | UUID | Which provider handled the request. NULL until resolved, and set back to NULL if the provider is later deleted. |
-| `virtual_key_id` | UUID | Foreign key to `virtual_keys` (NULL for anonymous and dashboard requests) |
+| `virtual_key_id` | UUID | The `virtual_keys` id the request authenticated with (NULL for anonymous and dashboard requests). A plain UUID with no foreign key, so it outlives the key's deletion. |
 | `virtual_key_name` | TEXT | Which virtual key was used. Retained even after key deletion for audit purposes. |
 | `status_code` | INT | HTTP status for the request, rewritten across its lifecycle. See [Status code and error kind over a request's life](#status-code-and-error-kind-over-a-requests-life). |
 | `error_message` | TEXT | Error text on failure, capped at 10,000 characters. Populated for upstream provider errors and proxy-internal errors (invalid model format, provider not found, etc.). Empty on success. |
@@ -49,7 +49,7 @@ All fields are written to the `request_logs` PostgreSQL table.
 | `tokens_prompt_cache_miss` | INT NOT NULL | Prompt cache miss tokens (DeepSeek). Defaults to 0. |
 | `search_units` | INT NOT NULL | Search units a rerank provider billed the request for, read off Cohere's `meta.billed_units.search_units` (migration 091). 0 on every other row and on rerank rows written before the column existed. |
 | `cost_usd` | DOUBLE PRECISION | What the request cost in US dollars at the prices the models carried when the row was written (migration 085). The serving model prices its own share: cache-hit tokens at its cache-hit price when it has one, other prompt tokens at the input price, completion tokens (reasoning included) at the output price. In a walked failover group, each earlier candidate that answered 2xx without an answer billed its prompt too; that prompt is priced at that candidate's own model when it is rejected and added to the row, so the members' different rates each apply to what they read; a rejected candidate whose model has no prices is priced with the serving share at the serving model instead, so the row stays charged. Anthropic cache writes are priced as plain input (there is no cache-write price column; Anthropic bills them at 1.25x). A rerank served by a model with a `search_price_per_thousand` is priced from `search_units` instead of the token columns. NULL when the request never reached a provider or the model holds no usable price; a dispatched request that charged nothing, and a free model, price to 0. |
-| `owner_user_id` | UUID | Owning dashboard user, stored **only** for keyless rows (dashboard chat/arena); keyed rows resolve their owner through the key's current owner instead (migration 067) |
+| `owner_user_id` | UUID | Dashboard user who owned the request when it was made: the session user on keyless rows (dashboard chat/arena, migration 067) and the key's owner on keyed rows (migration 088). The log and stats views still resolve a keyed row through the key's **current** owner, so reassigning a key moves its log history with it; dollar budgets sum this stamped column instead, so what a user spent stays theirs when the key moves or is deleted. |
 | `client_ip` | TEXT | Trusted-proxy-resolved client address, written at INSERT time (migration 073). NULL on rows predating the column. Shown in the dashboard Logs IP column and detail modal; see [Privacy](Privacy#ip-address-handling). |
 | `created_at` | TIMESTAMPTZ | When the request was inserted (defaults to `now()`) |
 
@@ -139,7 +139,7 @@ Fields written at this stage:
 - `failover_attempt` - `0` initially
 - `state` - `"pending"`
 - `endpoint_type` - Endpoint family (`chat` when unset)
-- `owner_user_id` - Only for keyless dashboard rows (see the schema table)
+- `owner_user_id` - The session user on keyless dashboard rows, the key's owner on keyed rows (see the schema table)
 - `client_ip` - Trusted-proxy-resolved client address (NULL when the ingest path had none)
 
 All other columns are NULL at this point.
@@ -174,6 +174,8 @@ Request lifecycle events are published to the event bus:
 ### Automatic Retention
 
 The `log_retention` setting controls how long logs are kept. When set, a background goroutine runs hourly and deletes rows older than the retention period from **both** `request_logs` and `app_logs`.
+
+Dollar budgets are summed straight from `request_logs`, so the sweep never deletes a row an open budget period still counts: `request_logs` keep every row back to the earliest start among the budget periods any virtual key or user currently runs, even when that reaches past the retention window (`app_logs` follow the window alone). A sweep that cannot read the budget periods leaves `request_logs` untouched until the next hourly sweep.
 
 **Accepted values:** any Go duration string (`24h`, `48h`, `168h0m0s`, ...); the dashboard slider covers 0 to 30 days in whole-day steps and stores the value in hours. The legacy tokens `1d`, `1w`, and `1m` are still accepted, where `1m` means 30 days, not one minute; for a minute-scale window write `60m` or `1h`. Set to `0` (or any zero duration) or leave empty to disable automatic cleanup. A value that cannot be parsed is skipped and warned about once, not once per hour.
 
@@ -277,9 +279,9 @@ A scope is the source prefix before the first `:` in a log line (matched
 case-insensitively). The scopes that actually emit Debug records are:
 
 `access`, `admin`, `admin-chat`, `adminauth`, `anthropic`, `api`, `audit`,
-`configsync`, `db`, `discovery`, `failover`, `frontdesk`, `models.dev`,
-`paramrewrite`, `phrases`, `provider`, `prune`, `proxy`, `quota`,
-`resolve`.
+`backup`, `configsync`, `db`, `discovery`, `failover`, `frontdesk`,
+`metrics`, `models.dev`, `paramrewrite`, `phrases`, `provider`, `prune`,
+`proxy`, `quota`, `resolve`, `responses`.
 
 `proxy` is by far the most voluminous (the per-request mechanics), followed by
 `frontdesk`, `discovery` and `resolve`; the rest are a handful of lines each.
@@ -292,7 +294,7 @@ Both variables are startup-only (env vars, set via `.env` / compose). See
 
 **A source is not the same thing as a scope.** These variables gate Debug
 records only, so naming a source that emits none does nothing at all. Most App
-Logs sources are in that position - `ratelimit`, `settings`, `backup`,
+Logs sources are in that position - `ratelimit`, `settings`,
 `webauthn`, `auth`, `model`, `virtual-keys`, `keycache`, `docker`, `stats`,
 `system`, `applogs`, `events` and `version` all log at Info and above only, as
 does `netguard` (the outbound connection guard behind SSO and alerting, see
@@ -451,12 +453,13 @@ The `request_logs` table has evolved through these migrations:
 | `042_cache_hits.sql` | Added: `cache_hits` JSONB (per-component cache hit/miss flags) |
 | `043_endpoint_type.sql` | Added: `endpoint_type` with default `'chat'` (multimodal proxy endpoints: embeddings, image, tts, stt) |
 | `045_error_kind.sql` | Added: `error_kind` (nullable machine-readable failure classification; no backfill) |
-| `067_request_log_owner.sql` | Added: `owner_user_id` (keyless-row attribution) + a partial index on it |
+| `067_request_log_owner.sql` | Added: `owner_user_id` (attribution for keyless dashboard rows) + a partial index on it |
 | `073_request_log_client_ip.sql` | Added: `client_ip` (trusted-proxy-resolved client address; no backfill) |
 | `074_request_log_vk_index.sql` | Added a partial index on `virtual_key_id` for the Logs page's virtual-key filter |
 | `078_request_log_attempts.sql` | Added: `attempts` JSONB (per-attempt trail) + a GIN index serving the `attempt_provider_id` / `attempt_status` filters; no backfill |
 | `085_request_log_cost.sql` | Added: `cost_usd`; backfilled existing rows at their serving model's current prices (an estimate, since older prices are not kept) |
 | `086_request_log_cost_reasoning.sql` | Repriced rows with reasoning tokens at current prices (085 and the first proxy build charged reasoning on top of completion, which already contains it); a reasoning row whose model is gone or unpriced becomes NULL, and rows not yet terminal lose their cost |
+| `088_request_log_owner_stamp.sql` | Stamped the key's current owner into `owner_user_id` on keyed rows that had none (the proxy stamps keyed rows from then on, for budgets); replaced the single-column owner and `virtual_key_id` indexes from 067 and 074 with `(owner_user_id, created_at)` and `(virtual_key_id, created_at)` partial indexes |
 | `091_rerank_search_price.sql` | Added: `search_units` (what a rerank provider billed; no backfill, older rerank rows stay unpriced) |
 
 ## Implementation Details

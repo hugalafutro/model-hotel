@@ -180,6 +180,41 @@ func TestBackupStaleThresholdBoundary(t *testing.T) {
 	}
 }
 
+// TestBackupStaleMessageNamesTheWindow: the alert text states the window the
+// member was actually judged against (its interval, floored at a day, plus the
+// grace), not a fixed day that a weekly member never had.
+func TestBackupStaleMessageNamesTheWindow(t *testing.T) {
+	for _, tc := range []struct {
+		interval string
+		age      time.Duration
+		want     string
+	}{
+		{"", 26 * time.Hour, "m1 has no database backup from the last 25 hours"},
+		{"7d", 8 * 24 * time.Hour, "m1 has no database backup from the last 169 hours"},
+	} {
+		t.Run(tc.want, func(t *testing.T) {
+			srv, store := newTestServer(t)
+			member := newStubBackupMember(t, "tok",
+				backupEntryAt("backup_auto.dump", "scheduled", tc.age),
+			)
+			member.interval = tc.interval
+			if _, err := store.CreateMember(t.Context(), "m1", member.srv.URL, "tok"); err != nil {
+				t.Fatalf("CreateMember: %v", err)
+			}
+
+			srv.checkMemberBackups(t.Context())
+
+			evs, _, err := store.ListEvents(t.Context(), EventFilter{})
+			if err != nil {
+				t.Fatalf("list events: %v", err)
+			}
+			if len(evs) != 1 || evs[0].Message != tc.want {
+				t.Fatalf("events = %+v, want one with message %q", evs, tc.want)
+			}
+		})
+	}
+}
+
 // A member whose settings cannot be read is not judged on a guessed interval:
 // with a weekly schedule, a guess of a day would raise a false alert. Its
 // listing alone proves nothing about how often it is meant to back up.

@@ -20,7 +20,7 @@ Linking always starts on the Front Desk side, so an operator stays in control of
 
 <p align="center"><a href="screenshots/frontdesk_settings_devices_pairing.png"><img src="screenshots/frontdesk_settings_devices_pairing.png" width="820" alt="Front Desk Settings, Paired devices: pairing QR and copyable pairing string"></a></p>
 
-Open **Settings**, then **Paired devices**, pick the new device's role, and generate a pairing code. The role sets the permission ceiling that Front Desk enforces on that device's token: a **Monitor** device is read-only, while an **Operator** device can additionally drain and activate members, trigger a config sync, and toggle auto-sync. The code renders as a QR image alongside a copyable pairing string; both carry the same payload (the Front Desk URL, a one-time code, and a display name). Codes are single-use and expire three minutes after they are generated, and they live only in Front Desk's memory, so a restart voids any that are still outstanding. The panel dismisses a code on its own once a device pairs with it.
+Open **Settings**, then **Paired devices**, pick the new device's role, and generate a pairing code. The role sets the permission ceiling that Front Desk enforces on that device's token: a **Monitor** device is read-only, while an **Operator** device can additionally drain and activate members, trigger a config sync, toggle auto-sync, switch individual alerts on or off, run a fleet version check, and reset a failover group's circuit breakers fleet-wide. The code renders as a QR image alongside a copyable pairing string; both carry the same payload (the Front Desk URL, a one-time code, and a display name). Codes are single-use and expire three minutes after they are generated, and they live only in Front Desk's memory, so a restart voids any that are still outstanding. The panel dismisses a code on its own once a device pairs with it.
 
 <p align="center"><a href="screenshots/frontdesk_settings_devices.png"><img src="screenshots/frontdesk_settings_devices.png" width="820" alt="Front Desk Settings, Paired devices: one linked device with role and last-seen time"></a></p>
 
@@ -92,7 +92,7 @@ The **Alerts** screen shows what Front Desk raises alerts for and, on operator d
 
 <p align="center">
 <a href="screenshots/bellhop_settings.png"><img src="screenshots/bellhop_settings.png" width="240" alt="Bellhop settings: linked Front Desk, hold to copy, home-screen widget switches, time format, traffic graph range"></a>
-<a href="screenshots/bellhop_language.png"><img src="screenshots/bellhop_language.png" width="240" alt="Bellhop language picker with system default and ten locales"></a>
+<a href="screenshots/bellhop_language.png"><img src="screenshots/bellhop_language.png" width="240" alt="Bellhop language picker with system default, English and ten translated locales"></a>
 </p>
 
 Settings gathers the device-side preferences.
@@ -103,12 +103,12 @@ Settings gathers the device-side preferences.
 - **Time format**: the clock every time in Bellhop is drawn on (follow the device, or force 24-hour or 12-hour).
 - **Traffic graph range**: how far back the request charts reach (1h, 3h, 6h, 12h, or 24h).
 - **App lock**: requires a fingerprint or device PIN to open Bellhop, with a **Lock after inactivity** window of Now, 1 min, 5 min, 15 min, 30 min, or 1 hr. On a device with no fingerprint or screen lock set up the switch is unavailable, and the gate opens rather than shutting you out of your own fleet view.
-- **Background monitoring**: checks the fleet every fifteen minutes and notifies you when a member goes down or recovers, even while the app is closed.
+- **Background monitoring**: checks the fleet every fifteen minutes and notifies you when a member goes down or recovers, and on the Front Desk alerts switched on under **Alerts**, even while the app is closed.
 - **Real-time push**: wakes Bellhop the instant Front Desk pushes an alert, over UnifiedPush and ntfy, with no Google dependency and no polling delay. Opt-in.
 - **Battery**: reports whether Android is letting Bellhop run in the background at all, and offers to fix it when it is not. Some phones (OnePlus, Xiaomi, and others) need Bellhop allowed in their own per-app battery and auto-start settings as well.
 - **Quota badges**: opens the badge picker described above.
 - **Alerts**: opens the alert policy.
-- **Language**: the system default plus ten hand-translated locales.
+- **Language**: the system default, English, or one of ten hand-translated locales.
 - **Unlink**: the last item on the screen, covered under [Unlinking](#unlinking).
 
 ## Notifications and background monitoring
@@ -139,6 +139,6 @@ Unlink from **Settings**, at the bottom. Bellhop confirms first, then clears its
 
 ## Building and installing
 
-The quickest way onto a phone is the signed APK on [GitHub Releases](https://github.com/hugalafutro/model-hotel/releases/tag/bellhop-latest). The `bellhop-latest` tag always points at the newest build (0.9.14 currently), each release is also tagged `bellhop-vX.Y.Z`, and the release layout is [Obtainium](https://github.com/ImranR98/Obtainium)-compatible, so you can point Obtainium at the repository once and let it pick up every new version. The repository README carries the same download badge and link.
+The quickest way onto a phone is the signed APK on [GitHub Releases](https://github.com/hugalafutro/model-hotel/releases/tag/bellhop-latest). The `bellhop-latest` tag always points at the newest build, each release is also tagged `bellhop-vX.Y.Z`, and the release layout is [Obtainium](https://github.com/ImranR98/Obtainium)-compatible, so you can point Obtainium at the repository once and let it pick up every new version. The repository README carries the same download badge and link.
 
 To build it yourself, Bellhop lives in [`android/`](https://github.com/hugalafutro/model-hotel/tree/master/android): a Kotlin and Jetpack Compose app targeting Android 8.0 (API 26) and up, built with Gradle on JDK 21. Run `make android-build` from the repository root (it pins JDK 21 and the Android SDK path, and both are overridable) or `./gradlew assembleDebug` from `android/`. A local `./gradlew assembleRelease` produces an *unsigned* APK: release signing happens only in CI, which decodes the keystore from a repository secret. See the [`android/` README](https://github.com/hugalafutro/model-hotel/blob/master/android/README.md) for the full build steps.

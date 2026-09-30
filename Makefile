@@ -102,7 +102,7 @@ ha-down:
 ha-logs:
 	docker compose -f $(HA_COMPOSE) logs -f
 
-# -- Bellhop Android companion app (android/, see plans/android-companion-app.md) --
+# -- Bellhop Android companion app (android/, see wiki/Bellhop.md) --
 # Gradle needs JDK 21 (the system default java may be newer and unsupported) and
 # the Android SDK location, so every target pins both explicitly rather than
 # relying on the caller's environment. Both are overridable:

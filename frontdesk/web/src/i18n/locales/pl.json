@@ -125,7 +125,7 @@
 		"urlLabel": "Bazowy adres URL",
 		"urlPlaceholder": "https://hotel-1.example.com",
 		"tokenLabel": "Token administratora",
-		"tokenHint": "Wymagany. Przechowywany w formie zaszyfrowanej. Front Desk weryfikuje nim hosta przy dodawaniu oraz używa go do odczytu wersji i ruchu i synchronizacji tokenu administratora.",
+		"tokenHint": "Wymagany. Przechowywany w formie zaszyfrowanej. Front Desk weryfikuje nim hosta przy dodawaniu oraz używa go do odczytu wersji i ruchu, synchronizacji konfiguracji i sprawdzania kopii zapasowych.",
 		"tokenPlaceholder": "Obecny ADMIN_TOKEN tego członka",
 		"removeTitle": "Usunąć {{name}}?",
 		"removeBody": "Front Desk przestanie monitorować {{name}} i usunie go z puli backendów Traefik. Sama instancja nie zostanie dotknięta. Nie powoduje to opróżnienia żądań w toku; dla usuwania bez strat najpierw odłącz członka.",

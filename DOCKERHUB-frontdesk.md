@@ -22,9 +22,14 @@ Front Desk generates Traefik's dynamic config and serves an admin dashboard. It 
 - **Member management** - register each Model Hotel instance by URL and admin token (verified on add, and de-duplicated so the same instance can't join twice), then drain or remove it from the dashboard. Draining stops new traffic without dropping in-flight requests; the config-sync primary is protected and can't be removed.
 - **Traefik dynamic config** - publishes an HTTP-provider endpoint Traefik polls every few seconds, so backend changes apply gracefully (in-flight SSE and streams survive a reload).
 - **Health and version polling** - continuously checks each member's health, latency, Traefik backend status, and version, flagging the odd version out when the fleet disagrees.
-- **Admin-token sync and reset** - push one instance's admin token to every member, or rotate the whole fleet's token at once, with a preview and double-confirm before any overwrite.
+- **Fleet config sync** - replicate one member's config (providers and their keys, virtual keys, users, failover groups, model toggles, settings) to the rest of the fleet, either from a guided sync wizard or automatically from a designated primary on a background schedule.
+- **Provider quota badges** - relays the primary member's provider quota readings to the rest of the fleet, so every member works from the same quota state, and shows them on the dashboard.
+- **Backup watchdog** - flags a member whose own scheduled backups have gone stale. Front Desk never creates or restores backups itself; each member backs itself up.
+- **Alerts via Apprise** - POSTs short summaries of fleet events (a member going down, a config sync failing) to a stateless [Apprise](https://github.com/caronc/apprise) container that fans them out to Telegram, Discord, email and more. Only event metadata is sent, never request content.
+- **Bellhop pairing** - pair the [Bellhop](https://github.com/hugalafutro/model-hotel/wiki/Bellhop) Android app for a pocket view of fleet health, traffic, quota badges and events, plus operator controls.
+- **Prometheus metrics** - a `/metrics` endpoint for fleet and member state, scrapeable with a dedicated `FRONTDESK_METRICS_TOKEN`.
 - **Control-plane event log** - a filterable record of membership and health transitions.
-- **Passkey and TOTP login** - protect the dashboard with a FIDO2/WebAuthn passkey (Touch ID, Windows Hello, YubiKey) and/or an authenticator-app second factor, on top of the login token.
+- **Passkey, TOTP and SSO login** - protect the dashboard with a FIDO2/WebAuthn passkey (Touch ID, Windows Hello, YubiKey) and/or an authenticator-app second factor on top of the login token, or sign in through your own OIDC provider.
 
 ## Image details
 
@@ -35,7 +40,7 @@ Front Desk generates Traefik's dynamic config and serves an admin dashboard. It 
 
 ## Quick start
 
-Front Desk is meant to be deployed as part of the ready-made HA stack (Traefik + Front Desk), not on its own. Copy the [`deploy/ha/`](https://github.com/hugalafutro/model-hotel/tree/master/deploy/ha) directory, fill in `.env` (see [`.env.example`](https://github.com/hugalafutro/model-hotel/blob/master/deploy/ha/.env.example)), and:
+Front Desk is meant to be deployed as part of the ready-made HA stack (Traefik + Front Desk), not on its own. Copy the [`deploy/ha/`](https://github.com/hugalafutro/model-hotel/tree/master/deploy/ha) directory and fill in `.env` (see [`.env.example`](https://github.com/hugalafutro/model-hotel/blob/master/deploy/ha/.env.example)). That compose builds Front Desk from the repository source, so outside a git checkout switch the `frontdesk` service to the prebuilt image: comment out its `build:` block and uncomment the `image:` line (`ghcr.io/hugalafutro/model-hotel-frontdesk:latest`, or this Docker Hub image, `hugalafutro/model-hotel-frontdesk:latest`). Then:
 
 ```bash
 docker compose up -d
@@ -58,6 +63,10 @@ Set these in `deploy/ha/.env` (the compose file maps them into the container):
 | `LB_PORT` | optional | Host port for client traffic (Traefik). Default `8080`. |
 | `FRONTDESK_PORT` | optional | Host port for the Front Desk dashboard. Default `8090`. |
 | `FRONTDESK_DEBUG_LOG` | optional | Verbose structured logging. Default `false`. |
+| `FRONTDESK_METRICS_TOKEN` | optional | Dedicated bearer token for Prometheus scrapes of `/metrics`. Empty (default) keeps the endpoint behind the dashboard login. |
+| `FRONTDESK_TRAEFIK_TOKEN` | optional (recommended) | Shared secret for Traefik's `/traefik/config` polls; the compose feeds it to both sides. Empty (default) leaves the endpoint open to anything that can reach port 8090. Generate with `openssl rand -hex 32`. |
+| `LB_TRUSTED_PROXIES` | optional | CIDRs of the TLS proxy in front of `LB_PORT` (comma-separated). When set, Traefik passes that proxy's `X-Forwarded-For` chain through to members so they see the real client. Empty by default. |
+| `FRONTDESK_ALLOW_HTTP_MEMBERS` | optional | Set `true` to accept plain `http://` member URLs, which are refused otherwise. Trusted internal networks only. Empty by default. |
 | `COOKIE_SECURE` | optional | `Secure` attribute on the `fd_session`/`fd_csrf` login cookies. `always` (default) sends them only over HTTPS, right for this stack's TLS-terminating proxy and for localhost. `auto` sets `Secure` from the request scheme (TLS or `X-Forwarded-Proto: https`). `never` disables it for plain-http LAN access; otherwise the browser drops the cookies and login fails. |
 
 ## Security and privacy

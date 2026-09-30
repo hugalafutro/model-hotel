@@ -171,7 +171,7 @@ The backend uses Go 1.27 with the module `github.com/hugalafutro/model-hotel`. A
 **Entry points:** `cmd/server/` (the gateway: middleware chain, discovery loops, graceful shutdown)
 and `cmd/frontdesk/` (the Front Desk control plane).
 
-**The 38 packages under `internal/`:**
+**The 40 packages under `internal/`:**
 
 | Package | Responsibility |
 |---------|----------------|
@@ -184,12 +184,14 @@ and `cmd/frontdesk/` (the Front Desk control plane).
 | `audit` | Audit trail: one row per mutating admin action |
 | `auth` | AES-256-GCM encryption of provider API keys, key caching |
 | `authcookie` | Session auth over hardened cookies |
+| `budget` | Per-period dollar budgets for virtual keys and users, summed from `request_logs.cost_usd` |
 | `clientip` | Client address resolution behind proxies |
 | `config` | Environment configuration loading and defaults |
 | `ctxkeys` | Type-safe context keys |
 | `db` | PostgreSQL connection pool, migrations, test-database helpers |
 | `debuglog` | `log/slog` wrapper honouring `DEBUG_LOG` |
 | `egress` | Pieces the vendor dialect translators share |
+| `endpointtype` | The `request_logs.endpoint_type` vocabulary shared by the proxy and the admin API |
 | `events` | SSE event bus (pub/sub) |
 | `failover` | Failover group management, caching, circuit breaker |
 | `frontdesk` | The HA Front Desk control plane |
@@ -321,7 +323,9 @@ DEBUG_LOG=true ./bin/server
 DEBUG_LOG=false ./bin/server
 ```
 
-Log levels: `Info`, `Warn`, `Error`. Never use `fmt.Println` in production code.
+Log levels: `Debug`, `Info`, `Warn`, `Error`. `Debug` records are emitted only when `DEBUG_LOG=true`,
+or for the scopes named in `DEBUG_LOG_SCOPES` (see [Request Logging](Request-Logging#debug-verbosity-debug_log--debug_log_scopes)).
+Never use `fmt.Println` in production code.
 
 ## Frontend Development
 
@@ -529,6 +533,7 @@ targeting it:
 | `Go Vulncheck` | `govulncheck`, which fails only on vulnerable functions the code actually calls |
 | `i18n Check` | `make i18n-check`: locale parity, `{{placeholder}}` parity, plural forms, no non-allowlisted English |
 | `Size Check` | `make size-check`, including the check that the allowlist only shrank since the base commit |
+| `CrowdSec Hubtest` | Runs the `contrib/crowdsec/` collection's `cscli hubtest` fixtures against a pinned hub commit and CrowdSec engine |
 | `Workflow Lint` | `actionlint` over the workflow files |
 | `Frontend Lint & Build` | `pnpm run lint`, `pnpm run format` (Biome check), `pnpm run build` |
 | `Frontend Test (shard n/3)` | The dashboard vitest suite in three parallel shards, each writing a blob report |
@@ -544,8 +549,8 @@ CI is surface-scoped: gating is per job (`if:`), never `on.paths`, so a docs-onl
 suites while every required check still reports. The gate fails open, so a bug there wastes a run
 rather than waving an untested merge through. Adding a job means adding its gate.
 
-Other workflows cover CodeQL, image scanning, the Android app, Docker publishing and pruning, the
-README/Docker Hub sync, and publishing this wiki.
+Other workflows cover CodeQL, image scanning, the Android app and its releases, Docker publishing and
+pruning, the README/Docker Hub and compose-snippet syncs, PR labelling, and publishing this wiki.
 
 ### Git Hooks
 

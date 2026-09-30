@@ -176,13 +176,17 @@ ADMIN_TOKEN=
 </details>
 <!-- AUTO-SYNC: docker-compose.yml end -->
 
-**3.** Deploy:
+**3.** Switch to the prebuilt image. The file above builds from source, which needs the repository next to it, so in your copy comment out the `build:` block (the `build:` line and the four lines under it) and uncomment one of the two `image:` lines (GHCR or Docker Hub).
+
+**4.** Deploy:
 
 ```bash
-docker compose up --build -d
+docker compose up -d
 ```
 
-> **Note:** The compose above is the production file; see Quick Start above for the development override and the prebuilt-image option. `WEBAUTHN_RP_ID` enables passkey login (empty to disable); `TRUSTED_PROXIES` trusts inbound `X-Forwarded-For` headers from reverse proxies; `KNOWN_PROXIES` allows outbound connections to internal LLM servers on private networks (bypasses SSRF protection). See the [Configuration wiki](https://github.com/hugalafutro/model-hotel/wiki/Configuration) for every variable.
+> **Note:** The compose above is the production file; see Quick Start above for the development override. `WEBAUTHN_RP_ID` enables passkey login (empty to disable); `TRUSTED_PROXIES` trusts inbound `X-Forwarded-For` headers from reverse proxies; `KNOWN_PROXIES` allows outbound connections to internal LLM servers on private networks (bypasses SSRF protection). See the [Configuration wiki](https://github.com/hugalafutro/model-hotel/wiki/Configuration) for every variable.
+
+> **Note:** The app only sees the variables listed under its `environment:` key; `.env` just fills their `${...}` placeholders. To use any other variable (for example `COOKIE_SECURE`, `METRICS_TOKEN` or `LOG_FORMAT`), add it to that list, e.g. `- COOKIE_SECURE=${COOKIE_SECURE:-always}`. `COOKIE_SECURE` sets the `Secure` attribute on the dashboard login cookies: `always` (the default) sends them only over HTTPS or to `http://localhost`, so logging in over plain HTTP from another machine (e.g. `http://192.168.1.10:8081`) fails until you set `auto` (follows the request: TLS or `X-Forwarded-Proto: https`) or `never` (plain-HTTP LAN).
 
 ## High Availability
 

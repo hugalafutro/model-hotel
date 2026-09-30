@@ -125,7 +125,7 @@
 		"urlLabel": "Base URL",
 		"urlPlaceholder": "https://hotel-1.example.com",
 		"tokenLabel": "Admin token",
-		"tokenHint": "Required. Stored encrypted. Front Desk verifies the host with it on add, and uses it for version and traffic readings and admin-token sync.",
+		"tokenHint": "Required. Stored encrypted. Front Desk verifies the host with it on add, and uses it for version and traffic readings, config sync and backup checks.",
 		"tokenPlaceholder": "This member's current ADMIN_TOKEN",
 		"removeTitle": "Remove {{name}}?",
 		"removeBody": "Front Desk stops tracking {{name}} and removes it from the Traefik backend pool. The instance itself is not touched. This does not drain in-flight requests; drain first for zero-loss removal.",

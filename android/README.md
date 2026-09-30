@@ -2,8 +2,8 @@
 
 Bellhop (BH) is a native Android app that monitors and operates a Model Hotel fleet
 from your phone. It links to exactly one Front Desk (FD) instance and only ever talks
-to that FD; it never holds a member Model Hotel token. The full design lives in
-[`plans/android-companion-app.md`](../plans/android-companion-app.md).
+to that FD; it never holds a member Model Hotel token. The user guide is the
+[Bellhop wiki page](https://github.com/hugalafutro/model-hotel/wiki/Bellhop).
 
 Current status: in active use. Pairing (QR/code), the live dashboard and member
 detail, provider quota badges, background monitoring, push notifications,
@@ -33,12 +33,15 @@ background check makes that block's extra read at all.
 
 ## Building (CLI only, no Android Studio)
 
-Prerequisites: JDK 21 and the Android SDK (`ANDROID_HOME`, platform 37,
-build-tools 36.0.0 — the version AGP 9 selects). Gradle itself comes from the
-checked-in wrapper.
+Prerequisites: JDK 21 and the Android SDK (platform 37, build-tools 36.0.0, the
+version AGP 9 selects). Gradle itself comes from the checked-in wrapper.
 
 Gradle requires JDK 21; if your system default `java` is newer, builds fail.
-The repo Makefile targets pin `JAVA_HOME` for you:
+The repo Makefile targets pin `JAVA_HOME` and `ANDROID_HOME` for you, from
+`ANDROID_JAVA_HOME` (default `/usr/lib/jvm/java-21-openjdk`) and
+`ANDROID_SDK_HOME` (default `/opt/android-sdk`). An `ANDROID_HOME` already in
+your environment is overridden, so point the targets elsewhere with
+`make android-build ANDROID_SDK_HOME=/path/to/sdk`:
 
 ```bash
 make android-build     # assembleDebug -> android/app/build/outputs/apk/debug/app-debug.apk
@@ -50,19 +53,21 @@ make android-install   # build + adb install -r to the connected device/emulator
 Or invoke the wrapper directly from `android/`:
 
 ```bash
-JAVA_HOME=/usr/lib/jvm/java-21-openjdk ./gradlew assembleDebug
+JAVA_HOME=/usr/lib/jvm/java-21-openjdk ANDROID_HOME=/opt/android-sdk ./gradlew assembleDebug
 ```
 
 ## Testing
 
 Unit tests are JVM-only (Robolectric renders Compose without a device) and run in
-CI on every PR that touches `android/`. Tests assert on Compose `testTag`s, never
+CI on every PR that touches `android/` or `testdata/quota-contract/`. Tests assert on Compose `testTag`s, never
 on display text, so localization cannot break them. Instrumented tests (emulator)
 are reserved for what Robolectric cannot do and are not part of the per-push CI.
 
 ## CI
 
-`.github/workflows/android.yml` is path-filtered to `android/**`: ktlint,
+`.github/workflows/android.yml` is path-filtered to `android/**`,
+`testdata/quota-contract/**` (the quota contract fixtures the unit tests read)
+and the workflow file itself: ktlint,
 Android Lint, unit tests, debug APK assembly, and an APK artifact upload.
 `android-release.yml` builds and signs the release APK and publishes it to
 GitHub Releases (Obtainium-compatible).

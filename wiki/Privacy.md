@@ -124,9 +124,9 @@ To be explicit about the boundaries:
 
 | Data | Logged? | Notes |
 |------|---------|-------|
-| User messages / prompts | ❌ Never | Not read, not stored, not inspected |
-| System prompts | ❌ Never | Passed through unchanged |
-| Assistant responses | ❌ Never | Streamed directly to client, not buffered |
+| User messages / prompts | ❌ Never | Read in memory only for token sizing, the content fence and dialect translation (see [What the Gateway Reads in Memory](#what-the-gateway-reads-in-memory)); never stored |
+| System prompts | ❌ Never | Passed through, or rewritten in memory into a provider's own dialect; never stored |
+| Assistant responses | ❌ Never | Streamed directly to the client; a non-streaming answer is held in memory (32 MB ceiling) only to read its usage counts, then dropped |
 | Images / attachments | ❌ Never | Not inspected, forwarded as-is |
 | Audio input | ❌ Never | Passed through to provider unchanged |
 | API keys (provider or virtual) | ❌ Never | Decrypted in memory only, never written to logs or DB |
@@ -144,8 +144,7 @@ Virtual API keys (client authentication) are **SHA-256 hashed** before storage:
 ```go
 // internal/virtualkey/auth.go
 func Hash(key string) string {
-    hash := sha256.Sum256([]byte(key))
-    return hex.EncodeToString(hash[:])
+    return util.SHA256Hex(key) // hex-encoded SHA-256
 }
 ```
 
@@ -285,7 +284,12 @@ Every outbound connection Model Hotel makes:
 - **The Have I Been Pwned range API** (`https://api.pwnedpasswords.com` by default), when a dashboard password is set or changed and breached-password screening is on. Only the first five characters of the password's SHA-1 hash are sent; see [Local Deployment](#local-deployment) for how to turn it off or point it at a mirror.
 - **An OpenTelemetry collector**, only when `OTEL_EXPORTER_OTLP_ENDPOINT` or `OTEL_EXPORTER_OTLP_LOGS_ENDPOINT` is set. It receives the same structured application-log records the instance already keeps, client IP addresses included. Logs only: no traces, no metrics, and no request content, since none is logged in the first place.
 
-Nothing else dials out. Front Desk polls this instance, not the other way round.
+- **The GitHub API** (`api.github.com`), when the dashboard asks whether a newer release exists: an anonymous `GET` of this project's latest release (falling back to its latest tag), cached server-side so many dashboards cost one lookup. No key, no content, no instance data.
+- **Your OIDC identity provider**, only when OIDC sign-in is configured: discovery of the issuer and its signing keys, then, when someone signs in, the authorization-code exchange (plus a userinfo lookup when the ID token carries no email). It receives the client ID and secret you configured and the sign-in code; no request content.
+- **GitHub's OAuth endpoints and API**, only when GitHub sign-in is configured: the code exchange, then `/user` and `/user/emails` with the resulting token to read the signing-in account's identity. No request content.
+- **An Apprise API server**, only when alerting is configured: each alert is `POST`ed to its `/notify` endpoint as a title (the event type), a body (the event's message), a severity and your configured notification target URLs, which Apprise then delivers. Event messages are operational (a provider failing, a budget crossed), never request content. See [[Alerting]].
+
+Nothing else dials out. System information comes from the local Docker socket when it is mounted, not from the network, and Front Desk polls this instance, not the other way round.
 
 ## Provider Trust
 

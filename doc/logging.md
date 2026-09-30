@@ -1,8 +1,7 @@
 # Logging & error-message conventions
 
 Canonical, in-repo conventions for Model Hotel's logs and user-facing error
-messages. (AGENTS.md is local-only, so the rules live here.) Background and the
-full rollout are in `plans/logging-and-errors-overhaul.md`.
+messages. (AGENTS.md is local-only, so the rules live here.)
 
 Two audiences, two channels:
 
@@ -22,7 +21,10 @@ of the message kept only as a fallback for legacy NULL rows.
 | Kind | Meaning | Terminal HTTP status |
 |---|---|---|
 | `client_disconnect` | caller hung up before we responded | **499** (client closed request) |
-| `provider_error` | upstream non-2xx or transport failure | 502 |
+| `provider_error` | upstream non-2xx or transport failure not placed more precisely (every 5xx, an aggregator's own backend fault) | upstream status when the upstream error is forwarded, else 502 |
+| `provider_model_gone` | the provider no longer serves the model; permanent until an operator retires it or stops routing to it | upstream status when forwarded, else 502 |
+| `provider_not_entitled` | the account cannot pay for the model (empty balance, model outside the subscription); a person fixes it by topping up or changing plan | upstream status (402, or a 429) when forwarded, else 502 |
+| `provider_bad_request` | the provider understood the request and refused the payload, normally the wrong dialect for that upstream route (a gateway bug) | upstream 400 when forwarded, else 502 |
 | `provider_saturated` | provider alive but at capacity (concurrency/RPM/TPM 429); retry in seconds | **429** + `Retry-After` (502 when `failover_exhaustion_status_429` is off) |
 | `provider_quota_exhausted` | a usage window is spent (session/daily/weekly cap); retry after it resets. Fixed by time, unlike `provider_not_entitled` which a person fixes | **429** + `Retry-After` on the all-pinned up-front skip; 502 otherwise |
 | `provider_timeout` | TTFT probe / stall watchdog fired | 502 |
@@ -150,7 +152,7 @@ Style:
 
 Every message starts with a source prefix, `"source: message"`, e.g.
 `debuglog.Info("proxy: routing to provider", …)`. The App Logs pipeline parses
-this prefix (`extractSource`) to tag the entry's source, and the App Logs source
+this prefix (`debuglog.SplitSource`) to tag the entry's source, and the App Logs source
 filter is built from what the running binary actually emitted, so the set is open:
 a new package adds its own source by prefixing its messages. Common ones are
 `proxy`, `resolve`, `discovery`, `failover`, `provider`, `settings`, `db`,
@@ -178,11 +180,12 @@ e.g. `DEBUG_LOG_SCOPES=failover,resolve`. These are the sources that emit Debug
 records, and the whole of what the variable can act on:
 
 `access`, `admin`, `admin-chat`, `adminauth`, `anthropic`, `api`, `audit`,
-`configsync`, `db`, `discovery`, `failover`, `frontdesk`, `models.dev`,
-`paramrewrite`, `proxy`, `quota`, `resolve`.
+`backup`, `configsync`, `db`, `discovery`, `failover`, `frontdesk`,
+`metrics`, `models.dev`, `paramrewrite`, `phrases`, `provider`, `prune`,
+`proxy`, `quota`, `resolve`, `responses`.
 
-`proxy` is by far the most voluminous, followed by `frontdesk`, `resolve` and
-`discovery`. Every other source (`ratelimit`, `settings`, `provider`, `netguard`
+`proxy` is by far the most voluminous, followed by `frontdesk`, `discovery` and
+`resolve`. Every other source (`ratelimit`, `settings`, `webauthn`, `netguard`
 and the rest) logs at Info and above only, so naming one does nothing.
 It is comma-separated, trimmed, and matched case-insensitively against the prefix
 before the first `:` in each message. It is ignored when `DEBUG_LOG` is on (Debug
@@ -262,10 +265,11 @@ metrics path.
   timeout). Transport defaults to **http/protobuf**; set
   `OTEL_EXPORTER_OTLP_PROTOCOL=grpc` (or the `_LOGS_` variant) to switch.
   `OTEL_SERVICE_NAME` defaults to `model-hotel` when not provided.
-- Wiring (`cmd/server/main.go`): `otelexport.NewSlogHandler` builds an SDK
-  `LoggerProvider` + batch processor + OTLP exporter and returns an `otelslog`
-  bridge handler, which is fanned out alongside the app-log handler via
-  `debuglog.NewFanout`. The batch processor is flushed on graceful shutdown.
+- Wiring (`cmd/server/startup.go`, and `cmd/frontdesk/main.go` for Front Desk):
+  `otelexport.NewSlogHandler` builds an SDK `LoggerProvider` + batch processor +
+  OTLP exporter and returns an `otelslog` bridge handler, which is fanned out
+  via `debuglog.NewFanout` alongside the app-log handler (Front Desk: the stdout
+  handler). The batch processor is flushed on graceful shutdown.
 - Level/scope parity: the bridge is wrapped in a level gate set to the app's log
   level, and `DEBUG_LOG_SCOPES` filtering is applied by `debuglog.SetHandler`
   around the whole fan-out — so OTLP receives exactly the same records as stdout.
