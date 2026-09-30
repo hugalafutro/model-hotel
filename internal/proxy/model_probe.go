@@ -523,8 +523,11 @@ func probeDeliveredContent(endpointType string, body []byte) bool {
 		return listAnswerDelivered(body, "results", "data")
 	case endpointTypeImage:
 		// The OpenAI shape every /v1/images provider this gateway fronts
-		// answers in: the images under "data".
-		return listAnswerDelivered(body, "data")
+		// answers in: the images under "data", each carrying its picture as
+		// b64_json or url. An entry whose picture fields are there but empty is
+		// no image: KoboldCpp answers a failed generation with
+		// {"data":[{"b64_json":""}]} under HTTP 200.
+		return listAnswerDelivered(body, "data") && imageEntriesDeliver(body)
 	}
 
 	var out ChatCompletionResponse
@@ -561,6 +564,35 @@ func listAnswerDelivered(body []byte, keys ...string) bool {
 		}
 	}
 	return true
+}
+
+// imageEntriesDeliver reports whether an images answer's "data" list carries a
+// picture. It is false only when every entry is an object that names a picture
+// field (b64_json or url) and leaves every one it names empty. An entry of any
+// other shape counts as delivered, for the reason listAnswerDelivered gives: not
+// understanding a shape is no evidence that it carries nothing.
+func imageEntriesDeliver(body []byte) bool {
+	var out struct {
+		Data []json.RawMessage `json:"data"`
+	}
+	if json.Unmarshal(body, &out) != nil || len(out.Data) == 0 {
+		return true
+	}
+	for _, raw := range out.Data {
+		var entry map[string]json.RawMessage
+		if json.Unmarshal(raw, &entry) != nil {
+			return true
+		}
+		b64, hasB64 := entry["b64_json"]
+		url, hasURL := entry["url"]
+		if !hasB64 && !hasURL {
+			return true
+		}
+		if !jsonValueIsEmpty(b64) || !jsonValueIsEmpty(url) {
+			return true
+		}
+	}
+	return false
 }
 
 // jsonValueIsEmpty reports whether a raw JSON value carries nothing: absent,

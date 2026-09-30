@@ -549,6 +549,11 @@ func TestProbeDeliveredContent(t *testing.T) {
 		{"no image data", endpointTypeImage, `{"created":1,"data":[]}`, false},
 		{"null image data", endpointTypeImage, `{"created":1,"data":null}`, false},
 		{"image entry of unknown shape", endpointTypeImage, `{"data":[{"revised_prompt":"x"}]}`, true},
+		// KoboldCpp's failed generation: the picture field is there and empty.
+		{"empty image base64", endpointTypeImage, `{"created":1,"data":[{"b64_json":""}]}`, false},
+		{"empty image url", endpointTypeImage, `{"data":[{"url":"","revised_prompt":"x"}]}`, false},
+		{"null picture fields", endpointTypeImage, `{"data":[{"b64_json":null,"url":null}]}`, false},
+		{"one real image among empty ones", endpointTypeImage, `{"data":[{"b64_json":""},{"b64_json":"aW1n"}]}`, true},
 		{"image dialect not understood", endpointTypeImage, `{"data":{"image_base64":"aW1n"}}`, true},
 		{"image under a key of its own", endpointTypeImage, `{"image":"aW1n"}`, true},
 		{"unparseable image", endpointTypeImage, `<html>502 Bad Gateway</html>`, false},
