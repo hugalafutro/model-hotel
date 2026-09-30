@@ -55,7 +55,9 @@ func (d *DiscoveryService) IdentifyLocalServer(ctx context.Context, baseURL, api
 	probes := localServerProbes()
 	for i, p := range probes {
 		if p.family == expected && i > 0 {
-			probes[0], probes[i] = probes[i], probes[0]
+			// Move to the front; the rest keep their order.
+			copy(probes[1:i+1], probes[:i])
+			probes[0] = p
 			break
 		}
 	}

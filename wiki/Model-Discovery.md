@@ -822,7 +822,7 @@ Rerank models are billed per search unit rather than per token, so their per-tok
 | Context length | From the native listing (`max_context_length`); not set on the `/v1/models` fallback |
 | Max output tokens | Not set |
 | Pricing | None (self-hosted) |
-| Capabilities | Chat models (`llm`, `vlm`): streaming and structured output always, tool calling when the native listing's `capabilities` contains `tool_use`. Embeddings models: none, since they stream nothing and take no `response_format`. The `/v1/models` fallback cannot tell them apart and gives every model streaming and structured output |
+| Capabilities | Chat models (`llm`, `vlm`): streaming and structured output always, tool calling when the native listing's `capabilities` contains `tool_use`. Embeddings models: none, since they stream nothing and take no `response_format`. The `/v1/models` fallback cannot tell them apart and gives every model streaming and structured output. models.dev enrichment runs afterwards and can add a flag by model id (it merges, never clears); LM Studio also runs tool calls on models without native `tool_use`, through its default prompt-based tool format |
 | Modalities | From the native listing's model `type`: `embeddings` produces `["embedding"]`, `vlm` takes `["text","image"]` in and states the `chat` class, `llm` states `chat`. The `/v1/models` fallback carries no type, so the class is derived from the model id there. |
 
 ### KoboldCPP

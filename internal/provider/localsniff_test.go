@@ -5,6 +5,7 @@ import (
 	"errors"
 	"net/http"
 	"net/http/httptest"
+	"slices"
 	"testing"
 )
 
@@ -435,7 +436,8 @@ func TestIdentifyLocalServer_AsksExpectedFamilyFirst(t *testing.T) {
 	if err != nil || got.Type != "lmstudio" {
 		t.Fatalf("mismatch: IdentifyLocalServer = %+v, %v; want lmstudio detected", got, err)
 	}
-	if len(paths) < 2 || paths[0] != "/api/tags" {
-		t.Errorf("probed %v, want /api/tags first and the others after it", paths)
+	// The expected one moves to the front and the rest keep the table order.
+	if want := []string{"/api/tags", "/api/extra/version", "/api/v0/models"}; !slices.Equal(paths, want) {
+		t.Errorf("probed %v, want %v", paths, want)
 	}
 }
