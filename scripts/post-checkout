@@ -10,19 +10,27 @@ set -uo pipefail
 
 [ "${3:-0}" = "1" ] || exit 0
 command -v tokensave >/dev/null 2>&1 || exit 0
+# Only repos that already have a tokensave index; sync never creates one.
+[ -d "$(git rev-parse --show-toplevel 2>/dev/null)/.tokensave" ] || exit 0
 
+# Redirect the whole subshell: while it holds git's stdout/stderr open, a
+# checkout whose output is piped (IDEs, agents, `| cat`) waits for the sync.
 (
-	tokensave branch add --if-enabled >/dev/null 2>&1
-	tokensave sync >/dev/null 2>&1
-) &
+	tokensave branch add --if-enabled
+	tokensave sync
+) </dev/null >/dev/null 2>&1 &
 
 # The sync above runs silenced, which would hide tokensave's own update notice,
 # so repeat it from the latest version tokensave caches (no network call here).
+# Pre-release suffixes are dropped before comparing: sort -V ranks 7.14.0 below
+# 7.14.0-rc.1, so comparing them as-is would warn the wrong way round.
 state="$HOME/.tokensave/state.toml"
 [ -r "$state" ] || exit 0
 latest="$(sed -n 's/^cached_latest_version = "\(.*\)"$/\1/p' "$state")"
 current="$(tokensave --version 2>/dev/null | awk '{print $NF}')"
 current="${current#v}"
+latest="${latest%%-*}"
+current="${current%%-*}"
 if [ -n "$latest" ] && [ -n "$current" ] && [ "$latest" != "$current" ] &&
 	[ "$(printf '%s\n%s\n' "$current" "$latest" | sort -V | tail -n1)" = "$latest" ]; then
 	echo "tokensave $latest is available (installed: $current). Run \`tokensave upgrade\` to update." >&2
