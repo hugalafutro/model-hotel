@@ -42,6 +42,8 @@ const baseLog: LogEntry = {
 
 const created = Date.parse(baseLog.created_at);
 const staleThresholdMs = 30 * 60 * 1000;
+const durationTile = () =>
+	within(screen.getByText("Duration").closest(".ui-stat-tile") as HTMLElement);
 const live: LogEntry = { ...baseLog, state: "streaming", duration_ms: 0 };
 
 // The duration tile of an in-progress request counts up from created_at on
@@ -91,6 +93,7 @@ describe("RequestLogDetail live duration", () => {
 			/>,
 		);
 		expect(screen.queryByText("750")).not.toBeInTheDocument();
+		expect(durationTile().getByText("-")).toBeInTheDocument();
 	});
 
 	it("keeps a recorded duration on a live-state row", () => {
@@ -110,11 +113,8 @@ describe("RequestLogDetail live duration", () => {
 		renderWithProviders(
 			<RequestLogDetail requestLog={live} onClose={() => {}} />,
 		);
-		const tile = screen.getByText("Duration").closest(".ui-stat-tile");
-		expect(tile).not.toBeNull();
-		const figure = within(tile as HTMLElement);
-		expect(figure.getByText("-")).toBeInTheDocument();
-		expect(figure.queryByText("0")).not.toBeInTheDocument();
+		expect(durationTile().getByText("-")).toBeInTheDocument();
+		expect(durationTile().queryByText("0")).not.toBeInTheDocument();
 	});
 
 	it("keeps a finished request's recorded duration", () => {

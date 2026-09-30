@@ -53,19 +53,15 @@ export function RequestLogDetail({
 	onClose: () => void;
 }) {
 	const { t } = useTranslation();
-	// An in-progress request has no final duration yet: count up from
-	// created_at, as its row does. Without a clock (the row is no longer
-	// updating) its duration is unknown, shown as "-" rather than 0ms.
-	const unfinished =
-		requestLog.duration_ms === 0 &&
-		(requestLog.state === "pending" || requestLog.state === "streaming");
-	const durationMs =
+	// The duration tile follows the row cell's rule: an in-progress request
+	// counts up from created_at on the page clock, a recorded duration shows
+	// as is, and a row with neither (no clock, stale, cancelled) reads "-".
+	const liveMs =
 		clock &&
-		unfinished &&
+		requestLog.duration_ms === 0 &&
 		isInProgress(requestLog, clock.nowMs, clock.staleThresholdMs)
 			? liveDurationMs(requestLog.created_at, clock.nowMs)
-			: requestLog.duration_ms;
-	// Proxy overhead breakdown starts collapsed: the header shows the total, and
+			: null; // Proxy overhead breakdown starts collapsed: the header shows the total, and
 	// expanding reveals the per-step split.
 	const [overheadOpen, setOverheadOpen] = useState(false);
 	const totalOverheadMs =
@@ -137,7 +133,13 @@ export function RequestLogDetail({
 				<div className="p-3 ui-stat-tile text-center">
 					<Clock size={16} className="mx-auto mb-1 text-(--accent)" />
 					<div className="text-lg font-bold text-(--text-primary)">
-						{!clock && unfinished ? "-" : <DurationFigure ms={durationMs} />}
+						{liveMs !== null ? (
+							<DurationFigure ms={liveMs} />
+						) : requestLog.duration_ms > 0 ? (
+							<DurationFigure ms={requestLog.duration_ms} />
+						) : (
+							"-"
+						)}
 					</div>
 					<div className="flex items-center justify-center gap-1 ui-overline">
 						{t("components.requestLogDetail.duration")}
