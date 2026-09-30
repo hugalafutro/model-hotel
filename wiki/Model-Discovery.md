@@ -834,7 +834,7 @@ KoboldCPP also serves one side model per endpoint, and the version endpoint's fl
 | `transcribe` | `koboldcpp/whisper` | `stt` |
 | `embeddings` | `koboldcpp/embeddings` | `embedding` |
 
-KoboldCPP names only its image model; the others carry fixed IDs, which also stay the same when the file behind them is swapped. A side model whose ID matches the chat model's (a chat file named `tts.gguf`) is left out, and the chat model keeps the ID. KoboldCPP ignores the request's model field on these endpoints, so the ID only has to route. KoboldCPP has no rerank endpoint. No built-in catalog is used.
+KoboldCPP names only its image model; the others carry fixed IDs, which also stay the same when the file behind them is swapped. A side model whose ID matches the chat model's (a chat file named `tts.gguf`) is left out, and the chat model keeps the ID. Because automatic failover groups form on the part of the ID after the last `/`, two KoboldCPP servers that both load a text-to-speech, Whisper or embeddings model end up in one group (`hotel/tts`, `hotel/whisper`, `hotel/embeddings`) even when the files differ. For embeddings that matters: vectors from two different models cannot be compared, so if the servers load different embedding models, call each by its provider name rather than through the group. Discovery does not run a model to learn its name; KoboldCPP reports the embeddings model's name only in an embeddings response. KoboldCPP ignores the request's model field on these endpoints, so the ID only has to route. KoboldCPP has no rerank endpoint. No built-in catalog is used.
 
 **Detection:** Chosen by the operator, confirmed by probing `/api/extra/version` when the provider is added or its URL changed.
 
