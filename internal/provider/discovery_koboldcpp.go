@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"net/http"
 	"strings"
 
 	"github.com/google/uuid"
@@ -71,7 +72,8 @@ func (d *DiscoveryService) discoverKoboldCPP(ctx context.Context, provider *Prov
 	models := []*model.Model{}
 
 	// Step 2: the chat model. A server started without one still lists a
-	// placeholder named "inactive" on /models, so the llm flag decides.
+	// placeholder named "inactive" on /models, so the llm flag decides where
+	// the build reports it.
 	if versionInfo.LLM == nil || *versionInfo.LLM {
 		chat, err := d.koboldcppChatModel(ctx, provider, baseURL, apiBase, apiKey, versionInfo)
 		if err != nil {
@@ -82,12 +84,22 @@ func (d *DiscoveryService) discoverKoboldCPP(ctx context.Context, provider *Prov
 		}
 	}
 
-	// Step 3: the side models the version flags report
-	models = append(models, d.koboldcppSideModels(ctx, provider, apiBase, apiKey, versionInfo)...)
+	// Step 3: the side models the version flags report. The chat model is
+	// named after its file, so a chat file called tts.gguf would share
+	// koboldcpp/tts; the chat model keeps the ID, since the upsert is keyed
+	// on it and a second row with that ID would overwrite its class.
+	for _, side := range d.koboldcppSideModels(ctx, provider, apiBase, apiKey, versionInfo) {
+		if len(models) > 0 && models[0].ModelID == side.ModelID {
+			debuglog.Info("discovery: koboldcpp side model shares the chat model's ID, skipped", "model", side.ModelID, "provider", provider.Name, "provider_id", provider.ID)
+			continue
+		}
+		models = append(models, side)
+	}
 
-	// Context length comes from the live /api/extra/true_max_context_length
-	// probe, so mark it live: a reload with a different context size
-	// propagates and is reported.
+	// The chat model's context length comes from the live
+	// /api/extra/true_max_context_length probe, so mark it live: a reload with
+	// a different context size propagates and is reported. Side models carry
+	// no context length, so nothing on them is marked.
 	markLiveMeta(models)
 
 	if len(models) == 0 {
@@ -99,13 +111,15 @@ func (d *DiscoveryService) discoverKoboldCPP(ctx context.Context, provider *Prov
 }
 
 // koboldcppChatModel builds the loaded chat model, or returns nil when /models
-// lists none.
+// lists none or only the "inactive" placeholder. The placeholder check covers
+// builds too old to report the llm flag; a loaded model is always listed as
+// koboldcpp/<file>, so no real model carries that bare name.
 func (d *DiscoveryService) koboldcppChatModel(ctx context.Context, provider *Provider, baseURL, apiBase, apiKey string, versionInfo *KoboldCPPVersionResponse) (*model.Model, error) {
 	modelID, err := d.koboldcppLoadedModel(ctx, baseURL, apiKey)
 	if err != nil {
 		return nil, fmt.Errorf("koboldcpp: model listing failed for provider %s: %w", provider.Name, err)
 	}
-	if modelID == "" {
+	if modelID == "" || modelID == "inactive" {
 		return nil, nil
 	}
 
@@ -151,15 +165,15 @@ func (d *DiscoveryService) koboldcppChatModel(ctx context.Context, provider *Pro
 // NormalizeModelClassification treats as final and fills the modality arrays
 // from.
 func (d *DiscoveryService) koboldcppSideModels(ctx context.Context, provider *Provider, apiBase, apiKey string, versionInfo *KoboldCPPVersionResponse) []*model.Model {
-	imageID := ""
+	imageID, imageNamed := "", false
 	if versionInfo.Txt2Img {
-		imageID = d.koboldcppImageModelID(ctx, apiBase, apiKey)
+		imageID, imageNamed = d.koboldcppImageModelID(ctx, apiBase, apiKey)
 	}
 	side := []struct {
 		loaded          bool
 		id, class, what string
 	}{
-		{versionInfo.Txt2Img, imageID, "image", "image generation"},
+		{versionInfo.Txt2Img && imageNamed, imageID, "image", "image generation"},
 		{versionInfo.TTS, koboldcppTTSID, "tts", "text-to-speech"},
 		{versionInfo.Transcribe, koboldcppSTTID, "stt", "speech-to-text"},
 		{versionInfo.Embeddings, koboldcppEmbeddingsID, "embedding", "embeddings"},
@@ -187,21 +201,35 @@ func (d *DiscoveryService) koboldcppSideModels(ctx context.Context, provider *Pr
 	return models
 }
 
-// koboldcppImageModelID names the image model from /sdapi/v1/sd-models, falling
-// back to a fixed ID when the listing is unreadable or empty: the flag already
-// proved the endpoint is served, and only the name is missing.
-func (d *DiscoveryService) koboldcppImageModelID(ctx context.Context, apiBase, apiKey string) string {
+// koboldcppImageModelID names the image model from /sdapi/v1/sd-models, which
+// KoboldCPP always answers with the one loaded model. A server that has no such
+// listing (404) or names nothing gets the fixed fallback ID: the flag already
+// proved the endpoint is served, and the name is missing for good.
+//
+// Any other failure may be transient, and falling back then would swap the
+// model's ID for one scan and back on the next, leaving a stray model and a
+// missing-scan strike on the real one. So ok is false and the image model sits
+// this scan out, which is one strike on an ID that stays put.
+func (d *DiscoveryService) koboldcppImageModelID(ctx context.Context, apiBase, apiKey string) (id string, ok bool) {
 	bodyBytes, err := d.fetchURL(ctx, "GET", apiBase+"/sdapi/v1/sd-models", bearerHeader(apiKey))
 	if err != nil {
-		debuglog.Info("discovery: koboldcpp image model name unavailable", "status", errorStatusCode(err), "error", err)
-		return koboldcppImageFallbackID
+		status := errorStatusCode(err)
+		debuglog.Info("discovery: koboldcpp image model listing failed", "status", status, "error", err)
+		if status == http.StatusNotFound {
+			return koboldcppImageFallbackID, true
+		}
+		return "", false
 	}
 	var list []KoboldCPPSDModel
-	if err := json.Unmarshal(bodyBytes, &list); err != nil || len(list) == 0 || strings.TrimSpace(list[0].ModelName) == "" {
-		debuglog.Info("discovery: koboldcpp image model name unreadable", "error", err)
-		return koboldcppImageFallbackID
+	if err := json.Unmarshal(bodyBytes, &list); err != nil {
+		debuglog.Info("discovery: koboldcpp image model listing undecodable", "error", err)
+		return "", false
 	}
-	return "koboldcpp/" + strings.TrimSpace(list[0].ModelName)
+	if len(list) == 0 || strings.TrimSpace(list[0].ModelName) == "" {
+		debuglog.Info("discovery: koboldcpp image model listing names no model")
+		return koboldcppImageFallbackID, true
+	}
+	return "koboldcpp/" + strings.TrimSpace(list[0].ModelName), true
 }
 
 func (d *DiscoveryService) koboldcppVersion(ctx context.Context, apiBase, apiKey string) (*KoboldCPPVersionResponse, error) {

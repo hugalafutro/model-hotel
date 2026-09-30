@@ -535,22 +535,26 @@ func TestDiscoverKoboldCPP_ModalitiesFromVersionFlags(t *testing.T) {
 		name     string
 		version  string
 		expected string
+		count    int // the chat model plus any side models the flags load
 	}{
-		{"plain text build", `{"result":"KoboldCpp","version":"1.119"}`, `["text"]`},
+		{"plain text build", `{"result":"KoboldCpp","version":"1.119"}`, `["text"]`, 1},
 		{
 			"vision build",
 			`{"result":"KoboldCpp","version":"1.119","vision":true}`,
 			`["text","image"]`,
+			1,
 		},
 		{
 			"audio build",
 			`{"result":"KoboldCpp","version":"1.119","audio":true}`,
 			`["text","audio"]`,
+			1,
 		},
 		{
 			"both adapters",
 			`{"result":"KoboldCpp","version":"1.119","vision":true,"audio":true}`,
 			`["text","image","audio"]`,
+			1,
 		},
 		{
 			// transcribe means a separate Whisper model is loaded for
@@ -559,6 +563,7 @@ func TestDiscoverKoboldCPP_ModalitiesFromVersionFlags(t *testing.T) {
 			"whisper loaded but the chat model takes no audio",
 			`{"result":"KoboldCpp","version":"1.119","transcribe":true,"tts":true,"embeddings":true}`,
 			`["text"]`,
+			4,
 		},
 	}
 	for _, tc := range tests {
@@ -584,8 +589,8 @@ func TestDiscoverKoboldCPP_ModalitiesFromVersionFlags(t *testing.T) {
 				t.Fatalf("discoverKoboldCPP: %v", err)
 			}
 			// The chat model comes first; side models follow it.
-			if len(models) == 0 || models[0].ModelID != "m" {
-				t.Fatalf("expected the chat model first, got %d models", len(models))
+			if len(models) != tc.count || models[0].ModelID != "m" {
+				t.Fatalf("expected %d models with the chat model first, got %d", tc.count, len(models))
 			}
 			if models[0].InputModalities != tc.expected {
 				t.Errorf("InputModalities = %s, want %s", models[0].InputModalities, tc.expected)
@@ -629,8 +634,8 @@ func TestDiscoverKoboldCPP_NoContextLength(t *testing.T) {
 }
 
 // sideModelServer answers a KoboldCPP whose version payload is given, with the
-// chat model "chat" and the image model "dreamshaper_8". It fails the test on a
-// path it does not know, so a probe discovery should not make is caught.
+// chat model "chat" and the given image listing (a 404 when empty). An
+// unexpected path fails the test.
 func sideModelServer(t *testing.T, version, sdModels string) *httptest.Server {
 	t.Helper()
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -757,14 +762,14 @@ func TestDiscoverKoboldCPP_NoChatModelLoaded(t *testing.T) {
 	}
 }
 
-// An unreadable or empty image listing still yields the image model, under the
-// fixed fallback ID: the txt2img flag already proved the endpoint is served.
+// A server with no image listing, or one that names nothing, still yields the
+// image model under the fixed fallback ID: the txt2img flag already proved the
+// endpoint is served, and the name is missing for good.
 func TestDiscoverKoboldCPP_ImageModelNameFallback(t *testing.T) {
 	for name, sd := range map[string]string{
-		"listing fails": "",
-		"empty listing": `[]`,
-		"undecodable":   `not json`,
-		"blank name":    `[{"model_name":"  "}]`,
+		"no listing (404)": "",
+		"empty listing":    `[]`,
+		"blank name":       `[{"model_name":"  "}]`,
 	} {
 		t.Run(name, func(t *testing.T) {
 			srv := sideModelServer(t, `{"result":"KoboldCpp","version":"1.122.1","llm":false,"txt2img":true}`, sd)
@@ -777,6 +782,99 @@ func TestDiscoverKoboldCPP_ImageModelNameFallback(t *testing.T) {
 				t.Fatalf("expected only koboldcpp/image, got %d models", len(models))
 			}
 		})
+	}
+}
+
+// A failure that may be transient must not rename the image model for a scan:
+// it sits the scan out instead, and the rest of discovery goes ahead.
+func TestDiscoverKoboldCPP_ImageListingTransientFailure(t *testing.T) {
+	for name, respond := range map[string]func(http.ResponseWriter){
+		"server error": func(w http.ResponseWriter) { w.WriteHeader(http.StatusInternalServerError) },
+		"undecodable":  func(w http.ResponseWriter) { _, _ = w.Write([]byte(`not json`)) },
+	} {
+		t.Run(name, func(t *testing.T) {
+			srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				w.Header().Set("Content-Type", "application/json")
+				switch r.URL.Path {
+				case "/api/extra/version":
+					_, _ = w.Write([]byte(`{"result":"KoboldCpp","version":"1.122.1","llm":false,"txt2img":true,"tts":true}`))
+				case "/sdapi/v1/sd-models":
+					respond(w)
+				default:
+					t.Errorf("unexpected path: %s", r.URL.Path)
+				}
+			}))
+			defer srv.Close()
+
+			svc := &DiscoveryService{httpClient: srv.Client()}
+			models, err := svc.discoverKoboldCPP(context.Background(), &Provider{ID: uuid.New(), BaseURL: srv.URL}, "")
+			if err != nil {
+				t.Fatalf("discoverKoboldCPP: %v", err)
+			}
+			if len(models) != 1 || models[0].ModelID != "koboldcpp/tts" {
+				t.Fatalf("expected only koboldcpp/tts, got %d models", len(models))
+			}
+		})
+	}
+}
+
+// A build too old to report the llm flag still lists the "inactive"
+// placeholder when started without a chat model; it is not a model.
+func TestDiscoverKoboldCPP_InactivePlaceholderWithoutLLMFlag(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		switch r.URL.Path {
+		case "/api/extra/version":
+			_, _ = w.Write([]byte(`{"result":"KoboldCpp","version":"1.80","tts":true}`))
+		case "/models":
+			_, _ = w.Write([]byte(`{"object":"list","data":[{"id":"inactive","object":"model","created":0,"owned_by":"koboldcpp"}]}`))
+		default:
+			t.Errorf("unexpected path: %s", r.URL.Path)
+		}
+	}))
+	defer srv.Close()
+
+	svc := &DiscoveryService{httpClient: srv.Client()}
+	models, err := svc.discoverKoboldCPP(context.Background(), &Provider{ID: uuid.New(), BaseURL: srv.URL}, "")
+	if err != nil {
+		t.Fatalf("discoverKoboldCPP: %v", err)
+	}
+	if len(models) != 1 || models[0].ModelID != "koboldcpp/tts" {
+		t.Fatalf("expected only koboldcpp/tts, got %d models", len(models))
+	}
+}
+
+// A chat model whose file shares a side model's name keeps the ID: a second row
+// with it would overwrite the chat model's class on every scan.
+func TestDiscoverKoboldCPP_SideModelSharingChatIDIsSkipped(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		switch r.URL.Path {
+		case "/api/extra/version":
+			_, _ = w.Write([]byte(`{"result":"KoboldCpp","version":"1.122.1","llm":true,"tts":true,"transcribe":true}`))
+		case "/models":
+			_, _ = w.Write([]byte(`{"object":"list","data":[{"id":"koboldcpp/tts","object":"model","created":0,"owned_by":"koboldcpp"}]}`))
+		case "/api/extra/true_max_context_length":
+			_, _ = w.Write([]byte(`{"value":4096}`))
+		default:
+			t.Errorf("unexpected path: %s", r.URL.Path)
+		}
+	}))
+	defer srv.Close()
+
+	svc := &DiscoveryService{httpClient: srv.Client()}
+	models, err := svc.discoverKoboldCPP(context.Background(), &Provider{ID: uuid.New(), BaseURL: srv.URL}, "")
+	if err != nil {
+		t.Fatalf("discoverKoboldCPP: %v", err)
+	}
+	if len(models) != 2 {
+		t.Fatalf("expected the chat model and koboldcpp/whisper, got %d models", len(models))
+	}
+	if models[0].ModelID != "koboldcpp/tts" || models[0].Modality != "" {
+		t.Errorf("chat model = %q class %q, want koboldcpp/tts left for chat derivation", models[0].ModelID, models[0].Modality)
+	}
+	if models[1].ModelID != "koboldcpp/whisper" {
+		t.Errorf("second model = %q, want koboldcpp/whisper", models[1].ModelID)
 	}
 }
 
