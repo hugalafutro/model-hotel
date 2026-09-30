@@ -301,13 +301,13 @@ func TestIPLimiter_CleanupRemovesStale(t *testing.T) {
 	defer lim.Stop()
 
 	lim.mu.Lock()
-	lim.limiters["stale-ip"] = &bucketEntry{throttle: &throttleState{},
+	lim.limiters["stale-ip"] = &bucketEntry{admit: new(sync.Mutex), throttle: &throttleState{},
 		prefix:   ipLogPrefix,
 		label:    ipLogLabel,
 		limiter:  rate.NewLimiter(10, 20),
 		lastUsed: time.Now().Add(-15 * time.Minute),
 	}
-	lim.limiters["fresh-ip"] = &bucketEntry{throttle: &throttleState{},
+	lim.limiters["fresh-ip"] = &bucketEntry{admit: new(sync.Mutex), throttle: &throttleState{},
 		prefix:   ipLogPrefix,
 		label:    ipLogLabel,
 		limiter:  rate.NewLimiter(10, 20),
@@ -816,7 +816,7 @@ func TestIPLimiter_CleanupGoroutine_Integration(t *testing.T) {
 
 	// Insert a stale entry (last used 15 minutes ago)
 	lim.mu.Lock()
-	lim.limiters["10.0.0.1"] = &bucketEntry{throttle: &throttleState{},
+	lim.limiters["10.0.0.1"] = &bucketEntry{admit: new(sync.Mutex), throttle: &throttleState{},
 		prefix:   ipLogPrefix,
 		label:    ipLogLabel,
 		limiter:  rate.NewLimiter(10, 20),
@@ -825,7 +825,7 @@ func TestIPLimiter_CleanupGoroutine_Integration(t *testing.T) {
 		lastUsed: time.Now().Add(-15 * time.Minute),
 	}
 	// And a fresh entry
-	lim.limiters["10.0.0.2"] = &bucketEntry{throttle: &throttleState{},
+	lim.limiters["10.0.0.2"] = &bucketEntry{admit: new(sync.Mutex), throttle: &throttleState{},
 		prefix:   ipLogPrefix,
 		label:    ipLogLabel,
 		limiter:  rate.NewLimiter(10, 20),
@@ -871,7 +871,7 @@ func TestIPLimiter_CleanupGoroutine_TickerPathRemovesStaleEntries(t *testing.T) 
 
 	// Insert a stale IP entry (last used 15 minutes ago — beyond the 10-minute cutoff)
 	lim.mu.Lock()
-	lim.limiters["192.168.1.100"] = &bucketEntry{throttle: &throttleState{},
+	lim.limiters["192.168.1.100"] = &bucketEntry{admit: new(sync.Mutex), throttle: &throttleState{},
 		prefix:   ipLogPrefix,
 		label:    ipLogLabel,
 		limiter:  rate.NewLimiter(10, 20),
@@ -880,7 +880,7 @@ func TestIPLimiter_CleanupGoroutine_TickerPathRemovesStaleEntries(t *testing.T) 
 		lastUsed: time.Now().Add(-15 * time.Minute),
 	}
 	// And a fresh IP entry
-	lim.limiters["192.168.1.200"] = &bucketEntry{throttle: &throttleState{},
+	lim.limiters["192.168.1.200"] = &bucketEntry{admit: new(sync.Mutex), throttle: &throttleState{},
 		prefix:   ipLogPrefix,
 		label:    ipLogLabel,
 		limiter:  rate.NewLimiter(10, 20),
@@ -923,7 +923,7 @@ func TestIPEntry_ThrottleEdgeLogging(t *testing.T) {
 	const started = "ratelimit-ip: throttling started"
 	const ended = "ratelimit-ip: throttling ended"
 
-	e := &bucketEntry{throttle: &throttleState{}, limiter: rate.NewLimiter(1, 1), rps: 1, burst: 1, prefix: ipLogPrefix, label: ipLogLabel}
+	e := &bucketEntry{admit: new(sync.Mutex), throttle: &throttleState{}, limiter: rate.NewLimiter(1, 1), rps: 1, burst: 1, prefix: ipLogPrefix, label: ipLogLabel}
 
 	e.noteRejected("1.2.3.4")
 	e.noteRejected("1.2.3.4")
@@ -954,7 +954,7 @@ func TestIPEntry_ConcurrentRejectionsExactCount(t *testing.T) {
 	debuglog.SetHandler(h)
 	t.Cleanup(func() { debuglog.Init() })
 
-	e := &bucketEntry{throttle: &throttleState{}, limiter: rate.NewLimiter(1, 1), rps: 1, burst: 1, prefix: ipLogPrefix, label: ipLogLabel}
+	e := &bucketEntry{admit: new(sync.Mutex), throttle: &throttleState{}, limiter: rate.NewLimiter(1, 1), rps: 1, burst: 1, prefix: ipLogPrefix, label: ipLogLabel}
 	const n = 200
 	var wg sync.WaitGroup
 	wg.Add(n)
@@ -983,7 +983,7 @@ func TestIPEntry_IdleEvictionLogsEnded(t *testing.T) {
 
 	lim := NewIPLimiter(1, 1, nil, nil)
 	defer lim.Stop()
-	e := &bucketEntry{throttle: &throttleState{}, limiter: rate.NewLimiter(1, 1), rps: 1, burst: 1, prefix: ipLogPrefix, label: ipLogLabel}
+	e := &bucketEntry{admit: new(sync.Mutex), throttle: &throttleState{}, limiter: rate.NewLimiter(1, 1), rps: 1, burst: 1, prefix: ipLogPrefix, label: ipLogLabel}
 	e.noteRejected("9.9.9.9") // open an episode
 	e.throttle.throttledAt = time.Now().Add(-25 * time.Minute)
 	e.lastUsed = time.Now().Add(-20 * time.Minute) // idle, past the 10-min cutoff
@@ -1135,12 +1135,13 @@ func TestIPLimiter_RefusedFloodLeavesTheBucketAtEmpty(t *testing.T) {
 	if !ok {
 		t.Fatal("IP bucket missing")
 	}
-	// The slack is for the requests that read the bucket in the same few
-	// instructions and still reserve and cancel each other's refunds; that
-	// window holds a handful, where refusing by reservation put the whole
-	// refused crowd in debt (measured between -15 and -282 on this flood).
-	// The slack held at every GOMAXPROCS from 1 to 64, worst case -1.
-	if got := entry.limiter.Tokens(); got < -5 {
-		t.Errorf("bucket = %.2f tokens after %d requests on a burst of 5, want no worse than -5: refusals must not scale into debt", got, flood)
+	// Refusing by reservation put the whole refused crowd in debt (measured
+	// between -15 and -282 on this flood); a peek outside the admission lock
+	// still let the requests that read in the same instant reserve and cancel
+	// each other's refunds (-62 under the race detector). Under the lock a
+	// refusal takes nothing, so only float rounding separates the bucket from
+	// empty.
+	if got := entry.limiter.Tokens(); got < -0.05 {
+		t.Errorf("bucket = %.2f tokens after %d requests on a burst of 5, want about 0 or more: a refusal left debt behind", got, flood)
 	}
 }

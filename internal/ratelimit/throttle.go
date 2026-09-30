@@ -151,6 +151,14 @@ type bucketEntry struct {
 	prefix   string // message prefix, e.g. "ratelimit-ip"
 	label    string // identity label, e.g. "ip"
 	budget   string // named budget, set only where a deployment runs several limiters
+	// admit serializes an admission's peek and reservation on this bucket.
+	// The limiter's own mutex covers each call alone, so without it requests
+	// that peek in the same instant all see the same free token and reserve;
+	// a refusal then has to cancel, and a cancel refunds only while no later
+	// reservation has moved the bucket past it, so a refused flood leaves
+	// debt that grows with scheduler jitter. Shared by pointer across withCap
+	// copies, since they share the bucket.
+	admit *sync.Mutex
 }
 
 func (e *bucketEntry) throttleCtx(id string) throttleLogCtx {
@@ -168,6 +176,7 @@ func (e *bucketEntry) withCap(rps float64, burst int) *bucketEntry {
 	e.limiter.SetLimit(rate.Limit(rps))
 	e.limiter.SetBurst(burst)
 	return &bucketEntry{
+		admit:    e.admit,
 		limiter:  e.limiter,
 		rps:      rps,
 		burst:    burst,
@@ -203,6 +212,7 @@ func upsertEntry(entries map[string]*bucketEntry, id string, rps float64, burst 
 	switch {
 	case !ok:
 		entry = &bucketEntry{
+			admit:    new(sync.Mutex),
 			limiter:  rate.NewLimiter(rate.Limit(rps), burst),
 			rps:      rps,
 			burst:    burst,
@@ -239,15 +249,12 @@ func maxWaitFor(ctx context.Context, s SettingsReader) time.Duration {
 // bucket sinks far below empty, throttling the identity long after the flood
 // has stopped. A read leaves the bucket where it was.
 //
-// It narrows the debt rather than abolishing it. Requests that read the bucket
-// in the same few instructions all see the same free token, reserve, and cancel
-// each other's refunds as before, so what survives is bounded by that window
-// instead of by the size of the flood.
-//
-// A read can differ from the reservation it stands in for in either direction,
-// by whatever another request took or handed back in between: too optimistic is
-// the window above, too pessimistic refuses a request that a refund had just
-// made servable, which is a refusal the bucket would have given an instant
+// Callers hold the bucket's admission lock (bucketEntry.admit) across the read
+// and the reservation it stands in for, so no other admission reserves in
+// between: the read never admits more than the bucket holds, and a refusal
+// reserves nothing. Only a waiter that abandons outside
+// the lock can hand a token back mid-admission, which makes the read too
+// pessimistic by that token: a refusal the bucket would have given an instant
 // earlier anyway.
 //
 // A bucket that can never hand out a token (burst below one) reports no wait,
