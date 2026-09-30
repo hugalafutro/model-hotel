@@ -56,9 +56,10 @@ func waitForRequestLog(t *testing.T, providerID uuid.UUID) (state string, status
 
 // A 2xx whose body is only an error envelope is the provider refusing, not
 // answering. On the last candidate the client gets a 502 it can read as an
-// error, and the row records a failure with the provider's own message, for
-// every JSON-answering family and for speech.
-func TestPassthrough_ErrorEnvelopeUnder200IsAFailure(t *testing.T) {
+// error, and the row records a failure with the provider's own message, on
+// every JSON-answering family and on speech, whose real answer is binary and
+// whose JSON body can therefore only be the refusal.
+func TestPassthrough_ErrorEnvelopeInside200IsAFailure(t *testing.T) {
 	for _, tc := range []struct {
 		name  string
 		path  string
@@ -95,7 +96,7 @@ func TestPassthrough_ErrorEnvelopeUnder200IsAFailure(t *testing.T) {
 
 // While a sibling remains, the refusal fails over and the sibling's answer is
 // served.
-func TestPassthrough_ErrorEnvelopeUnder200FailsOver(t *testing.T) {
+func TestPassthrough_ErrorEnvelopeInside200FailsOver(t *testing.T) {
 	var badCalls, goodCalls atomic.Int32
 	envBad := newMultimodalEnv(t, lmStudioUnknownRoute(&badCalls))
 	good := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
@@ -140,5 +141,35 @@ func TestPassthrough_ErrorMemberBesideContentIsServed(t *testing.T) {
 	}
 	if state, _, _, _ := waitForRequestLog(t, env.providerID); state != "completed" {
 		t.Errorf("row state = %q, want completed", state)
+	}
+}
+
+// An envelope is an error member that carries something, with nothing else
+// carrying anything but the envelope's own metadata. Any other member that
+// carries something is content, whatever the family calls it.
+func TestPassthroughErrorEnvelope_Shapes(t *testing.T) {
+	for name, tc := range map[string]struct {
+		status int
+		body   string
+		isErr  bool
+	}{
+		"LM Studio unknown route":          {200, `{"error":"Unexpected endpoint or method."}`, true},
+		"OpenAI-shaped envelope":           {200, `{"object":"error","error":{"message":"no","type":"x","code":"y"}}`, true},
+		"empty list beside the error":      {200, `{"data":[],"error":"x"}`, true},
+		"embeddings beside advisory error": {200, `{"data":[{"embedding":[0.1]}],"error":"partial"}`, false},
+		"rerank beside advisory error":     {200, `{"results":[{"index":0}],"error":"partial"}`, false},
+		"transcription beside error":       {200, `{"text":"hello","error":"advisory"}`, false},
+		"a key of the provider's own":      {200, `{"images":["aGk="],"error":"x"}`, false},
+		"no-error stamp":                   {200, `{"data":[],"error":null}`, false},
+		"usage stamped on a refusal":       {200, `{"error":"x","usage":{"prompt_tokens":0}}`, true},
+		"not JSON":                         {200, `<html>oops</html>`, false},
+		"non-2xx is not this path":         {500, `{"error":"x"}`, false},
+	} {
+		if _, got := passthroughErrorEnvelope(tc.status, []byte(tc.body)); got != tc.isErr {
+			t.Errorf("%s: isErr = %v, want %v", name, got, tc.isErr)
+		}
+	}
+	if msg, _ := passthroughErrorEnvelope(200, []byte(`{"error":{"message":"model unloaded"}}`)); msg != "model unloaded" {
+		t.Errorf("message = %q, want the provider's own text", msg)
 	}
 }

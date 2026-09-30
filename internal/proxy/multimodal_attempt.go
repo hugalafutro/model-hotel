@@ -147,16 +147,20 @@ func passthroughAnswered(endpointType string, body []byte) bool {
 var errPassthroughErrorEnvelope = errors.New("upstream answered 2xx with an error envelope instead of a response")
 
 // passthroughErrorEnvelope reports the provider's own message when a buffered
-// 2xx pass-through body is an error envelope: an "error" member that carries
-// something (the shared util.ValueCarries rule the chat and stream paths use),
-// on a body whose content members carry nothing. LM Studio answers every route
-// it does not serve (images, speech, rerank) with HTTP 200 and
-// {"error":"Unexpected endpoint or method."}, which was served to the client
-// as a success and logged as completed.
+// 2xx JSON pass-through body is an error envelope and nothing else: its
+// "error" member carries something (the shared util.ValueCarries rule the chat
+// and stream paths use), and every other top-level member either carries
+// nothing (jsonValueIsEmpty: absent, null, [] or "") or belongs to the
+// envelope itself (envelopeMetadataKeys). Content is judged structurally, not by
+// util.ValueCarries: that rule reads 0 and false as "no error", which is right
+// for an error member and wrong for content ({"results":[{"index":0}]}). LM Studio
+// answers every route it does not serve (images, speech, rerank) with HTTP 200
+// and {"error":"Unexpected endpoint or method."}, which was served to the
+// client as a success and logged as completed.
 //
-// The content members are the lists every family answers under ("data" for
-// embeddings and images, "results" or "data" for rerank). A body that carries
-// one beside an error member is the provider answering and is left to the
+// Any other member that carries something is content, whatever the family
+// calls it (data, results, text, audio, a key of a provider's own), so an
+// answer that carries one beside an advisory error member is left to the
 // ordinary path. probeDeliveredContent is not the test here: it counts a shape
 // it does not recognise as delivered, which is right for a dialect it cannot
 // read and wrong for an envelope that is plainly only an error.
@@ -164,22 +168,31 @@ func passthroughErrorEnvelope(status int, body []byte) (string, bool) {
 	if !servedSuccessStatus(status) || len(body) > passthroughJSONBufferCap {
 		return "", false
 	}
-	msg, isErr := errorEnvelopeMessage(string(body))
-	if !isErr {
+	var members map[string]json.RawMessage
+	if json.Unmarshal(body, &members) != nil || !util.ValueCarries(members["error"]) {
 		return "", false
 	}
-	var content struct {
-		Data    json.RawMessage `json:"data"`
-		Results json.RawMessage `json:"results"`
+	for key, value := range members {
+		if key != "error" && !envelopeMetadataKeys[key] && !jsonValueIsEmpty(value) {
+			return "", false
+		}
 	}
-	if json.Unmarshal(body, &content) != nil || util.ValueCarries(content.Data) || util.ValueCarries(content.Results) {
-		return "", false
-	}
-	return msg, true
+	return util.ErrorMemberMessage(members["error"]), true
 }
 
-// failPassthroughErrorEnvelope settles an attempt whose 2xx body was an error
-// envelope (passthroughErrorEnvelope). While a sibling remains it fails over,
+// envelopeMetadataKeys are the top-level members an error envelope carries
+// beside "error" without that making it an answer: OpenAI's {"object":"error"},
+// FastAPI's "detail", and the status, code, id and usage fields servers stamp
+// on every response, refusals included.
+var envelopeMetadataKeys = map[string]bool{
+	"object": true, "type": true, "code": true, "message": true, "status": true,
+	"detail": true, "param": true, "created": true, "id": true, "request_id": true,
+	"usage": true,
+}
+
+// failPassthroughErrorEnvelope settles an attempt whose buffered 2xx JSON body
+// was an error envelope (passthroughErrorEnvelope). A streamed pass-through
+// (SSE or binary) never reaches it. While a sibling remains it fails over,
 // through the same reject the chat path takes for a 2xx that is not a
 // completion. On the last candidate the client is answered 502, as the chat
 // path answers the same shape (nonCompletionClientStatus): a 2xx carrying the
