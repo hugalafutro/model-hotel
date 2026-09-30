@@ -2,6 +2,7 @@ package ratelimit
 
 import (
 	"context"
+	"fmt"
 	"log/slog"
 	"math"
 	"net/http"
@@ -9,6 +10,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -1807,6 +1809,64 @@ func TestMiddleware_RefusedFloodLeavesTheBucketAtEmpty(t *testing.T) {
 	// empty.
 	if got := entry.limiter.Tokens(); got < -0.05 {
 		t.Errorf("bucket = %.2f tokens after %d requests on a burst of 5, want about 0 or more: a refusal left debt behind", got, flood)
+	}
+}
+
+// The owner-wide stage takes the same debt-free refusal, and a refusal in the
+// owner's name must not charge the keys it arrived through. Several keys share
+// one owner here, so the flood also runs the two-lock admission (key bucket,
+// then owner bucket) from many keys at once under -race.
+func TestMiddleware_RefusedOwnerFloodLeavesBothBucketsAtEmpty(t *testing.T) {
+	lim, repo := newTestLimiter()
+	defer lim.Stop()
+	repo.set("rate_limit_enabled", "true")
+	// Keys never refuse on their own (250 requests each against a burst of
+	// 1000), and a slow refill keeps what they spent readable afterwards.
+	repo.set(settingsKeyRPS, "1")
+	repo.set(settingsKeyBurst, "1000")
+	repo.set(settingsKeyMaxWaitMs, "0")
+
+	var served atomic.Int64
+	handler := lim.Middleware(true)(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		served.Add(1)
+		w.WriteHeader(http.StatusOK)
+	}))
+
+	const flood, keys = 2000, 8
+	start := make(chan struct{})
+	var wg sync.WaitGroup
+	for i := range flood {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			<-start
+			// Owner refill is negligible over the flood.
+			req := ownedRPSReq(fmt.Sprintf("owned-key-%d", i%keys), "flood-owner", 1, 5)
+			handler.ServeHTTP(httptest.NewRecorder(), req)
+		}()
+	}
+	close(start)
+	wg.Wait()
+
+	owner, ok := lim.limiters["user:flood-owner"]
+	if !ok {
+		t.Fatal("owner bucket missing")
+	}
+	if got := owner.limiter.Tokens(); got < -0.05 {
+		t.Errorf("owner bucket = %.2f tokens after %d requests on a burst of 5, want about 0 or more: a refusal left debt behind", got, flood)
+	}
+	// Each served request took one token from its key; a refused one took
+	// none, so the keys together are down by what was served and no more.
+	var spent float64
+	for i := range keys {
+		entry, ok := lim.limiters[fmt.Sprintf("owned-key-%d", i)]
+		if !ok {
+			t.Fatalf("key bucket %d missing", i)
+		}
+		spent += 1000 - entry.limiter.Tokens()
+	}
+	if n := float64(served.Load()); spent > n+0.05*keys {
+		t.Errorf("keys spent %.2f tokens for %d served requests: an owner-wide refusal charged the key", spent, served.Load())
 	}
 }
 

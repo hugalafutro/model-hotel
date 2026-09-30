@@ -240,12 +240,14 @@ type admissionRefusal struct {
 // admitKeyed takes a token from the key's bucket and, when the owner has a cap,
 // from the owner's, or refuses without leaving either bucket charged.
 //
-// The peek and the reservations run under both buckets' admission locks, so
-// the reading cannot go stale before the reservations, and a refusal never
-// reserves at all. The key bucket is always
-// locked before the owner's, and an owner's bucket is never locked alone, so
-// the order cannot invert. The instant is read after the locks, so a request
-// that queued on them does not reserve at a moment the bucket has moved past.
+// The peek and the reservations run under both buckets' admission locks, which
+// a cap change also takes, so the reading holds until the reservations and a
+// refusal never reserves at all. The key bucket is always locked before the
+// owner's, and nothing takes a second bucket's lock while holding an owner's
+// (withCap holds one lock alone), so the order cannot invert. The two buckets
+// are distinct: owner ids are prefixed "user:", which no key hash carries. The
+// instant is read after the locks, so a request that queued on them does not
+// reserve at a moment the bucket has moved past.
 func admitKeyed(entry *bucketEntry, keyID string, userEntry *bucketEntry, userID string, maxWait time.Duration) (keyedAdmission, *admissionRefusal) {
 	entry.admit.Lock()
 	defer entry.admit.Unlock()
@@ -254,16 +256,14 @@ func admitKeyed(entry *bucketEntry, keyID string, userEntry *bucketEntry, userID
 		defer userEntry.admit.Unlock()
 	}
 
-	// The reservations, the delay reads and the cancellations on the reject
-	// paths share this one instant. A refund is honoured only while the
-	// reservation's activation time has not passed, and a reservation taken
-	// for immediate use activates at the instant it was taken, so reading the
-	// clock again at cancel time turns the zero-delay hand-backs into silent
-	// no-ops: the owner token next to a per-key rejection, and whichever stage
-	// did not force the wait on the over-max_wait path. Both reject without
-	// waiting, so cancelling at this instant rewinds the bucket clock by
-	// nothing measurable. admitUserTPM pins for the same reason; the abandoned
-	// wait in the middleware takes a fresh instant, for the reason given there.
+	// The reservations, the delay reads and the one hand-back share this
+	// instant: the owner token cancelled when the key's bucket then refuses.
+	// A refund is honoured only while the reservation's activation time has
+	// not passed, and a reservation taken for immediate use activates at the
+	// instant it was taken, so cancelling at a freshly read instant would turn
+	// that hand-back into a silent no-op. admitUserTPM pins for the same
+	// reason; the abandoned wait in the middleware takes a fresh instant, for
+	// the reason given there.
 	now := time.Now()
 
 	// Refuse before reserving when the buckets already say the wait is past
@@ -291,8 +291,8 @@ func admitKeyed(entry *bucketEntry, keyID string, userEntry *bucketEntry, userID
 		return keyedAdmission{}, &admissionRefusal{entry, keyID, 0}
 	}
 
-	// The peek read both buckets at this instant under these locks, so the
-	// longer delay is the wait it already accepted.
+	// The peek read both buckets at this instant under these locks, and a cap
+	// change waits for them, so the longer delay is the wait it accepted.
 	delay := res.DelayFrom(now)
 	if userRes != nil {
 		delay = max(delay, userRes.DelayFrom(now))

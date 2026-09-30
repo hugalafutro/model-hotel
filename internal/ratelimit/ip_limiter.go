@@ -128,14 +128,18 @@ func (l *IPLimiter) Middleware(next http.Handler) http.Handler {
 		ip := clientip.Resolve(r, l.trustedProxies)
 		entry := l.getLimiter(r.Context(), ip)
 
+		// Read before taking the admission lock, which guards in-memory bucket
+		// work only (see bucketEntry.admit).
+		maxWait := maxWaitFor(r.Context(), l.settings)
+
 		// Refuse before reserving when the bucket already says the wait is past
 		// the ceiling, so a refusal costs the IP nothing: see peekWait for what
-		// the reserve-then-cancel route costs instead. The peek and the
-		// reservation run under the bucket's admission lock, so the reading
-		// cannot go stale before the reservation. The zero test keeps the settings read off the path
-		// of a request the bucket can serve outright.
+		// the reserve-then-cancel route costs instead, and for why the reading
+		// holds until the reservation under the admission lock. The zero test
+		// keeps a max_wait that somehow arrived negative from refusing a request
+		// the bucket can serve outright.
 		entry.admit.Lock()
-		if wait := peekWait(entry.limiter, time.Now()); wait > 0 && wait > maxWaitFor(r.Context(), l.settings) {
+		if wait := peekWait(entry.limiter, time.Now()); wait > 0 && wait > maxWait {
 			entry.admit.Unlock()
 			reject429(w, entry, ip, wait, ipLogLabel, "rate limit exceeded")
 			return
@@ -148,8 +152,8 @@ func (l *IPLimiter) Middleware(next http.Handler) http.Handler {
 			return
 		}
 
-		// The peek above read the same bucket under the same lock, so the
-		// delay is within max_wait.
+		// The peek above read the same bucket under the same lock, and a cap
+		// change waits for it, so the delay is within max_wait.
 		delay := reservation.Delay()
 		entry.admit.Unlock()
 
