@@ -1693,8 +1693,13 @@ func TestUpdateModel_CapabilitiesCustomOnly(t *testing.T) {
 	if rec := send(edit); rec.Code != http.StatusBadRequest || !strings.Contains(rec.Body.String(), "capabilities_custom_only") {
 		t.Fatalf("edit on an openai provider: got %d %s, want 400 capabilities_custom_only", rec.Code, rec.Body.String())
 	}
-	if rec := send(`{"capabilities_customized": false}`); rec.Code != http.StatusBadRequest {
-		t.Fatalf("unpin on an openai provider: got %d, want 400", rec.Code)
+	if rec := send(`{"capabilities_customized": true}`); rec.Code != http.StatusBadRequest {
+		t.Fatalf("bare pin on an openai provider: got %d, want 400", rec.Code)
+	}
+	// An unpin is taken on any type, so a pin left behind when a custom
+	// provider changes type can still be cleared.
+	if rec := send(`{"capabilities_customized": false}`); rec.Code != http.StatusOK {
+		t.Fatalf("unpin on an openai provider: got %d %s, want 200", rec.Code, rec.Body.String())
 	}
 
 	if _, err := h.dbPool.Pool().Exec(context.Background(),

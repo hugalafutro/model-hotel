@@ -723,7 +723,7 @@ Cursor (keyset) pagination walks the list by passing the previous response's `ne
 - `search_price_per_thousand`: 0-1000
 - `limits_customized`: boolean; any edit of `context_length` or `max_output_tokens` pins both against discovery, and `false` clears the pin and both limits so the next scan refills them
 - `capabilities`: object of capability flags (`streaming`, `vision`, `video_input`, `audio_input`, `reasoning`, `tool_calling`, `parallel_tool_calls`, `structured_output`, `pdf_upload`), a custom provider's models only; replaces the stored flags whole (an omitted flag is `false`) and pins them against discovery
-- `capabilities_customized`: boolean, a custom provider's models only; `false` clears the pin so the next scan writes the listing's reading again. Either capabilities field on another provider type's model is a `400` with code `capabilities_custom_only`
+- `capabilities_customized`: boolean, a custom provider's models only; `false` clears the pin so the next scan writes the listing's reading again. `capabilities`, or `capabilities_customized: true`, on another provider type's model is a `400` with code `capabilities_custom_only`; the unpin is taken on any type, so a pin left behind by a provider type change can still be cleared
 - `price_customized`: boolean; marks the prices as operator-set so discovery enrichment leaves them alone. An edited price is recorded as `manual` in the model's `price_sources`; unpinning clears the prices and their sources so the next scan writes both afresh.
 
 #### DELETE `/api/models/{id}`

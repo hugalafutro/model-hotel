@@ -296,8 +296,11 @@ func (h *Handler) UpdateModel(w http.ResponseWriter, r *http.Request) {
 	// Capabilities are set by hand only where discovery takes the provider at
 	// its word and knows nothing more: a custom provider. Every other type's
 	// capabilities come from its own API or the vendor data, and a pin there
-	// would freeze them against the next genuine change.
-	if req.Capabilities != nil || req.CapabilitiesCustomized != nil {
+	// would freeze them against the next genuine change. An unpin is taken on
+	// any type: a provider's type can be changed after its models were pinned,
+	// and the pin must not outlive it with no way to clear it.
+	unpinCaps := req.CapabilitiesCustomized != nil && !*req.CapabilitiesCustomized
+	if (req.Capabilities != nil || req.CapabilitiesCustomized != nil) && !unpinCaps {
 		current, err := modelRepo.Get(r.Context(), id)
 		if err != nil {
 			respondLookupError(w, err, pgx.ErrNoRows, "model not found", fmt.Sprintf("failed to load model %s", id))

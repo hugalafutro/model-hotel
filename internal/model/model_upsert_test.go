@@ -479,6 +479,14 @@ func TestUpsert_CapabilitiesPinBlocksScan(t *testing.T) {
 		t.Fatalf("after unpin + rescan: caps=%+v pinned=%v, want the scan's streaming only, unpinned", c, pinned)
 	}
 
+	// An unpin in the same request as an edit wins: nothing is written.
+	if _, err := repo.Update(ctx, base.ID, UpdateModelRequest{Capabilities: edit, CapabilitiesCustomized: new(false)}); err != nil {
+		t.Fatalf("edit with unpin: %v", err)
+	}
+	if c, pinned := caps("after an edit with unpin"); pinned || c != (Capability{Streaming: true}) {
+		t.Fatalf("after an edit with unpin: caps=%+v pinned=%v, want the stored streaming only, unpinned", c, pinned)
+	}
+
 	// A bare pin keeps the stored flags exactly as they are.
 	if _, err := repo.Update(ctx, base.ID, UpdateModelRequest{CapabilitiesCustomized: new(true)}); err != nil {
 		t.Fatalf("bare pin: %v", err)
