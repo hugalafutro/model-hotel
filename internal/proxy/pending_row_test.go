@@ -254,9 +254,10 @@ func TestUpdateRequestLog_AnInterimRetryNeverUndoesATerminalWrite(t *testing.T) 
 	}
 	logData.insertWg.Done()
 
-	// Give the retry time to run, then confirm it left the row alone.
-	time.Sleep(300 * time.Millisecond)
-	if got := readRowState(t, h, logData.id, "completed"); got != "completed" {
+	// The retry has to be ruled out, not merely not yet seen: poll the whole
+	// window for the state it would write rather than stopping at the first
+	// 'completed' read.
+	if got := readRowState(t, h, logData.id, "streaming"); got != "completed" {
 		t.Errorf("row state = %q, want completed: the interim retry took a finished row back", got)
 	}
 }
