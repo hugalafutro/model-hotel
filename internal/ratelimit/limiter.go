@@ -167,109 +167,45 @@ func (l *Limiter) Middleware(enabled bool) func(http.Handler) http.Handler {
 
 			maxWait := maxWaitFor(r.Context(), l.settings)
 
-			// The reservations, the delay reads and the cancellations on the
-			// two reject paths share this one instant. The abandoned path
-			// takes a fresh one, for the reason given there. A refund is honoured only while the
-			// reservation's activation time has not passed, and a reservation
-			// taken for immediate use activates at the instant it was taken, so
-			// reading the clock again at cancel time turns the zero-delay
-			// hand-backs into silent no-ops: the owner token next to a per-key
-			// rejection, and whichever stage did not force the wait on the
-			// over-max_wait path. Both reject without waiting, so cancelling at
-			// this instant rewinds the bucket clock by nothing measurable.
-			// admitUserTPM pins for the same reason.
-			now := time.Now()
-
-			// reject answers one 429, naming the stage that refused so an
-			// owner-wide refusal reads differently from a per-key one.
-			reject := func(by *bucketEntry, id string, retryAfter time.Duration) {
-				reject429(w, by, id, retryAfter, "", rejectedBy(by, userEntry))
-			}
-
-			// Refuse before reserving when the buckets already say the wait is
-			// past the ceiling, so a refusal costs the identity nothing: see
-			// peekWait for what the reserve-then-cancel route costs instead.
-			// A reading can go stale before the reservations below are taken,
-			// and a request that slips through then cancels on the
-			// over-max_wait path, which hands its token back only if no other
-			// slipped-through request reserved in between. So this narrows the
-			// debt to what fits in a window a few instructions wide rather than
-			// abolishing it; what is left no longer grows with the flood.
-			// The zero test is what keeps a max_wait that somehow arrived
-			// negative from refusing a request the bucket can serve outright.
-			if peeked, by, id := peekAdmission(entry, keyHash, userEntry, userKey, now); peeked > 0 && peeked > maxWait {
-				reject(by, id, peeked)
+			adm, refused := admitKeyed(entry, keyHash, userEntry, userKey, maxWait)
+			if refused != nil {
+				// Name the stage that refused, so an owner-wide refusal reads
+				// differently from a per-key one.
+				reject429(w, refused.by, refused.id, refused.retryAfter, "", rejectedBy(refused.by, userEntry))
 				return
 			}
+			reservation, userRes, delay := adm.res, adm.userRes, adm.delay
 
-			var userRes *rate.Reservation
-			if userEntry != nil {
-				userRes = userEntry.limiter.ReserveN(now, 1)
-				if !userRes.OK() {
-					reject(userEntry, userKey, 0)
-					return
-				}
-			}
-
-			reservation := entry.limiter.ReserveN(now, 1)
-			if !reservation.OK() {
-				if userRes != nil {
-					userRes.CancelAt(now)
-				}
-				reject(entry, keyHash, 0)
-				return
-			}
-
-			delay := reservation.DelayFrom(now)
-			limitedBy := entry
-			limitedKey := keyHash
-			if userRes != nil {
-				if ud := userRes.DelayFrom(now); ud > delay {
-					delay = ud
-					limitedBy = userEntry
-					limitedKey = userKey
-				}
-			}
 			if delay > 0 {
-				// Graceful backpressure: if the wait is within the configured max_wait,
-				// sleep and proceed instead of rejecting immediately. The key is still
-				// under pressure, so an open throttle episode is left open (only a
-				// no-delay serve below closes it).
-				if delay <= maxWait {
-					if !waitOrCancel(ctx, delay) {
-						// Client left during the wait: give the budget back,
-						// at a fresh instant rather than the pinned one. A
-						// refund rewinds the bucket's clock to the instant it
-						// is made, so refunding at the pinned instant would
-						// re-credit the whole elapsed wait to every later
-						// request, and a client that abandons in a loop could
-						// inflate the bucket. The stage that forced the wait
-						// still gets its token back, since its reservation
-						// activates around now, though a wait that elapsed
-						// before the client's departure was noticed can leave
-						// even that one behind. A stage gets its token back
-						// only while its own reservation is still ahead of this
-						// instant, so a stage that was ready to serve keeps
-						// one: a bounded over-charge, taken deliberately over
-						// an unbounded under-charge.
-						left := time.Now()
-						reservation.CancelAt(left)
-						if userRes != nil {
-							userRes.CancelAt(left)
-						}
-						return
+				// Graceful backpressure: the wait is within the configured
+				// max_wait, so sleep and proceed instead of rejecting. The key is
+				// still under pressure, so an open throttle episode is left open
+				// (only a no-delay serve below closes it).
+				if !waitOrCancel(ctx, delay) {
+					// Client left during the wait: give the budget back,
+					// at a fresh instant rather than the pinned one. A
+					// refund rewinds the bucket's clock to the instant it
+					// is made, so refunding at the pinned instant would
+					// re-credit the whole elapsed wait to every later
+					// request, and a client that abandons in a loop could
+					// inflate the bucket. The stage that forced the wait
+					// still gets its token back, since its reservation
+					// activates around now, though a wait that elapsed
+					// before the client's departure was noticed can leave
+					// even that one behind. A stage gets its token back
+					// only while its own reservation is still ahead of this
+					// instant, so a stage that was ready to serve keeps
+					// one: a bounded over-charge, taken deliberately over
+					// an unbounded under-charge.
+					left := time.Now()
+					reservation.CancelAt(left)
+					if userRes != nil {
+						userRes.CancelAt(left)
 					}
-					writeRateLimitHeaders(w, rpsHeaders(entry.limiter), 0, "")
-					next.ServeHTTP(w, r.WithContext(ctx))
 					return
 				}
-				// Wait exceeds max_wait — cancel the reservations and reject,
-				// reporting whichever stage forced the longer wait.
-				reservation.CancelAt(now)
-				if userRes != nil {
-					userRes.CancelAt(now)
-				}
-				reject(limitedBy, limitedKey, delay)
+				writeRateLimitHeaders(w, rpsHeaders(entry.limiter), 0, "")
+				next.ServeHTTP(w, r.WithContext(ctx))
 				return
 			}
 
@@ -283,6 +219,85 @@ func (l *Limiter) Middleware(enabled bool) func(http.Handler) http.Handler {
 			next.ServeHTTP(w, r.WithContext(ctx))
 		})
 	}
+}
+
+// keyedAdmission is what admitKeyed took from the buckets: the key's
+// reservation, the owner's (nil without an owner cap) and the longer of their
+// delays, which the peek has already held to max_wait.
+type keyedAdmission struct {
+	res, userRes *rate.Reservation
+	delay        time.Duration
+}
+
+// admissionRefusal names the stage that refused a request and when it may
+// retry (zero when no wait would help).
+type admissionRefusal struct {
+	by         *bucketEntry
+	id         string
+	retryAfter time.Duration
+}
+
+// admitKeyed takes a token from the key's bucket and, when the owner has a cap,
+// from the owner's, or refuses without leaving either bucket charged.
+//
+// The peek and the reservations run under both buckets' admission locks, which
+// a cap change also takes, so the reading holds until the reservations and a
+// refusal never reserves at all. The key bucket is always locked before the
+// owner's, and nothing takes a second bucket's lock while holding an owner's
+// (withCap holds one lock alone), so the order cannot invert. The two buckets
+// are distinct: owner ids are prefixed "user:", which no key hash carries. The
+// instant is read after the locks, so a request that queued on them does not
+// reserve at a moment the bucket has moved past.
+func admitKeyed(entry *bucketEntry, keyID string, userEntry *bucketEntry, userID string, maxWait time.Duration) (keyedAdmission, *admissionRefusal) {
+	entry.admit.Lock()
+	defer entry.admit.Unlock()
+	if userEntry != nil {
+		userEntry.admit.Lock()
+		defer userEntry.admit.Unlock()
+	}
+
+	// The reservations, the delay reads and the one hand-back share this
+	// instant: the owner token cancelled when the key's bucket then refuses.
+	// A refund is honoured only while the reservation's activation time has
+	// not passed, and a reservation taken for immediate use activates at the
+	// instant it was taken, so cancelling at a freshly read instant would turn
+	// that hand-back into a silent no-op. admitUserTPM pins for the same
+	// reason; the abandoned wait in the middleware takes a fresh instant, for
+	// the reason given there.
+	now := time.Now()
+
+	// Refuse before reserving when the buckets already say the wait is past
+	// the ceiling, so a refusal costs the identity nothing: see peekWait for
+	// what the reserve-then-cancel route costs instead. The zero test is what
+	// keeps a max_wait that somehow arrived negative from refusing a request
+	// the bucket can serve outright.
+	if peeked, by, id := peekAdmission(entry, keyID, userEntry, userID, now); peeked > 0 && peeked > maxWait {
+		return keyedAdmission{}, &admissionRefusal{by, id, peeked}
+	}
+
+	var userRes *rate.Reservation
+	if userEntry != nil {
+		userRes = userEntry.limiter.ReserveN(now, 1)
+		if !userRes.OK() {
+			return keyedAdmission{}, &admissionRefusal{userEntry, userID, 0}
+		}
+	}
+
+	res := entry.limiter.ReserveN(now, 1)
+	if !res.OK() {
+		if userRes != nil {
+			userRes.CancelAt(now)
+		}
+		return keyedAdmission{}, &admissionRefusal{entry, keyID, 0}
+	}
+
+	// The peek read both buckets at this instant under these locks, and a cap
+	// change waits for them, so the longer delay is the wait it accepted.
+	delay := res.DelayFrom(now)
+	if userRes != nil {
+		delay = max(delay, userRes.DelayFrom(now))
+	}
+	return keyedAdmission{res: res, userRes: userRes, delay: delay}, nil
 }
 
 // peekAdmission reports the longest wait either admission stage still needs

@@ -128,42 +128,47 @@ func (l *IPLimiter) Middleware(next http.Handler) http.Handler {
 		ip := clientip.Resolve(r, l.trustedProxies)
 		entry := l.getLimiter(r.Context(), ip)
 
+		// Read before taking the admission lock, which guards in-memory bucket
+		// work only (see bucketEntry.admit).
+		maxWait := maxWaitFor(r.Context(), l.settings)
+
 		// Refuse before reserving when the bucket already says the wait is past
 		// the ceiling, so a refusal costs the IP nothing: see peekWait for what
-		// the reserve-then-cancel route costs instead, and for what a reading
-		// that goes stale before the reservation below still leaves behind. The
-		// zero test keeps the settings read off the path of a request the
-		// bucket can serve outright.
-		if wait := peekWait(entry.limiter, time.Now()); wait > 0 && wait > maxWaitFor(r.Context(), l.settings) {
+		// the reserve-then-cancel route costs instead, and for why the reading
+		// holds until the reservation under the admission lock. The zero test
+		// keeps a max_wait that somehow arrived negative from refusing a request
+		// the bucket can serve outright.
+		entry.admit.Lock()
+		if wait := peekWait(entry.limiter, time.Now()); wait > 0 && wait > maxWait {
+			entry.admit.Unlock()
 			reject429(w, entry, ip, wait, ipLogLabel, "rate limit exceeded")
 			return
 		}
 
 		reservation := entry.limiter.Reserve()
 		if !reservation.OK() {
+			entry.admit.Unlock()
 			reject429(w, entry, ip, 0, ipLogLabel, "rate limit exceeded")
 			return
 		}
 
+		// The peek above read the same bucket under the same lock, and a cap
+		// change waits for it, so the delay is within max_wait.
 		delay := reservation.Delay()
+		entry.admit.Unlock()
+
 		if delay > 0 {
-			// Graceful backpressure: if the wait is within the configured max_wait,
-			// sleep and proceed instead of rejecting immediately. The IP is still
-			// under pressure, so an open throttle episode stays open (only a
-			// no-delay serve below closes it).
-			if delay <= maxWaitFor(r.Context(), l.settings) {
-				if !waitOrCancel(r.Context(), delay) {
-					// Client left during the wait: give the budget back.
-					reservation.Cancel()
-					return
-				}
-				writeRateLimitHeaders(w, rpsHeaders(entry.limiter), 0, ipLogLabel)
-				next.ServeHTTP(w, r)
+			// Graceful backpressure: the wait is within the configured max_wait,
+			// so sleep and proceed instead of rejecting. The IP is still under
+			// pressure, so an open throttle episode stays open (only a no-delay
+			// serve below closes it).
+			if !waitOrCancel(r.Context(), delay) {
+				// Client left during the wait: give the budget back.
+				reservation.Cancel()
 				return
 			}
-			// Wait exceeds max_wait - cancel the reservation and reject.
-			reservation.Cancel()
-			reject429(w, entry, ip, delay, ipLogLabel, "rate limit exceeded")
+			writeRateLimitHeaders(w, rpsHeaders(entry.limiter), 0, ipLogLabel)
+			next.ServeHTTP(w, r)
 			return
 		}
 

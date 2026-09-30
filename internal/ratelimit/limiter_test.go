@@ -2,6 +2,7 @@ package ratelimit
 
 import (
 	"context"
+	"fmt"
 	"log/slog"
 	"math"
 	"net/http"
@@ -9,6 +10,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -474,7 +476,7 @@ func TestCleanup_RemovesStaleEntries(t *testing.T) {
 	defer lim.Stop()
 
 	lim.mu.Lock()
-	lim.limiters["stale"] = &bucketEntry{throttle: &throttleState{},
+	lim.limiters["stale"] = &bucketEntry{admit: new(sync.Mutex), throttle: &throttleState{},
 		prefix:   keyLogPrefix,
 		label:    keyLogLabel,
 		limiter:  nil,
@@ -482,7 +484,7 @@ func TestCleanup_RemovesStaleEntries(t *testing.T) {
 		burst:    20,
 		lastUsed: time.Now().Add(-15 * time.Minute),
 	}
-	lim.limiters["fresh"] = &bucketEntry{throttle: &throttleState{},
+	lim.limiters["fresh"] = &bucketEntry{admit: new(sync.Mutex), throttle: &throttleState{},
 		prefix:   keyLogPrefix,
 		label:    keyLogLabel,
 		limiter:  nil,
@@ -1011,7 +1013,7 @@ func TestCleanupGoroutine_Integration(t *testing.T) {
 
 	// Insert a stale entry (last used 15 minutes ago)
 	lim.mu.Lock()
-	lim.limiters["stale-loop-key"] = &bucketEntry{throttle: &throttleState{},
+	lim.limiters["stale-loop-key"] = &bucketEntry{admit: new(sync.Mutex), throttle: &throttleState{},
 		prefix:   keyLogPrefix,
 		label:    keyLogLabel,
 		limiter:  rate.NewLimiter(10, 20),
@@ -1020,7 +1022,7 @@ func TestCleanupGoroutine_Integration(t *testing.T) {
 		lastUsed: time.Now().Add(-15 * time.Minute),
 	}
 	// And a fresh entry
-	lim.limiters["fresh-loop-key"] = &bucketEntry{throttle: &throttleState{},
+	lim.limiters["fresh-loop-key"] = &bucketEntry{admit: new(sync.Mutex), throttle: &throttleState{},
 		prefix:   keyLogPrefix,
 		label:    keyLogLabel,
 		limiter:  rate.NewLimiter(10, 20),
@@ -1065,7 +1067,7 @@ func TestCleanupGoroutine_TickerPathRemovesStaleEntries(t *testing.T) {
 
 	// Insert a stale entry (last used 15 minutes ago — beyond the 10-minute cutoff)
 	lim.mu.Lock()
-	lim.limiters["stale-ticker-key"] = &bucketEntry{throttle: &throttleState{},
+	lim.limiters["stale-ticker-key"] = &bucketEntry{admit: new(sync.Mutex), throttle: &throttleState{},
 		prefix:   keyLogPrefix,
 		label:    keyLogLabel,
 		limiter:  rate.NewLimiter(10, 20),
@@ -1074,7 +1076,7 @@ func TestCleanupGoroutine_TickerPathRemovesStaleEntries(t *testing.T) {
 		lastUsed: time.Now().Add(-15 * time.Minute),
 	}
 	// And a fresh entry
-	lim.limiters["fresh-ticker-key"] = &bucketEntry{throttle: &throttleState{},
+	lim.limiters["fresh-ticker-key"] = &bucketEntry{admit: new(sync.Mutex), throttle: &throttleState{},
 		prefix:   keyLogPrefix,
 		label:    keyLogLabel,
 		limiter:  rate.NewLimiter(10, 20),
@@ -1177,7 +1179,7 @@ func TestKeyEntry_ThrottleEdgeLogging(t *testing.T) {
 	const started = "ratelimit: throttling started"
 	const ended = "ratelimit: throttling ended"
 
-	e := &bucketEntry{throttle: &throttleState{}, limiter: rate.NewLimiter(1, 1), rps: 1, burst: 1, prefix: keyLogPrefix, label: keyLogLabel}
+	e := &bucketEntry{admit: new(sync.Mutex), throttle: &throttleState{}, limiter: rate.NewLimiter(1, 1), rps: 1, burst: 1, prefix: keyLogPrefix, label: keyLogLabel}
 
 	// A burst of rejections must produce exactly one "started" line.
 	e.noteRejected("keyhash")
@@ -1217,7 +1219,7 @@ func TestKeyEntry_ConcurrentRejectionsExactCount(t *testing.T) {
 	debuglog.SetHandler(h)
 	t.Cleanup(func() { debuglog.Init() })
 
-	e := &bucketEntry{throttle: &throttleState{}, limiter: rate.NewLimiter(1, 1), rps: 1, burst: 1, prefix: keyLogPrefix, label: keyLogLabel}
+	e := &bucketEntry{admit: new(sync.Mutex), throttle: &throttleState{}, limiter: rate.NewLimiter(1, 1), rps: 1, burst: 1, prefix: keyLogPrefix, label: keyLogLabel}
 	const n = 200
 	var wg sync.WaitGroup
 	wg.Add(n)
@@ -1249,7 +1251,7 @@ func TestKeyEntry_IdleEvictionLogsEnded(t *testing.T) {
 		settings: newStubSettings(),
 		stopCh:   make(chan struct{}),
 	}
-	e := &bucketEntry{throttle: &throttleState{}, limiter: rate.NewLimiter(1, 1), rps: 1, burst: 1, prefix: keyLogPrefix, label: keyLogLabel}
+	e := &bucketEntry{admit: new(sync.Mutex), throttle: &throttleState{}, limiter: rate.NewLimiter(1, 1), rps: 1, burst: 1, prefix: keyLogPrefix, label: keyLogLabel}
 	e.noteRejected("idlekey") // open an episode
 	e.throttle.throttledAt = time.Now().Add(-25 * time.Minute)
 	e.lastUsed = time.Now().Add(-20 * time.Minute) // idle, past the 10-min cutoff
@@ -1799,13 +1801,72 @@ func TestMiddleware_RefusedFloodLeavesTheBucketAtEmpty(t *testing.T) {
 	if !ok {
 		t.Fatal("key bucket missing")
 	}
-	// The slack is for the requests that read the bucket in the same few
-	// instructions and still reserve and cancel each other's refunds; that
-	// window holds a handful, where refusing by reservation put the whole
-	// refused crowd in debt (measured between -15 and -282 on this flood).
-	// The slack held at every GOMAXPROCS from 1 to 64, worst case -1.
-	if got := entry.limiter.Tokens(); got < -5 {
-		t.Errorf("bucket = %.2f tokens after %d requests on a burst of 5, want no worse than -5: refusals must not scale into debt", got, flood)
+	// Refusing by reservation put the whole refused crowd in debt (measured
+	// between -15 and -282 on this flood); a peek outside the admission lock
+	// still let the requests that read in the same instant reserve and cancel
+	// each other's refunds (-62 under the race detector). Under the lock a
+	// refusal takes nothing, so only float rounding separates the bucket from
+	// empty.
+	if got := entry.limiter.Tokens(); got < -0.05 {
+		t.Errorf("bucket = %.2f tokens after %d requests on a burst of 5, want about 0 or more: a refusal left debt behind", got, flood)
+	}
+}
+
+// The owner-wide stage takes the same debt-free refusal, and a refusal in the
+// owner's name must not charge the keys it arrived through. Several keys share
+// one owner here, so the flood also runs the two-lock admission (key bucket,
+// then owner bucket) from many keys at once under -race.
+func TestMiddleware_RefusedOwnerFloodLeavesBothBucketsAtEmpty(t *testing.T) {
+	lim, repo := newTestLimiter()
+	defer lim.Stop()
+	repo.set("rate_limit_enabled", "true")
+	// Keys never refuse on their own (250 requests each against a burst of
+	// 1000), and a slow refill keeps what they spent readable afterwards.
+	repo.set(settingsKeyRPS, "1")
+	repo.set(settingsKeyBurst, "1000")
+	repo.set(settingsKeyMaxWaitMs, "0")
+
+	var served atomic.Int64
+	handler := lim.Middleware(true)(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		served.Add(1)
+		w.WriteHeader(http.StatusOK)
+	}))
+
+	const flood, keys = 2000, 8
+	start := make(chan struct{})
+	var wg sync.WaitGroup
+	for i := range flood {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			<-start
+			// Owner refill is negligible over the flood.
+			req := ownedRPSReq(fmt.Sprintf("owned-key-%d", i%keys), "flood-owner", 1, 5)
+			handler.ServeHTTP(httptest.NewRecorder(), req)
+		}()
+	}
+	close(start)
+	wg.Wait()
+
+	owner, ok := lim.limiters["user:flood-owner"]
+	if !ok {
+		t.Fatal("owner bucket missing")
+	}
+	if got := owner.limiter.Tokens(); got < -0.05 {
+		t.Errorf("owner bucket = %.2f tokens after %d requests on a burst of 5, want about 0 or more: a refusal left debt behind", got, flood)
+	}
+	// Each served request took one token from its key; a refused one took
+	// none, so the keys together are down by what was served and no more.
+	var spent float64
+	for i := range keys {
+		entry, ok := lim.limiters[fmt.Sprintf("owned-key-%d", i)]
+		if !ok {
+			t.Fatalf("key bucket %d missing", i)
+		}
+		spent += 1000 - entry.limiter.Tokens()
+	}
+	if n := float64(served.Load()); spent > n+0.05*keys {
+		t.Errorf("keys spent %.2f tokens for %d served requests: an owner-wide refusal charged the key", spent, served.Load())
 	}
 }
 
