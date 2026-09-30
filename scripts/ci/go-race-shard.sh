@@ -36,9 +36,15 @@ packages() {
 
 # tests_in DIR prints the package's top-level test, example and fuzz names,
 # sorted and unique (an internal and an external test package can share a
-# directory; a name can only be declared once per package anyway).
+# directory; a name can only be declared once per package anyway). Files behind
+# a //go:build constraint are left out: the race job does not set their tags,
+# so their tests never compile there and would only pad a shard's pattern.
 tests_in() {
-	grep -hoE '^func (Test|Example|Fuzz)[A-Za-z0-9_]*\(' "$1"/*_test.go |
+	local files
+	files=$(grep -L '^//go:build' "$1"/*_test.go || true)
+	[ -n "$files" ] || return 0
+	# shellcheck disable=SC2086 # one argument per file; paths hold no spaces
+	grep -hoE '^func (Test|Example|Fuzz)[A-Za-z0-9_]*\(' $files |
 		sed -E 's/^func //; s/\($//' | grep -vx 'TestMain' | sort -u || true
 }
 
@@ -116,8 +122,9 @@ run() {
 	for dir in $heavy_dirs; do
 		regex=$(awk -v d="$dir" '$1 == "heavy" && $2 == d { print $3 }' <<<"$p" | paste -sd '|')
 		echo "shard $shard/$total: ./$dir, $(awk -v d="$dir" '$1 == "heavy" && $2 == d' <<<"$p" | wc -l) tests"
+		mkdir -p "$tmp/$dir"
 		go test -race -count=1 -timeout "$TIMEOUT" -run "^($regex)\$" "./$dir" 2>&1 |
-			tee "$tmp/${dir//\//_}" &
+			tee "$tmp/$dir/out" &
 		pids+=($!)
 	done
 	if [ -n "$light_dirs" ]; then
@@ -130,7 +137,8 @@ run() {
 		wait "$pid" || status=1
 	done
 	for dir in $heavy_dirs; do
-		if grep -q '\[no tests to run\]' "$tmp/${dir//\//_}"; then
+		# go's own summary line, so a test that prints the phrase cannot match.
+		if grep -qE '^ok[[:space:]].*\[no tests to run\]$' "$tmp/$dir/out"; then
 			echo "FAIL: ./$dir ran no tests on shard $shard/$total: its -run pattern matched nothing" >&2
 			status=1
 		fi

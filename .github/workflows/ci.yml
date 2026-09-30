@@ -51,6 +51,7 @@ jobs:
       deps: ${{ steps.filter.outputs.deps }}
       i18n: ${{ steps.filter.outputs.i18n }}
       sizegate: ${{ steps.filter.outputs.sizegate }}
+      gorace: ${{ steps.filter.outputs.gorace }}
       crowdsec: ${{ steps.filter.outputs.crowdsec }}
       image: ${{ steps.filter.outputs.image }}
       measurable: ${{ steps.filter.outputs.measurable }}
@@ -168,7 +169,7 @@ jobs:
   go-race:
     name: Go Race
     needs: changes
-    if: needs.changes.outputs.go != 'false'
+    if: needs.changes.outputs.go != 'false' || needs.changes.outputs.gorace != 'false'
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
