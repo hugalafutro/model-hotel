@@ -92,9 +92,10 @@ nodes:
   # means one came out of where an attribute belongs, so the line is not
   # trusted to name its client. A forged address inside the quoted request
   # path does not trip this, or appending one would be a way to keep an access
-  # record out of the 404 bucket.
+  # record out of the 404 bucket. The walk between the two tokens may be empty,
+  # so "remote=A remote=B" side by side trips it too.
   - grok:
-      pattern: '^(?:[^"]|"(?:[^"\\]|\\.)*")*?(?:^|[ ])remote=%{NOTSPACE} (?:[^"]|"(?:[^"\\]|\\.)*")*?[ ]remote=%{NOTSPACE:mha_dupaddr}'
+      pattern: '^(?:[^"]|"(?:[^"\\]|\\.)*")*?(?:^|[ ])remote=%{NOTSPACE}(?:[^"]|"(?:[^"\\]|\\.)*")*?[ ]remote=%{NOTSPACE:mha_dupaddr}'
       apply_on: mha_attrs
 
   # Both shapes end here. Requiring the address only now means a malformed one
