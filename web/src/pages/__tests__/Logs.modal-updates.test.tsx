@@ -10,12 +10,10 @@ import { Logs } from "../Logs";
 vi.mock("../../components/LogDetailModal", () => ({
 	LogDetailModal: ({
 		log,
-		nav,
 		clock,
 		onClose,
 	}: {
 		log: { id: string; state: string };
-		nav?: { onNext: () => void };
 		clock?: { nowMs: number };
 		onClose: () => void;
 	}) => (
@@ -23,11 +21,6 @@ vi.mock("../../components/LogDetailModal", () => ({
 			<span>Log Detail: {log.id}</span>
 			<span>Modal state: {log.state}</span>
 			<span>Modal clock: {clock ? "yes" : "no"}</span>
-			{nav && (
-				<button type="button" onClick={nav.onNext}>
-					Next row
-				</button>
-			)}
 			<button type="button" onClick={onClose}>
 				Close
 			</button>

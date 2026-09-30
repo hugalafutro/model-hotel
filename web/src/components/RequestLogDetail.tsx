@@ -54,10 +54,14 @@ export function RequestLogDetail({
 }) {
 	const { t } = useTranslation();
 	// An in-progress request has no final duration yet: count up from
-	// created_at, as its row does.
+	// created_at, as its row does. Without a clock (the row is no longer
+	// updating) its duration is unknown, shown as "-" rather than 0ms.
+	const unfinished =
+		requestLog.duration_ms === 0 &&
+		(requestLog.state === "pending" || requestLog.state === "streaming");
 	const durationMs =
 		clock &&
-		requestLog.duration_ms === 0 &&
+		unfinished &&
 		isInProgress(requestLog, clock.nowMs, clock.staleThresholdMs)
 			? liveDurationMs(requestLog.created_at, clock.nowMs)
 			: requestLog.duration_ms;
@@ -133,7 +137,7 @@ export function RequestLogDetail({
 				<div className="p-3 ui-stat-tile text-center">
 					<Clock size={16} className="mx-auto mb-1 text-(--accent)" />
 					<div className="text-lg font-bold text-(--text-primary)">
-						<DurationFigure ms={durationMs} />
+						{!clock && unfinished ? "-" : <DurationFigure ms={durationMs} />}
 					</div>
 					<div className="flex items-center justify-center gap-1 ui-overline">
 						{t("components.requestLogDetail.duration")}

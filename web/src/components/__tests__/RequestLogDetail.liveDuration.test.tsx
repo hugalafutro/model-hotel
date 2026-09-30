@@ -1,4 +1,4 @@
-import { screen } from "@testing-library/react";
+import { screen, within } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 import type { LogEntry } from "../../api/types";
 import { renderWithProviders } from "../../test/utils";
@@ -91,6 +91,30 @@ describe("RequestLogDetail live duration", () => {
 			/>,
 		);
 		expect(screen.queryByText("750")).not.toBeInTheDocument();
+	});
+
+	it("keeps a recorded duration on a live-state row", () => {
+		renderWithProviders(
+			<RequestLogDetail
+				requestLog={{ ...live, duration_ms: 640 }}
+				clock={{ nowMs: created + 750, staleThresholdMs }}
+				onClose={() => {}}
+			/>,
+		);
+		expect(screen.getByText("640")).toBeInTheDocument();
+		expect(screen.queryByText("750")).not.toBeInTheDocument();
+	});
+
+	// A live row with no clock is no longer updating: its duration is unknown.
+	it("shows a dash for an unfinished request without a clock", () => {
+		renderWithProviders(
+			<RequestLogDetail requestLog={live} onClose={() => {}} />,
+		);
+		const tile = screen.getByText("Duration").closest(".ui-stat-tile");
+		expect(tile).not.toBeNull();
+		const figure = within(tile as HTMLElement);
+		expect(figure.getByText("-")).toBeInTheDocument();
+		expect(figure.queryByText("0")).not.toBeInTheDocument();
 	});
 
 	it("keeps a finished request's recorded duration", () => {
