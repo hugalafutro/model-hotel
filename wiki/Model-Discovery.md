@@ -528,7 +528,7 @@ Two of the six rows are not price overrides but the only source of the model at 
 | Reasoning | `"thinking"` in capabilities array |
 | Vision | `"vision"` in capabilities array |
 | Input modalities | Vision → `["text","image"]`, else `["text"]` |
-| Output modalities | `"embedding"` with no `"completion"` → `["embedding"]`, otherwise `["text"]` |
+| Output modalities | As discovered: `"embedding"` with no `"completion"` → `["embedding"]`, otherwise `["text"]`. What is stored follows the class the model is filed under, so a model listing both whose name reads as an embedder is stored as `["embedding"]` |
 | Endpoint class | `"completion"` with no `"embedding"` beside it is stated as an explicit `chat` class, so the central name heuristics cannot reclassify a chat model whose name merely contains "embed". A listing naming both, or neither (older Ollama), leaves the class to be derived. |
 | Streaming, structured output | Set on exactly the models filed as chat (the class above, or the one derived from the same arrays and the name), since a local Ollama streams and constrains decoding to a `response_format` JSON schema on every chat model. An embeddings model carries neither. A model Ollama's cloud answers (a cloud-tagged local model such as `gpt-oss:120b-cloud`, and every Ollama Cloud model) keeps streaming but not structured output: see Ollama Cloud below. |
 

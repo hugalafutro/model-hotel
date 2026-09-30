@@ -914,7 +914,8 @@ func TestBuildOllamaModel_Capabilities(t *testing.T) {
 		if got != tc.want {
 			t.Errorf("%s: capabilities = %+v, want %+v", tc.id, got, tc.want)
 		}
-		// The pills agree with the class the model is filed under.
+		// The pills agree with the class the model is filed under (none of these
+		// rows is cloud-served, where structured output is off by design).
 		NormalizeModelClassification(m)
 		chat := m.Modality == "chat"
 		if got.Streaming != chat || got.StructuredOutput != chat {
@@ -965,6 +966,7 @@ func TestBuildOllamaModel_CloudServedModelsAdvertiseNoStructuredOutput(t *testin
 	}{
 		{"ollama-cloud", "anything", true},
 		{"ollama", "deepseek-v3.1:671b-cloud", true},
+		{"ollama", "GPT-OSS:120B-CLOUD", true},
 		{"ollama", "llama3.2:3b", false},
 		{"openrouter", "vendor/model-cloud", false},
 	} {

@@ -272,7 +272,7 @@ func (d *DiscoveryService) GetOllamaCloudAccount(ctx context.Context, provider *
 
 // ollamaCloudServed reports a model that Ollama's cloud answers: every model on
 // the ollama-cloud provider type, and a local Ollama's cloud-tagged models
-// (gpt-oss:120b-cloud, deepseek-v3.1:671b-cloud), which the local server
+// (gpt-oss:120b-cloud, deepseek-v3.1:671b-cloud, glm-4.6:cloud), which the local server
 // forwards there. The cloud ignores a response_format schema, so such a model
 // must not advertise structured output. The name rule is Ollama's tagging, so
 // it applies to the ollama type only: another provider's model that merely
