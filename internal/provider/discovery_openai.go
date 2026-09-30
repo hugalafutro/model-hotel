@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"math"
 
 	"github.com/hugalafutro/model-hotel/internal/debuglog"
 	"github.com/hugalafutro/model-hotel/internal/model"
@@ -41,16 +42,75 @@ func (d *DiscoveryService) discoverOpenAI(ctx context.Context, provider *Provide
 		// embedding/reranker models (and OpenAI's own text-embedding-*,
 		// tts-*, whisper-* models) are classified out of the chat picker by
 		// NormalizeModelClassification's name heuristics.
-		live = append(live, liveModelStub(m.ID, m.OwnedBy, provider.ID))
+		live = append(live, applyListingExtras(liveModelStub(m.ID, m.OwnedBy, provider.ID), m))
 	}
 
-	// Backfill-only (no union): discoverOpenAI is the fallback for unknown/custom
-	// hosts, so the gpt-5.x catalog must enrich matching models without adding
-	// phantom OpenAI models to a custom provider. For real OpenAI the catalog is
-	// a subset of the live listing, so there is nothing to union regardless.
-	// models.dev still enriches the rest. An empty listing stays empty, so
-	// RecordMissingModels is a no-op.
+	// A provider the operator added as custom or as a self-hosted server is
+	// neither backfilled here nor enriched by models.dev: it serves whatever
+	// its operator loaded, and a model it names gpt-5.5-pro is not OpenAI's.
+	//
+	// Otherwise backfill-only (no union): discoverOpenAI is also the fallback
+	// for the generic openai type on unknown hosts, so the gpt-5.x catalog must
+	// enrich matching models without adding phantom OpenAI models to it. For
+	// real OpenAI the catalog is a subset of the live listing, so there is
+	// nothing to union regardless, and models.dev enriches the rest. An empty
+	// listing stays empty, so RecordMissingModels is a no-op.
+	if operatorServedProvider(provider) {
+		debuglog.Info("discovery: openai-compatible discovered models", "provider", provider.Name, "provider_id", provider.ID, "live", len(live))
+		return live, nil
+	}
 	backfilled := backfillLiveFromCatalog(live, opencodeCatalogModels(openaiCatalog, provider.ID, "openai"))
 	debuglog.Info("discovery: openai discovered models", "provider", provider.Name, "provider_id", provider.ID, "live", len(live), "catalog", len(GetOpenAIModels()))
 	return backfilled, nil
+}
+
+// applyListingExtras takes what a self-hosted server adds to the plain /models
+// entry. The input modalities are its own statement of what the model takes
+// (llama.cpp reports image input for a model loaded with a vision projector);
+// the output modalities are not read, since llama.cpp reports text output for
+// its embedding and reranking models too, and the name decides those. The
+// context length is what the server runs the model with right now, so it is
+// marked live; it is only there while the model is loaded, and a scan that
+// finds it unloaded leaves the stored value alone. A listing that carries
+// neither block (OpenAI's own, most servers) is unaffected.
+func applyListingExtras(m *model.Model, entry OpenAIModel) *model.Model {
+	if input := listingInputModalities(entry.Architecture); len(input) > 0 {
+		if b, err := json.Marshal(input); err == nil {
+			m.InputModalities = string(b)
+		}
+	}
+	if n := listingContext(entry.Meta); n > 0 {
+		m.ContextLength = &n
+		m.MarkLiveMetaFromCurrent()
+	}
+	return m
+}
+
+// listingInputModalities reads architecture.input_modalities, returning nil for
+// any other shape.
+func listingInputModalities(raw json.RawMessage) []string {
+	var arch struct {
+		InputModalities []string `json:"input_modalities"`
+	}
+	if len(raw) == 0 || json.Unmarshal(raw, &arch) != nil {
+		return nil
+	}
+	return canonicalizeModalityList(arch.InputModalities)
+}
+
+// listingContext reads meta.n_ctx as a positive whole number (written as an
+// integer, a float such as 4096.0, or a quoted number), returning 0 for any
+// other shape.
+func listingContext(raw json.RawMessage) int {
+	var meta struct {
+		NCtx json.Number `json:"n_ctx"`
+	}
+	if len(raw) == 0 || json.Unmarshal(raw, &meta) != nil {
+		return 0
+	}
+	f, err := meta.NCtx.Float64()
+	if err != nil || f <= 0 || f > math.MaxInt32 || f != math.Trunc(f) {
+		return 0
+	}
+	return int(f)
 }

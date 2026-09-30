@@ -9,6 +9,8 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/google/uuid"
+
 	"github.com/hugalafutro/model-hotel/internal/debuglog"
 	"github.com/hugalafutro/model-hotel/internal/model"
 )
@@ -901,5 +903,36 @@ func TestEnrichModel_StampsModelsDevSource(t *testing.T) {
 	}
 	if *m.OutputPricePerMillion != 9.0 {
 		t.Errorf("catalog output price overwritten: %v", *m.OutputPricePerMillion)
+	}
+}
+
+// models.dev enriches the models of a hosted provider and never those of a
+// server the operator runs: custom endpoints and the self-hosted types can load
+// any file under any name, so a models.dev entry for that name says nothing
+// about what they serve.
+func TestEnrichAndNormalize_SkipsOperatorServedTypes(t *testing.T) {
+	ctx := 131072
+	setupCacheWithModels(t, map[string]*ModelsDevModelSpec{
+		"gpt-oss:20b": {ID: "gpt-oss:20b", ToolCall: true, Limit: ModelsDevLimit{Context: ctx}},
+	})
+	for _, tc := range []struct {
+		providerType, baseURL string
+		wantEnriched          bool
+	}{
+		{"custom", "http://10.0.0.5:8082/v1", false},
+		{"ollama", "http://10.0.0.5:11434", false},
+		{"lmstudio", "http://10.0.0.5:1234", false},
+		{"koboldcpp", "http://10.0.0.5:5001", false},
+		// The generic OpenAI-compatible type keeps enrichment on any host: the
+		// rule follows the type the operator chose.
+		{"openai", "https://relay.example.com/v1", true},
+		{"openai", "https://api.openai.com/v1", true},
+		{"ollama-cloud", "https://ollama.com", true},
+	} {
+		m := &model.Model{ModelID: "gpt-oss:20b", Capabilities: `{"streaming":true}`, InputModalities: "[]", OutputModalities: "[]"}
+		EnrichAndNormalize(&Provider{ID: uuid.New(), ProviderType: tc.providerType, BaseURL: tc.baseURL}, []*model.Model{m})
+		if got := m.ContextLength != nil; got != tc.wantEnriched {
+			t.Errorf("%s at %s: enriched=%v, want %v", tc.providerType, tc.baseURL, got, tc.wantEnriched)
+		}
 	}
 }

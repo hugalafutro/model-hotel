@@ -261,3 +261,114 @@ func TestDiscoverOpenAI_NoAuthHeaderWithoutKey(t *testing.T) {
 		t.Errorf("got Authorization=%q, want no header for a keyless server", auth)
 	}
 }
+
+// A custom OpenAI-compatible server is taken at its word and no further:
+// llama.cpp's llama-server (router mode) adds architecture.input_modalities and,
+// for a loaded model, meta.n_ctx to each /models entry, and both are read; its
+// text output for an embedding or reranking model is not, so the name still
+// classifies those, and they carry no chat capabilities. No catalog backfill
+// and no models.dev enrichment reach a custom provider, so a model it names
+// gpt-5.5-pro is not given OpenAI's specs.
+func TestDiscoverOpenAI_CustomTakesOnlyWhatTheListingSays(t *testing.T) {
+	yes := true
+	setupCacheWithModels(t, map[string]*ModelsDevModelSpec{
+		"gemma-3-4b-it":         {ID: "gemma-3-4b-it", StructuredOutput: &yes, ToolCall: true},
+		"llama-3.2-3b-instruct": {ID: "llama-3.2-3b-instruct", StructuredOutput: &yes},
+	})
+	body := `{"object":"list","data":[
+		{"id":"gemma-3-4b-it","owned_by":"llamacpp","architecture":{"input_modalities":["text","image"],"output_modalities":["text"]},"status":{"value":"unloaded"}},
+		{"id":"llama-3.2-3b-instruct","owned_by":"llamacpp","architecture":{"input_modalities":["text"],"output_modalities":["text"]},"meta":{"n_ctx":8192,"n_ctx_train":131072}},
+		{"id":"nomic-embed-text-v1.5","owned_by":"llamacpp","architecture":{"input_modalities":["text"],"output_modalities":["text"]}},
+		{"id":"bge-reranker-v2-m3","owned_by":"llamacpp","architecture":{"input_modalities":["text"],"output_modalities":["text"]}},
+		{"id":"gpt-5.5-pro","owned_by":"llamacpp"}
+	]}`
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(body))
+	}))
+	defer server.Close()
+
+	prov := &Provider{ID: uuid.New(), BaseURL: server.URL + "/v1", ProviderType: "custom"}
+	models, err := NewDiscoveryService(nil, nil).discoverOpenAI(context.Background(), prov, "")
+	if err != nil {
+		t.Fatalf("discoverOpenAI: %v", err)
+	}
+	if enriched := EnrichAndNormalize(prov, models); enriched != 0 {
+		t.Errorf("enriched %d models, want none for a custom provider", enriched)
+	}
+	byID := map[string]*model.Model{}
+	for _, m := range models {
+		byID[m.ModelID] = m
+	}
+	capsOf := func(id string) model.Capability {
+		var c model.Capability
+		if err := json.Unmarshal([]byte(byID[id].Capabilities), &c); err != nil {
+			t.Fatalf("%s capabilities: %v", id, err)
+		}
+		return c
+	}
+
+	if g := byID["gemma-3-4b-it"]; g.InputModalities != `["text","image"]` || !capsOf("gemma-3-4b-it").Vision {
+		t.Errorf("gemma: input %s vision %v, want image input and vision from the listing", g.InputModalities, capsOf("gemma-3-4b-it").Vision)
+	}
+	if c := capsOf("gemma-3-4b-it"); c.StructuredOutput || c.ToolCalling {
+		t.Errorf("gemma: %+v, want nothing models.dev says about the name", c)
+	}
+	// Unloaded, so no meta: no context, and nothing marked live to overwrite
+	// a stored one.
+	if g := byID["gemma-3-4b-it"]; g.ContextLength != nil || g.LiveMeta.ContextLength {
+		t.Errorf("gemma: context %v live %v, want none for an unloaded model", g.ContextLength, g.LiveMeta.ContextLength)
+	}
+	if l := byID["llama-3.2-3b-instruct"]; l.ContextLength == nil || *l.ContextLength != 8192 || !l.LiveMeta.ContextLength {
+		t.Errorf("llama: context %v live %v, want the server's running 8192, live", l.ContextLength, l.LiveMeta.ContextLength)
+	}
+	for id, class := range map[string]string{"nomic-embed-text-v1.5": "embedding", "bge-reranker-v2-m3": "rerank"} {
+		if byID[id].Modality != class {
+			t.Errorf("%s: class %q, want %q", id, byID[id].Modality, class)
+		}
+		if c := capsOf(id); c.Streaming || c.StructuredOutput || c.ToolCalling {
+			t.Errorf("%s: %+v, want no chat capabilities", id, c)
+		}
+	}
+	if p := byID["gpt-5.5-pro"]; p.ContextLength != nil || p.Description != "" {
+		t.Errorf("gpt-5.5-pro on a custom server took OpenAI catalog data: context %v, description %q", p.ContextLength, p.Description)
+	}
+}
+
+// The self-hosted extras are read leniently: a server that sends architecture
+// or meta in a shape of its own gets them ignored, and the rest of the listing
+// still decodes and is discovered.
+func TestDiscoverOpenAI_ListingExtrasOfAnotherShapeAreIgnored(t *testing.T) {
+	body := `{"object":"list","data":[
+		{"id":"a","owned_by":"x","architecture":"llama","meta":{"n_ctx":"8192.5"}},
+		{"id":"b","owned_by":"x","architecture":["LlamaForCausalLM"],"meta":null},
+		{"id":"c","owned_by":"x","architecture":{"input_modalities":[]},"meta":{"n_ctx":-1}},
+		{"id":"d","owned_by":"x","meta":{"n_ctx":4096.0}}
+	]}`
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(body))
+	}))
+	defer server.Close()
+
+	prov := &Provider{ID: uuid.New(), BaseURL: server.URL + "/v1", ProviderType: "custom"}
+	models, err := NewDiscoveryService(nil, nil).discoverOpenAI(context.Background(), prov, "")
+	if err != nil {
+		t.Fatalf("discoverOpenAI: %v", err)
+	}
+	if len(models) != 4 {
+		t.Fatalf("discovered %d models, want all 4", len(models))
+	}
+	for _, m := range models {
+		if m.InputModalities != "[]" {
+			t.Errorf("%s: input %s, want the stub's empty array", m.ModelID, m.InputModalities)
+		}
+		if m.ModelID == "d" {
+			if m.ContextLength == nil || *m.ContextLength != 4096 {
+				t.Errorf("d: context %v, want 4096 from a whole-number float", m.ContextLength)
+			}
+		} else if m.ContextLength != nil {
+			t.Errorf("%s: context %d, want none from a malformed meta", m.ModelID, *m.ContextLength)
+		}
+	}
+}
