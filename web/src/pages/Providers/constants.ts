@@ -21,8 +21,10 @@ export const baseUrls: Record<string, string> = {
 };
 
 /** Where the globe icon on a provider card points: the vendor's main page for
- * a hosted API, the project's GitHub for a self-hosted server. The two
- * hand-entered `custom` dialect has no known home. */
+ * a hosted API or a closed-source local app (LM Studio), the project's GitHub
+ * for an open-source self-hosted server. The hand-entered `custom` dialect has
+ * no known home. README.md's provider list links the same URLs; a Go test in
+ * internal/provider holds the two together. */
 export const providerHomepages: Record<string, string> = {
 	nanogpt: "https://nano-gpt.com",
 	"zai-coding": "https://z.ai",
@@ -42,7 +44,7 @@ export const providerHomepages: Record<string, string> = {
 	openrouter: "https://openrouter.ai",
 	neuralwatt: "https://neuralwatt.com",
 	koboldcpp: "https://github.com/LostRuins/koboldcpp",
-	lmstudio: "https://github.com/lmstudio-ai",
+	lmstudio: "https://lmstudio.ai",
 	bedrock: "https://aws.amazon.com/bedrock",
 	azure: "https://ai.azure.com",
 	"vertex-express": "https://cloud.google.com/vertex-ai",
