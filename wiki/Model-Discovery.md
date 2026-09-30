@@ -294,6 +294,12 @@ The match is on the body, never on the status: LM Studio answers routes it does
 not serve with HTTP 200 and an `{"error": ...}` body, so a status-only check
 would identify it as whichever family was probed first.
 
+The chosen type's endpoint is asked first, so a server added as the type it
+really is sees only its own endpoint (LM Studio logs every route it does not
+serve as an `ERROR`). The other endpoints follow, in the table's order, only
+when that one does not match, which is how a mismatch names the family that
+did answer.
+
 Each probe is bounded at 5 seconds. The operator is waiting on the add dialog
 and the server is on the LAN or the same box, so a slow answer is a wrong
 answer. If no probe reaches the server at all the save is rejected as
@@ -816,7 +822,7 @@ Rerank models are billed per search unit rather than per token, so their per-tok
 | Context length | From the native listing (`max_context_length`); not set on the `/v1/models` fallback |
 | Max output tokens | Not set |
 | Pricing | None (self-hosted) |
-| Capabilities | From the native listing (e.g. `tool_use`); not set on the fallback |
+| Capabilities | Chat models (`llm`, `vlm`): streaming and structured output always, tool calling when the native listing's `capabilities` contains `tool_use`. Embeddings models: none, since they stream nothing and take no `response_format`. The `/v1/models` fallback cannot tell them apart and gives every model streaming and structured output |
 | Modalities | From the native listing's model `type`: `embeddings` produces `["embedding"]`, `vlm` takes `["text","image"]` in and states the `chat` class, `llm` states `chat`. The `/v1/models` fallback carries no type, so the class is derived from the model id there. |
 
 ### KoboldCPP

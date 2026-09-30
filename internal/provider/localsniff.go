@@ -34,40 +34,42 @@ const localProbeTimeout = 5 * time.Second
 // provider is added or its URL changed, never as a way to guess a type that
 // was not chosen.
 //
+// The expected family's fingerprint is asked first, so adding a server as the
+// type it really is touches only that product's own endpoint. Asking another
+// family's route first is not harmless: LM Studio logs every unknown route as
+// an ERROR, so each LM Studio add left a KoboldCPP probe in its log. The other
+// fingerprints still follow, in a fixed order, when the expected one does not
+// match, which is how a mismatch names what did answer. An expected type that
+// is no family here just keeps the fixed order.
+//
 // Each check fails closed on the body, not the status: LM Studio answers
 // unknown routes with HTTP 200 and an {"error": ...} body, so a status-only
 // check would identify it as whatever was asked first.
 //
 // A returned error means no probe reached the server. A nil error with an
 // empty Type means the server answered but matched no fingerprint.
-func (d *DiscoveryService) IdentifyLocalServer(ctx context.Context, baseURL, apiKey string) (LocalServerIdentity, error) {
+func (d *DiscoveryService) IdentifyLocalServer(ctx context.Context, baseURL, apiKey, expected string) (LocalServerIdentity, error) {
 	origin := localServerOrigin(baseURL)
 	reached := false
 
-	// KoboldCPP: /api/extra/version reports the product name outright.
-	if body, ok, err := d.probeLocal(ctx, origin+"/api/extra/version", apiKey); err == nil {
-		reached = true
-		if ok {
-			var v KoboldCPPVersionResponse
-			if json.Unmarshal(body, &v) == nil && isKoboldCPPVersion(v) {
-				return LocalServerIdentity{Type: "koboldcpp", Version: v.Version}, nil
-			}
+	probes := localServerProbes()
+	for i, p := range probes {
+		if p.family == expected && i > 0 {
+			probes[0], probes[i] = probes[i], probes[0]
+			break
 		}
 	}
-
-	// LM Studio: the native REST listing, which nothing else serves.
-	if body, ok, err := d.probeLocal(ctx, origin+"/api/v0/models", apiKey); err == nil {
-		reached = true
-		if ok && isLMStudioModelListing(body) {
-			return LocalServerIdentity{Type: "lmstudio"}, nil
+	for _, p := range probes {
+		body, ok, err := d.probeLocal(ctx, origin+p.path, apiKey)
+		if err != nil {
+			continue
 		}
-	}
-
-	// Ollama: the native tag listing.
-	if body, ok, err := d.probeLocal(ctx, origin+"/api/tags", apiKey); err == nil {
 		reached = true
-		if ok && isOllamaTagListing(body) {
-			return LocalServerIdentity{Type: "ollama"}, nil
+		if !ok {
+			continue
+		}
+		if version, matched := p.match(body); matched {
+			return LocalServerIdentity{Type: p.family, Version: version}, nil
 		}
 	}
 
@@ -75,6 +77,38 @@ func (d *DiscoveryService) IdentifyLocalServer(ctx context.Context, baseURL, api
 		return LocalServerIdentity{}, ErrLocalServerUnreachable
 	}
 	return LocalServerIdentity{}, nil
+}
+
+// localServerProbe is one family's fingerprint: the endpoint that identifies
+// it and the check its answer has to pass.
+type localServerProbe struct {
+	family string
+	path   string
+	match  func(body []byte) (version string, ok bool)
+}
+
+// localServerProbes lists the fingerprints in the order they are asked when no
+// expected family moves one to the front. Built per call, since the caller
+// reorders it.
+func localServerProbes() []localServerProbe {
+	return []localServerProbe{
+		// KoboldCPP: /api/extra/version reports the product name outright.
+		{"koboldcpp", "/api/extra/version", func(body []byte) (string, bool) {
+			var v KoboldCPPVersionResponse
+			if json.Unmarshal(body, &v) == nil && isKoboldCPPVersion(v) {
+				return v.Version, true
+			}
+			return "", false
+		}},
+		// LM Studio: the native REST listing, which nothing else serves.
+		{"lmstudio", "/api/v0/models", func(body []byte) (string, bool) {
+			return "", isLMStudioModelListing(body)
+		}},
+		// Ollama: the native tag listing.
+		{"ollama", "/api/tags", func(body []byte) (string, bool) {
+			return "", isOllamaTagListing(body)
+		}},
+	}
 }
 
 // probeLocal performs one fingerprint GET. It reports the body, whether the

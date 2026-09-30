@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"slices"
 
 	"github.com/google/uuid"
 
@@ -23,12 +24,15 @@ type LMStudioV0ModelsResponse struct {
 }
 
 // LMStudioV0Model is a single entry from LM Studio's /api/v0/models.
+// Capabilities lists what the model was trained for; "tool_use" is the one
+// entry LM Studio reports.
 type LMStudioV0Model struct {
-	ID               string `json:"id"`
-	Type             string `json:"type"` // "llm" | "vlm" | "embeddings"
-	Publisher        string `json:"publisher"`
-	Arch             string `json:"arch"`
-	MaxContextLength int    `json:"max_context_length"`
+	ID               string   `json:"id"`
+	Type             string   `json:"type"` // "llm" | "vlm" | "embeddings"
+	Publisher        string   `json:"publisher"`
+	Arch             string   `json:"arch"`
+	MaxContextLength int      `json:"max_context_length"`
+	Capabilities     []string `json:"capabilities"`
 }
 
 func (d *DiscoveryService) discoverLMStudio(ctx context.Context, provider *Provider, apiKey string) ([]*model.Model, error) {
@@ -85,10 +89,17 @@ func (d *DiscoveryService) discoverLMStudioNative(ctx context.Context, provider 
 // buildLMStudioNativeModel maps a native /api/v0 model entry to a model.Model,
 // using the reported type to set the modality (so embedding models are hidden
 // from the chat picker).
+//
+// The chat capabilities go to chat models only: an embeddings model streams
+// nothing and takes no response_format, so claiming either would light pills
+// on it that describe nothing it serves. Tool calling comes from the model's
+// own capabilities list, which LM Studio derives from the chat template.
 func buildLMStudioNativeModel(provider *Provider, m LMStudioV0Model) *model.Model {
-	caps := model.Capability{
-		Streaming:        true,
-		StructuredOutput: true, // LM Studio supports response_format with JSON schema
+	var caps model.Capability
+	if m.Type != "embeddings" {
+		caps.Streaming = true
+		caps.StructuredOutput = true // LM Studio supports response_format with JSON schema
+		caps.ToolCalling = slices.Contains(m.Capabilities, "tool_use")
 	}
 
 	// The native listing's type field is authoritative; express it through

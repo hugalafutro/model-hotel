@@ -54,7 +54,7 @@ func TestIdentifyLocalServer_KoboldCPP(t *testing.T) {
 	defer srv.Close()
 
 	svc := &DiscoveryService{httpClient: srv.Client()}
-	got, err := svc.IdentifyLocalServer(context.Background(), srv.URL+"/v1", "")
+	got, err := svc.IdentifyLocalServer(context.Background(), srv.URL+"/v1", "", "")
 	if err != nil {
 		t.Fatalf("IdentifyLocalServer: %v", err)
 	}
@@ -71,7 +71,7 @@ func TestIdentifyLocalServer_LMStudio(t *testing.T) {
 	defer srv.Close()
 
 	svc := &DiscoveryService{httpClient: srv.Client()}
-	got, err := svc.IdentifyLocalServer(context.Background(), srv.URL+"/v1", "")
+	got, err := svc.IdentifyLocalServer(context.Background(), srv.URL+"/v1", "", "")
 	if err != nil {
 		t.Fatalf("IdentifyLocalServer: %v", err)
 	}
@@ -88,7 +88,7 @@ func TestIdentifyLocalServer_LMStudioNotMistakenForKoboldCPP(t *testing.T) {
 	defer srv.Close()
 
 	svc := &DiscoveryService{httpClient: srv.Client()}
-	got, _ := svc.IdentifyLocalServer(context.Background(), srv.URL, "")
+	got, _ := svc.IdentifyLocalServer(context.Background(), srv.URL, "", "")
 	if got.Type == "koboldcpp" {
 		t.Fatal("LM Studio's 200-with-error body was read as a KoboldCPP fingerprint")
 	}
@@ -99,7 +99,7 @@ func TestIdentifyLocalServer_Ollama(t *testing.T) {
 	defer srv.Close()
 
 	svc := &DiscoveryService{httpClient: srv.Client()}
-	got, err := svc.IdentifyLocalServer(context.Background(), srv.URL, "")
+	got, err := svc.IdentifyLocalServer(context.Background(), srv.URL, "", "")
 	if err != nil {
 		t.Fatalf("IdentifyLocalServer: %v", err)
 	}
@@ -122,7 +122,7 @@ func TestIdentifyLocalServer_GenericOpenAIServer(t *testing.T) {
 	defer srv.Close()
 
 	svc := &DiscoveryService{httpClient: srv.Client()}
-	got, err := svc.IdentifyLocalServer(context.Background(), srv.URL+"/v1", "")
+	got, err := svc.IdentifyLocalServer(context.Background(), srv.URL+"/v1", "", "")
 	if err != nil {
 		t.Fatalf("IdentifyLocalServer: %v", err)
 	}
@@ -138,7 +138,7 @@ func TestIdentifyLocalServer_Unreachable(t *testing.T) {
 	srv.Close() // nothing is listening now
 
 	svc := &DiscoveryService{httpClient: client}
-	_, err := svc.IdentifyLocalServer(context.Background(), url+"/v1", "")
+	_, err := svc.IdentifyLocalServer(context.Background(), url+"/v1", "", "")
 	if !errors.Is(err, ErrLocalServerUnreachable) {
 		t.Fatalf("err = %v, want ErrLocalServerUnreachable", err)
 	}
@@ -154,7 +154,7 @@ func TestIdentifyLocalServer_FailsClosedOnForeignJSON(t *testing.T) {
 	defer srv.Close()
 
 	svc := &DiscoveryService{httpClient: srv.Client()}
-	got, err := svc.IdentifyLocalServer(context.Background(), srv.URL, "")
+	got, err := svc.IdentifyLocalServer(context.Background(), srv.URL, "", "")
 	if err != nil {
 		t.Fatalf("IdentifyLocalServer: %v", err)
 	}
@@ -184,7 +184,7 @@ func TestIdentifyLocalServer_SendsAPIKey(t *testing.T) {
 	defer srv.Close()
 
 	svc := &DiscoveryService{httpClient: srv.Client()}
-	got, err := svc.IdentifyLocalServer(context.Background(), srv.URL+"/v1", "sk-local")
+	got, err := svc.IdentifyLocalServer(context.Background(), srv.URL+"/v1", "sk-local", "")
 	if err != nil {
 		t.Fatalf("IdentifyLocalServer: %v", err)
 	}
@@ -197,7 +197,7 @@ func TestIdentifyLocalServer_SendsAPIKey(t *testing.T) {
 
 	// Same server, no key: it cannot be confirmed, which is what made the
 	// unauthenticated probe a regression.
-	unauth, err := svc.IdentifyLocalServer(context.Background(), srv.URL+"/v1", "")
+	unauth, err := svc.IdentifyLocalServer(context.Background(), srv.URL+"/v1", "", "")
 	if err != nil {
 		t.Fatalf("IdentifyLocalServer without key: %v", err)
 	}
@@ -394,11 +394,48 @@ func TestLocalURLHelpers_MalformedInput(t *testing.T) {
 // server", not as a server that answered.
 func TestIdentifyLocalServer_UnbuildableRequest(t *testing.T) {
 	svc := &DiscoveryService{httpClient: http.DefaultClient}
-	got, err := svc.IdentifyLocalServer(context.Background(), "http://invalid host with spaces", "")
+	got, err := svc.IdentifyLocalServer(context.Background(), "http://invalid host with spaces", "", "")
 	if !errors.Is(err, ErrLocalServerUnreachable) {
 		t.Fatalf("err = %v, want ErrLocalServerUnreachable", err)
 	}
 	if got.Type != "" {
 		t.Errorf("type = %q, want empty", got.Type)
+	}
+}
+
+// The expected family's fingerprint is asked first, so a server added as the
+// type it is sees only its own endpoint: LM Studio logs any other route as an
+// ERROR. A mismatch still reaches the other fingerprints and names the family
+// that answered.
+func TestIdentifyLocalServer_AsksExpectedFamilyFirst(t *testing.T) {
+	var paths []string
+	lmStudio := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		paths = append(paths, r.URL.Path)
+		w.Header().Set("Content-Type", "application/json")
+		if r.URL.Path == "/api/v0/models" {
+			_, _ = w.Write([]byte(`{"object":"list","data":[{"id":"qwen3-4b","object":"model","type":"llm"}]}`))
+			return
+		}
+		// LM Studio's real answer to a route it does not serve.
+		_, _ = w.Write([]byte(`{"error":"Unexpected endpoint or method."}`))
+	}))
+	defer lmStudio.Close()
+
+	svc := &DiscoveryService{httpClient: lmStudio.Client()}
+	got, err := svc.IdentifyLocalServer(context.Background(), lmStudio.URL+"/v1", "", "lmstudio")
+	if err != nil || got.Type != "lmstudio" {
+		t.Fatalf("IdentifyLocalServer = %+v, %v; want lmstudio", got, err)
+	}
+	if len(paths) != 1 || paths[0] != "/api/v0/models" {
+		t.Errorf("probed %v, want only /api/v0/models", paths)
+	}
+
+	paths = nil
+	got, err = svc.IdentifyLocalServer(context.Background(), lmStudio.URL+"/v1", "", "ollama")
+	if err != nil || got.Type != "lmstudio" {
+		t.Fatalf("mismatch: IdentifyLocalServer = %+v, %v; want lmstudio detected", got, err)
+	}
+	if len(paths) < 2 || paths[0] != "/api/tags" {
+		t.Errorf("probed %v, want /api/tags first and the others after it", paths)
 	}
 }
