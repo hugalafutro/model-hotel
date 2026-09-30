@@ -1,7 +1,10 @@
 package proxy
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
+	"errors"
 	"net/http"
 
 	"github.com/hugalafutro/model-hotel/internal/ctxkeys"
@@ -137,4 +140,91 @@ func passthroughAnswered(endpointType string, body []byte) bool {
 		return probeDeliveredContent(endpointType, body)
 	}
 	return true
+}
+
+// errPassthroughErrorEnvelope is the fault a 2xx pass-through body fails over
+// with when it is an error envelope instead of an answer. Gateway-authored, so
+// it can be reported as it is: the provider's own message is not in it.
+var errPassthroughErrorEnvelope = errors.New("upstream answered 2xx with an error envelope instead of a response")
+
+// passthroughErrorEnvelope reports the provider's own message when a buffered
+// 2xx JSON pass-through body is an error envelope and nothing else: its
+// "error" member carries something (the shared util.ValueCarries rule the chat
+// and stream paths use), and every other top-level member either carries
+// nothing (envelopeMemberIsEmpty: absent, null, [], "" or {}) or belongs to the
+// envelope itself (envelopeMetadataKeys). Content is judged structurally, not by
+// util.ValueCarries: that rule reads 0 and false as "no error", which is right
+// for an error member and wrong for content ({"results":[{"index":0}]}). LM Studio
+// answers every route it does not serve (images, speech, rerank) with HTTP 200
+// and {"error":"Unexpected endpoint or method."}, which was served to the
+// client as a success and logged as completed.
+//
+// Any other member that carries something is content, whatever the family
+// calls it (data, results, text, audio, a key of a provider's own), so an
+// answer that carries one beside an advisory error member is left to the
+// ordinary path. probeDeliveredContent is not the test here: it counts a shape
+// it does not recognise as delivered, which is right for a dialect it cannot
+// read and wrong for an envelope that is plainly only an error.
+func passthroughErrorEnvelope(status int, body []byte) (string, bool) {
+	if !servedSuccessStatus(status) || len(body) > passthroughJSONBufferCap {
+		return "", false
+	}
+	var members map[string]json.RawMessage
+	if json.Unmarshal(body, &members) != nil || !util.ValueCarries(members["error"]) {
+		return "", false
+	}
+	for key, value := range members {
+		if key != "error" && !envelopeMetadataKeys[key] && !envelopeMemberIsEmpty(value) {
+			return "", false
+		}
+	}
+	return util.ErrorMemberMessage(members["error"]), true
+}
+
+// envelopeMetadataKeys are the top-level members an error envelope carries
+// beside "error" without that making it an answer: fields such as OpenAI's
+// {"object":"error"}, FastAPI's "detail", the status, code, id and usage
+// fields servers stamp on every response, and the model, provider and
+// fingerprint echoes a relay adds to refusals too. No pass-through family
+// carries its answer under any of them.
+var envelopeMetadataKeys = map[string]bool{
+	"object": true, "type": true, "code": true, "message": true, "status": true,
+	"detail": true, "param": true, "created": true, "id": true, "request_id": true,
+	"usage": true, "model": true, "provider": true, "system_fingerprint": true,
+	"service_tier": true, "version": true, "timestamp": true,
+}
+
+// envelopeMemberIsEmpty is jsonValueIsEmpty that also reads {} as empty: an
+// answer member that is an empty object carries no answer either.
+func envelopeMemberIsEmpty(raw json.RawMessage) bool {
+	if jsonValueIsEmpty(raw) {
+		return true
+	}
+	v := bytes.TrimSpace(raw)
+	return len(v) >= 2 && v[0] == '{' && v[len(v)-1] == '}' && len(bytes.TrimSpace(v[1:len(v)-1])) == 0
+}
+
+// failPassthroughErrorEnvelope settles an attempt whose buffered 2xx JSON body
+// was an error envelope (passthroughErrorEnvelope). A streamed pass-through
+// (SSE or binary) never reaches it. While a sibling remains it fails over,
+// through the same reject the chat path takes for a 2xx that is not a
+// completion. On the last candidate the client is answered 502, as the chat
+// path answers the same shape (nonCompletionClientStatus): a 2xx carrying the
+// gateway's error envelope would read as success to an OpenAI SDK. The row
+// keeps the upstream's 2xx and records the provider's message, masked and
+// fenced, as the failure.
+func (h *Handler) failPassthroughErrorEnvelope(w http.ResponseWriter, r *http.Request, st *requestState, candidate modelCandidate, status int, msg string, attempt int, responseHeaderMs float64, hasMoreCandidates bool) candidateOutcome {
+	logData := st.logData
+	if hasMoreCandidates && !requestAbandoned(r.Context(), nil) {
+		return h.rejectUntranslatableBody(st, candidate, logData, "passthrough", status, errPassthroughErrorEnvelope, attempt, r)
+	}
+	h.chargeBreaker(st, candidate, status, "response carried an error instead of an answer")
+	sanitized := util.SanitizeLogBody(msg, logBodyCap)
+	kind, reason := classifyUpstreamError(status, sanitized, candidate.model.ModelID)
+	logData.errorKind = kind
+	fenced := fencedFrameMessage(logData.fence(), logData.masks(), sanitized)
+	debuglog.Warn("proxy: passthrough 2xx carried an error", "endpoint", logData.endpointType, "status", status, "error_kind", kind, "model", logData.modelID, "provider", logData.providerName, "error", fenced)
+	h.finalizePassthroughLog(st, status, attempt, responseHeaderMs, 0, 0, "failed", fenced)
+	writeOpenAIError(w, upstreamClientMessage(candidate.provider.Name, status, reason), http.StatusBadGateway)
+	return outcomeFatal
 }

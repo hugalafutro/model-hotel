@@ -277,6 +277,9 @@ func (h *Handler) serveBufferedJSONPassthrough(w http.ResponseWriter, r *http.Re
 		debuglog.Warn("proxy: passthrough body read failed", "endpoint", logData.endpointType, "model", logData.modelID, "provider", logData.providerName, "error", fenced)
 		return h.failPassthroughRead(w, st, kind, resp.StatusCode, attempt, responseHeaderMs, fenced, "failed to read upstream response")
 	}
+	if msg, isErr := passthroughErrorEnvelope(resp.StatusCode, body); isErr {
+		return h.failPassthroughErrorEnvelope(w, r, st, candidate, resp.StatusCode, msg, attempt, responseHeaderMs, hasMoreCandidates)
+	}
 	// The commit point is where the model has proved it is alive, so it is where
 	// its gone-strike streak stops being current. Without it "three CONSECUTIVE
 	// refusals" is not true on this path: embeddings strikes expire only with
