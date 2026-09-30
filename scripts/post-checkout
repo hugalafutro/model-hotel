@@ -15,3 +15,15 @@ command -v tokensave >/dev/null 2>&1 || exit 0
 	tokensave branch add --if-enabled >/dev/null 2>&1
 	tokensave sync >/dev/null 2>&1
 ) &
+
+# The sync above runs silenced, which would hide tokensave's own update notice,
+# so repeat it from the latest version tokensave caches (no network call here).
+state="$HOME/.tokensave/state.toml"
+[ -r "$state" ] || exit 0
+latest="$(sed -n 's/^cached_latest_version = "\(.*\)"$/\1/p' "$state")"
+current="$(tokensave --version 2>/dev/null | awk '{print $NF}')"
+current="${current#v}"
+if [ -n "$latest" ] && [ -n "$current" ] && [ "$latest" != "$current" ] &&
+	[ "$(printf '%s\n%s\n' "$current" "$latest" | sort -V | tail -n1)" = "$latest" ]; then
+	echo "tokensave $latest is available (installed: $current). Run \`tokensave upgrade\` to update." >&2
+fi
