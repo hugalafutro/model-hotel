@@ -378,7 +378,7 @@ reached: it is refused with `400` and the code `provider_name_slash`. Every
 with `provider_name_reserved` (`Hotel` or `my hotel` are fine: the prefix match is
 case-sensitive and whole). Spaces are allowed; see below. The rule applies to new
 names only: a provider that already has such a name keeps it, a save that resends
-it unchanged is accepted, and fleet sync carries it to members as before.
+it unchanged is accepted, and fleet sync carries it to members unchanged.
 
 **Names are unique in the form routing uses.** A `<provider>/<model>` id replaces
 every space in the provider name with a hyphen, so `my provider` and

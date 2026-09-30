@@ -406,7 +406,7 @@ What makes this safe to leave running:
   members already matching the primary are skipped without so much as a diff, and
   an unreachable or `MASTER_KEY`-blocked member is retried later rather than
   overwritten.
-- **What the dashboard would refuse, sync refuses.** A member applies an envelope
+- **What the dashboard would refuse as harmful, sync refuses.** A member applies an envelope
   with the load-bearing checks its own admin API applies on the way in: provider
   `base_url` shape (the same address rules), provider name length and
   printability, provider names that are one name once spaces become hyphens

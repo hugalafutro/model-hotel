@@ -114,16 +114,22 @@ func providerTypeForImport(p ExportProvider) string {
 	return provider.LegacyTypeFromURL(p.BaseURL)
 }
 
-// validateSyncedProvider applies to an imported provider the checks the
-// interactive admin API applies on create and update, so a compromised primary
-// cannot write through this path what the dashboard would reject. The URL's
-// shape is checked separately (validateURL); this covers the in-flight ceiling
-// (a value below one is read as no ceiling at all), the name's length and
-// printability, and the disable date's format. The admin API's routability
-// rule (no "/", not "hotel") is deliberately not applied: it refuses new names
-// only, and a primary that already holds such a provider must keep syncing
-// rather than stall the fleet over a name its own dashboard kept. A disable date in the past is
-// accepted: the member's own sweep fires it immediately, which is what the
+// validateSyncedProvider applies to an imported provider the load-bearing
+// checks the interactive admin API applies on create and update, so a
+// compromised primary cannot write through this path a value that does harm on
+// a member. The URL's shape is checked separately (validateURL); this covers
+// the in-flight ceiling (a value below one is read as no ceiling at all), the
+// name's length and printability, and the disable date's format.
+//
+// The admin API's routability rule (no "/", not "hotel") is deliberately not
+// applied. The primary's own admin API already refuses such names as new
+// names, so a primary holds one only from before the rule existed, and it must
+// keep syncing rather than stall the fleet over a name its dashboard kept. A
+// member cannot apply the rule to "new" providers only: to a member joining
+// the fleet every provider is new. The worst such a name does is leave one
+// provider unreachable by name, which is no harm to guard against.
+//
+// A disable date in the past is accepted: the member's own sweep fires it immediately, which is what the
 // operator asked for. The URL's length is not bounded here, because a long URL
 // is harmless where an unprintable or ten-thousand-character name reaches logs,
 // the dashboard and hotel/ model strings. The name is validated as sent and

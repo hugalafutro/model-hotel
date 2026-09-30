@@ -35,11 +35,10 @@ func TestProviderName_UnroutableNamesRefused(t *testing.T) {
 		{"hotel", `"code":"provider_name_reserved"`},
 		{" hotel ", `"code":"provider_name_reserved"`},
 	} {
-		name, want := tc.name, tc.want
-		t.Run("create "+name, func(t *testing.T) {
-			rec := do("POST", "/providers", fmt.Sprintf(`{"name":%q,"base_url":"https://api.openai.com","api_key":"k"}`, name))
-			if rec.Code != http.StatusBadRequest || !strings.Contains(rec.Body.String(), want) {
-				t.Errorf("create %q: %d %s, want 400 naming %q", name, rec.Code, rec.Body.String(), want)
+		t.Run("create "+tc.name, func(t *testing.T) {
+			rec := do("POST", "/providers", fmt.Sprintf(`{"name":%q,"base_url":"https://api.openai.com","api_key":"k"}`, tc.name))
+			if rec.Code != http.StatusBadRequest || !strings.Contains(rec.Body.String(), tc.want) {
+				t.Errorf("create %q: %d %s, want 400 naming %q", tc.name, rec.Code, rec.Body.String(), tc.want)
 			}
 		})
 	}
@@ -61,10 +60,9 @@ func TestProviderName_UnroutableNamesRefused(t *testing.T) {
 		{"hotel", `"code":"provider_name_reserved"`},
 		{" hotel ", `"code":"provider_name_reserved"`},
 	} {
-		name, want := tc.name, tc.want
-		rec := do("PUT", "/providers/"+created.ID, fmt.Sprintf(`{"name":%q}`, name))
-		if rec.Code != http.StatusBadRequest || !strings.Contains(rec.Body.String(), want) {
-			t.Errorf("rename to %q: %d %s, want 400 naming %q", name, rec.Code, rec.Body.String(), want)
+		rec := do("PUT", "/providers/"+created.ID, fmt.Sprintf(`{"name":%q}`, tc.name))
+		if rec.Code != http.StatusBadRequest || !strings.Contains(rec.Body.String(), tc.want) {
+			t.Errorf("rename to %q: %d %s, want 400 naming %q", tc.name, rec.Code, rec.Body.String(), tc.want)
 		}
 	}
 
