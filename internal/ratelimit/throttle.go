@@ -176,9 +176,9 @@ func (e *bucketEntry) withCap(rps float64, burst int) *bucketEntry {
 	// Under the admission lock, so a cap change cannot land between an
 	// admission's peek and its reservation: a lowered rate there would
 	// stretch the reserved wait past the max_wait the peek checked. The
-	// caller holds its limiter's mutex, which an admission never takes, and
-	// an admission holds this lock only over in-memory bucket reads, so the
-	// wait here is short. Holding it also keeps the two setters from being
+	// caller holds its limiter's mutex, which an admission never takes while
+	// holding this lock, and an admission holds this lock only over in-memory
+	// bucket reads, so the wait here is short. Holding it also keeps the two setters from being
 	// seen half-applied.
 	e.admit.Lock()
 	e.limiter.SetLimit(rate.Limit(rps))
