@@ -779,8 +779,7 @@ func looksLikeDateOrVersion(suffix string) bool {
 // server. No catalog or models.dev entry can speak for them, since a file of
 // any content can be served under any name. It goes by the type the operator
 // chose: the generic openai type (what an API client that names no type gets
-// for an unknown host) keeps enrichment, as every OpenAI-compatible provider
-// did before.
+// for an unknown host) keeps enrichment, as that type always has.
 func operatorServedProvider(p *Provider) bool {
 	t := TypeOf(p)
 	return t == "custom" || IsLocalServerType(t)

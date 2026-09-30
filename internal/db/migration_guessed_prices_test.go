@@ -9,8 +9,8 @@ import (
 )
 
 // TestGuessedPricesOnOperatorServedMigration: on a custom or self-hosted
-// provider a price models.dev or
-// the catalog supplied by name becomes NULL with its source label, while a
+// provider a price supplied by models.dev or the catalog (matched by name)
+// becomes NULL with its source label, column by column, while a
 // price the provider itself reported, an operator's figure, a pinned row, and
 // every price on a hosted provider stay. Replayed twice to prove it idempotent.
 func TestGuessedPricesOnOperatorServedMigration(t *testing.T) {
@@ -47,6 +47,13 @@ func TestGuessedPricesOnOperatorServedMigration(t *testing.T) {
 	insert(relay, "relay-guessed", `{"input":"modelsdev","output":"modelsdev"}`, false)
 	insert(hosted, "hosted-guessed", `{"input":"modelsdev","output":"modelsdev"}`, false)
 
+	// Every price column, with a mixed-source row: each column and its label
+	// are judged on their own.
+	if _, err := testPool.Exec(ctx, `INSERT INTO models (id, provider_id, model_id, name, input_price_per_million, input_price_per_million_cache_hit, output_price_per_million, search_price_per_thousand, price_sources)
+		VALUES (gen_random_uuid(), $1, $2, $2, 1, 0.5, 2, 3, '{"input":"modelsdev","cache_hit":"catalog","output":"manual","search":"modelsdev"}'::jsonb)`, ollama, "ollama-mixed-"+suffix); err != nil {
+		t.Fatalf("insert mixed model: %v", err)
+	}
+
 	for pass := 0; pass < 2; pass++ {
 		if _, err := testPool.Exec(ctx, string(b)); err != nil {
 			t.Fatalf("pass %d: %v", pass, err)
@@ -68,5 +75,17 @@ func TestGuessedPricesOnOperatorServedMigration(t *testing.T) {
 		if !wantPriced && sources != "{}" {
 			t.Errorf("%s: sources %s, want the labels gone with the prices", name, sources)
 		}
+	}
+
+	var in, hit, out, search *float64
+	var sources string
+	if err := testPool.QueryRow(ctx, `SELECT input_price_per_million, input_price_per_million_cache_hit, output_price_per_million, search_price_per_thousand, price_sources::text FROM models WHERE model_id = $1`, "ollama-mixed-"+suffix).Scan(&in, &hit, &out, &search, &sources); err != nil {
+		t.Fatalf("read mixed: %v", err)
+	}
+	if in != nil || hit != nil || search != nil || out == nil || *out != 2 {
+		t.Errorf("mixed: input %v cache_hit %v search %v output %v, want only the operator's output price kept", in, hit, search, out)
+	}
+	if sources != `{"output": "manual"}` {
+		t.Errorf("mixed: sources %s, want only the output label left", sources)
 	}
 }
