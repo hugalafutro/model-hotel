@@ -7,6 +7,8 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+
+	"github.com/hugalafutro/model-hotel/internal/events"
 )
 
 // seedRequestLogRow writes the row insertRequestLogAsync would have written.
@@ -127,8 +129,8 @@ func TestUpdateRequestLog_ATerminalUpdateWithARowDoesNotWait(t *testing.T) {
 
 // The flag still means what it meant for an interim update: those run on the hot
 // path before the client's first byte, and blocking them on the DB is the
-// latency the flag exists to avoid. An interim update that finds no row does not
-// retry — the terminal update that follows it writes the same row anyway.
+// latency the flag exists to avoid. An interim update that finds no row retries
+// in the background (see the tests below), never on the caller's time.
 func TestUpdateRequestLog_AnInterimUpdateStillDoesNotWait(t *testing.T) {
 	h := newIntegrationHandler()
 	t.Cleanup(func() { stopUnitHandler(h) })
@@ -147,6 +149,116 @@ func TestUpdateRequestLog_AnInterimUpdateStillDoesNotWait(t *testing.T) {
 	h.updateRequestLog(logData, updateLogOption{skipWaitForInsert: true})
 	if waited := time.Since(start); waited > time.Second {
 		t.Errorf("an interim update blocked for %s on the hot path", waited)
+	}
+}
+
+// readRowState polls the row until it reads want or the deadline passes, and
+// returns the last state read ("" while the row is not there yet). The interim
+// retry runs in the background.
+func readRowState(t *testing.T, h *Handler, id, want string) string {
+	t.Helper()
+	var got string
+	deadline := time.Now().Add(3 * time.Second)
+	for {
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		err := h.dbPool.QueryRow(ctx, `SELECT coalesce((SELECT state FROM request_logs WHERE id = $1), '')`, id).Scan(&got)
+		cancel()
+		if err != nil {
+			t.Fatalf("read back: %v", err)
+		}
+		if got == want || time.Now().After(deadline) {
+			return got
+		}
+		time.Sleep(20 * time.Millisecond)
+	}
+}
+
+// An interim "streaming" update that runs before its row's INSERT used to hit 0
+// rows and leave the row at 'pending' for the whole stream, so the dashboard
+// showed "Resolving" until completion. Seen live with an upstream that answered
+// in ~2 ms. The update now lands once the INSERT has, and request.streaming is
+// published again so the dashboard refetches the row it already read.
+func TestUpdateRequestLog_AnInterimUpdateBeforeItsInsertLandsLater(t *testing.T) {
+	h := newIntegrationHandler()
+	t.Cleanup(func() { stopUnitHandler(h) })
+	ch := events.Subscribe()
+	defer events.Unsubscribe(ch)
+
+	logData := &requestLogData{modelID: "m", virtualKeyName: "k", state: "pending", endpointType: endpointTypeChat}
+	logData.id = uuid.New().String()
+	logData.requestHash = generateRequestHash()
+	logData.insertWg.Add(1)
+	go func() {
+		defer logData.insertWg.Done()
+		time.Sleep(150 * time.Millisecond)
+		seedRequestLogRow(t, h, logData)
+	}()
+
+	logData.state = "streaming"
+	logData.statusCode = 200
+	h.updateRequestLog(logData, updateLogOption{skipWaitForInsert: true})
+	// The handler keeps filling the entry in while it streams; the retry must
+	// send what the interim update meant, not this.
+	logData.state = "pending-mutated"
+	logData.statusCode = 599
+
+	if got := readRowState(t, h, logData.id, "streaming"); got != "streaming" {
+		t.Fatalf("row state = %q, want streaming: the interim update was lost to its own insert", got)
+	}
+	var status int
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	if err := h.dbPool.QueryRow(ctx, `SELECT status_code FROM request_logs WHERE id = $1`, logData.id).Scan(&status); err != nil {
+		t.Fatalf("read back: %v", err)
+	}
+	if status != 200 {
+		t.Errorf("status_code = %d, want 200 from the interim update", status)
+	}
+
+	deadline := time.After(3 * time.Second)
+	for {
+		select {
+		case ev := <-ch:
+			if ev.Type == "request.streaming" && ev.Metadata["request_id"] == logData.id {
+				if ev.Metadata["state"] != "streaming" {
+					t.Errorf("republished state = %v, want streaming", ev.Metadata["state"])
+				}
+				return
+			}
+		case <-deadline:
+			t.Fatal("no request.streaming event after the retry landed: the dashboard keeps the 'pending' copy it fetched")
+		}
+	}
+}
+
+// The retry must not undo a terminal update that reached the row first.
+func TestUpdateRequestLog_AnInterimRetryNeverUndoesATerminalWrite(t *testing.T) {
+	h := newIntegrationHandler()
+	t.Cleanup(func() { stopUnitHandler(h) })
+
+	logData := &requestLogData{modelID: "m", virtualKeyName: "k", state: "pending", endpointType: endpointTypeChat}
+	logData.id = uuid.New().String()
+	logData.requestHash = generateRequestHash()
+	logData.insertWg.Add(1)
+
+	logData.state = "streaming"
+	h.updateRequestLog(logData, updateLogOption{skipWaitForInsert: true})
+
+	// The row lands already finished, as when the terminal update beats the
+	// retry to it; only then is the retry released.
+	seedRequestLogRow(t, h, logData)
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	if _, err := h.dbPool.Exec(ctx, `UPDATE request_logs SET state = 'completed', status_code = 200 WHERE id = $1`, logData.id); err != nil {
+		t.Fatalf("terminal write: %v", err)
+	}
+	logData.insertWg.Done()
+
+	// The retry has to be ruled out, not merely not yet seen: poll the whole
+	// window for the state it would write rather than stopping at the first
+	// 'completed' read.
+	if got := readRowState(t, h, logData.id, "streaming"); got != "completed" {
+		t.Errorf("row state = %q, want completed: the interim retry took a finished row back", got)
 	}
 }
 
