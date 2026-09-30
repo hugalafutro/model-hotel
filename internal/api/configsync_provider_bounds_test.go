@@ -89,12 +89,17 @@ func TestValidateSyncedProvider_UsesTheSharedRule(t *testing.T) {
 	}{
 		{"over-long name", ExportProvider{Name: strings.Repeat("n", 101), BaseURL: "https://p.example.test/v1"}},
 		{"unprintable name", ExportProvider{Name: "bad\x00name", BaseURL: "https://p.example.test/v1"}},
-		{"name with a slash", ExportProvider{Name: "a/b", BaseURL: "https://p.example.test/v1"}},
-		{"reserved name", ExportProvider{Name: "hotel", BaseURL: "https://p.example.test/v1"}},
 		{"malformed disable date", ExportProvider{Name: "p", BaseURL: "https://p.example.test/v1", ScheduledDisableOn: new("next tuesday")}},
 	} {
 		if err := validateSyncedProvider(tc.p); err == nil || !errors.Is(err, errInvalidSyncedProvider) {
 			t.Fatalf("%s: not refused with the sentinel: %v", tc.name, err)
+		}
+	}
+	// The admin API refuses these as new names, but a primary that already
+	// holds one keeps it, so its envelope must still apply on every member.
+	for _, name := range []string{"a/b", "hotel"} {
+		if err := validateSyncedProvider(ExportProvider{Name: name, BaseURL: "https://p.example.test/v1"}); err != nil {
+			t.Fatalf("an existing provider named %q must still sync: %v", name, err)
 		}
 	}
 	past := ExportProvider{Name: "p", BaseURL: "https://p.example.test/v1", ScheduledDisableOn: new("2020-01-01")}

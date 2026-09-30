@@ -18,9 +18,10 @@ function typeLabel(type: string, t: (key: string) => string): string {
 }
 
 /**
- * Phrases a failed provider-type check in the operator's language, naming the
- * server that actually answered. Returns null for any other error, so callers
- * fall back to the raw message.
+ * Phrases a coded refusal of a provider save in the operator's language: a
+ * failed type check (naming the server that actually answered), a refused or
+ * duplicate address, or a name the proxy could never route to. Returns null for
+ * any other error, so callers fall back to the raw message.
  */
 export function providerTypeGateMessage(
 	err: unknown,

@@ -376,7 +376,9 @@ the proxy splits it at the first `/`, so a name containing `/` could never be
 reached: it is refused with `400` and the code `provider_name_slash`. Every
 `hotel/...` model goes to a failover group, so the exact name `hotel` is refused
 with `provider_name_reserved` (`Hotel` or `my hotel` are fine: the prefix match is
-case-sensitive and whole). Spaces are allowed; see below.
+case-sensitive and whole). Spaces are allowed; see below. The rule applies to new
+names only: a provider that already has such a name keeps it, a save that resends
+it unchanged is accepted, and fleet sync carries it to members as before.
 
 **Names are unique in the form routing uses.** A `<provider>/<model>` id replaces
 every space in the provider name with a hyphen, so `my provider` and

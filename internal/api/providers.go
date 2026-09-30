@@ -349,6 +349,28 @@ func (h *Handler) acceptProviderURLShape(w http.ResponseWriter, baseURL string) 
 	return true
 }
 
+// validateUpdatedName trims and checks a renamed provider's name, writing the
+// refusal itself and reporting whether the save may continue. The routing rule
+// applies to new names only: a save that resends the provider's stored name is
+// not refused by a rule added after the provider was created. The stored name
+// is read only when the rule fails, and a failed read leaves the rule in force.
+func (h *Handler) validateUpdatedName(w http.ResponseWriter, r *http.Request, id uuid.UUID, name *string) (*string, bool) {
+	trimmed, err := validateNamePtr("name", name, 1, 100)
+	if err != nil {
+		respondBadRequest(w, "invalid name", err)
+		return nil, false
+	}
+	code, err := validateProviderRoutingName(*trimmed)
+	if err == nil {
+		return trimmed, true
+	}
+	if stored, getErr := h.providerRepo.Get(r.Context(), id); getErr == nil && stored != nil && stored.Name == *trimmed {
+		return trimmed, true
+	}
+	writeCodedError(w, http.StatusBadRequest, code, err.Error())
+	return nil, false
+}
+
 // UpdateProvider updates an existing provider by ID.
 func (h *Handler) UpdateProvider(w http.ResponseWriter, r *http.Request) {
 	id, ok := parseUUIDParam(w, r, "id", "provider ID")
@@ -363,13 +385,8 @@ func (h *Handler) UpdateProvider(w http.ResponseWriter, r *http.Request) {
 
 	// Validate field lengths.
 	if req.Name != nil {
-		trimmed, err := validateNamePtr("name", req.Name, 1, 100)
-		if err != nil {
-			respondBadRequest(w, "invalid name", err)
-			return
-		}
-		if code, err := validateProviderRoutingName(*trimmed); err != nil {
-			writeCodedError(w, http.StatusBadRequest, code, err.Error())
+		trimmed, ok := h.validateUpdatedName(w, r, id, req.Name)
+		if !ok {
 			return
 		}
 		req.Name = trimmed
