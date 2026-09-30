@@ -5,7 +5,6 @@ import (
 	"errors"
 	"net/http"
 	"net/http/httptest"
-	"net/url"
 	"strings"
 	"testing"
 	"time"
@@ -31,19 +30,23 @@ func lockedReadDB(t *testing.T, table string) (pool *db.DB, lock func() (unlock 
 	if apiTestDBURL == "" {
 		t.Fatal("test database not available")
 	}
-	u, err := url.Parse(apiTestDBURL)
-	if err != nil {
-		t.Fatalf("parse test DB URL: %v", err)
-	}
-	q := u.Query()
-	q.Set("statement_timeout", "250")
-	u.RawQuery = q.Encode()
-
-	pool, err = db.New(context.Background(), u.String(), 1, 1)
+	// The timeout is set after connecting, not in the URL: there it also bound
+	// the migration check db.New runs, which lost the race under -race in CI.
+	// It holds for the pool's one connection, which a statement timeout does
+	// not replace; the check below fails fast if it did not take.
+	var err error
+	pool, err = db.New(context.Background(), apiTestDBURL, 1, 1)
 	if err != nil {
 		t.Fatalf("db.New: %v", err)
 	}
 	t.Cleanup(pool.Close)
+	if _, err := pool.Pool().Exec(context.Background(), "SET statement_timeout = '250ms'"); err != nil {
+		t.Fatalf("set statement_timeout: %v", err)
+	}
+	var timeout string
+	if err := pool.Pool().QueryRow(context.Background(), "SELECT current_setting('statement_timeout')").Scan(&timeout); err != nil || timeout != "250ms" {
+		t.Fatalf("statement_timeout = %q (%v), want 250ms", timeout, err)
+	}
 
 	lock = func() func() {
 		tx, err := apiTestDB.Pool().Begin(context.Background())

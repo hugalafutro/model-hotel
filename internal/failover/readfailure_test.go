@@ -20,18 +20,22 @@ import (
 // the sync returns that error instead of reporting success.
 func TestSyncAllModels_GroupTableReadFailure(t *testing.T) {
 	ctx := context.Background()
-	u, err := url.Parse(testDBURL)
-	if err != nil {
-		t.Fatalf("parse test DB URL: %v", err)
-	}
-	q := u.Query()
-	q.Set("statement_timeout", "250")
-	u.RawQuery = q.Encode()
-	slow, err := db.New(ctx, u.String(), 1, 1)
+	// The timeout is set after connecting, not in the URL: there it also bound
+	// the migration check db.New runs, which lost the race under -race in CI.
+	// It holds for the pool's one connection, which a statement timeout does
+	// not replace; the check below fails fast if it did not take.
+	slow, err := db.New(ctx, testDBURL, 1, 1)
 	if err != nil {
 		t.Fatalf("db.New: %v", err)
 	}
 	defer slow.Close()
+	if _, err := slow.Pool().Exec(ctx, "SET statement_timeout = '250ms'"); err != nil {
+		t.Fatalf("set statement_timeout: %v", err)
+	}
+	var timeout string
+	if err := slow.Pool().QueryRow(ctx, "SELECT current_setting('statement_timeout')").Scan(&timeout); err != nil || timeout != "250ms" {
+		t.Fatalf("statement_timeout = %q (%v), want 250ms", timeout, err)
+	}
 	repo := NewRepository(slow.Pool())
 
 	base := "readfail-" + uuid.New().String()[:8]
