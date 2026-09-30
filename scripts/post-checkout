@@ -29,6 +29,7 @@ state="$HOME/.tokensave/state.toml"
 latest="$(sed -n 's/^cached_latest_version = "\(.*\)"$/\1/p' "$state")"
 current="$(tokensave --version 2>/dev/null | awk '{print $NF}')"
 current="${current#v}"
+latest="${latest#v}"
 latest="${latest%%-*}"
 current="${current%%-*}"
 if [ -n "$latest" ] && [ -n "$current" ] && [ "$latest" != "$current" ] &&
