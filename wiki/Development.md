@@ -572,10 +572,11 @@ graph in step with git. They check nothing, and do nothing to tokensave when it 
 
 - **`scripts/reference-transaction`** runs `tokensave branch add` when a branch is created and
   `tokensave branch gc` when one is deleted.
-- **`scripts/post-checkout`** runs `tokensave branch add --if-enabled` and then `tokensave sync`
-  in the background after every branch checkout in a repository that has a tokensave index, so
-  each branch's index matches its files. It also prints a one-line warning when tokensave has
-  cached a newer release than the one installed; run `tokensave upgrade` to clear it.
+- **`scripts/post-checkout`** acts only when the checkout has a tokensave index. After every
+  branch checkout it runs `tokensave branch add --if-enabled` and then `tokensave sync` in the
+  background, so each branch's index matches its files. It also prints a one-line warning when
+  tokensave has cached a newer release than the one installed; run `tokensave upgrade` to clear
+  it.
 - **`scripts/post-commit`** calls your global `post-commit` hook, if you have one. Because
   `core.hooksPath` replaces the global hooks directory, git would otherwise skip it; tokensave's
   global hook runs `tokensave sync` after each commit.

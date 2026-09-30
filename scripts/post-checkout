@@ -30,9 +30,9 @@ latest="$(sed -n 's/^cached_latest_version = "\(.*\)"$/\1/p' "$state")"
 current="$(tokensave --version 2>/dev/null | awk '{print $NF}')"
 current="${current#v}"
 latest="${latest#v}"
-latest="${latest%%-*}"
-current="${current%%-*}"
-if [ -n "$latest" ] && [ -n "$current" ] && [ "$latest" != "$current" ] &&
-	[ "$(printf '%s\n%s\n' "$current" "$latest" | sort -V | tail -n1)" = "$latest" ]; then
+newest="${latest%%-*}"
+release="${current%%-*}"
+if [ -n "$newest" ] && [ -n "$release" ] && [ "$newest" != "$release" ] &&
+	[ "$(printf '%s\n%s\n' "$release" "$newest" | sort -V | tail -n1)" = "$newest" ]; then
 	echo "tokensave $latest is available (installed: $current). Run \`tokensave upgrade\` to update." >&2
 fi
