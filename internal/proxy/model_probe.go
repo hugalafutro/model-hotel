@@ -570,10 +570,12 @@ func listAnswerDelivered(body []byte, keys ...string) bool {
 // picture. It is false only when every entry is null or an object that names a
 // picture field (b64_json or url) and leaves every named one empty. An entry of
 // any other shape counts as delivered, for the reason listAnswerDelivered
-// gives: not understanding a shape is no evidence that it carries nothing. A
-// "data" that is absent, empty or not a list is left to listAnswerDelivered's
-// verdict, which the caller asks first. The member is read by its exact name,
-// as listAnswerDelivered reads it, so both judge the same list.
+// gives: not understanding a shape is no evidence that it carries nothing. It
+// returns true for a "data" that is absent, empty or not a list; the caller asks
+// listAnswerDelivered first, and that is what rejects those bodies. The member is
+// read by its exact name, as listAnswerDelivered reads it through its map, so
+// both judge the same list and both read a {"Data":...} body as a shape they do
+// not recognise.
 func imageEntriesDeliver(body []byte) bool {
 	var members map[string]json.RawMessage
 	var entries []json.RawMessage
