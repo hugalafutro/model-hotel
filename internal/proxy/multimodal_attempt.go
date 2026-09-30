@@ -1,6 +1,7 @@
 package proxy
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -150,7 +151,7 @@ var errPassthroughErrorEnvelope = errors.New("upstream answered 2xx with an erro
 // 2xx JSON pass-through body is an error envelope and nothing else: its
 // "error" member carries something (the shared util.ValueCarries rule the chat
 // and stream paths use), and every other top-level member either carries
-// nothing (jsonValueIsEmpty: absent, null, [] or "") or belongs to the
+// nothing (envelopeMemberIsEmpty: absent, null, [], "" or {}) or belongs to the
 // envelope itself (envelopeMetadataKeys). Content is judged structurally, not by
 // util.ValueCarries: that rule reads 0 and false as "no error", which is right
 // for an error member and wrong for content ({"results":[{"index":0}]}). LM Studio
@@ -173,7 +174,7 @@ func passthroughErrorEnvelope(status int, body []byte) (string, bool) {
 		return "", false
 	}
 	for key, value := range members {
-		if key != "error" && !envelopeMetadataKeys[key] && !jsonValueIsEmpty(value) {
+		if key != "error" && !envelopeMetadataKeys[key] && !envelopeMemberIsEmpty(value) {
 			return "", false
 		}
 	}
@@ -181,13 +182,26 @@ func passthroughErrorEnvelope(status int, body []byte) (string, bool) {
 }
 
 // envelopeMetadataKeys are the top-level members an error envelope carries
-// beside "error" without that making it an answer: OpenAI's {"object":"error"},
-// FastAPI's "detail", and the status, code, id and usage fields servers stamp
-// on every response, refusals included.
+// beside "error" without that making it an answer: fields such as OpenAI's
+// {"object":"error"}, FastAPI's "detail", the status, code, id and usage
+// fields servers stamp on every response, and the model, provider and
+// fingerprint echoes a relay adds to refusals too. No pass-through family
+// carries its answer under any of them.
 var envelopeMetadataKeys = map[string]bool{
 	"object": true, "type": true, "code": true, "message": true, "status": true,
 	"detail": true, "param": true, "created": true, "id": true, "request_id": true,
-	"usage": true,
+	"usage": true, "model": true, "provider": true, "system_fingerprint": true,
+	"service_tier": true, "version": true, "timestamp": true,
+}
+
+// envelopeMemberIsEmpty is jsonValueIsEmpty that also reads {} as empty: an
+// answer member that is an empty object carries no answer either.
+func envelopeMemberIsEmpty(raw json.RawMessage) bool {
+	if jsonValueIsEmpty(raw) {
+		return true
+	}
+	v := bytes.TrimSpace(raw)
+	return len(v) >= 2 && v[0] == '{' && v[len(v)-1] == '}' && len(bytes.TrimSpace(v[1:len(v)-1])) == 0
 }
 
 // failPassthroughErrorEnvelope settles an attempt whose buffered 2xx JSON body

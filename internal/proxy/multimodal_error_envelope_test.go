@@ -162,6 +162,9 @@ func TestPassthroughErrorEnvelope_Shapes(t *testing.T) {
 		"a key of the provider's own":      {200, `{"images":["aGk="],"error":"x"}`, false},
 		"no-error stamp":                   {200, `{"data":[],"error":null}`, false},
 		"usage stamped on a refusal":       {200, `{"error":"x","usage":{"prompt_tokens":0}}`, true},
+		"model echoed on a refusal":        {200, `{"error":"x","model":"gpt-4","system_fingerprint":"fp"}`, true},
+		"empty object beside the error":    {200, `{"error":"x","data":{}}`, true},
+		"no error member at all":           {200, `{"data":[]}`, false},
 		"not JSON":                         {200, `<html>oops</html>`, false},
 		"non-2xx is not this path":         {500, `{"error":"x"}`, false},
 	} {
@@ -169,7 +172,12 @@ func TestPassthroughErrorEnvelope_Shapes(t *testing.T) {
 			t.Errorf("%s: isErr = %v, want %v", name, got, tc.isErr)
 		}
 	}
-	if msg, _ := passthroughErrorEnvelope(200, []byte(`{"error":{"message":"model unloaded"}}`)); msg != "model unloaded" {
-		t.Errorf("message = %q, want the provider's own text", msg)
+	for body, want := range map[string]string{
+		`{"error":{"message":"model unloaded"}}`:               "model unloaded",
+		`{"error":"Unexpected endpoint or method. (POST /x)"}`: "Unexpected endpoint or method. (POST /x)",
+	} {
+		if msg, _ := passthroughErrorEnvelope(200, []byte(body)); msg != want {
+			t.Errorf("%s: message = %q, want the provider's own text", body, msg)
+		}
 	}
 }
