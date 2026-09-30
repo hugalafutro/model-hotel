@@ -2,6 +2,8 @@ package proxy
 
 import (
 	"context"
+	"encoding/json"
+	"errors"
 	"net/http"
 
 	"github.com/hugalafutro/model-hotel/internal/ctxkeys"
@@ -137,4 +139,65 @@ func passthroughAnswered(endpointType string, body []byte) bool {
 		return probeDeliveredContent(endpointType, body)
 	}
 	return true
+}
+
+// errPassthroughErrorEnvelope is the fault a 2xx pass-through body fails over
+// with when it is an error envelope instead of an answer. Gateway-authored, so
+// it can be reported as it is: the provider's own message is not in it.
+var errPassthroughErrorEnvelope = errors.New("upstream answered 2xx with an error envelope instead of a response")
+
+// passthroughErrorEnvelope reports the provider's own message when a buffered
+// 2xx pass-through body is an error envelope: an "error" member that carries
+// something (the shared util.ValueCarries rule the chat and stream paths use),
+// on a body whose content members carry nothing. LM Studio answers every route
+// it does not serve (images, speech, rerank) with HTTP 200 and
+// {"error":"Unexpected endpoint or method."}, which was served to the client
+// as a success and logged as completed.
+//
+// The content members are the lists every family answers under ("data" for
+// embeddings and images, "results" or "data" for rerank). A body that carries
+// one beside an error member is the provider answering and is left to the
+// ordinary path. probeDeliveredContent is not the test here: it counts a shape
+// it does not recognise as delivered, which is right for a dialect it cannot
+// read and wrong for an envelope that is plainly only an error.
+func passthroughErrorEnvelope(status int, body []byte) (string, bool) {
+	if !servedSuccessStatus(status) || len(body) > passthroughJSONBufferCap {
+		return "", false
+	}
+	msg, isErr := errorEnvelopeMessage(string(body))
+	if !isErr {
+		return "", false
+	}
+	var content struct {
+		Data    json.RawMessage `json:"data"`
+		Results json.RawMessage `json:"results"`
+	}
+	if json.Unmarshal(body, &content) != nil || util.ValueCarries(content.Data) || util.ValueCarries(content.Results) {
+		return "", false
+	}
+	return msg, true
+}
+
+// failPassthroughErrorEnvelope settles an attempt whose 2xx body was an error
+// envelope (passthroughErrorEnvelope). While a sibling remains it fails over,
+// through the same reject the chat path takes for a 2xx that is not a
+// completion. On the last candidate the client is answered 502, as the chat
+// path answers the same shape (nonCompletionClientStatus): a 2xx carrying the
+// gateway's error envelope would read as success to an OpenAI SDK. The row
+// keeps the upstream's 2xx and records the provider's message, masked and
+// fenced, as the failure.
+func (h *Handler) failPassthroughErrorEnvelope(w http.ResponseWriter, r *http.Request, st *requestState, candidate modelCandidate, status int, msg string, attempt int, responseHeaderMs float64, hasMoreCandidates bool) candidateOutcome {
+	logData := st.logData
+	if hasMoreCandidates && !requestAbandoned(r.Context(), nil) {
+		return h.rejectUntranslatableBody(st, candidate, logData, "passthrough", status, errPassthroughErrorEnvelope, attempt, r)
+	}
+	h.chargeBreaker(st, candidate, status, "response carried an error instead of an answer")
+	sanitized := util.SanitizeLogBody(msg, logBodyCap)
+	kind, reason := classifyUpstreamError(status, sanitized, candidate.model.ModelID)
+	logData.errorKind = kind
+	fenced := fencedFrameMessage(logData.fence(), logData.masks(), sanitized)
+	debuglog.Warn("proxy: passthrough 2xx carried an error", "endpoint", logData.endpointType, "status", status, "error_kind", kind, "model", logData.modelID, "provider", logData.providerName, "error", fenced)
+	h.finalizePassthroughLog(st, status, attempt, responseHeaderMs, 0, 0, "failed", fenced)
+	writeOpenAIError(w, upstreamClientMessage(candidate.provider.Name, status, reason), http.StatusBadGateway)
+	return outcomeFatal
 }
