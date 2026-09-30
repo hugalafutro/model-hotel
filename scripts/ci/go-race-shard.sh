@@ -103,11 +103,21 @@ run() {
 	# One `go test` per heavy package: -run applies to every package of an
 	# invocation, and a name one heavy package gives this shard may belong to
 	# another shard in a second package.
+	#
+	# A -run pattern that matches nothing still exits 0, printing "[no tests to
+	# run]", which would leave the shard green with nothing raced. Each heavy
+	# package's output is kept (and still streamed) so that line fails the shard.
+	# Light packages run whole without -run, where the same line only means a
+	# package whose test files hold helpers and no tests.
+	local tmp
+	tmp=$(mktemp -d)
+	trap 'rm -rf "$tmp"' RETURN
 	local pids=()
 	for dir in $heavy_dirs; do
 		regex=$(awk -v d="$dir" '$1 == "heavy" && $2 == d { print $3 }' <<<"$p" | paste -sd '|')
 		echo "shard $shard/$total: ./$dir, $(awk -v d="$dir" '$1 == "heavy" && $2 == d' <<<"$p" | wc -l) tests"
-		go test -race -count=1 -timeout "$TIMEOUT" -run "^($regex)\$" "./$dir" &
+		go test -race -count=1 -timeout "$TIMEOUT" -run "^($regex)\$" "./$dir" 2>&1 |
+			tee "$tmp/${dir//\//_}" &
 		pids+=($!)
 	done
 	if [ -n "$light_dirs" ]; then
@@ -118,6 +128,12 @@ run() {
 	fi
 	for pid in "${pids[@]}"; do
 		wait "$pid" || status=1
+	done
+	for dir in $heavy_dirs; do
+		if grep -q '\[no tests to run\]' "$tmp/${dir//\//_}"; then
+			echo "FAIL: ./$dir ran no tests on shard $shard/$total: its -run pattern matched nothing" >&2
+			status=1
+		fi
 	done
 	return "$status"
 }
