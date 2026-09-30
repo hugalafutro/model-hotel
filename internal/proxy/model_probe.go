@@ -523,8 +523,11 @@ func probeDeliveredContent(endpointType string, body []byte) bool {
 		return listAnswerDelivered(body, "results", "data")
 	case endpointTypeImage:
 		// The OpenAI shape every /v1/images provider this gateway fronts
-		// answers in: the images under "data".
-		return listAnswerDelivered(body, "data")
+		// answers in: the images under "data", each carrying its picture as
+		// b64_json or url. An entry whose picture fields are there but empty is
+		// no image: KoboldCpp answers a failed generation with
+		// {"data":[{"b64_json":""}]} under HTTP 200.
+		return listAnswerDelivered(body, "data") && imageEntriesDeliver(body)
 	}
 
 	var out ChatCompletionResponse
@@ -561,6 +564,43 @@ func listAnswerDelivered(body []byte, keys ...string) bool {
 		}
 	}
 	return true
+}
+
+// imageEntriesDeliver reports whether an images answer's "data" list carries a
+// picture. It is false only when every entry is null or an object that names a
+// picture field (b64_json or url) and leaves every named one empty. An entry of
+// any other shape counts as delivered, for the reason listAnswerDelivered
+// gives: not understanding a shape is no evidence that it carries nothing. It
+// returns true for a "data" that is absent, empty or not a list; the caller asks
+// listAnswerDelivered first, and that is what rejects those bodies. The member is
+// read by its exact name, as listAnswerDelivered reads it through its map, so
+// both judge the same list and both read a {"Data":...} body as a shape they do
+// not recognise.
+func imageEntriesDeliver(body []byte) bool {
+	var members map[string]json.RawMessage
+	var entries []json.RawMessage
+	if json.Unmarshal(body, &members) != nil || json.Unmarshal(members["data"], &entries) != nil || len(entries) == 0 {
+		return true
+	}
+	for _, raw := range entries {
+		var entry map[string]json.RawMessage
+		if json.Unmarshal(raw, &entry) != nil {
+			return true
+		}
+		if entry == nil {
+			// A null entry carries no picture.
+			continue
+		}
+		b64, hasB64 := entry["b64_json"]
+		url, hasURL := entry["url"]
+		if !hasB64 && !hasURL {
+			return true
+		}
+		if !jsonValueIsEmpty(b64) || !jsonValueIsEmpty(url) {
+			return true
+		}
+	}
+	return false
 }
 
 // jsonValueIsEmpty reports whether a raw JSON value carries nothing: absent,
