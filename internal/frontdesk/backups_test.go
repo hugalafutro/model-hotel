@@ -12,18 +12,22 @@ import (
 	"time"
 )
 
-// stubBackupMember is a fake Model Hotel member exposing the one backup route
-// Front Desk uses: GET /api/backups (the listing, each entry carrying the origin
-// the member itself derived). Origin is set per entry by the test, deliberately
-// independent of the filename, so a test can model a manual backup whose name
-// happens to contain the word frontdesk.
+// stubBackupMember is a fake Model Hotel member exposing the two routes the
+// backup watchdog reads: GET /api/backups (the listing, each entry carrying the
+// origin the member itself derived) and GET /api/settings (backup_interval).
+// Origin is set per entry by the test, deliberately independent of the
+// filename, so a test can model a manual backup whose name happens to contain
+// the word frontdesk.
 type stubBackupMember struct {
 	token string
 
-	mu         sync.Mutex
-	files      []memberBackupEntry
-	listStatus int // 0 means 200 with the listing
-	listBody   string
+	mu             sync.Mutex
+	files          []memberBackupEntry
+	listStatus     int // 0 means 200 with the listing
+	listBody       string
+	interval       string // backup_interval in the settings; "" leaves it unset
+	settingsStatus int    // 0 means 200 with the settings
+	settingsBody   string // when set, served verbatim instead of the settings
 
 	srv *httptest.Server
 }
@@ -53,6 +57,22 @@ func newStubBackupMember(t *testing.T, token string, files ...memberBackupEntry)
 			}
 			w.Header().Set("Content-Type", "application/json")
 			_ = json.NewEncoder(w).Encode(out)
+			return
+		}
+		if r.Method == http.MethodGet && strings.TrimSuffix(r.URL.Path, "/") == "/api/settings" {
+			if sm.settingsStatus != 0 {
+				w.WriteHeader(sm.settingsStatus)
+				return
+			}
+			if sm.settingsBody != "" {
+				_, _ = w.Write([]byte(sm.settingsBody))
+				return
+			}
+			settings := map[string]string{"backup_enabled": "true"}
+			if sm.interval != "" {
+				settings["backup_interval"] = sm.interval
+			}
+			_ = json.NewEncoder(w).Encode(settings)
 			return
 		}
 		w.WriteHeader(http.StatusNotFound)
@@ -108,28 +128,37 @@ func TestBackupStaleEmitsOnceAcrossPolls(t *testing.T) {
 	}
 }
 
-// TestBackupStaleThresholdBoundary pins the VALUE of memberBackupStaleAfter,
-// not merely the direction. The ages are written as literals on purpose: an age
-// expressed relative to the constant would follow it wherever it moved and
-// prove only that older is staler. 23 hours must stay quiet and 25 hours must
-// alert, so any threshold other than a day fails here.
+// TestBackupStaleThresholdBoundary pins the threshold's VALUE, not merely its
+// direction. The ages are written as literals on purpose: an age expressed
+// relative to the threshold would follow it wherever it moved and prove only
+// that older is staler. A member's newest dump is routinely a little past its
+// interval while the next one is being written, and must stay quiet (the false
+// alert the grace exists for); one past the interval by more than the hour of
+// grace must alert. The interval is the member's own, never judged tighter than
+// a day, so a weekly member is not flagged on day two.
 func TestBackupStaleThresholdBoundary(t *testing.T) {
-	if memberBackupStaleAfter != 24*time.Hour {
-		t.Fatalf("memberBackupStaleAfter = %s; the cases below are written for 24h", memberBackupStaleAfter)
-	}
 	for _, tc := range []struct {
 		name      string
+		interval  string
 		age       time.Duration
 		wantStale bool
 	}{
-		{"an hour inside the window", 23 * time.Hour, false},
-		{"an hour outside the window", 25 * time.Hour, true},
+		{"daily: the next dump still being written", "", 24*time.Hour + time.Minute, false},
+		{"daily: a day and thirty minutes", "", 24*time.Hour + 30*time.Minute, false},
+		{"daily: an hour past the grace", "", 26 * time.Hour, true},
+		{"daily in the member's day form", "1d", 26 * time.Hour, true},
+		{"hourly is still judged by a day", "1h", 24*time.Hour + 30*time.Minute, false},
+		{"weekly: six days in", "168h", 6 * 24 * time.Hour, false},
+		{"weekly: in the day form, six days in", "7d", 6 * 24 * time.Hour, false},
+		{"weekly: a week and an hour past the grace", "168h", 7*24*time.Hour + 2*time.Hour, true},
+		{"unparseable interval reads as a day", "fortnightly", 26 * time.Hour, true},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			srv, store := newTestServer(t)
 			member := newStubBackupMember(t, "tok",
 				backupEntryAt("backup_auto.dump", "scheduled", tc.age),
 			)
+			member.interval = tc.interval
 			m, err := store.CreateMember(t.Context(), "m1", member.srv.URL, "tok")
 			if err != nil {
 				t.Fatalf("CreateMember: %v", err)
@@ -146,6 +175,39 @@ func TestBackupStaleThresholdBoundary(t *testing.T) {
 			}
 			if len(got) != 0 {
 				t.Fatalf("events = %v at age %s, want none", got, tc.age)
+			}
+		})
+	}
+}
+
+// A member whose settings cannot be read is not judged on a guessed interval:
+// with a weekly schedule, a guess of a day would raise a false alert. Its
+// listing alone proves nothing about how often it is meant to back up.
+func TestBackupWatchSkipsMemberWhoseSettingsFailToRead(t *testing.T) {
+	for _, tc := range []struct {
+		name   string
+		status int
+		body   string
+	}{
+		{"settings error", http.StatusInternalServerError, ""},
+		{"settings not JSON", 0, "<html>proxy error</html>"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			srv, store := newTestServer(t)
+			member := newStubBackupMember(t, "tok",
+				backupEntryAt("backup_auto.dump", "scheduled", 40*time.Hour),
+			)
+			member.settingsStatus = tc.status
+			member.settingsBody = tc.body
+			m, err := store.CreateMember(t.Context(), "m1", member.srv.URL, "tok")
+			if err != nil {
+				t.Fatalf("CreateMember: %v", err)
+			}
+
+			srv.checkMemberBackups(t.Context())
+
+			if got := eventTypes(t, store, m.ID); len(got) != 0 {
+				t.Fatalf("events = %v, want none: the member was judged without its interval", got)
 			}
 		})
 	}

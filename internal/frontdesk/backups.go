@@ -33,13 +33,25 @@ const (
 	// longer to enumerate them than to answer /health.
 	memberBackupTimeout = 30 * time.Second
 
-	// memberBackupStaleAfter is how old a member's newest scheduled backup may be
-	// before it counts as unprotected. A day matches the coarsest useful schedule,
-	// so a daily rotation that ran once in the window stays quiet.
-	memberBackupStaleAfter = 24 * time.Hour
+	// memberBackupStaleGrace is how far past its own interval a member's newest
+	// scheduled backup may be before it counts as unprotected. A member's newest
+	// dump is routinely a little over one interval old: its scheduler dates the
+	// next run from the previous dump's file time, which is when that dump
+	// finished, so each cycle is the interval plus the dump's duration. A restart
+	// adds its downtime and a minute's startup delay, and a tick that finds a
+	// manual backup or restore holding the backup lock retries up to five
+	// minutes later (internal/api/backup_scheduler.go). Judging at exactly the
+	// interval flagged a healthy member whenever a pass landed in that gap.
+	memberBackupStaleGrace = time.Hour
+
+	// memberBackupMinInterval is the shortest interval the watchdog judges a
+	// member by, and the one it assumes when the member's backup_interval is
+	// unset. A day is the member's default and the coarsest useful schedule, so
+	// a member backing up more often is still only flagged after a missed day.
+	memberBackupMinInterval = 24 * time.Hour
 
 	// backupWatchInterval is how often every member's listing is re-read. The
-	// signal has a 24 hour threshold, so a tighter tick would add member load
+	// signal's threshold is at least a day, so a tighter tick would add member load
 	// without making the alert meaningfully earlier.
 	backupWatchInterval = 15 * time.Minute
 
@@ -128,6 +140,11 @@ func (s *Server) checkMemberBackups(ctx context.Context) {
 			debuglog.Debug("frontdesk: backup watch: read listing", "member", m.Name, "error", err)
 			continue
 		}
+		interval, err := s.memberBackupInterval(ctx, m, token)
+		if err != nil {
+			debuglog.Debug("frontdesk: backup watch: read settings", "member", m.Name, "error", err)
+			continue
+		}
 		newest, found := newestScheduledBackup(entries)
 		// The timestamp is parsed straight out of the member's own listing, so a
 		// member with a fast clock (or a bad created_at) can report a backup
@@ -136,12 +153,44 @@ func (s *Server) checkMemberBackups(ctx context.Context) {
 		// would be permanently silenced for exactly the member most likely to be
 		// misconfigured. util.TrustedAge treats an impossible age as stale.
 		age, aged := util.TrustedAge(time.Now(), newest)
-		if !found || !aged || age > memberBackupStaleAfter {
+		if !found || !aged || age > backupStaleAfter(interval) {
 			s.markBackupStale(ctx, m, newest, found)
 			continue
 		}
 		s.clearBackupStale(ctx, m)
 	}
+}
+
+// backupStaleAfter is how old a member's newest scheduled backup may be before
+// the member counts as unprotected: its own interval, never judged tighter than
+// a day, plus the grace for the dump's duration and the scheduler's lag. A
+// member on a weekly schedule is thereby not flagged six days of every seven.
+func backupStaleAfter(interval time.Duration) time.Duration {
+	return max(interval, memberBackupMinInterval) + memberBackupStaleGrace
+}
+
+// memberBackupInterval reads the member's backup_interval setting, parsed with
+// the member's own rules. Unset or unparseable reads as the member's default of
+// a day, since that is the interval the member's scheduler then runs on. A
+// failed read is an error: the member is not judged on a guess.
+func (s *Server) memberBackupInterval(ctx context.Context, m *Member, token string) (time.Duration, error) {
+	status, body, err := callMemberWith(ctx, s.backupClient, http.MethodGet, m.URL, memberSettingsPath, token, nil)
+	if err != nil {
+		return 0, err
+	}
+	if status != http.StatusOK {
+		return 0, fmt.Errorf("member settings returned %d", status)
+	}
+	var payload map[string]any
+	if err := json.Unmarshal(body, &payload); err != nil {
+		// Don't wrap the decoder error: it can echo a fragment of the response.
+		return 0, errors.New("frontdesk: parse member settings")
+	}
+	raw, _ := payload["backup_interval"].(string)
+	if interval, perr := util.ParseDuration(raw); raw != "" && perr == nil {
+		return interval, nil
+	}
+	return memberBackupMinInterval, nil
 }
 
 // newestScheduledBackup returns the creation time of the most recent
