@@ -1111,17 +1111,22 @@ func TestAnyRecentlyDiscovered(t *testing.T) {
 // and an ACCESS EXCLUSIVE lock on models held by another transaction.
 func TestSyncFailoverAfterDiscovery_ModelListFailureIsRecorded(t *testing.T) {
 	ctx := context.Background()
-	// Opened without the timeout, so the migration check db.New runs is not
-	// raced against it (it failed that way under -race in CI); the timeout
-	// is then set on the pool's one connection, for the queries under test.
+	// The timeout is set after connecting, not in the URL: there it also bound
+	// the migration check db.New runs, which lost the race under -race in CI.
+	// It holds for the pool's one connection, which a statement timeout does
+	// not replace; the check below fails fast if it did not take.
 	slow, err := db.New(ctx, cmdTestDBURL, 1, 1)
 	if err != nil {
 		t.Fatalf("db.New: %v", err)
 	}
-	if _, err := slow.Pool().Exec(ctx, "SET statement_timeout = 250"); err != nil {
+	defer slow.Close()
+	if _, err := slow.Pool().Exec(ctx, "SET statement_timeout = '250ms'"); err != nil {
 		t.Fatalf("set statement_timeout: %v", err)
 	}
-	defer slow.Close()
+	var timeout string
+	if err := slow.Pool().QueryRow(ctx, "SELECT current_setting('statement_timeout')").Scan(&timeout); err != nil || timeout != "250ms" {
+		t.Fatalf("statement_timeout = %q (%v), want 250ms", timeout, err)
+	}
 
 	deps := testDiscoveryDeps(t)
 	deps.modelRepo = model.NewRepository(slow.Pool())
