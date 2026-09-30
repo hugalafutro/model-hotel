@@ -762,15 +762,14 @@ func TestDiscoverKoboldCPP_NoChatModelLoaded(t *testing.T) {
 	}
 }
 
-// A server with no image listing, an answer that is not a listing, or one that
-// names nothing still yields the image model under the fixed fallback ID: the
-// txt2img flag proved image generation is served, and the name is missing for
-// good.
+// A server with no image listing, or one that names nothing, still yields the
+// image model under the fixed fallback ID: the txt2img flag proved image
+// generation is served, and the name is missing for good.
 func TestDiscoverKoboldCPP_ImageModelNameFallback(t *testing.T) {
 	for name, sd := range map[string]string{
 		"no listing (404)": "",
 		"empty listing":    `[]`,
-		"undecodable":      `not json`,
+		"null listing":     `null`,
 		"blank name":       `[{"model_name":"  "}]`,
 	} {
 		t.Run(name, func(t *testing.T) {
@@ -787,12 +786,14 @@ func TestDiscoverKoboldCPP_ImageModelNameFallback(t *testing.T) {
 	}
 }
 
-// A failed request may be transient and must not rename the image model for a
-// scan: it sits the scan out instead, and the rest of discovery goes ahead.
+// A failed or unreadable answer may be transient and must not rename the image
+// model for a scan: it sits the scan out instead, and the rest of discovery
+// goes ahead.
 func TestDiscoverKoboldCPP_ImageListingTransientFailure(t *testing.T) {
-	for name, status := range map[string]int{
-		"server error": http.StatusInternalServerError,
-		"unavailable":  http.StatusServiceUnavailable,
+	for name, respond := range map[string]func(http.ResponseWriter){
+		"server error": func(w http.ResponseWriter) { w.WriteHeader(http.StatusInternalServerError) },
+		"unavailable":  func(w http.ResponseWriter) { w.WriteHeader(http.StatusServiceUnavailable) },
+		"error page":   func(w http.ResponseWriter) { _, _ = w.Write([]byte(`<html>bad gateway</html>`)) },
 	} {
 		t.Run(name, func(t *testing.T) {
 			srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -801,7 +802,7 @@ func TestDiscoverKoboldCPP_ImageListingTransientFailure(t *testing.T) {
 				case "/api/extra/version":
 					_, _ = w.Write([]byte(`{"result":"KoboldCpp","version":"1.122.1","llm":false,"txt2img":true,"tts":true}`))
 				case "/sdapi/v1/sd-models":
-					w.WriteHeader(status)
+					respond(w)
 				default:
 					t.Errorf("unexpected path: %s", r.URL.Path)
 				}
@@ -911,5 +912,22 @@ func TestDiscoverKoboldCPP_ImageListingSendsKey(t *testing.T) {
 	}
 	if len(models) != 1 || models[0].ModelID != "koboldcpp/dreamshaper_8" {
 		t.Fatalf("expected koboldcpp/dreamshaper_8, got %d models", len(models))
+	}
+}
+
+// With no chat model loaded, side models still never share an ID: an image
+// file named tts keeps koboldcpp/tts, and the fixed-ID tts model steps aside.
+func TestDiscoverKoboldCPP_SharedSideModelIDWithoutChatModel(t *testing.T) {
+	srv := sideModelServer(t,
+		`{"result":"KoboldCpp","version":"1.122.1","llm":false,"txt2img":true,"tts":true}`,
+		`[{"model_name":"tts"}]`)
+
+	svc := &DiscoveryService{httpClient: srv.Client()}
+	models, err := svc.discoverKoboldCPP(context.Background(), &Provider{ID: uuid.New(), BaseURL: srv.URL}, "")
+	if err != nil {
+		t.Fatalf("discoverKoboldCPP: %v", err)
+	}
+	if len(models) != 1 || models[0].ModelID != "koboldcpp/tts" || models[0].Modality != "image" {
+		t.Fatalf("expected only the image model under koboldcpp/tts, got %d models", len(models))
 	}
 }

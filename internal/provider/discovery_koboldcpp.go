@@ -209,12 +209,12 @@ func (d *DiscoveryService) koboldcppSideModels(ctx context.Context, provider *Pr
 
 // koboldcppImageModelID names the image model from /sdapi/v1/sd-models, which
 // KoboldCPP, where it serves the listing, answers with the one loaded model.
-// When the server has no such listing (404), answers it with something that
-// is not a listing, or names nothing, the image model gets the fixed fallback
-// ID: the txt2img flag proved image generation is served, and the name is
-// missing for good.
+// When the server has no such listing (404) or its listing names nothing, the
+// image model gets the fixed fallback ID: the txt2img flag proved image
+// generation is served, and the name is missing for good.
 //
-// A failed request may be transient, and falling back then would swap the
+// Any other failed or unreadable answer may be transient (an error page from
+// something in front of the server), and falling back then would swap the
 // model's ID for one scan and back on the next, leaving a stray model and a
 // missing-scan strike on the real one. So ok is false and the image model sits
 // this scan out, which is one strike on an ID that stays put.
@@ -231,7 +231,7 @@ func (d *DiscoveryService) koboldcppImageModelID(ctx context.Context, apiBase, a
 	var list []KoboldCPPSDModel
 	if err := json.Unmarshal(bodyBytes, &list); err != nil {
 		debuglog.Info("discovery: koboldcpp image model listing undecodable", "error", err)
-		return koboldcppImageFallbackID, true
+		return "", false
 	}
 	if len(list) == 0 || strings.TrimSpace(list[0].ModelName) == "" {
 		debuglog.Info("discovery: koboldcpp image model listing names no model")

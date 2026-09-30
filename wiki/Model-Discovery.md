@@ -829,7 +829,7 @@ KoboldCPP also serves one side model per endpoint, and the version endpoint's fl
 
 | Flag | Model ID | Class |
 |------|----------|-------|
-| `txt2img` | `koboldcpp/<name>` from `GET /sdapi/v1/sd-models`, or `koboldcpp/image` when the server has no such listing, answers it with something that is not a listing, or names nothing. A failed request may be transient, so the image model sits that scan out rather than change its ID | `image` |
+| `txt2img` | `koboldcpp/<name>` from `GET /sdapi/v1/sd-models`, or `koboldcpp/image` when the server has no such listing or it names nothing. Any other failed or unreadable answer may be transient, so the image model sits that scan out rather than change its ID | `image` |
 | `tts` | `koboldcpp/tts` | `tts` |
 | `transcribe` | `koboldcpp/whisper` | `stt` |
 | `embeddings` | `koboldcpp/embeddings` | `embedding` |
