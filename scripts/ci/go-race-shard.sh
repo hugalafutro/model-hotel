@@ -36,9 +36,16 @@ packages() {
 
 # tests_in DIR prints the package's top-level test, example and fuzz names,
 # sorted and unique (an internal and an external test package can share a
-# directory; a name can only be declared once per package anyway).
+# directory; a name can only be declared once per package anyway). The files
+# come from `go list`, which applies build constraints the way the race job's
+# `go test` will (a //go:build live file is left out, a //go:build linux one
+# kept) and reads sources only, never running a TestMain.
 tests_in() {
-	grep -hoE '^func (Test|Example|Fuzz)[A-Za-z0-9_]*\(' "$1"/*_test.go |
+	local files
+	files=$(go list -f '{{range .TestGoFiles}}{{$.Dir}}/{{.}} {{end}}{{range .XTestGoFiles}}{{$.Dir}}/{{.}} {{end}}' "./$1")
+	[ -n "$files" ] || return 0
+	# shellcheck disable=SC2086 # one argument per file; paths hold no spaces
+	grep -hoE '^func (Test|Example|Fuzz)[A-Za-z0-9_]*\(' $files |
 		sed -E 's/^func //; s/\($//' | grep -vx 'TestMain' | sort -u || true
 }
 
@@ -103,11 +110,22 @@ run() {
 	# One `go test` per heavy package: -run applies to every package of an
 	# invocation, and a name one heavy package gives this shard may belong to
 	# another shard in a second package.
+	#
+	# A -run pattern that matches nothing still exits 0, printing "[no tests to
+	# run]", which would leave the shard green with nothing raced. Each heavy
+	# package's output is kept (and still streamed) so that line fails the shard.
+	# Light packages run whole without -run, where the same line only means a
+	# package whose test files hold helpers and no tests.
+	local tmp
+	tmp=$(mktemp -d)
+	trap 'rm -rf "$tmp"' RETURN
 	local pids=()
 	for dir in $heavy_dirs; do
 		regex=$(awk -v d="$dir" '$1 == "heavy" && $2 == d { print $3 }' <<<"$p" | paste -sd '|')
 		echo "shard $shard/$total: ./$dir, $(awk -v d="$dir" '$1 == "heavy" && $2 == d' <<<"$p" | wc -l) tests"
-		go test -race -count=1 -timeout "$TIMEOUT" -run "^($regex)\$" "./$dir" &
+		mkdir -p "$tmp/$dir"
+		go test -race -count=1 -timeout "$TIMEOUT" -run "^($regex)\$" "./$dir" 2>&1 |
+			tee "$tmp/$dir/out" &
 		pids+=($!)
 	done
 	if [ -n "$light_dirs" ]; then
@@ -118,6 +136,13 @@ run() {
 	fi
 	for pid in "${pids[@]}"; do
 		wait "$pid" || status=1
+	done
+	for dir in $heavy_dirs; do
+		# go's own summary line, so a test that prints the phrase cannot match.
+		if grep -qE '^ok[[:space:]].*\[no tests to run\]$' "$tmp/$dir/out"; then
+			echo "FAIL: ./$dir ran no tests on shard $shard/$total: its -run pattern matched nothing" >&2
+			status=1
+		fi
 	done
 	return "$status"
 }
