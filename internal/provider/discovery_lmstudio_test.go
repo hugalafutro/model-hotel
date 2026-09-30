@@ -328,7 +328,9 @@ func TestDiscoverLMStudio_Native_Capabilities(t *testing.T) {
 			{"id":"text-embedding-nomic","type":"embeddings","max_context_length":2048},
 			{"id":"future-type","type":"something-new","max_context_length":4096},
 			{"id":"no-type","max_context_length":8192},
-			{"id":"bge-reranker-v2-m3","type":"rerank","max_context_length":8192}
+			{"id":"bge-reranker-v2-m3","type":"rerank","max_context_length":8192},
+			{"id":"reranker-chat-finetune","type":"llm","max_context_length":8192},
+			{"id":"text-embedding-untyped","max_context_length":2048}
 		]}`))
 	}))
 	defer srv.Close()
@@ -349,6 +351,10 @@ func TestDiscoverLMStudio_Native_Capabilities(t *testing.T) {
 		"future-type":        {Streaming: true, StructuredOutput: true},
 		"no-type":            {Streaming: true, StructuredOutput: true},
 		"bge-reranker-v2-m3": {},
+		// A stated llm type wins over a name that reads as a reranker; an
+		// untyped model named like an embedder is filed as one and gets none.
+		"reranker-chat-finetune": {Streaming: true, StructuredOutput: true},
+		"text-embedding-untyped": {},
 	}
 	if len(models) != len(want) {
 		t.Fatalf("got %d models, want %d", len(models), len(want))
