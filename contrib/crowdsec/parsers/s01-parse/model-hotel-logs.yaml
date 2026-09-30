@@ -221,8 +221,12 @@ nodes:
   # only ever read from real attribute text) and a caller suppressing it
   # (which this must not allow, or appending "remote_addr=" to a request path
   # would be a way to never get banned).
+  #
+  # The first token ends where NOTSPACE stops, at a space, and the walk after
+  # it may be empty, so a second token right next to the first
+  # ("remote_addr=A remote_addr=B") trips this as surely as a distant one.
   - grok:
-      pattern: '^(?:[^"]|"(?:[^"\\]|\\.)*")*?(?:^|[ ])(remote_addr|remote|client_ip|ip)=%{NOTSPACE} (?:[^"]|"(?:[^"\\]|\\.)*")*?[ ](remote_addr|remote|client_ip|ip)=%{NOTSPACE:mh_dupaddr}'
+      pattern: '^(?:[^"]|"(?:[^"\\]|\\.)*")*?(?:^|[ ])(remote_addr|remote|client_ip|ip)=%{NOTSPACE}(?:[^"]|"(?:[^"\\]|\\.)*")*?[ ](remote_addr|remote|client_ip|ip)=%{NOTSPACE:mh_dupaddr}'
       apply_on: mh_attrs
 
   # Both shapes end here. Only now is the candidate required to be an address,

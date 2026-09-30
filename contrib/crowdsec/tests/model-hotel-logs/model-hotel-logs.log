@@ -35,3 +35,5 @@ time=2026-08-18T04:15:34.123Z level=WARN msg="auth: admin request with invalid t
 time=2026-08-18T04:15:35.123Z level=ERROR msg="frontdesk: metrics scrape with invalid token remote_addr=203.0.113.77 is unreachable after 3 checks" member=7f3a9c21
 2026/08/18 04:15:36 level=WARNING auth: insufficient permissions remote_addr=203.0.113.31 username="bob path=/x" path=/api/providers
 2026/08/18 04:15:37 level=WARNING auth: admin request with invalid token remote_addr=203.0.113.32 path="/a\"b c"
+2026/08/18 04:15:38 level=WARNING auth: admin request with invalid token remote_addr=198.51.100.36 remote_addr=203.0.113.77 path=/api/x
+time=2026-08-18T04:15:39.123Z level=WARN msg="auth: admin request with invalid token" remote_addr=203.0.113.33 remote_addr=203.0.113.77

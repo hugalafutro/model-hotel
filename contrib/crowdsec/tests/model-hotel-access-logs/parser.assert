@@ -1,4 +1,4 @@
-len(results["s01-parse"]["hugalafutro/model-hotel-access-logs"]) == 9
+len(results["s01-parse"]["hugalafutro/model-hotel-access-logs"]) == 10
 
 results["s01-parse"]["hugalafutro/model-hotel-access-logs"][0].Success == true
 results["s01-parse"]["hugalafutro/model-hotel-access-logs"][0].Evt.Meta["log_type"] == "http_access-log"
@@ -48,3 +48,7 @@ results["s01-parse"]["hugalafutro/model-hotel-access-logs"][7].Evt.Meta["http_st
 results["s01-parse"]["hugalafutro/model-hotel-access-logs"][8].Success == false
 results["s01-parse"]["hugalafutro/model-hotel-access-logs"][8].Evt.Meta["log_type"] == ""
 results["s01-parse"]["hugalafutro/model-hotel-access-logs"][8].Evt.Meta["source_ip"] == ""
+
+results["s01-parse"]["hugalafutro/model-hotel-access-logs"][9].Success == false
+results["s01-parse"]["hugalafutro/model-hotel-access-logs"][9].Evt.Meta["source_ip"] == ""
+results["s01-parse"]["hugalafutro/model-hotel-access-logs"][9].Evt.Meta["log_type"] == ""

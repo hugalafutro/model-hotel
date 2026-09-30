@@ -7,3 +7,4 @@
 time=2026-08-18T04:15:36.123Z level=WARN msg="access: request" method=GET host=fd.example.com remote=198.51.100.94 status=401 bytes=42 duration=1.234ms path=/api/members
 time=2026-08-18T04:15:37.123Z level=WARN msg="access: request" method=GET host=fd.example.com remote=198.51.100.93 status=404 bytes=19 duration=812µs path="/api/zz auth: key not found remote=203.0.113.77"
 time=2026-08-18T04:15:38.123Z level=WARN msg="auth: admin request with invalid token" remote_addr=198.51.100.92 path="/x access: request remote=203.0.113.77 status=404"
+2026/08/18 04:15:39 level=WARNING access: request method=GET host=mh.example.com remote=198.51.100.91 remote=203.0.113.77 status=404 bytes=19 path=/api/zz
