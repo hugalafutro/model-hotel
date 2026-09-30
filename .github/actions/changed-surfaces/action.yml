@@ -31,6 +31,9 @@ outputs:
   sizegate:
     description: the size gate's own script or allowlist changed
     value: ${{ steps.filter.outputs.sizegate }}
+  gorace:
+    description: the race job's shard script changed
+    value: ${{ steps.filter.outputs.gorace }}
   crowdsec:
     description: the CrowdSec collection (parsers, scenarios, fixtures) changed
     value: ${{ steps.filter.outputs.crowdsec }}
@@ -82,7 +85,7 @@ runs:
         # workflow_dispatch answer: a manual run is an explicit "test it all".
         run_everything() {
           echo "running everything: $1"
-          for k in go web fdweb workflows deps i18n sizegate image python android crowdsec measurable all_coverage; do
+          for k in go web fdweb workflows deps i18n sizegate gorace image python android crowdsec measurable all_coverage; do
             echo "$k=true" >> "$GITHUB_OUTPUT"
           done
           echo "codeql_langs=$ALL_LANGS" >> "$GITHUB_OUTPUT"
@@ -168,6 +171,9 @@ runs:
         # (dropping an entry for a file still over its ceiling has to fail), so a
         # change to the gate's own files runs it even with no source change.
         sizegate=$(match '^scripts/ci/size-')
+        # The race job's shard script decides what the race detector runs, so a
+        # change to it alone runs that job (and only that job).
+        gorace=$(match '^scripts/ci/go-race-shard\.sh$')
         python=$(match '\.py$')
         # The collection's parsers, scenarios and hubtest fixtures are one unit:
         # a fixture asserts what a parser produces, so either side changing has
@@ -250,6 +256,7 @@ runs:
           echo "deps=$deps"
           echo "i18n=$i18n"
           echo "sizegate=$sizegate"
+          echo "gorace=$gorace"
           echo "image=$image"
           echo "python=$python"
           echo "android=$android"
@@ -271,6 +278,7 @@ runs:
           echo "| dependencies | $deps |"
           echo "| i18n | $i18n |"
           echo "| size gate | $sizegate |"
+          echo "| race shard script | $gorace |"
           echo "| image | $image |"
           echo "| Python | $python |"
           echo "| android/ | $android |"

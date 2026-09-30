@@ -51,6 +51,7 @@ jobs:
       deps: ${{ steps.filter.outputs.deps }}
       i18n: ${{ steps.filter.outputs.i18n }}
       sizegate: ${{ steps.filter.outputs.sizegate }}
+      gorace: ${{ steps.filter.outputs.gorace }}
       crowdsec: ${{ steps.filter.outputs.crowdsec }}
       image: ${{ steps.filter.outputs.image }}
       measurable: ${{ steps.filter.outputs.measurable }}
@@ -168,7 +169,7 @@ jobs:
   go-race:
     name: Go Race
     needs: changes
-    if: needs.changes.outputs.go != 'false'
+    if: needs.changes.outputs.go != 'false' || needs.changes.outputs.gorace != 'false'
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
@@ -203,6 +204,11 @@ jobs:
       # is installed here).
       - name: Check pg_dump / pg_restore are present for backup tests
         run: pg_dump --version && pg_restore --version
+
+      # Cheap and source-only: proves every test lands on exactly one shard
+      # before the shard trusts its plan.
+      - name: Check the race shard split
+        run: scripts/ci/go-race-shard.sh --check 3
 
       # The 20m clock per test binary is kept from the unsplit job: a shard of a
       # large package takes a fraction of it.
