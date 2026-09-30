@@ -528,10 +528,13 @@ Two of the six rows are not price overrides but the only source of the model at 
 | Reasoning | `"thinking"` in capabilities array |
 | Vision | `"vision"` in capabilities array |
 | Input modalities | Vision → `["text","image"]`, else `["text"]` |
-| Output modalities | `"embedding"` with no `"completion"` → `["embedding"]`, otherwise `["text"]` |
+| Output modalities | As discovered: `"embedding"` with no `"completion"` → `["embedding"]`, otherwise `["text"]`. What is stored follows the class the model is filed under, so a model listing both whose name reads as an embedder is stored as `["embedding"]` |
 | Endpoint class | `"completion"` with no `"embedding"` beside it is stated as an explicit `chat` class, so the central name heuristics cannot reclassify a chat model whose name merely contains "embed". A listing naming both, or neither (older Ollama), leaves the class to be derived. |
+| Streaming, structured output | Set on exactly the models filed as chat (the class above, or the one derived from the same arrays and the name), since a local Ollama streams and constrains decoding to a `response_format` JSON schema on every chat model. An embeddings model carries neither. A model Ollama's cloud answers (a cloud-tagged local model such as `gpt-oss:120b-cloud`, and every Ollama Cloud model) keeps streaming but not structured output: see Ollama Cloud below. |
 
 Ollama reports capabilities authoritatively, so an embedding-only model is kept out of the chat pickers rather than guessed at.
+
+Context length is the model's trained context (`*.context_length`). A local Ollama serves a smaller window unless it is configured otherwise: it picks 4k below 24 GiB of VRAM, 32k up to 48 GiB and 256k above, overridden by `OLLAMA_CONTEXT_LENGTH` on the server. Set that if clients rely on the advertised figure.
 
 **Hardcoded / missing:**
 
@@ -548,9 +551,10 @@ Ollama reports capabilities authoritatively, so an embedding-only model is kept 
 
 **Method:** Identical to local Ollama above: `ollama.com` serves the same `/api/tags` plus `/api/show` pair, so the same code path runs against it. The type is a separate one only because the host is known (`ollama.com` and its subdomains resolve to `ollama-cloud`) whereas a self-hosted Ollama runs on whatever address the operator gave and has to be chosen and probed.
 
-Two differences follow from it being a hosted service rather than a local one:
+Three differences follow from it being a hosted service rather than a local one:
 
 - The provider carries an API key, and an extra account endpoint is available (`POST /api/me`, see [Additional Provider APIs](#additional-provider-apis)).
+- Structured output is never advertised. The cloud accepts a `response_format` JSON schema and ignores it, answering in free text ([ollama/ollama#12362](https://github.com/ollama/ollama/issues/12362), verified on three cloud models), so a client choosing a mode from `capabilities.structured_output` would get unvalidated output. The same holds for a local Ollama's cloud-tagged models (`-cloud` / `:cloud`), which it forwards to the cloud, and models.dev enrichment is not allowed to merge the flag back in.
 - `ollama-cloud` is deliberately absent from the canonical models.dev map. The models.dev `ollama-cloud` entry is subscription-shaped and carries no cost data at all, so mapping it would return canonical specs whose empty prices block the cross-provider index, which is this provider's only pricing source.
 
 ### Z.AI (Zhipu)
