@@ -126,8 +126,10 @@ func isNoisyGatewayPath(method, path string) bool {
 	return isProviderQuotaRead(path)
 }
 
-// isProviderQuotaRead matches GET /api/providers/{id}/usage, /balance and
-// /account, the per-provider quota reads the badges repeat on a timer.
+// isProviderQuotaRead matches /api/providers/{id}/usage, /balance and
+// /account, the per-provider quota reads the badges repeat on a timer. It
+// checks the shape only: isNoisyGatewayPath has already required GET, and the
+// path arrives slash-normalized.
 func isProviderQuotaRead(path string) bool {
 	rest, ok := strings.CutPrefix(path, "/api/providers/")
 	if !ok {
