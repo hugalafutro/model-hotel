@@ -66,12 +66,14 @@ type NeuralWattQuotaResponse struct {
 
 // OpenAIModel represents a model from the OpenAI API.
 //
-// Architecture and Meta are not OpenAI's: they are what self-hosted servers
-// add to the same listing. llama.cpp's llama-server (in the OpenRouter shape)
-// reports each model's input modalities under architecture, and once a model
-// is loaded, the context it actually runs with under meta.n_ctx. Both are kept
-// raw and read leniently (listingInputModalities, listingContext): a server
-// that sends either in a shape of its own must not fail the decode of the
+// Architecture, Meta and MaxModelLen are not OpenAI's: they are what
+// self-hosted servers add to the same listing. llama.cpp's llama-server (in
+// the OpenRouter shape) reports each model's input modalities under
+// architecture and, once a model is loaded, the context it runs with under
+// meta.n_ctx; vLLM reports the context it serves as max_model_len. All are
+// kept raw and read leniently (listingInputModalities, listingContext,
+// wholePositive): a
+// server that sends one in a shape of its own must not fail the decode of the
 // whole listing.
 type OpenAIModel struct {
 	ID           string          `json:"id"`
@@ -80,6 +82,7 @@ type OpenAIModel struct {
 	OwnedBy      string          `json:"owned_by"`
 	Architecture json.RawMessage `json:"architecture,omitempty"`
 	Meta         json.RawMessage `json:"meta,omitempty"`
+	MaxModelLen  json.RawMessage `json:"max_model_len,omitempty"`
 }
 
 // OpenAIModelsResponse is the response from the OpenAI models endpoint.

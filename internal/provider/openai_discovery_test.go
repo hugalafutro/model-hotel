@@ -372,3 +372,53 @@ func TestDiscoverOpenAI_ListingExtrasOfAnotherShapeAreIgnored(t *testing.T) {
 		}
 	}
 }
+
+// vLLM reports the context it serves as max_model_len on each /models entry;
+// a custom provider takes it as a live context in any whole-number spelling,
+// ignores a malformed one, and prefers a valid llama.cpp meta.n_ctx when both
+// are present.
+func TestDiscoverOpenAI_VLLMMaxModelLen(t *testing.T) {
+	body := `{"object":"list","data":[
+		{"id":"qwen3-0.6b","object":"model","owned_by":"vllm","root":"/models/Qwen3-0.6B","parent":null,"max_model_len":8192},
+		{"id":"float","object":"model","owned_by":"vllm","max_model_len":4096.0},
+		{"id":"quoted","object":"model","owned_by":"vllm","max_model_len":"2048"},
+		{"id":"both","object":"model","owned_by":"x","max_model_len":32768,"meta":{"n_ctx":8192}},
+		{"id":"badnctx","object":"model","owned_by":"x","max_model_len":1024,"meta":{"n_ctx":"nope"}},
+		{"id":"odd","object":"model","owned_by":"vllm","max_model_len":"lots"},
+		{"id":"fraction","object":"model","owned_by":"vllm","max_model_len":4096.5},
+		{"id":"null","object":"model","owned_by":"vllm","max_model_len":null},
+		{"id":"negative","object":"model","owned_by":"vllm","max_model_len":-1},
+		{"id":"huge","object":"model","owned_by":"vllm","max_model_len":3e12}
+	]}`
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(body))
+	}))
+	defer server.Close()
+
+	prov := &Provider{ID: uuid.New(), BaseURL: server.URL + "/v1", ProviderType: "custom"}
+	models, err := NewDiscoveryService(nil, nil).discoverOpenAI(context.Background(), prov, "")
+	if err != nil {
+		t.Fatalf("discoverOpenAI: %v", err)
+	}
+	want := map[string]int{"qwen3-0.6b": 8192, "float": 4096, "quoted": 2048, "both": 8192, "badnctx": 1024,
+		"odd": 0, "fraction": 0, "null": 0, "negative": 0, "huge": 0}
+	if len(models) != len(want) {
+		t.Fatalf("discovered %d models, want %d", len(models), len(want))
+	}
+	for _, m := range models {
+		w, ok := want[m.ModelID]
+		if !ok {
+			t.Fatalf("unexpected model %q", m.ModelID)
+		}
+		if w == 0 {
+			if m.ContextLength != nil || m.LiveMeta.ContextLength {
+				t.Errorf("%s: context %v live %v, want none", m.ModelID, m.ContextLength, m.LiveMeta.ContextLength)
+			}
+			continue
+		}
+		if m.ContextLength == nil || *m.ContextLength != w || !m.LiveMeta.ContextLength {
+			t.Errorf("%s: context %v live %v, want %d live", m.ModelID, m.ContextLength, m.LiveMeta.ContextLength, w)
+		}
+	}
+}
