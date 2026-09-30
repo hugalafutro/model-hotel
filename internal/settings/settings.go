@@ -17,6 +17,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/hugalafutro/model-hotel/internal/debuglog"
+	"github.com/hugalafutro/model-hotel/internal/util"
 )
 
 // KeyRequestTimeout is the per-attempt upstream timeout the proxy applies to a
@@ -641,35 +642,12 @@ func (r *Repository) GetDurationChecked(ctx context.Context, key string, default
 	if !found {
 		return defaultValue, nil
 	}
-	d, perr := parseDuration(val)
+	d, perr := util.ParseDuration(val)
 	if perr != nil {
 		debuglog.Warn("settings: failed to parse as duration, using default", "key", key, "default", defaultValue, "error", perr)
 		return defaultValue, nil
 	}
 	return d, nil
-}
-
-// parseDuration parses a Go time.Duration string and also accepts the "d" suffix
-// for day units (1d = 24h0m0s), which Go's time.ParseDuration does not support.
-func parseDuration(s string) (time.Duration, error) {
-	days := 0
-	if i := strings.IndexByte(s, 'd'); i >= 0 {
-		dayStr := s[:i]
-		n, err := strconv.Atoi(dayStr)
-		if err != nil {
-			return 0, fmt.Errorf("invalid day suffix in duration %q: %w", s, err)
-		}
-		days = n
-		s = s[i+1:]
-	}
-	if s == "" {
-		return time.Duration(days) * 24 * time.Hour, nil
-	}
-	d, err := time.ParseDuration(s)
-	if err != nil {
-		return 0, err
-	}
-	return d + time.Duration(days)*24*time.Hour, nil
 }
 
 // GetFloat retrieves a setting and parses it as a float64.
