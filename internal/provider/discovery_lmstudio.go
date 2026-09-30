@@ -90,10 +90,11 @@ func (d *DiscoveryService) discoverLMStudioNative(ctx context.Context, provider 
 // using the reported type to set the modality (so embedding models are hidden
 // from the chat picker).
 //
-// The native listing's type field is authoritative: it is expressed through
-// the modality arrays, and llm and vlm state the chat class explicitly so a
-// name heuristic never reclassifies one. Every other type leaves the class to
-// DeriveModelClass, asked here once with the same arrays the model is filed
+// The native listing's type is authoritative for the three types LM Studio
+// reports: llm and vlm state the chat class explicitly so a name heuristic
+// never reclassifies one, and embeddings is expressed through the output array,
+// which DeriveModelClass reads before any name. Every other type leaves the
+// class to DeriveModelClass, asked here once with the same arrays the model is filed
 // with, so the chat capabilities go to exactly the models filed as chat: an
 // embeddings model, or an unknown type named like a reranker, gets none, and
 // the pills never disagree with the class. Tool calling comes from the model's
