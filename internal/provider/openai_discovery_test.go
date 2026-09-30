@@ -385,6 +385,7 @@ func TestDiscoverOpenAI_VLLMMaxModelLen(t *testing.T) {
 		{"id":"both","object":"model","owned_by":"x","max_model_len":32768,"meta":{"n_ctx":8192}},
 		{"id":"badnctx","object":"model","owned_by":"x","max_model_len":1024,"meta":{"n_ctx":"nope"}},
 		{"id":"odd","object":"model","owned_by":"vllm","max_model_len":"lots"},
+		{"id":"fraction","object":"model","owned_by":"vllm","max_model_len":4096.5},
 		{"id":"null","object":"model","owned_by":"vllm","max_model_len":null},
 		{"id":"negative","object":"model","owned_by":"vllm","max_model_len":-1},
 		{"id":"huge","object":"model","owned_by":"vllm","max_model_len":3e12}
@@ -401,7 +402,7 @@ func TestDiscoverOpenAI_VLLMMaxModelLen(t *testing.T) {
 		t.Fatalf("discoverOpenAI: %v", err)
 	}
 	want := map[string]int{"qwen3-0.6b": 8192, "float": 4096, "quoted": 2048, "both": 8192, "badnctx": 1024,
-		"odd": 0, "null": 0, "negative": 0, "huge": 0}
+		"odd": 0, "fraction": 0, "null": 0, "negative": 0, "huge": 0}
 	if len(models) != len(want) {
 		t.Fatalf("discovered %d models, want %d", len(models), len(want))
 	}

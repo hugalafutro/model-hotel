@@ -73,7 +73,8 @@ func (d *DiscoveryService) discoverOpenAI(ctx context.Context, provider *Provide
 // llama.cpp's meta.n_ctx, only there while the model is loaded, or vLLM's
 // max_model_len, part of the server's configuration and so on every scan.
 // A valid meta.n_ctx wins; an absent or malformed one falls back to
-// max_model_len, and a scan that finds neither leaves the stored value alone. A listing that carries none of these (OpenAI's own, most servers) is
+// max_model_len, and a scan that finds neither leaves the stored value alone.
+// A listing that carries none of these (OpenAI's own, most servers) is
 // unaffected.
 func applyListingExtras(m *model.Model, entry OpenAIModel) *model.Model {
 	if input := listingInputModalities(entry.Architecture); len(input) > 0 {
