@@ -232,9 +232,22 @@ function RequestLogs() {
 
 	// The stepper walks whichever list is on screen behind the modal.
 	const navEntries = viewMode === "scroll" ? scrollEntries : displayEntries;
+	// The modal reads the row's current version from the list, so live updates
+	// (pending -> streaming -> completed) reach it the same way they reach the
+	// row. Each version at least as fresh as the one shown becomes the
+	// selection: a page fetched before a live merge cannot take the modal
+	// back, and a row that leaves the list (a refetch pushed it to another
+	// page) stays at the last state the modal showed.
+	const listedLog = navEntries.find((entry) => entry.id === selectedLog?.id);
+	const listedIsFresh =
+		listedLog !== undefined &&
+		selectedLog !== null &&
+		!keepFresherRow(selectedLog, listedLog);
+	if (listedIsFresh && listedLog !== selectedLog) setSelectedLog(listedLog);
+	const openLog = listedIsFresh ? listedLog : selectedLog;
 	const logNav = useModalNav(
 		navEntries,
-		selectedLog,
+		openLog,
 		setSelectedLog,
 		(entry) => entry.id,
 	);
@@ -249,11 +262,14 @@ function RequestLogs() {
 
 	return (
 		<>
-			{selectedLog && (
+			{openLog && (
 				<LogDetailModal
-					log={selectedLog}
+					log={openLog}
 					type="request"
 					nav={logNav}
+					// Only a listed row keeps receiving updates. An unlisted one
+					// shows its last known state rather than counting up forever.
+					clock={listedLog ? { nowMs, staleThresholdMs } : undefined}
 					onClose={() => setSelectedLog(null)}
 				/>
 			)}
