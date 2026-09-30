@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"slices"
 
 	"github.com/google/uuid"
 
@@ -23,12 +24,15 @@ type LMStudioV0ModelsResponse struct {
 }
 
 // LMStudioV0Model is a single entry from LM Studio's /api/v0/models.
+// Capabilities lists what the model's chat template supports natively; its
+// "tool_use" entry is the one discovery reads.
 type LMStudioV0Model struct {
-	ID               string `json:"id"`
-	Type             string `json:"type"` // "llm" | "vlm" | "embeddings"
-	Publisher        string `json:"publisher"`
-	Arch             string `json:"arch"`
-	MaxContextLength int    `json:"max_context_length"`
+	ID               string   `json:"id"`
+	Type             string   `json:"type"` // "llm" | "vlm" | "embeddings"
+	Publisher        string   `json:"publisher"`
+	Arch             string   `json:"arch"`
+	MaxContextLength int      `json:"max_context_length"`
+	Capabilities     []string `json:"capabilities"`
 }
 
 func (d *DiscoveryService) discoverLMStudio(ctx context.Context, provider *Provider, apiKey string) ([]*model.Model, error) {
@@ -85,29 +89,43 @@ func (d *DiscoveryService) discoverLMStudioNative(ctx context.Context, provider 
 // buildLMStudioNativeModel maps a native /api/v0 model entry to a model.Model,
 // using the reported type to set the modality (so embedding models are hidden
 // from the chat picker).
+//
+// The native listing's type is authoritative for the three types LM Studio
+// reports: llm and vlm state the chat class explicitly so a name heuristic
+// never reclassifies one, and embeddings is expressed through the output array,
+// which DeriveModelClass reads before any name. Every other type leaves the
+// class to DeriveModelClass, asked here once with the same arrays the model is filed
+// with, so the chat capabilities go to exactly the models filed as chat: an
+// embeddings model, or an unknown type named like a reranker, gets none, and
+// the pills never disagree with the class. Tool calling comes from the model's
+// own capabilities list, which LM Studio derives from the chat template.
 func buildLMStudioNativeModel(provider *Provider, m LMStudioV0Model) *model.Model {
-	caps := model.Capability{
-		Streaming:        true,
-		StructuredOutput: true, // LM Studio supports response_format with JSON schema
-	}
-
-	// The native listing's type field is authoritative; express it through
-	// the modality arrays, and state the chat class explicitly for llm and
-	// vlm so a name heuristic never reclassifies one, leaving the endpoint
-	// class to be derived centrally otherwise.
-	inputMods := `["text"]`
-	outputMods := `["text"]`
+	input := []string{"text"}
+	output := []string{"text"}
 	modality := ""
 	switch m.Type {
 	case "embeddings":
-		outputMods = `["embedding"]`
+		output = []string{"embedding"}
 	case "vlm":
-		caps.Vision = true
-		inputMods = `["text","image"]`
+		input = []string{"text", "image"}
 		modality = "chat"
 	case "llm":
 		modality = "chat"
 	}
+	class := modality
+	if class == "" {
+		class = DeriveModelClass(input, output, m.ID)
+	}
+
+	var caps model.Capability
+	caps.Vision = m.Type == "vlm"
+	if class == "chat" {
+		caps.Streaming = true
+		caps.StructuredOutput = true // LM Studio supports response_format with JSON schema
+		caps.ToolCalling = slices.Contains(m.Capabilities, "tool_use")
+	}
+	inputMods, _ := json.Marshal(input)
+	outputMods, _ := json.Marshal(output)
 	capJSON, _ := json.Marshal(caps)
 
 	ownedBy := m.Publisher
@@ -130,8 +148,8 @@ func buildLMStudioNativeModel(provider *Provider, m LMStudioV0Model) *model.Mode
 		Description:      "LM Studio local model",
 		Capabilities:     string(capJSON),
 		Params:           "{}",
-		InputModalities:  inputMods,
-		OutputModalities: outputMods,
+		InputModalities:  string(inputMods),
+		OutputModalities: string(outputMods),
 		Modality:         modality,
 		ContextLength:    contextLength,
 		OwnedBy:          ownedBy,

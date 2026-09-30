@@ -311,3 +311,69 @@ func TestDiscoverLMStudio_NoAPIKey(t *testing.T) {
 		t.Errorf("expected no Authorization header when apiKey is empty, got %q", authHeader)
 	}
 }
+
+// Capabilities follow what LM Studio reports per model: tool calling from its
+// "tool_use" entry (on llm and vlm alike), and no chat capabilities at all on
+// an embeddings model, which streams nothing and takes no response_format.
+func TestDiscoverLMStudio_Native_Capabilities(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/api/v0/models" {
+			t.Errorf("unexpected path: %s", r.URL.Path)
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"object":"list","data":[
+			{"id":"qwen3-4b","type":"llm","max_context_length":32768,"capabilities":["tool_use"]},
+			{"id":"llama-3.2-1b","type":"llm","max_context_length":131072},
+			{"id":"qwen3.5-9b","type":"vlm","max_context_length":262144,"capabilities":["tool_use"]},
+			{"id":"text-embedding-nomic","type":"embeddings","max_context_length":2048},
+			{"id":"future-type","type":"something-new","max_context_length":4096},
+			{"id":"no-type","max_context_length":8192},
+			{"id":"bge-reranker-v2-m3","type":"rerank","max_context_length":8192},
+			{"id":"reranker-chat-finetune","type":"llm","max_context_length":8192},
+			{"id":"text-embedding-untyped","max_context_length":2048},
+			{"id":"gpt-chrono","type":"embeddings","max_context_length":2048}
+		]}`))
+	}))
+	defer srv.Close()
+
+	svc := &DiscoveryService{httpClient: srv.Client()}
+	models, err := svc.discoverLMStudio(context.Background(), &Provider{ID: uuid.New(), BaseURL: srv.URL + "/v1"}, "")
+	if err != nil {
+		t.Fatalf("discoverLMStudio: %v", err)
+	}
+	want := map[string]model.Capability{
+		"qwen3-4b":             {Streaming: true, StructuredOutput: true, ToolCalling: true},
+		"llama-3.2-1b":         {Streaming: true, StructuredOutput: true},
+		"qwen3.5-9b":           {Streaming: true, StructuredOutput: true, ToolCalling: true, Vision: true},
+		"text-embedding-nomic": {},
+		// An absent or unknown type gets what its derived class implies: chat
+		// capabilities when filed as chat, none when its name reads as a
+		// reranker.
+		"future-type":        {Streaming: true, StructuredOutput: true},
+		"no-type":            {Streaming: true, StructuredOutput: true},
+		"bge-reranker-v2-m3": {},
+		// A stated llm type wins over a name that reads as a reranker; an
+		// untyped model named like an embedder is filed as one and gets none.
+		"reranker-chat-finetune": {Streaming: true, StructuredOutput: true},
+		"text-embedding-untyped": {},
+		// A stated embeddings type wins over a name that reads as chat.
+		"gpt-chrono": {},
+	}
+	if len(models) != len(want) {
+		t.Fatalf("got %d models, want %d", len(models), len(want))
+	}
+	for _, m := range models {
+		var got model.Capability
+		if err := json.Unmarshal([]byte(m.Capabilities), &got); err != nil {
+			t.Fatalf("%s: capabilities %q: %v", m.ModelID, m.Capabilities, err)
+		}
+		if got != want[m.ModelID] {
+			t.Errorf("%s: capabilities = %+v, want %+v", m.ModelID, got, want[m.ModelID])
+		}
+		// The pills agree with the class the model is filed under.
+		NormalizeModelClassification(m)
+		if got.Streaming != (m.Modality == "chat") {
+			t.Errorf("%s: streaming=%v but class %q", m.ModelID, got.Streaming, m.Modality)
+		}
+	}
+}
