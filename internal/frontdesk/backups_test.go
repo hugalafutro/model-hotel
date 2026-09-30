@@ -111,19 +111,22 @@ func TestBackupStaleEmitsOnceAcrossPolls(t *testing.T) {
 // TestBackupStaleThresholdBoundary pins the VALUE of memberBackupStaleAfter,
 // not merely the direction. The ages are written as literals on purpose: an age
 // expressed relative to the constant would follow it wherever it moved and
-// prove only that older is staler. 23 hours must stay quiet and 25 hours must
-// alert, so any threshold other than a day fails here.
+// prove only that older is staler. A daily member whose next dump is still
+// being written is a minute or so past a day and must stay quiet (the false
+// alert this grace exists for); a member that missed its day by more than the
+// hour of grace must alert.
 func TestBackupStaleThresholdBoundary(t *testing.T) {
-	if memberBackupStaleAfter != 24*time.Hour {
-		t.Fatalf("memberBackupStaleAfter = %s; the cases below are written for 24h", memberBackupStaleAfter)
+	if memberBackupStaleAfter != 25*time.Hour {
+		t.Fatalf("memberBackupStaleAfter = %s; the cases below are written for 25h", memberBackupStaleAfter)
 	}
 	for _, tc := range []struct {
 		name      string
 		age       time.Duration
 		wantStale bool
 	}{
-		{"an hour inside the window", 23 * time.Hour, false},
-		{"an hour outside the window", 25 * time.Hour, true},
+		{"a daily dump still being written", 24*time.Hour + time.Minute, false},
+		{"a day and a half hour", 24*time.Hour + 30*time.Minute, false},
+		{"an hour past the grace", 26 * time.Hour, true},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			srv, store := newTestServer(t)

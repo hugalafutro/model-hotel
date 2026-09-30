@@ -34,9 +34,14 @@ const (
 	memberBackupTimeout = 30 * time.Second
 
 	// memberBackupStaleAfter is how old a member's newest scheduled backup may be
-	// before it counts as unprotected. A day matches the coarsest useful schedule,
-	// so a daily rotation that ran once in the window stays quiet.
-	memberBackupStaleAfter = 24 * time.Hour
+	// before it counts as unprotected: a day, the coarsest useful schedule, plus
+	// an hour of grace. A daily member's newest dump is routinely a little over a
+	// day old, because the scheduler dates the next run from the previous dump's
+	// file time and the new file lands only once pg_dump finishes, so each cycle
+	// is a day plus the dump's duration. The scheduler also wakes up to five
+	// minutes apart and waits a minute after a restart. Exactly a day flagged a
+	// healthy member whenever a pass landed in that gap.
+	memberBackupStaleAfter = 25 * time.Hour
 
 	// backupWatchInterval is how often every member's listing is re-read. The
 	// signal has a 24 hour threshold, so a tighter tick would add member load

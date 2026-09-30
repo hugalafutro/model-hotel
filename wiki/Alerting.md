@@ -157,7 +157,7 @@ Front Desk's picker carries its own set, about the fleet rather than about routi
 | Member removed | Membership | ⬜ off | a member leaves |
 | Member activated or drained | Membership | ⬜ off | a member is drained or brought back by hand (from the dashboard or Bellhop); a drain the rebuild tool marks as `maintenance` is recorded under the maintenance row above instead |
 | Fleet disbanded | Membership | ⬜ off | removing a member of a two-member fleet disbands the fleet (a fleet below two members cannot exist) and switches auto-sync off fleet-wide |
-| Member has no recent backup | Backups | ✅ on | a member has no database dump from the last day. Front Desk takes no snapshot of its own, so a member's scheduled dumps are the only copy of its config |
+| Member has no recent backup | Backups | ✅ on | a member's newest scheduled database dump is more than 25 hours old (a day plus an hour of grace, since a daily dump lands a little over a day after the last). Front Desk takes no snapshot of its own, so a member's scheduled dumps are the only copy of its config |
 | Member backups healthy again | Backups | ⬜ off | a fresh dump appears |
 
 On first run the default-on events are pre-selected on either surface. Deselecting everything means nothing fires.
