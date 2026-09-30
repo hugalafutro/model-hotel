@@ -36,12 +36,13 @@ packages() {
 
 # tests_in DIR prints the package's top-level test, example and fuzz names,
 # sorted and unique (an internal and an external test package can share a
-# directory; a name can only be declared once per package anyway). Files behind
-# a //go:build constraint are left out: the race job does not set their tags,
-# so their tests never compile there and would only pad a shard's pattern.
+# directory; a name can only be declared once per package anyway). The files
+# come from `go list`, which applies build constraints the way the race job's
+# `go test` will (a //go:build live file is left out, a //go:build linux one
+# kept) and reads sources only, never running a TestMain.
 tests_in() {
 	local files
-	files=$(grep -L '^//go:build' "$1"/*_test.go || true)
+	files=$(go list -f '{{range .TestGoFiles}}{{$.Dir}}/{{.}} {{end}}{{range .XTestGoFiles}}{{$.Dir}}/{{.}} {{end}}' "./$1")
 	[ -n "$files" ] || return 0
 	# shellcheck disable=SC2086 # one argument per file; paths hold no spaces
 	grep -hoE '^func (Test|Example|Fuzz)[A-Za-z0-9_]*\(' $files |
