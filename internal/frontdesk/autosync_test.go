@@ -892,8 +892,14 @@ func TestFetchMemberConfigVersionRejectsBadResponses(t *testing.T) {
 			stub.versionRaw = ""
 			stub.mu.Unlock()
 			mutate()
-			if _, _, err := srv.fetchMemberConfigVersion(t.Context(), m, "tok"); err == nil {
-				t.Errorf("%s: expected an error, got nil", name)
+			_, _, err := srv.fetchMemberConfigVersion(t.Context(), m, "tok")
+			if err == nil {
+				t.Fatalf("%s: expected an error, got nil", name)
+			}
+			// The error becomes a device-readable event cause, so a decode failure
+			// must say only that: the decoder's text can quote the member's response.
+			if name == "bad json" && err.Error() != "frontdesk: parse member config-version" {
+				t.Errorf("%s: error %q carries more than the fixed parse message", name, err)
 			}
 		})
 	}

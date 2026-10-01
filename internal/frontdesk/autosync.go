@@ -774,7 +774,9 @@ func (s *Server) fetchMemberConfigVersion(ctx context.Context, m *Member, token 
 		Sections map[string]string `json:"sections"`
 	}
 	if err := json.Unmarshal(body, &v); err != nil {
-		return "", nil, fmt.Errorf("frontdesk: parse member config-version: %w", err)
+		// Unwrapped: the decoder's error can echo a fragment of the member's
+		// response, and this error becomes the unmeasured event's cause.
+		return "", nil, errors.New("frontdesk: parse member config-version")
 	}
 	if v.Version == "" {
 		return "", nil, errors.New("frontdesk: empty member config-version")
