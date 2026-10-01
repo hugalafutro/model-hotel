@@ -5,7 +5,7 @@ import type { Model } from "../../api/types";
 import { CapBadge } from "../../components/CapBadge";
 import { ConfirmDialog } from "../../components/ConfirmDialog";
 import { CopyablePill } from "../../components/CopyablePill";
-import { CAP_META, hasCap } from "../../components/capMeta";
+import { CAP_META, CAP_OFF, hasCap } from "../../components/capMeta";
 import { DetailSectionHeader } from "../../components/DetailSectionHeader";
 import type { LangIconKey } from "../../components/langIcons";
 import { Modal } from "../../components/Modal";
@@ -82,12 +82,12 @@ export function ModelDetailModal({
 		handleTest,
 	} = useModelActions({ model, onDiscover, onTest, onToast });
 
-	const handleClose = () => {
-		if (editing) {
-			handleCancelEdit();
-		} else {
-			onClose();
-		}
+	// A close while editing cancels the edit (or asks about unsaved changes)
+	// and keeps the dialog open.
+	const requestClose = () => {
+		if (!editing) return true;
+		handleCancelEdit();
+		return false;
 	};
 
 	const pMid = proxyModelID(model.provider_name, model.model_id);
@@ -120,13 +120,14 @@ export function ModelDetailModal({
 					</div>
 				</div>
 			}
-			onClose={handleClose}
+			onCloseRequest={requestClose}
+			onClose={onClose}
 			maxWidth="max-w-xl"
 			zIndex={zIndex}
 			scrollable
 		>
 			{model.description && (
-				<div className="max-h-[60px] overflow-y-auto mt-2 mb-4">
+				<div className="max-h-[60px] overflow-y-auto mt-2 mb-1">
 					<p className="text-sm text-gray-300 m-0 leading-[20px]">
 						{model.description}
 					</p>
@@ -204,9 +205,9 @@ export function ModelDetailModal({
 				</div>
 			)}
 
-			{/* A custom provider's capabilities are the operator's to set; the
-			    edit pins them (capabilities_customized) until an unpin hands
-			    them back to the next scan. */}
+			{/* A custom or self-hosted provider's capabilities are the
+			    operator's to set; the edit pins them (capabilities_customized)
+			    until an unpin hands them back to the next scan. */}
 			{model.capabilities_customized && (
 				<div
 					data-testid="caps-pin-banner"
@@ -248,7 +249,7 @@ export function ModelDetailModal({
 								data-testid={`caps-toggle-${m.key}`}
 								onClick={() => toggleCap(m.key)}
 								className={`ui-badge inline-flex items-center px-1.5 py-0.5 text-[11px] font-medium border cursor-pointer ${
-									editCaps[m.key] ? m.style : m.muted
+									editCaps[m.key] ? m.style : CAP_OFF
 								}`}
 							>
 								{t(m.labelKey)}

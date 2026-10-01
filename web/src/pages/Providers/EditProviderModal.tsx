@@ -144,16 +144,16 @@ export function EditProviderModal({
 		return payload;
 	};
 
-	const handleClose = () => {
+	// Unsaved changes turn a close into the discard prompt, and the dialog
+	// stays open behind it.
+	const requestClose = () => {
 		const changed = Object.keys(buildPayload());
-		if (changed.length > 0) {
-			// Named as the form labels them, not as the API spells them.
-			setConfirmFields(
-				changed.map((field) => t(PAYLOAD_FIELD_LABELS[field] ?? field)),
-			);
-		} else {
-			onClose();
-		}
+		if (changed.length === 0) return true;
+		// Named as the form labels them, not as the API spells them.
+		setConfirmFields(
+			changed.map((field) => t(PAYLOAD_FIELD_LABELS[field] ?? field)),
+		);
+		return false;
 	};
 
 	const handleSubmit = (e: React.SubmitEvent) => {
@@ -171,7 +171,11 @@ export function EditProviderModal({
 
 	return (
 		<>
-			<Modal title={t("providers.edit_modal_title")} onClose={handleClose}>
+			<Modal
+				title={t("providers.edit_modal_title")}
+				onCloseRequest={requestClose}
+				onClose={onClose}
+			>
 				{error && (
 					<ErrorCallout className="mb-4" testId="edit-provider-error">
 						{error}
@@ -452,7 +456,7 @@ export function EditProviderModal({
 					<div className="flex space-x-3 justify-end pt-4">
 						<button
 							type="button"
-							onClick={handleClose}
+							onClick={() => requestClose() && onClose()}
 							className="ui-btn ui-btn-secondary"
 						>
 							{t("common.cancel")}

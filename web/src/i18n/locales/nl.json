@@ -1077,7 +1077,8 @@
 			"testSuccessRanked": "Succes | Gerangschikte resultaten: {{count}}{{ttftPart}} | Duur: {{duration}}s",
 			"limitsPinned": "Context- en uitvoerlimieten vastgezet door de beheerder",
 			"capabilitiesPinned": "Mogelijkheden ingesteld door operator",
-			"capabilitiesEditHint": "Aangepaste providers melden alleen wat hun lijst zegt. Schakel in wat dit model ondersteunt."
+			"capabilitiesEditHint": "Deze provider meldt alleen wat zijn server zegt. Schakel in wat dit model ondersteunt.",
+			"usageExamples": "Gebruiksvoorbeelden"
 		},
 		"table": {
 			"sortByModelName": "Sorteren op modelnaam",

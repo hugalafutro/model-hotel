@@ -1322,6 +1322,51 @@ func TestUpsertProviders_CarriesProviderType(t *testing.T) {
 	}
 }
 
+// A synced re-type releases the provider's capabilities pins the way an admin
+// re-type does, unless the new type is custom or self-hosted.
+func TestUpsertProviders_RetypeReleasesCapabilitiesPins(t *testing.T) {
+	cleanConfigTables(t)
+	ctx := context.Background()
+	pool := apiTestDB.Pool()
+
+	tx, err := pool.Begin(ctx)
+	if err != nil {
+		t.Fatalf("begin: %v", err)
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+
+	sync := func(typ string) {
+		t.Helper()
+		if err := upsertProviders(ctx, tx, []ExportProvider{
+			{Name: "box", BaseURL: "http://192.168.1.163:5001/v1", ProviderType: typ, Enabled: true},
+		}, nil); err != nil {
+			t.Fatalf("upsertProviders(%s): %v", typ, err)
+		}
+	}
+	pinned := func() bool {
+		t.Helper()
+		var v bool
+		if err := tx.QueryRow(ctx, `SELECT capabilities_customized FROM models WHERE model_id = 'm'`).Scan(&v); err != nil {
+			t.Fatalf("read pin: %v", err)
+		}
+		return v
+	}
+	sync("custom")
+	if _, err := tx.Exec(ctx,
+		`INSERT INTO models (id, provider_id, model_id, name, enabled, capabilities_customized)
+		 SELECT gen_random_uuid(), id, 'm', 'm', true, true FROM providers WHERE name = 'box'`); err != nil {
+		t.Fatalf("insert pinned model: %v", err)
+	}
+	sync("koboldcpp")
+	if !pinned() {
+		t.Fatal("pin released by a sync to koboldcpp, want it kept")
+	}
+	sync("openai")
+	if pinned() {
+		t.Fatal("pin kept after a sync to openai, want it released")
+	}
+}
+
 // An export round-trips the type so a member ends up with the same vocabulary
 // the primary stored, not a re-derivation of it.
 func TestExportProviders_IncludesProviderType(t *testing.T) {

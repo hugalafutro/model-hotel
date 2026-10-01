@@ -74,7 +74,7 @@ export function KeyDetailModal({
 		handleCancelEdit,
 		startEditing,
 		hasChanges,
-		handleClose,
+		requestClose,
 		isAdmin,
 		providers,
 		users,
@@ -93,7 +93,8 @@ export function KeyDetailModal({
 		<>
 			<Modal
 				title={t("virtualkeys.modal.detailTitle")}
-				onClose={handleClose}
+				onCloseRequest={requestClose}
+				onClose={onClose}
 				maxWidth="max-w-lg"
 				scrollable
 			>

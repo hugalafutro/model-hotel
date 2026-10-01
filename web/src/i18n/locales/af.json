@@ -1077,7 +1077,8 @@
 			"testSuccessRanked": "Sukses | Gerangskikte resultate: {{count}}{{ttftPart}} | Duur: {{duration}}s",
 			"limitsPinned": "Konteks- en uitsetlimiete deur operateur vasgepen",
 			"capabilitiesPinned": "Vermoëns deur operateur gestel",
-			"capabilitiesEditHint": "Pasgemaakte verskaffers rapporteer net wat hul lys sê. Skakel aan wat hierdie model ondersteun."
+			"capabilitiesEditHint": "Hierdie verskaffer rapporteer net wat sy bediener sê. Skakel aan wat hierdie model ondersteun.",
+			"usageExamples": "Gebruiksvoorbeelde"
 		},
 		"table": {
 			"sortByModelName": "Sorteer volgens modelnaam",

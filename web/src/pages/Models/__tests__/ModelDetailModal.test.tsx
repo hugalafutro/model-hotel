@@ -183,14 +183,14 @@ describe("ModelDetailModal", () => {
 	});
 
 	describe("capabilities editing", () => {
-		const customModel = { ...mockModel, provider_type: "custom" };
+		const customModel = { ...mockModel, capabilities_editable: true };
 
-		it("offers no capability toggles on a provider that is not custom", async () => {
+		it("offers no capability toggles where the backend says they are not editable", async () => {
 			const user = userEvent.setup();
 			renderWithProviders(
 				<ModelDetailModal
 					{...defaultProps}
-					model={{ ...mockModel, provider_type: "openai" }}
+					model={{ ...mockModel, capabilities_editable: false }}
 				/>,
 			);
 			await user.click(screen.getByText("Edit"));
@@ -493,6 +493,31 @@ describe("ModelDetailModal", () => {
 		renderWithProviders(<ModelDetailModal {...defaultProps} />);
 
 		expect(screen.getByText("Edit")).toBeInTheDocument();
+	});
+
+	it("cancels an edit on a click outside and stays open and usable", async () => {
+		const user = userEvent.setup();
+		renderWithProviders(<ModelDetailModal {...defaultProps} />);
+		await user.click(screen.getByText("Edit"));
+		await user.click(screen.getByRole("button", { name: "Close dialog" }));
+		await waitFor(() =>
+			expect(screen.queryByText("Save Changes")).not.toBeInTheDocument(),
+		);
+		expect(onClose).not.toHaveBeenCalled();
+		// The dialog still answers: a second click outside closes it.
+		await user.click(screen.getByRole("button", { name: "Close dialog" }));
+		await waitFor(() => expect(onClose).toHaveBeenCalledTimes(1));
+	});
+
+	it("keeps the usage examples collapsed until their header is clicked", async () => {
+		const user = userEvent.setup();
+		renderWithProviders(<ModelDetailModal {...defaultProps} />);
+		const toggle = screen.getByRole("button", { name: /usage examples/i });
+		expect(toggle).toHaveAttribute("aria-expanded", "false");
+		await user.click(toggle);
+		expect(toggle).toHaveAttribute("aria-expanded", "true");
+		await user.click(toggle);
+		expect(toggle).toHaveAttribute("aria-expanded", "false");
 	});
 
 	it("enters edit mode when Edit button is clicked", async () => {

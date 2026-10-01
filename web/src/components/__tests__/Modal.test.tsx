@@ -147,6 +147,32 @@ describe("Modal", () => {
 		expect(screen.getByRole("button", { name: "opener" })).toHaveFocus();
 	});
 
+	it("wraps Tab past controls in an inert (collapsed) section", async () => {
+		const user = userEvent.setup();
+		render(
+			<Modal onClose={onClose}>
+				<button type="button">first</button>
+				<button type="button">last</button>
+				<div inert>
+					<button type="button">collapsed</button>
+				</div>
+			</Modal>,
+		);
+		// The header X comes first in the dialog's own order.
+		const dialog = screen.getByRole("dialog");
+		const stops = Array.from(
+			dialog.querySelectorAll<HTMLElement>("button"),
+		).filter((el) => !el.closest("[inert]"));
+		screen.getByRole("button", { name: "last" }).focus();
+		await user.tab();
+		expect(document.activeElement).toBe(stops[0]);
+		stops[0].focus();
+		await user.tab({ shift: true });
+		expect(document.activeElement).toBe(
+			screen.getByRole("button", { name: "last" }),
+		);
+	});
+
 	it("calls onClose when close button is clicked", async () => {
 		const user = userEvent.setup();
 		render(<Modal onClose={onClose}>Content</Modal>);
@@ -264,6 +290,51 @@ describe("Modal", () => {
 			fireEvent.keyDown(document.body, { key: "Escape" });
 		});
 		await waitFor(() => expect(onClose).toHaveBeenCalledTimes(1));
+	});
+
+	it("keeps a dialog whose close request is refused visible, and closes it once allowed", () => {
+		vi.useFakeTimers();
+		try {
+			let allow = false;
+			const onCloseRequest = vi.fn(() => allow);
+			render(
+				<Modal onClose={onClose} onCloseRequest={onCloseRequest}>
+					Content
+				</Modal>,
+			);
+			act(() => {
+				vi.advanceTimersByTime(50);
+			});
+			const dialog = screen.getByRole("dialog");
+			const backdrop = screen.getByRole("button", { name: "Close dialog" });
+
+			// Refused: no fade, no onClose, and the dialog keeps answering.
+			act(() => {
+				backdrop.click();
+				vi.advanceTimersByTime(1000);
+			});
+			expect(onCloseRequest).toHaveBeenCalledTimes(1);
+			expect(onClose).not.toHaveBeenCalled();
+			expect(dialog.style.opacity).not.toBe("0");
+
+			// Escape asks the same question and is refused the same way.
+			act(() => {
+				fireEvent.keyDown(document, { key: "Escape" });
+				vi.advanceTimersByTime(1000);
+			});
+			expect(onCloseRequest).toHaveBeenCalledTimes(2);
+			expect(onClose).not.toHaveBeenCalled();
+
+			// Allowed: the same dialog closes normally.
+			allow = true;
+			act(() => {
+				backdrop.click();
+				vi.advanceTimersByTime(1000);
+			});
+			expect(onClose).toHaveBeenCalledTimes(1);
+		} finally {
+			vi.useRealTimers();
+		}
 	});
 
 	it("closes on the opacity transition end and cancels the fallback timer", () => {

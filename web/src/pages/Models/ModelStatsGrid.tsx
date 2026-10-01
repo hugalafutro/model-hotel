@@ -127,7 +127,7 @@ export function ModelStatsGrid({
 		</div>
 	);
 	return (
-		<div className="grid grid-cols-2 gap-2 mb-4">
+		<div className="grid grid-cols-2 gap-2 mt-3 mb-4">
 			<DetailItem
 				icon={Server}
 				label={t("models.detail.provider")}

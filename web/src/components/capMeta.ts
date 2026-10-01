@@ -18,6 +18,10 @@ export interface CapMeta {
 	muted: string;
 }
 
+/** A capability switched off in the model editor: the themed neutral badge,
+ * gray and still legible in both themes, so the ones switched on stand out. */
+export const CAP_OFF = "ui-badge-neutral";
+
 /** Shared "this capability is not reachable under the current filters" look. */
 export const CAP_DISABLED =
 	"bg-gray-800/30 text-gray-600/40 border-gray-700/20 cursor-not-allowed opacity-50";

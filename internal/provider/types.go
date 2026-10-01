@@ -62,6 +62,15 @@ func IsLocalServerType(t string) bool {
 	return slices.Contains(LocalServerTypes, t)
 }
 
+// OperatorServedType reports a provider type whose models are whatever its
+// operator loaded: custom, or a self-hosted server family. No catalog or
+// models.dev entry can speak for them, since a file of any content can be
+// served under any name, so discovery takes only what the server reports and
+// the operator fills in the rest by hand (prices, limits, capabilities).
+func OperatorServedType(t string) bool {
+	return t == "custom" || IsLocalServerType(t)
+}
+
 // NormalizeLocalBaseURL puts a self-hosted server's base URL in the form the
 // rest of the code expects: the OpenAI-compatible mount, ending in /v1.
 // Ollama, LM Studio and KoboldCPP all serve /v1/chat/completions and all serve

@@ -1077,7 +1077,8 @@
 			"testSuccessRanked": "成功 | 排序结果：{{count}}{{ttftPart}} | 时长： {{duration}}秒",
 			"limitsPinned": "上下文与输出上限已由操作员固定",
 			"capabilitiesPinned": "能力由操作员设置",
-			"capabilitiesEditHint": "自定义提供商只报告其列表中声明的内容。请开启此模型支持的能力。"
+			"capabilitiesEditHint": "此提供商只报告其服务器声明的内容。请开启此模型支持的能力。",
+			"usageExamples": "使用示例"
 		},
 		"table": {
 			"sortByModelName": "按模型名称排序",

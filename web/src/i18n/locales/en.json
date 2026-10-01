@@ -1077,7 +1077,8 @@
 			"testSuccessRanked": "Success | Ranked results: {{count}}{{ttftPart}} | Duration: {{duration}}s",
 			"limitsPinned": "Context and output limits pinned by operator",
 			"capabilitiesPinned": "Capabilities set by operator",
-			"capabilitiesEditHint": "Custom providers report only what their listing says. Switch on what this model supports."
+			"capabilitiesEditHint": "This provider reports only what its server says. Switch on what this model supports.",
+			"usageExamples": "Usage examples"
 		},
 		"table": {
 			"sortByModelName": "Sort by model name",

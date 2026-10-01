@@ -56,7 +56,7 @@ export const FIELD_LABEL_KEYS: Record<keyof EditData, string> = {
 	search_price_per_thousand: "models.detail.searchPrice",
 };
 
-/** The capability flags a custom provider's operator can switch, as stored. */
+/** The capability flags an operator can switch, as stored. */
 export function editCapsFrom(model: Pick<Model, "capabilities">) {
 	const caps = parseCapabilities(model.capabilities);
 	return Object.fromEntries(
@@ -73,9 +73,10 @@ export function useModelEditor({ model, onUpdate }: UseModelEditorParams) {
 	const [editData, setEditData] = useState<EditData>(() =>
 		editValuesFrom(model),
 	);
-	// Only a custom provider's capabilities are the operator's to set: every
-	// other type's come from its own API or the vendor data.
-	const capsEditable = model.provider_type === "custom";
+	// Only a custom or self-hosted provider's capabilities are the operator's
+	// to set; the backend decides which, and every other type's come from the
+	// vendor's own API or data.
+	const capsEditable = model.capabilities_editable === true;
 	const [editCaps, setEditCaps] = useState(() => editCapsFrom(model));
 	const toggleCap = (key: CapKey) =>
 		setEditCaps((prev) => ({ ...prev, [key]: !prev[key] }));

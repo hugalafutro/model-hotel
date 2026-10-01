@@ -781,6 +781,5 @@ func looksLikeDateOrVersion(suffix string) bool {
 // chose: the generic openai type (what an API client that names no type gets
 // for an unknown host) keeps enrichment, as that type always has.
 func operatorServedProvider(p *Provider) bool {
-	t := TypeOf(p)
-	return t == "custom" || IsLocalServerType(t)
+	return OperatorServedType(TypeOf(p))
 }

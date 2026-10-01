@@ -1077,7 +1077,8 @@
 			"testSuccessRanked": "Succes | Rangerede resultater: {{count}}{{ttftPart}} | Varighed: {{duration}}s",
 			"limitsPinned": "Kontekst- og outputgrænser fastgjort af operatøren",
 			"capabilitiesPinned": "Egenskaber sat af operatøren",
-			"capabilitiesEditHint": "Brugerdefinerede udbydere rapporterer kun, hvad deres liste siger. Slå til, hvad denne model understøtter."
+			"capabilitiesEditHint": "Denne udbyder rapporterer kun, hvad dens server siger. Slå til, hvad denne model understøtter.",
+			"usageExamples": "Eksempler på brug"
 		},
 		"table": {
 			"sortByModelName": "Sorter efter modelnavn",

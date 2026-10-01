@@ -1121,7 +1121,8 @@
 			"testSuccessRanked": "Èxit | Resultats classificats: {{count}}{{ttftPart}} | Durada: {{duration}}s",
 			"limitsPinned": "Límits de context i de sortida fixats per l'operador",
 			"capabilitiesPinned": "Capacitats definides per l'operador",
-			"capabilitiesEditHint": "Els proveïdors personalitzats només informen del que diu el seu llistat. Activa el que admet aquest model."
+			"capabilitiesEditHint": "Aquest proveïdor només informa del que diu el seu servidor. Activa el que admet aquest model.",
+			"usageExamples": "Exemples d'ús"
 		},
 		"table": {
 			"sortByModelName": "Ordena per nom del model",

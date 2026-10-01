@@ -680,6 +680,7 @@ Cursor (keyset) pagination walks the list by passing the previous response's `ne
     "price_customized": false,
     "limits_customized": false,
     "capabilities_customized": false,
+    "capabilities_editable": false,
     "provider_type": "openai",
     "created_at": "2024-01-01T00:00:00Z",
     "last_seen_at": "2024-01-01T00:00:00Z"
@@ -687,7 +688,7 @@ Cursor (keyset) pagination walks the list by passing the previous response's `ne
 ]
 ```
 
-`capabilities`, `params`, `input_modalities` and `output_modalities` are JSON documents carried as strings (`"{}"` / `"[]"` when unknown), so a client parses them a second time. `search_price_per_thousand` is the rerank price per 1,000 search units, `null` for token-billed models. `disabled_manually` marks a model an operator switched off (as opposed to one discovery disabled); `price_customized`, `limits_customized` and `capabilities_customized` mark prices, context limits and capabilities pinned against discovery. `provider_type` is the stored type of the model's provider.
+`capabilities`, `params`, `input_modalities` and `output_modalities` are JSON documents carried as strings (`"{}"` / `"[]"` when unknown), so a client parses them a second time. `search_price_per_thousand` is the rerank price per 1,000 search units, `null` for token-billed models. `disabled_manually` marks a model an operator switched off (as opposed to one discovery disabled); `price_customized`, `limits_customized` and `capabilities_customized` mark prices, context limits and capabilities pinned against discovery. `provider_type` is the stored type of the model's provider. `capabilities_editable` says whether the capabilities can be set by hand (a custom or self-hosted provider).
 
 `price_sources` says where each stored price came from, keyed by price field: `provider` (the provider's own listing), `catalog` (Model Hotel's embedded override), `modelsdev` (enrichment) or `manual` (an operator edit). A key is absent while that price is unset or was stored before sources were recorded.
 
@@ -722,8 +723,8 @@ Cursor (keyset) pagination walks the list by passing the previous response's `ne
 - `output_price_per_million`: 0-1000
 - `search_price_per_thousand`: 0-1000
 - `limits_customized`: boolean; any edit of `context_length` or `max_output_tokens` pins both against discovery, and `false` clears the pin and both limits so the next scan refills them
-- `capabilities`: object of capability flags (`streaming`, `vision`, `video_input`, `audio_input`, `reasoning`, `tool_calling`, `parallel_tool_calls`, `structured_output`, `pdf_upload`), a custom provider's models only; replaces the stored flags whole (an omitted flag is `false`; the dashboard, which has no streaming toggle, sends streaming back as stored) and pins them against discovery
-- `capabilities_customized`: boolean, a custom provider's models only; `false` clears the pin so the next scan writes the listing's reading again. `capabilities`, or `capabilities_customized: true`, on another provider type's model is a `400` with code `capabilities_custom_only`; the unpin is taken on any type, so a pin left behind by a provider type change can still be cleared
+- `capabilities`: object of capability flags (`streaming`, `vision`, `video_input`, `audio_input`, `reasoning`, `tool_calling`, `parallel_tool_calls`, `structured_output`, `pdf_upload`), a custom or self-hosted provider's models only (`capabilities_editable` in the response says which); replaces the stored flags whole (an omitted flag is `false`; the dashboard, which has no streaming toggle, sends streaming back as stored) and pins them against discovery
+- `capabilities_customized`: boolean, a custom or self-hosted provider's models only; `false` clears the pin so the next scan writes the server's reading again. `capabilities`, or `capabilities_customized: true`, on another provider type's model is a `400` with code `capabilities_not_editable`; the unpin is taken on any type, so a pin left behind by a provider type change can still be cleared
 - `price_customized`: boolean; marks the prices as operator-set so discovery enrichment leaves them alone. An edited price is recorded as `manual` in the model's `price_sources`; unpinning clears the prices and their sources so the next scan writes both afresh.
 
 #### DELETE `/api/models/{id}`

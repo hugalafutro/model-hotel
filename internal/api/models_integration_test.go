@@ -1673,10 +1673,10 @@ func TestUpdateModel_LimitsPinAndUnpin(t *testing.T) {
 	}
 }
 
-// Capabilities are edited by hand on a custom provider's models only: the edit
-// pins them, an unpin releases them, the cursor listing carries the pins, and
-// any other provider type is refused with a coded error.
-func TestUpdateModel_CapabilitiesCustomOnly(t *testing.T) {
+// Capabilities are edited by hand on a custom or self-hosted provider's models
+// only: the edit pins them, an unpin releases them, the cursor listing carries
+// the pins, and any other provider type is refused with a coded error.
+func TestUpdateModel_CapabilitiesEditableTypesOnly(t *testing.T) {
 	h, r := newTestHandlerWithRouter(t)
 	modelID := createProviderAndModel(t, h, r)
 	send := func(body string) *httptest.ResponseRecorder {
@@ -1699,8 +1699,12 @@ func TestUpdateModel_CapabilitiesCustomOnly(t *testing.T) {
 		t.Fatalf("edit on a missing model: got %d %s, want 404", missing.Code, missing.Body.String())
 	}
 
-	if rec := send(edit); rec.Code != http.StatusBadRequest || !strings.Contains(rec.Body.String(), "capabilities_custom_only") {
-		t.Fatalf("edit on an openai provider: got %d %s, want 400 capabilities_custom_only", rec.Code, rec.Body.String())
+	if rec := send(edit); rec.Code != http.StatusBadRequest || !strings.Contains(rec.Body.String(), "capabilities_not_editable") {
+		t.Fatalf("edit on an openai provider: got %d %s, want 400 capabilities_not_editable", rec.Code, rec.Body.String())
+	}
+	var vendor ModelResponse
+	if rec := send(`{"display_name": "Vendor Model"}`); rec.Code != http.StatusOK || json.Unmarshal(rec.Body.Bytes(), &vendor) != nil || vendor.CapabilitiesEditable {
+		t.Fatalf("openai model: got %d editable=%v, want 200 not editable", rec.Code, vendor.CapabilitiesEditable)
 	}
 	if rec := send(`{"capabilities_customized": true}`); rec.Code != http.StatusBadRequest {
 		t.Fatalf("bare pin on an openai provider: got %d, want 400", rec.Code)
@@ -1712,15 +1716,15 @@ func TestUpdateModel_CapabilitiesCustomOnly(t *testing.T) {
 	}
 
 	if _, err := h.dbPool.Pool().Exec(context.Background(),
-		`UPDATE providers SET provider_type = 'custom' WHERE id = (SELECT provider_id FROM models WHERE id = $1)`, modelID); err != nil {
-		t.Fatalf("make provider custom: %v", err)
+		`UPDATE providers SET provider_type = 'lmstudio' WHERE id = (SELECT provider_id FROM models WHERE id = $1)`, modelID); err != nil {
+		t.Fatalf("make provider self-hosted: %v", err)
 	}
 	// A provider edit through the API clears the model cache; this raw write
 	// has to do it itself.
 	model.InvalidateModelCache()
 	rec := send(edit)
 	if rec.Code != http.StatusOK {
-		t.Fatalf("edit on a custom provider: got %d %s", rec.Code, rec.Body.String())
+		t.Fatalf("edit on a self-hosted provider: got %d %s", rec.Code, rec.Body.String())
 	}
 	var resp ModelResponse
 	if err := json.Unmarshal(rec.Body.Bytes(), &resp); err != nil {
@@ -1730,8 +1734,8 @@ func TestUpdateModel_CapabilitiesCustomOnly(t *testing.T) {
 	if err := json.Unmarshal([]byte(resp.Capabilities), &caps); err != nil {
 		t.Fatalf("decode capabilities %q: %v", resp.Capabilities, err)
 	}
-	if !resp.CapabilitiesCustomized || resp.ProviderType != "custom" || caps != (model.Capability{Streaming: true, Vision: true, ToolCalling: true}) {
-		t.Fatalf("after an edit: pinned=%v type=%q caps=%+v, want pinned custom with the edit", resp.CapabilitiesCustomized, resp.ProviderType, caps)
+	if !resp.CapabilitiesCustomized || !resp.CapabilitiesEditable || resp.ProviderType != "lmstudio" || caps != (model.Capability{Streaming: true, Vision: true, ToolCalling: true}) {
+		t.Fatalf("after an edit: pinned=%v editable=%v type=%q caps=%+v, want pinned editable lmstudio with the edit", resp.CapabilitiesCustomized, resp.CapabilitiesEditable, resp.ProviderType, caps)
 	}
 
 	list := httptest.NewRecorder()
@@ -1746,8 +1750,8 @@ func TestUpdateModel_CapabilitiesCustomOnly(t *testing.T) {
 	for _, e := range page.Entries {
 		if e.ID == modelID {
 			seen = true
-			if !e.CapabilitiesCustomized || e.ProviderType != "custom" {
-				t.Errorf("cursor entry: pinned=%v type=%q, want pinned custom", e.CapabilitiesCustomized, e.ProviderType)
+			if !e.CapabilitiesCustomized || !e.CapabilitiesEditable || e.ProviderType != "lmstudio" {
+				t.Errorf("cursor entry: pinned=%v editable=%v type=%q, want pinned editable lmstudio", e.CapabilitiesCustomized, e.CapabilitiesEditable, e.ProviderType)
 			}
 		}
 	}

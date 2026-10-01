@@ -262,12 +262,12 @@ export function useKeyEdit({
 
 	const hasChanges = changedFields().length > 0;
 
-	const handleClose = () => {
-		if (editing && hasChanges) {
-			setConfirmFields(changedFields());
-			return;
-		}
-		onClose();
+	// Unsaved edits turn a close into the discard prompt, and the dialog stays
+	// open behind it.
+	const requestClose = () => {
+		if (!(editing && hasChanges)) return true;
+		setConfirmFields(changedFields());
+		return false;
 	};
 
 	return {
@@ -299,7 +299,7 @@ export function useKeyEdit({
 		handleCancelEdit,
 		startEditing,
 		hasChanges,
-		handleClose,
+		requestClose,
 		isAdmin,
 		providers,
 		users,
