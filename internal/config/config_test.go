@@ -1614,3 +1614,55 @@ func TestValidateProviderURL_ParseErrorDoesNotQuoteTheURL(t *testing.T) {
 		t.Errorf("error lost the parse reason: %s", err.Error())
 	}
 }
+
+// The base URL is stored and shown in plaintext, so a credential belongs in the
+// encrypted API key field. The check runs before the known-host shortcut.
+func TestValidateProviderURL_RefusesCredentials(t *testing.T) {
+	cfg := &Config{}
+	for _, raw := range []string{
+		"https://operator:secret@api.example.com/v1",
+		"https://api.example.com/v1?key=secret",
+		"https://api.example.com/v1?alt=json&API_KEY=secret",
+		"https://api.example.com/v1?%6bey=secret",
+		"https://api.openai.com/v1?token=secret",
+	} {
+		err := cfg.ValidateProviderURL(raw)
+		if err == nil || !strings.Contains(err.Error(), "API key field") {
+			t.Errorf("ValidateProviderURL(%q) = %v, want a credential refusal", raw, err)
+		}
+		if err != nil && strings.Contains(err.Error(), "secret") {
+			t.Errorf("ValidateProviderURL(%q) quotes the credential: %v", raw, err)
+		}
+	}
+	// A non-credential query parameter is legitimate (Azure's api-version).
+	if err := cfg.ValidateProviderURL("https://api.openai.com/v1?api-version=2024-10-21"); err != nil {
+		t.Errorf("a non-credential query parameter was refused: %v", err)
+	}
+}
+
+// url.Query drops a segment it cannot parse, so a credential could hide in a
+// ";"-separated or badly escaped query; a fragment is stored and shown too.
+func TestValidateProviderURL_RefusesQueriesItCannotRead(t *testing.T) {
+	cfg := &Config{}
+	for _, raw := range []string{
+		"https://api.example.com/v1?a=1;key=secret",
+		"https://api.example.com/v1?key=%zzsecret",
+		"https://api.example.com/v1?key;=secret",
+		"https://api.example.com/v1#key=secret",
+	} {
+		err := cfg.ValidateProviderURL(raw)
+		if err == nil {
+			t.Errorf("ValidateProviderURL(%q) = nil, want a refusal", raw)
+			continue
+		}
+		if strings.Contains(err.Error(), "secret") {
+			t.Errorf("ValidateProviderURL(%q) quotes the credential: %v", raw, err)
+		}
+	}
+	if err := ProviderURLCredentialError("https://api.example.com/v1?api-version=2024-10-21"); err != nil {
+		t.Errorf("ProviderURLCredentialError refused a clean URL: %v", err)
+	}
+	if err := ProviderURLCredentialError("http://bad host/"); err == nil {
+		t.Error("ProviderURLCredentialError accepted an unparseable URL")
+	}
+}

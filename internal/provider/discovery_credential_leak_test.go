@@ -604,3 +604,12 @@ func TestUnparseableURL_UserinfoAndQueryKeyAreScrubbed(t *testing.T) {
 		})
 	}
 }
+
+// A legacy row may separate its query with ";", which url.ParseQuery refuses,
+// so the hand split covers it too.
+func TestRawURLSecrets_SemicolonSeparatedQuery(t *testing.T) {
+	got := maskRawURLText(rawURLSecrets("http://example.invalid/v1?a=1;key="+leakedKey), "GET http://example.invalid/v1?a=1;key="+leakedKey)
+	if strings.Contains(got, leakedKey) {
+		t.Errorf("the ;-separated key survived: %s", got)
+	}
+}

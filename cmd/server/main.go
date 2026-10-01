@@ -146,6 +146,16 @@ func main() {
 	} else if backfilled > 0 {
 		debuglog.Info("startup: provider key masks backfilled", "count", backfilled)
 	}
+	// A base URL stored before credentials in it were refused still works, but
+	// config sync to every member now refuses it, and only the members would
+	// say so. Named here, on the instance that holds it.
+	if providers, err := providerRepo.List(ctx); err == nil {
+		for _, p := range providers {
+			if cerr := config.ProviderURLCredentialError(p.BaseURL); cerr != nil {
+				debuglog.Warn("startup: provider base URL must be fixed; config sync to members refuses it", "provider", p.Name, "reason", cerr)
+			}
+		}
+	}
 	modelRepo := model.NewRepository(database.Pool())
 	virtualKeyRepo := virtualkey.NewRepository(database.Pool())
 	settingsRepo := settings.NewRepository(database.Pool())

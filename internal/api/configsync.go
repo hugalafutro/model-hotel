@@ -234,8 +234,9 @@ type ConfigSyncHandler struct {
 	// check the interactive admin API applies on CreateProvider/UpdateProvider
 	// (config.ValidateProviderURL): resolve DNS and reject loopback, RFC 1918/ULA,
 	// link-local, CGNAT and cloud-metadata addresses (hosts in
-	// ALLOWED_PROVIDER_HOSTS are exempted). Keeps a compromised primary from
-	// persisting a base_url the admin API would refuse. Nil disables the check.
+	// ALLOWED_PROVIDER_HOSTS are exempted), and refuse a credential in the
+	// URL's userinfo or query. Keeps a compromised primary from persisting a
+	// base_url the admin API would refuse. Nil disables the check.
 	validateProviderURL func(string) error
 }
 

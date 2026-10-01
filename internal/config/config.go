@@ -366,9 +366,44 @@ func formatCORSOriginRows(origins []string) []configRow {
 	return result
 }
 
-// ValidateProviderURL checks that a provider base_url does not resolve to a
-// private or reserved address (loopback, RFC 1918/ULA, link-local, CGNAT, or
-// cloud-metadata — see util.IsBlockedIP) and, if AllowedProviderHosts is set,
+// ProviderURLCredentialError reports why a provider base_url may not be stored
+// as it is, or nil. The base URL is stored and shown in plaintext, unlike the
+// API key, which is encrypted, so it must carry no userinfo and no credential
+// query parameter. A query that does not parse is refused too: url.Query drops
+// a segment it cannot parse (a ";" separator, a bad escape), and a credential
+// could hide in one. A fragment is never sent upstream, so a base URL has no
+// use for one. No DNS lookup: startup runs it over every stored row.
+func ProviderURLCredentialError(rawURL string) error {
+	u, err := url.Parse(rawURL)
+	if err != nil {
+		return fmt.Errorf("invalid URL: %w", util.URLParseReason(err))
+	}
+	return providerURLCredentialError(u)
+}
+
+func providerURLCredentialError(u *url.URL) error {
+	if u.User != nil {
+		return fmt.Errorf("URL must not carry credentials (user:password@); put the key in the API key field")
+	}
+	if u.Fragment != "" || u.RawFragment != "" {
+		return fmt.Errorf("URL must not carry a fragment (#...)")
+	}
+	query, err := url.ParseQuery(u.RawQuery)
+	if err != nil {
+		return fmt.Errorf("URL query is malformed (use & between parameters)")
+	}
+	for name := range query {
+		if util.IsCredentialQueryParam(name) {
+			return fmt.Errorf("URL must not carry a credential in its query (%q); put the key in the API key field", name)
+		}
+	}
+	return nil
+}
+
+// ValidateProviderURL checks that a provider base_url carries no credential
+// (see ProviderURLCredentialError) and does not resolve to a private or
+// reserved address (loopback, RFC 1918/ULA, link-local, CGNAT, or
+// cloud-metadata; see util.IsBlockedIP) and, if AllowedProviderHosts is set,
 // is in the allowed list. Built-in known provider hosts (OpenAI, Nano-GPT,
 // Z.AI, DeepSeek, Ollama) are always allowed regardless of the
 // ALLOWED_PROVIDER_HOSTS env var.
@@ -381,6 +416,11 @@ func (c *Config) ValidateProviderURL(rawURL string) error {
 	host := u.Hostname()
 	if host == "" {
 		return fmt.Errorf("URL has no host")
+	}
+
+	// Checked before the known-host shortcut below, which returns early.
+	if err := providerURLCredentialError(u); err != nil {
+		return err
 	}
 
 	// Built-in known provider hosts are always allowed (skip the IP checks)

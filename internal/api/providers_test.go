@@ -439,6 +439,27 @@ func TestCreateProvider_HTTPURLRejected(t *testing.T) {
 	}
 }
 
+// A credential in the base URL would be stored and shown in plaintext; the key
+// belongs in the encrypted api_key field, so the create is refused.
+func TestCreateProvider_CredentialInURLRejected(t *testing.T) {
+	h := &Handler{
+		cfg:          &config.Config{AllowedProviderHosts: []string{"api.example.com"}},
+		providerRepo: &mockProviderStore{},
+		adminMgr:     &mockAdminAuth{validateFn: func(string) bool { return true }},
+	}
+	for _, baseURL := range []string{"https://api.example.com/v1?key=urlsecret", "https://op:urlsecret@api.example.com/v1"} {
+		body := bytes.NewReader([]byte(`{"name":"test","base_url":"` + baseURL + `","api_key":"sk-key"}`))
+		req, w := newChiRequest(http.MethodPost, "/providers", body)
+		h.CreateProvider(w, req)
+		if w.Code != http.StatusBadRequest || !strings.Contains(w.Body.String(), codeProviderURLRejected) {
+			t.Errorf("%s: got %d %s, want 400 %s", baseURL, w.Code, w.Body.String(), codeProviderURLRejected)
+		}
+		if strings.Contains(w.Body.String(), "urlsecret") {
+			t.Errorf("%s: the refusal quotes the credential: %s", baseURL, w.Body.String())
+		}
+	}
+}
+
 func TestCreateProvider_RepoError(t *testing.T) {
 	mockProv := &mockProviderStore{
 		getByNameFn: func(_ context.Context, _ string) (*provider.Provider, error) { return nil, nil },

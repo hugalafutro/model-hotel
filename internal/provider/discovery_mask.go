@@ -15,15 +15,6 @@ import (
 // value. A family that authenticates through another header must add it here.
 var credentialHeaders = []string{"Authorization", "X-Api-Key", "Api-Key", "X-Goog-Api-Key"}
 
-// credentialQueryParams are the query parameter names a key may travel in
-// (a custom gateway may authenticate by ?key=). Only these are treated as
-// secrets: a sweep of every query value would redact Azure's ?api-version=...
-// out of the one diagnostic an operator needs when a version is refused.
-var credentialQueryParams = map[string]bool{
-	"key": true, "api_key": true, "apikey": true, "api-key": true,
-	"token": true, "access_token": true, "secret": true, "password": true,
-}
-
 // secretsOf collects every credential the given headers and URL carry, so text
 // the upstream sends back (or a transport error that quotes the URL) can be
 // scrubbed of it exactly, before the shape layer. The helpers below never
@@ -58,13 +49,15 @@ func secretsOf(h http.Header, u *url.URL) []string {
 // still be scrubbed from the text after its '?'.
 func querySecrets(rawQuery string) []string {
 	var secrets []string
-	for _, seg := range strings.Split(rawQuery, "&") {
+	// ";" too: url.ParseQuery refuses it, but a legacy row or a raw URL may
+	// still use it as a separator.
+	for _, seg := range strings.FieldsFunc(rawQuery, func(r rune) bool { return r == '&' || r == ';' }) {
 		name, raw, ok := strings.Cut(seg, "=")
 		// A server decodes the name before it reads it, so ?%6bey= is ?key=.
 		if dec, err := url.QueryUnescape(name); err == nil {
 			name = dec
 		}
-		if !ok || !credentialQueryParams[strings.ToLower(name)] {
+		if !ok || !util.IsCredentialQueryParam(name) {
 			continue
 		}
 		secrets = append(secrets, seg, raw)
