@@ -12,6 +12,7 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/hugalafutro/model-hotel/internal/debuglog"
+	"github.com/hugalafutro/model-hotel/internal/jsonfault"
 	"github.com/hugalafutro/model-hotel/internal/model"
 	"github.com/hugalafutro/model-hotel/internal/util"
 )
@@ -30,8 +31,8 @@ func (d *DiscoveryService) discoverNanoGPT(ctx context.Context, provider *Provid
 
 	var nanoResp NanoGPTDetailedResponse
 	if err := json.Unmarshal(bodyBytes, &nanoResp); err != nil {
-		debuglog.Error("discovery: nanogpt decode response failed", "provider", provider.Name, "provider_id", provider.ID, "error", err)
-		return nil, fmt.Errorf("nanogpt: failed to decode response for provider %s: %w", provider.Name, err)
+		debuglog.Error("discovery: nanogpt decode response failed", "provider", provider.Name, "provider_id", provider.ID, "error", jsonfault.Describe(err, len(bodyBytes)))
+		return nil, fmt.Errorf("nanogpt: failed to decode response for provider %s: %s", provider.Name, jsonfault.Describe(err, len(bodyBytes)))
 	}
 
 	models := make([]*model.Model, 0, len(nanoResp.Data))
@@ -133,7 +134,7 @@ func (d *DiscoveryService) discoverNanoGPTImageModels(ctx context.Context, provi
 
 	var resp NanoGPTImageModelsResponse
 	if err := json.Unmarshal(bodyBytes, &resp); err != nil {
-		return nil, fmt.Errorf("nanogpt: failed to decode image catalog: %w", err)
+		return nil, fmt.Errorf("nanogpt: failed to decode image catalog: %s", jsonfault.Describe(err, len(bodyBytes)))
 	}
 
 	subscriptionOnly := strings.Contains(provider.BaseURL, "/subscription")

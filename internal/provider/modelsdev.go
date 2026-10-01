@@ -12,6 +12,7 @@ import (
 	"sync"
 
 	"github.com/hugalafutro/model-hotel/internal/debuglog"
+	"github.com/hugalafutro/model-hotel/internal/jsonfault"
 	"github.com/hugalafutro/model-hotel/internal/model"
 )
 
@@ -217,7 +218,7 @@ func (c *ModelsDevCache) load(ctx context.Context, client *http.Client) error {
 
 	var providers map[string]*ModelsDevProviderSpec
 	if err := json.Unmarshal(body, &providers); err != nil {
-		return fmt.Errorf("models.dev: failed to parse JSON: %w", err)
+		return fmt.Errorf("models.dev: failed to parse JSON: %s", jsonfault.Describe(err, len(body)))
 	}
 
 	// Per-provider index: models.dev provider ID → model ID → spec. This is the
@@ -570,7 +571,7 @@ func (c *ModelsDevCache) EnrichModel(m *model.Model, providerType string) bool {
 	var caps model.Capability
 	if m.Capabilities != "" && m.Capabilities != "{}" {
 		if err := json.Unmarshal([]byte(m.Capabilities), &caps); err != nil {
-			debuglog.Debug("models.dev: failed to parse capabilities JSON", "model_id", m.ModelID, "error", err)
+			debuglog.Debug("models.dev: failed to parse capabilities JSON", "model_id", m.ModelID, "error", jsonfault.Describe(err, len(m.Capabilities)))
 		}
 	}
 

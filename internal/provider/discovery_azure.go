@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"github.com/hugalafutro/model-hotel/internal/debuglog"
+	"github.com/hugalafutro/model-hotel/internal/jsonfault"
 	"github.com/hugalafutro/model-hotel/internal/model"
 )
 
@@ -105,8 +106,8 @@ func (d *DiscoveryService) azureProjectDeployments(ctx context.Context, provider
 		Value []azureProjectDeployment `json:"value"`
 	}
 	if err := json.Unmarshal(bodyBytes, &resp); err != nil {
-		debuglog.Error("discovery: azure json decode failed", "provider", provider.Name, "provider_id", provider.ID, "error", err)
-		return nil, fmt.Errorf("azure: failed to decode response for provider %s: %w", provider.Name, err)
+		debuglog.Error("discovery: azure json decode failed", "provider", provider.Name, "provider_id", provider.ID, "error", jsonfault.Describe(err, len(bodyBytes)))
+		return nil, fmt.Errorf("azure: failed to decode response for provider %s: %s", provider.Name, jsonfault.Describe(err, len(bodyBytes)))
 	}
 
 	live := make([]*model.Model, 0, len(resp.Value))
@@ -138,8 +139,8 @@ func (d *DiscoveryService) azureLegacyDeployments(ctx context.Context, provider 
 		Data []azureLegacyDeployment `json:"data"`
 	}
 	if err := json.Unmarshal(bodyBytes, &resp); err != nil {
-		debuglog.Error("discovery: azure json decode failed", "provider", provider.Name, "provider_id", provider.ID, "error", err)
-		return nil, fmt.Errorf("azure: failed to decode response for provider %s: %w", provider.Name, err)
+		debuglog.Error("discovery: azure json decode failed", "provider", provider.Name, "provider_id", provider.ID, "error", jsonfault.Describe(err, len(bodyBytes)))
+		return nil, fmt.Errorf("azure: failed to decode response for provider %s: %s", provider.Name, jsonfault.Describe(err, len(bodyBytes)))
 	}
 
 	live := make([]*model.Model, 0, len(resp.Data))

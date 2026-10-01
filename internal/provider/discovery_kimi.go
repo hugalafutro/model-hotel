@@ -8,6 +8,7 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/hugalafutro/model-hotel/internal/debuglog"
+	"github.com/hugalafutro/model-hotel/internal/jsonfault"
 	"github.com/hugalafutro/model-hotel/internal/model"
 	"github.com/hugalafutro/model-hotel/internal/util"
 )
@@ -48,7 +49,7 @@ func (d *DiscoveryService) discoverKimiCode(ctx context.Context, provider *Provi
 
 	var resp kimiCodeModelsResponse
 	if err := json.Unmarshal(bodyBytes, &resp); err != nil {
-		return nil, fmt.Errorf("kimi-code: failed to decode models for provider %s: %w", provider.Name, err)
+		return nil, fmt.Errorf("kimi-code: failed to decode models for provider %s: %s", provider.Name, jsonfault.Describe(err, len(bodyBytes)))
 	}
 
 	models := make([]*model.Model, 0, len(resp.Data))

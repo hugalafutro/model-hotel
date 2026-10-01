@@ -8,6 +8,7 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/hugalafutro/model-hotel/internal/debuglog"
+	"github.com/hugalafutro/model-hotel/internal/jsonfault"
 	"github.com/hugalafutro/model-hotel/internal/model"
 	"github.com/hugalafutro/model-hotel/internal/util"
 )
@@ -57,7 +58,7 @@ func (d *DiscoveryService) discoverZAICodingLive(ctx context.Context, provider *
 
 	var resp OpenAIModelsResponse
 	if err := json.Unmarshal(bodyBytes, &resp); err != nil {
-		return nil, fmt.Errorf("zai-coding: failed to decode models for provider %s: %w", provider.Name, err)
+		return nil, fmt.Errorf("zai-coding: failed to decode models for provider %s: %s", provider.Name, jsonfault.Describe(err, len(bodyBytes)))
 	}
 
 	models := make([]*model.Model, 0, len(resp.Data))

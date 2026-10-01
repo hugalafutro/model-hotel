@@ -11,6 +11,7 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/hugalafutro/model-hotel/internal/debuglog"
+	"github.com/hugalafutro/model-hotel/internal/jsonfault"
 	"github.com/hugalafutro/model-hotel/internal/model"
 	"github.com/hugalafutro/model-hotel/internal/util"
 )
@@ -29,8 +30,8 @@ func (d *DiscoveryService) discoverOpenRouter(ctx context.Context, provider *Pro
 
 	var orResp OpenRouterModelsResponse
 	if err := json.Unmarshal(bodyBytes, &orResp); err != nil {
-		debuglog.Error("discovery: openrouter failed to decode response", "provider", provider.Name, "provider_id", provider.ID, "error", err)
-		return nil, fmt.Errorf("openrouter: failed to decode response for provider %s: %w", provider.Name, err)
+		debuglog.Error("discovery: openrouter failed to decode response", "provider", provider.Name, "provider_id", provider.ID, "error", jsonfault.Describe(err, len(bodyBytes)))
+		return nil, fmt.Errorf("openrouter: failed to decode response for provider %s: %s", provider.Name, jsonfault.Describe(err, len(bodyBytes)))
 	}
 
 	models := make([]*model.Model, 0, len(orResp.Data))

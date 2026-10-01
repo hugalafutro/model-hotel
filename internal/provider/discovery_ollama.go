@@ -14,6 +14,7 @@ import (
 
 	"github.com/hugalafutro/model-hotel/internal/debuglog"
 	"github.com/hugalafutro/model-hotel/internal/httpx"
+	"github.com/hugalafutro/model-hotel/internal/jsonfault"
 	"github.com/hugalafutro/model-hotel/internal/model"
 	"github.com/hugalafutro/model-hotel/internal/util"
 )
@@ -31,8 +32,8 @@ func (d *DiscoveryService) discoverOllama(ctx context.Context, provider *Provide
 
 	var tagsResp OllamaTagsResponse
 	if err := json.Unmarshal(bodyBytes, &tagsResp); err != nil {
-		debuglog.Error("discovery: ollama json decode failed", "provider", provider.Name, "provider_id", provider.ID, "error", err)
-		return nil, fmt.Errorf("ollama: failed to decode response for provider %s: %w", provider.Name, err)
+		debuglog.Error("discovery: ollama json decode failed", "provider", provider.Name, "provider_id", provider.ID, "error", jsonfault.Describe(err, len(bodyBytes)))
+		return nil, fmt.Errorf("ollama: failed to decode response for provider %s: %s", provider.Name, jsonfault.Describe(err, len(bodyBytes)))
 	}
 
 	type showResult struct {

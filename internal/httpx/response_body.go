@@ -7,6 +7,8 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+
+	"github.com/hugalafutro/model-hotel/internal/jsonfault"
 )
 
 // MaxUpstreamBody is the default ceiling on a response body this process reads
@@ -71,10 +73,17 @@ func ReadCappedBody(r io.Reader, limit int64) ([]byte, error) {
 // upstream that appends a newline, a second document, or trailing junk still
 // parses. A request body, where trailing content is a smuggling signal rather
 // than an upstream quirk, goes through DecodeJSON instead, which rejects it.
+//
+// A decode failure is described through jsonfault rather than returned as the
+// decoder's own error, which quotes a fragment of the upstream body; a read
+// failure (ErrBodyTooLarge, a transport error) is returned as is.
 func DecodeCappedJSON(r io.Reader, limit int64, out any) error {
 	b, err := ReadCappedBody(r, limit)
 	if err != nil {
 		return err
 	}
-	return json.NewDecoder(bytes.NewReader(b)).Decode(out)
+	if err := json.NewDecoder(bytes.NewReader(b)).Decode(out); err != nil {
+		return errors.New(jsonfault.Describe(err, len(b)))
+	}
+	return nil
 }

@@ -496,3 +496,53 @@ func TestDiscoveryErrors_DropUpstreamBody(t *testing.T) {
 		})
 	}
 }
+
+// encoding/json quotes the offending literal in a type error (a fractional
+// number for an integer field reads "cannot unmarshal number 12345678.5"), and
+// a decode failure's error text reaches the discovery result, the
+// discovery.provider_failed event and the stored quota failure. The error says
+// where the document broke, never what it held.
+func TestDecodeErrors_DropUpstreamLiteral(t *testing.T) {
+	const masterKey = "test-master-key-for-testing-only-32bytes!"
+	kp, err := auth.Encrypt(leakedKey, masterKey)
+	if err != nil {
+		t.Fatalf("encrypt: %v", err)
+	}
+
+	tests := []struct {
+		name, body string
+		invoke     func(*DiscoveryService, *Provider) error
+	}{
+		{"discovery", `{"data":[{"id":"m","created":12345678.5}]}`, func(d *DiscoveryService, p *Provider) error {
+			_, err := d.discoverOpenAI(context.Background(), p, leakedKey)
+			return err
+		}},
+		{"quota", `{"code":12345678.5}`, func(d *DiscoveryService, p *Provider) error {
+			_, err := d.GetZAICodingQuota(context.Background(), p, masterKey)
+			return err
+		}},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+				w.Header().Set("Content-Type", "application/json")
+				_, _ = w.Write([]byte(tc.body))
+			}))
+			defer srv.Close()
+			d := &DiscoveryService{httpClient: &http.Client{Transport: &testTransport{url: srv.URL}}}
+			p := &Provider{ID: uuid.New(), Name: "leaky", BaseURL: srv.URL, EncryptedKey: kp.Ciphertext, KeyNonce: kp.Nonce, KeySalt: kp.Salt}
+
+			err := tc.invoke(d, p)
+			if err == nil {
+				t.Fatal("expected a decode error")
+			}
+			if strings.Contains(err.Error(), "12345678.5") {
+				t.Errorf("decoder literal reached the returned error: %v", err)
+			}
+			if !strings.Contains(err.Error(), "unexpected JSON value") {
+				t.Errorf("error = %q, want the content-free decode description", err)
+			}
+		})
+	}
+}

@@ -8,6 +8,7 @@ import (
 
 	"github.com/hugalafutro/model-hotel/internal/debuglog"
 	"github.com/hugalafutro/model-hotel/internal/endpointtype"
+	"github.com/hugalafutro/model-hotel/internal/jsonfault"
 	"github.com/hugalafutro/model-hotel/internal/model"
 	"github.com/hugalafutro/model-hotel/internal/util"
 )
@@ -117,7 +118,7 @@ func parseTestModelResponse(respBody []byte, duration int64) (content string, tp
 	// This decode already logged and carried on, so the ANSWER was never at risk
 	// here; the counts were.
 	if err := util.DecodeCounts(respBody, &chatResp); err != nil {
-		debuglog.Debug("admin: failed to parse test model chat response", "error", err)
+		debuglog.Debug("admin: failed to parse test model chat response", "error", jsonfault.Describe(err, len(respBody)))
 	}
 
 	if len(chatResp.Choices) > 0 {

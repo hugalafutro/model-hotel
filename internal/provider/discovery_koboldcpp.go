@@ -10,6 +10,7 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/hugalafutro/model-hotel/internal/debuglog"
+	"github.com/hugalafutro/model-hotel/internal/jsonfault"
 	"github.com/hugalafutro/model-hotel/internal/model"
 	"github.com/hugalafutro/model-hotel/internal/util"
 )
@@ -230,7 +231,7 @@ func (d *DiscoveryService) koboldcppImageModelID(ctx context.Context, apiBase, a
 	}
 	var list []KoboldCPPSDModel
 	if err := json.Unmarshal(bodyBytes, &list); err != nil {
-		debuglog.Info("discovery: koboldcpp image model listing undecodable", "error", err)
+		debuglog.Info("discovery: koboldcpp image model listing undecodable", "error", jsonfault.Describe(err, len(bodyBytes)))
 		return "", false
 	}
 	if len(list) == 0 || strings.TrimSpace(list[0].ModelName) == "" {
@@ -250,7 +251,7 @@ func (d *DiscoveryService) koboldcppVersion(ctx context.Context, apiBase, apiKey
 
 	var versionResp KoboldCPPVersionResponse
 	if err := json.Unmarshal(bodyBytes, &versionResp); err != nil {
-		return nil, fmt.Errorf("failed to decode: %w", err)
+		return nil, fmt.Errorf("failed to decode: %s", jsonfault.Describe(err, len(bodyBytes)))
 	}
 
 	if !isKoboldCPPVersion(versionResp) {
@@ -274,7 +275,7 @@ func (d *DiscoveryService) koboldcppLoadedModel(ctx context.Context, baseURL, ap
 
 	var modelsResp OpenAIModelsResponse
 	if err := json.Unmarshal(bodyBytes, &modelsResp); err != nil {
-		return "", fmt.Errorf("failed to decode: %w", err)
+		return "", fmt.Errorf("failed to decode: %s", jsonfault.Describe(err, len(bodyBytes)))
 	}
 
 	if len(modelsResp.Data) == 0 {
@@ -297,7 +298,7 @@ func (d *DiscoveryService) koboldcppContextLength(ctx context.Context, apiBase, 
 
 	var out KoboldCPPContextResponse
 	if err := json.Unmarshal(bodyBytes, &out); err != nil {
-		debuglog.Info("discovery: koboldcpp context length undecodable", "error", err)
+		debuglog.Info("discovery: koboldcpp context length undecodable", "error", jsonfault.Describe(err, len(bodyBytes)))
 		return nil
 	}
 	if out.Value <= 0 {

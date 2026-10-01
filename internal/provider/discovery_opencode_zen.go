@@ -6,6 +6,7 @@ import (
 	"fmt"
 
 	"github.com/hugalafutro/model-hotel/internal/debuglog"
+	"github.com/hugalafutro/model-hotel/internal/jsonfault"
 	"github.com/hugalafutro/model-hotel/internal/model"
 	"github.com/hugalafutro/model-hotel/internal/util"
 )
@@ -23,8 +24,8 @@ func (d *DiscoveryService) discoverOpenCodeZen(ctx context.Context, provider *Pr
 
 	var openAIResp OpenAIModelsResponse
 	if err := json.Unmarshal(bodyBytes, &openAIResp); err != nil {
-		debuglog.Error("discovery: opencode-zen failed to decode response", "provider", provider.Name, "provider_id", provider.ID, "error", err)
-		return nil, fmt.Errorf("opencode-zen: failed to decode response for provider %s: %w", provider.Name, err)
+		debuglog.Error("discovery: opencode-zen failed to decode response", "provider", provider.Name, "provider_id", provider.ID, "error", jsonfault.Describe(err, len(bodyBytes)))
+		return nil, fmt.Errorf("opencode-zen: failed to decode response for provider %s: %s", provider.Name, jsonfault.Describe(err, len(bodyBytes)))
 	}
 
 	// Keyless providers can only reach free models. Zen's listing does not

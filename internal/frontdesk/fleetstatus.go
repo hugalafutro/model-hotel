@@ -9,6 +9,7 @@ import (
 	"slices"
 
 	"github.com/hugalafutro/model-hotel/internal/debuglog"
+	"github.com/hugalafutro/model-hotel/internal/jsonfault"
 )
 
 // GET /api/fleet/status, the single probe that powers the step-gated fleet-sync
@@ -108,7 +109,7 @@ func (s *Server) fleetStatus(w http.ResponseWriter, r *http.Request) {
 		// A body that is not the export shape is a primary-side fault, not an
 		// empty configuration: saying "nothing to sync yet" would send the
 		// operator to configure a primary that is already configured.
-		debuglog.Error("frontdesk: primary export is not valid JSON", "primary_id", primary.ID, "error", err)
+		debuglog.Error("frontdesk: primary export is not valid JSON", "primary_id", primary.ID, "error", jsonfault.Describe(err, len(export)))
 		writeJSON(w, http.StatusOK, fleetStatusResponse{
 			PrimaryID:   primary.ID,
 			PrimaryNote: "this primary returned a config export that could not be parsed. Check that it is reachable and running a compatible version, then re-run the wizard.",
