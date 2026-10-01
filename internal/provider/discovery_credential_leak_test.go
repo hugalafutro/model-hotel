@@ -546,3 +546,25 @@ func TestDecodeErrors_DropUpstreamLiteral(t *testing.T) {
 		})
 	}
 }
+
+// The local-server fingerprint probe logs its transport failures too. It used
+// to log the endpoint whole, which keeps any user:password the operator put in
+// the base URL, and the raw error, which carries whatever a proxy quoted back.
+func TestIdentifyLocalServer_ProbeFailureLogDoesNotCarryTheKey(t *testing.T) {
+	logged := captureDebuglog(t)
+	failing := roundTripperFunc(func(r *http.Request) (*http.Response, error) {
+		return nil, errors.New("proxy refused " + r.Header.Get("Authorization"))
+	})
+	svc := &DiscoveryService{httpClient: &http.Client{Transport: failing}}
+
+	_, err := svc.IdentifyLocalServer(context.Background(), "http://operator:"+leakedKey+"@127.0.0.1:1/v1", leakedKey, "")
+	if !errors.Is(err, ErrLocalServerUnreachable) {
+		t.Fatalf("err = %v, want ErrLocalServerUnreachable", err)
+	}
+	if !strings.Contains(logged.String(), "local server probe failed") {
+		t.Fatalf("the probe failure was not logged:\n%s", logged.String())
+	}
+	if strings.Contains(logged.String(), leakedKey) {
+		t.Errorf("the key reached the probe log:\n%s", logged.String())
+	}
+}

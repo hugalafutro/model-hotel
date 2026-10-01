@@ -133,7 +133,11 @@ func (d *DiscoveryService) probeLocal(ctx context.Context, endpoint, apiKey stri
 	}
 	resp, err := d.httpClient.Do(req)
 	if err != nil {
-		debuglog.Debug("provider: local server probe failed", "url", endpoint, "error", err)
+		// Host only, as the rest of discovery logs: the endpoint keeps any
+		// user:password the operator put in the base URL. The error is masked
+		// off the request for an upstream or proxy that quotes the key back.
+		err = maskedRequestError(req, err)
+		debuglog.Debug("provider: local server probe failed", "host", req.URL.Host, "error", err.Error())
 		return nil, false, err
 	}
 	defer func() { _ = resp.Body.Close() }()
