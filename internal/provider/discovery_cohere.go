@@ -9,6 +9,7 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/hugalafutro/model-hotel/internal/debuglog"
+	"github.com/hugalafutro/model-hotel/internal/jsonfault"
 	"github.com/hugalafutro/model-hotel/internal/model"
 	"github.com/hugalafutro/model-hotel/internal/util"
 )
@@ -66,8 +67,8 @@ func (d *DiscoveryService) fetchCohereModels(ctx context.Context, provider *Prov
 
 		var cohereResp CohereModelsResponse
 		if err := json.Unmarshal(bodyBytes, &cohereResp); err != nil {
-			debuglog.Error("discovery: cohere failed to decode response", "provider", provider.Name, "provider_id", provider.ID, "endpoint", endpoint, "error", err)
-			return nil, fmt.Errorf("failed to decode response: %w", err)
+			debuglog.Error("discovery: cohere failed to decode response", "provider", provider.Name, "provider_id", provider.ID, "endpoint", endpoint, "error", jsonfault.Describe(err, len(bodyBytes)))
+			return nil, fmt.Errorf("failed to decode response: %s", jsonfault.Describe(err, len(bodyBytes)))
 		}
 
 		for _, cm := range cohereResp.Models {

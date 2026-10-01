@@ -9,6 +9,7 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/hugalafutro/model-hotel/internal/debuglog"
+	"github.com/hugalafutro/model-hotel/internal/jsonfault"
 	"github.com/hugalafutro/model-hotel/internal/model"
 	"github.com/hugalafutro/model-hotel/internal/util"
 )
@@ -64,7 +65,7 @@ func (d *DiscoveryService) discoverLMStudioNative(ctx context.Context, provider 
 
 	var modelsResp LMStudioV0ModelsResponse
 	if err := json.Unmarshal(bodyBytes, &modelsResp); err != nil {
-		return nil, fmt.Errorf("lmstudio: failed to decode native response for provider %s: %w", provider.Name, err)
+		return nil, fmt.Errorf("lmstudio: failed to decode native response for provider %s: %s", provider.Name, jsonfault.Describe(err, len(bodyBytes)))
 	}
 	// A well-formed but empty payload from a non-LM-Studio server would leave us
 	// with nothing; treat it as "endpoint not really there" and let the caller
@@ -170,7 +171,7 @@ func (d *DiscoveryService) discoverLMStudioOpenAI(ctx context.Context, provider 
 
 	var modelsResp OpenAIModelsResponse
 	if err := json.Unmarshal(bodyBytes, &modelsResp); err != nil {
-		return nil, fmt.Errorf("lmstudio: failed to decode response for provider %s: %w", provider.Name, err)
+		return nil, fmt.Errorf("lmstudio: failed to decode response for provider %s: %s", provider.Name, jsonfault.Describe(err, len(bodyBytes)))
 	}
 
 	models := make([]*model.Model, 0, len(modelsResp.Data))

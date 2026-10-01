@@ -10,6 +10,7 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/hugalafutro/model-hotel/internal/debuglog"
+	"github.com/hugalafutro/model-hotel/internal/jsonfault"
 	"github.com/hugalafutro/model-hotel/internal/model"
 	"github.com/hugalafutro/model-hotel/internal/util"
 )
@@ -116,7 +117,7 @@ func (d *DiscoveryService) discoverXAILanguageModels(ctx context.Context, provid
 
 	var langResp XAILanguageModelsResponse
 	if err := json.Unmarshal(bodyBytes, &langResp); err != nil {
-		return nil, fmt.Errorf("failed to decode response: %w", err)
+		return nil, fmt.Errorf("failed to decode response: %s", jsonfault.Describe(err, len(bodyBytes)))
 	}
 
 	models := make([]*model.Model, 0, len(langResp.Models))
@@ -192,7 +193,7 @@ func (d *DiscoveryService) discoverXAIImageModels(ctx context.Context, provider 
 
 	var imgResp XAIImageGenerationModelsResponse
 	if err := json.Unmarshal(bodyBytes, &imgResp); err != nil {
-		return nil, fmt.Errorf("xAI: failed to decode image-models response: %w", err)
+		return nil, fmt.Errorf("xAI: failed to decode image-models response: %s", jsonfault.Describe(err, len(bodyBytes)))
 	}
 
 	models := make([]*model.Model, 0, len(imgResp.Models))
@@ -246,7 +247,7 @@ func (d *DiscoveryService) discoverXAIMinimalModels(ctx context.Context, provide
 
 	var openAIResp OpenAIModelsResponse
 	if err := json.Unmarshal(bodyBytes, &openAIResp); err != nil {
-		return nil, fmt.Errorf("xAI: failed to decode minimal models response for provider %s: %w", provider.Name, err)
+		return nil, fmt.Errorf("xAI: failed to decode minimal models response for provider %s: %s", provider.Name, jsonfault.Describe(err, len(bodyBytes)))
 	}
 
 	models := make([]*model.Model, 0, len(openAIResp.Data))

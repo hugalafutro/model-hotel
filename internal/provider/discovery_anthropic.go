@@ -9,6 +9,7 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/hugalafutro/model-hotel/internal/debuglog"
+	"github.com/hugalafutro/model-hotel/internal/jsonfault"
 	"github.com/hugalafutro/model-hotel/internal/model"
 	"github.com/hugalafutro/model-hotel/internal/util"
 )
@@ -38,8 +39,8 @@ func (d *DiscoveryService) discoverAnthropic(ctx context.Context, provider *Prov
 
 		var pageResp AnthropicModelsResponse
 		if err := json.Unmarshal(bodyBytes, &pageResp); err != nil {
-			debuglog.Error("discovery: anthropic json decode failed", "provider", provider.Name, "provider_id", provider.ID, "error", err)
-			return nil, fmt.Errorf("failed to decode response: %w", err)
+			debuglog.Error("discovery: anthropic json decode failed", "provider", provider.Name, "provider_id", provider.ID, "error", jsonfault.Describe(err, len(bodyBytes)))
+			return nil, fmt.Errorf("failed to decode response: %s", jsonfault.Describe(err, len(bodyBytes)))
 		}
 
 		allModels = append(allModels, pageResp.Data...)

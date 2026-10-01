@@ -6,6 +6,7 @@ import (
 	"fmt"
 
 	"github.com/hugalafutro/model-hotel/internal/debuglog"
+	"github.com/hugalafutro/model-hotel/internal/jsonfault"
 	"github.com/hugalafutro/model-hotel/internal/model"
 	"github.com/hugalafutro/model-hotel/internal/util"
 )
@@ -28,8 +29,8 @@ func (d *DiscoveryService) discoverMiniMax(ctx context.Context, provider *Provid
 
 	var openAIResp OpenAIModelsResponse
 	if err := json.Unmarshal(bodyBytes, &openAIResp); err != nil {
-		debuglog.Error("discovery: minimax json decode failed", "provider", provider.Name, "provider_id", provider.ID, "error", err)
-		return nil, fmt.Errorf("minimax: failed to decode response for provider %s: %w", provider.Name, err)
+		debuglog.Error("discovery: minimax json decode failed", "provider", provider.Name, "provider_id", provider.ID, "error", jsonfault.Describe(err, len(bodyBytes)))
+		return nil, fmt.Errorf("minimax: failed to decode response for provider %s: %s", provider.Name, jsonfault.Describe(err, len(bodyBytes)))
 	}
 
 	live := make([]*model.Model, 0, len(openAIResp.Data))

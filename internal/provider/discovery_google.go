@@ -11,6 +11,7 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/hugalafutro/model-hotel/internal/debuglog"
+	"github.com/hugalafutro/model-hotel/internal/jsonfault"
 	"github.com/hugalafutro/model-hotel/internal/model"
 	"github.com/hugalafutro/model-hotel/internal/util"
 )
@@ -37,8 +38,8 @@ func (d *DiscoveryService) discoverGoogleAIStudio(ctx context.Context, provider 
 
 	var googleResp GoogleModelsResponse
 	if err := json.Unmarshal(bodyBytes, &googleResp); err != nil {
-		debuglog.Error("discovery: google failed to decode response", "provider", provider.Name, "provider_id", provider.ID, "error", err)
-		return nil, fmt.Errorf("google: failed to decode response for provider %s: %w", provider.Name, err)
+		debuglog.Error("discovery: google failed to decode response", "provider", provider.Name, "provider_id", provider.ID, "error", jsonfault.Describe(err, len(bodyBytes)))
+		return nil, fmt.Errorf("google: failed to decode response for provider %s: %s", provider.Name, jsonfault.Describe(err, len(bodyBytes)))
 	}
 
 	models := make([]*model.Model, 0, len(googleResp.Models))
