@@ -194,27 +194,6 @@ export function TimeSeriesChart({
 		setIsDragging(false);
 	}, []);
 
-	// Mouse wheel / trackpad horizontal scroll
-	const onWheel = useCallback(
-		(e: React.WheelEvent<HTMLDivElement>) => {
-			if (!pannable) return;
-			// deltaX: trackpad horizontal swipe; deltaMode 1 = lines
-			const rawDelta =
-				e.deltaMode === 1
-					? e.deltaX * 20
-					: Math.abs(e.deltaX) > Math.abs(e.deltaY)
-						? e.deltaX
-						: e.deltaY;
-			if (rawDelta === 0) return;
-			e.preventDefault();
-			// Scroll right (positive delta) = see older data (decrease start)
-			const shift = rawDelta > 0 ? -1 : 1;
-			const newStart = clamp(effectiveStart + shift, 0, maxStart);
-			panTo(newStart);
-		},
-		[pannable, maxStart, effectiveStart, panTo],
-	);
-
 	const header = (
 		<div className="flex items-center justify-between mb-4">
 			<h3 className="text-lg font-semibold text-(--text-primary) flex items-center gap-2">
@@ -270,7 +249,6 @@ export function TimeSeriesChart({
 				onPointerMove={pannable ? onPointerMove : undefined}
 				onPointerUp={pannable ? onPointerUp : undefined}
 				onPointerCancel={pannable ? onPointerUp : undefined}
-				onWheel={pannable ? onWheel : undefined}
 			>
 				{isDragging && (
 					<div

@@ -396,7 +396,18 @@ function generateData(count: number): TimeSeriesDataPoint[] {
 	});
 }
 
-describe("Drag-to-pan and wheel scroll", () => {
+// Drags the chart by dx pixels. jsdom lays nothing out, so the container is
+// given a width: 1200px over the 1h viewport of 12 buckets = 100px per bucket.
+function dragBy(el: HTMLElement, dx: number) {
+	vi.spyOn(el, "getBoundingClientRect").mockReturnValue({
+		width: 1200,
+	} as DOMRect);
+	fireEvent.pointerDown(el, { clientX: 500, pointerId: 1 });
+	fireEvent.pointerMove(el, { clientX: 500 + dx, pointerId: 1 });
+	fireEvent.pointerUp(el, { pointerId: 1 });
+}
+
+describe("Drag-to-pan", () => {
 	it("shows grab cursor when data exceeds viewport", () => {
 		const data = generateData(15); // 15 > 12 (viewportSize for 1h)
 		renderWithProviders(
@@ -469,8 +480,8 @@ describe("Drag-to-pan and wheel scroll", () => {
 		const chartContainer = screen.getByTestId("area-chart")
 			.parentElement as HTMLElement;
 
-		// First scroll to older data (positive delta = decrease start = older)
-		fireEvent.wheel(chartContainer, { deltaY: 50 });
+		// Drag right one bucket = older data
+		dragBy(chartContainer, 100);
 
 		// Now we can pan back to newer data, so left arrow appears
 		expect(screen.getByText("←")).toBeInTheDocument();
@@ -490,7 +501,7 @@ describe("Drag-to-pan and wheel scroll", () => {
 
 		const chartContainer = screen.getByTestId("area-chart")
 			.parentElement as HTMLElement;
-		fireEvent.wheel(chartContainer, { deltaY: 50 });
+		dragBy(chartContainer, 100);
 		expect(screen.getByText("←")).toBeInTheDocument();
 
 		// A stale pan (start 27) would still sit left of 1w's maxStart and keep
@@ -626,90 +637,6 @@ describe("Drag-to-pan and wheel scroll", () => {
 		expect(dragOverlay).not.toBeInTheDocument();
 	});
 
-	it("scrolls to older data on positive wheel delta", async () => {
-		const data = generateData(15);
-		renderWithProviders(
-			<TimeSeriesChart
-				{...defaultProps}
-				data={data}
-				range="1h"
-				metric="Requests"
-			/>,
-		);
-
-		const chartContainer = screen.getByTestId("area-chart")
-			.parentElement as HTMLElement;
-
-		// Positive delta = scroll right = see older data (decrease start)
-		fireEvent.wheel(chartContainer, { deltaY: 50 });
-
-		// Should show left arrow now (can pan right toward newer data)
-		expect(screen.getByText("←")).toBeInTheDocument();
-		// Right arrow should still be visible (can still pan left toward older data)
-		expect(screen.getByText("→")).toBeInTheDocument();
-	});
-
-	it("scrolls to newer data on negative wheel delta", async () => {
-		const data = generateData(20);
-		renderWithProviders(
-			<TimeSeriesChart
-				{...defaultProps}
-				data={data}
-				range="1h"
-				metric="Requests"
-			/>,
-		);
-
-		const chartContainer = screen.getByTestId("area-chart")
-			.parentElement as HTMLElement;
-
-		// First scroll to older data
-		fireEvent.wheel(chartContainer, { deltaY: 50 });
-
-		// Then scroll back (negative delta = see newer data)
-		fireEvent.wheel(chartContainer, { deltaY: -50 });
-
-		// Should be able to pan left again
-		expect(screen.getByText("→")).toBeInTheDocument();
-	});
-
-	it("handles deltaMode 1 (line mode) for trackpad", async () => {
-		const data = generateData(15);
-		renderWithProviders(
-			<TimeSeriesChart
-				{...defaultProps}
-				data={data}
-				range="1h"
-				metric="Requests"
-			/>,
-		);
-
-		const chartContainer = screen.getByTestId("area-chart")
-			.parentElement as HTMLElement;
-
-		// deltaMode 1 = line mode, uses deltaX * 20
-		fireEvent.wheel(chartContainer, { deltaX: 1, deltaMode: 1 });
-
-		// Should scroll (1 * 20 = 20, which is significant)
-		expect(screen.getByText("←")).toBeInTheDocument();
-	});
-
-	it("does not scroll when not pannable", async () => {
-		// 6 points < 24 (viewportSize for 24h), so not pannable
-		renderWithProviders(<TimeSeriesChart {...defaultProps} />);
-
-		const chartContainer = screen.getByTestId("area-chart")
-			.parentElement as HTMLElement;
-
-		// Try to scroll
-		fireEvent.wheel(chartContainer, { deltaY: 50 });
-
-		// Should not show any pan indicators
-		expect(screen.queryByText("drag to pan")).not.toBeInTheDocument();
-		expect(screen.queryByText("→")).not.toBeInTheDocument();
-		expect(screen.queryByText("←")).not.toBeInTheDocument();
-	});
-
 	it("clamps viewport at boundaries", async () => {
 		const data = generateData(15);
 		renderWithProviders(
@@ -724,25 +651,15 @@ describe("Drag-to-pan and wheel scroll", () => {
 		const chartContainer = screen.getByTestId("area-chart")
 			.parentElement as HTMLElement;
 
-		// Try to scroll past the start (older data boundary)
-		// Scroll multiple times to try to go past boundary
-		fireEvent.wheel(chartContainer, { deltaY: 50 });
-		fireEvent.wheel(chartContainer, { deltaY: 50 });
-		fireEvent.wheel(chartContainer, { deltaY: 50 });
-		fireEvent.wheel(chartContainer, { deltaY: 50 });
-		fireEvent.wheel(chartContainer, { deltaY: 50 });
+		// Drag far past the oldest data
+		dragBy(chartContainer, 5000);
 
 		// Should still show left arrow (can pan right) but not right arrow
 		expect(screen.getByText("←")).toBeInTheDocument();
 		expect(screen.queryByText("→")).not.toBeInTheDocument();
 
-		// Now scroll back to the end (newer data boundary)
-		fireEvent.wheel(chartContainer, { deltaY: -50 });
-		fireEvent.wheel(chartContainer, { deltaY: -50 });
-		fireEvent.wheel(chartContainer, { deltaY: -50 });
-		fireEvent.wheel(chartContainer, { deltaY: -50 });
-		fireEvent.wheel(chartContainer, { deltaY: -50 });
-		fireEvent.wheel(chartContainer, { deltaY: -50 });
+		// Drag far past the newest data
+		dragBy(chartContainer, -5000);
 
 		// Should be back at start position
 		expect(screen.getByText("→")).toBeInTheDocument();
@@ -789,7 +706,7 @@ describe("Drag-to-pan and wheel scroll", () => {
 		expect(chartContainer).not.toHaveStyle("cursor: grab");
 	});
 
-	it("uses deltaX when it has larger absolute value than deltaY", async () => {
+	it("ignores the wheel so scrolling over the chart scrolls the page", async () => {
 		const data = generateData(15);
 		renderWithProviders(
 			<TimeSeriesChart
@@ -803,32 +720,13 @@ describe("Drag-to-pan and wheel scroll", () => {
 		const chartContainer = screen.getByTestId("area-chart")
 			.parentElement as HTMLElement;
 
-		// deltaX (100) > deltaY (10), so should use deltaX
-		fireEvent.wheel(chartContainer, { deltaX: 100, deltaY: 10 });
+		// Only a drag pans, as the "drag to pan" hint says
+		fireEvent.wheel(chartContainer, { deltaY: 100 });
+		fireEvent.wheel(chartContainer, { deltaX: 100 });
 
-		// Should scroll based on deltaX (positive = older data)
-		expect(screen.getByText("←")).toBeInTheDocument();
-	});
-
-	it("uses deltaY when it has larger absolute value than deltaX", async () => {
-		const data = generateData(15);
-		renderWithProviders(
-			<TimeSeriesChart
-				{...defaultProps}
-				data={data}
-				range="1h"
-				metric="Requests"
-			/>,
-		);
-
-		const chartContainer = screen.getByTestId("area-chart")
-			.parentElement as HTMLElement;
-
-		// deltaY (100) > deltaX (10), so should use deltaY
-		fireEvent.wheel(chartContainer, { deltaX: 10, deltaY: 100 });
-
-		// Should scroll based on deltaY (positive = older data)
-		expect(screen.getByText("←")).toBeInTheDocument();
+		// Still at the latest edge: no left arrow
+		expect(screen.queryByText("←")).not.toBeInTheDocument();
+		expect(screen.getByText("→")).toBeInTheDocument();
 	});
 });
 
