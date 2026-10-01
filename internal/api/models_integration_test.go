@@ -1690,6 +1690,15 @@ func TestUpdateModel_CapabilitiesCustomOnly(t *testing.T) {
 	}
 	edit := `{"capabilities": {"streaming": true, "vision": true, "tool_calling": true}}`
 
+	missing := httptest.NewRecorder()
+	missingReq := httptest.NewRequest(http.MethodPatch, "/models/"+uuid.New().String(), strings.NewReader(edit))
+	missingReq.Header.Set("Authorization", "Bearer test-admin-token")
+	missingReq.Header.Set("Content-Type", "application/json")
+	r.ServeHTTP(missing, missingReq)
+	if missing.Code != http.StatusNotFound {
+		t.Fatalf("edit on a missing model: got %d %s, want 404", missing.Code, missing.Body.String())
+	}
+
 	if rec := send(edit); rec.Code != http.StatusBadRequest || !strings.Contains(rec.Body.String(), "capabilities_custom_only") {
 		t.Fatalf("edit on an openai provider: got %d %s, want 400 capabilities_custom_only", rec.Code, rec.Body.String())
 	}

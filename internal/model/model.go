@@ -529,20 +529,18 @@ type UpdateModelRequest struct {
 // capabilitiesClauses is Update's SET clauses for the capabilities pin, with
 // placeholders numbered from argIdx: an explicit unpin wins, an edit writes
 // the flags and pins them, a bare pin keeps the stored flags as they are.
-func capabilitiesClauses(req UpdateModelRequest, argIdx int) ([]string, []any, error) {
+func capabilitiesClauses(req UpdateModelRequest, argIdx int) ([]string, []any) {
 	switch {
 	case req.CapabilitiesCustomized != nil && !*req.CapabilitiesCustomized:
-		return []string{"capabilities_customized = false"}, nil, nil
+		return []string{"capabilities_customized = false"}, nil
 	case req.Capabilities != nil:
-		b, err := json.Marshal(req.Capabilities)
-		if err != nil {
-			return nil, nil, err
-		}
-		return []string{fmt.Sprintf("capabilities = $%d", argIdx), "capabilities_customized = true"}, []any{string(b)}, nil
+		// A struct of bools always marshals.
+		b, _ := json.Marshal(req.Capabilities)
+		return []string{fmt.Sprintf("capabilities = $%d", argIdx), "capabilities_customized = true"}, []any{string(b)}
 	case req.CapabilitiesCustomized != nil:
-		return []string{"capabilities_customized = true"}, nil, nil
+		return []string{"capabilities_customized = true"}, nil
 	}
-	return nil, nil, nil
+	return nil, nil
 }
 
 // Update applies partial updates to a model.
@@ -646,10 +644,7 @@ func (r *Repository) Update(ctx context.Context, id uuid.UUID, req UpdateModelRe
 	if req.PriceCustomized != nil && !unpin || priceEdited {
 		setClauses = append(setClauses, "price_customized = true")
 	}
-	capClauses, capArgs, err := capabilitiesClauses(req, argIdx)
-	if err != nil {
-		return nil, err
-	}
+	capClauses, capArgs := capabilitiesClauses(req, argIdx)
 	setClauses = append(setClauses, capClauses...)
 	args = append(args, capArgs...)
 	argIdx += len(capArgs)
