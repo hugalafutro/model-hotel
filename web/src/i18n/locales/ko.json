@@ -2932,12 +2932,10 @@
 			"message": "메시지"
 		},
 		"applyRecommendedButton": {
-			"loading": "… 불러오는 중",
 			"applyRecommended": "추천 적용",
 			"params": "({{count}} 매개변수)",
-			"modelsDevMatched": "models.dev에서 일치하는 항목: {{model}}",
 			"noRecommendationsAvailable": "추천할 만한 내용이 없습니다",
-			"tooltip": "models.dev 카탈로그의 권장 설정 적용"
+			"tooltip": "이 모델의 권장 설정 적용"
 		},
 		"liveToggleButton": {
 			"live": "실시간",
@@ -3163,9 +3161,6 @@
 			"initialError": "초기 데이터 가져오기에 실패했습니다",
 			"newerError": "최신 항목을 불러오지 못했습니다",
 			"olderError": "이전 항목을 불러오지 못했습니다"
-		},
-		"useRecommendedSettings": {
-			"fetchError": "데이터를 가져오지 못했습니다"
 		}
 	},
 	"theme": {

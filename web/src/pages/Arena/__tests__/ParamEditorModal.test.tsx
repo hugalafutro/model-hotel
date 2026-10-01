@@ -1,31 +1,10 @@
 import { screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { beforeEach, describe, expect, it, vi } from "vitest";
-
-vi.mock("../../../hooks/useRecommendedSettings", () => ({
-	useRecommendedSettings: vi.fn(() => ({
-		recommended: null,
-		loading: false,
-		error: null,
-		matchedModel: null,
-	})),
-}));
+import { describe, expect, it, vi } from "vitest";
 
 import type { GenerationParams } from "../../../api/types";
 import { renderWithProviders } from "../../../test/utils";
 import { ParamEditorModal } from "../ParamEditorModal";
-
-// Mock useRecommendedSettings for testing ApplyRecommendedButton
-vi.mock("../../../hooks/useRecommendedSettings", () => ({
-	useRecommendedSettings: vi.fn(() => ({
-		recommended: null,
-		loading: false,
-		error: null,
-		matchedModel: null,
-	})),
-}));
-
-import { useRecommendedSettings } from "../../../hooks/useRecommendedSettings";
 
 describe("ParamEditorModal", () => {
 	const defaultProps = {
@@ -35,16 +14,6 @@ describe("ParamEditorModal", () => {
 		onClose: vi.fn(),
 		knownProviders: ["Test Provider"],
 	};
-
-	beforeEach(() => {
-		vi.mocked(useRecommendedSettings).mockClear();
-		vi.mocked(useRecommendedSettings).mockReturnValue({
-			recommended: null,
-			loading: false,
-			error: null,
-			matchedModel: null,
-		});
-	});
 
 	it("renders modal with model ID as title", () => {
 		renderWithProviders(<ParamEditorModal {...defaultProps} />);
@@ -192,22 +161,29 @@ describe("ParamEditorModal", () => {
 	it("renders ApplyRecommendedButton component", () => {
 		renderWithProviders(<ParamEditorModal {...defaultProps} />);
 
-		// Button should be present (may show "Loading..." or "No recommendations")
-		// Check for any of the possible button texts
-		const button = screen.getByRole("button", {
-			name: /Apply Recommended|Loading|No recommendations/i,
-		});
-		expect(button).toBeInTheDocument();
+		expect(
+			screen.getByRole("button", { name: /Apply Recommended/i }),
+		).toBeEnabled();
 	});
 
-	it("passes providerName to ApplyRecommendedButton", () => {
-		renderWithProviders(<ParamEditorModal {...defaultProps} />);
+	it("passes maxOutputTokens through to the recommended max_tokens", async () => {
+		const user = userEvent.setup();
+		const onChange = vi.fn();
+		renderWithProviders(
+			<ParamEditorModal
+				{...defaultProps}
+				onChange={onChange}
+				maxOutputTokens={2000}
+			/>,
+		);
 
-		// Button should be present with provider extracted from modelId
-		const button = screen.getByRole("button", {
-			name: /Apply Recommended|Loading|No recommendations/i,
-		});
-		expect(button).toBeInTheDocument();
+		await user.click(
+			screen.getByRole("button", { name: /Apply Recommended/i }),
+		);
+
+		expect(onChange).toHaveBeenCalledWith(
+			expect.objectContaining({ max_tokens: 2000 }),
+		);
 	});
 
 	it("hides sliders for incompatible params (Anthropic)", () => {
@@ -366,18 +342,8 @@ describe("ParamEditorModal", () => {
 	it("calls onChange with recommended params when ApplyRecommendedButton is clicked", async () => {
 		const user = userEvent.setup();
 		const onChange = vi.fn();
-		const recommendedParams = {
-			temperature: 0.7,
-			max_tokens: 4096,
-		};
-
-		// Mock the hook to return recommended settings
-		vi.mocked(useRecommendedSettings).mockReturnValue({
-			recommended: recommendedParams,
-			loading: false,
-			error: null,
-			matchedModel: null,
-		});
+		// gemma3:4b matches the curated "gemma" family.
+		const recommendedParams = { temperature: 0.7, top_p: 0.9 };
 
 		renderWithProviders(
 			<ParamEditorModal {...defaultProps} onChange={onChange} />,

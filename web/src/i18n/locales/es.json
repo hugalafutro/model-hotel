@@ -3005,12 +3005,10 @@
 			"message": "Mensaje"
 		},
 		"applyRecommendedButton": {
-			"loading": "Cargando…",
 			"applyRecommended": "Aplicar recomendado",
 			"params": "({{count}} params)",
-			"modelsDevMatched": "models.dev coincidente: {{model}}",
 			"noRecommendationsAvailable": "No hay recomendaciones disponibles",
-			"tooltip": "Aplicar la configuración recomendada del catálogo models.dev"
+			"tooltip": "Aplicar la configuración recomendada para este modelo"
 		},
 		"liveToggleButton": {
 			"live": "En directo",
@@ -3239,9 +3237,6 @@
 			"initialError": "Error al recuperar los datos iniciales",
 			"newerError": "Error al obtener nuevas entradas",
 			"olderError": "Error al recuperar entradas antiguas"
-		},
-		"useRecommendedSettings": {
-			"fetchError": "No se pudo obtener"
 		}
 	},
 	"theme": {

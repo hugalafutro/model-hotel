@@ -166,12 +166,18 @@ vi.mock("../ResponseCard", () => ({
 vi.mock("../ParamEditorModal", () => ({
 	ParamEditorModal: ({
 		modelId,
+		maxOutputTokens,
 		onClose,
 	}: {
 		modelId: string;
+		maxOutputTokens?: number | null;
 		onClose: () => void;
 	}) => (
-		<div data-testid="param-editor-modal" data-model={modelId}>
+		<div
+			data-testid="param-editor-modal"
+			data-model={modelId}
+			data-max-output={String(maxOutputTokens ?? "")}
+		>
 			<button type="button" onClick={onClose}>
 				Close
 			</button>
@@ -228,6 +234,10 @@ vi.mock("../../../utils/model", () => ({
 	}),
 	proxyModelID: (provider: string, modelId: string) => `${provider}/${modelId}`,
 	isReasoningModel: () => false,
+	findChatModel: (
+		models: { provider_name: string; model_id: string }[],
+		proxyId: string,
+	) => models.find((m) => `${m.provider_name}/${m.model_id}` === proxyId),
 }));
 
 import { Arena } from "../../Arena";
@@ -1134,6 +1144,35 @@ describe("Arena - Modals", () => {
 		});
 		render(<Arena />);
 		expect(screen.getByTestId("param-editor-modal")).toBeInTheDocument();
+	});
+
+	it("hands ParamEditorModal the edited model's own max output", () => {
+		const models = [
+			{
+				provider_name: "provider",
+				model_id: "model1",
+				max_output_tokens: 8000,
+			},
+			{
+				provider_name: "provider",
+				model_id: "model2",
+				max_output_tokens: 2000,
+			},
+		];
+		mockArena({ paramEditorModel: "provider/model2", enabledModels: models });
+		const { unmount } = render(<Arena />);
+		expect(screen.getByTestId("param-editor-modal")).toHaveAttribute(
+			"data-max-output",
+			"2000",
+		);
+		unmount();
+
+		mockArena({ paramEditorModel: "provider/model1", enabledModels: models });
+		render(<Arena />);
+		expect(screen.getByTestId("param-editor-modal")).toHaveAttribute(
+			"data-max-output",
+			"8000",
+		);
 	});
 
 	it("does not render ParamEditorModal when paramEditorModel is null", () => {

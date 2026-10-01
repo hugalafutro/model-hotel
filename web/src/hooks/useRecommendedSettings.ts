@@ -1,45 +1,21 @@
-import { useQuery } from "@tanstack/react-query";
+import { useMemo } from "react";
 import type { GenerationParams } from "../api/types";
-import i18next from "../i18n";
-import { fetchRecommendedSettings } from "../utils/recommendedSettings";
+import { recommendedSettings } from "../utils/recommendedSettings";
 
 /**
- * Hook to fetch recommended generation settings for a model.
- * Uses TanStack Query for caching and deduplication.
+ * Recommended generation settings for a model: its curated family defaults
+ * plus a max_tokens default from the model's stored max output.
  *
- * @param modelId - The proxy model ID (e.g. "openai/gpt-4o")
- * @param providerName - The display provider name (e.g. "OpenAI")
- * @returns Object with recommended params, loading state, and an apply helper.
+ * @param modelId - The proxy model ID (e.g. "OpenAI/gpt-4o")
+ * @param maxOutputTokens - The model's stored max output, if known.
+ * @returns The recommended params, or null when there is no recommendation.
  */
 export function useRecommendedSettings(
 	modelId: string,
-	providerName: string,
-): {
-	recommended: GenerationParams | null;
-	loading: boolean;
-	error: string | null;
-	matchedModel: string | null;
-} {
-	const { data, isLoading, error } = useQuery({
-		queryKey: ["recommendedSettings", modelId, providerName],
-		queryFn: () => fetchRecommendedSettings(modelId, providerName),
-		staleTime: 30 * 60 * 1000, // 30 min - same as the underlying cache
-		gcTime: 60 * 60 * 1000, // keep in cache for 1 hour
-		retry: 1,
-		// Don't refetch on window focus - this data changes rarely
-		refetchOnWindowFocus: false,
-	});
-
-	const queryError = error
-		? error instanceof Error
-			? error.message
-			: i18next.t("hooks.useRecommendedSettings.fetchError")
-		: null;
-
-	return {
-		recommended: data?.params ?? null,
-		loading: isLoading,
-		error: queryError,
-		matchedModel: data?.matchedModelId ?? null,
-	};
+	maxOutputTokens?: number | null,
+): GenerationParams | null {
+	return useMemo(
+		() => recommendedSettings(modelId, maxOutputTokens),
+		[modelId, maxOutputTokens],
+	);
 }

@@ -21,6 +21,7 @@ import { ReasoningEffortSelect } from "./ReasoningEffortSelect";
 export function GenerationParamSliders({
 	modelId,
 	provider,
+	maxOutputTokens,
 	params,
 	onChange,
 	reasoning = false,
@@ -29,6 +30,8 @@ export function GenerationParamSliders({
 	/** Model id used to look up recommended settings. */
 	modelId: string;
 	provider: string;
+	/** The model's stored max output, the source of the max_tokens default. */
+	maxOutputTokens?: number | null;
 	params: GenerationParams;
 	onChange: (params: GenerationParams) => void;
 	/** True for a model that accepts a reasoning effort. */
@@ -75,7 +78,7 @@ export function GenerationParamSliders({
 			)}
 			<ApplyRecommendedButton
 				modelId={modelId}
-				providerName={provider}
+				maxOutputTokens={maxOutputTokens}
 				onApply={(recommended) => onChange({ ...params, ...recommended })}
 			/>
 		</>

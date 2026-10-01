@@ -3005,12 +3005,10 @@
 			"message": "Mesaj"
 		},
 		"applyRecommendedButton": {
-			"loading": "Se încarcă…",
 			"applyRecommended": "Aplică Recomandat",
 			"params": "({{count}} params)",
-			"modelsDevMatched": "models.dev potrivit: {{model}}",
 			"noRecommendationsAvailable": "Nu există recomandări disponibile",
-			"tooltip": "Aplică setările recomandate din catalogul de models.dev"
+			"tooltip": "Aplică setările recomandate pentru acest model"
 		},
 		"liveToggleButton": {
 			"live": "Live",
@@ -3239,9 +3237,6 @@
 			"initialError": "Obținerea datelor inițiale a eșuat",
 			"newerError": "Preluarea intrărilor mai noi a eșuat",
 			"olderError": "Nu s-au putut prelua intrările mai vechi"
-		},
-		"useRecommendedSettings": {
-			"fetchError": "Preluarea a eșuat"
 		}
 	},
 	"theme": {

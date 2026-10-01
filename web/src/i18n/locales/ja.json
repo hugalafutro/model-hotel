@@ -2932,12 +2932,10 @@
 			"message": "メッセージ"
 		},
 		"applyRecommendedButton": {
-			"loading": "… を読み込み中",
 			"applyRecommended": "推奨を適用する",
 			"params": "({{count}} params)",
-			"modelsDevMatched": "models.dev matched: {{model}}",
 			"noRecommendationsAvailable": "おすすめはありません",
-			"tooltip": "models.dev catalogue から推奨される設定を適用します"
+			"tooltip": "このモデルの推奨設定を適用します"
 		},
 		"liveToggleButton": {
 			"live": "ライブ",
@@ -3163,9 +3161,6 @@
 			"initialError": "初期データの取得に失敗しました",
 			"newerError": "新しいエントリの取得に失敗しました",
 			"olderError": "古い項目の取得に失敗しました"
-		},
-		"useRecommendedSettings": {
-			"fetchError": "取得に失敗しました"
 		}
 	},
 	"theme": {

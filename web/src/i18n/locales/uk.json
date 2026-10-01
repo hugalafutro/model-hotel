@@ -3078,12 +3078,10 @@
 			"message": "Повідомлення"
 		},
 		"applyRecommendedButton": {
-			"loading": "Завантаження…",
 			"applyRecommended": "Застосувати Рекомендовані",
 			"params": "({{count}} params)",
-			"modelsDevMatched": "models.dev збіг: {{model}}",
 			"noRecommendationsAvailable": "Немає доступних рекомендацій",
-			"tooltip": "Застосувати рекомендовані налаштування з каталогу models.dev"
+			"tooltip": "Застосувати рекомендовані налаштування для цієї моделі"
 		},
 		"liveToggleButton": {
 			"live": "Наживо",
@@ -3315,9 +3313,6 @@
 			"initialError": "Не вдалося отримати початкові дані",
 			"newerError": "Не вдалося отримати новіші записи",
 			"olderError": "Не вдалося отримати старі записи"
-		},
-		"useRecommendedSettings": {
-			"fetchError": "Не вдалося отримати"
 		}
 	},
 	"theme": {

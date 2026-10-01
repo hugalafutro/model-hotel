@@ -3005,12 +3005,10 @@
 			"message": "הודעה"
 		},
 		"applyRecommendedButton": {
-			"loading": "טוען…",
 			"applyRecommended": "החל את ההמלצה",
 			"params": "({{count}} פרמטרים)",
-			"modelsDevMatched": "models.dev תואם: {{model}}",
 			"noRecommendationsAvailable": "אין המלצות זמינות",
-			"tooltip": "החל את ההגדרות המומלצות מקטלוג models.dev"
+			"tooltip": "החל את ההגדרות המומלצות עבור מודל זה"
 		},
 		"liveToggleButton": {
 			"live": "בשידור חי",
@@ -3239,9 +3237,6 @@
 			"initialError": "לא הצליחו לאחזר את הנתונים הראשוניים",
 			"newerError": "לא הצלחתי לאחזר רשומות חדשות יותר",
 			"olderError": "לא הצלחתי לאחזר רשומות ישנות יותר"
-		},
-		"useRecommendedSettings": {
-			"fetchError": "לא הצליח לאחזר"
 		}
 	},
 	"theme": {

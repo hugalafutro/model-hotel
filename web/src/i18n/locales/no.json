@@ -2932,12 +2932,10 @@
 			"message": "Melding"
 		},
 		"applyRecommendedButton": {
-			"loading": "Laster…",
 			"applyRecommended": "Bruk Anbefalte",
 			"params": "({{count}} params)",
-			"modelsDevMatched": "models.dev samsvarer med: {{model}}",
 			"noRecommendationsAvailable": "Ingen anbefalinger tilgjengelig",
-			"tooltip": "Bruk anbefalte innstillinger fra models.dev katalog"
+			"tooltip": "Bruk anbefalte innstillinger for denne modellen"
 		},
 		"liveToggleButton": {
 			"live": "Direkte",
@@ -3163,9 +3161,6 @@
 			"initialError": "Kunne ikke hente innledende data",
 			"newerError": "Kunne ikke hente nyere oppføringer",
 			"olderError": "Kunne ikke hente eldre oppføringer"
-		},
-		"useRecommendedSettings": {
-			"fetchError": "Kunne ikke hente"
 		}
 	},
 	"theme": {

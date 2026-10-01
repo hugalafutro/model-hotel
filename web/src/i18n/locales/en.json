@@ -2932,12 +2932,10 @@
 			"message": "Message"
 		},
 		"applyRecommendedButton": {
-			"loading": "Loading…",
 			"applyRecommended": "Apply Recommended",
 			"params": "({{count}} params)",
-			"modelsDevMatched": "models.dev matched: {{model}}",
 			"noRecommendationsAvailable": "No recommendations available",
-			"tooltip": "Apply recommended settings from models.dev catalogue"
+			"tooltip": "Apply recommended settings for this model"
 		},
 		"liveToggleButton": {
 			"live": "Live",
@@ -3163,9 +3161,6 @@
 			"initialError": "Failed to fetch initial data",
 			"newerError": "Failed to fetch newer entries",
 			"olderError": "Failed to fetch older entries"
-		},
-		"useRecommendedSettings": {
-			"fetchError": "Failed to fetch"
 		}
 	},
 	"theme": {

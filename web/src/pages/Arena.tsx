@@ -2,7 +2,7 @@ import { useEffect, useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import { ArenaHistoryModal } from "../components/ArenaHistoryModal";
 import { PageHeader } from "../components/PageHeader";
-import { isReasoningModel, proxyModelID } from "../utils/model";
+import { findChatModel, isReasoningModel, proxyModelID } from "../utils/model";
 import { ArenaBracketBar } from "./Arena/ArenaBracketBar";
 import { ArenaControls } from "./Arena/ArenaControls";
 import { ArenaResponseGrid } from "./Arena/ArenaResponseGrid";
@@ -105,6 +105,10 @@ export function Arena() {
 						arena.enabledModels,
 						arena.paramEditorModel,
 					)}
+					maxOutputTokens={
+						findChatModel(arena.enabledModels, arena.paramEditorModel)
+							?.max_output_tokens
+					}
 				/>
 			)}
 

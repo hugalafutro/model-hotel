@@ -3078,12 +3078,10 @@
 			"message": "Zpráva"
 		},
 		"applyRecommendedButton": {
-			"loading": "Načítání…",
 			"applyRecommended": "Použít doporučené",
 			"params": "(Parametry {{count}})",
-			"modelsDevMatched": "models.dev nalezeno: {{model}}",
 			"noRecommendationsAvailable": "Žádná doporučení nejsou k dispozici",
-			"tooltip": "Použít doporučená nastavení z katalogu models.dev"
+			"tooltip": "Použít doporučená nastavení pro tento model"
 		},
 		"liveToggleButton": {
 			"live": "Živě",
@@ -3315,9 +3313,6 @@
 			"initialError": "Načtení počátečních dat selhalo",
 			"newerError": "Nepodařilo se načíst novější záznamy",
 			"olderError": "Nepodařilo se načíst starší záznamy"
-		},
-		"useRecommendedSettings": {
-			"fetchError": "Načtení selhalo"
 		}
 	},
 	"theme": {

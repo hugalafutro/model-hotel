@@ -12,6 +12,7 @@ export function ParamEditorModal({
 	onClose,
 	knownProviders,
 	reasoning,
+	maxOutputTokens,
 }: {
 	modelId: string;
 	params: GenerationParams;
@@ -19,6 +20,8 @@ export function ParamEditorModal({
 	onClose: () => void;
 	knownProviders: string[];
 	reasoning?: boolean;
+	/** The model's stored max output, the source of the max_tokens default. */
+	maxOutputTokens?: number | null;
 }) {
 	const { t } = useTranslation();
 	const providerName = providerFromModelID(modelId, knownProviders);
@@ -29,6 +32,7 @@ export function ParamEditorModal({
 				<GenerationParamSliders
 					modelId={modelId}
 					provider={providerName}
+					maxOutputTokens={maxOutputTokens}
 					params={params}
 					onChange={onChange}
 					reasoning={reasoning}

@@ -3078,12 +3078,10 @@
 			"message": "Сообщение"
 		},
 		"applyRecommendedButton": {
-			"loading": "Загрузка…",
 			"applyRecommended": "Применить рекомендованный",
 			"params": "({{count}} params)",
-			"modelsDevMatched": "models.dev: совпадение {{model}}",
 			"noRecommendationsAvailable": "Нет доступных рекомендаций",
-			"tooltip": "Применить рекомендованные настройки из каталога models.dev"
+			"tooltip": "Применить рекомендованные настройки для этой модели"
 		},
 		"liveToggleButton": {
 			"live": "Онлайн",
@@ -3315,9 +3313,6 @@
 			"initialError": "Не удалось получить начальные данные",
 			"newerError": "Не удалось получить новые записи",
 			"olderError": "Не удалось получить старые записи"
-		},
-		"useRecommendedSettings": {
-			"fetchError": "Не удалось получить"
 		}
 	},
 	"theme": {

@@ -2932,12 +2932,10 @@
 			"message": "Boodskap"
 		},
 		"applyRecommendedButton": {
-			"loading": "Laai…",
 			"applyRecommended": "Pas aanbeveel toe",
 			"params": "({{count}} -parameters)",
-			"modelsDevMatched": "models.dev ooreengekom: {{model}}",
 			"noRecommendationsAvailable": "Geen aanbevelings beskikbaar nie",
-			"tooltip": "Pas die aanbevole instellings uit die models.dev-katalogus toe."
+			"tooltip": "Pas die aanbevole instellings vir hierdie model toe"
 		},
 		"liveToggleButton": {
 			"live": "Regstreeks",
@@ -3163,9 +3161,6 @@
 			"initialError": "Misluk om aanvanklike data op te haal",
 			"newerError": "Het misluk om nuwer inskrywings op te haal",
 			"olderError": "Het misluk om ouer inskrywings op te haal"
-		},
-		"useRecommendedSettings": {
-			"fetchError": "Misluk om op te haal"
 		}
 	},
 	"theme": {

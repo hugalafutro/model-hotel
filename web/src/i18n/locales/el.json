@@ -2932,12 +2932,10 @@
 			"message": "Μήνυμα"
 		},
 		"applyRecommendedButton": {
-			"loading": "Φόρτωση…",
 			"applyRecommended": "Εφαρμογή Προτεινόμενων",
 			"params": "({{count}} params)",
-			"modelsDevMatched": "models.dev ταίριασε: {{model}}",
 			"noRecommendationsAvailable": "Δεν υπάρχουν διαθέσιμες συστάσεις",
-			"tooltip": "Εφαρμογή συνιστώμενων ρυθμίσεων από τον κατάλογο models.dev"
+			"tooltip": "Εφαρμογή συνιστώμενων ρυθμίσεων για αυτό το μοντέλο"
 		},
 		"liveToggleButton": {
 			"live": "Ζωντανά",
@@ -3163,9 +3161,6 @@
 			"initialError": "Αποτυχία λήψης αρχικών δεδομένων",
 			"newerError": "Αποτυχία ανάκτησης νεότερων καταχωρήσεων",
 			"olderError": "Αποτυχία ανάκτησης παλαιότερων καταχωρήσεων"
-		},
-		"useRecommendedSettings": {
-			"fetchError": "Αποτυχία ανάκτησης"
 		}
 	},
 	"theme": {
