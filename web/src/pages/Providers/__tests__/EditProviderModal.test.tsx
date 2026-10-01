@@ -457,6 +457,26 @@ describe("EditProviderModal", () => {
 	});
 
 	describe("unsaved changes confirmation", () => {
+		it("stays live after a refused close from the dialog's own X", async () => {
+			const { user } = renderWithProviders(
+				<EditProviderModal {...defaultProps} />,
+			);
+			const nameInput = screen.getByLabelText("Name");
+			await user.clear(nameInput);
+			await user.type(nameInput, "Changed Name");
+			const dialog = screen.getByRole("dialog", { name: "Edit Provider" });
+			await user.click(within(dialog).getByRole("button", { name: "Close" }));
+			expect(await screen.findByText("Unsaved Changes")).toBeInTheDocument();
+			await user.click(screen.getByTestId("confirm-dialog-cancel"));
+			await waitFor(() =>
+				expect(screen.queryByText("Unsaved Changes")).not.toBeInTheDocument(),
+			);
+			// A refused close must not leave the dialog faded out and deaf.
+			await user.click(within(dialog).getByRole("button", { name: "Close" }));
+			expect(await screen.findByText("Unsaved Changes")).toBeInTheDocument();
+			expect(defaultProps.onClose).not.toHaveBeenCalled();
+		});
+
 		it("shows confirm dialog when closing with unsaved name change", async () => {
 			const { user } = renderWithProviders(
 				<EditProviderModal {...defaultProps} />,

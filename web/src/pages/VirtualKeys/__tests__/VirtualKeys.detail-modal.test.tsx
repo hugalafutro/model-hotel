@@ -1185,9 +1185,17 @@ describe("KeyDetailModal unsaved-changes guard", () => {
 
 		await user.click(screen.getByTestId("confirm-dialog-cancel"));
 
-		expect(
-			screen.getByRole("dialog", { name: "Virtual Key Details" }),
-		).toBeInTheDocument();
+		const dialog = screen.getByRole("dialog", { name: "Virtual Key Details" });
+		expect(dialog).toBeInTheDocument();
+		// The dialog still answers: a refused close must not leave it faded
+		// out over the page, deaf to every later close.
+		await waitFor(() =>
+			expect(screen.queryByText("Unsaved Changes")).not.toBeInTheDocument(),
+		);
+		await user.click(within(dialog).getByRole("button", { name: "Close" }));
+		await waitFor(() => {
+			expect(screen.getByText("Unsaved Changes")).toBeInTheDocument();
+		});
 	});
 
 	it("closes modal when confirming discard", async () => {
