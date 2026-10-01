@@ -250,6 +250,16 @@ func upsertProviders(ctx context.Context, tx pgx.Tx, providers []ExportProvider,
 			// database failure, not a name the member could not take.
 			return err
 		}
+		// A type whose capabilities are not hand-set releases the provider's
+		// capabilities pins, as a re-type through the admin API does
+		// (provider.Repository.Update): this upsert re-types a provider too.
+		if !provider.OperatorServedType(providerTypeForImport(p)) {
+			if _, err := tx.Exec(ctx,
+				`UPDATE models SET capabilities_customized = false
+				 WHERE capabilities_customized AND provider_id = (SELECT id FROM providers WHERE name = $1)`, p.Name); err != nil {
+				return err
+			}
+		}
 	}
 	return nil
 }

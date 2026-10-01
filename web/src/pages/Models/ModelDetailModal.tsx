@@ -5,7 +5,7 @@ import type { Model } from "../../api/types";
 import { CapBadge } from "../../components/CapBadge";
 import { ConfirmDialog } from "../../components/ConfirmDialog";
 import { CopyablePill } from "../../components/CopyablePill";
-import { CAP_META, hasCap } from "../../components/capMeta";
+import { CAP_META, CAP_OFF, hasCap } from "../../components/capMeta";
 import { DetailSectionHeader } from "../../components/DetailSectionHeader";
 import type { LangIconKey } from "../../components/langIcons";
 import { Modal } from "../../components/Modal";
@@ -249,7 +249,7 @@ export function ModelDetailModal({
 								data-testid={`caps-toggle-${m.key}`}
 								onClick={() => toggleCap(m.key)}
 								className={`ui-badge inline-flex items-center px-1.5 py-0.5 text-[11px] font-medium border cursor-pointer ${
-									editCaps[m.key] ? m.style : m.muted
+									editCaps[m.key] ? m.style : CAP_OFF
 								}`}
 							>
 								{t(m.labelKey)}

@@ -18,6 +18,11 @@ export interface CapMeta {
 	muted: string;
 }
 
+/** A capability switched off in the model editor: plain gray, so the ones
+ * switched on keep their color and stand out. */
+export const CAP_OFF =
+	"bg-gray-800/40 text-gray-500 border-gray-700/40 hover:text-gray-300 hover:border-gray-500";
+
 /** Shared "this capability is not reachable under the current filters" look. */
 export const CAP_DISABLED =
 	"bg-gray-800/30 text-gray-600/40 border-gray-700/20 cursor-not-allowed opacity-50";
