@@ -1077,7 +1077,8 @@
 			"testSuccessRanked": "Başarı | Sıralanmış sonuçlar: {{count}}{{ttftPart}} | Süre: {{duration}}saniye",
 			"limitsPinned": "Bağlam ve çıktı sınırları operatör tarafından sabitlendi",
 			"capabilitiesPinned": "Operatör tarafından belirlenen yetenekler",
-			"capabilitiesEditHint": "Bu sağlayıcı yalnızca sunucusunun söylediğini bildirir. Bu modelin desteklediklerini açın."
+			"capabilitiesEditHint": "Bu sağlayıcı yalnızca sunucusunun söylediğini bildirir. Bu modelin desteklediklerini açın.",
+			"usageExamples": "Kullanım örnekleri"
 		},
 		"table": {
 			"sortByModelName": "Model adına göre sırala",

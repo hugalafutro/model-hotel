@@ -1121,7 +1121,8 @@
 			"testSuccessRanked": "Successo | Risultati classificati: {{count}}{{ttftPart}} | Durata: {{duration}}s",
 			"limitsPinned": "Limiti di contesto e output fissati dall'operatore",
 			"capabilitiesPinned": "Capacità impostate dall'operatore",
-			"capabilitiesEditHint": "Questo provider riporta solo ciò che dice il suo server. Attiva ciò che questo modello supporta."
+			"capabilitiesEditHint": "Questo provider riporta solo ciò che dice il suo server. Attiva ciò che questo modello supporta.",
+			"usageExamples": "Esempi di utilizzo"
 		},
 		"table": {
 			"sortByModelName": "Ordina per nome modello",

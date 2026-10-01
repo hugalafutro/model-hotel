@@ -509,6 +509,18 @@ describe("ModelDetailModal", () => {
 		await waitFor(() => expect(onClose).toHaveBeenCalledTimes(1));
 	});
 
+	it("keeps the usage examples collapsed until their header is clicked", async () => {
+		const user = userEvent.setup();
+		renderWithProviders(<ModelDetailModal {...defaultProps} />);
+		const toggle = screen.getByTestId("model-examples-toggle");
+		expect(toggle).toHaveTextContent("Usage examples");
+		expect(toggle).toHaveAttribute("aria-expanded", "false");
+		await user.click(toggle);
+		expect(toggle).toHaveAttribute("aria-expanded", "true");
+		await user.click(toggle);
+		expect(toggle).toHaveAttribute("aria-expanded", "false");
+	});
+
 	it("enters edit mode when Edit button is clicked", async () => {
 		const user = userEvent.setup();
 		renderWithProviders(<ModelDetailModal {...defaultProps} />);

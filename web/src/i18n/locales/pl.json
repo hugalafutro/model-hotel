@@ -1165,7 +1165,8 @@
 			"testSuccessRanked": "Sukces | Uszeregowane wyniki: {{count}}{{ttftPart}} | Czas trwania: {{duration}}s",
 			"limitsPinned": "Limity kontekstu i wyjścia przypięte przez operatora",
 			"capabilitiesPinned": "Możliwości ustawione przez operatora",
-			"capabilitiesEditHint": "Ten dostawca zgłasza tylko to, co podaje jego serwer. Włącz to, co obsługuje ten model."
+			"capabilitiesEditHint": "Ten dostawca zgłasza tylko to, co podaje jego serwer. Włącz to, co obsługuje ten model.",
+			"usageExamples": "Przykłady użycia"
 		},
 		"table": {
 			"sortByModelName": "Sortuj według nazwy modelu",

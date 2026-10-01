@@ -1121,7 +1121,8 @@
 			"testSuccessRanked": "הצלחה | תוצאות מדורגות: {{count}}{{ttftPart}} | משך: {{duration}}שניות",
 			"limitsPinned": "מגבלות ההקשר והפלט הוצמדו על ידי המפעיל",
 			"capabilitiesPinned": "יכולות שהוגדרו על ידי המפעיל",
-			"capabilitiesEditHint": "ספק זה מדווח רק על מה שהשרת שלו אומר. הפעל את מה שהמודל הזה תומך בו."
+			"capabilitiesEditHint": "ספק זה מדווח רק על מה שהשרת שלו אומר. הפעל את מה שהמודל הזה תומך בו.",
+			"usageExamples": "דוגמאות לשימוש"
 		},
 		"table": {
 			"sortByModelName": "מיין לפי שם הדגם",

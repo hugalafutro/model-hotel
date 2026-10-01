@@ -1121,7 +1121,8 @@
 			"testSuccessRanked": "Éxito | Resultados clasificados: {{count}}{{ttftPart}} | Duración: {{duration}}s",
 			"limitsPinned": "Límites de contexto y salida fijados por el operador",
 			"capabilitiesPinned": "Capacidades definidas por el operador",
-			"capabilitiesEditHint": "Este proveedor solo informa lo que dice su servidor. Activa lo que admite este modelo."
+			"capabilitiesEditHint": "Este proveedor solo informa lo que dice su servidor. Activa lo que admite este modelo.",
+			"usageExamples": "Ejemplos de uso"
 		},
 		"table": {
 			"sortByModelName": "Ordenar por nombre del modelo",

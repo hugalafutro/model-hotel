@@ -1165,7 +1165,8 @@
 			"testSuccessRanked": "Úspech | Zoradené výsledky: {{count}}{{ttftPart}} | Trvanie: {{duration}}s",
 			"limitsPinned": "Limity kontextu a výstupu pripnuté operátorom",
 			"capabilitiesPinned": "Schopnosti nastavené operátorom",
-			"capabilitiesEditHint": "Tento poskytovateľ hlási len to, čo uvádza jeho server. Zapnite, čo tento model podporuje."
+			"capabilitiesEditHint": "Tento poskytovateľ hlási len to, čo uvádza jeho server. Zapnite, čo tento model podporuje.",
+			"usageExamples": "Príklady použitia"
 		},
 		"table": {
 			"sortByModelName": "Zoradiť podľa názvu modelu",
