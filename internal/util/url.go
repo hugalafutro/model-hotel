@@ -69,3 +69,18 @@ func URLParseReason(err error) error {
 	}
 	return err
 }
+
+// credentialQueryParams are the query parameter names a key may travel in (a
+// custom gateway may authenticate by ?key=). Only these count: treating every
+// query value as a secret would redact Azure's ?api-version=... out of the one
+// diagnostic an operator needs when a version is refused.
+var credentialQueryParams = map[string]bool{
+	"key": true, "api_key": true, "apikey": true, "api-key": true,
+	"token": true, "access_token": true, "secret": true, "password": true,
+}
+
+// IsCredentialQueryParam reports whether a query parameter of that name
+// carries a credential. name is the decoded name, matched case-insensitively.
+func IsCredentialQueryParam(name string) bool {
+	return credentialQueryParams[strings.ToLower(name)]
+}

@@ -1614,3 +1614,28 @@ func TestValidateProviderURL_ParseErrorDoesNotQuoteTheURL(t *testing.T) {
 		t.Errorf("error lost the parse reason: %s", err.Error())
 	}
 }
+
+// The base URL is stored and shown in plaintext, so a credential belongs in the
+// encrypted API key field. The check runs before the known-host shortcut.
+func TestValidateProviderURL_RefusesCredentials(t *testing.T) {
+	cfg := &Config{}
+	for _, raw := range []string{
+		"https://operator:secret@api.example.com/v1",
+		"https://api.example.com/v1?key=secret",
+		"https://api.example.com/v1?alt=json&API_KEY=secret",
+		"https://api.example.com/v1?%6bey=secret",
+		"https://api.openai.com/v1?token=secret",
+	} {
+		err := cfg.ValidateProviderURL(raw)
+		if err == nil || !strings.Contains(err.Error(), "API key field") {
+			t.Errorf("ValidateProviderURL(%q) = %v, want a credential refusal", raw, err)
+		}
+		if err != nil && strings.Contains(err.Error(), "secret") {
+			t.Errorf("ValidateProviderURL(%q) quotes the credential: %v", raw, err)
+		}
+	}
+	// A non-credential query parameter is legitimate (Azure's api-version).
+	if err := cfg.ValidateProviderURL("https://api.openai.com/v1?api-version=2024-10-21"); err != nil {
+		t.Errorf("a non-credential query parameter was refused: %v", err)
+	}
+}

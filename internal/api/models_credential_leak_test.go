@@ -107,16 +107,16 @@ func TestTestModel_DoesNotLeakTheProviderKey(t *testing.T) {
 	}
 }
 
-// A base URL can carry a credential in its query (a custom gateway that
-// authenticates by ?key=), and a transport failure quotes the target URL, so
-// the model-test error must be masked before it reaches the response and the
-// stored row, as the non-200 branch is.
+// A base URL stored before config.ValidateProviderURL began refusing
+// credentials can still carry one in its query, and a transport failure quotes
+// the target URL, so the model-test error must be masked before it reaches the
+// response and the stored row, as the non-200 branch is.
 func TestTestModel_TransportErrorDoesNotLeakAQueryKey(t *testing.T) {
 	const queryKey = "gateway-query-secret"
 	h, r := newTestHandlerWithRouter(t)
 
-	providerData := fmt.Sprintf(`{"name": "query-key-provider-%s", "base_url": "http://127.0.0.1:1/v1?key=%s", "api_key": "test-key"}`,
-		uuid.New().String()[:8], queryKey)
+	providerData := fmt.Sprintf(`{"name": "query-key-provider-%s", "base_url": "http://127.0.0.1:1/v1", "api_key": "test-key"}`,
+		uuid.New().String()[:8])
 	rec := httptest.NewRecorder()
 	req := httptest.NewRequest(http.MethodPost, "/providers", strings.NewReader(providerData))
 	req.Header.Set("Authorization", "Bearer test-admin-token")
@@ -132,6 +132,11 @@ func TestTestModel_TransportErrorDoesNotLeakAQueryKey(t *testing.T) {
 		t.Fatalf("provider response: %v", err)
 	}
 
+	// The API refuses this URL now, so it is written the way a legacy row has it.
+	if _, err := h.Pool().Pool().Exec(context.Background(),
+		`UPDATE providers SET base_url = $1 WHERE id = $2`, "http://127.0.0.1:1/v1?key="+queryKey, providerResp.ID); err != nil {
+		t.Fatalf("legacy base_url: %v", err)
+	}
 	modelID := uuid.New().String()
 	if _, err := h.Pool().Pool().Exec(context.Background(),
 		`INSERT INTO models (id, provider_id, model_id, name, enabled) VALUES ($1, $2, $3, $4, $5)`,

@@ -366,8 +366,9 @@ func formatCORSOriginRows(origins []string) []configRow {
 	return result
 }
 
-// ValidateProviderURL checks that a provider base_url does not resolve to a
-// private or reserved address (loopback, RFC 1918/ULA, link-local, CGNAT, or
+// ValidateProviderURL checks that a provider base_url carries no credential
+// (userinfo, or a credential query parameter such as ?key=) and does not
+// resolve to a private or reserved address (loopback, RFC 1918/ULA, link-local, CGNAT, or
 // cloud-metadata — see util.IsBlockedIP) and, if AllowedProviderHosts is set,
 // is in the allowed list. Built-in known provider hosts (OpenAI, Nano-GPT,
 // Z.AI, DeepSeek, Ollama) are always allowed regardless of the
@@ -381,6 +382,18 @@ func (c *Config) ValidateProviderURL(rawURL string) error {
 	host := u.Hostname()
 	if host == "" {
 		return fmt.Errorf("URL has no host")
+	}
+
+	// The base URL is stored and shown in plaintext, unlike the API key, which
+	// is encrypted. Checked before the known-host shortcut below, which returns
+	// early.
+	if u.User != nil {
+		return fmt.Errorf("URL must not carry credentials (user:password@); put the key in the API key field")
+	}
+	for name := range u.Query() {
+		if util.IsCredentialQueryParam(name) {
+			return fmt.Errorf("URL must not carry a credential in its query (%q); put the key in the API key field", name)
+		}
 	}
 
 	// Built-in known provider hosts are always allowed (skip the IP checks)
