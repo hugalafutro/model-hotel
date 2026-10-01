@@ -23,7 +23,7 @@ import { useManaged } from "../../hooks/useManaged";
 import { useReadOnly } from "../../hooks/useReadOnly";
 import { useWheelPaging } from "../../hooks/useWheelPaging";
 import {
-	formatLocale,
+	formatDateTime,
 	formatNumber,
 	formatRelativeTime,
 } from "../../utils/format";
@@ -390,7 +390,7 @@ export function VirtualKeys() {
 										<BudgetCell vk={vk} />
 									</td>
 									<td className="px-4 py-3 text-sm text-gray-400">
-										{new Date(vk.created_at).toLocaleString(formatLocale())}
+										{formatDateTime(vk.created_at)}
 									</td>
 									<td className="px-4 py-3 text-sm text-gray-400 font-mono">
 										{formatNumber(vk.tokens_used)}

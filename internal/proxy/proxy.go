@@ -124,12 +124,7 @@ func (h *Handler) runFailoverLoop(w http.ResponseWriter, r *http.Request, st *re
 					return
 				}
 				debuglog.Info("proxy: client disconnected during failover backoff", "model", st.logData.modelID, "provider", st.logData.providerName, "attempt", attempt+1)
-				// Carry the prior attempt's provider error (if any) so the log
-				// shows what was failing when the client gave up. 499 (client
-				// closed request) on both the log and the wire.
-				st.setReqErr(reqError{Kind: KindClientDisconnect, Attempt: attempt - 1, Provider: st.logData.providerName, Underlying: st.lastReqErr.Underlying})
-				h.failRequest(st.logData, statusClientClosedRequest, KindClientDisconnect, st.lastErr, attempt-1, st.startTime, st.parseMs, st.timings, st.cacheHits, st.proxyOverhead)
-				writeOpenAIError(w, "client disconnected", statusClientClosedRequest)
+				h.failClientGone(w, st, attempt-1, st.logData.providerName)
 				return
 			}
 		}
@@ -193,7 +188,9 @@ func (h *Handler) retryAfterSlotFrees(w http.ResponseWriter, r *http.Request, st
 		if r.Context().Err() != nil {
 			// The client left while every provider was full: a 499, never an
 			// "all providers busy" it was not around to receive.
-			return h.failWaitDisconnect(w, st, attempt-1, st.logData.providerName)
+			debuglog.Info("proxy: client disconnected while waiting out saturation", "model", st.logData.modelID, "provider", st.logData.providerName)
+			h.failClientGone(w, st, attempt-1, st.logData.providerName)
+			return true
 		}
 		if !ok || idx < 0 {
 			return false
@@ -221,16 +218,14 @@ func (h *Handler) retryAfterSlotFrees(w http.ResponseWriter, r *http.Request, st
 	return false
 }
 
-// failWaitDisconnect ends a request whose client hung up while the loop was
-// waiting (for a saturated provider's Retry-After, or for an in-flight slot):
-// 499 and client_disconnect, the same rule the ordinary failover backoff
-// applies. Always returns true, since the response is written.
-func (h *Handler) failWaitDisconnect(w http.ResponseWriter, st *requestState, attempt int, providerName string) bool {
-	debuglog.Info("proxy: client disconnected while waiting out saturation", "model", st.logData.modelID, "provider", providerName)
+// failClientGone ends a request whose client hung up before it was answered:
+// 499 and client_disconnect on both the log and the wire. The prior attempt's
+// provider error, if any, is carried so the log shows what was failing when
+// the client gave up.
+func (h *Handler) failClientGone(w http.ResponseWriter, st *requestState, attempt int, providerName string) {
 	st.setReqErr(reqError{Kind: KindClientDisconnect, Attempt: attempt, Provider: providerName, Underlying: st.lastReqErr.Underlying})
 	h.failRequest(st.logData, statusClientClosedRequest, KindClientDisconnect, st.lastErr, attempt, st.startTime, st.parseMs, st.timings, st.cacheHits, st.proxyOverhead)
 	writeOpenAIError(w, "client disconnected", statusClientClosedRequest)
-	return true
 }
 
 // retrySaturatedCandidate is the one extra attempt a saturated last candidate
@@ -293,7 +288,9 @@ func (h *Handler) retryLastCandidate(w http.ResponseWriter, r *http.Request, st 
 		// The client left during the wait: a 499 client disconnect, never the
 		// "all providers busy" the exhaustion path would render for a caller
 		// that is not around to receive it.
-		return h.failWaitDisconnect(w, st, attempt-1, candidate.provider.Name)
+		debuglog.Info("proxy: client disconnected while waiting out saturation", "model", st.logData.modelID, "provider", candidate.provider.Name)
+		h.failClientGone(w, st, attempt-1, candidate.provider.Name)
+		return true
 	}
 	return h.settleLastCandidateRetry(w, r, st, candidate, attempt+1, attemptOne, attemptOne(w, r, st, candidate, attempt, attempt+1))
 }

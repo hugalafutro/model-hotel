@@ -3,6 +3,7 @@ package openairesponses
 import (
 	"encoding/json"
 
+	"github.com/hugalafutro/model-hotel/internal/egress"
 	"github.com/hugalafutro/model-hotel/internal/util"
 )
 
@@ -12,33 +13,24 @@ import (
 // truncated one, from the readings below. The Anthropic passthrough reads the
 // same things from its own wire format (anthropic/native.go).
 
-// NativeUsage is the metering summary of one Responses body or stream.
-// PromptTokens is the whole prompt; the cache split is reported only when the
-// upstream reported cached tokens, and sums back to the prompt when it is.
-type NativeUsage struct {
-	PromptTokens     int
-	CompletionTokens int
-	CacheHitTokens   int
-	CacheMissTokens  int
-}
-
 // ParseResponseUsage reads the usage block of a non-streaming Response for
-// metering. A missing or unreadable block yields zeros.
-func ParseResponseUsage(body []byte) NativeUsage {
+// metering. A missing or unreadable block yields zeros; the cache split is
+// reported only when the upstream reported cached tokens.
+func ParseResponseUsage(body []byte) egress.NativeUsage {
 	var resp struct {
 		Usage json.RawMessage `json:"usage"`
 	}
 	if json.Unmarshal(body, &resp) != nil {
-		return NativeUsage{}
+		return egress.NativeUsage{}
 	}
 	return nativeUsageOf(translateUsage(resp.Usage))
 }
 
-func nativeUsageOf(u *chatUsage) NativeUsage {
+func nativeUsageOf(u *chatUsage) egress.NativeUsage {
 	if u == nil {
-		return NativeUsage{}
+		return egress.NativeUsage{}
 	}
-	out := NativeUsage{PromptTokens: u.PromptTokens, CompletionTokens: u.CompletionTokens}
+	out := egress.NativeUsage{PromptTokens: u.PromptTokens, CompletionTokens: u.CompletionTokens}
 	if u.PromptTokensDetails != nil && u.PromptTokensDetails.CachedTokens > 0 && u.PromptTokensDetails.CachedTokens <= u.PromptTokens {
 		out.CacheHitTokens = u.PromptTokensDetails.CachedTokens
 		out.CacheMissTokens = u.PromptTokens - out.CacheHitTokens
@@ -90,37 +82,13 @@ func ResponseTextBytes(body []byte) int {
 	return n
 }
 
-// NativeStreamEvent is the decoded summary of one Responses stream event.
-type NativeStreamEvent struct {
-	Type string
-	// Terminal marks the event that ends a Responses stream: completed,
-	// incomplete or failed. The stream has no [DONE] sentinel.
-	Terminal        bool
-	InputTokens     int
-	HasInput        bool
-	OutputTokens    int
-	HasOutput       bool
-	CacheHitTokens  int
-	CacheMissTokens int
-	// ErrorMessage is set on a failed response and on an error event.
-	ErrorMessage string
-	// CarriesError reports error text on the event, whatever its type, for
-	// the credential mask.
-	CarriesError bool
-	// TextBytes is the byte length of the output a delta event carries.
-	TextBytes int
-	// SequenceNumber is the event's own, HasSequence whether it carried one;
-	// ResponseID is the id the event's response snapshot names, if any. A
-	// failure frame the gateway appends continues both.
-	SequenceNumber int
-	HasSequence    bool
-	ResponseID     string
-}
-
 // InspectStreamEvent decodes one Responses stream event payload. The usage
 // rides on the terminal response snapshot; deltas carry output text. A payload
-// that does not parse yields a zero event (Type == "").
-func InspectStreamEvent(payload []byte) NativeStreamEvent {
+// that does not parse yields a zero event (Type == ""). The terminal events
+// are completed, incomplete and failed: the stream has no [DONE] sentinel.
+// ErrorMessage is set on a failed response and on an error event; TextBytes
+// is the byte length of the output a delta event carries.
+func InspectStreamEvent(payload []byte) egress.NativeStreamEvent {
 	var ev struct {
 		Type           string `json:"type"`
 		Delta          string `json:"delta"`
@@ -136,9 +104,9 @@ func InspectStreamEvent(payload []byte) NativeStreamEvent {
 		Error   json.RawMessage `json:"error"`
 	}
 	if json.Unmarshal(payload, &ev) != nil {
-		return NativeStreamEvent{}
+		return egress.NativeStreamEvent{}
 	}
-	info := NativeStreamEvent{Type: ev.Type, CarriesError: util.ValueCarries(ev.Error)}
+	info := egress.NativeStreamEvent{Type: ev.Type, CarriesError: util.ValueCarries(ev.Error)}
 	if ev.SequenceNumber != nil {
 		info.SequenceNumber, info.HasSequence = *ev.SequenceNumber, true
 	}

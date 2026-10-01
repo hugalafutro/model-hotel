@@ -6,6 +6,7 @@ import { useTheme } from "../../context/ThemeContext";
 import type { ToastType } from "../../context/ToastContext";
 import { useLocalStorage } from "../../hooks/useLocalStorage";
 import {
+	clamp,
 	formatRelativeTime,
 	formatTimestamp,
 	formatTimeUntil,
@@ -117,6 +118,11 @@ interface QuotaBarProps {
 	footer?: React.ReactNode;
 }
 
+/** clampPercent bounds a percentage to the 0..100 a bar can draw. */
+export function clampPercent(pct: number): number {
+	return clamp(pct, 0, 100);
+}
+
 /**
  * QuotaBar renders a labelled progress bar used across provider quota modals.
  *
@@ -124,11 +130,6 @@ interface QuotaBarProps {
  * The bar track uses the shared `usedBarColor`/`remainingBarColor` helpers.
  * Pass sublabel content as `children`.
  */
-/** clampPercent bounds a percentage to the 0..100 a bar can draw. */
-export function clampPercent(pct: number): number {
-	return Math.min(Math.max(pct, 0), 100);
-}
-
 export function QuotaBar({
 	label,
 	rightText,
@@ -190,10 +191,9 @@ interface QuotaModalHeaderActionsProps {
 
 /**
  * QuotaModalHeaderActions renders the toggle (remaining/used) and refresh
- * buttons in the modal header. All four provider quota modals share this
- * exact layout.
+ * buttons in the modal header.
  */
-export function QuotaModalHeaderActions({
+function QuotaModalHeaderActions({
 	barMode,
 	onToggleBarMode,
 	onRefresh,
@@ -237,6 +237,33 @@ export function QuotaModalHeaderActions({
 					<RefreshCw size={18} className={isRefreshing ? "animate-spin" : ""} />
 				)}
 			</button>
+		</div>
+	);
+}
+
+interface QuotaModalHeaderProps extends QuotaModalHeaderActionsProps {
+	/** Already-translated modal title. */
+	title: string;
+	/** Optional line rendered under the title. */
+	subtitle?: React.ReactNode;
+}
+
+/**
+ * QuotaModalHeader renders a provider quota modal's title, optional subtitle
+ * and the toggle/refresh actions every quota modal shares.
+ */
+export function QuotaModalHeader({
+	title,
+	subtitle,
+	...actions
+}: QuotaModalHeaderProps) {
+	return (
+		<div className="flex justify-between items-start mb-6">
+			<div>
+				<h2 className="ui-modal-title">{title}</h2>
+				{subtitle && <p className="ui-subtitle mt-1">{subtitle}</p>}
+			</div>
+			<QuotaModalHeaderActions {...actions} />
 		</div>
 	);
 }

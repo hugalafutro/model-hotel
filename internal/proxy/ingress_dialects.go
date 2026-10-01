@@ -1,7 +1,6 @@
 package proxy
 
 import (
-	"encoding/json"
 	"net/http"
 
 	"github.com/hugalafutro/model-hotel/internal/anthropic"
@@ -74,8 +73,7 @@ func (s *anthropicIngressStream) Finish() ([]byte, error) {
 
 // Fail is the Anthropic `event: error` the SDKs surface as an API error.
 func (*anthropicIngressStream) Fail(message, _ string) []byte {
-	frame := append([]byte("event: error\ndata: "), anthropic.BuildErrorResponseFromMessage(message, http.StatusBadGateway)...)
-	return append(frame, "\n\n"...)
+	return anthropicDialect{}.streamFailure(message, "", "", 0)
 }
 
 // --- OpenAI Responses (/v1/responses) ---
@@ -101,23 +99,12 @@ func (d responsesIngress) buildResponse(chatBody []byte) ([]byte, error) {
 // nothing at all) is wrapped into the envelope the way the chat endpoint
 // wraps its own errors, so the client always parses one.
 func (responsesIngress) buildError(openaiBody []byte, status int) []byte {
-	var env struct {
-		Error json.RawMessage `json:"error"`
-	}
-	if json.Unmarshal(openaiBody, &env) == nil && util.ValueCarries(env.Error) {
+	if _, ok := ingressErrorMember(openaiBody); ok {
 		return openaiBody
 	}
 	message := string(openaiBody)
 	if message == "" {
 		message = http.StatusText(status)
 	}
-	body, err := json.Marshal(map[string]any{"error": map[string]any{
-		"message": message,
-		"type":    util.OpenAIErrorType(status),
-		"code":    status,
-	}})
-	if err != nil {
-		return []byte(`{"error":{"message":"internal error","type":"server_error"}}`)
-	}
-	return body
+	return util.OpenAIErrorBody(message, status)
 }

@@ -301,10 +301,7 @@ func (s *Server) applyMemberConfig(ctx context.Context, m *Member, token string,
 		if s.clearSyncFailure(m.ID) && !s.isDiverged(m.ID) {
 			// A member still flagged diverged gets its one recovered event from
 			// the pass that measures it converged; this push alone is not that.
-			s.emit(ctx, Event{
-				Type: "config.sync_recovered", Severity: "success", Source: "frontdesk",
-				Message: fmt.Sprintf("Config push to %s succeeds again", m.Name), MemberID: m.ID,
-			})
+			s.emitSyncRecovered(ctx, m, fmt.Sprintf("Config push to %s succeeds again", m.Name))
 		}
 		recordConfigSync("ok")
 		if emitSuccessEvent {

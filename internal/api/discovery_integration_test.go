@@ -1183,7 +1183,7 @@ func TestDiscoverAllModels_DisableMissingError(t *testing.T) {
 	}
 
 	// Drive the recording path directly; a per-provider record error must be
-	// swallowed (logged at debug) rather than abort the sweep.
+	// swallowed (logged) rather than abort the sweep.
 	results, _, _, _, err := h.discoverAllProviders(context.Background(), true)
 	if err != nil {
 		t.Fatalf("sweep must tolerate a record-missing error, got %v", err)
@@ -1234,7 +1234,7 @@ func TestDiscoverAllModels_SyncForModelError(t *testing.T) {
 		return nil, errors.New("sync for model error")
 	}
 
-	// Call discover-all endpoint (should still return 200, just log debug)
+	// Call discover-all endpoint (should still return 200, just log the error)
 	req = httptest.NewRequest(http.MethodPost, "/providers/discover-all", http.NoBody)
 	req.Header.Set("Authorization", "Bearer test-admin-token")
 	w = httptest.NewRecorder()
@@ -1281,7 +1281,7 @@ func TestDiscoverAllModels_DBExecError(t *testing.T) {
 		return pgconn.CommandTag{}, errors.New("dbexec error")
 	}
 
-	// Call discover-all endpoint (should still return 200, just log debug)
+	// Call discover-all endpoint (should still return 200, just log the error)
 	req = httptest.NewRequest(http.MethodPost, "/providers/discover-all", http.NoBody)
 	req.Header.Set("Authorization", "Bearer test-admin-token")
 	w = httptest.NewRecorder()

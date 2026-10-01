@@ -16,7 +16,7 @@ import {
 	LastRefreshedRow,
 	type OnToast,
 	QuotaBar,
-	QuotaModalHeaderActions,
+	QuotaModalHeader,
 	useQuotaBarMode,
 	useQuotaRefreshToast,
 } from "./shared";
@@ -57,33 +57,27 @@ export function NeuralWattQuotaModal({
 	return (
 		<Modal
 			header={
-				<div className="flex justify-between items-start mb-6">
-					<div>
-						<h2 className="ui-modal-title">
-							{t("components.providerModals.neuralWattCredits")}
-						</h2>
-						<p className="ui-subtitle mt-1">
-							<span className="inline-flex items-center gap-1.5">
-								<span
-									data-testid="neuralwatt-status-dot"
-									className={`w-2 h-2 rounded-full ${quota.subscription.in_overage ? "bg-red-400" : quota.subscription.status === "active" ? "bg-green-400" : "bg-amber-400"}`}
-								></span>
-								<span className="capitalize">{quota.subscription.status}</span>
-								{quota.subscription.in_overage && (
-									<span className="text-red-400 text-xs">
-										({t("components.providerModals.neuralwattInOverage")})
-									</span>
-								)}
-							</span>
-						</p>
-					</div>
-					<QuotaModalHeaderActions
-						barMode={barMode}
-						onToggleBarMode={toggleBarMode}
-						onRefresh={handleRefresh}
-						isRefreshing={isRefreshing}
-					/>
-				</div>
+				<QuotaModalHeader
+					title={t("components.providerModals.neuralWattCredits")}
+					subtitle={
+						<span className="inline-flex items-center gap-1.5">
+							<span
+								data-testid="neuralwatt-status-dot"
+								className={`w-2 h-2 rounded-full ${quota.subscription.in_overage ? "bg-red-400" : quota.subscription.status === "active" ? "bg-green-400" : "bg-amber-400"}`}
+							></span>
+							<span className="capitalize">{quota.subscription.status}</span>
+							{quota.subscription.in_overage && (
+								<span className="text-red-400 text-xs">
+									({t("components.providerModals.neuralwattInOverage")})
+								</span>
+							)}
+						</span>
+					}
+					barMode={barMode}
+					onToggleBarMode={toggleBarMode}
+					onRefresh={handleRefresh}
+					isRefreshing={isRefreshing}
+				/>
 			}
 			onClose={onClose}
 			scrollable

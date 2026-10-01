@@ -15,13 +15,8 @@ import {
 	Zap,
 } from "@/lib/icons";
 import type { LogEntry } from "../api/types";
-import {
-	formatDecimal,
-	formatLocale,
-	formatNumber,
-	formatSpend,
-} from "../utils/format";
-import { formatLogTimestamp } from "../utils/logBadgeUtils";
+import { formatDecimal, formatNumber, formatSpend } from "../utils/format";
+import { formatLogTimestamp, withRowLabel } from "../utils/logBadgeUtils";
 import { formatMs, isInProgress, liveDurationMs } from "../utils/logHelpers";
 import { AttemptTrail } from "./AttemptTrail";
 import { CollapseBody, CollapsibleIcon } from "./CollapsibleToggle";
@@ -86,15 +81,7 @@ export function RequestLogDetail({
 
 	return (
 		<Modal
-			nav={
-				nav && {
-					...nav,
-					rowLabel: t("common.rowStepLabel", {
-						time: formatLogTimestamp(requestLog.created_at),
-						subject: requestLog.model_id,
-					}),
-				}
-			}
+			nav={withRowLabel(nav, t, requestLog.created_at, requestLog.model_id)}
 			header={
 				<div className="flex items-center gap-3 flex-wrap mb-4">
 					<h2 className="ui-modal-title">
@@ -212,7 +199,7 @@ export function RequestLogDetail({
 				<div className="p-3 ui-stat-tile text-center">
 					<Gauge size={16} className="mx-auto mb-1 text-(--accent)" />
 					<div className="text-lg font-bold text-(--text-primary)">
-						{totalTokens > 0 ? totalTokens.toLocaleString(formatLocale()) : "-"}
+						{totalTokens > 0 ? formatNumber(totalTokens) : "-"}
 					</div>
 					<div className="flex items-center justify-center gap-1 ui-overline">
 						{t("common.tokens")}
@@ -348,7 +335,7 @@ export function RequestLogDetail({
 											</span>
 										</>
 									) : (
-										value.toLocaleString(formatLocale())
+										formatNumber(value)
 									)}
 								</div>
 							</div>

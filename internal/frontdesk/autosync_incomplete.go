@@ -377,11 +377,16 @@ func (s *Server) clearMemberIncomplete(ctx context.Context, m *Member) bool {
 	if !was {
 		return false
 	}
+	s.emitSyncRecovered(ctx, m, fmt.Sprintf("%s now holds the primary's config", m.Name))
+	return true
+}
+
+// emitSyncRecovered emits config.sync_recovered for m with msg.
+func (s *Server) emitSyncRecovered(ctx context.Context, m *Member, msg string) {
 	s.emit(ctx, Event{
 		Type: "config.sync_recovered", Severity: "success", Source: "frontdesk",
-		Message: fmt.Sprintf("%s now holds the primary's config", m.Name), MemberID: m.ID,
+		Message: msg, MemberID: m.ID,
 	})
-	return true
 }
 
 // incompleteSnapshot copies the diverged set under its lock for the fleet state

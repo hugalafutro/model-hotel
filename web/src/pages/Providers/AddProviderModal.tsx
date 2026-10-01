@@ -1,5 +1,5 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { isOpenCodeGoQuotaVisible } from "@web-shared/quota";
+import { deepseekUsd, isOpenCodeGoQuotaVisible } from "@web-shared/quota";
 import { type SubmitEvent, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { api } from "../../api/client";
@@ -10,7 +10,7 @@ import { Modal } from "../../components/Modal";
 import { RevealableInput } from "../../components/RevealableInput";
 import { useRefreshDiscoveryBadge } from "../../hooks/useRefreshDiscoveryBadge";
 import { errorMessage } from "../../utils/errors";
-import { formatDecimal, formatDollars } from "../../utils/format";
+import { formatDecimal } from "../../utils/format";
 import {
 	baseUrls,
 	hasEditableBaseUrl,
@@ -167,12 +167,10 @@ export function AddProviderModal({
 					}
 					case "deepseek": {
 						const balance = await api.providers.getBalance(newProvider.id);
-						const usd = balance.balance_infos.find((b) => b.currency === "USD");
+						const usd = deepseekUsd(balance);
 						if (usd) {
 							onToast(
-								t("providers.add.deepseekBalance", {
-									balance: formatDollars(Number(usd.total_balance)),
-								}),
+								t("providers.add.deepseekBalance", { balance: usd }),
 								"info",
 							);
 						} else {

@@ -614,9 +614,7 @@ func (h *Handler) failHedgeDisconnect(w http.ResponseWriter, st *requestState, l
 		return
 	}
 	debuglog.Info("proxy: client disconnected during hedged streaming", "model", st.logData.modelID, "provider", st.logData.providerName, "launched", launched)
-	st.setReqErr(reqError{Kind: KindClientDisconnect, Attempt: launched - 1, Provider: st.logData.providerName, Underlying: st.lastReqErr.Underlying})
-	h.failRequest(st.logData, statusClientClosedRequest, KindClientDisconnect, st.lastErr, launched-1, st.startTime, st.parseMs, st.timings, st.cacheHits, st.proxyOverhead)
-	writeOpenAIError(w, "client disconnected", statusClientClosedRequest)
+	h.failClientGone(w, st, launched-1, st.logData.providerName)
 }
 
 // hedgeProbeLog is the throwaway log entry a hedged probe runs against: the

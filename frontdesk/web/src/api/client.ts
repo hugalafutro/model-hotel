@@ -81,6 +81,20 @@ export class ApiError extends Error {
 	}
 }
 
+/**
+ * The "too many attempts" message when `err` is a 429 from a rate-limited
+ * auth endpoint, else the already-translated `fallback`.
+ */
+export function rateLimitedOr(
+	err: unknown,
+	t: (key: string) => string,
+	fallback: string,
+): string {
+	return err instanceof ApiError && err.status === 429
+		? t("login.tooManyAttempts")
+		: fallback;
+}
+
 // Listeners notified when an authenticated request gets a 401 so the app can
 // drop to the login screen instead of rendering a broken authed view.
 type UnauthorizedListener = () => void;

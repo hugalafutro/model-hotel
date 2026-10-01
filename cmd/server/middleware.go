@@ -212,9 +212,8 @@ func streamingAwareTimeout(maxNonStreamingDur time.Duration) func(http.Handler) 
 				// already done is the caller leaving mid-upload, 499; anything
 				// else is a read that broke.
 				status := http.StatusBadRequest
-				var tooLarge *http.MaxBytesError
 				switch {
-				case errors.As(err, &tooLarge):
+				case httpx.IsBodyTooLarge(err):
 					status = http.StatusRequestEntityTooLarge
 				case errors.Is(r.Context().Err(), context.Canceled):
 					status = httpx.StatusClientClosedRequest

@@ -33,7 +33,11 @@ const scrubMargin = 4096
 // still matches: masking a 16-rune window away must not let the rest of a
 // short prompt through.
 func MaskLogText(s string) string {
-	s = maskShapes(MaskExactCredentials(nil, s))
+	return maskUUIDs(maskShapes(MaskExactCredentials(nil, s)))
+}
+
+// maskUUIDs redacts every UUID in s.
+func maskUUIDs(s string) string {
 	if !strings.Contains(s, "-") { // every UUID has one; skips the scan
 		return s
 	}
@@ -116,8 +120,7 @@ func sanitizeShape(body string, maxLen int, beforeCut func(string) string) strin
 		// the rune-safe truncation below, so the returned string is unaffected.
 		body = body[:maxLen+scrubMargin]
 	}
-	body = maskShapes(body)
-	body = uuidPattern.ReplaceAllString(body, "[REDACTED]")
+	body = maskUUIDs(maskShapes(body))
 	if beforeCut != nil && len(body) > maxLen {
 		body = beforeCut(body)
 	}
@@ -180,13 +183,20 @@ func GetIntQueryParam(r *http.Request, key string, defaultValue int) int {
 func WriteOpenAIError(w http.ResponseWriter, message string, statusCode int) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(statusCode)
-	_ = json.NewEncoder(w).Encode(map[string]any{
+	_, _ = w.Write(append(OpenAIErrorBody(message, statusCode), '\n'))
+}
+
+// OpenAIErrorBody is the OpenAI error envelope for message and statusCode.
+func OpenAIErrorBody(message string, statusCode int) []byte {
+	// A map of a string and an int always marshals.
+	body, _ := json.Marshal(map[string]any{
 		"error": map[string]any{
 			"message": message,
 			"type":    OpenAIErrorType(statusCode),
 			"code":    statusCode,
 		},
 	})
+	return body
 }
 
 // BuildProviderTargetURL constructs the full upstream URL for a given provider
@@ -444,15 +454,22 @@ func SetOpenCodeGoSession(req *http.Request, providerType, session string) {
 // client's body before forwarding it. On any parse failure the original body
 // is returned unchanged.
 func RewriteJSONModel(body []byte, model string) []byte {
+	return SetJSONMember(body, "model", model)
+}
+
+// SetJSONMember sets the top-level member key of a JSON object body to value,
+// leaving every other member intact. On any parse or marshal failure the
+// original body is returned unchanged.
+func SetJSONMember(body []byte, key string, value any) []byte {
 	var m map[string]json.RawMessage
 	if err := json.Unmarshal(body, &m); err != nil {
 		return body
 	}
-	mb, err := json.Marshal(model)
+	vb, err := json.Marshal(value)
 	if err != nil {
 		return body
 	}
-	m["model"] = mb
+	m[key] = vb
 	out, err := json.Marshal(m)
 	if err != nil {
 		return body

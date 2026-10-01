@@ -4,7 +4,6 @@ import { useTranslation } from "react-i18next";
 import { FileText, ScrollText } from "@/lib/icons";
 import { api } from "../api/client";
 import type { AppLogEntry } from "../api/types";
-import { Badge } from "../components/Badge";
 import type { SortState } from "../components/DataTable";
 import {
 	EmptyRow,
@@ -26,7 +25,10 @@ import {
 } from "../components/logs";
 import { PageHeader } from "../components/PageHeader";
 import { ViewModeToggle } from "../components/ViewModeToggle";
-import { VirtualAppLogTable } from "../components/VirtualAppLogTable";
+import {
+	AppLogCells,
+	VirtualAppLogTable,
+} from "../components/VirtualAppLogTable";
 import { useSidebarMode } from "../context/SidebarModeContext";
 import { useBidirectionalFetch } from "../hooks/useBidirectionalFetch";
 import { useDateRangePicker } from "../hooks/useDateRangePicker";
@@ -37,12 +39,7 @@ import { useModalNav } from "../hooks/useModalNav";
 import { useScrollLivePoll } from "../hooks/useScrollLivePoll";
 import { useWheelPaging } from "../hooks/useWheelPaging";
 import { encodeCursor } from "../utils/format";
-import {
-	formatLogTimestamp,
-	getLevelBadgeVariant,
-	getSourceBadgeClasses,
-} from "../utils/logBadgeUtils";
-import { appLogKey, displayLogMessage } from "../utils/logText";
+import { appLogKey } from "../utils/logText";
 
 type AppLogSortField = "time" | "level" | "source" | "message";
 
@@ -433,35 +430,7 @@ export function AppLogs() {
 											key={appLogKey(entry)}
 											onClick={() => setSelectedLog(entry)}
 										>
-											<td className="px-2 py-1 align-middle whitespace-nowrap text-xs text-gray-400">
-												{formatLogTimestamp(entry.timestamp)}
-											</td>
-											<td className="px-2 py-1 align-middle">
-												<Badge variant={getLevelBadgeVariant(entry.level)}>
-													{entry.level.toUpperCase()}
-												</Badge>
-											</td>
-											<td className="px-2 py-1 align-middle">
-												{entry.source ? (
-													<Badge
-														variant="custom"
-														className={getSourceBadgeClasses(entry.source)}
-													>
-														{entry.source}
-													</Badge>
-												) : (
-													<span className="text-gray-600">-</span>
-												)}
-											</td>
-											<td className="px-2 py-1 align-middle">
-												<div className="text-xs font-mono line-clamp-2 text-gray-400">
-													{displayLogMessage(
-														entry.message,
-														entry.escaped,
-														entry.attrs_at,
-													)}
-												</div>
-											</td>
+											<AppLogCells entry={entry} />
 										</Row>
 									))
 								) : (

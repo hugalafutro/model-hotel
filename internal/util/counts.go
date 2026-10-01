@@ -208,8 +208,10 @@ func roundToCount(f float64) (json.Number, bool) {
 	return json.Number(strconv.FormatInt(int64(r), 10)), true
 }
 
-// UnreadableCounts returns those of the named members that are PRESENT in a JSON
-// object but hold something no reading of a count can make sense of.
+// CountsUnreadable reports whether any of the named members is PRESENT in a
+// JSON object but holds something no reading of a count can make sense of. A
+// raw value that is not an object loses every named member, except JSON null,
+// which reads as an object with no members.
 //
 // It exists for figures that are SUMMED. A figure read straight off one member
 // does not care what happened to the others: it is right, or it is absent. A
@@ -220,22 +222,17 @@ func roundToCount(f float64) (json.Number, bool) {
 //
 // Absent is not unreadable: a count the provider did not send is zero, and zero
 // is a correct addend.
-func UnreadableCounts(raw json.RawMessage, keys ...string) []string {
+func CountsUnreadable(raw json.RawMessage, keys ...string) bool {
 	var members map[string]json.RawMessage
 	if json.Unmarshal(raw, &members) != nil {
-		return keys
+		return len(keys) > 0
 	}
-	var lost []string
 	for _, key := range keys {
-		member, present := members[key]
-		if !present {
-			continue
-		}
-		if !readsAsCount(member) {
-			lost = append(lost, key)
+		if member, present := members[key]; present && !readsAsCount(member) {
+			return true
 		}
 	}
-	return lost
+	return false
 }
 
 // readsAsCount asks DecodeCounts itself whether a member is a count, by handing

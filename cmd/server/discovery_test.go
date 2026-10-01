@@ -617,7 +617,7 @@ func TestTouchLastDiscoveredError(t *testing.T) {
 	}
 	broken := closedTestPool(t)
 	// Only logs; must not panic on a dead pool.
-	touchLastDiscovered(context.Background(), broken.Pool(), &provider.Provider{Name: "x"})
+	api.TouchLastDiscovered(context.Background(), broken.Pool(), &provider.Provider{Name: "x"})
 }
 
 func TestMaybeStartupDiscovery(t *testing.T) {
@@ -652,11 +652,11 @@ func TestMaybeStartupDiscovery(t *testing.T) {
 		if _, err := deps.providerRepo.Get(ctx, p.ID); err != nil {
 			t.Fatalf("Get: %v", err)
 		}
-		touchLastDiscovered(ctx, deps.pool, p)
+		api.TouchLastDiscovered(ctx, deps.pool, p)
 		// The stamp evicts the cached row, so a reader sees
 		// last_discovered_at now rather than after the TTL.
 		if provider.IsCachedByID(p.ID) {
-			t.Fatal("touchLastDiscovered must evict the provider's cache entry")
+			t.Fatal("TouchLastDiscovered must evict the provider's cache entry")
 		}
 		// Recently-discovered guard fires: no background run is launched, so
 		// the unreachable provider is never scanned again.
@@ -1006,12 +1006,12 @@ func TestRunDiscoveryPruneRejectsUnusableHorizon(t *testing.T) {
 	}
 }
 
-// TestRecordMissingModelsUntrustedWhenSuspect pins the verdict the prune's
+// TestRecordConfirmedMissesUntrustedWhenSuspect pins the verdict the prune's
 // scope guard consumes: a scan whose confirmation probe cannot run reports
 // trusted=false, so scanProvider withholds that provider from pruning. A
 // cancelled context makes the probe's wait fail at once, which is the cheapest
 // way to reach the suspect branch without the real probe delays.
-func TestRecordMissingModelsUntrustedWhenSuspect(t *testing.T) {
+func TestRecordConfirmedMissesUntrustedWhenSuspect(t *testing.T) {
 	if cmdTestDB == nil {
 		t.Fatal("test DB unavailable")
 	}
@@ -1037,7 +1037,7 @@ func TestRecordMissingModelsUntrustedWhenSuspect(t *testing.T) {
 	}
 	cancelled, cancel := context.WithCancel(ctx)
 	cancel()
-	disabled, trusted := recordMissingModels(cancelled, deps, deps.discovery, p, nil, snapshot)
+	disabled, trusted := api.RecordConfirmedMisses(cancelled, deps.discovery, deps.modelRepo, deps.pool, p, deps.cfg.MasterKey, api.ScannedModels{Snapshot: snapshot})
 
 	if trusted {
 		t.Error("a suspect scan reported trusted=true")

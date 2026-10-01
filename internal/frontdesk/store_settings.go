@@ -2,6 +2,8 @@ package frontdesk
 
 import (
 	"context"
+	"database/sql"
+	"errors"
 	"fmt"
 	"time"
 )
@@ -170,37 +172,46 @@ func (s *Store) SetAutoSyncGuarded(ctx context.Context, enabled bool, primaryID 
 		query += ` AND (auto_sync_primary_id = '' OR auto_sync_primary_id = ?)`
 		args = append(args, primaryID)
 	}
-	tx, err := s.db.BeginTx(ctx, nil)
-	if err != nil {
-		return false, fmt.Errorf("frontdesk: begin set auto-sync: %w", err)
-	}
-	defer tx.Rollback() //nolint:errcheck // rollback after a successful commit is a no-op
-	res, err := tx.ExecContext(ctx, query, args...)
-	if err != nil {
-		return false, fmt.Errorf("frontdesk: set auto-sync (guarded): %w", err)
-	}
-	n, err := res.RowsAffected()
-	if err != nil {
-		return false, fmt.Errorf("frontdesk: set auto-sync (guarded) rows: %w", err)
-	}
-	if n == 0 {
+	applied := false
+	err := inTx(ctx, s.db, "frontdesk: set auto-sync", func(tx *sql.Tx) error {
+		res, err := tx.ExecContext(ctx, query, args...)
+		if err != nil {
+			return fmt.Errorf("frontdesk: set auto-sync (guarded): %w", err)
+		}
+		n, err := res.RowsAffected()
+		if err != nil {
+			return fmt.Errorf("frontdesk: set auto-sync (guarded) rows: %w", err)
+		}
+		if n == 0 {
+			// A refused write commits nothing: roll back rather than risk a
+			// commit failure turning the refusal into an error.
+			return errAutoSyncNotApplied
+		}
+		// A designation supersedes the no-run marker lonePrimaryMarker leaves (a
+		// row with last_run_at 0). Kept, that marker would outrank the designation
+		// the moment auto-sync is paused (effectivePrimaryID prefers the marker over
+		// a dormant designation), silently moving the primary back. A marker from a
+		// real run stays: it records the more recent operator act.
+		if primaryID != "" {
+			if _, err := tx.ExecContext(ctx, `DELETE FROM fleet_sync_state WHERE last_run_at = 0`); err != nil {
+				return fmt.Errorf("frontdesk: clear no-run fleet marker: %w", err)
+			}
+		}
+		applied = true
+		return nil
+	})
+	if errors.Is(err, errAutoSyncNotApplied) {
 		return false, nil
 	}
-	// A designation supersedes the no-run marker lonePrimaryMarker leaves (a
-	// row with last_run_at 0). Kept, that marker would outrank the designation
-	// the moment auto-sync is paused (effectivePrimaryID prefers the marker over
-	// a dormant designation), silently moving the primary back. A marker from a
-	// real run stays: it records the more recent operator act.
-	if primaryID != "" {
-		if _, err := tx.ExecContext(ctx, `DELETE FROM fleet_sync_state WHERE last_run_at = 0`); err != nil {
-			return false, fmt.Errorf("frontdesk: clear no-run fleet marker: %w", err)
-		}
-	}
-	if err := commitTx(tx, "commit set auto-sync"); err != nil {
+	if err != nil {
 		return false, err
 	}
-	return true, nil
+	return applied, nil
 }
+
+// errAutoSyncNotApplied ends SetAutoSyncGuarded's transaction when the guard
+// matched no row; it never leaves the function.
+var errAutoSyncNotApplied = errors.New("frontdesk: auto-sync write not applied")
 
 // AutoSyncGen returns the current rearm generation. It is a cheap read an
 // in-flight convergence pass uses to notice a rearm (member add, token update,

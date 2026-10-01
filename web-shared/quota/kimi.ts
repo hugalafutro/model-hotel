@@ -1,3 +1,4 @@
+import { clamp } from "../format";
 import type { KimiCodeQuotaResponse, KimiCodeQuotaWindow } from "./types";
 
 /**
@@ -62,7 +63,7 @@ export function toKimiCodeWindow(
 	if (remaining === undefined) return undefined;
 
 	const raw = limit > 0 ? ((limit - remaining) / limit) * 100 : 0;
-	const percentage = Math.min(100, Math.max(0, raw));
+	const percentage = clamp(raw, 0, 100);
 	return { limit, remaining, resetTime: resetTime ?? "", percentage };
 }
 

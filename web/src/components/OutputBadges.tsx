@@ -1,6 +1,7 @@
 import { memo } from "react";
 import { useTranslation } from "react-i18next";
 import { nonTextOutputs, outputKinds } from "../utils/model";
+import { PILL_BADGE } from "./capMeta";
 import { OUTPUT_META, type OutputMeta } from "./outputMeta";
 
 /**
@@ -22,7 +23,7 @@ export const OutputBadges = memo(function OutputBadges({
 			{metas.map((m) => (
 				<span
 					key={m.key}
-					className={`ui-badge inline-flex items-center px-1.5 py-0.5 text-[11px] font-medium border ${m.style}`}
+					className={`${PILL_BADGE} text-[11px] border ${m.style}`}
 				>
 					{t(m.labelKey)}
 				</span>

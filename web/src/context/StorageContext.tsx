@@ -1,5 +1,9 @@
 import { createContext, type ReactNode, useContext } from "react";
-import { storedBool, useLocalStorage } from "../hooks/useLocalStorage";
+import {
+	removeStoredKeys,
+	storedBool,
+	useLocalStorage,
+} from "../hooks/useLocalStorage";
 import {
 	ARENA_HISTORY_ENABLED_KEY,
 	ARENA_HISTORY_KEY,
@@ -35,19 +39,6 @@ const StorageContext = createContext<StorageContextType>({
 	setArenaHistoryLimit: () => {},
 });
 
-// Drops persisted content when its persistence is switched off. A blocked
-// store (private mode, site data disabled) throws on access and holds nothing
-// to drop, so the toggle still flips.
-function removeKeys(keys: readonly string[]) {
-	for (const key of keys) {
-		try {
-			localStorage.removeItem(key);
-		} catch {
-			/* blocked storage: nothing to remove; the other keys still go */
-		}
-	}
-}
-
 // eslint-disable-next-line react-refresh/only-export-components -- the consumer hook lives beside its provider
 export function useStorage() {
 	return useContext(StorageContext);
@@ -81,14 +72,18 @@ export function StorageProvider({ children }: { children: ReactNode }) {
 	const setPersistChat = (v: boolean) => {
 		setPersistChatRaw(v);
 		if (!v) {
-			removeKeys(["chatMessages", "chatSystemPrompt", "chatActivePersonaId"]);
+			removeStoredKeys([
+				"chatMessages",
+				"chatSystemPrompt",
+				"chatActivePersonaId",
+			]);
 		}
 	};
 
 	const setPersistArena = (v: boolean) => {
 		setPersistArenaRaw(v);
 		if (!v) {
-			removeKeys(ARENA_STORAGE_KEYS);
+			removeStoredKeys(ARENA_STORAGE_KEYS);
 		}
 	};
 
@@ -98,7 +93,7 @@ export function StorageProvider({ children }: { children: ReactNode }) {
 			// The same content the chat branch drops, for the two-model mode: the
 			// transcript and the prompts driving it. The model picks are settings,
 			// not content, so they stay.
-			removeKeys([
+			removeStoredKeys([
 				"conversationMessages",
 				"conversationSystemPromptA",
 				"conversationSystemPromptB",
@@ -111,7 +106,7 @@ export function StorageProvider({ children }: { children: ReactNode }) {
 	const setArenaHistoryEnabled = (v: boolean) => {
 		setArenaHistoryEnabledRaw(v);
 		if (!v) {
-			removeKeys([ARENA_HISTORY_KEY]);
+			removeStoredKeys([ARENA_HISTORY_KEY]);
 		}
 	};
 

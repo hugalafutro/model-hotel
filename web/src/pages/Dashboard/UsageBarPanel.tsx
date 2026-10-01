@@ -1,7 +1,7 @@
 import { useTranslation } from "react-i18next";
 import { Spinner } from "../../components/Spinner";
 import {
-	formatLocale,
+	formatNumber,
 	formatSpend,
 	formatTokens,
 	formatWithCommas,
@@ -122,7 +122,7 @@ export function UsageBarPanel({
 									>
 										{formatValue
 											? formatValue(entry.value)
-											: entry.value.toLocaleString(formatLocale())}
+											: formatNumber(entry.value)}
 										{metric !== undefined &&
 											metric !== "cost" &&
 											` ${t(

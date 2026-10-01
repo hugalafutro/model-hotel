@@ -121,6 +121,8 @@ func TestTranslateResponsesToChat_AnUnreadableMemberCostsOnlyWhatItFeeds(t *test
 		{"an unreadable completion count", `{"input_tokens":1200,"output_tokens":"lots","total_tokens":1540}`, `"prompt_tokens":1200`, `"completion_tokens":340`},
 		// The fallback total is the one sum, so a lost addend takes it down.
 		{"a lost addend with no stated total", `{"input_tokens":1200,"output_tokens":"lots"}`, `"prompt_tokens":1200`, `"total_tokens":1200`},
+		// An unreadable total is refilled from its two readable addends.
+		{"an unreadable total", `{"input_tokens":1200,"output_tokens":340,"total_tokens":"lots"}`, `"total_tokens":1540`, ""},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()

@@ -62,3 +62,50 @@ func isJSONObject(data []byte) bool {
 	trimmed := bytes.TrimSpace(data)
 	return len(trimmed) > 0 && trimmed[0] == '{' && json.Valid(trimmed)
 }
+
+// ListAnswerDelivered reports whether a JSON answer whose payload is a list
+// under one of the given keys, or is itself that list, carries anything.
+//
+// Only a shape it recognises is ever called empty. A rerank or image provider
+// answering in a dialect this gateway does not translate (an object under
+// "data", the images under a key of its own) is forwarded to the client as it
+// came: not understanding a shape is not evidence that it carries nothing, and
+// calling it empty would fail a healthy provider over and charge its circuit on
+// every call. A body that will not parse at all is not an answer on a JSON
+// surface, the verdict the proxy's chat path reaches through completionFault.
+// The proxy judges live answers and the dashboard's model test judges its
+// rerank probe through this one rule.
+func ListAnswerDelivered(body []byte, keys ...string) bool {
+	trimmed := bytes.TrimSpace(body)
+	if len(trimmed) > 0 && trimmed[0] == '[' {
+		var list []json.RawMessage
+		return json.Unmarshal(trimmed, &list) == nil && len(list) > 0
+	}
+	var out map[string]json.RawMessage
+	if json.Unmarshal(body, &out) != nil || out == nil {
+		return false
+	}
+	for _, key := range keys {
+		if raw, ok := out[key]; ok {
+			return !JSONValueIsEmpty(raw)
+		}
+	}
+	return true
+}
+
+// JSONValueIsEmpty reports whether a raw JSON value carries nothing: absent,
+// null, an array with no elements, or a string with no characters.
+//
+// Structural rather than a comparison against the spellings encoding/json
+// happens to emit: `[]` and `[ ]` are the same empty array, and an exact-string
+// test reads `[ ]` as content.
+func JSONValueIsEmpty(raw json.RawMessage) bool {
+	v := bytes.TrimSpace(raw)
+	if len(v) == 0 || bytes.Equal(v, []byte("null")) {
+		return true
+	}
+	if len(v) >= 2 && (v[0] == '[' && v[len(v)-1] == ']' || v[0] == '"' && v[len(v)-1] == '"') {
+		return len(bytes.TrimSpace(v[1:len(v)-1])) == 0
+	}
+	return false
+}

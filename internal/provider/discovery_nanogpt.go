@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"maps"
-	"net/http"
 	"net/url"
 	"slices"
 	"strings"
@@ -21,9 +20,7 @@ func (d *DiscoveryService) discoverNanoGPT(ctx context.Context, provider *Provid
 	debuglog.Info("discovery: starting nanogpt discovery", "provider", provider.Name, "provider_id", provider.ID)
 	baseURL := util.SanitizeBaseURL(provider.BaseURL)
 
-	headers := http.Header{}
-	headers.Set("Authorization", "Bearer "+apiKey)
-	headers.Set("Content-Type", "application/json")
+	headers := bearerJSONHeader(apiKey)
 
 	bodyBytes, err := d.fetchURL(ctx, "GET", baseURL+"/models?detailed=true", headers)
 	if err != nil {
@@ -127,9 +124,7 @@ func (d *DiscoveryService) discoverNanoGPTImageModels(ctx context.Context, provi
 		return nil, fmt.Errorf("nanogpt: bad base URL for image catalog: %w", err)
 	}
 
-	headers := http.Header{}
-	headers.Set("Authorization", "Bearer "+apiKey)
-	headers.Set("Content-Type", "application/json")
+	headers := bearerJSONHeader(apiKey)
 
 	bodyBytes, err := d.fetchURL(ctx, "GET", catalogURL, headers)
 	if err != nil {

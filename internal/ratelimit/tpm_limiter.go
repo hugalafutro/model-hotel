@@ -121,15 +121,6 @@ const (
 	defaultRequestTimeout     = settings.DefaultRequestTimeout
 )
 
-// settingsReadTimeout bounds the horizon lookup on the admission path. The value
-// only sizes a retention window measured in days, so it is not worth waiting on:
-// this is generous for one indexed row that the settings cache usually answers
-// outright, and short enough that a database which has stopped answering costs
-// an admission a pause rather than a stall, and leaves it on whatever horizon is
-// already known. Under load that pause is paid per admission, which is the price
-// of not caching a value that has to track the setting.
-const settingsReadTimeout = 100 * time.Millisecond
-
 // markRefreshTimeout bounds the same lookup off the request path, where a slow
 // database can be waited out because nobody is being held up for it. A store
 // that never answers does delay that tick's eviction by this much, which is the
@@ -508,24 +499,23 @@ func (l *TPMLimiter) debitBucket(bucketKey string, tokens int) {
 	}
 }
 
-// userBucketKey namespaces an owner's aggregate bucket away from the key-hash
-// buckets sharing TPMLimiter's map. Every TPMLimiter writer and reader of that
-// bucket must go through it, or an admission and its debit land on two
-// different buckets.
-//
-// Scoped to TPMLimiter deliberately: Limiter (limiter.go) builds the same
-// "user:"+uid string inline for its own RPS map, which this helper does not
-// reach and does not need to. The two maps are independent, so a divergence
-// could not cross-fault a bucket, but the spellings must stay identical.
+// userBucketPrefix namespaces an owner's aggregate bucket away from the
+// key-hash buckets sharing a limiter's map; no key hash carries it. Limiter
+// (limiter.go) and TPMLimiter both spell their owner buckets with it.
+const userBucketPrefix = "user:"
+
+// userBucketKey is TPMLimiter's owner bucket key. Every TPMLimiter writer and
+// reader of that bucket must go through it, or an admission and its debit land
+// on two different buckets.
 func userBucketKey(userID string) string {
-	return "user:" + userID
+	return userBucketPrefix + userID
 }
 
 // tpmBucketLabel says which admission stage a bucket key belongs to, for the
 // eviction sweep, which sees only the key. Every other site knows which stage it
 // asked for and passes the label directly.
 func tpmBucketLabel(bucketKey string) string {
-	if strings.HasPrefix(bucketKey, "user:") {
+	if strings.HasPrefix(bucketKey, userBucketPrefix) {
 		return userLogLabel
 	}
 	return keyLogLabel
@@ -639,7 +629,12 @@ func (l *TPMLimiter) getEntry(ctx context.Context, keyHash string, tpm int) *tpm
 // lowered the setting produce the same answer, so the only available signal
 // would fire on every ordinary lowering as well.
 func (l *TPMLimiter) memoHorizon(ctx context.Context) time.Duration {
-	horizon, timedOut := l.readHorizon(ctx, settingsReadTimeout)
+	// The horizon only sizes a retention window measured in days, so it is
+	// not worth waiting on: a database which has stopped answering costs an
+	// admission a pause rather than a stall, and leaves it on whatever horizon
+	// is already known. Under load that pause is paid per admission, which is
+	// the price of not caching a value that has to track the setting.
+	horizon, timedOut := l.readHorizon(ctx, settings.HotPathReadTimeout)
 	// Recorded before the timeout is acted on, so a read that answered in the
 	// same instant it expired still counts. The mark only rises, so recording a
 	// genuine timeout's default costs nothing.
@@ -742,7 +737,7 @@ func (l *TPMLimiter) sweep() {
 
 // refreshHorizonMark reads request_timeout with a bound an admission could not
 // afford and records what it implies. Without it a settings store that is
-// consistently slower than settingsReadTimeout would never let a read complete,
+// consistently slower than settings.HotPathReadTimeout would never let a read complete,
 // so the mark could never rise above the default's floor and a raised
 // request_timeout would go unnoticed for the life of the process.
 func (l *TPMLimiter) refreshHorizonMark() {

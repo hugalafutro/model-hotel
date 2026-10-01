@@ -2,10 +2,7 @@ package frontdesk
 
 import (
 	"context"
-	"encoding/json"
-	"errors"
 	"fmt"
-	"net/http"
 	"time"
 
 	"github.com/hugalafutro/model-hotel/internal/debuglog"
@@ -147,17 +144,9 @@ func (p *Poller) noteVersionFetchFailure(ctx context.Context, m *Member, fetchEr
 // fetchMemberBuild reads app_version and app_commit from the member's admin
 // settings API. Both ride in one response, so the commit costs no extra call.
 func (p *Poller) fetchMemberBuild(ctx context.Context, baseURL, token string) (memberBuild, error) {
-	status, body, err := callMemberWith(ctx, p.client, http.MethodGet, baseURL, memberSettingsPath, token, nil)
-	if err != nil {
-		return memberBuild{}, err
-	}
-	if status != http.StatusOK {
-		return memberBuild{}, fmt.Errorf("settings api returned %d", status)
-	}
 	var payload map[string]any
-	if err := json.Unmarshal(body, &payload); err != nil {
-		// Don't wrap the decoder error: it can echo a fragment of the response.
-		return memberBuild{}, errors.New("frontdesk: parse settings response")
+	if err := getMemberJSON(ctx, p.client, maxMemberRespBody, baseURL, memberSettingsPath, token, "member settings", &payload); err != nil {
+		return memberBuild{}, err
 	}
 	var out memberBuild
 	if v, ok := payload["app_version"].(string); ok {

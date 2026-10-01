@@ -375,17 +375,6 @@ func (d *DiscoveryService) fetchURL(ctx context.Context, method, rawURL string, 
 	return bodyBytes, nil
 }
 
-// bearerHeader builds the request headers for a Bearer-authenticated fetch,
-// omitting the header entirely when the server needs no key (a local
-// KoboldCPP or LM Studio started without --password).
-func bearerHeader(apiKey string) http.Header {
-	h := http.Header{}
-	if apiKey != "" {
-		h.Set("Authorization", "Bearer "+apiKey)
-	}
-	return h
-}
-
 // hostTypeRules maps provider hostnames to provider types: apex host names
 // plus suffixes for subdomain matches (api.foo.deepseek.com, custom.nano-gpt.com).
 // Every "api.<domain>" host is already covered by its ".<domain>" suffix, so

@@ -56,9 +56,7 @@ func (d *DiscoveryService) discoverAzure(ctx context.Context, provider *Provider
 	}
 	root := u.Scheme + "://" + u.Host
 
-	headers := http.Header{}
-	headers.Set("Authorization", "Bearer "+apiKey)
-	headers.Set("Content-Type", "application/json")
+	headers := bearerJSONHeader(apiKey)
 
 	var live []*model.Model
 	if project := azureProjectFromPath(u.Path); project != "" {

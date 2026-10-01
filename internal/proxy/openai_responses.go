@@ -168,16 +168,7 @@ func restoreReasoningEffort(cleaned, original []byte) []byte {
 	if _, ok := m["reasoning_effort"]; ok {
 		return cleaned
 	}
-	effort, err := json.Marshal(want.ReasoningEffort)
-	if err != nil {
-		return cleaned
-	}
-	m["reasoning_effort"] = effort
-	out, err := json.Marshal(m)
-	if err != nil {
-		return cleaned
-	}
-	return out
+	return util.SetJSONMember(cleaned, "reasoning_effort", want.ReasoningEffort)
 }
 
 // retryWithResponses handles a chat-completions refusal that demands the

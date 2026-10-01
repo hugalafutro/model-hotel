@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"slices"
 	"time"
+
+	"github.com/hugalafutro/model-hotel/internal/settings"
 )
 
 // maxModelCircuitsPerProvider bounds how many model circuits one provider may
@@ -658,24 +660,21 @@ func (cb *CircuitBreaker) backoffMax() time.Duration {
 // already answers def for an absent or unparsable row and the stored value
 // otherwise, so a stored zero comes through as zero; a stored negative is
 // clamped to the same off position.
-func ceilingOrDefault(settings SettingsReader, key string, def time.Duration) time.Duration {
-	if settings == nil {
+func ceilingOrDefault(reader SettingsReader, key string, def time.Duration) time.Duration {
+	if reader == nil {
 		return def
 	}
 	ctx, cancel := settingsCtx()
 	defer cancel()
-	return max(settings.GetDuration(ctx, key, def), 0)
+	return max(reader.GetDuration(ctx, key, def), 0)
 }
 
-// settingsReadTimeout bounds every settings read the breaker makes. The values
-// are cached, but a miss goes to the store, and several of these reads happen
-// under cb.mu (recordFailure holds it): a store that stalls must not hold every
-// request's breaker verdict with it. The TPM limiter's admission path bounds
-// its own reads the same way.
-const settingsReadTimeout = 100 * time.Millisecond
-
+// settingsCtx bounds every settings read the breaker makes by
+// settings.HotPathReadTimeout. Several of these reads happen under cb.mu
+// (recordFailure holds it): a store that stalls must not hold every request's
+// breaker verdict with it.
 func settingsCtx() (context.Context, context.CancelFunc) {
-	return context.WithTimeout(context.Background(), settingsReadTimeout)
+	return context.WithTimeout(context.Background(), settings.HotPathReadTimeout)
 }
 
 func (cb *CircuitBreaker) settingInt(key string, def int) int {

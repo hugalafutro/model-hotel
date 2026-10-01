@@ -7,6 +7,7 @@ import { useToast } from "../../context/ToastContext";
 import { useCopyToClipboard } from "../../hooks/useCopyToClipboard";
 import { useSettingsQuery } from "../../hooks/useSettingsQuery";
 import { downloadBlob } from "../../utils/download";
+import { clamp } from "../../utils/format";
 import { SETTING_DEFAULTS, settingOr } from "./defaults";
 import { invalidateSettings } from "./useSettingsMutations";
 
@@ -139,7 +140,7 @@ export function useBackupActions() {
 			if (dMatch) return Number(dMatch[1]) * 24 + Number(dMatch[2] ?? 0);
 			return Number.parseFloat(SETTING_DEFAULTS.backup_interval);
 		})();
-		return Math.min(Math.max(parsed, 0.5), 168);
+		return clamp(parsed, 0.5, 168);
 	})();
 	const sonRetention = Number(settingOr(settings, "backup_son_retention"));
 	const fatherRetention = Number(

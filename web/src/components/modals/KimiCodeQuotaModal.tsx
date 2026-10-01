@@ -9,7 +9,7 @@ import {
 	LastRefreshedRow,
 	type OnToast,
 	QuotaBar,
-	QuotaModalHeaderActions,
+	QuotaModalHeader,
 	resetAtLabel,
 	usedLeftText,
 	useQuotaBarMode,
@@ -45,12 +45,10 @@ export function KimiCodeQuotaModal({
 	return (
 		<Modal
 			header={
-				<div className="flex justify-between items-start mb-6">
-					<div>
-						<h2 className="ui-modal-title">
-							{t("components.providerModals.kimiCodePlanQuota")}
-						</h2>
-						<p className="ui-subtitle mt-1">
+				<QuotaModalHeader
+					title={t("components.providerModals.kimiCodePlanQuota")}
+					subtitle={
+						<>
 							{t("components.providerModals.plan")}{" "}
 							<span
 								className="text-gray-200 capitalize"
@@ -58,15 +56,13 @@ export function KimiCodeQuotaModal({
 							>
 								{level ?? "-"}
 							</span>
-						</p>
-					</div>
-					<QuotaModalHeaderActions
-						barMode={barMode}
-						onToggleBarMode={toggleBarMode}
-						onRefresh={handleRefresh}
-						isRefreshing={isRefreshing}
-					/>
-				</div>
+						</>
+					}
+					barMode={barMode}
+					onToggleBarMode={toggleBarMode}
+					onRefresh={handleRefresh}
+					isRefreshing={isRefreshing}
+				/>
 			}
 			onClose={onClose}
 			scrollable

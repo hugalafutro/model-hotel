@@ -35,11 +35,11 @@ type OpenCodeModelSpec struct {
 	OutputPricePerMillion        *float64 `json:"output_price_per_million,omitempty"`
 }
 
-// copyPrice returns a fresh pointer to the same figure, or nil for nil. A model
-// must own its price pointers: aliasing a catalog row's field would let a write
+// clonePtr returns a fresh pointer to the same value, or nil for nil. A model
+// must own its pointers: aliasing a catalog row's field would let a write
 // through one discovered model edit the embedded catalog for every provider,
 // for the life of the process.
-func copyPrice(p *float64) *float64 {
+func clonePtr[T any](p *T) *T {
 	if p == nil {
 		return nil
 	}
@@ -93,9 +93,9 @@ func OpenCodeCatalogToModel(spec *OpenCodeModelSpec, providerID uuid.UUID, owned
 		OutputModalities:             spec.OutputModalities,
 		ContextLength:                &contextLen,
 		MaxOutputTokens:              &maxOutput,
-		InputPricePerMillion:         copyPrice(spec.InputPricePerMillion),
-		InputPricePerMillionCacheHit: copyPrice(spec.InputPricePerMillionCacheHit),
-		OutputPricePerMillion:        copyPrice(spec.OutputPricePerMillion),
+		InputPricePerMillion:         clonePtr(spec.InputPricePerMillion),
+		InputPricePerMillionCacheHit: clonePtr(spec.InputPricePerMillionCacheHit),
+		OutputPricePerMillion:        clonePtr(spec.OutputPricePerMillion),
 		OwnedBy:                      ownedBy,
 		Enabled:                      true,
 	}

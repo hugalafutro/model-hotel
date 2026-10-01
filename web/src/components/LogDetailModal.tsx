@@ -4,6 +4,7 @@ import type { AppLogEntry, LogEntry } from "../api/types";
 import {
 	formatLogTimestamp,
 	getLevelBadgeVariant,
+	withRowLabel,
 } from "../utils/logBadgeUtils";
 import { displayLogMessage } from "../utils/logText";
 import { Badge } from "./Badge";
@@ -42,15 +43,7 @@ function AppLogDetail({
 	return (
 		<Modal
 			title={t("components.appLogDetail.title")}
-			nav={
-				nav && {
-					...nav,
-					rowLabel: t("common.rowStepLabel", {
-						time: formatLogTimestamp(log.timestamp),
-						subject: log.level.toUpperCase(),
-					}),
-				}
-			}
+			nav={withRowLabel(nav, t, log.timestamp, log.level.toUpperCase())}
 			onClose={onClose}
 			maxWidth="max-w-lg"
 			scrollable

@@ -273,7 +273,7 @@ func (h *Handler) serveBufferedJSONPassthrough(w http.ResponseWriter, r *http.Re
 		}
 		// The read error describes the upstream's body, so both copies take the
 		// pass: the warn line and the detail stored on the row.
-		fenced := fencedFrameMessage(logData.fence(), logData.masks(), errString(err))
+		fenced := logData.fencedErr(err)
 		debuglog.Warn("proxy: passthrough body read failed", "endpoint", logData.endpointType, "model", logData.modelID, "provider", logData.providerName, "error", fenced)
 		return h.failPassthroughRead(w, st, kind, resp.StatusCode, attempt, responseHeaderMs, fenced, "failed to read upstream response")
 	}
@@ -407,7 +407,7 @@ func (h *Handler) serveBufferedJSONPassthrough(w http.ResponseWriter, r *http.Re
 		promptTokens, completionTokens = u.prompt, u.completion
 	}
 	if logData.endpointType == endpointTypeRerank {
-		logData.searchUnits = extractRerankSearchUnits(body)
+		logData.searchUnits = util.RerankSearchUnits(body)
 	}
 	w.Header().Set("Content-Length", strconv.Itoa(len(body)))
 	w.WriteHeader(resp.StatusCode)
@@ -527,7 +527,7 @@ func (h *Handler) serveStreamedPassthrough(w http.ResponseWriter, r *http.Reques
 		// The buffered twin above takes the same pass for the same reason: the
 		// read error describes the upstream's body, so the warn line and the
 		// stored detail share one masked, fenced string.
-		fencedErr := fencedFrameMessage(logData.fence(), logData.masks(), errString(readErr))
+		fencedErr := logData.fencedErr(readErr)
 		debuglog.Warn("proxy: passthrough first-byte read failed", "endpoint", logData.endpointType, "model", logData.modelID, "provider", logData.providerName, "error", fencedErr)
 		return h.failPassthroughRead(w, st, kind, resp.StatusCode, attempt, responseHeaderMs, fencedErr, "upstream produced no response data")
 	}
@@ -606,7 +606,7 @@ func (h *Handler) serveStreamedPassthrough(w http.ResponseWriter, r *http.Reques
 		// io.Copy reports the upstream body's read error, the class the
 		// first-byte path above fences, so the stored message and the warn line
 		// below take the same string. requestAbandoned still reads copyErr.
-		fencedCopyErr := fencedFrameMessage(logData.fence(), logData.masks(), errString(copyErr))
+		fencedCopyErr := logData.fencedErr(copyErr)
 		errMsg := "response copy error: " + fencedCopyErr
 		// r carries the attempt's context, so a bare cancel check would call
 		// this gateway's own per-attempt deadline a client leaving.
@@ -723,32 +723,7 @@ func extractPassthroughUsage(body []byte) (promptTokens, completionTokens int) {
 	// A first-sent count is still a provider figure, read off a body this
 	// gateway does not otherwise inspect, bound for the meter and two int4
 	// log columns. Same clamp as every other reader.
-	return clampTokenCount(promptTokens), clampTokenCount(completionTokens)
-}
-
-// extractRerankSearchUnits reads how many search units a rerank answer was
-// billed for: Cohere's meta.billed_units.search_units. Providers that bill per
-// token carry no such member and read as zero. Only that member is decoded;
-// the ranked results are never inspected.
-func extractRerankSearchUnits(body []byte) int {
-	var envelope struct {
-		Meta struct {
-			BilledUnits json.RawMessage `json:"billed_units"`
-		} `json:"meta"`
-	}
-	if json.Unmarshal(body, &envelope) != nil || !util.JSONMemberSet(envelope.Meta.BilledUnits) {
-		return 0
-	}
-	var billed struct {
-		SearchUnits int `json:"search_units"`
-	}
-	// Same tolerance as the usage members: a count quoted or written with a
-	// fraction is still a count, and a member this struct has no field for
-	// does not cost the count beside it.
-	if util.DecodeCountsTolerant(envelope.Meta.BilledUnits, &billed) != nil {
-		return 0
-	}
-	return clampTokenCount(billed.SearchUnits)
+	return util.ClampTokenCount(promptTokens), util.ClampTokenCount(completionTokens)
 }
 
 // extractPassthroughSSEUsage scrapes token counts from the trailing bytes of
@@ -788,7 +763,7 @@ type count struct {
 // the next one is a different number.
 func firstSentCount(raw json.RawMessage, chain ...count) int {
 	for _, c := range chain {
-		if len(util.UnreadableCounts(raw, c.member)) > 0 {
+		if util.CountsUnreadable(raw, c.member) {
 			return 0
 		}
 		if c.value != 0 {

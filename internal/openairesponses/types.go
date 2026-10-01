@@ -12,6 +12,7 @@ package openairesponses
 import (
 	"encoding/json"
 
+	"github.com/hugalafutro/model-hotel/internal/egress"
 	"github.com/hugalafutro/model-hotel/internal/util"
 )
 
@@ -232,19 +233,11 @@ type chatToolCallFunc struct {
 }
 
 type chatUsage struct {
-	PromptTokens            int                          `json:"prompt_tokens"`
-	CompletionTokens        int                          `json:"completion_tokens"`
-	TotalTokens             int                          `json:"total_tokens"`
-	PromptTokensDetails     *chatPromptTokensDetails     `json:"prompt_tokens_details,omitempty"`
-	CompletionTokensDetails *chatCompletionTokensDetails `json:"completion_tokens_details,omitempty"`
-}
-
-type chatPromptTokensDetails struct {
-	CachedTokens int `json:"cached_tokens"`
-}
-
-type chatCompletionTokensDetails struct {
-	ReasoningTokens int `json:"reasoning_tokens"`
+	PromptTokens            int                             `json:"prompt_tokens"`
+	CompletionTokens        int                             `json:"completion_tokens"`
+	TotalTokens             int                             `json:"total_tokens"`
+	PromptTokensDetails     *egress.PromptTokensDetails     `json:"prompt_tokens_details,omitempty"`
+	CompletionTokensDetails *egress.CompletionTokensDetails `json:"completion_tokens_details,omitempty"`
 }
 
 type chatDelta struct {

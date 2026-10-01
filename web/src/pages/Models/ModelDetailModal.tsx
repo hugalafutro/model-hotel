@@ -5,7 +5,12 @@ import type { Model } from "../../api/types";
 import { CapBadge } from "../../components/CapBadge";
 import { ConfirmDialog } from "../../components/ConfirmDialog";
 import { CopyablePill } from "../../components/CopyablePill";
-import { CAP_META, CAP_OFF, hasCap } from "../../components/capMeta";
+import {
+	CAP_META,
+	CAP_OFF,
+	hasCap,
+	PILL_BADGE,
+} from "../../components/capMeta";
 import { DetailSectionHeader } from "../../components/DetailSectionHeader";
 import type { LangIconKey } from "../../components/langIcons";
 import { Modal } from "../../components/Modal";
@@ -149,87 +154,54 @@ export function ModelDetailModal({
 			    refreshing this model's prices from live/catalog/models.dev.
 			    Unpinning nulls the prices so the next scan re-derives them. */}
 			{model.price_customized && (
-				<div
-					data-testid="price-pin-banner"
-					className="mb-4 flex items-center gap-2 text-xs text-gray-500"
-				>
-					<Pin className="h-3.5 w-3.5 shrink-0" />
-					<span>{t("models.detail.pricePinned")}</span>
-					{manageable && !editing && (
-						<button
-							type="button"
-							className="ui-link-accent"
-							data-testid="price-pin-reset"
-							onClick={() =>
-								onUpdate?.(model.id, {
-									price_customized: false,
-									input_price_per_million: null,
-									input_price_per_million_cache_hit: null,
-									output_price_per_million: null,
-									search_price_per_thousand: null,
-								} as Partial<Model>)
-							}
-						>
-							{t("models.detail.resetPricesToSource")}
-						</button>
-					)}
-				</div>
+				<PinBanner
+					testIdPrefix="price"
+					text={t("models.detail.pricePinned")}
+					showReset={manageable && !editing}
+					onReset={() =>
+						onUpdate?.(model.id, {
+							price_customized: false,
+							input_price_per_million: null,
+							input_price_per_million_cache_hit: null,
+							output_price_per_million: null,
+							search_price_per_thousand: null,
+						} as Partial<Model>)
+					}
+				/>
 			)}
 
 			{/* Editing either limit pins both server-side (limits_customized);
 			    while pinned, discovery stops refreshing this model's context and
 			    output limits. Unpinning nulls them so the next scan refills. */}
 			{model.limits_customized && (
-				<div
-					data-testid="limits-pin-banner"
-					className="mb-4 flex items-center gap-2 text-xs text-gray-500"
-				>
-					<Pin className="h-3.5 w-3.5 shrink-0" />
-					<span>{t("models.detail.limitsPinned")}</span>
-					{manageable && !editing && (
-						<button
-							type="button"
-							className="ui-link-accent"
-							data-testid="limits-pin-reset"
-							onClick={() =>
-								onUpdate?.(model.id, {
-									limits_customized: false,
-									context_length: null,
-									max_output_tokens: null,
-								} as Partial<Model>)
-							}
-						>
-							{t("models.detail.resetPricesToSource")}
-						</button>
-					)}
-				</div>
+				<PinBanner
+					testIdPrefix="limits"
+					text={t("models.detail.limitsPinned")}
+					showReset={manageable && !editing}
+					onReset={() =>
+						onUpdate?.(model.id, {
+							limits_customized: false,
+							context_length: null,
+							max_output_tokens: null,
+						} as Partial<Model>)
+					}
+				/>
 			)}
 
 			{/* A custom or self-hosted provider's capabilities are the
 			    operator's to set; the edit pins them (capabilities_customized)
 			    until an unpin hands them back to the next scan. */}
 			{model.capabilities_customized && (
-				<div
-					data-testid="caps-pin-banner"
-					className="mb-4 flex items-center gap-2 text-xs text-gray-500"
-				>
-					<Pin className="h-3.5 w-3.5 shrink-0" />
-					<span>{t("models.detail.capabilitiesPinned")}</span>
-					{manageable && !editing && (
-						<button
-							type="button"
-							className="ui-link-accent"
-							data-testid="caps-pin-reset"
-							onClick={() =>
-								onUpdate?.(model.id, {
-									capabilities_customized: false,
-								} as Partial<Model>)
-							}
-						>
-							{t("models.detail.resetPricesToSource")}
-						</button>
-					)}
-				</div>
+				<PinBanner
+					testIdPrefix="caps"
+					text={t("models.detail.capabilitiesPinned")}
+					showReset={manageable && !editing}
+					onReset={() =>
+						onUpdate?.(model.id, {
+							capabilities_customized: false,
+						} as Partial<Model>)
+					}
+				/>
 			)}
 
 			{editing && capsEditable ? (
@@ -248,7 +220,7 @@ export function ModelDetailModal({
 								aria-pressed={editCaps[m.key]}
 								data-testid={`caps-toggle-${m.key}`}
 								onClick={() => toggleCap(m.key)}
-								className={`ui-badge inline-flex items-center px-1.5 py-0.5 text-[11px] font-medium border cursor-pointer ${
+								className={`${PILL_BADGE} text-[11px] border cursor-pointer ${
 									editCaps[m.key] ? m.style : CAP_OFF
 								}`}
 							>
@@ -342,5 +314,44 @@ export function ModelDetailModal({
 				/>
 			)}
 		</Modal>
+	);
+}
+
+/**
+ * PinBanner notes that a field group is pinned against discovery, with a
+ * reset link that hands it back to the next scan when `showReset` is set.
+ * `testIdPrefix` names the banner `<prefix>-pin-banner` and its link
+ * `<prefix>-pin-reset`.
+ */
+function PinBanner({
+	testIdPrefix,
+	text,
+	showReset,
+	onReset,
+}: {
+	testIdPrefix: string;
+	text: string;
+	showReset: boolean;
+	onReset: () => void;
+}) {
+	const { t } = useTranslation();
+	return (
+		<div
+			data-testid={`${testIdPrefix}-pin-banner`}
+			className="mb-4 flex items-center gap-2 text-xs text-gray-500"
+		>
+			<Pin className="h-3.5 w-3.5 shrink-0" />
+			<span>{text}</span>
+			{showReset && (
+				<button
+					type="button"
+					className="ui-link-accent"
+					data-testid={`${testIdPrefix}-pin-reset`}
+					onClick={onReset}
+				>
+					{t("models.detail.resetPricesToSource")}
+				</button>
+			)}
+		</div>
 	);
 }

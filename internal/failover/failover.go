@@ -11,6 +11,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
+	"github.com/hugalafutro/model-hotel/internal/db"
 	"github.com/hugalafutro/model-hotel/internal/debuglog"
 )
 
@@ -258,17 +259,10 @@ func (r *Repository) Update(ctx context.Context, id uuid.UUID, priorityOrder []u
 		return nil, err
 	}
 
-	var setClauses []string
-	var args []any
-	argIdx := 2 // $1 is reserved for id
+	set := db.SetList{First: 2} // $1 is reserved for id
 
-	setClauses = append(setClauses, fmt.Sprintf("priority_order = $%d", argIdx))
-	args = append(args, priorityJSON)
-	argIdx++
-
-	setClauses = append(setClauses, fmt.Sprintf("entry_enabled = $%d", argIdx))
-	args = append(args, entryEnabledJSON)
-	argIdx++
+	set.Set("priority_order", priorityJSON)
+	set.Set("entry_enabled", entryEnabledJSON)
 
 	// group_enabled is PATCH-shaped like the other optional fields: absent
 	// means unchanged. Defaulting it to true turned every reorder, rename and
@@ -284,49 +278,42 @@ func (r *Repository) Update(ctx context.Context, id uuid.UUID, priorityOrder []u
 	// group reads as auto-disabled and comes back when members return. A write
 	// that leaves group_enabled alone leaves the stamp alone too.
 	if groupEnabled != nil {
-		setClauses = append(setClauses, fmt.Sprintf("group_enabled = $%d", argIdx))
-		args = append(args, *groupEnabled)
-		argIdx++
+		set.Set("group_enabled", *groupEnabled)
 		// The cascade's stamp is its own column: auto_disabled_at is what the
 		// discovery claim listing reads, and a member toggle is not a claim.
 		// A floor write leaves that column alone: the cascade firing on a
 		// group discovery already took down does not answer discovery's claim,
 		// so the operator still sees it.
 		if floorDisabled && !*groupEnabled {
-			setClauses = append(setClauses, "floor_disabled_at = now()")
+			set.Add("floor_disabled_at = now()")
 		} else {
-			setClauses = append(setClauses, "auto_disabled_at = NULL", "floor_disabled_at = NULL")
+			set.Add("auto_disabled_at = NULL", "floor_disabled_at = NULL")
 		}
 	}
 
 	if displayName != nil {
 		if *displayName == "" {
 			// Empty string = clear to NULL
-			setClauses = append(setClauses, "display_name = NULL")
+			set.Add("display_name = NULL")
 		} else {
-			setClauses = append(setClauses, fmt.Sprintf("display_name = $%d", argIdx))
-			args = append(args, *displayName)
-			argIdx++
+			set.Set("display_name", *displayName)
 		}
 	}
 
 	if description != nil {
-		setClauses = append(setClauses, fmt.Sprintf("description = $%d", argIdx))
-		args = append(args, *description)
-		argIdx++
+		set.Set("description", *description)
 	}
 
 	if displayModel != nil {
-		setClauses = append(setClauses, fmt.Sprintf("display_model = $%d", argIdx))
-		args = append(args, *displayModel)
+		set.Set("display_model", *displayModel)
 	}
 
-	setClauses = append(setClauses, "updated_at = now()")
+	set.Add("updated_at = now()")
 
-	args = append([]any{id}, args...)
+	args := append([]any{id}, set.Args...)
 
 	query := fmt.Sprintf(`UPDATE model_failover_groups SET %s WHERE id = $1
-		RETURNING %s`, strings.Join(setClauses, ", "), failoverGroupColumns)
+		RETURNING %s`, strings.Join(set.Clauses, ", "), failoverGroupColumns)
 
 	fg, err := scanFailoverGroup(r.pool.QueryRow(ctx, query, args...))
 	if err != nil {

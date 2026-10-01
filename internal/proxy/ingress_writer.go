@@ -237,10 +237,8 @@ func (a *ingressResponseWriter) handleStreamLine(line []byte) {
 // reads on the OpenAI-shaped path, so the two cannot disagree about what counts
 // as an error.
 func (a *ingressResponseWriter) emitStreamError(payload []byte) bool {
-	var env struct {
-		Error json.RawMessage `json:"error"`
-	}
-	if json.Unmarshal(payload, &env) != nil || !util.ValueCarries(env.Error) {
+	errMember, ok := ingressErrorMember(payload)
+	if !ok {
 		return false
 	}
 	a.streamDone = true
@@ -249,9 +247,21 @@ func (a *ingressResponseWriter) emitStreamError(payload []byte) bool {
 	var kind struct {
 		Code string `json:"code"`
 	}
-	_ = json.Unmarshal(env.Error, &kind)
-	a.writeStream(a.translator.Fail(util.ErrorMemberMessage(env.Error), kind.Code))
+	_ = json.Unmarshal(errMember, &kind)
+	a.writeStream(a.translator.Fail(util.ErrorMemberMessage(errMember), kind.Code))
 	return true
+}
+
+// ingressErrorMember returns the top-level error member of a JSON body when it
+// carries one, by the util.ValueCarries rule.
+func ingressErrorMember(body []byte) (json.RawMessage, bool) {
+	var env struct {
+		Error json.RawMessage `json:"error"`
+	}
+	if json.Unmarshal(body, &env) != nil || !util.ValueCarries(env.Error) {
+		return nil, false
+	}
+	return env.Error, true
 }
 
 // finishStream emits the terminal dialect events once.

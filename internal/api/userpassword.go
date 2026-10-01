@@ -4,7 +4,6 @@ import (
 	"net/http"
 
 	"github.com/hugalafutro/model-hotel/internal/debuglog"
-	"github.com/hugalafutro/model-hotel/internal/httpx"
 	"github.com/hugalafutro/model-hotel/internal/user"
 )
 
@@ -37,9 +36,7 @@ func (h *Handler) ChangeOwnPassword(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	key := id.UserID.String()
-	if ok, retry := h.pwThrottle.Allowed(key); !ok {
-		debuglog.Warn("userpassword: throttled", "username", id.Username)
-		httpx.RespondTooManyAttempts(w, retry)
+	if !h.pwThrottle.Admit(w, key, "userpassword: throttled", "username", id.Username) {
 		return
 	}
 	u, err := h.userRepo.Get(r.Context(), *id.UserID)

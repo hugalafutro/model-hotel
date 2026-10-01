@@ -1,5 +1,6 @@
 import type { GenerationParams } from "../api/types";
 import { ARENA_PROMPTS, CHAT_PERSONAS } from "../data/presets";
+import { removeStoredKeys } from "../hooks/useLocalStorage";
 import { hasAnyParam } from "./params";
 
 // The three localStorage keys the arena history lives under. Exported because
@@ -262,11 +263,7 @@ export function deleteArenaHistoryEntry(id: string): void {
 }
 
 export function clearArenaHistory(): void {
-	try {
-		localStorage.removeItem(ARENA_HISTORY_KEY);
-	} catch {
-		// Silently ignore
-	}
+	removeStoredKeys([ARENA_HISTORY_KEY]);
 }
 
 export function getArenaHistoryCount(): number {

@@ -138,6 +138,63 @@ export function Row({
 	);
 }
 
+/**
+ * VirtualRow is a clickable row of a virtualized table: it carries the
+ * virtualizer's index and measuring ref, and stripes by list index since the
+ * rendered window starts mid-list.
+ */
+export function VirtualRow({
+	index,
+	measureRef,
+	onActivate,
+	className = "",
+	children,
+}: {
+	index: number;
+	measureRef: (el: HTMLTableRowElement | null) => void;
+	onActivate: () => void;
+	className?: string;
+	children: ReactNode;
+}) {
+	return (
+		<tr
+			data-index={index}
+			ref={measureRef}
+			className={`hover:bg-(--surface-hover) ${index % 2 === 1 ? "ui-row-even" : ""} ${className} cursor-pointer`}
+			tabIndex={0}
+			onClick={onActivate}
+			onKeyDown={onActivateKey(onActivate)}
+		>
+			{children}
+		</tr>
+	);
+}
+
+/** The time column header of a log table, toggling newest/oldest first. */
+export function TimeSortHeader({
+	label,
+	className,
+	sortDir,
+	onSortToggle,
+}: {
+	label: string;
+	className: string;
+	sortDir: string;
+	onSortToggle: () => void;
+}) {
+	return (
+		<th
+			className={className}
+			title={label}
+			aria-sort={sortDir === "desc" ? "descending" : "ascending"}
+		>
+			<button type="button" className="cursor-pointer" onClick={onSortToggle}>
+				{label} {sortDir === "desc" ? "↓" : "↑"}
+			</button>
+		</th>
+	);
+}
+
 export function EmptyRow({
 	colSpan,
 	message,

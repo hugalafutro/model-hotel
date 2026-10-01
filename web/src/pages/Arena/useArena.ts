@@ -2,6 +2,7 @@ import i18next from "i18next";
 import { produce } from "immer";
 import { useCallback, useEffect, useMemo, useRef } from "react";
 import { GitCompare, Swords } from "@/lib/icons";
+import { removeStoredKeys } from "../../hooks/useLocalStorage";
 import {
 	getArenaHistoryEnabled,
 	saveCompetitionToHistory,
@@ -432,11 +433,7 @@ export function useArena() {
 		// The write-through setters above only reach disk while persistence is
 		// on, so the keys are removed directly: a reset must not leave a board
 		// that comes back when persistence is switched on again.
-		try {
-			for (const key of ARENA_STORAGE_KEYS) localStorage.removeItem(key);
-		} catch {
-			/* a storage that refuses removal has nothing to resurrect either */
-		}
+		removeStoredKeys(ARENA_STORAGE_KEYS);
 	}, [
 		clearResults,
 		setCompareModels,

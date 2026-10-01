@@ -16,7 +16,7 @@ import {
 	LastRefreshedRow,
 	type OnToast,
 	QuotaBar,
-	QuotaModalHeaderActions,
+	QuotaModalHeader,
 	resetAtLabel,
 	useQuotaBarMode,
 	useQuotaRefreshToast,
@@ -49,38 +49,32 @@ export function NanoGPTQuotaModal({
 	return (
 		<Modal
 			header={
-				<div className="flex justify-between items-start mb-6">
-					<div>
-						<h2 className="ui-modal-title">
-							{t("components.providerModals.nanoGPTSubscription")}
-						</h2>
-						<p className="ui-subtitle mt-1">
-							{usage.active ? (
-								<span className="inline-flex items-center gap-1.5">
-									<span
-										data-testid="status-dot-active"
-										className="w-2 h-2 rounded-full bg-green-400"
-									></span>
-									{t("components.providerModals.active")}
-								</span>
-							) : (
-								<span className="inline-flex items-center gap-1.5">
-									<span
-										data-testid="status-dot-inactive"
-										className="w-2 h-2 rounded-full bg-red-400"
-									></span>
-									{t("components.providerModals.inactive")}
-								</span>
-							)}
-						</p>
-					</div>
-					<QuotaModalHeaderActions
-						barMode={barMode}
-						onToggleBarMode={toggleBarMode}
-						onRefresh={handleRefresh}
-						isRefreshing={isRefreshing}
-					/>
-				</div>
+				<QuotaModalHeader
+					title={t("components.providerModals.nanoGPTSubscription")}
+					subtitle={
+						usage.active ? (
+							<span className="inline-flex items-center gap-1.5">
+								<span
+									data-testid="status-dot-active"
+									className="w-2 h-2 rounded-full bg-green-400"
+								></span>
+								{t("components.providerModals.active")}
+							</span>
+						) : (
+							<span className="inline-flex items-center gap-1.5">
+								<span
+									data-testid="status-dot-inactive"
+									className="w-2 h-2 rounded-full bg-red-400"
+								></span>
+								{t("components.providerModals.inactive")}
+							</span>
+						)
+					}
+					barMode={barMode}
+					onToggleBarMode={toggleBarMode}
+					onRefresh={handleRefresh}
+					isRefreshing={isRefreshing}
+				/>
 			}
 			onClose={onClose}
 			scrollable

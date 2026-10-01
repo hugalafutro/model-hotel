@@ -719,10 +719,7 @@ func (s *Server) measureMember(ctx, passCtx context.Context, m *Member, token, h
 		if s.clearSyncFailure(m.ID) && !recovered {
 			// One recovery, one event: the divergence's own event says it when
 			// the member was flagged; otherwise the cleared push failure does.
-			s.emit(ctx, Event{
-				Type: "config.sync_recovered", Severity: "success", Source: "frontdesk",
-				Message: fmt.Sprintf("%s holds the primary's config again", m.Name), MemberID: m.ID,
-			})
+			s.emitSyncRecovered(ctx, m, fmt.Sprintf("%s holds the primary's config again", m.Name))
 		}
 		if s.hasUnconfirmedPush(m.ID, hash) {
 			// The member holds the primary's exact config, so the push whose answer

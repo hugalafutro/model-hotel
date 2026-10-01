@@ -10,7 +10,7 @@ import {
 } from "@/lib/icons";
 import type { AuditEntry } from "../api/types";
 import { formatRelativeTime } from "../utils/format";
-import { formatLogTimestamp } from "../utils/logBadgeUtils";
+import { formatLogTimestamp, withRowLabel } from "../utils/logBadgeUtils";
 import { auditMethodVariant, auditStatusVariant } from "./auditUtils";
 import { Badge } from "./Badge";
 import { CopyablePill } from "./CopyablePill";
@@ -41,15 +41,12 @@ export function AuditDetailModal({
 	return (
 		<Modal
 			title={t("components.auditDetail.title")}
-			nav={
-				nav && {
-					...nav,
-					rowLabel: t("common.rowStepLabel", {
-						time: formatLogTimestamp(entry.created_at),
-						subject: `${entry.method} ${entry.path}`,
-					}),
-				}
-			}
+			nav={withRowLabel(
+				nav,
+				t,
+				entry.created_at,
+				`${entry.method} ${entry.path}`,
+			)}
 			onClose={onClose}
 			maxWidth="max-w-lg"
 			scrollable

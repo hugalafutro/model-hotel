@@ -149,7 +149,7 @@ func (l *Limiter) Middleware(enabled bool) func(http.Handler) http.Handler {
 			userKey := ""
 			if uid, ok := r.Context().Value(ctxkeys.VirtualKeyOwnerIDKey).(string); ok && uid != "" {
 				if uRPS, ok := r.Context().Value(ctxkeys.UserRateLimitRPSKey).(*float64); ok && uRPS != nil {
-					userKey = "user:" + uid
+					userKey = userBucketPrefix + uid
 					var uBurst *int
 					if b, ok := r.Context().Value(ctxkeys.UserRateLimitBurstKey).(*int); ok {
 						uBurst = b

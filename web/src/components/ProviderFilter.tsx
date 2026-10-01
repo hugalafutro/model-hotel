@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Check, ChevronDown, X } from "@/lib/icons";
 import { useClickOutside } from "../hooks/useClickOutside";
-import { moveOptionFocus } from "../utils/a11y";
+import { popupKeyDown } from "../utils/a11y";
 import { toggleInSet } from "../utils/collections";
 import { sortByName } from "../utils/sort";
 
@@ -84,23 +84,18 @@ export function ProviderFilter({
 			ref={containerRef}
 			data-testid="provider-filter"
 			className="relative inline-block w-full"
-			onKeyDown={(e) => {
-				if (!open) return;
-				if (e.key === "Escape") {
-					e.stopPropagation();
-					setSearch("");
-					setOpen(false);
-					// The search box or option that had focus unmounts with the
-					// menu; the trigger takes focus back.
-					triggerRef.current?.focus();
-					return;
-				}
-				// Arrow keys walk the options, Home/End jump between them; a first
-				// ArrowDown from the search box enters the list.
-				if (moveOptionFocus(listRef.current, e.key, document.activeElement)) {
-					e.preventDefault();
-				}
-			}}
+			onKeyDown={(e) =>
+				popupKeyDown(
+					e,
+					open,
+					() => {
+						setSearch("");
+						setOpen(false);
+					},
+					triggerRef,
+					listRef,
+				)
+			}
 		>
 			<button
 				ref={triggerRef}

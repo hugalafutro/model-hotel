@@ -1,7 +1,6 @@
 import { useTranslation } from "react-i18next";
 import type { AppLogEntry } from "../api/types";
 import { useVirtualRows } from "../hooks/useVirtualRows";
-import { onActivateKey } from "../utils/a11y";
 import {
 	formatLogTimestamp,
 	getLevelBadgeVariant,
@@ -9,6 +8,7 @@ import {
 } from "../utils/logBadgeUtils";
 import { appLogKey, displayLogMessage } from "../utils/logText";
 import { Badge } from "./Badge";
+import { TimeSortHeader, VirtualRow } from "./DataTable";
 import { ScrollTopButton } from "./ScrollTopButton";
 import { TableFooter } from "./TableFooter";
 
@@ -110,20 +110,12 @@ export function VirtualAppLogTable(props: VirtualAppLogTableProps) {
 					{entries.length > 0 && (
 						<thead className="sticky top-0 z-10">
 							<tr>
-								<th
+								<TimeSortHeader
+									label={t("components.virtualAppLogTable.timeDate")}
 									className={HEADER_BASE}
-									title={t("components.virtualAppLogTable.timeDate")}
-									aria-sort={sortDir === "desc" ? "descending" : "ascending"}
-								>
-									<button
-										type="button"
-										className="cursor-pointer"
-										onClick={onSortToggle}
-									>
-										{t("components.virtualAppLogTable.timeDate")}{" "}
-										{sortDir === "desc" ? "↓" : "↑"}
-									</button>
-								</th>
+									sortDir={sortDir}
+									onSortToggle={onSortToggle}
+								/>
 								<th
 									className={HEADER_BASE}
 									title={t("components.virtualAppLogTable.level")}
@@ -159,45 +151,14 @@ export function VirtualAppLogTable(props: VirtualAppLogTableProps) {
 						{virtualItems.map((vItem) => {
 							const entry = entries[vItem.index];
 							return (
-								<tr
+								<VirtualRow
 									key={vItem.key}
-									data-index={vItem.index}
-									ref={virtualizer.measureElement}
-									className={`hover:bg-(--surface-hover) ${vItem.index % 2 === 1 ? "ui-row-even" : ""} cursor-pointer`}
-									tabIndex={0}
-									onClick={() => onRowClick(entry)}
-									onKeyDown={onActivateKey(() => onRowClick(entry))}
+									index={vItem.index}
+									measureRef={virtualizer.measureElement}
+									onActivate={() => onRowClick(entry)}
 								>
-									<td className="px-2 py-1 align-middle whitespace-nowrap text-xs text-gray-400">
-										{formatLogTimestamp(entry.timestamp)}
-									</td>
-									<td className="px-2 py-1 align-middle">
-										<Badge variant={getLevelBadgeVariant(entry.level)}>
-											{entry.level.toUpperCase()}
-										</Badge>
-									</td>
-									<td className="px-2 py-1 align-middle">
-										{entry.source ? (
-											<Badge
-												variant="custom"
-												className={getSourceBadgeClasses(entry.source)}
-											>
-												{entry.source}
-											</Badge>
-										) : (
-											<span className="text-gray-600">-</span>
-										)}
-									</td>
-									<td className="px-2 py-1 align-middle">
-										<div className="text-xs font-mono line-clamp-2 text-gray-400">
-											{displayLogMessage(
-												entry.message,
-												entry.escaped,
-												entry.attrs_at,
-											)}
-										</div>
-									</td>
-								</tr>
+									<AppLogCells entry={entry} />
+								</VirtualRow>
 							);
 						})}
 					</tbody>
@@ -211,5 +172,38 @@ export function VirtualAppLogTable(props: VirtualAppLogTableProps) {
 				isLoadingAfter={isLoadingAfter}
 			/>
 		</div>
+	);
+}
+
+/** The time, level, source and message cells of one app-log row. */
+export function AppLogCells({ entry }: { entry: AppLogEntry }) {
+	return (
+		<>
+			<td className="px-2 py-1 align-middle whitespace-nowrap text-xs text-gray-400">
+				{formatLogTimestamp(entry.timestamp)}
+			</td>
+			<td className="px-2 py-1 align-middle">
+				<Badge variant={getLevelBadgeVariant(entry.level)}>
+					{entry.level.toUpperCase()}
+				</Badge>
+			</td>
+			<td className="px-2 py-1 align-middle">
+				{entry.source ? (
+					<Badge
+						variant="custom"
+						className={getSourceBadgeClasses(entry.source)}
+					>
+						{entry.source}
+					</Badge>
+				) : (
+					<span className="text-gray-600">-</span>
+				)}
+			</td>
+			<td className="px-2 py-1 align-middle">
+				<div className="text-xs font-mono line-clamp-2 text-gray-400">
+					{displayLogMessage(entry.message, entry.escaped, entry.attrs_at)}
+				</div>
+			</td>
+		</>
 	);
 }

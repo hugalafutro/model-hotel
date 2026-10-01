@@ -18,10 +18,6 @@ import { isKnownProviderUrl, providerTypeOptions } from "./constants";
 import { findProviderAtAddress } from "./duplicateAddress";
 import { providerTypeGateMessage } from "./typeGateError";
 
-// parsedMaxInFlight turns the ceiling input's text into the API's three-state
-// value: a number sets it, an empty box means "no ceiling" (null).
-const parsedMaxInFlight = intOrNull;
-
 // Earliest schedulable day. Today is excluded because a same-day schedule is
 // indistinguishable from disabling the provider outright.
 function tomorrowISO(): string {
@@ -137,8 +133,10 @@ export function EditProviderModal({
 			(provider.scheduled_disable_on ?? null)
 		)
 			payload.scheduled_disable_on = formData.scheduled_disable_on ?? null;
-		if (parsedMaxInFlight(formData.max_in_flight) !== provider.max_in_flight)
-			payload.max_in_flight = parsedMaxInFlight(formData.max_in_flight);
+		// The ceiling is three-state: a number sets it, an empty box means
+		// "no ceiling" (null).
+		if (intOrNull(formData.max_in_flight) !== provider.max_in_flight)
+			payload.max_in_flight = intOrNull(formData.max_in_flight);
 		if (formData.quota_reserve_percent !== provider.quota_reserve_percent)
 			payload.quota_reserve_percent = formData.quota_reserve_percent;
 		return payload;

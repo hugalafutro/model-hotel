@@ -16,7 +16,12 @@ import {
 } from "../../components/auditUtils";
 import { Badge } from "../../components/Badge";
 import { ConfirmDialog } from "../../components/ConfirmDialog";
-import { PaginationBar, Row, StaticHeader } from "../../components/DataTable";
+import {
+	PaginationBar,
+	Row,
+	StaticHeader,
+	VirtualRow,
+} from "../../components/DataTable";
 import { EmptyState } from "../../components/EmptyState";
 import { FilterDropdown } from "../../components/FilterDropdown";
 import { FilterInput } from "../../components/FilterInput";
@@ -30,8 +35,7 @@ import { useDebounce } from "../../hooks/useDebounce";
 import { useLocalStorage } from "../../hooks/useLocalStorage";
 import { useModalNav } from "../../hooks/useModalNav";
 import { useVirtualRows } from "../../hooks/useVirtualRows";
-import { onActivateKey } from "../../utils/a11y";
-import { formatLocale, formatRelativeTime } from "../../utils/format";
+import { formatDateTime, formatRelativeTime } from "../../utils/format";
 
 const METHODS = ["POST", "PUT", "PATCH", "DELETE"] as const;
 const PAGE_SIZE = 50;
@@ -259,17 +263,14 @@ export function Audit() {
 									? virtualItems.map((vItem) => {
 											const e = entries[vItem.index];
 											return (
-												<tr
+												<VirtualRow
 													key={vItem.key}
-													data-index={vItem.index}
-													ref={virtualizer.measureElement}
-													className={`hover:bg-(--surface-hover) cursor-pointer ${vItem.index % 2 === 1 ? "ui-row-even" : ""}`}
-													tabIndex={0}
-													onClick={() => setSelected(e)}
-													onKeyDown={onActivateKey(() => setSelected(e))}
+													index={vItem.index}
+													measureRef={virtualizer.measureElement}
+													onActivate={() => setSelected(e)}
 												>
 													<AuditCells entry={e} />
-												</tr>
+												</VirtualRow>
 											);
 										})
 									: entries.map((e) => (
@@ -335,7 +336,7 @@ function AuditCells({ entry: e }: { entry: AuditEntry }) {
 		<>
 			<td
 				className="px-4 py-3 text-sm text-gray-400 whitespace-nowrap"
-				title={new Date(e.created_at).toLocaleString(formatLocale())}
+				title={formatDateTime(e.created_at)}
 			>
 				{formatRelativeTime(e.created_at)}
 			</td>

@@ -1233,3 +1233,22 @@ func TestRedactStraddling_IgnoresACutPastTheEnd(t *testing.T) {
 		t.Fatalf("got %q, want the body untouched", got)
 	}
 }
+
+// RewriteJSONModel through SetJSONMember: only the model member changes, and a
+// body that is not a JSON object comes back as it was.
+func TestRewriteJSONModel(t *testing.T) {
+	body := []byte(`{"model":"hotel/claude","max_tokens":10,"system":"hi","messages":[{"role":"user","content":"x"}]}`)
+	var m map[string]json.RawMessage
+	if err := json.Unmarshal(RewriteJSONModel(body, "claude-haiku-4-5"), &m); err != nil {
+		t.Fatalf("invalid output: %v", err)
+	}
+	if string(m["model"]) != `"claude-haiku-4-5"` {
+		t.Errorf("model = %s, want rewritten", m["model"])
+	}
+	if string(m["max_tokens"]) != "10" || string(m["system"]) != `"hi"` || string(m["messages"]) != `[{"role":"user","content":"x"}]` {
+		t.Errorf("other members altered: %v", m)
+	}
+	if out := RewriteJSONModel([]byte(`not json`), "x"); string(out) != "not json" {
+		t.Errorf("invalid body = %q, want it unchanged", out)
+	}
+}

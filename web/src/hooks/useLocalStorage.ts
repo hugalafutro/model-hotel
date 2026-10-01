@@ -152,6 +152,21 @@ export function useLocalStorageValue<T>(
 	}, [raw, fallback, deserialize]);
 }
 
+/**
+ * Removes `keys` from localStorage. A blocked store (private mode, site data
+ * disabled) throws on access and holds nothing to remove, so a key's throw is
+ * swallowed and the other keys still go.
+ */
+export function removeStoredKeys(keys: readonly string[]): void {
+	for (const key of keys) {
+		try {
+			localStorage.removeItem(key);
+		} catch {
+			/* blocked storage: nothing to remove */
+		}
+	}
+}
+
 /** Deserializer for a boolean stored as "true"/"false" by the write-through setter. */
 export const storedBool = (stored: string | null) => stored === "true";
 

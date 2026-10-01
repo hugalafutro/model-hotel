@@ -71,19 +71,18 @@ func validMemberName(name string) (string, error) {
 // runs before inserting. The same transaction records the former lone member
 // as the fleet primary when this add makes the roster two (lonePrimaryMarker).
 func (s *Store) CreateVerifiedMember(ctx context.Context, name, rawURL, token, instanceID string) (*Member, error) {
-	tx, err := s.db.BeginTx(ctx, nil)
+	var id string
+	err := inTx(ctx, s.db, "frontdesk: insert member", func(tx *sql.Tx) error {
+		var err error
+		if id, err = s.insertMemberTx(ctx, tx, name, rawURL, token, instanceID); err != nil {
+			return err
+		}
+		if _, err := tx.ExecContext(ctx, lonePrimaryMarker, id); err != nil {
+			return fmt.Errorf("frontdesk: record lone primary: %w", err)
+		}
+		return nil
+	})
 	if err != nil {
-		return nil, fmt.Errorf("frontdesk: begin insert member: %w", err)
-	}
-	defer tx.Rollback() //nolint:errcheck // rollback after a successful commit is a no-op
-	id, err := s.insertMemberTx(ctx, tx, name, rawURL, token, instanceID)
-	if err != nil {
-		return nil, err
-	}
-	if _, err := tx.ExecContext(ctx, lonePrimaryMarker, id); err != nil {
-		return nil, fmt.Errorf("frontdesk: record lone primary: %w", err)
-	}
-	if err := commitTx(tx, "commit insert member"); err != nil {
 		return nil, err
 	}
 	return s.GetMember(ctx, id)

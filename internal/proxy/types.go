@@ -10,6 +10,7 @@ import (
 
 	"github.com/hugalafutro/model-hotel/internal/budget"
 	"github.com/hugalafutro/model-hotel/internal/ctxkeys"
+	"github.com/hugalafutro/model-hotel/internal/egress"
 	"github.com/hugalafutro/model-hotel/internal/endpointtype"
 	"github.com/hugalafutro/model-hotel/internal/model"
 	"github.com/hugalafutro/model-hotel/internal/provider"
@@ -676,16 +677,12 @@ type ToolCallFunc struct {
 // OpenAI returns cached token counts in this nested object rather than
 // at the top level of usage. Third-party providers (Wafer AI, OpenRouter,
 // NanoGPT) that normalise to OpenAI format also use this structure.
-type PromptTokensDetails struct {
-	CachedTokens int `json:"cached_tokens"`
-}
+type PromptTokensDetails = egress.PromptTokensDetails
 
 // CompletionTokensDetails breaks down completion tokens into sub-categories:
 // OpenAI-compatible providers report the reasoning share of completion_tokens
 // here. It is a breakdown of completion, never an amount on top of it.
-type CompletionTokensDetails struct {
-	ReasoningTokens int `json:"reasoning_tokens"`
-}
+type CompletionTokensDetails = egress.CompletionTokensDetails
 
 // Usage contains token usage statistics for a request.
 type Usage struct {

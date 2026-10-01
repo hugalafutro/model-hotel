@@ -104,3 +104,15 @@ func mapStopReason(openaiFinish string) string {
 		return "end_turn"
 	}
 }
+
+// stopReasonFor is the stop_reason of a turn that ended with finish. A turn
+// that produced tool calls stops for tool_use when finish claims an ordinary
+// end: some OpenAI-compatible servers report "stop" beside tool_calls, and an
+// agent loop keyed on stop_reason would end the turn without running them.
+// "length" and "content_filter" stand: a call cut short is not one to run.
+func stopReasonFor(finish string, hasToolCalls bool) string {
+	if hasToolCalls && (finish == "" || finish == "stop") {
+		return "tool_use"
+	}
+	return mapStopReason(finish)
+}

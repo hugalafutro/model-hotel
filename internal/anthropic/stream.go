@@ -31,15 +31,10 @@ type StreamTranslator struct {
 	openMax  int // highest block index opened so far (-1 = none)
 
 	// Tool-call bookkeeping: OpenAI streams tool_calls under their own Index;
-	// map that to the Anthropic content-block index we assigned it. A fragment
-	// without an index is keyed by its call id (a synthetic negative index per
-	// id), and one with neither continues lastToolOAIndex, the call streamed
-	// last, since fragments of one call arrive contiguously.
+	// map that to the Anthropic content-block index we assigned it. toolIndex
+	// resolves fragments sent without an index, or with a reused one.
 	toolBlockByOAIndex map[int]int
-	idxByCallID        map[string]int
-	idByIndex          map[int]string // wire index -> the id that last opened under it
-	aliasOf            map[int]int    // wire index -> the call it currently names
-	lastToolOAIndex    int
+	toolIndex          *egress.ToolCallIndexer
 
 	// Best-effort usage + terminal reason.
 	promptTokens     int
@@ -69,57 +64,8 @@ func NewStreamTranslator(messageID, model string) *StreamTranslator {
 		curKind:            blockNone,
 		openMax:            -1,
 		toolBlockByOAIndex: map[int]int{},
-		idxByCallID:        map[string]int{},
-		idByIndex:          map[int]string{},
-		aliasOf:            map[int]int{},
+		toolIndex:          egress.NewToolCallIndexer(),
 	}
-}
-
-// oaIndexFor resolves the OpenAI index a tool-call fragment belongs to, see
-// toolBlockByOAIndex. Mixed shapes are read for what they mean: an opener
-// that reuses an index another call already holds (a provider that stamps 0
-// on every call) is a new call, and that wire index then names the new call
-// for the id-less fragments that follow (aliasOf, latest opener wins); a
-// continuation whose index opened nothing while the last call was id-keyed
-// belongs to that call.
-func (t *StreamTranslator) oaIndexFor(tc OAToolCallDelta) int {
-	switch {
-	case tc.Index != nil:
-		wire := *tc.Index
-		idx := wire
-		if tc.ID != "" {
-			if known, ok := t.idxByCallID[tc.ID]; ok {
-				// A call already keyed: an id-bearing continuation, or an
-				// opener whose id arrived before its index. Neither re-aliases
-				// the wire index; only an opener may, or a continuation of
-				// the first call would steal the alias from the call opened
-				// after it.
-				idx = known
-			} else {
-				if owner, taken := t.idByIndex[wire]; taken && owner != tc.ID {
-					idx = -1 - len(t.idxByCallID)
-				}
-				t.idxByCallID[tc.ID] = idx
-				t.idByIndex[wire] = tc.ID
-				t.aliasOf[wire] = idx
-			}
-		} else if alias, ok := t.aliasOf[wire]; ok {
-			idx = alias
-		} else if _, open := t.toolBlockByOAIndex[wire]; !open && t.lastToolOAIndex < 0 {
-			idx = t.lastToolOAIndex
-		}
-		t.lastToolOAIndex = idx
-	case tc.ID == "":
-		// Neither index nor id: a continuation of the call being streamed.
-	default:
-		idx, ok := t.idxByCallID[tc.ID]
-		if !ok {
-			idx = -1 - len(t.idxByCallID)
-			t.idxByCallID[tc.ID] = idx
-		}
-		t.lastToolOAIndex = idx
-	}
-	return t.lastToolOAIndex
 }
 
 // writeEvent appends one framed SSE event ("event: <type>\ndata: <json>\n\n").
@@ -128,11 +74,7 @@ func writeEvent(buf *bytes.Buffer, eventType string, payload any) error {
 	if err != nil {
 		return fmt.Errorf("anthropic: marshal %s event: %w", eventType, err)
 	}
-	buf.WriteString("event: ")
-	buf.WriteString(eventType)
-	buf.WriteString("\ndata: ")
-	buf.Write(data)
-	buf.WriteString("\n\n")
+	egress.WriteEvent(buf, eventType, data)
 	return nil
 }
 
@@ -281,7 +223,10 @@ func (t *StreamTranslator) Translate(chunk OAStreamChunk) ([]byte, error) {
 			return nil, err
 		}
 		sig := egress.ThoughtSignatureIn(tc.ExtraContent)
-		oaIndex := t.oaIndexFor(tc)
+		oaIndex := t.toolIndex.Resolve(tc.Index, tc.ID, func(wire int) bool {
+			_, open := t.toolBlockByOAIndex[wire]
+			return open
+		})
 		blockIdx, open := t.toolBlockByOAIndex[oaIndex]
 		if !open {
 			// First fragment for this tool call: open the block (carries id/name).
@@ -326,15 +271,7 @@ func (t *StreamTranslator) Finish() ([]byte, error) {
 		return nil, err
 	}
 
-	stop := mapStopReason(t.finishReason)
-	if len(t.toolBlockByOAIndex) > 0 && (t.finishReason == "" || t.finishReason == "stop") {
-		// A turn that produced tool calls stops for tool_use when the
-		// finish_reason claims an ordinary end: some OpenAI-compatible servers
-		// report "stop" beside tool_calls, and an agent loop keyed on
-		// stop_reason would end the turn without running them. "length" and
-		// "content_filter" stand: a call cut short is not one to run.
-		stop = "tool_use"
-	}
+	stop := stopReasonFor(t.finishReason, len(t.toolBlockByOAIndex) > 0)
 	if err := writeEvent(&buf, "message_delta", messageDeltaEvent{
 		Type:  "message_delta",
 		Delta: messageDeltaBody{StopReason: &stop, StopSequence: nil},

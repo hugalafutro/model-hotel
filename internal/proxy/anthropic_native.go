@@ -73,7 +73,7 @@ func (h *Handler) handleNativeNonStreaming(w http.ResponseWriter, r *http.Reques
 		// last-candidate branch below stores. The warn is unconditional and fires
 		// first, and the row is what the dashboard shows, so a copy left raw in
 		// either place would publish exactly the text the other withholds.
-		fencedErr := fencedFrameMessage(logData.fence(), logData.masks(), errString(err))
+		fencedErr := logData.fencedErr(err)
 		debuglog.Warn("proxy: "+native.label()+" read failed", "error", fencedErr, "provider", logData.providerName)
 		// The same two gates the translated path applies, from the same two
 		// helpers: an abandoned attempt has nobody waiting for a second answer,
@@ -123,7 +123,7 @@ func (h *Handler) handleNativeNonStreaming(w http.ResponseWriter, r *http.Reques
 	// bounded one at a time, so they arrive unbounded. Every figure this function
 	// writes is clamped, so the log row's five token columns, the estimate and
 	// the charge agree.
-	inputTokens, outputTokens, _ := h.clampReportedUsage(usage.promptTokens, usage.completionTokens, 0, logData)
+	inputTokens, outputTokens, _ := h.clampReportedUsage(usage.PromptTokens, usage.CompletionTokens, 0, logData)
 	totalDuration := util.MillisSince(st.startTime)
 
 	// What clears the model's gone-strike streak (see dispatchNonStreaming), so the
@@ -150,7 +150,7 @@ func (h *Handler) handleNativeNonStreaming(w http.ResponseWriter, r *http.Reques
 	if canFailOver && !answered {
 		// Charged before the candidate is left behind: the provider read this
 		// prompt and billed it, whoever ends up serving the request.
-		h.meterRejectedPrompt(st, logData, candidate, inputTokens, usage.cacheHitTokens, usage.cacheMissTokens)
+		h.meterRejectedPrompt(st, logData, candidate, inputTokens, usage.CacheHitTokens, usage.CacheMissTokens)
 		return h.rejectUntranslatableBody(st, candidate, logData, native.label(), resp.StatusCode, errEmptyCompletion, attempt, r)
 	}
 
@@ -172,8 +172,8 @@ func (h *Handler) handleNativeNonStreaming(w http.ResponseWriter, r *http.Reques
 	// without it prices every cached token at full input rate. The translated
 	// path reaches the same two fields through extractCacheTokens. Added like
 	// the prompt total, so a rejected earlier candidate's split survives.
-	logData.tokensPromptCacheHit += clampTokenCount(usage.cacheHitTokens)
-	logData.tokensPromptCacheMiss += clampTokenCount(usage.cacheMissTokens)
+	logData.tokensPromptCacheHit += util.ClampTokenCount(usage.CacheHitTokens)
+	logData.tokensPromptCacheMiss += util.ClampTokenCount(usage.CacheMissTokens)
 	logData.failoverAttempt = attempt
 	logData.state = "completed"
 	logData.deliveredContent = carriesContent
@@ -215,40 +215,40 @@ func (h *Handler) emitRawData(sink *streamSink, st *streamState, native nativeDi
 	// keep and an estimator to fall back on, so a chunk saying something absurd
 	// says nothing. Clamping here instead would let the figure that is discarded
 	// on an OpenAI-shaped stream charge the ceiling on this one.
-	if info.hasInput && isTokenReading(info.inputTokens) {
-		st.promptTokens = info.inputTokens
+	if info.HasInput && isTokenReading(info.InputTokens) {
+		st.promptTokens = info.InputTokens
 		// Guarded like the translated path's observer: a later usage event
 		// without cache fields must not zero a split an earlier one reported.
 		// The split is clamped rather than refused, matching extractCacheTokens:
 		// these two are log columns, not a charge.
-		if info.cacheHitTokens > 0 || info.cacheMissTokens > 0 {
-			st.promptCacheHitTokens = clampTokenCount(info.cacheHitTokens)
-			st.promptCacheMissTokens = clampTokenCount(info.cacheMissTokens)
+		if info.CacheHitTokens > 0 || info.CacheMissTokens > 0 {
+			st.promptCacheHitTokens = util.ClampTokenCount(info.CacheHitTokens)
+			st.promptCacheMissTokens = util.ClampTokenCount(info.CacheMissTokens)
 		}
 	}
-	if info.hasOutput && isTokenReading(info.outputTokens) {
-		st.completionTokens = info.outputTokens
+	if info.HasOutput && isTokenReading(info.OutputTokens) {
+		st.completionTokens = info.OutputTokens
 	}
-	st.deliveredBytes += info.textBytes
-	if info.hasSequence {
-		st.nativeSequence = info.sequenceNumber + 1
+	st.deliveredBytes += info.TextBytes
+	if info.HasSequence {
+		st.nativeSequence = info.SequenceNumber + 1
 	}
-	if info.responseID != "" {
-		st.nativeResponseID = info.responseID
+	if info.ResponseID != "" {
+		st.nativeResponseID = info.ResponseID
 	}
-	if info.terminal {
+	if info.Terminal {
 		st.sawTerminalEvent = true
 	}
 	// A Responses stream reports a failed generation on its terminal
 	// response.failed event, so the error is read wherever it rides.
-	if info.errorMessage != "" {
-		st.lastErrMsg = info.errorMessage
+	if info.ErrorMessage != "" {
+		st.lastErrMsg = info.ErrorMessage
 		st.errorChunkCount++
-		debuglog.Warn("proxy: "+native.label()+" SSE error event", "event", info.eventType, "error_message", st.errLogAttr(info.errorMessage), "model", logData.modelID, "provider", logData.providerName, "chunk_number", chunkCount)
+		debuglog.Warn("proxy: "+native.label()+" SSE error event", "event", info.Type, "error_message", st.errLogAttr(info.ErrorMessage), "model", logData.modelID, "provider", logData.providerName, "chunk_number", chunkCount)
 	}
 	line := ev.raw
 	masked := st.masker.maskExact([]byte(ev.payload))
-	if info.eventType == "error" || info.carriesError {
+	if info.Type == "error" || info.CarriesError {
 		// Error text, by the wrapper's type or by a populated error member on
 		// any event (the same rule the translated path applies): every held
 		// provider key and the shape layer.

@@ -11,6 +11,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
+	"github.com/hugalafutro/model-hotel/internal/db"
 	"github.com/hugalafutro/model-hotel/internal/debuglog"
 )
 
@@ -526,40 +527,34 @@ type UpdateModelRequest struct {
 	Enabled                *bool       `json:"enabled"`
 }
 
-// capabilitiesClauses is Update's SET clauses for the capabilities pin, with
-// placeholders numbered from argIdx: an explicit unpin wins, an edit writes
-// the flags and pins them, a bare pin keeps the stored flags as they are.
-func capabilitiesClauses(req UpdateModelRequest, argIdx int) ([]string, []any) {
+// setCapabilities adds Update's SET clauses for the capabilities pin: an
+// explicit unpin wins, an edit writes the flags and pins them, a bare pin
+// keeps the stored flags as they are.
+func setCapabilities(set *db.SetList, req UpdateModelRequest) {
 	switch {
 	case req.CapabilitiesCustomized != nil && !*req.CapabilitiesCustomized:
-		return []string{"capabilities_customized = false"}, nil
+		set.Add("capabilities_customized = false")
 	case req.Capabilities != nil:
 		// A struct of bools always marshals.
 		b, _ := json.Marshal(req.Capabilities)
-		return []string{fmt.Sprintf("capabilities = $%d", argIdx), "capabilities_customized = true"}, []any{string(b)}
+		set.Set("capabilities", string(b))
+		set.Add("capabilities_customized = true")
 	case req.CapabilitiesCustomized != nil:
-		return []string{"capabilities_customized = true"}, nil
+		set.Add("capabilities_customized = true")
 	}
-	return nil, nil
 }
 
 // Update applies partial updates to a model.
 func (r *Repository) Update(ctx context.Context, id uuid.UUID, req UpdateModelRequest) (*Model, error) {
-	var setClauses []string
-	var args []any
-	argIdx := 2 // $1 is reserved for id
+	set := db.SetList{First: 2} // $1 is reserved for id
 
 	if req.DisplayName != nil {
 		if *req.DisplayName == "" {
 			// Empty string = clear to NULL, reset customization flag
-			setClauses = append(setClauses, "display_name = NULL", "display_name_customized = false")
+			set.Add("display_name = NULL", "display_name_customized = false")
 		} else {
-			setClauses = append(setClauses, fmt.Sprintf("display_name = $%d", argIdx))
-			args = append(args, *req.DisplayName)
-			argIdx++
-			setClauses = append(setClauses, fmt.Sprintf("display_name_customized = $%d", argIdx))
-			args = append(args, true)
-			argIdx++
+			set.Set("display_name", *req.DisplayName)
+			set.Set("display_name_customized", true)
 		}
 	}
 	// The limits pin follows the operator's action the way the price pin does
@@ -570,23 +565,19 @@ func (r *Repository) Update(ctx context.Context, id uuid.UUID, req UpdateModelRe
 	limitsEdited := false
 	if !unpinLimits {
 		if req.ContextLength != nil {
-			setClauses = append(setClauses, fmt.Sprintf("context_length = $%d", argIdx))
-			args = append(args, *req.ContextLength)
-			argIdx++
+			set.Set("context_length", *req.ContextLength)
 			limitsEdited = true
 		}
 		if req.MaxOutputTokens != nil {
-			setClauses = append(setClauses, fmt.Sprintf("max_output_tokens = $%d", argIdx))
-			args = append(args, *req.MaxOutputTokens)
-			argIdx++
+			set.Set("max_output_tokens", *req.MaxOutputTokens)
 			limitsEdited = true
 		}
 	}
 	switch {
 	case unpinLimits:
-		setClauses = append(setClauses, "limits_customized = false", "context_length = NULL", "max_output_tokens = NULL")
+		set.Add("limits_customized = false", "context_length = NULL", "max_output_tokens = NULL")
 	case limitsEdited || (req.LimitsCustomized != nil && *req.LimitsCustomized):
-		setClauses = append(setClauses, "limits_customized = true")
+		set.Add("limits_customized = true")
 	}
 	// The pin follows the operator's action: editing a price pins it (their
 	// number must survive the next scan), an explicit PriceCustomized overrides
@@ -600,30 +591,22 @@ func (r *Repository) Update(ctx context.Context, id uuid.UUID, req UpdateModelRe
 	edited := PriceSources{}
 	if !unpin {
 		if req.InputPricePerMillion != nil {
-			setClauses = append(setClauses, fmt.Sprintf("input_price_per_million = $%d", argIdx))
-			args = append(args, *req.InputPricePerMillion)
-			argIdx++
+			set.Set("input_price_per_million", *req.InputPricePerMillion)
 			priceEdited = true
 			edited.Input = PriceSourceManual
 		}
 		if req.InputPricePerMillionCacheHit != nil {
-			setClauses = append(setClauses, fmt.Sprintf("input_price_per_million_cache_hit = $%d", argIdx))
-			args = append(args, *req.InputPricePerMillionCacheHit)
-			argIdx++
+			set.Set("input_price_per_million_cache_hit", *req.InputPricePerMillionCacheHit)
 			priceEdited = true
 			edited.CacheHit = PriceSourceManual
 		}
 		if req.OutputPricePerMillion != nil {
-			setClauses = append(setClauses, fmt.Sprintf("output_price_per_million = $%d", argIdx))
-			args = append(args, *req.OutputPricePerMillion)
-			argIdx++
+			set.Set("output_price_per_million", *req.OutputPricePerMillion)
 			priceEdited = true
 			edited.Output = PriceSourceManual
 		}
 		if req.SearchPricePerThousand != nil {
-			setClauses = append(setClauses, fmt.Sprintf("search_price_per_thousand = $%d", argIdx))
-			args = append(args, *req.SearchPricePerThousand)
-			argIdx++
+			set.Set("search_price_per_thousand", *req.SearchPricePerThousand)
 			priceEdited = true
 			edited.Search = PriceSourceManual
 		}
@@ -631,52 +614,44 @@ func (r *Repository) Update(ctx context.Context, id uuid.UUID, req UpdateModelRe
 	if unpin {
 		// The prices go with the pin, and so do their sources: the next scan
 		// writes both afresh.
-		setClauses = append(setClauses, "price_customized = false",
+		set.Add("price_customized = false",
 			"input_price_per_million = NULL", "input_price_per_million_cache_hit = NULL", "output_price_per_million = NULL", "search_price_per_thousand = NULL",
 			"price_sources = '{}'::jsonb")
 	} else if priceEdited {
 		// Only the edited prices become the operator's; the others keep the
 		// source that wrote them.
-		setClauses = append(setClauses, fmt.Sprintf("price_sources = price_sources || $%d", argIdx))
-		args = append(args, edited)
-		argIdx++
+		set.Add("price_sources = price_sources || " + set.Arg(edited))
 	}
 	if req.PriceCustomized != nil && !unpin || priceEdited {
-		setClauses = append(setClauses, "price_customized = true")
+		set.Add("price_customized = true")
 	}
-	capClauses, capArgs := capabilitiesClauses(req, argIdx)
-	setClauses = append(setClauses, capClauses...)
-	args = append(args, capArgs...)
-	argIdx += len(capArgs)
+	setCapabilities(&set, req)
 	if req.Enabled != nil {
-		setClauses = append(setClauses, fmt.Sprintf("enabled = $%d", argIdx))
-		args = append(args, *req.Enabled)
-		argIdx++
-		setClauses = append(setClauses, fmt.Sprintf("disabled_manually = $%d", argIdx))
-		args = append(args, !*req.Enabled)
+		set.Set("enabled", *req.Enabled)
+		set.Set("disabled_manually", !*req.Enabled)
 		// Operator intent supersedes a traffic retirement AND their own earlier
 		// dismissal, same as SetEnabled — and for the same reason it has to happen
 		// in this statement rather than on the next sighting: a model retired
 		// again before that scan would keep a dismissal nothing could clear.
-		setClauses = append(setClauses, "auto_retired_at = NULL", "discovery_dismissed_at = NULL")
+		set.Add("auto_retired_at = NULL", "discovery_dismissed_at = NULL")
 		// And the manual-enable pin follows the operator's verdict, same as in
 		// SetEnabled: an enable arms it, a disable withdraws it. Only a write
 		// that touches enabled says anything about the pin, so editing a display
 		// name or a price leaves it exactly where it was.
 		if *req.Enabled {
-			setClauses = append(setClauses, "manually_enabled_at = now()")
+			set.Add("manually_enabled_at = now()")
 		} else {
-			setClauses = append(setClauses, "manually_enabled_at = NULL")
+			set.Add("manually_enabled_at = NULL")
 		}
 	}
 
-	if len(setClauses) == 0 {
+	if len(set.Clauses) == 0 {
 		return r.Get(ctx, id)
 	}
 
-	args = append([]any{id}, args...)
+	args := append([]any{id}, set.Args...)
 
-	query := fmt.Sprintf("UPDATE models SET %s WHERE id = $1", strings.Join(setClauses, ", "))
+	query := fmt.Sprintf("UPDATE models SET %s WHERE id = $1", strings.Join(set.Clauses, ", "))
 
 	tag, err := r.pool.Exec(ctx, query, args...)
 	if err != nil {

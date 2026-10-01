@@ -196,7 +196,7 @@ type streamChunk struct {
 // chunk saying zero says nothing; only a count carries a reading.
 //
 // The guard is a range, not a sign: a count is a reading only inside
-// (0, maxSaneTokenCount]. A member outside it neither replaces an earlier good
+// (0, util.MaxSaneTokenCount]. A member outside it neither replaces an earlier good
 // count nor becomes one, and the estimate fallback treats it as unreported.
 func (st *streamState) observeUsage(usage *Usage) {
 	if usage == nil {

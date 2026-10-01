@@ -1,9 +1,12 @@
 package totp
 
 import (
+	"net/http"
 	"sync"
 	"time"
 
+	"github.com/hugalafutro/model-hotel/internal/debuglog"
+	"github.com/hugalafutro/model-hotel/internal/httpx"
 	"github.com/hugalafutro/model-hotel/internal/util"
 )
 
@@ -72,6 +75,18 @@ func (t *Throttle) Allowed(key string) (bool, time.Duration) {
 		return false, time.Until(e.lockedUntil)
 	}
 	return true, 0
+}
+
+// Admit reports whether a request for key may proceed. A key in backoff is
+// refused: logMsg is logged at Warn with attrs and a 429 carrying Retry-After is
+// written to w, so the caller only returns.
+func (t *Throttle) Admit(w http.ResponseWriter, key, logMsg string, attrs ...any) bool {
+	ok, retry := t.Allowed(key)
+	if !ok {
+		debuglog.Warn(logMsg, attrs...)
+		httpx.RespondTooManyAttempts(w, retry)
+	}
+	return ok
 }
 
 // RecordFailure registers a failed attempt for key and, once the failure count

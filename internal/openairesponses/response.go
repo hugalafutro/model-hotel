@@ -136,33 +136,38 @@ func translateUsage(raw json.RawMessage) *chatUsage {
 	if err := util.DecodeCounts(raw, &u); err != nil && util.ShapeError(raw, err) == nil {
 		return nil
 	}
-	lostInput := len(util.UnreadableCounts(raw, "input_tokens")) > 0
-	lostOutput := len(util.UnreadableCounts(raw, "output_tokens")) > 0
-	if lostInput {
-		u.InputTokens = 0
-	}
-	if lostOutput {
-		u.OutputTokens = 0
-	}
-	if len(util.UnreadableCounts(raw, "total_tokens")) > 0 {
-		u.TotalTokens = 0
-	}
-	lostAddend := lostInput || lostOutput
+	readTotals(raw, "input_tokens", "output_tokens", &u.InputTokens, &u.OutputTokens, &u.TotalTokens)
 	out := &chatUsage{
 		PromptTokens:     u.InputTokens,
 		CompletionTokens: u.OutputTokens,
 		TotalTokens:      u.TotalTokens,
 	}
-	// The fallback total is the one sum here, so a lost addend is the one thing
-	// that can take it down.
-	if out.TotalTokens == 0 && !lostAddend {
-		out.TotalTokens = u.InputTokens + u.OutputTokens
-	}
 	if u.InputTokensDetails != nil && u.InputTokensDetails.CachedTokens > 0 {
-		out.PromptTokensDetails = &chatPromptTokensDetails{CachedTokens: u.InputTokensDetails.CachedTokens}
+		out.PromptTokensDetails = &egress.PromptTokensDetails{CachedTokens: u.InputTokensDetails.CachedTokens}
 	}
 	if u.OutputTokensDetails != nil && u.OutputTokensDetails.ReasoningTokens > 0 {
-		out.CompletionTokensDetails = &chatCompletionTokensDetails{ReasoningTokens: u.OutputTokensDetails.ReasoningTokens}
+		out.CompletionTokensDetails = &egress.CompletionTokensDetails{ReasoningTokens: u.OutputTokensDetails.ReasoningTokens}
 	}
 	return out
+}
+
+// readTotals zeroes each of the three figures raw holds unreadably under
+// inKey, outKey and total_tokens, then fills an absent total as in plus out.
+// The fallback total is the one sum here, so a lost addend takes it down
+// rather than publishing a partial figure as the whole.
+func readTotals(raw json.RawMessage, inKey, outKey string, in, out, total *int) {
+	lostIn := util.CountsUnreadable(raw, inKey)
+	lostOut := util.CountsUnreadable(raw, outKey)
+	if lostIn {
+		*in = 0
+	}
+	if lostOut {
+		*out = 0
+	}
+	if util.CountsUnreadable(raw, "total_tokens") {
+		*total = 0
+	}
+	if *total == 0 && !lostIn && !lostOut {
+		*total = *in + *out
+	}
 }

@@ -86,3 +86,24 @@ func writeFrame[D, U any](buf *bytes.Buffer, w *ChunkWriter, c Chunk[D, U]) erro
 	buf.WriteString("\n\n")
 	return nil
 }
+
+// WriteEvent appends one named SSE event: "event: <type>\ndata: <data>\n\n".
+func WriteEvent(buf *bytes.Buffer, eventType string, data []byte) {
+	buf.WriteString("event: ")
+	buf.WriteString(eventType)
+	buf.WriteString("\ndata: ")
+	buf.Write(data)
+	buf.WriteString("\n\n")
+}
+
+// PromptTokensDetails is a chat usage block's prompt_tokens_details: the share
+// of the prompt served from cache.
+type PromptTokensDetails struct {
+	CachedTokens int `json:"cached_tokens"`
+}
+
+// CompletionTokensDetails is a chat usage block's completion_tokens_details:
+// the share of the completion spent reasoning.
+type CompletionTokensDetails struct {
+	ReasoningTokens int `json:"reasoning_tokens"`
+}

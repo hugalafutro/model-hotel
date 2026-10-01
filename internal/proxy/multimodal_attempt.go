@@ -194,10 +194,10 @@ var envelopeMetadataKeys = map[string]bool{
 	"service_tier": true, "version": true, "timestamp": true,
 }
 
-// envelopeMemberIsEmpty is jsonValueIsEmpty that also reads {} as empty: an
+// envelopeMemberIsEmpty is util.JSONValueIsEmpty that also reads {} as empty: an
 // answer member that is an empty object carries no answer either.
 func envelopeMemberIsEmpty(raw json.RawMessage) bool {
-	if jsonValueIsEmpty(raw) {
+	if util.JSONValueIsEmpty(raw) {
 		return true
 	}
 	v := bytes.TrimSpace(raw)

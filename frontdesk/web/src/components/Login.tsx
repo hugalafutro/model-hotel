@@ -2,7 +2,7 @@ import { FingerprintIcon, SignInIcon } from "@phosphor-icons/react";
 import { startAuthentication } from "@simplewebauthn/browser";
 import { type SyntheticEvent, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { ApiError, api } from "../api/client";
+import { api, rateLimitedOr } from "../api/client";
 import { Logo } from "./Logo";
 
 interface LoginProps {
@@ -49,13 +49,8 @@ export function Login({ onAuthenticated, initialError }: LoginProps) {
 			.catch(() => {});
 	}, []);
 
-	const fail = (e: unknown, fallback: string) => {
-		if (e instanceof ApiError && e.status === 429) {
-			setError(t("login.tooManyAttempts"));
-		} else {
-			setError(fallback);
-		}
-	};
+	const fail = (e: unknown, fallback: string) =>
+		setError(rateLimitedOr(e, t, fallback));
 
 	const submitToken = async (e: SyntheticEvent) => {
 		e.preventDefault();
