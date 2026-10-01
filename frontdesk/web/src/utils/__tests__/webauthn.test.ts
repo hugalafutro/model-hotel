@@ -43,9 +43,8 @@ describe("registerPasskey", () => {
 	});
 
 	it("returns false when the user cancels (NotAllowedError)", async () => {
-		const cancel = new Error("cancelled");
-		cancel.name = "NotAllowedError";
-		startRegistration.mockRejectedValue(cancel);
+		// Not this realm's Error: the cancel is matched by name alone.
+		startRegistration.mockRejectedValue({ name: "NotAllowedError" });
 
 		await expect(registerPasskey()).resolves.toBe(false);
 		expect(webauthnRegisterFinish).not.toHaveBeenCalled();

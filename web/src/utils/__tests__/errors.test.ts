@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { asError, errorMessage, errorStatus } from "../errors";
+import { asError, errorMessage, errorStatus, isAbortError } from "../errors";
 
 describe("errorMessage", () => {
 	it("reads an Error's message", () => {
@@ -54,5 +54,18 @@ describe("asError", () => {
 	it("spells a nullish rejection out instead of leaving it blank", () => {
 		expect(asError(undefined).message).toBe("undefined");
 		expect(asError(null).message).toBe("null");
+	});
+});
+
+describe("isAbortError", () => {
+	it("matches an abort by name, whatever its realm or type", () => {
+		expect(isAbortError(new DOMException("stop", "AbortError"))).toBe(true);
+		expect(isAbortError({ name: "AbortError" })).toBe(true);
+	});
+
+	it("rejects anything else", () => {
+		expect(isAbortError(new Error("boom"))).toBe(false);
+		expect(isAbortError(null)).toBe(false);
+		expect(isAbortError("AbortError")).toBe(false);
 	});
 });

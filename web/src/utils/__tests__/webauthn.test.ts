@@ -173,7 +173,8 @@ describe("webauthn utils", () => {
 				),
 			);
 			vi.spyOn(simplewebauthn, "startRegistration").mockRejectedValue(
-				new MockDOMError("User cancelled", "NotAllowedError"),
+				// Not this realm's Error: the cancel is matched by name alone.
+				{ name: "NotAllowedError", message: "User cancelled" },
 			);
 			const result = await webauthn.registerPasskey();
 			expect(result).toBe(false);
@@ -262,7 +263,8 @@ describe("webauthn utils", () => {
 				),
 			);
 			vi.spyOn(simplewebauthn, "startAuthentication").mockRejectedValue(
-				new MockDOMError("User cancelled", "NotAllowedError"),
+				// Not this realm's Error: the cancel is matched by name alone.
+				{ name: "NotAllowedError", message: "User cancelled" },
 			);
 			const result = await webauthn.loginWithPasskey();
 			expect(result).toBe(false);
