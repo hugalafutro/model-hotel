@@ -13,7 +13,9 @@ export async function registerPasskey(): Promise<boolean> {
 		await api.webauthnRegisterFinish(session_id, credential);
 		return true;
 	} catch (err) {
-		if (err instanceof Error && err.name === "NotAllowedError") return false;
+		// By name alone: the browser's DOMException is not always this realm's Error.
+		if ((err as { name?: unknown } | null)?.name === "NotAllowedError")
+			return false;
 		throw err;
 	}
 }

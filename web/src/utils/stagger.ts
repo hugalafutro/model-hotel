@@ -1,4 +1,4 @@
-import { asError } from "./errors";
+import { asError, isAbortError } from "./errors";
 
 /**
  * Stagger utility for provider-aware request spacing and retry-with-backoff.
@@ -158,12 +158,9 @@ export async function fetchWithRetry(
 
 			await sleep(totalDelay);
 		} catch (err) {
-			// Network-level errors (AbortError should NOT be retried). Matched
-			// by name alone: the abort a fetch rejects with is a DOMException in
-			// the browser, not always one of THIS realm's (jsdom, undici), and
-			// not always an Error either, and a missed match turned the user's
-			// own Stop into a retry with a toast.
-			if ((err as { name?: unknown } | null)?.name === "AbortError") {
+			// Network-level errors (an abort should NOT be retried: a missed
+			// match turned the user's own Stop into a retry with a toast).
+			if (isAbortError(err)) {
 				throw err;
 			}
 

@@ -6,6 +6,7 @@ import type {
 	GenerationParams,
 	MessageContent,
 } from "../../api/types";
+import { isAbortError } from "../../utils/errors";
 import { tokensPerSecond } from "../../utils/format";
 import { hasAnyParam } from "../../utils/params";
 import { readSSEStream, type StreamChunk } from "../../utils/sse";
@@ -233,7 +234,7 @@ export async function streamModelResponse(
 			};
 		}
 	} catch (err) {
-		const isAbort = err instanceof Error && err.name === "AbortError";
+		const isAbort = isAbortError(err);
 		const errorMsg = isAbort
 			? t("chat.stream.stoppedByUser")
 			: err instanceof Error

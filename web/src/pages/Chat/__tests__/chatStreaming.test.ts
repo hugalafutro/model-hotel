@@ -570,6 +570,46 @@ describe("streamModelResponse", () => {
 		expect(onDelta).toHaveBeenCalledTimes(2);
 	});
 
+	it("reads an abort that is not one of this realm's Errors as the user's Stop", async () => {
+		server.use(...mockChatStream([{ choices: [{ delta: { content: "x" } }] }]));
+		// fetch rejects with the signal's reason, which need not be an Error.
+		const controller = new AbortController();
+		controller.abort({ name: "AbortError" });
+
+		const result = await streamModelResponse(
+			"model-1",
+			baseMessages,
+			baseParams,
+			controller,
+			vi.fn(),
+			mockT,
+		);
+
+		expect(result.aborted).toBe(true);
+		expect(result.error).toBe("Stopped by user");
+	});
+
+	it("reads a mid-stream abort that is not one of this realm's Errors as the user's Stop", async () => {
+		const chunk = { choices: [{ delta: { content: "x" } }] };
+		server.use(...mockChatStream([chunk, chunk, chunk], { delay: 50 }));
+		const controller = new AbortController();
+		// Stop after the first delta, as the user's Stop button would.
+		const onDelta = vi.fn(() => controller.abort({ name: "AbortError" }));
+
+		const result = await streamModelResponse(
+			"model-1",
+			baseMessages,
+			baseParams,
+			controller,
+			onDelta,
+			mockT,
+		);
+
+		expect(onDelta).toHaveBeenCalled();
+		expect(result.aborted).toBe(true);
+		expect(result.error).toBe("Stopped by user");
+	});
+
 	it("handles HTTP error response", async () => {
 		// 500 is not retry-able, so the failure surfaces without a backoff wait.
 		server.use(...mockChatStream([], { status: 500 }));

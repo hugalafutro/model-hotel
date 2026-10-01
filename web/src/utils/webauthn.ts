@@ -8,6 +8,7 @@ import {
 	startRegistration,
 } from "@simplewebauthn/browser";
 import { api } from "../api/client";
+import { hasErrorName } from "./errors";
 
 let _serverEnabled: boolean | null = null;
 
@@ -47,7 +48,7 @@ export async function registerPasskey(): Promise<boolean> {
 		await api.webauthn.registerFinish(session_id, credential);
 		return true;
 	} catch (err) {
-		if (err instanceof Error && err.name === "NotAllowedError") {
+		if (hasErrorName(err, "NotAllowedError")) {
 			return false;
 		}
 		throw err;
@@ -67,7 +68,7 @@ export async function loginWithPasskey(): Promise<boolean> {
 		await api.webauthn.loginFinish(session_id, credential);
 		return true;
 	} catch (err) {
-		if (err instanceof Error && err.name === "NotAllowedError") {
+		if (hasErrorName(err, "NotAllowedError")) {
 			return false;
 		}
 		throw err;

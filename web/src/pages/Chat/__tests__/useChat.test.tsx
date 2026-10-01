@@ -1585,6 +1585,23 @@ describe("useChat", () => {
 			expect(mockToast).not.toHaveBeenCalled();
 		});
 
+		it("does not show toast for an abort that is not this realm's Error", async () => {
+			mockGetApiMessagesForModel.mockReturnValue([
+				{ role: "user", content: "Hello" },
+			]);
+			// A fetch abort rejects with the signal's reason, which need not be an Error.
+			mockStreamModelResponse.mockRejectedValue({ name: "AbortError" });
+			const { result } = renderHook(() => useChat());
+			act(() => {
+				result.current.setInput("Hello");
+				result.current.setChatSelectedModel("Provider/model");
+			});
+			await act(async () => {
+				await result.current.handleSend();
+			});
+			expect(mockToast).not.toHaveBeenCalled();
+		});
+
 		it("does nothing when no model is selected", () => {
 			vi.mocked(MultimodalAttachments.useMultimodalAttachments).mockReturnValue(
 				{

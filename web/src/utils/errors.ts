@@ -31,3 +31,18 @@ export function errorStatus(err: unknown): number | undefined {
 export function asError(err: unknown): Error {
 	return err instanceof Error ? err : new Error(String(err));
 }
+
+/**
+ * Whether a rejection carries the given error name. Matched by name alone: a
+ * browser API rejects with a DOMException that is not always one of THIS
+ * realm's (jsdom, undici), and a fetch abort rejects with the signal's reason,
+ * which need not be an Error at all, so an instanceof check misses both.
+ */
+export function hasErrorName(err: unknown, name: string): boolean {
+	return (err as { name?: unknown } | null)?.name === name;
+}
+
+/** Whether a rejection is an abort: the user's own Stop, or a cancelled fetch. */
+export function isAbortError(err: unknown): boolean {
+	return hasErrorName(err, "AbortError");
+}

@@ -12,7 +12,7 @@ import type {
 	MessageContent,
 } from "../../api/types";
 import type { useToast } from "../../context/ToastContext";
-import { errorMessage } from "../../utils/errors";
+import { errorMessage, isAbortError } from "../../utils/errors";
 import {
 	getApiMessagesForModel,
 	newAssistantPlaceholder,
@@ -141,7 +141,7 @@ export function useAssistantStream({
 				const result = await streamAssistantReply(model, chatMessages);
 				if (result.error && !result.aborted) toast(result.error, "error");
 			} catch (err) {
-				if (!(err instanceof Error && err.name === "AbortError")) {
+				if (!isAbortError(err)) {
 					toast(errorMessage(err, t("common.unknownError")), "error");
 				}
 			} finally {
