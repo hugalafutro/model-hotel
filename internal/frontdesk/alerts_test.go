@@ -862,3 +862,19 @@ func TestAlertTargetsEndpoint(t *testing.T) {
 		t.Errorf("undecryptable = %d %s", rec.Code, rec.Body.String())
 	}
 }
+
+// A transport failure quotes the apprise-api URL, which may carry a credential
+// in its userinfo or query, and the test endpoint returns the error text.
+func TestAlertTestEndpointUnreachableDoesNotEchoCredentials(t *testing.T) {
+	srv, _ := newTestServer(t)
+	body := `{"api_url":"http://alertuser:alertpass@127.0.0.1:1/apprise?key=alertquerysecret","targets":["ntfys://ntfy.example.com/one"]}`
+	rec := do(t, srv, http.MethodPost, "/api/alert/test", body, true)
+	if rec.Code != http.StatusBadGateway {
+		t.Fatalf("unreachable = %d body %s", rec.Code, rec.Body.String())
+	}
+	for _, secret := range []string{"alertuser", "alertpass", "alertquerysecret"} {
+		if strings.Contains(rec.Body.String(), secret) {
+			t.Errorf("%q is in the response: %s", secret, rec.Body.String())
+		}
+	}
+}
