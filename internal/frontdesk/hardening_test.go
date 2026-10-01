@@ -255,6 +255,11 @@ func TestRedactErrURL(t *testing.T) {
 			t.Errorf("redactErrURL(%v) = %q, lost the host/path", err, got)
 		}
 	}
+	// A credential passed by name in the URL's query goes too.
+	query := &url.Error{Op: "Get", URL: "http://10.0.0.5:8080/health?key=leakquery", Err: errors.New("dial tcp: connection refused")}
+	if got := redactErrURL(query); strings.Contains(got, "leakquery") || !strings.Contains(got, "10.0.0.5:8080/health") {
+		t.Errorf("redactErrURL(%v) = %q, want the host/path without the query key", query, got)
+	}
 	if got := redactErrURL(errors.New("plain failure")); got != "plain failure" {
 		t.Errorf("redactErrURL(plain) = %q, want passthrough", got)
 	}

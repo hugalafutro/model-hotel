@@ -508,8 +508,11 @@ func (h *Handler) TestModel(w http.ResponseWriter, r *http.Request) {
 	}
 	if err != nil {
 		durationMs := float64(time.Since(start).Milliseconds())
-		h.logTestModelRequestError(r.Context(), m, reqHash, durationMs, proxyOverheadMs, keyDecryptMs, err.Error(), clientip.From(r))
-		writeJSON(w, TestModelResponse{Error: err.Error()})
+		// A transport error quotes the target URL, and a base URL may carry a
+		// credential in its query. Masked as the non-200 branch below masks.
+		errMsg := util.MaskCredentialBounded(apiKey, err.Error(), 10000)
+		h.logTestModelRequestError(r.Context(), m, reqHash, durationMs, proxyOverheadMs, keyDecryptMs, errMsg, clientip.From(r))
+		writeJSON(w, TestModelResponse{Error: errMsg})
 		return
 	}
 	defer func() { _ = resp.Body.Close() }()

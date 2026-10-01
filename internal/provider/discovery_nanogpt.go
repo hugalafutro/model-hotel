@@ -207,7 +207,7 @@ func (d *DiscoveryService) discoverNanoGPTImageModels(ctx context.Context, provi
 func nanoGPTImageCatalogURL(baseURL string) (string, error) {
 	u, err := url.Parse(util.SanitizeBaseURL(baseURL))
 	if err != nil {
-		return "", err
+		return "", util.URLParseReason(err)
 	}
 	if u.Scheme == "" || u.Host == "" {
 		return "", fmt.Errorf("missing scheme or host in %q", baseURL)

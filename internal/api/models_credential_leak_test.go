@@ -106,3 +106,64 @@ func TestTestModel_DoesNotLeakTheProviderKey(t *testing.T) {
 		t.Errorf("the provider key is in request_logs.error_message: %q", stored)
 	}
 }
+
+// A base URL can carry a credential in its query (a custom gateway that
+// authenticates by ?key=), and a transport failure quotes the target URL, so
+// the model-test error must be masked before it reaches the response and the
+// stored row, as the non-200 branch is.
+func TestTestModel_TransportErrorDoesNotLeakAQueryKey(t *testing.T) {
+	const queryKey = "gateway-query-secret"
+	h, r := newTestHandlerWithRouter(t)
+
+	providerData := fmt.Sprintf(`{"name": "query-key-provider-%s", "base_url": "http://127.0.0.1:1/v1?key=%s", "api_key": "test-key"}`,
+		uuid.New().String()[:8], queryKey)
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodPost, "/providers", strings.NewReader(providerData))
+	req.Header.Set("Authorization", "Bearer test-admin-token")
+	req.Header.Set("Content-Type", "application/json")
+	r.ServeHTTP(rec, req)
+	if rec.Code != http.StatusCreated {
+		t.Fatalf("provider create failed: %d %s", rec.Code, rec.Body.String())
+	}
+	var providerResp struct {
+		ID string `json:"id"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &providerResp); err != nil {
+		t.Fatalf("provider response: %v", err)
+	}
+
+	modelID := uuid.New().String()
+	if _, err := h.Pool().Pool().Exec(context.Background(),
+		`INSERT INTO models (id, provider_id, model_id, name, enabled) VALUES ($1, $2, $3, $4, $5)`,
+		modelID, providerResp.ID, "query-key-model", "Query Key Model", true); err != nil {
+		t.Fatalf("model insert: %v", err)
+	}
+
+	rec = httptest.NewRecorder()
+	req = httptest.NewRequest(http.MethodPost, "/models/"+modelID+"/test", http.NoBody)
+	req.Header.Set("Authorization", "Bearer test-admin-token")
+	r.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("test model: %d %s", rec.Code, rec.Body.String())
+	}
+	var testResp TestModelResponse
+	if err := json.Unmarshal(rec.Body.Bytes(), &testResp); err != nil {
+		t.Fatalf("test response: %v", err)
+	}
+	if testResp.Error == "" {
+		t.Fatal("expected an error field from the refused connection")
+	}
+	if strings.Contains(testResp.Error, queryKey) {
+		t.Errorf("the query key is in the model-test response: %q", testResp.Error)
+	}
+
+	var stored string
+	if err := h.Pool().Pool().QueryRow(context.Background(),
+		`SELECT COALESCE(error_message, '') FROM request_logs WHERE model_id = 'query-key-model' ORDER BY created_at DESC LIMIT 1`,
+	).Scan(&stored); err != nil {
+		t.Fatalf("reading back the request log row: %v", err)
+	}
+	if stored == "" || strings.Contains(stored, queryKey) {
+		t.Errorf("request_logs.error_message = %q, want the error without the query key", stored)
+	}
+}

@@ -292,6 +292,10 @@ func TestMaskCredentials_MasksNamedParametersAndURLUserinfo(t *testing.T) {
 		{"max_token=5 has_secret=true prompt_token=3 total_token=10", "max_token=5 has_secret=true prompt_token=3 total_token=10"},
 		{"bad token=abc,model=gpt-4o) here", "bad token=[redacted],model=gpt-4o) here"},
 		{"key owner disabled key=prod-key", "key owner disabled key=prod-key"},
+		// A bare key= is a credential only where a query parameter starts.
+		{`Post "https://gw.example/v1/chat?key=gatewayNoShape": dial tcp: refused`,
+			`Post "https://gw.example/v1/chat?key=[redacted]": dial tcp: refused`},
+		{"GET /v1/models?alt=json&KEY=gatewayNoShape&x=2", "GET /v1/models?alt=json&KEY=[redacted]&x=2"},
 		{"GET /v1?api_key=abc", "GET /v1?api_key=[redacted]"},
 		{"authorization:token=abc", "authorization:token=[redacted]"},
 		{`{"token=abc"}`, `{"token=[redacted]"}`},

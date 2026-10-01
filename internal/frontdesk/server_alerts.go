@@ -136,7 +136,9 @@ func (s *Server) alertTest(w http.ResponseWriter, r *http.Request) {
 			// build-request failures, never a delivery outcome.
 			code = "send_failed"
 		}
-		writeCodedError(w, http.StatusBadGateway, code, err.Error())
+		// A transport error quotes the apprise-api URL, which may carry a
+		// credential in its userinfo or query.
+		writeCodedError(w, http.StatusBadGateway, code, redactErrURL(err))
 		return
 	}
 	w.WriteHeader(http.StatusNoContent)
