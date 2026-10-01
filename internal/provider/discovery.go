@@ -227,7 +227,7 @@ func (d *DiscoveryService) fetchURL(ctx context.Context, method, rawURL string, 
 		if last == nil {
 			// url.Parse fails for the same reason NewRequest did, and the error
 			// prints the raw URL whole, so the query is split off by hand.
-			secrets := append(secretsOf(headers, nil), rawURLQuerySecrets(rawURL)...)
+			secrets := append(secretsOf(headers, nil), rawURLSecrets(rawURL)...)
 			err = &maskedError{text: maskRawURLText(secrets, err.Error()), cause: err}
 		}
 		return nil, fmt.Errorf("http request failed: %w", err)
@@ -356,7 +356,7 @@ func detectByHost(host, path string) string {
 func TypeFromHostname(baseURL string) string {
 	typ, _, ok := hostType(baseURL)
 	if !ok {
-		debuglog.Warn("discovery: failed to parse base URL", "url", maskRawURLText(rawURLQuerySecrets(baseURL), baseURL))
+		debuglog.Warn("discovery: failed to parse base URL", "url", maskRawURLText(rawURLSecrets(baseURL), baseURL))
 	}
 	return typ
 }

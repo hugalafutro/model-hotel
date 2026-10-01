@@ -60,6 +60,10 @@ func querySecrets(rawQuery string) []string {
 	var secrets []string
 	for _, seg := range strings.Split(rawQuery, "&") {
 		name, raw, ok := strings.Cut(seg, "=")
+		// A server decodes the name before it reads it, so ?%6bey= is ?key=.
+		if dec, err := url.QueryUnescape(name); err == nil {
+			name = dec
+		}
 		if !ok || !credentialQueryParams[strings.ToLower(name)] {
 			continue
 		}
@@ -82,19 +86,33 @@ func querySecrets(rawQuery string) []string {
 	return secrets
 }
 
-// rawURLQuerySecrets is querySecrets for a URL that may not parse: the query
-// is split off by hand, since url.Parse fails on the same input.
-func rawURLQuerySecrets(rawURL string) []string {
-	_, q, ok := strings.Cut(rawURL, "?")
-	if !ok {
-		return nil
+// rawURLSecrets collects the credentials a URL that may not parse carries, by
+// hand, since url.Parse fails on the same input: the credential query values,
+// and the userinfo up to the LAST '@' before the query. The pattern in
+// util.RedactURLUserinfo stops at whitespace or a quote, which a pasted
+// password in a URL that does not parse may well hold. Each is listed raw and,
+// where it differs, in the %q rendering a parse error quotes it in.
+func rawURLSecrets(rawURL string) []string {
+	beforeQuery, q, hasQuery := strings.Cut(rawURL, "?")
+	var secrets []string
+	if hasQuery {
+		secrets = querySecrets(q)
 	}
-	return querySecrets(q)
+	if _, rest, ok := strings.Cut(beforeQuery, "://"); ok {
+		if at := strings.LastIndex(rest, "@"); at > 0 {
+			userinfo := rest[:at]
+			secrets = append(secrets, userinfo)
+			if q := strconv.Quote(userinfo); q[1:len(q)-1] != userinfo {
+				secrets = append(secrets, q[1:len(q)-1])
+			}
+		}
+	}
+	return secrets
 }
 
 // maskRawURLText scrubs text that quotes a raw, possibly unparseable URL: the
-// userinfo by pattern, since no parsed URL hands it back, then the listed
-// secrets and anything key-shaped, bounded to 500 runes.
+// listed secrets (rawURLSecrets for that URL), any other URL userinfo by
+// pattern, and anything key-shaped, bounded to 500 runes.
 func maskRawURLText(secrets []string, text string) string {
 	return util.MaskCredentialsBounded(secrets, util.RedactURLUserinfo(text), 500)
 }

@@ -570,27 +570,37 @@ func TestIdentifyLocalServer_ProbeFailureLogDoesNotCarryTheKey(t *testing.T) {
 
 // An unparseable URL prints whole, userinfo included, in both the fetch error
 // and the provider-type fallback's warning. Neither may carry the password or a
-// query key.
+// query key. Each case holds one credential, so masking one cannot hide a leak
+// of the other.
 func TestUnparseableURL_UserinfoAndQueryKeyAreScrubbed(t *testing.T) {
-	logged := captureDebuglog(t)
-	raw := "http://operator:" + leakedKey + "@example.invalid\x7f/v1?key=" + leakedKey
+	for name, tc := range map[string]struct{ raw, secret string }{
+		// A space and a quote stop the userinfo pattern, and they are also what
+		// makes the URL fail to parse.
+		"userinfo with space and quote": {"http://operator:pass word\"" + leakedKey + "@example.invalid/v1", leakedKey},
+		"query key":                     {"http://example.invalid\x7f/v1?key=" + leakedKey, leakedKey},
+		"percent-encoded query name":    {"http://example.invalid\x7f/v1?%6bey=" + leakedKey, leakedKey},
+	} {
+		t.Run(name, func(t *testing.T) {
+			logged := captureDebuglog(t)
 
-	svc := &DiscoveryService{httpClient: &http.Client{Timeout: 2 * time.Second}}
-	_, err := svc.fetchURL(context.Background(), http.MethodGet, raw, http.Header{})
-	if err == nil {
-		t.Fatal("expected a parse error")
-	}
-	if strings.Contains(err.Error(), leakedKey) {
-		t.Errorf("fetch error carries the key: %s", err.Error())
-	}
+			svc := &DiscoveryService{httpClient: &http.Client{Timeout: 2 * time.Second}}
+			_, err := svc.fetchURL(context.Background(), http.MethodGet, tc.raw, http.Header{})
+			if err == nil {
+				t.Fatal("expected a parse error")
+			}
+			if strings.Contains(err.Error(), tc.secret) {
+				t.Errorf("fetch error carries the secret: %s", err.Error())
+			}
 
-	if got := TypeFromHostname(raw); got != "openai" {
-		t.Errorf("TypeFromHostname = %q, want the openai fallback", got)
-	}
-	if !strings.Contains(logged.String(), "failed to parse base URL") {
-		t.Fatalf("the parse failure was not logged:\n%s", logged.String())
-	}
-	if strings.Contains(logged.String(), leakedKey) {
-		t.Errorf("the key reached the parse-failure log:\n%s", logged.String())
+			if got := TypeFromHostname(tc.raw); got != "openai" {
+				t.Errorf("TypeFromHostname = %q, want the openai fallback", got)
+			}
+			if !strings.Contains(logged.String(), "failed to parse base URL") {
+				t.Fatalf("the parse failure was not logged:\n%s", logged.String())
+			}
+			if strings.Contains(logged.String(), tc.secret) {
+				t.Errorf("the secret reached the parse-failure log:\n%s", logged.String())
+			}
+		})
 	}
 }
