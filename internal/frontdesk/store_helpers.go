@@ -5,7 +5,6 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
-	"net"
 	"net/url"
 	"strings"
 	"time"
@@ -105,9 +104,10 @@ func normalizeMemberURL(raw string, allowHTTP bool) (string, error) {
 	}
 	// Reject a literal IP that is a known SSRF target (link-local, including the
 	// cloud-metadata endpoint, or the unspecified address) at add time for a
-	// clear error. Hostnames that resolve to such an address are caught later at
-	// dial time by the poller's guarded client (see netguard.go).
-	if ip := net.ParseIP(u.Hostname()); ip != nil && netguard.BlockedIP(ip) {
+	// clear error, zoned IPv6 spellings included. Hostnames that resolve to such
+	// an address are caught later at dial time by the poller's guarded client
+	// (see netguard.go).
+	if netguard.BlockedLiteral(u.Hostname()) {
 		return "", fmt.Errorf("%w: url host %s is not an allowed address", ErrValidation, u.Hostname())
 	}
 	u.Path = strings.TrimRight(u.Path, "/")

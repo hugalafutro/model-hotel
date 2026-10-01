@@ -162,6 +162,8 @@ func TestNormalizeMemberURLRejectsBlockedIP(t *testing.T) {
 		"http://169.254.169.254:80/api",
 		"http://0.0.0.0:8080",
 		"http://[fe80::1]:8080",
+		"http://[fe80::1%25eth0]:8080",
+		"http://[::ffff:169.254.169.254]:8080",
 	}
 	for _, raw := range rejected {
 		if _, err := normalizeMemberURL(raw, true); !errors.Is(err, ErrValidation) {

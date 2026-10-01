@@ -85,16 +85,16 @@ func DialControl(_, address string, _ syscall.RawConn) error {
 	if err != nil {
 		return err
 	}
-	if blockedLiteral(host) {
+	if BlockedLiteral(host) {
 		return fmt.Errorf("%w %s", ErrBlockedAddress, host)
 	}
 	return nil
 }
 
-// blockedLiteral reports whether host is written as a literal IP that netguard
+// BlockedLiteral reports whether host is written as a literal IP that netguard
 // refuses. A hostname is never resolved here: netguard resolves at dial time on
 // purpose, so a check-then-dial TOCTOU window never opens.
-func blockedLiteral(host string) bool {
+func BlockedLiteral(host string) bool {
 	// netip.ParseAddr, not net.ParseIP: the latter returns nil for a zoned IPv6
 	// literal ("fe80::1%eth0"), so a link-local address written with its zone,
 	// the spelling an interface-scoped address actually takes, and the one a
@@ -126,7 +126,7 @@ func CheckRedirect(req *http.Request, via []*http.Request) error {
 	if len(via) >= maxRedirects {
 		return fmt.Errorf("netguard: stopped after %d redirects", maxRedirects)
 	}
-	if blockedLiteral(req.URL.Hostname()) {
+	if BlockedLiteral(req.URL.Hostname()) {
 		return fmt.Errorf("netguard: refusing redirect to blocked address %s", req.URL.Hostname())
 	}
 	return nil
@@ -204,7 +204,7 @@ func ValidateURL(rawURL string) error {
 	if err != nil {
 		return err
 	}
-	if blockedLiteral(u.Hostname()) {
+	if BlockedLiteral(u.Hostname()) {
 		return fmt.Errorf("host %q is a blocked address (link-local/metadata)", u.Hostname())
 	}
 	return nil
