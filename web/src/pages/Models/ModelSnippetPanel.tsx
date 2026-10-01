@@ -30,7 +30,6 @@ export function ModelSnippetPanel({
 				icon={Braces}
 				collapsed={collapsed}
 				onToggle={() => setCollapsed((c) => !c)}
-				testId="model-examples-toggle"
 			>
 				{t("models.detail.usageExamples")}
 			</DetailSectionHeader>

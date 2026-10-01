@@ -10,13 +10,11 @@ export function DetailSectionHeader({
 	children,
 	collapsed,
 	onToggle,
-	testId,
 }: {
 	icon: React.ComponentType<{ size?: number; className?: string }>;
 	children: React.ReactNode;
 	collapsed?: boolean;
 	onToggle?: () => void;
-	testId?: string;
 }) {
 	const content = (
 		<>
@@ -24,7 +22,7 @@ export function DetailSectionHeader({
 			<span className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wider text-(--text-tertiary)">
 				{children}
 			</span>
-			<div className="h-px flex-1 bg-(--border-default)" />
+			<span aria-hidden className="block h-px flex-1 bg-(--border-default)" />
 		</>
 	);
 	if (!onToggle) {
@@ -35,7 +33,6 @@ export function DetailSectionHeader({
 			type="button"
 			onClick={onToggle}
 			aria-expanded={!collapsed}
-			data-testid={testId}
 			className="group flex w-full items-center gap-2 mb-3"
 		>
 			{content}

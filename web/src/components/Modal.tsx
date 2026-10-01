@@ -174,7 +174,11 @@ export const Modal = forwardRef<ModalHandle, ModalProps>(function Modal(
 		if (!root) return;
 		const focusables = Array.from(
 			root.querySelectorAll<HTMLElement>(FOCUSABLE_SELECTOR),
-		).filter((el) => !el.hasAttribute("disabled"));
+		).filter(
+			// A collapsed section is inert: its controls are not reachable, so
+			// they must not count as the first or last stop of the trap.
+			(el) => !el.hasAttribute("disabled") && !el.closest("[inert]"),
+		);
 		if (focusables.length === 0) {
 			e.preventDefault();
 			return;

@@ -1676,7 +1676,7 @@ func TestUpdateModel_LimitsPinAndUnpin(t *testing.T) {
 // Capabilities are edited by hand on a custom or self-hosted provider's models
 // only: the edit pins them, an unpin releases them, the cursor listing carries
 // the pins, and any other provider type is refused with a coded error.
-func TestUpdateModel_CapabilitiesCustomOnly(t *testing.T) {
+func TestUpdateModel_CapabilitiesEditableTypesOnly(t *testing.T) {
 	h, r := newTestHandlerWithRouter(t)
 	modelID := createProviderAndModel(t, h, r)
 	send := func(body string) *httptest.ResponseRecorder {
@@ -1701,6 +1701,10 @@ func TestUpdateModel_CapabilitiesCustomOnly(t *testing.T) {
 
 	if rec := send(edit); rec.Code != http.StatusBadRequest || !strings.Contains(rec.Body.String(), "capabilities_not_editable") {
 		t.Fatalf("edit on an openai provider: got %d %s, want 400 capabilities_not_editable", rec.Code, rec.Body.String())
+	}
+	var vendor ModelResponse
+	if rec := send(`{"display_name": "Vendor Model"}`); rec.Code != http.StatusOK || json.Unmarshal(rec.Body.Bytes(), &vendor) != nil || vendor.CapabilitiesEditable {
+		t.Fatalf("openai model: got %d editable=%v, want 200 not editable", rec.Code, vendor.CapabilitiesEditable)
 	}
 	if rec := send(`{"capabilities_customized": true}`); rec.Code != http.StatusBadRequest {
 		t.Fatalf("bare pin on an openai provider: got %d, want 400", rec.Code)

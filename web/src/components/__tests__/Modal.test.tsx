@@ -147,6 +147,32 @@ describe("Modal", () => {
 		expect(screen.getByRole("button", { name: "opener" })).toHaveFocus();
 	});
 
+	it("wraps Tab past controls in an inert (collapsed) section", async () => {
+		const user = userEvent.setup();
+		render(
+			<Modal onClose={onClose}>
+				<button type="button">first</button>
+				<button type="button">last</button>
+				<div inert>
+					<button type="button">collapsed</button>
+				</div>
+			</Modal>,
+		);
+		// The header X comes first in the dialog's own order.
+		const dialog = screen.getByRole("dialog");
+		const stops = Array.from(
+			dialog.querySelectorAll<HTMLElement>("button"),
+		).filter((el) => !el.closest("[inert]"));
+		screen.getByRole("button", { name: "last" }).focus();
+		await user.tab();
+		expect(document.activeElement).toBe(stops[0]);
+		stops[0].focus();
+		await user.tab({ shift: true });
+		expect(document.activeElement).toBe(
+			screen.getByRole("button", { name: "last" }),
+		);
+	});
+
 	it("calls onClose when close button is clicked", async () => {
 		const user = userEvent.setup();
 		render(<Modal onClose={onClose}>Content</Modal>);
@@ -290,6 +316,14 @@ describe("Modal", () => {
 			expect(onCloseRequest).toHaveBeenCalledTimes(1);
 			expect(onClose).not.toHaveBeenCalled();
 			expect(dialog.style.opacity).not.toBe("0");
+
+			// Escape asks the same question and is refused the same way.
+			act(() => {
+				fireEvent.keyDown(document, { key: "Escape" });
+				vi.advanceTimersByTime(1000);
+			});
+			expect(onCloseRequest).toHaveBeenCalledTimes(2);
+			expect(onClose).not.toHaveBeenCalled();
 
 			// Allowed: the same dialog closes normally.
 			allow = true;
