@@ -1927,7 +1927,7 @@
 				"enabled": "주기적 백업 활성화",
 				"enabledDescription": "정기적으로 백업을 자동으로 생성하고, ‘son/father/grandfather’ 순환 방식을 사용하여 오래된 백업을 삭제합니다.",
 				"interval": "백업 주기",
-				"intervalDescription": "자동 백업을 생성할 빈도(0 = 비활성화).",
+				"intervalDescription": "자동 백업을 생성할 빈도.",
 				"sonRetention": "일별 보존 (아들)",
 				"sonRetentionDescription": "지난 N일 동안 매일 생성된 백업 중 가장 최근의 백업을 보관하십시오.",
 				"fatherRetention": "주별 보존 (아버지)",

@@ -1927,7 +1927,7 @@
 				"enabled": "Periodieke back-up inschakelen",
 				"enabledDescription": "Automatisch back-ups maken met regelmatige intervallen en oude verwijderen met zoon/vader/grootvader-rotatie.",
 				"interval": "Back-up interval",
-				"intervalDescription": "Hoe vaak een automatische back-up wordt gemaakt (0 = uitgeschakeld).",
+				"intervalDescription": "Hoe vaak een automatische back-up wordt gemaakt.",
 				"sonRetention": "Dagelijkse bewaring (Zoon)",
 				"sonRetentionDescription": "Houd de meest recente back-up van elk van de laatste N dagen.",
 				"fatherRetention": "Wekelijkse bewaring (Vader)",

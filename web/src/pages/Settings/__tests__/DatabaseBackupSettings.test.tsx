@@ -1743,6 +1743,26 @@ describe("DatabaseBackupSettings additional coverage", () => {
 		await waitFor(() => expect((slider as HTMLInputElement).value).toBe("0.5"));
 	});
 
+	it.each([
+		["7d", "168"],
+		["1000d", "168"],
+		["336h", "168"],
+	])("shows the stored interval %s as %s hours", async (stored, shown) => {
+		server.use(
+			http.get("/api/settings", () =>
+				HttpResponse.json({
+					backup_enabled: "true",
+					backup_interval: stored,
+				}),
+			),
+		);
+		renderWithProviders(
+			<DatabaseBackupSettings collapsed={false} onToggle={onToggle} />,
+		);
+		const slider = await screen.findByLabelText("Backup Interval");
+		await waitFor(() => expect((slider as HTMLInputElement).value).toBe(shown));
+	});
+
 	it("falls back to 24h when the stored interval is unparseable", async () => {
 		server.use(
 			http.get("/api/settings", () =>

@@ -153,6 +153,7 @@ func TestBackupStaleThresholdBoundary(t *testing.T) {
 		{"weekly: in the day form, six days in", "7d", 6 * 24 * time.Hour, false},
 		{"weekly: a week and an hour past the grace", "168h", 7*24*time.Hour + 2*time.Hour, true},
 		{"unparseable interval reads as a day", "fortnightly", 26 * time.Hour, true},
+		{"past the weekly ceiling: six days in", "1000d", 6 * 24 * time.Hour, false},
 		{"past the weekly ceiling is judged weekly", "1000d", 7*24*time.Hour + 2*time.Hour, true},
 	} {
 		t.Run(tc.name, func(t *testing.T) {

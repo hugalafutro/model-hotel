@@ -1589,7 +1589,7 @@ A key outside the allowlist below is a `400` (`unknown setting: <key>`), as is a
 | `hedging_enabled` | string | `"true"` or `"false"` |
 | `hedge_delay` | string | Duration before a backup provider is raced (default `"4s"`) |
 | `backup_enabled` | string | `"true"` or `"false"` (periodic backup with rotation) |
-| `backup_interval` | string | Duration between automatic backups (default `"24h"`); anything under 5 minutes is clamped up to 5 minutes, anything over 168 hours down to 168 hours |
+| `backup_interval` | string | Duration between automatic backups (default `"24h"`); the scheduler runs anything under 5 minutes at 5 minutes and anything over 168 hours at 168 hours |
 | `backup_son_retention` | int | 1-365 (daily tier) |
 | `backup_father_retention` | int | 0-52 (weekly tier) |
 | `backup_grandfather_retention` | int | 0-120 (monthly tier) |

@@ -1927,7 +1927,7 @@
 				"enabled": "定期的なバックアップを有効にする",
 				"enabledDescription": "定期的な間隔でバックアップを自動的に作成し、息子/父/祖父のローテーションで古いものを削除します。",
 				"interval": "バックアップ間隔",
-				"intervalDescription": "自動バックアップを作成する頻度（0 = 無効）",
+				"intervalDescription": "自動バックアップを作成する頻度",
 				"sonRetention": "日次保持（息子）",
 				"sonRetentionDescription": "最後の N 日間のそれぞれの最新のバックアップを保持します。",
 				"fatherRetention": "週次保持（父）",

@@ -2049,7 +2049,7 @@
 				"enabled": "Zapnúť pravidelné zálohovanie",
 				"enabledDescription": "Automaticky vytvárajte zálohy v pravidelných intervaloch a staré zálohy odstraňujte pomocou rotácie typu „syn/otec/dedko“.",
 				"interval": "Interval zálohovania",
-				"intervalDescription": "Ako často vytvárať automatickú zálohu (0 = vypnuté).",
+				"intervalDescription": "Ako často vytvárať automatickú zálohu.",
 				"sonRetention": "Denná retencia (syn)",
 				"sonRetentionDescription": "Uložte si najnovšiu zálohu z každého z posledných N dní.",
 				"fatherRetention": "Týždenná retencia (otec)",

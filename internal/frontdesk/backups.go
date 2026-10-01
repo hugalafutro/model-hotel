@@ -169,8 +169,9 @@ func (s *Server) checkMemberBackups(ctx context.Context) {
 
 // backupStaleAfter is how old a member's newest scheduled backup may be before
 // the member counts as unprotected: its own interval, never judged tighter than
-// a day or looser than a week, plus the grace for the dump's duration and the scheduler's lag. A
-// member on a weekly schedule is thereby not flagged six days of every seven.
+// a day or looser than a week, plus the grace for the dump's duration and the
+// scheduler's lag. A member on a weekly schedule is thereby not flagged six
+// days of every seven.
 func backupStaleAfter(interval time.Duration) time.Duration {
 	return min(max(interval, memberBackupMinInterval), memberBackupMaxInterval) + memberBackupStaleGrace
 }

@@ -2112,7 +2112,7 @@
 				"enabled": "Enable Periodic Backup",
 				"enabledDescription": "Automatically create backups at regular intervals and prune old ones using son/father/grandfather rotation.",
 				"interval": "Backup Interval",
-				"intervalDescription": "How often to create an automatic backup (0 = disabled).",
+				"intervalDescription": "How often to create an automatic backup.",
 				"sonRetention": "Daily Retention (Son)",
 				"sonRetentionDescription": "Keep the most recent backup from each of the last N days.",
 				"fatherRetention": "Weekly Retention (Father)",

@@ -1927,7 +1927,7 @@
 				"enabled": "Időszakos biztonsági mentés engedélyezése",
 				"enabledDescription": "Rendszeres időközönként automatikusan készítsen biztonsági másolatokat, és a „son/father/grandfather” rotációs elv alapján törölje a régebbieket.",
 				"interval": "Biztonsági mentés gyakorisága",
-				"intervalDescription": "Milyen gyakorisággal készítsen automatikus biztonsági másolatot (0 = ki van kapcsolva).",
+				"intervalDescription": "Milyen gyakorisággal készítsen automatikus biztonsági másolatot.",
 				"sonRetention": "Napi megtartás (fiú)",
 				"sonRetentionDescription": "Az elmúlt N napból mindegyikből őrizze meg a legfrissebb biztonsági másolatot.",
 				"fatherRetention": "Heti megtartás (apa)",

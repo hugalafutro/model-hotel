@@ -1927,7 +1927,7 @@
 				"enabled": "Bật tính năng sao lưu định kỳ",
 				"enabledDescription": "Tự động tạo bản sao lưu theo định kỳ và xóa các bản sao lưu cũ theo chu kỳ luân phiên son/father/grandfather.",
 				"interval": "Khoảng thời gian sao lưu",
-				"intervalDescription": "Tần suất tạo bản sao lưu tự động (0 = tắt).",
+				"intervalDescription": "Tần suất tạo bản sao lưu tự động.",
 				"sonRetention": "Giữ lại hàng ngày (Con)",
 				"sonRetentionDescription": "Giữ lại bản sao lưu mới nhất trong mỗi ngày trong số N ngày gần đây nhất.",
 				"fatherRetention": "Giữ lại hàng tuần (Cha)",

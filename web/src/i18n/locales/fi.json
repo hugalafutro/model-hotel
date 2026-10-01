@@ -1927,7 +1927,7 @@
 				"enabled": "Ota Käyttöön Säännöllinen Varmuuskopiointi",
 				"enabledDescription": "Luo varmuuskopiot automaattisesti säännöllisin väliajoin ja karsita vanhat käyttämällä poika/isä/isoisä -kierrosta",
 				"interval": "Varmuuskopioinnin Aikaväli",
-				"intervalDescription": "Kuinka usein automaattisen varmuuskopion luominen (0 = pois päältä).",
+				"intervalDescription": "Kuinka usein automaattisen varmuuskopion luominen.",
 				"sonRetention": "Päivittäinen säilytys (poika)",
 				"sonRetentionDescription": "Pidä viimeisin varmuuskopio jokaisesta viimeisestä N päivästä.",
 				"fatherRetention": "Viikoittainen säilytys (isä)",

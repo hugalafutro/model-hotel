@@ -1927,7 +1927,7 @@
 				"enabled": "Aktiver regelmessig sikkerhetskopiering",
 				"enabledDescription": "Opprett sikkerhetskopier automatisk med faste intervaller og fjern gamle ved hjelp av sønn/far/bestefar-rotasjon.",
 				"interval": "Sikkerhetskopierings intervall",
-				"intervalDescription": "Hvor ofte skal det opprettes en automatisk sikkerhetskopi (0 = deaktivert).",
+				"intervalDescription": "Hvor ofte skal det opprettes en automatisk sikkerhetskopi.",
 				"sonRetention": "Daglig oppbevaring (sønn)",
 				"sonRetentionDescription": "Behold den nyeste sikkerhetskopien for hvert av de siste N dagene.",
 				"fatherRetention": "Ukentlig oppbevaring (far)",

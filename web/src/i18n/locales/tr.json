@@ -1927,7 +1927,7 @@
 				"enabled": "Periyodik Yedeklemeyi Etkinleştir",
 				"enabledDescription": "Düzenli aralıklarla otomatik olarak yedeklemeler oluşturun ve \"son/father/grandfather\" rotasyonunu kullanarak eski yedekleri silin.",
 				"interval": "Yedekleme Aralığı",
-				"intervalDescription": "Otomatik yedekleme ne sıklıkla oluşturulacak (0 = devre dışı).",
+				"intervalDescription": "Otomatik yedekleme ne sıklıkla oluşturulacak.",
 				"sonRetention": "Günlük Saklama (Oğul)",
 				"sonRetentionDescription": "Son N günün her birinden en güncel yedeği saklayın.",
 				"fatherRetention": "Haftalık Kalıcılık (Baba)",

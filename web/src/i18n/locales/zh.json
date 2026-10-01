@@ -1927,7 +1927,7 @@
 				"enabled": "启用定期备份",
 				"enabledDescription": "自动使用儿子/父亲/祖父轮换，定期创建备份并修整旧备份。",
 				"interval": "备份间隔",
-				"intervalDescription": "创建自动备份的频率(0=禁用)。",
+				"intervalDescription": "创建自动备份的频率。",
 				"sonRetention": "每日保留（子）",
 				"sonRetentionDescription": "保留过去N天中每次的最新备份。",
 				"fatherRetention": "每周保留（父）",
