@@ -58,6 +58,8 @@ type ModelResponse struct {
 	DisabledManually             bool               `json:"disabled_manually"`
 	PriceCustomized              bool               `json:"price_customized"`
 	LimitsCustomized             bool               `json:"limits_customized"`
+	CapabilitiesCustomized       bool               `json:"capabilities_customized"`
+	ProviderType                 string             `json:"provider_type"`
 	PriceSources                 model.PriceSources `json:"price_sources"`
 	CreatedAt                    string             `json:"created_at"`
 	LastSeenAt                   string             `json:"last_seen_at"`
@@ -89,6 +91,8 @@ func modelToResponse(m model.Model) ModelResponse {
 		DisabledManually:             m.DisabledManually,
 		PriceCustomized:              m.PriceCustomized,
 		LimitsCustomized:             m.LimitsCustomized,
+		CapabilitiesCustomized:       m.CapabilitiesCustomized,
+		ProviderType:                 m.ProviderType,
 		PriceSources:                 m.PriceSources,
 		CreatedAt:                    m.CreatedAt.Format(time.RFC3339),
 		LastSeenAt:                   m.LastSeenAt.Format(time.RFC3339),
@@ -245,7 +249,7 @@ func (h *Handler) UpdateModel(w http.ResponseWriter, r *http.Request) {
 
 	modelRepo := model.NewRepository(h.dbPool.Pool())
 
-	hasChanges := req.DisplayName != nil || req.ContextLength != nil || req.MaxOutputTokens != nil || req.InputPricePerMillion != nil || req.InputPricePerMillionCacheHit != nil || req.OutputPricePerMillion != nil || req.SearchPricePerThousand != nil || req.PriceCustomized != nil || req.LimitsCustomized != nil || req.Enabled != nil
+	hasChanges := req.DisplayName != nil || req.ContextLength != nil || req.MaxOutputTokens != nil || req.InputPricePerMillion != nil || req.InputPricePerMillionCacheHit != nil || req.OutputPricePerMillion != nil || req.SearchPricePerThousand != nil || req.PriceCustomized != nil || req.LimitsCustomized != nil || req.Capabilities != nil || req.CapabilitiesCustomized != nil || req.Enabled != nil
 	if !hasChanges {
 		http.Error(w, "no fields to update", http.StatusBadRequest)
 		return
@@ -287,6 +291,25 @@ func (h *Handler) UpdateModel(w http.ResponseWriter, r *http.Request) {
 	if err := validateFloatPtrRange("search_price_per_thousand", req.SearchPricePerThousand, 0, 1000); err != nil {
 		respondBadRequest(w, "invalid search price", err)
 		return
+	}
+
+	// Capabilities are set by hand only where discovery takes the provider at
+	// its word and knows nothing more: a custom provider. Every other type's
+	// capabilities come from its own API or the vendor data, and a pin there
+	// would freeze them against the next genuine change. An unpin is taken on
+	// any type: a provider's type can be changed after its models were pinned,
+	// and the pin must not outlive it with no way to clear it.
+	unpinCaps := req.CapabilitiesCustomized != nil && !*req.CapabilitiesCustomized
+	if (req.Capabilities != nil || req.CapabilitiesCustomized != nil) && !unpinCaps {
+		current, err := modelRepo.Get(r.Context(), id)
+		if err != nil {
+			respondLookupError(w, err, pgx.ErrNoRows, "model not found", fmt.Sprintf("failed to load model %s", id))
+			return
+		}
+		if current.ProviderType != "custom" {
+			writeCodedError(w, http.StatusBadRequest, "capabilities_custom_only", "capabilities can be edited only on a custom provider's models")
+			return
+		}
 	}
 
 	m, err := modelRepo.Update(r.Context(), id, req)

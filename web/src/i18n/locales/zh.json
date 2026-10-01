@@ -1075,7 +1075,9 @@
 			"searchPrice": "搜索单价",
 			"perThousandSearches": "/1K 次搜索",
 			"testSuccessRanked": "成功 | 排序结果：{{count}}{{ttftPart}} | 时长： {{duration}}秒",
-			"limitsPinned": "上下文与输出上限已由操作员固定"
+			"limitsPinned": "上下文与输出上限已由操作员固定",
+			"capabilitiesPinned": "能力由操作员设置",
+			"capabilitiesEditHint": "自定义提供商只报告其列表中声明的内容。请开启此模型支持的能力。"
 		},
 		"table": {
 			"sortByModelName": "按模型名称排序",

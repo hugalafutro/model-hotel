@@ -188,8 +188,10 @@ func TestPublishAfterUnsubscribe_NoPanic(t *testing.T) {
 	// Drain the channel in a goroutine so Unsubscribe can close it
 	go func() {
 		// Drain the channel to prevent blocking.
-		//nolint:revive // intentional: empty block for channel drain in test
-		for range ch {
+		for {
+			if _, ok := <-ch; !ok {
+				return
+			}
 		}
 	}()
 

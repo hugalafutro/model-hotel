@@ -1075,7 +1075,9 @@
 			"searchPrice": "Arama fiyatı",
 			"perThousandSearches": "/1K arama",
 			"testSuccessRanked": "Başarı | Sıralanmış sonuçlar: {{count}}{{ttftPart}} | Süre: {{duration}}saniye",
-			"limitsPinned": "Bağlam ve çıktı sınırları operatör tarafından sabitlendi"
+			"limitsPinned": "Bağlam ve çıktı sınırları operatör tarafından sabitlendi",
+			"capabilitiesPinned": "Operatör tarafından belirlenen yetenekler",
+			"capabilitiesEditHint": "Özel sağlayıcılar yalnızca listelerinin söylediğini bildirir. Bu modelin desteklediklerini açın."
 		},
 		"table": {
 			"sortByModelName": "Model adına göre sırala",

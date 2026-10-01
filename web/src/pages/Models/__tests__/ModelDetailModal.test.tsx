@@ -182,6 +182,83 @@ describe("ModelDetailModal", () => {
 		});
 	});
 
+	describe("capabilities editing", () => {
+		const customModel = { ...mockModel, provider_type: "custom" };
+
+		it("offers no capability toggles on a provider that is not custom", async () => {
+			const user = userEvent.setup();
+			renderWithProviders(
+				<ModelDetailModal
+					{...defaultProps}
+					model={{ ...mockModel, provider_type: "openai" }}
+				/>,
+			);
+			await user.click(screen.getByText("Edit"));
+			expect(screen.queryByTestId("caps-editor")).not.toBeInTheDocument();
+		});
+
+		it("saves the toggled capabilities whole, keeping streaming as stored", async () => {
+			const user = userEvent.setup();
+			renderWithProviders(
+				<ModelDetailModal {...defaultProps} model={customModel} />,
+			);
+			await user.click(screen.getByText("Edit"));
+			const vision = screen.getByTestId("caps-toggle-vision");
+			expect(vision).toHaveAttribute("aria-pressed", "false");
+			await user.click(vision);
+			await user.click(screen.getByTestId("caps-toggle-tool_calling"));
+			expect(vision).toHaveAttribute("aria-pressed", "true");
+			await user.click(screen.getByText("Save Changes"));
+			expect(onUpdate).toHaveBeenCalledTimes(1);
+			const [, updates] = onUpdate.mock.calls[0];
+			expect(updates.capabilities).toMatchObject({
+				streaming: true,
+				vision: true,
+				tool_calling: true,
+				reasoning: false,
+				audio_input: false,
+			});
+		});
+
+		it("sends nothing when the toggles end where they started", async () => {
+			const user = userEvent.setup();
+			renderWithProviders(
+				<ModelDetailModal {...defaultProps} model={customModel} />,
+			);
+			await user.click(screen.getByText("Edit"));
+			await user.click(screen.getByTestId("caps-toggle-vision"));
+			await user.click(screen.getByTestId("caps-toggle-vision"));
+			await user.click(screen.getByText("Save Changes"));
+			expect(onUpdate).not.toHaveBeenCalled();
+		});
+
+		it("lists the capabilities among the unsaved changes on cancel", async () => {
+			const user = userEvent.setup();
+			renderWithProviders(
+				<ModelDetailModal {...defaultProps} model={customModel} />,
+			);
+			await user.click(screen.getByText("Edit"));
+			await user.click(screen.getByTestId("caps-toggle-reasoning"));
+			await user.click(screen.getByText("Cancel"));
+			expect(screen.getAllByText("Capabilities").length).toBeGreaterThan(1);
+		});
+
+		it("shows the pin banner and unpins the capabilities", async () => {
+			const user = userEvent.setup();
+			renderWithProviders(
+				<ModelDetailModal
+					{...defaultProps}
+					model={{ ...customModel, capabilities_customized: true }}
+				/>,
+			);
+			expect(screen.getByTestId("caps-pin-banner")).toBeInTheDocument();
+			await user.click(screen.getByTestId("caps-pin-reset"));
+			expect(onUpdate).toHaveBeenCalledWith(mockModel.id, {
+				capabilities_customized: false,
+			});
+		});
+	});
+
 	it("displays capabilities section", () => {
 		renderWithProviders(<ModelDetailModal {...defaultProps} />);
 

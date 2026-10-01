@@ -1075,7 +1075,9 @@
 			"searchPrice": "Soekprys",
 			"perThousandSearches": "/1K soektogte",
 			"testSuccessRanked": "Sukses | Gerangskikte resultate: {{count}}{{ttftPart}} | Duur: {{duration}}s",
-			"limitsPinned": "Konteks- en uitsetlimiete deur operateur vasgepen"
+			"limitsPinned": "Konteks- en uitsetlimiete deur operateur vasgepen",
+			"capabilitiesPinned": "Vermoëns deur operateur gestel",
+			"capabilitiesEditHint": "Pasgemaakte verskaffers rapporteer net wat hul lys sê. Skakel aan wat hierdie model ondersteun."
 		},
 		"table": {
 			"sortByModelName": "Sorteer volgens modelnaam",

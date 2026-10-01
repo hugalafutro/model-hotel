@@ -158,8 +158,14 @@ export function Models() {
 			updateMutation.mutate(
 				{ id, data: updates },
 				{
-					onSuccess: () => {
-						setDetailModel((prev) => (prev ? { ...prev, ...updates } : null));
+					// The server's row, not the request: it carries the pins the
+					// edit set and capabilities in their stored (string) shape. A
+					// save that lands after the modal moved on to another model
+					// leaves that model alone.
+					onSuccess: (updated) => {
+						setDetailModel((prev) =>
+							prev && prev.id === updated.id ? { ...prev, ...updated } : prev,
+						);
 						setModelRefreshTrigger((n) => n + 1);
 					},
 				},

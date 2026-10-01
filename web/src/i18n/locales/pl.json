@@ -1163,7 +1163,9 @@
 			"searchPrice": "Cena wyszukiwania",
 			"perThousandSearches": "/1K wyszukiwań",
 			"testSuccessRanked": "Sukces | Uszeregowane wyniki: {{count}}{{ttftPart}} | Czas trwania: {{duration}}s",
-			"limitsPinned": "Limity kontekstu i wyjścia przypięte przez operatora"
+			"limitsPinned": "Limity kontekstu i wyjścia przypięte przez operatora",
+			"capabilitiesPinned": "Możliwości ustawione przez operatora",
+			"capabilitiesEditHint": "Niestandardowi dostawcy zgłaszają tylko to, co podaje ich lista. Włącz to, co obsługuje ten model."
 		},
 		"table": {
 			"sortByModelName": "Sortuj według nazwy modelu",

@@ -1119,7 +1119,9 @@
 			"searchPrice": "Preu per cerca",
 			"perThousandSearches": "/1K cerques",
 			"testSuccessRanked": "Èxit | Resultats classificats: {{count}}{{ttftPart}} | Durada: {{duration}}s",
-			"limitsPinned": "Límits de context i de sortida fixats per l'operador"
+			"limitsPinned": "Límits de context i de sortida fixats per l'operador",
+			"capabilitiesPinned": "Capacitats definides per l'operador",
+			"capabilitiesEditHint": "Els proveïdors personalitzats només informen del que diu el seu llistat. Activa el que admet aquest model."
 		},
 		"table": {
 			"sortByModelName": "Ordena per nom del model",

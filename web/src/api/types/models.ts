@@ -44,6 +44,11 @@ export interface Model {
 	/** context_length / max_output_tokens were edited by an operator and survive
 	 * discovery until an explicit limits_customized=false unpins them. */
 	limits_customized: boolean;
+	/** A custom provider's capabilities were set by an operator and survive
+	 * discovery until an explicit capabilities_customized=false unpins them. */
+	capabilities_customized?: boolean;
+	/** The stored provider_type of the model's provider ("custom", "openai", ...). */
+	provider_type?: string;
 	/**
 	 * Where each stored price came from, keyed by price field; a key is absent
 	 * when that price is unset or was stored before sources were recorded.

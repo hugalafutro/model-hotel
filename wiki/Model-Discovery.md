@@ -973,6 +973,7 @@ Each discovered model is stored in the `models` database table with the followin
 | `display_name_customized` | bool | The operator renamed it, so discovery leaves `display_name` alone (migration `033`) |
 | `price_customized` | bool | The operator pinned the prices, so no source overwrites them (`071`) |
 | `limits_customized` | bool | The operator pinned `context_length` / `max_output_tokens`, so no source overwrites them (`092`) |
+| `capabilities_customized` | bool | The operator set a custom provider's model capabilities by hand, so no scan overwrites them (`095`) |
 | `price_sources` | jsonb | Where each stored price came from, keyed `input` / `cache_hit` / `output` / `search`, one of `provider` (the provider's own listing), `catalog` (an embedded override), `modelsdev` (enrichment) or `manual` (an operator edit); a key is absent while that price is unset or was stored before `084`. Merged key by key in the same direction as the prices, so a kept price keeps its source. The dashboard shows it as a hint next to each price. |
 | `missing_scans` | int | Consecutive confirmed-missing scans; 2 disables the model (`054`) |
 | `discovery_dismissed_at` | timestamptz (nullable) | The operator dismissed this model's discrepancy claim (`061`) |
@@ -1034,6 +1035,7 @@ CREATE TABLE IF NOT EXISTS models (
     display_name_customized BOOLEAN DEFAULT false,
     price_customized BOOLEAN NOT NULL DEFAULT false,
     limits_customized BOOLEAN NOT NULL DEFAULT false,
+    capabilities_customized BOOLEAN NOT NULL DEFAULT false,
     price_sources JSONB NOT NULL DEFAULT '{}'::jsonb,
     missing_scans INTEGER NOT NULL DEFAULT 0,
     discovery_dismissed_at TIMESTAMPTZ,
@@ -1064,6 +1066,7 @@ CREATE TABLE IF NOT EXISTS models (
 - `084_model_price_sources.sql` - Added `price_sources` (where each stored price came from)
 - `091_rerank_search_price.sql` - Added `search_price_per_thousand` (the per-search price a rerank model bills at)
 - `092_model_limits_customized.sql` - Added `limits_customized` (the limits pin)
+- `095_model_capabilities_customized.sql` - Added `capabilities_customized` (the capabilities pin)
 
 Two related migrations live on other tables: `047_discovery_changes.sql` creates the background-discovery journal, and `062_failover_group_auto_disabled.sql` adds `model_failover_groups.auto_disabled_at`.
 
@@ -1146,6 +1149,7 @@ The same `ON CONFLICT` update merges pricing/context per field rather than blind
 - **Context length / max output tokens** are *fill-only* unless the value came from the provider's own live API this scan (tracked via transient per-field live provenance): a live value overwrites, a catalog/models.dev value only fills a gap. An operator-pinned limit (`limits_customized = true`) is never overwritten. This keeps stored metadata stable when sources disagree or a probe is flaky.
 - **Prices follow their source** (`price_customized = false`, the default): the scan's price - live API, embedded catalog, or models.dev enrichment, already merged in that precedence - **overwrites** the stored one; only a scan that carries no price at all keeps the stored value. Vendor price changes and corrected enrichment data therefore propagate to existing rows on the next scan. Installs that upgraded past the random-reseller-price bug (see [Canonical Provider Preference](#canonical-provider-preference)) heal automatically on their first scan, with no migration or manual reset.
 - **Operator-pinned prices** (`price_customized = true`) are untouchable: no source, live included, overwrites them. Editing any price via `PATCH /api/models/{id}` sets the pin implicitly; sending `"price_customized": false` clears it AND nulls the price columns so the next scan re-derives them (the dashboard's model detail modal surfaces this as "Reset to source" on the pin banner).
+- **Capabilities follow the scan** unless the discoverer marked its reading a placeholder (it could not fetch the model's details this scan) or the operator pinned a custom provider's capabilities (`capabilities_customized = true`); either way the stored flags stand.
 
 ### Missing models: three layers of proof before a disable
 
@@ -1269,17 +1273,19 @@ This sets both `enabled` and `disabled_manually`:
 
 Either direction also clears `auto_retired_at` and `discovery_dismissed_at`: operator intent supersedes a traffic retirement and their own earlier dismissal, and it has to happen in the same statement rather than on the next sighting, since a model retired again before that scan would keep a dismissal nothing could clear.
 
-The `Update` endpoint also supports editing `display_name`, `context_length`, `max_output_tokens`, `input_price_per_million`, `input_price_per_million_cache_hit`, `output_price_per_million`, `search_price_per_thousand`, `price_customized`, and `limits_customized`.
+The `Update` endpoint also supports editing `display_name`, `context_length`, `max_output_tokens`, `input_price_per_million`, `input_price_per_million_cache_hit`, `output_price_per_million`, `search_price_per_thousand`, `price_customized`, `limits_customized`, `capabilities` and `capabilities_customized` (the last two on a custom provider's models only).
 
 ### The pins
 
-Editing a model arms a pin that stops discovery from writing over the operator's decision. All four are independent, and only a write that touches the field in question moves its pin.
+Editing a model arms a pin that stops discovery from writing over the operator's decision. All five are independent, and only a write that touches the field in question moves its pin.
 
 **The display-name pin** (`display_name_customized`, migration `033`). Setting `display_name` marks the row customized, and the upsert then keeps the stored name on every later scan: `display_name = CASE WHEN models.display_name_customized THEN models.display_name ELSE EXCLUDED.display_name END`. Clearing the name clears the pin, and discovery goes back to supplying it.
 
 **The price pin** (`price_customized`, migration `071`). Editing any price sets it implicitly. A pinned row's stored prices are untouchable: no source, live included, replaces them. A `NULL` price on a pinned row still fills from the scan, because the pin protects values rather than vetoing gap-fill. Sending `"price_customized": false` clears the pin **and** nulls all four price columns (search price included) and their sources, so the next scan re-derives them; the dashboard's model detail modal surfaces that as "Reset to source" on the pin banner.
 
 **The limits pin** (`limits_customized`, migration `092`). Editing `context_length` or `max_output_tokens` sets it implicitly, and the upsert then keeps the stored limits even when the provider's live listing reports different ones (a `NULL` limit still fills from the scan). Sending `"limits_customized": false` clears the pin and nulls both columns so the next scan refills them.
+
+**The capabilities pin** (`capabilities_customized`, migration `095`). A custom provider's models carry only the capabilities its own listing reports, often streaming alone, and the operator fills in the rest: in the model detail modal's edit mode a custom provider's capabilities become toggles. Sending `capabilities` replaces the stored flags whole and sets the pin (the dashboard has no streaming toggle and sends streaming back as stored), and the upsert then keeps them on every later scan. Sending `"capabilities_customized": false` clears the pin, and the next scan writes the listing's reading again. The API refuses an edit or a pin for any other provider type (`400`, code `capabilities_custom_only`), while taking the unpin on any type. Re-typing a provider away from custom releases its models' pins in the same statement, so the new type's discovery owns their capabilities from the next scan: those capabilities come from the provider's own API or vendor data, and a pin would freeze them against the next genuine change.
 
 **The manual-enable pin** (`manually_enabled_at`, migration `070`). Enabling a model by hand stamps it, disabling clears it. The pin exists for one situation: the provider's listing omits a model the operator has verified works, and without it the listing-based auto-disable would turn the model straight back off. While the pin is set:
 

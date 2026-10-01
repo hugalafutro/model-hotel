@@ -337,7 +337,16 @@ func (r *Repository) Update(ctx context.Context, id uuid.UUID, req UpdateProvide
 		maskedKey = &mk
 	}
 
+	// A hand-set capabilities pin belongs to a custom provider (the model API
+	// takes the edit nowhere else), so re-typing the provider away from custom
+	// releases its models' pins in the same statement: the new type's discovery
+	// owns their capabilities from the next scan on.
 	query := `
+		WITH released AS (
+			UPDATE models SET capabilities_customized = false
+			WHERE provider_id = $11 AND capabilities_customized
+			  AND $12::text IS NOT NULL AND $12::text <> 'custom'
+		)
 		UPDATE providers
 		SET name = COALESCE($1, name),
 		    base_url = COALESCE($2, base_url),

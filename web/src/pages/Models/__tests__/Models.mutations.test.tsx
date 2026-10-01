@@ -43,10 +43,13 @@ describe("Models", () => {
 				...mockAllDefaults(),
 				http.patch("/api/models/:id", async ({ request, params }) => {
 					const body = (await request.json()) as Partial<Model>;
+					// The server's row carries state the request did not name (a pin
+					// the edit set); the open modal must show that row.
 					return HttpResponse.json({
 						...mockModel,
 						id: params.id as string,
 						...body,
+						limits_customized: true,
 					});
 				}),
 			);
@@ -87,6 +90,9 @@ describe("Models", () => {
 			await waitFor(() => {
 				expect(screen.getByText("Model updated")).toBeInTheDocument();
 			});
+			expect(
+				within(modal).getByTestId("limits-pin-banner"),
+			).toBeInTheDocument();
 		});
 
 		it("handles updateMutation error via ModelDetailModal", async () => {

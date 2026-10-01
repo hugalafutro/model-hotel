@@ -1075,7 +1075,9 @@
 			"searchPrice": "검색 단가",
 			"perThousandSearches": "/1K 검색",
 			"testSuccessRanked": "성공 | 순위 결과: {{count}}{{ttftPart}} | 소요 시간: {{duration}}초",
-			"limitsPinned": "컨텍스트 및 출력 한도가 운영자에 의해 고정됨"
+			"limitsPinned": "컨텍스트 및 출력 한도가 운영자에 의해 고정됨",
+			"capabilitiesPinned": "운영자가 설정한 기능",
+			"capabilitiesEditHint": "사용자 지정 공급자는 목록에 적힌 내용만 보고합니다. 이 모델이 지원하는 기능을 켜세요."
 		},
 		"table": {
 			"sortByModelName": "모델명 순으로 정렬",

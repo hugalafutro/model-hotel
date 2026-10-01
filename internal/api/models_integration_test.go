@@ -1672,3 +1672,91 @@ func TestUpdateModel_LimitsPinAndUnpin(t *testing.T) {
 		t.Errorf("after unpin: pinned=%v context=%v output=%v, want cleared", resp.LimitsCustomized, resp.ContextLength, resp.MaxOutputTokens)
 	}
 }
+
+// Capabilities are edited by hand on a custom provider's models only: the edit
+// pins them, an unpin releases them, the cursor listing carries the pins, and
+// any other provider type is refused with a coded error.
+func TestUpdateModel_CapabilitiesCustomOnly(t *testing.T) {
+	h, r := newTestHandlerWithRouter(t)
+	modelID := createProviderAndModel(t, h, r)
+	send := func(body string) *httptest.ResponseRecorder {
+		t.Helper()
+		rec := httptest.NewRecorder()
+		req := httptest.NewRequest(http.MethodPatch, "/models/"+modelID, strings.NewReader(body))
+		req.Header.Set("Authorization", "Bearer test-admin-token")
+		req.Header.Set("Content-Type", "application/json")
+		r.ServeHTTP(rec, req)
+		return rec
+	}
+	edit := `{"capabilities": {"streaming": true, "vision": true, "tool_calling": true}}`
+
+	missing := httptest.NewRecorder()
+	missingReq := httptest.NewRequest(http.MethodPatch, "/models/"+uuid.New().String(), strings.NewReader(edit))
+	missingReq.Header.Set("Authorization", "Bearer test-admin-token")
+	missingReq.Header.Set("Content-Type", "application/json")
+	r.ServeHTTP(missing, missingReq)
+	if missing.Code != http.StatusNotFound {
+		t.Fatalf("edit on a missing model: got %d %s, want 404", missing.Code, missing.Body.String())
+	}
+
+	if rec := send(edit); rec.Code != http.StatusBadRequest || !strings.Contains(rec.Body.String(), "capabilities_custom_only") {
+		t.Fatalf("edit on an openai provider: got %d %s, want 400 capabilities_custom_only", rec.Code, rec.Body.String())
+	}
+	if rec := send(`{"capabilities_customized": true}`); rec.Code != http.StatusBadRequest {
+		t.Fatalf("bare pin on an openai provider: got %d, want 400", rec.Code)
+	}
+	// An unpin is taken on any type, so a pin left behind when a custom
+	// provider changes type can still be cleared.
+	if rec := send(`{"capabilities_customized": false}`); rec.Code != http.StatusOK {
+		t.Fatalf("unpin on an openai provider: got %d %s, want 200", rec.Code, rec.Body.String())
+	}
+
+	if _, err := h.dbPool.Pool().Exec(context.Background(),
+		`UPDATE providers SET provider_type = 'custom' WHERE id = (SELECT provider_id FROM models WHERE id = $1)`, modelID); err != nil {
+		t.Fatalf("make provider custom: %v", err)
+	}
+	// A provider edit through the API clears the model cache; this raw write
+	// has to do it itself.
+	model.InvalidateModelCache()
+	rec := send(edit)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("edit on a custom provider: got %d %s", rec.Code, rec.Body.String())
+	}
+	var resp ModelResponse
+	if err := json.Unmarshal(rec.Body.Bytes(), &resp); err != nil {
+		t.Fatalf("parse: %v", err)
+	}
+	var caps model.Capability
+	if err := json.Unmarshal([]byte(resp.Capabilities), &caps); err != nil {
+		t.Fatalf("decode capabilities %q: %v", resp.Capabilities, err)
+	}
+	if !resp.CapabilitiesCustomized || resp.ProviderType != "custom" || caps != (model.Capability{Streaming: true, Vision: true, ToolCalling: true}) {
+		t.Fatalf("after an edit: pinned=%v type=%q caps=%+v, want pinned custom with the edit", resp.CapabilitiesCustomized, resp.ProviderType, caps)
+	}
+
+	list := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, "/models/cursor?limit=500", http.NoBody)
+	req.Header.Set("Authorization", "Bearer test-admin-token")
+	r.ServeHTTP(list, req)
+	var page ModelsCursorResponse
+	if err := json.Unmarshal(list.Body.Bytes(), &page); err != nil {
+		t.Fatalf("parse cursor page: %v", err)
+	}
+	seen := false
+	for _, e := range page.Entries {
+		if e.ID == modelID {
+			seen = true
+			if !e.CapabilitiesCustomized || e.ProviderType != "custom" {
+				t.Errorf("cursor entry: pinned=%v type=%q, want pinned custom", e.CapabilitiesCustomized, e.ProviderType)
+			}
+		}
+	}
+	if !seen {
+		t.Fatalf("model %s missing from the cursor page", modelID)
+	}
+
+	rec = send(`{"capabilities_customized": false}`)
+	if err := json.Unmarshal(rec.Body.Bytes(), &resp); err != nil || rec.Code != http.StatusOK || resp.CapabilitiesCustomized {
+		t.Fatalf("after unpin: got %d pinned=%v, want 200 unpinned", rec.Code, resp.CapabilitiesCustomized)
+	}
+}
