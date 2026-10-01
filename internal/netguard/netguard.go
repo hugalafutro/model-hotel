@@ -30,7 +30,7 @@ import (
 func parseHTTPURL(rawURL string) (*url.URL, error) {
 	u, err := url.Parse(rawURL)
 	if err != nil {
-		return nil, fmt.Errorf("invalid URL: %w", err)
+		return nil, fmt.Errorf("invalid URL: %w", util.URLParseReason(err))
 	}
 	if u.Scheme != "http" && u.Scheme != "https" {
 		return nil, fmt.Errorf("URL scheme must be http or https, got %q", u.Scheme)

@@ -1598,3 +1598,19 @@ func envNumber32(key string, def int32) int32 { return envNumber(key, def, parse
 func envNumber64(key string, def int64) int64 { return envNumber(key, def, parseInt64) }
 
 func envNumberFloat(key string, def float64) float64 { return envNumber(key, def, parseFloat) }
+
+// A URL that fails to parse may carry a credential; the error keeps the
+// reason and never the URL, since it reaches logs and API responses.
+func TestValidateProviderURL_ParseErrorDoesNotQuoteTheURL(t *testing.T) {
+	cfg := &Config{}
+	err := cfg.ValidateProviderURL("http://operator:pass word@example.invalid/v1?key=querysecret")
+	if err == nil {
+		t.Fatal("expected a parse error")
+	}
+	if strings.Contains(err.Error(), "pass word") || strings.Contains(err.Error(), "querysecret") {
+		t.Errorf("error quotes the URL: %s", err.Error())
+	}
+	if !strings.Contains(err.Error(), "invalid userinfo") {
+		t.Errorf("error lost the parse reason: %s", err.Error())
+	}
+}
