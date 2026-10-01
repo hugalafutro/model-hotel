@@ -344,7 +344,9 @@
 			"avgDurationOver": "平均持続時間/{{range}}",
 			"cacheHit": "キャッシュヒット",
 			"today": "本日、 {{date}}",
-			"yesterday": "昨日、 {{date}}"
+			"yesterday": "昨日、 {{date}}",
+			"panOlder": "古いデータを表示",
+			"panNewer": "新しいデータを表示"
 		},
 		"usage": {
 			"topModels": "トップモデル",

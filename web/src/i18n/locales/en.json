@@ -344,7 +344,9 @@
 			"avgDurationOver": "Avg Duration/{{range}}",
 			"cacheHit": "Cache Hit",
 			"today": "Today, {{date}}",
-			"yesterday": "Yesterday, {{date}}"
+			"yesterday": "Yesterday, {{date}}",
+			"panOlder": "Show older data",
+			"panNewer": "Show newer data"
 		},
 		"usage": {
 			"topModels": "Top Models",

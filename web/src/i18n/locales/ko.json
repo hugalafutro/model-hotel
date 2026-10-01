@@ -344,7 +344,9 @@
 			"avgDurationOver": "평균 소요 시간 /{{range}}",
 			"cacheHit": "캐시 적중",
 			"today": "오늘, {{date}}",
-			"yesterday": "어제, {{date}}"
+			"yesterday": "어제, {{date}}",
+			"panOlder": "이전 데이터 표시",
+			"panNewer": "최신 데이터 표시"
 		},
 		"usage": {
 			"topModels": "상위 모델",

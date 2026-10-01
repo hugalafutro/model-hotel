@@ -358,7 +358,9 @@
 			"avgDurationOver": "משך ממוצע/{{range}}",
 			"cacheHit": "פגיעה במטמון",
 			"today": "היום, {{date}}",
-			"yesterday": "אתמול, {{date}}"
+			"yesterday": "אתמול, {{date}}",
+			"panOlder": "הצג נתונים ישנים יותר",
+			"panNewer": "הצג נתונים חדשים יותר"
 		},
 		"usage": {
 			"topModels": "מודלים מובילים",

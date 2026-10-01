@@ -344,7 +344,9 @@
 			"avgDurationOver": "Thời lượng trung bình/{{range}}",
 			"cacheHit": "Trúng bộ nhớ đệm",
 			"today": "Hôm nay, {{date}}",
-			"yesterday": "Hôm qua, {{date}}"
+			"yesterday": "Hôm qua, {{date}}",
+			"panOlder": "Hiển thị dữ liệu cũ hơn",
+			"panNewer": "Hiển thị dữ liệu mới hơn"
 		},
 		"usage": {
 			"topModels": "Mô hình hàng đầu",

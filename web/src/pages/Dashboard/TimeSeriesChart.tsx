@@ -244,6 +244,9 @@ export function TimeSeriesChart({
 					borderRadius: "8px",
 					userSelect: isDragging ? "none" : undefined,
 					WebkitUserSelect: isDragging ? "none" : undefined,
+					// Vertical swipes scroll the page; horizontal ones drag the
+					// chart instead of being taken over (and cancelled) as a scroll.
+					touchAction: pannable ? "pan-y" : undefined,
 				}}
 				onPointerDown={pannable ? onPointerDown : undefined}
 				onPointerMove={pannable ? onPointerMove : undefined}
@@ -404,9 +407,29 @@ export function TimeSeriesChart({
 			</div>
 			{pannable && (canPanLeft || canPanRight) && (
 				<div className="flex items-center justify-center gap-2 mt-2 text-xs text-(--text-muted) select-none">
-					{canPanLeft && <span>→</span>}
+					{/* The arrows point the way a drag goes, so → shows older data.
+					    As buttons they make panning reachable without a pointer. */}
+					{canPanLeft && (
+						<button
+							type="button"
+							className="ui-icon-btn px-1"
+							aria-label={t("dashboard.chart.panOlder")}
+							onClick={() => panTo(effectiveStart - 1)}
+						>
+							→
+						</button>
+					)}
 					<span>{t("dashboard.chart.dragToPan")}</span>
-					{canPanRight && <span>←</span>}
+					{canPanRight && (
+						<button
+							type="button"
+							className="ui-icon-btn px-1"
+							aria-label={t("dashboard.chart.panNewer")}
+							onClick={() => panTo(effectiveStart + 1)}
+						>
+							←
+						</button>
+					)}
 				</div>
 			)}
 		</div>

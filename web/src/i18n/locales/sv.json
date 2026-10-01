@@ -344,7 +344,9 @@
 			"avgDurationOver": "Genomsnittlig varaktighet/{{range}}",
 			"cacheHit": "Cache träffar",
 			"today": "Idag {{date}}",
-			"yesterday": "Igår {{date}}"
+			"yesterday": "Igår {{date}}",
+			"panOlder": "Visa äldre data",
+			"panNewer": "Visa nyare data"
 		},
 		"usage": {
 			"topModels": "Toppmodeller",

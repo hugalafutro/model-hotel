@@ -344,7 +344,9 @@
 			"avgDurationOver": "Kesto /{{range}}",
 			"cacheHit": "Välimuistiosuma",
 			"today": "Tänään, {{date}}",
-			"yesterday": "Eilen, {{date}}"
+			"yesterday": "Eilen, {{date}}",
+			"panOlder": "Näytä vanhemmat tiedot",
+			"panNewer": "Näytä uudemmat tiedot"
 		},
 		"usage": {
 			"topModels": "Top-mallit",

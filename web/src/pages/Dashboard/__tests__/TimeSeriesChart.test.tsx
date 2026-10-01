@@ -396,10 +396,12 @@ function generateData(count: number): TimeSeriesDataPoint[] {
 	});
 }
 
-// Drags the chart by dx pixels. jsdom lays nothing out, so the container is
-// given a width: 1200px over the 1h viewport of 12 buckets = 100px per bucket.
+// Drags the chart by dx pixels. jsdom lays nothing out, so the div holding the
+// pointer handlers (it reads its own width) is given one: 1200px over the 1h
+// viewport of 12 buckets = 100px per bucket.
 function dragBy(el: HTMLElement, dx: number) {
-	vi.spyOn(el, "getBoundingClientRect").mockReturnValue({
+	const pane = el.closest("div") as HTMLElement;
+	vi.spyOn(pane, "getBoundingClientRect").mockReturnValue({
 		width: 1200,
 	} as DOMRect);
 	fireEvent.pointerDown(el, { clientX: 500, pointerId: 1 });
@@ -483,8 +485,44 @@ describe("Drag-to-pan", () => {
 		// Drag right one bucket = older data
 		dragBy(chartContainer, 100);
 
-		// Now we can pan back to newer data, so left arrow appears
+		// One bucket back, not a jump to the oldest edge: both ways stay open
 		expect(screen.getByText("←")).toBeInTheDocument();
+		expect(screen.getByText("→")).toBeInTheDocument();
+	});
+
+	it("lets touch drag the chart sideways while vertical swipes scroll the page", () => {
+		renderWithProviders(
+			<TimeSeriesChart
+				{...defaultProps}
+				data={generateData(15)}
+				range="1h"
+				metric="Requests"
+			/>,
+		);
+		const pane = screen.getByTestId("area-chart").closest("div");
+		expect(pane).toHaveStyle("touch-action: pan-y");
+	});
+
+	it("pans one bucket at a time with the arrow buttons", async () => {
+		const user = userEvent.setup();
+		renderWithProviders(
+			<TimeSeriesChart
+				{...defaultProps}
+				data={generateData(20)}
+				range="1h"
+				metric="Requests"
+			/>,
+		);
+
+		await user.click(screen.getByRole("button", { name: "Show older data" }));
+		expect(
+			screen.getByRole("button", { name: "Show older data" }),
+		).toBeInTheDocument();
+		await user.click(screen.getByRole("button", { name: "Show newer data" }));
+		// Back at the latest edge
+		expect(
+			screen.queryByRole("button", { name: "Show newer data" }),
+		).not.toBeInTheDocument();
 	});
 
 	it("snaps back to latest when the range changes after panning", () => {
@@ -721,8 +759,9 @@ describe("Drag-to-pan", () => {
 			.parentElement as HTMLElement;
 
 		// Only a drag pans, as the "drag to pan" hint says
-		fireEvent.wheel(chartContainer, { deltaY: 100 });
-		fireEvent.wheel(chartContainer, { deltaX: 100 });
+		// and nothing cancels the event, so the page still scrolls
+		expect(fireEvent.wheel(chartContainer, { deltaY: 100 })).toBe(true);
+		expect(fireEvent.wheel(chartContainer, { deltaX: 100 })).toBe(true);
 
 		// Still at the latest edge: no left arrow
 		expect(screen.queryByText("←")).not.toBeInTheDocument();

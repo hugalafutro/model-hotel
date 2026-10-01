@@ -372,7 +372,9 @@
 			"avgDurationOver": "Середня тривалість/{{range}}",
 			"cacheHit": "Влучання в кеш",
 			"today": "Сьогодні {{date}}",
-			"yesterday": "Вчора, {{date}}"
+			"yesterday": "Вчора, {{date}}",
+			"panOlder": "Показати старіші дані",
+			"panNewer": "Показати новіші дані"
 		},
 		"usage": {
 			"topModels": "Топ моделей",

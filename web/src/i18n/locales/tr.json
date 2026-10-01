@@ -344,7 +344,9 @@
 			"avgDurationOver": "Ortalama Süre /{{range}}",
 			"cacheHit": "Önbellek isabeti",
 			"today": "Bugün, {{date}}",
-			"yesterday": "Dün, {{date}}"
+			"yesterday": "Dün, {{date}}",
+			"panOlder": "Daha eski verileri göster",
+			"panNewer": "Daha yeni verileri göster"
 		},
 		"usage": {
 			"topModels": "En iyi modeller",

@@ -344,7 +344,9 @@
 			"avgDurationOver": "Átlagos időtartam/{{range}}",
 			"cacheHit": "Cache-találat",
 			"today": "Ma, {{date}}",
-			"yesterday": "Tegnap, {{date}}"
+			"yesterday": "Tegnap, {{date}}",
+			"panOlder": "Régebbi adatok megjelenítése",
+			"panNewer": "Újabb adatok megjelenítése"
 		},
 		"usage": {
 			"topModels": "Top modellek",

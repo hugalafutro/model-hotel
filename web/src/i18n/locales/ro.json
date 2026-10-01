@@ -358,7 +358,9 @@
 			"avgDurationOver": "Durată medie/{{range}}",
 			"cacheHit": "Acces reușit în cache",
 			"today": "Astăzi, {{date}}",
-			"yesterday": "Ieri, {{date}}"
+			"yesterday": "Ieri, {{date}}",
+			"panOlder": "Afișează date mai vechi",
+			"panNewer": "Afișează date mai noi"
 		},
 		"usage": {
 			"topModels": "Top modele",

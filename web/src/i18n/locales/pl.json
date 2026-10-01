@@ -372,7 +372,9 @@
 			"avgDurationOver": "Średni czas trwania /{{range}}",
 			"cacheHit": "Trafienie pamięci podręcznej",
 			"today": "Dzisiaj {{date}}",
-			"yesterday": "Wczoraj {{date}}"
+			"yesterday": "Wczoraj {{date}}",
+			"panOlder": "Pokaż starsze dane",
+			"panNewer": "Pokaż nowsze dane"
 		},
 		"usage": {
 			"topModels": "Top modele",

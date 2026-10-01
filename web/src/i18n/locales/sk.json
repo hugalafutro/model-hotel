@@ -372,7 +372,9 @@
 			"avgDurationOver": "Priemerná dĺžka trvania/{{range}}",
 			"cacheHit": "Zásah v cache",
 			"today": "Dnes, {{date}}",
-			"yesterday": "Včera, {{date}}"
+			"yesterday": "Včera, {{date}}",
+			"panOlder": "Zobraziť staršie údaje",
+			"panNewer": "Zobraziť novšie údaje"
 		},
 		"usage": {
 			"topModels": "Naj. modely",

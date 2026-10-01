@@ -344,7 +344,9 @@
 			"avgDurationOver": "平均时长/{{range}}",
 			"cacheHit": "缓存命中",
 			"today": "今天， {{date}}",
-			"yesterday": "昨天， {{date}}"
+			"yesterday": "昨天， {{date}}",
+			"panOlder": "显示较早的数据",
+			"panNewer": "显示较新的数据"
 		},
 		"usage": {
 			"topModels": "热门模型",

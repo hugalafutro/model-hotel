@@ -372,7 +372,9 @@
 			"avgDurationOver": "Средняя длительность /{{range}}",
 			"cacheHit": "Попадание кэша",
 			"today": "Сегодня, {{date}}",
-			"yesterday": "Вчера, {{date}}"
+			"yesterday": "Вчера, {{date}}",
+			"panOlder": "Показать более старые данные",
+			"panNewer": "Показать более новые данные"
 		},
 		"usage": {
 			"topModels": "Топ моделей",

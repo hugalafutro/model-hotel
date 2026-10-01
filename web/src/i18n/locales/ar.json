@@ -400,7 +400,9 @@
 			"avgDurationOver": "متوسط المدة/{{range}}",
 			"cacheHit": "إصابة التخزين المؤقت",
 			"today": "اليوم، {{date}}",
-			"yesterday": "أمس، {{date}}"
+			"yesterday": "أمس، {{date}}",
+			"panOlder": "عرض البيانات الأقدم",
+			"panNewer": "عرض البيانات الأحدث"
 		},
 		"usage": {
 			"topModels": "أبرز النماذج",

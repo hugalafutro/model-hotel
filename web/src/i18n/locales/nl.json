@@ -344,7 +344,9 @@
 			"avgDurationOver": "Gem. tijdsduur /{{range}}",
 			"cacheHit": "Cache geraakt",
 			"today": "Vandaag, {{date}}",
-			"yesterday": "Gisteren {{date}}"
+			"yesterday": "Gisteren {{date}}",
+			"panOlder": "Oudere gegevens tonen",
+			"panNewer": "Nieuwere gegevens tonen"
 		},
 		"usage": {
 			"topModels": "Topmodellen",
