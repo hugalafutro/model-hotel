@@ -2932,12 +2932,10 @@
 			"message": "Viesti"
 		},
 		"applyRecommendedButton": {
-			"loading": "Ladataan…",
 			"applyRecommended": "Käytä Suositeltua",
 			"params": "({{count}} params)",
-			"modelsDevMatched": "models.dev-vastaavuus: {{model}}",
 			"noRecommendationsAvailable": "Ei suosituksia saatavilla",
-			"tooltip": "Käytä models.dev-katalogin suosittelemia asetuksia"
+			"tooltip": "Käytä tälle mallille suositeltuja asetuksia"
 		},
 		"liveToggleButton": {
 			"live": "Suora",
@@ -3163,9 +3161,6 @@
 			"initialError": "Alkuperäisten tietojen noutaminen epäonnistui",
 			"newerError": "Uudempien merkintöjen haku epäonnistui",
 			"olderError": "Vanhojen tietueiden haku epäonnistui"
-		},
-		"useRecommendedSettings": {
-			"fetchError": "Nouto epäonnistui"
 		}
 	},
 	"theme": {

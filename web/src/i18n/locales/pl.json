@@ -3078,12 +3078,10 @@
 			"message": "Wiadomość"
 		},
 		"applyRecommendedButton": {
-			"loading": "Ładowanie…",
 			"applyRecommended": "Zastosuj rekomendowane",
 			"params": "({{count}} params)",
-			"modelsDevMatched": "models.dev pasuje: {{model}}",
 			"noRecommendationsAvailable": "Brak dostępnych rekomendacji",
-			"tooltip": "Zastosuj zalecane ustawienia z katalogu models.dev"
+			"tooltip": "Zastosuj zalecane ustawienia dla tego modelu"
 		},
 		"liveToggleButton": {
 			"live": "Na żywo",
@@ -3315,9 +3313,6 @@
 			"initialError": "Nie udało się pobrać danych początkowych",
 			"newerError": "Nie udało się pobrać nowszych wpisów",
 			"olderError": "Nie udało się pobrać starszych wpisów"
-		},
-		"useRecommendedSettings": {
-			"fetchError": "Nie udało się pobrać"
 		}
 	},
 	"theme": {

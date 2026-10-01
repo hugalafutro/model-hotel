@@ -2932,12 +2932,10 @@
 			"message": "Üzenet"
 		},
 		"applyRecommendedButton": {
-			"loading": "… betöltése",
 			"applyRecommended": "Ajánlott értékek alkalmazása",
 			"params": "({{count}} paraméterek)",
-			"modelsDevMatched": "A models.dev találatok: {{model}}",
 			"noRecommendationsAvailable": "Nincs elérhető ajánlás",
-			"tooltip": "A models.dev katalógusból ajánlott beállítások alkalmazása"
+			"tooltip": "A modellhez ajánlott beállítások alkalmazása"
 		},
 		"liveToggleButton": {
 			"live": "Élőben",
@@ -3163,9 +3161,6 @@
 			"initialError": "A kezdeti adatok letöltése nem sikerült",
 			"newerError": "Nem sikerült letölteni az újabb bejegyzéseket",
 			"olderError": "A régebbi bejegyzések betöltése nem sikerült"
-		},
-		"useRecommendedSettings": {
-			"fetchError": "A letöltés sikertelen"
 		}
 	},
 	"theme": {

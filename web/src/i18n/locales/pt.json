@@ -3005,12 +3005,10 @@
 			"message": "mensagem"
 		},
 		"applyRecommendedButton": {
-			"loading": "Carregando…",
 			"applyRecommended": "Aplicar Recomendado",
 			"params": "({{count}} params)",
-			"modelsDevMatched": "models.dev matched: {{model}}",
 			"noRecommendationsAvailable": "Não há recomendações disponíveis",
-			"tooltip": "Aplicar configurações recomendadas a partir do catálogo models.dev"
+			"tooltip": "Aplicar as configurações recomendadas para este modelo"
 		},
 		"liveToggleButton": {
 			"live": "Ao vivo",
@@ -3239,9 +3237,6 @@
 			"initialError": "Falha ao buscar dados iniciais",
 			"newerError": "Falha ao obter entradas mais recentes",
 			"olderError": "Falha ao obter entradas antigas"
-		},
-		"useRecommendedSettings": {
-			"fetchError": "Falha ao buscar"
 		}
 	},
 	"theme": {

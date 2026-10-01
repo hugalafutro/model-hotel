@@ -942,14 +942,6 @@
 		"it",
 		"pt"
 	],
-	"components.applyRecommendedButton.loading": [
-		"no"
-	],
-	"components.applyRecommendedButton.modelsDevMatched": [
-		"it",
-		"ja",
-		"pt"
-	],
 	"components.applyRecommendedButton.params": [
 		"ar",
 		"ca",

@@ -2932,12 +2932,10 @@
 			"message": "消息"
 		},
 		"applyRecommendedButton": {
-			"loading": "正在加载…",
 			"applyRecommended": "应用推荐的",
 			"params": "({{count}} params)",
-			"modelsDevMatched": "models.dev 匹配结果： {{model}}",
 			"noRecommendationsAvailable": "无可用的建议",
-			"tooltip": "从models.dev 目录应用推荐设置"
+			"tooltip": "应用此模型的推荐设置"
 		},
 		"liveToggleButton": {
 			"live": "实时模式",
@@ -3163,9 +3161,6 @@
 			"initialError": "获取初始数据失败",
 			"newerError": "获取新条目失败",
 			"olderError": "获取旧条目失败"
-		},
-		"useRecommendedSettings": {
-			"fetchError": "获取失败"
 		}
 	},
 	"theme": {

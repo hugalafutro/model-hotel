@@ -3005,12 +3005,10 @@
 			"message": "Messaggio"
 		},
 		"applyRecommendedButton": {
-			"loading": "Caricamento…",
 			"applyRecommended": "Applica Consigliato",
 			"params": "({{count}} params)",
-			"modelsDevMatched": "models.dev matched: {{model}}",
 			"noRecommendationsAvailable": "Nessuna raccomandazione disponibile",
-			"tooltip": "Applica le impostazioni consigliate dal catalogo models.dev"
+			"tooltip": "Applica le impostazioni consigliate per questo modello"
 		},
 		"liveToggleButton": {
 			"live": "Live",
@@ -3239,9 +3237,6 @@
 			"initialError": "Recupero dei dati iniziali non riuscito",
 			"newerError": "Recupero delle voci più recenti non riuscito",
 			"olderError": "Recupero delle voci più vecchie non riuscito"
-		},
-		"useRecommendedSettings": {
-			"fetchError": "Recupero non riuscito"
 		}
 	},
 	"theme": {

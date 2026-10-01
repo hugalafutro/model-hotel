@@ -3005,12 +3005,10 @@
 			"message": "Message"
 		},
 		"applyRecommendedButton": {
-			"loading": "Chargement…",
 			"applyRecommended": "Appliquer Recommandé",
 			"params": "({{count}} params)",
-			"modelsDevMatched": "models.dev correspondant: {{model}}",
 			"noRecommendationsAvailable": "Aucune recommandation disponible",
-			"tooltip": "Appliquer les paramètres recommandés depuis le catalogue models.dev"
+			"tooltip": "Appliquer les paramètres recommandés pour ce modèle"
 		},
 		"liveToggleButton": {
 			"live": "En direct",
@@ -3239,9 +3237,6 @@
 			"initialError": "Impossible de récupérer les données initiales",
 			"newerError": "Impossible de récupérer les nouvelles entrées",
 			"olderError": "Impossible de récupérer les anciennes entrées"
-		},
-		"useRecommendedSettings": {
-			"fetchError": "Impossible de récupérer"
 		}
 	},
 	"theme": {

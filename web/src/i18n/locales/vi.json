@@ -2932,12 +2932,10 @@
 			"message": "Thông điệp"
 		},
 		"applyRecommendedButton": {
-			"loading": "Đang tải…",
 			"applyRecommended": "Áp dụng theo khuyến nghị",
 			"params": "({{count}} params)",
-			"modelsDevMatched": "models.dev đã tìm thấy: {{model}}",
 			"noRecommendationsAvailable": "Không có đề xuất nào",
-			"tooltip": "Áp dụng các cài đặt được đề xuất từ danh mục models.dev"
+			"tooltip": "Áp dụng các cài đặt được đề xuất cho mô hình này"
 		},
 		"liveToggleButton": {
 			"live": "Trực tiếp",
@@ -3163,9 +3161,6 @@
 			"initialError": "Không thể lấy dữ liệu ban đầu",
 			"newerError": "Không thể lấy các mục mới hơn",
 			"olderError": "Không thể lấy các mục cũ hơn"
-		},
-		"useRecommendedSettings": {
-			"fetchError": "Không thể tải về"
 		}
 	},
 	"theme": {

@@ -2932,12 +2932,10 @@
 			"message": "Besked"
 		},
 		"applyRecommendedButton": {
-			"loading": "Indlæser…",
 			"applyRecommended": "Anvend Anbefalet",
 			"params": "({{count}} params)",
-			"modelsDevMatched": "models.dev matchet: {{model}}",
 			"noRecommendationsAvailable": "Ingen anbefalinger tilgængelige",
-			"tooltip": "Anvend anbefalede indstillinger fra models.dev katalog"
+			"tooltip": "Anvend anbefalede indstillinger for denne model"
 		},
 		"liveToggleButton": {
 			"live": "Live",
@@ -3163,9 +3161,6 @@
 			"initialError": "Kunne ikke hente oprindelige data",
 			"newerError": "Kunne ikke hente nyere poster",
 			"olderError": "Kunne ikke hente ældre poster"
-		},
-		"useRecommendedSettings": {
-			"fetchError": "Kunne ikke hente"
 		}
 	},
 	"theme": {

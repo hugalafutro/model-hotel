@@ -2932,12 +2932,10 @@
 			"message": "Nachricht"
 		},
 		"applyRecommendedButton": {
-			"loading": "Lade…",
 			"applyRecommended": "Empfohlen anwenden",
 			"params": "({{count}} params)",
-			"modelsDevMatched": "models.dev übereinstimmend: {{model}}",
 			"noRecommendationsAvailable": "Keine Empfehlungen verfügbar",
-			"tooltip": "Empfohlene Einstellungen aus models.dev Katalog anwenden"
+			"tooltip": "Empfohlene Einstellungen für dieses Modell anwenden"
 		},
 		"liveToggleButton": {
 			"live": "Live",
@@ -3163,9 +3161,6 @@
 			"initialError": "Fehler beim Abrufen der Ausgangsdaten",
 			"newerError": "Fehler beim Abrufen neuerer Einträge",
 			"olderError": "Fehler beim Abrufen älterer Einträge"
-		},
-		"useRecommendedSettings": {
-			"fetchError": "Fehler beim Abrufen"
 		}
 	},
 	"theme": {

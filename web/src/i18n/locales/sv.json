@@ -2932,12 +2932,10 @@
 			"message": "Meddelande"
 		},
 		"applyRecommendedButton": {
-			"loading": "Laddar…",
 			"applyRecommended": "Tillämpa rekommenderade",
 			"params": "({{count}} params)",
-			"modelsDevMatched": "models.dev matchade: {{model}}",
 			"noRecommendationsAvailable": "Inga rekommendationer tillgängliga",
-			"tooltip": "Tillämpa rekommenderade inställningar från models.dev katalog"
+			"tooltip": "Tillämpa rekommenderade inställningar för denna modell"
 		},
 		"liveToggleButton": {
 			"live": "Live",
@@ -3163,9 +3161,6 @@
 			"initialError": "Det gick inte att hämta startdata",
 			"newerError": "Det gick inte att hämta nyare poster",
 			"olderError": "Det gick inte att hämta äldre poster"
-		},
-		"useRecommendedSettings": {
-			"fetchError": "Det gick inte att hämta"
 		}
 	},
 	"theme": {

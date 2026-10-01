@@ -3078,12 +3078,10 @@
 			"message": "Správa"
 		},
 		"applyRecommendedButton": {
-			"loading": "Načítava sa…",
 			"applyRecommended": "Použiť odporúčané",
 			"params": "({{count}} parametre)",
-			"modelsDevMatched": "models.dev našlo: {{model}}",
 			"noRecommendationsAvailable": "Žiadne odporúčania nie sú k dispozícii",
-			"tooltip": "Použiť odporúčané nastavenia z katalógu models.dev"
+			"tooltip": "Použiť odporúčané nastavenia pre tento model"
 		},
 		"liveToggleButton": {
 			"live": "Naživo",
@@ -3315,9 +3313,6 @@
 			"initialError": "Nepodarilo sa načítať počiatočné údaje",
 			"newerError": "Nepodarilo sa načítať novšie záznamy",
 			"olderError": "Nepodarilo sa načítať staršie záznamy"
-		},
-		"useRecommendedSettings": {
-			"fetchError": "Načítanie sa nepodarilo"
 		}
 	},
 	"theme": {

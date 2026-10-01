@@ -2932,12 +2932,10 @@
 			"message": "bericht"
 		},
 		"applyRecommendedButton": {
-			"loading": "… wordt geladen",
 			"applyRecommended": "Aanbevolen toepassen",
 			"params": "({{count}} params)",
-			"modelsDevMatched": "models.dev-match: {{model}}",
 			"noRecommendationsAvailable": "Geen aanbevelingen beschikbaar",
-			"tooltip": "Aanbevolen instellingen van models.dev catalogus toepassen"
+			"tooltip": "Aanbevolen instellingen voor dit model toepassen"
 		},
 		"liveToggleButton": {
 			"live": "Live",
@@ -3163,9 +3161,6 @@
 			"initialError": "Ophalen eerste gegevens mislukt",
 			"newerError": "Fout bij het ophalen van nieuwere items",
 			"olderError": "Kon oudere items niet ophalen"
-		},
-		"useRecommendedSettings": {
-			"fetchError": "Ophalen mislukt"
 		}
 	},
 	"theme": {

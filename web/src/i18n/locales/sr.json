@@ -3005,12 +3005,10 @@
 			"message": "Порука"
 		},
 		"applyRecommendedButton": {
-			"loading": "Учитавање…",
 			"applyRecommended": "Применити препоручено",
 			"params": "({{count}} параметри)",
-			"modelsDevMatched": "models.dev је подударио: {{model}}",
 			"noRecommendationsAvailable": "Нема доступних препорука",
-			"tooltip": "Применити препоручена подешавања из каталога models.dev"
+			"tooltip": "Применити препоручена подешавања за овај модел"
 		},
 		"liveToggleButton": {
 			"live": "Уживо",
@@ -3239,9 +3237,6 @@
 			"initialError": "Није успело да се преузму почетни подаци",
 			"newerError": "Није успело да преузме новије записе",
 			"olderError": "Није успело да преузме старије записе"
-		},
-		"useRecommendedSettings": {
-			"fetchError": "Није успело да се преузме"
 		}
 	},
 	"theme": {

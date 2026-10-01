@@ -170,6 +170,7 @@ export function ModelDetailPanel({
 							<GenerationParamSliders
 								modelId={proxyId}
 								provider={provider}
+								maxOutputTokens={model.max_output_tokens}
 								params={params as GenerationParams}
 								onChange={(next: GenerationParams) => onParamsChange?.(next)}
 								reasoning={caps.reasoning}

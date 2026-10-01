@@ -2932,12 +2932,10 @@
 			"message": "Mesaj"
 		},
 		"applyRecommendedButton": {
-			"loading": "… yükleniyor",
 			"applyRecommended": "Önerilenleri Uygula",
 			"params": "({{count}} parametreleri)",
-			"modelsDevMatched": "models.dev ile eşleşen: {{model}}",
 			"noRecommendationsAvailable": "Öneri bulunmamaktadır",
-			"tooltip": "models.dev kataloğundaki önerilen ayarları uygula"
+			"tooltip": "Bu model için önerilen ayarları uygula"
 		},
 		"liveToggleButton": {
 			"live": "Canlı",
@@ -3163,9 +3161,6 @@
 			"initialError": "İlk veriler alınamadı",
 			"newerError": "Daha yeni girişler alınamadı",
 			"olderError": "Eski kayıtlar alınamadı"
-		},
-		"useRecommendedSettings": {
-			"fetchError": "Alınamadı"
 		}
 	},
 	"theme": {

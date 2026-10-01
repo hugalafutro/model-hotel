@@ -3224,12 +3224,10 @@
 			"message": "رسالة"
 		},
 		"applyRecommendedButton": {
-			"loading": "جاري التحميل…",
 			"applyRecommended": "تطبيق الموصى به",
 			"params": "({{count}} params)",
-			"modelsDevMatched": "models.dev متطابق: {{model}}",
 			"noRecommendationsAvailable": "لا توجد توصيات متاحة",
-			"tooltip": "تطبيق الإعدادات الموصى بها من كتالوج models.dev"
+			"tooltip": "تطبيق الإعدادات الموصى بها لهذا النموذج"
 		},
 		"liveToggleButton": {
 			"live": "مباشر",
@@ -3467,9 +3465,6 @@
 			"initialError": "فشل في جلب البيانات الأولية",
 			"newerError": "فشل في جلب إدخالات أحدث",
 			"olderError": "فشل في جلب الإدخالات القديمة"
-		},
-		"useRecommendedSettings": {
-			"fetchError": "فشل في جلب"
 		}
 	},
 	"theme": {

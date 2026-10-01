@@ -3005,12 +3005,10 @@
 			"message": "Missatge"
 		},
 		"applyRecommendedButton": {
-			"loading": "Carregant…",
 			"applyRecommended": "Apliqueu el recomanat",
 			"params": "({{count}} params)",
-			"modelsDevMatched": "models.dev coincidit: {{model}}",
 			"noRecommendationsAvailable": "No hi ha recomanacions disponibles",
-			"tooltip": "Aplica la configuració recomanada del catàleg models.dev"
+			"tooltip": "Aplica la configuració recomanada per a aquest model"
 		},
 		"liveToggleButton": {
 			"live": "En directe",
@@ -3239,9 +3237,6 @@
 			"initialError": "Impossible de recollir les dades inicials",
 			"newerError": "Impossible de recollir entrades més recents",
 			"olderError": "Impossible de recuperar les entrades més antigues"
-		},
-		"useRecommendedSettings": {
-			"fetchError": "Impossible de recollir"
 		}
 	},
 	"theme": {

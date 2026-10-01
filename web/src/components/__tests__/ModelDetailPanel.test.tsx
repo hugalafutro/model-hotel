@@ -279,7 +279,7 @@ describe("ModelDetailPanel", () => {
 		expect(onParamsChange).toHaveBeenCalled();
 	});
 
-	it("shows ApplyRecommendedButton when settings are opened", async () => {
+	it("applies the model's stored max output as the max_tokens default", async () => {
 		const user = userEvent.setup();
 		const onParamsChange = vi.fn();
 		renderWithProviders(
@@ -295,10 +295,11 @@ describe("ModelDetailPanel", () => {
 			screen.getByRole("button", { name: /Generation parameters/i }),
 		);
 
-		// Apply Recommended button exists (shows "Loading..." initially)
-		const applyButton = screen.getByRole("button", { name: /Loading/i });
-		expect(applyButton).toBeInTheDocument();
-		expect(applyButton).toBeDisabled();
+		// mockModel has no curated family but stores max_output_tokens 4096.
+		await user.click(
+			screen.getByRole("button", { name: /Apply Recommended/i }),
+		);
+		expect(onParamsChange).toHaveBeenCalledWith({ max_tokens: 4096 });
 	});
 
 	it("applies accent tint class when tint is accent", () => {
