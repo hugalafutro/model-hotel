@@ -127,7 +127,7 @@ export function ModelDetailModal({
 			scrollable
 		>
 			{model.description && (
-				<div className="max-h-[60px] overflow-y-auto mt-2 mb-4">
+				<div className="max-h-[60px] overflow-y-auto mt-2 mb-1">
 					<p className="text-sm text-gray-300 m-0 leading-[20px]">
 						{model.description}
 					</p>
