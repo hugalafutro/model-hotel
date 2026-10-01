@@ -309,7 +309,7 @@ func (h *Handler) rejectUntranslatableBody(st *requestState, candidate modelCand
 	// object's error.message through verbatim). Only the log string is fenced;
 	// abortKind and translationIsProviderFault below read the real error.
 	debuglog.Warn("proxy: upstream body translation failed", "adapter", adapter,
-		"error", fencedFrameMessage(logData.fence(), logData.masks(), errString(err)),
+		"error", logData.fencedErr(err),
 		"model", logData.modelID, "provider", logData.providerName)
 	// The translators read the body under the attempt's context, so a request
 	// nobody is waiting for arrives here as a translation failure and is not the
@@ -410,8 +410,8 @@ func (h *Handler) meterRejectedPrompt(st *requestState, logData *requestLogData,
 	}
 	// The split is capped by the clamped total, so a provider reporting more
 	// cached tokens than prompt tokens cannot price more input than was metered.
-	hit := min(clampTokenCount(cacheHit), prompt)
-	miss := min(clampTokenCount(cacheMiss), prompt-hit)
+	hit := min(util.ClampTokenCount(cacheHit), prompt)
+	miss := min(util.ClampTokenCount(cacheMiss), prompt-hit)
 	cost, priced := candidate.model.CostUSD(model.Usage{Prompt: prompt, PromptCacheHit: hit, PromptCacheMiss: miss})
 	logData.rejected = append(logData.rejected, rejectedAttempt{
 		providerName: candidate.provider.Name,

@@ -10,7 +10,7 @@ import type {
 import { FuseOutline } from "../../components/FuseOutline";
 import { Toggle } from "../../components/Toggle";
 import { isNaEntry, naReasonKey } from "../../utils/failoverEntry";
-import { formatLocale } from "../../utils/format";
+import { formatDateTime } from "../../utils/format";
 import type { EntryCircuitView } from "./entryCircuit";
 
 export interface SortableEntryProps {
@@ -72,7 +72,7 @@ export function SortableEntry({
 	// Some verdicts carry no upstream status (a pin retarget, a transport
 	// failure), and those read without the status clause.
 	const causeWhen = circuitView?.lastAt
-		? new Date(circuitView.lastAt).toLocaleString(formatLocale())
+		? formatDateTime(circuitView.lastAt)
 		: "-";
 	const causeLine = !circuitView?.lastCause
 		? undefined
@@ -221,9 +221,7 @@ export function SortableEntry({
 	);
 
 	const fuseColor = cooldownOver ? "#fde68a" : showFuse ? "#fca5a5" : undefined;
-	const resetTime = nextRetryAt
-		? new Date(nextRetryAt).toLocaleString(formatLocale())
-		: undefined;
+	const resetTime = nextRetryAt ? formatDateTime(nextRetryAt) : undefined;
 	const baseTitle = !showFuse
 		? undefined
 		: cooldownOver

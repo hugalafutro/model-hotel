@@ -1527,17 +1527,22 @@ func TestTestModel_RerankRowProbesTheRerankRoute(t *testing.T) {
 	}
 }
 
-// TestTestModel_RerankRowWithNoRankedResultsFails: a 200 carrying no ranked
-// results is the empty answer the live path rejects, so the probe reports a
-// failure and the row is stored as failed, still charged for its unit.
-func TestTestModel_RerankRowWithNoRankedResultsFails(t *testing.T) {
-	h, r := newTestHandlerWithRouter(t)
+// rerankProbeResult is the part of a Test button answer the rerank tests read.
+type rerankProbeResult struct {
+	Success       bool   `json:"success"`
+	RankedResults *int   `json:"ranked_results"`
+	Error         string `json:"error"`
+}
 
+// probeRerankRow registers a provider that answers every request with body,
+// adds a rerank model on it named modelName, and runs that model's Test button.
+func probeRerankRow(t *testing.T, h *Handler, r http.Handler, modelName, body string) rerankProbeResult {
+	t.Helper()
 	mockServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
-		_, _ = w.Write([]byte(`{"results":[],"meta":{"billed_units":{"search_units":1}}}`))
+		_, _ = w.Write([]byte(body))
 	}))
-	defer mockServer.Close()
+	t.Cleanup(mockServer.Close)
 
 	providerData := fmt.Sprintf(`{"name": "test-provider-%s", "base_url": "%s", "api_key": "test-key"}`, uuid.New().String()[:8], mockServer.URL)
 	rec := httptest.NewRecorder()
@@ -1557,7 +1562,7 @@ func TestTestModel_RerankRowWithNoRankedResultsFails(t *testing.T) {
 	modelID := uuid.New().String()
 	if _, err := h.Pool().Pool().Exec(context.Background(),
 		`INSERT INTO models (id, provider_id, model_id, name, enabled, modality, output_modalities, search_price_per_thousand) VALUES ($1, $2, $3, $4, true, 'rerank', '["rerank"]', 2.0)`,
-		modelID, providerResp.ID, "rerank-empty", "Rerank empty"); err != nil {
+		modelID, providerResp.ID, modelName, modelName); err != nil {
 		t.Fatalf("Failed to insert model: %v", err)
 	}
 
@@ -1565,13 +1570,20 @@ func TestTestModel_RerankRowWithNoRankedResultsFails(t *testing.T) {
 	req = httptest.NewRequest(http.MethodPost, "/models/"+modelID+"/test", http.NoBody)
 	req.Header.Set("Authorization", "Bearer test-admin-token")
 	r.ServeHTTP(rec, req)
-	var testResp struct {
-		Success bool   `json:"success"`
-		Error   string `json:"error"`
-	}
+	var testResp rerankProbeResult
 	if err := json.Unmarshal(rec.Body.Bytes(), &testResp); err != nil {
 		t.Fatalf("Failed to parse test response: %v", err)
 	}
+	return testResp
+}
+
+// TestTestModel_RerankRowWithNoRankedResultsFails: a 200 carrying no ranked
+// results is the empty answer the live path rejects, so the probe reports a
+// failure and the row is stored as failed, still charged for its unit.
+func TestTestModel_RerankRowWithNoRankedResultsFails(t *testing.T) {
+	h, r := newTestHandlerWithRouter(t)
+
+	testResp := probeRerankRow(t, h, r, "rerank-empty", `{"results":[],"meta":{"billed_units":{"search_units":1}}}`)
 	if testResp.Success || !strings.Contains(testResp.Error, "no ranked results") {
 		t.Errorf("response = %+v, want a failure naming the empty answer", testResp)
 	}
@@ -1585,6 +1597,18 @@ func TestTestModel_RerankRowWithNoRankedResultsFails(t *testing.T) {
 	}
 	if state != "failed" || units != 1 || cost == nil {
 		t.Errorf("probe row = %s units=%d cost=%v, want failed, 1 unit, priced", state, units, cost)
+	}
+}
+
+// TestTestModel_RerankRowInAnUnknownShapePasses: a 200 whose rankings sit
+// under a key the gateway does not recognise is judged as live traffic judges
+// it, delivered, and no ranked count is reported since the shape names none.
+func TestTestModel_RerankRowInAnUnknownShapePasses(t *testing.T) {
+	h, r := newTestHandlerWithRouter(t)
+
+	testResp := probeRerankRow(t, h, r, "rerank-unknown-shape", `{"rankings":[{"index":0,"score":0.4}]}`)
+	if !testResp.Success || testResp.RankedResults != nil {
+		t.Errorf("response = %+v, want success with no ranked count", testResp)
 	}
 }
 

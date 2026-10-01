@@ -1,3 +1,4 @@
+import { clamp } from "../format";
 import type { OpenCodeGoUsageResponse } from "./types";
 
 // OpenCode Go names its three windows as fields rather than listing them, so
@@ -46,7 +47,7 @@ export function getOpenCodeGoWindows(
 		const w = usage[key];
 		if (!w) continue;
 		const n = Number(w.percent);
-		const clamped = Number.isFinite(n) ? Math.min(100, Math.max(0, n)) : 0;
+		const clamped = Number.isFinite(n) ? clamp(n, 0, 100) : 0;
 		windows.push({
 			key,
 			percent: isOpenCodeGoWindowRefused(w.status) ? 100 : clamped,

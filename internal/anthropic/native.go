@@ -4,44 +4,30 @@ import (
 	"bytes"
 	"encoding/json"
 
+	"github.com/hugalafutro/model-hotel/internal/egress"
 	"github.com/hugalafutro/model-hotel/internal/util"
 )
 
-// RewriteModel rewrites the top-level "model" field of an Anthropic Messages
-// request body to the resolved upstream model id, leaving every other field
-// intact. On any parse failure the original body is returned unchanged.
-func RewriteModel(body []byte, model string) []byte { return util.RewriteJSONModel(body, model) }
-
-// ResponseUsage is the metering summary of one Anthropic Messages response.
-// PromptTokens is the whole prompt. CacheHit and CacheMiss split it by how the
-// tokens were billed and sum back to it, but only when the response reports a
-// cache read; an uncached response leaves both zero.
-type ResponseUsage struct {
-	PromptTokens     int
-	CompletionTokens int
-	CacheHitTokens   int
-	CacheMissTokens  int
-}
-
 // ParseResponseUsage extracts the token counts from a non-streaming Anthropic
 // Messages response (top-level usage{...}) for metering. A missing or
-// unparseable usage block yields a zero ResponseUsage.
+// unparseable usage block yields a zero NativeUsage. The cache split is
+// reported only when the response reports a cache read.
 //
 // PromptTokens is the SUM of input_tokens, cache_read_input_tokens and
 // cache_creation_input_tokens: Anthropic's three counts are disjoint additions,
 // not a breakdown, so a cache hit reports input_tokens: 4 alongside
 // cache_read_input_tokens: 20000 for a ~20004-token prompt. Metering the bare
 // input_tokens under-reports a warm-cache request by the whole cached figure.
-func ParseResponseUsage(body []byte) ResponseUsage {
+func ParseResponseUsage(body []byte) egress.NativeUsage {
 	var resp struct {
 		Usage json.RawMessage `json:"usage"`
 	}
 	if json.Unmarshal(body, &resp) != nil {
-		return ResponseUsage{}
+		return egress.NativeUsage{}
 	}
 	u, ok := ReadUsage(resp.Usage)
 	if !ok {
-		return ResponseUsage{}
+		return egress.NativeUsage{}
 	}
 	return u.summary()
 }
@@ -69,8 +55,8 @@ type UsageBlock struct {
 // reports NO cache counts rather than "miss = the whole prompt". Creation
 // tokens still count inside PromptTokens, which is what the request is metered
 // and priced on.
-func (u UsageBlock) summary() ResponseUsage {
-	out := ResponseUsage{
+func (u UsageBlock) summary() egress.NativeUsage {
+	out := egress.NativeUsage{
 		PromptTokens:     u.InputTokens + u.CacheReadInputTokens + u.CacheCreationInputTokens,
 		CompletionTokens: u.OutputTokens,
 	}
@@ -136,42 +122,28 @@ func ResponseTextBytes(body []byte) int {
 	return n
 }
 
-// StreamEvent is the decoded summary of a single Anthropic stream event: the
-// event Type, any token usage, and the error message on an "error" event.
-type StreamEvent struct {
-	Type            string
-	InputTokens     int
-	CacheHitTokens  int // the cache-served share of InputTokens; 0 when uncached
-	CacheMissTokens int // the rest of InputTokens; 0 when uncached, not the whole prompt
-	HasInput        bool
-	OutputTokens    int
-	HasOutput       bool
-	ErrorMessage    string // set only when Type == "error"
-	// CarriesError reports a populated error member on ANY event type: a
-	// relay wraps its rejection as {"type":"error","error":{...}}, sends it
-	// bare as {"error":{...}}, or stamps it on an ordinary event, and all of
-	// those are error text for the credential mask.
-	CarriesError bool
-	// TextBytes is the byte length of the output a content block event carries:
-	// a content_block_delta's text, thinking or partial JSON, and a
-	// content_block_start's tool name plus whatever content a relay put on the
-	// opener (Anthropic itself opens a block empty and streams the rest as
-	// deltas). A relay that puts the input on the opener AND streams it as
-	// deltas is counted twice; the estimate only stands in when the stream
-	// ends before message_delta reports output_tokens, so the over-count is
-	// accepted. It is the delivered output the passthrough estimates from.
-	TextBytes int
-}
-
 // InspectStreamEvent decodes one Anthropic stream event payload (the JSON after
 // "data: "). message_start carries the input usage; message_delta carries the
 // cumulative usage.output_tokens; an "error" event carries error.message. A
-// payload that does not parse yields a zero StreamEvent (Type == "").
+// payload that does not parse yields a zero event (Type == ""). message_stop
+// is the terminal event.
+//
+// CarriesError reports a populated error member on ANY event type: a relay
+// wraps its rejection as {"type":"error","error":{...}}, sends it bare as
+// {"error":{...}}, or stamps it on an ordinary event, and all of those are
+// error text for the credential mask.
+//
+// TextBytes counts a content_block_delta's text, thinking or partial JSON, and
+// a content_block_start's tool name plus whatever content a relay put on the
+// opener (Anthropic itself opens a block empty and streams the rest as
+// deltas). A relay that puts the input on the opener AND streams it as deltas
+// is counted twice; the estimate only stands in when the stream ends before
+// message_delta reports output_tokens, so the over-count is accepted.
 //
 // InputTokens and its cache split come from the same arithmetic
 // ParseResponseUsage does, so a streamed warm-cache request meters its full
 // prompt exactly as the non-streaming path does.
-func InspectStreamEvent(payload []byte) StreamEvent {
+func InspectStreamEvent(payload []byte) egress.NativeStreamEvent {
 	var ev struct {
 		Type    string `json:"type"`
 		Message *struct {
@@ -208,9 +180,9 @@ func InspectStreamEvent(payload []byte) StreamEvent {
 		} `json:"content_block"`
 	}
 	if json.Unmarshal(payload, &ev) != nil {
-		return StreamEvent{}
+		return egress.NativeStreamEvent{}
 	}
-	info := StreamEvent{Type: ev.Type, CarriesError: util.ValueCarries(ev.Error)}
+	info := egress.NativeStreamEvent{Type: ev.Type, Terminal: ev.Type == "message_stop", CarriesError: util.ValueCarries(ev.Error)}
 	switch ev.Type {
 	case "message_start":
 		var raw json.RawMessage
@@ -278,10 +250,10 @@ func ReadUsage(raw json.RawMessage) (UsageBlock, bool) {
 	if err := util.DecodeCounts(raw, &u); err != nil && util.ShapeError(raw, err) == nil {
 		return UsageBlock{}, false
 	}
-	if len(util.UnreadableCounts(raw, promptAddends...)) > 0 {
+	if util.CountsUnreadable(raw, promptAddends...) {
 		u.InputTokens, u.CacheReadInputTokens, u.CacheCreationInputTokens = 0, 0, 0
 	}
-	if len(util.UnreadableCounts(raw, "output_tokens")) > 0 {
+	if util.CountsUnreadable(raw, "output_tokens") {
 		u.OutputTokens = 0
 	}
 	return u, true

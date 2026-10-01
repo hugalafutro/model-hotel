@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { formatLocale } from "../utils/format";
+import { formatLocale, formatNumber } from "../utils/format";
 
 /** Dims the unit that trails a figure, so the number reads first. */
 export const unitClass = "text-(--text-muted)";
@@ -58,7 +58,7 @@ const oneDecimal = (v: number) =>
 export function formatCount(n: number) {
 	if (n >= 1_000_000) return figure(oneDecimal(n / 1_000_000), "M");
 	if (n >= 1_000) return figure(oneDecimal(n / 1_000), "K");
-	return n.toLocaleString(formatLocale());
+	return formatNumber(n);
 }
 
 /** Memory in the unit that keeps it readable: "0.5 MB", "512 MB", "1.5 GB". */

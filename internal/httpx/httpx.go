@@ -341,7 +341,7 @@ func checkNothingFollows(w http.ResponseWriter, r *http.Request, component strin
 // phrase means no decoder message can reach a log line by accident either. The
 // phrase and the byte offset say everything an operator needs.
 func rejectDecode(w http.ResponseWriter, r *http.Request, component string, limit int64, err error) bool {
-	if isBodyTooLarge(err) {
+	if IsBodyTooLarge(err) {
 		debuglog.Info(component+": rejected oversized request body",
 			"path", r.URL.Path, "method", r.Method, "limit_bytes", limit)
 		http.Error(w, "request body too large", http.StatusRequestEntityTooLarge)
@@ -378,10 +378,10 @@ func decodeFailure(err error) (kind string, offset int64) {
 	}
 }
 
-// isBodyTooLarge reports whether err is MaxBytesReader's over-the-limit error.
+// IsBodyTooLarge reports whether err is MaxBytesReader's over-the-limit error.
 // json.Decoder surfaces a read error unwrapped, but errors.As keeps this
 // correct if a future decode path wraps it.
-func isBodyTooLarge(err error) bool {
+func IsBodyTooLarge(err error) bool {
 	var tooLarge *http.MaxBytesError
 	return errors.As(err, &tooLarge)
 }

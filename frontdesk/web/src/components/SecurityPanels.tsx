@@ -11,7 +11,7 @@ import {
 import type { TFunction } from "i18next";
 import { useCallback, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { ApiError, api } from "../api/client";
+import { api, rateLimitedOr } from "../api/client";
 import type { TotpInfo, WebAuthnCredential } from "../api/types";
 import { useToast } from "../context/ToastContext";
 import { useCopyWithToast } from "../hooks/useCopyWithToast";
@@ -391,9 +391,7 @@ function TotpPanel() {
 			})
 			.catch((err) =>
 				toast(
-					err instanceof ApiError && err.status === 429
-						? t("login.tooManyAttempts")
-						: t("settings.totp.failedToVerify"),
+					rateLimitedOr(err, t, t("settings.totp.failedToVerify")),
 					"error",
 				),
 			)
@@ -415,9 +413,7 @@ function TotpPanel() {
 			})
 			.catch((err) =>
 				toast(
-					err instanceof ApiError && err.status === 429
-						? t("login.tooManyAttempts")
-						: t("settings.totp.failedToDisable"),
+					rateLimitedOr(err, t, t("settings.totp.failedToDisable")),
 					"error",
 				),
 			)

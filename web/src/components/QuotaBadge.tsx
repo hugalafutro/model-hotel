@@ -1,8 +1,7 @@
-import { isQuotaPayloadSpent, windowPct } from "@web-shared/quota";
+import { deepseekUsd, isQuotaPayloadSpent, windowPct } from "@web-shared/quota";
 import i18next from "i18next";
 import type {
 	DeepSeekBalance,
-	DeepSeekBalanceInfo,
 	KimiCodeQuotaResponse,
 	MiniMaxQuotaResponse,
 	NanoGPTUsage,
@@ -206,10 +205,7 @@ function deepseekBadgeContent(
 	balance: DeepSeekBalance,
 	dataUpdatedAt?: number,
 ): BadgeContent {
-	const usd = balance.balance_infos.find(
-		(b: DeepSeekBalanceInfo) => b.currency === "USD",
-	)?.total_balance;
-	const amount = usd == null ? null : formatDollars(Number(usd));
+	const amount = deepseekUsd(balance);
 	const refreshed = refreshedAt(dataUpdatedAt);
 	return {
 		label: amount ?? "-",

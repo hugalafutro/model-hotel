@@ -11,9 +11,10 @@ import { DetailSectionHeader } from "../DetailSectionHeader";
 import { DetailItem } from "../LogDetailItem";
 import { Modal } from "../Modal";
 import {
+	clampPercent,
 	LastRefreshedRow,
 	type OnToast,
-	QuotaModalHeaderActions,
+	QuotaModalHeader,
 	remainingBarColor,
 	usedBarColor,
 	useQuotaBarMode,
@@ -55,39 +56,33 @@ export function OpenRouterQuotaModal({
 	return (
 		<Modal
 			header={
-				<div className="flex justify-between items-start mb-6">
-					<div>
-						<h2 className="ui-modal-title">
-							{t("components.providerModals.openRouterCredits")}
-						</h2>
-						<p className="ui-subtitle mt-1">
-							{balance.is_free_tier ? (
-								<span className="inline-flex items-center gap-1.5">
-									<span className="w-2 h-2 rounded-full bg-yellow-400"></span>
-									{t("components.providerModals.freeTier")}
-								</span>
-							) : (
-								<span className="inline-flex items-center gap-1.5">
-									<span className="w-2 h-2 rounded-full bg-green-400"></span>
-									{t("components.providerModals.paidAccount")}
-								</span>
-							)}
-						</p>
-					</div>
-					<QuotaModalHeaderActions
-						barMode={barMode}
-						onToggleBarMode={toggleBarMode}
-						onRefresh={handleRefresh}
-						isRefreshing={isRefreshing}
-						toggleAriaLabel={t("providers.credits.toggleLabel")}
-						toggleTitle={
-							barMode === "remaining"
-								? t("providers.credits.showUsed")
-								: t("providers.credits.showRemaining")
-						}
-						refreshTitle={t("components.providerModals.refreshBalanceInfo")}
-					/>
-				</div>
+				<QuotaModalHeader
+					title={t("components.providerModals.openRouterCredits")}
+					subtitle={
+						balance.is_free_tier ? (
+							<span className="inline-flex items-center gap-1.5">
+								<span className="w-2 h-2 rounded-full bg-yellow-400"></span>
+								{t("components.providerModals.freeTier")}
+							</span>
+						) : (
+							<span className="inline-flex items-center gap-1.5">
+								<span className="w-2 h-2 rounded-full bg-green-400"></span>
+								{t("components.providerModals.paidAccount")}
+							</span>
+						)
+					}
+					barMode={barMode}
+					onToggleBarMode={toggleBarMode}
+					onRefresh={handleRefresh}
+					isRefreshing={isRefreshing}
+					toggleAriaLabel={t("providers.credits.toggleLabel")}
+					toggleTitle={
+						barMode === "remaining"
+							? t("providers.credits.showUsed")
+							: t("providers.credits.showRemaining")
+					}
+					refreshTitle={t("components.providerModals.refreshBalanceInfo")}
+				/>
 			}
 			onClose={onClose}
 			scrollable
@@ -107,7 +102,7 @@ export function OpenRouterQuotaModal({
 							<div
 								className={`${barMode === "used" ? usedBarColor(100 - creditsRemaining) : remainingBarColor(creditsRemaining)} h-3 ui-bar transition-all`}
 								style={{
-									width: `${barMode === "used" ? Math.min(100 - creditsRemaining, 100) : Math.min(creditsRemaining, 100)}%`,
+									width: `${clampPercent(barMode === "used" ? 100 - creditsRemaining : creditsRemaining)}%`,
 								}}
 							/>
 						</div>
@@ -138,9 +133,8 @@ export function OpenRouterQuotaModal({
 								style={{
 									width: `${
 										balance.limit > 0
-											? Math.min(
+											? clampPercent(
 													barMode === "used" ? 100 - limitPct : limitPct,
-													100,
 												)
 											: 0
 									}%`,

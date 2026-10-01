@@ -3,7 +3,7 @@ import { type ReactNode, useId } from "react";
 import { useTranslation } from "react-i18next";
 import { api } from "../api/client";
 import { useIdentity } from "../context/IdentityContext";
-import { formatDecimal, formatLocale } from "../utils/format";
+import { formatDecimal, formatNumber } from "../utils/format";
 import {
 	CollapseBody,
 	CollapsibleToggle,
@@ -377,7 +377,7 @@ export function SystemStatus() {
 						<span
 							className={`text-(--text-secondary) ${dc(app?.goroutines, 300, 1000)}`}
 						>
-							{app ? app.goroutines.toLocaleString(formatLocale()) : dash}
+							{app ? formatNumber(app.goroutines) : dash}
 						</span>
 					</div>
 

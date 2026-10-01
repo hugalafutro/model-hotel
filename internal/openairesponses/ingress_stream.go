@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/hugalafutro/model-hotel/internal/debuglog"
+	"github.com/hugalafutro/model-hotel/internal/egress"
 	"github.com/hugalafutro/model-hotel/internal/jsonfault"
 	"github.com/hugalafutro/model-hotel/internal/util"
 )
@@ -34,13 +35,10 @@ type IngressStreamTranslator struct {
 	started  bool // response.created emitted
 	finished bool // terminal event emitted
 
-	items         []openItem     // every item in output order, closed or open
-	open          int            // index into items of the open reasoning/message item, or -1
-	toolItemByIdx map[int]int    // chat tool_calls index -> items index
-	idxByCallID   map[string]int // chat tool_call id -> chat index, for fragments sent without one
-	idByIndex     map[int]string // wire index -> the id that last opened under it, to spot a reused index
-	aliasOf       map[int]int    // wire index -> the call it currently names (latest opener wins)
-	lastChatIndex int            // chat index of the call streamed last, for fragments sent with neither
+	items         []openItem              // every item in output order, closed or open
+	open          int                     // index into items of the open reasoning/message item, or -1
+	toolItemByIdx map[int]int             // chat tool_calls index -> items index
+	toolIndex     *egress.ToolCallIndexer // resolves fragments sent without an index, or with a reused one
 	finishReason  string
 	usage         *Usage
 	facts         *RequestFacts
@@ -83,9 +81,7 @@ func NewIngressStreamTranslator(responseID, model string, facts *RequestFacts) *
 		createdAt:     time.Now().Unix(),
 		open:          openIndexNone,
 		toolItemByIdx: map[int]int{},
-		idxByCallID:   map[string]int{},
-		idByIndex:     map[int]string{},
-		aliasOf:       map[int]int{},
+		toolIndex:     egress.NewToolCallIndexer(),
 		facts:         facts,
 	}
 }
@@ -327,7 +323,10 @@ func (t *IngressStreamTranslator) refusalDelta(buf *bytes.Buffer, delta string) 
 // argument text. Function calls close only when the turn finishes, so every
 // fragment lands on the one item its index (or call id) names.
 func (t *IngressStreamTranslator) toolCallDelta(buf *bytes.Buffer, tc chatToolCall) {
-	chatIdx := t.chatIndexFor(tc)
+	chatIdx := t.toolIndex.Resolve(tc.Index, tc.ID, func(wire int) bool {
+		_, open := t.toolItemByIdx[wire]
+		return open
+	})
 	idx, known := t.toolItemByIdx[chatIdx]
 	if !known {
 		t.closeNonTool(buf)
@@ -347,56 +346,6 @@ func (t *IngressStreamTranslator) toolCallDelta(buf *bytes.Buffer, tc chatToolCa
 			"item_id": it.id, "output_index": idx, "delta": args,
 		})
 	}
-}
-
-// chatIndexFor is the chat tool_calls index a fragment belongs to. A provider
-// that omits the index is read by call id instead, each id getting its own
-// synthetic index, so two parallel calls sent without indexes do not merge
-// into one item; a fragment with neither continues the call streamed last.
-func (t *IngressStreamTranslator) chatIndexFor(tc chatToolCall) int {
-	switch {
-	case tc.Index != nil:
-		wire := *tc.Index
-		idx := wire
-		if tc.ID != "" {
-			if known, ok := t.idxByCallID[tc.ID]; ok {
-				// A call already keyed: an id-bearing continuation, or an
-				// opener whose id arrived before its index. Neither re-aliases
-				// the wire index; only an opener may, or a continuation of
-				// the first call would steal the alias from the call opened
-				// after it.
-				idx = known
-			} else {
-				if owner, taken := t.idByIndex[wire]; taken && owner != tc.ID {
-					// An opener reusing an index another call holds is a new call.
-					idx = -1 - len(t.idxByCallID)
-				}
-				t.idxByCallID[tc.ID] = idx
-				t.idByIndex[wire] = tc.ID
-				t.aliasOf[wire] = idx
-			}
-		} else if alias, ok := t.aliasOf[wire]; ok {
-			// The id-less fragments under a reused wire index belong to the
-			// call that last opened under it.
-			idx = alias
-		} else if _, open := t.toolItemByIdx[wire]; !open && t.lastChatIndex < 0 {
-			// An index that opened nothing, after an id-keyed opener: the
-			// continuation of that call.
-			idx = t.lastChatIndex
-		}
-		t.lastChatIndex = idx
-	case tc.ID == "":
-		// Neither index nor id: a continuation of the call streamed last, not
-		// index 0, which an id-keyed opener never claimed.
-	default:
-		idx, ok := t.idxByCallID[tc.ID]
-		if !ok {
-			idx = -1 - len(t.idxByCallID)
-			t.idxByCallID[tc.ID] = idx
-		}
-		t.lastChatIndex = idx
-	}
-	return t.lastChatIndex
 }
 
 // openItem appends an item and emits its output_item.added. A reasoning or
@@ -495,9 +444,5 @@ func writeEvent(buf *bytes.Buffer, eventType string, payload any) {
 		debuglog.Warn("openairesponses: marshal ingress event failed", "event", eventType, "error", err)
 		return
 	}
-	buf.WriteString("event: ")
-	buf.WriteString(eventType)
-	buf.WriteString("\ndata: ")
-	buf.Write(b)
-	buf.WriteString("\n\n")
+	egress.WriteEvent(buf, eventType, b)
 }

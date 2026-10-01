@@ -6,7 +6,7 @@ import {
 	LastRefreshedRow,
 	type OnToast,
 	QuotaBar,
-	QuotaModalHeaderActions,
+	QuotaModalHeader,
 	resetAtLabel,
 	usedLeftText,
 	useQuotaBarMode,
@@ -44,17 +44,13 @@ export function OpenCodeGoQuotaModal({
 	return (
 		<Modal
 			header={
-				<div className="flex justify-between items-start mb-6">
-					<h2 className="ui-modal-title">
-						{t("components.providerModals.openCodeGoPlanQuota")}
-					</h2>
-					<QuotaModalHeaderActions
-						barMode={barMode}
-						onToggleBarMode={toggleBarMode}
-						onRefresh={handleRefresh}
-						isRefreshing={isRefreshing}
-					/>
-				</div>
+				<QuotaModalHeader
+					title={t("components.providerModals.openCodeGoPlanQuota")}
+					barMode={barMode}
+					onToggleBarMode={toggleBarMode}
+					onRefresh={handleRefresh}
+					isRefreshing={isRefreshing}
+				/>
 			}
 			onClose={onClose}
 			scrollable

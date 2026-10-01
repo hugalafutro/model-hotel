@@ -54,3 +54,25 @@ func TestMaxSaneTokenCount_FitsTheColumnsAndRealTraffic(t *testing.T) {
 		t.Errorf("one clamped charge holds a 60k TPM bucket for %.1fh, want <= 8h", hours)
 	}
 }
+
+func TestRerankSearchUnits(t *testing.T) {
+	for _, tc := range []struct {
+		name string
+		body string
+		want int
+	}{
+		{"cohere v2 answer", `{"results":[{"index":1,"relevance_score":0.9}],"meta":{"api_version":{"version":"2"},"billed_units":{"search_units":2}}}`, 2},
+		{"quoted count still counts", `{"meta":{"billed_units":{"search_units":"4"}}}`, 4},
+		{"token-billed rerank has no units", `{"results":[],"usage":{"total_tokens":42}}`, 0},
+		{"billed units without search units", `{"meta":{"billed_units":{"input_tokens":10}}}`, 0},
+		{"null billed units", `{"meta":{"billed_units":null}}`, 0},
+		{"negative is clamped", `{"meta":{"billed_units":{"search_units":-3}}}`, 0},
+		{"invalid JSON", `{nope`, 0},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			if got := RerankSearchUnits([]byte(tc.body)); got != tc.want {
+				t.Errorf("RerankSearchUnits() = %d, want %d", got, tc.want)
+			}
+		})
+	}
+}

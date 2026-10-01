@@ -133,18 +133,14 @@ type oaiToolCallOut struct {
 }
 
 type oaiUsage struct {
-	PromptTokens            int `json:"prompt_tokens"`
-	CompletionTokens        int `json:"completion_tokens"`
-	TotalTokens             int `json:"total_tokens"`
-	CompletionTokensDetails *struct {
-		ReasoningTokens int `json:"reasoning_tokens"`
-	} `json:"completion_tokens_details,omitempty"`
+	PromptTokens            int                             `json:"prompt_tokens"`
+	CompletionTokens        int                             `json:"completion_tokens"`
+	TotalTokens             int                             `json:"total_tokens"`
+	CompletionTokensDetails *egress.CompletionTokensDetails `json:"completion_tokens_details,omitempty"`
 	// Gemini's cachedContentTokenCount is the part of the prompt served from
 	// its context cache, the reading the cache-hit price applies to; spelled
 	// the OpenAI way so the metering reads it like every other provider's.
-	PromptTokensDetails *struct {
-		CachedTokens int `json:"cached_tokens"`
-	} `json:"prompt_tokens_details,omitempty"`
+	PromptTokensDetails *egress.PromptTokensDetails `json:"prompt_tokens_details,omitempty"`
 }
 
 // ErrMalformedFunctionCall marks a candidate Gemini finished with
@@ -328,16 +324,16 @@ func translateUsage(raw json.RawMessage) *oaiUsage {
 	if err := util.DecodeCounts(raw, &u); err != nil && util.ShapeError(raw, err) == nil {
 		return nil
 	}
-	if len(util.UnreadableCounts(raw, "candidatesTokenCount", "thoughtsTokenCount")) > 0 {
+	if util.CountsUnreadable(raw, "candidatesTokenCount", "thoughtsTokenCount") {
 		u.CandidatesTokenCount, u.ThoughtsTokenCount = 0, 0
 	}
-	if len(util.UnreadableCounts(raw, "promptTokenCount")) > 0 {
+	if util.CountsUnreadable(raw, "promptTokenCount") {
 		u.PromptTokenCount = 0
 	}
-	if len(util.UnreadableCounts(raw, "totalTokenCount")) > 0 {
+	if util.CountsUnreadable(raw, "totalTokenCount") {
 		u.TotalTokenCount = 0
 	}
-	if len(util.UnreadableCounts(raw, "cachedContentTokenCount")) > 0 {
+	if util.CountsUnreadable(raw, "cachedContentTokenCount") {
 		u.CachedContentTokenCount = 0
 	}
 	out := &oaiUsage{
@@ -346,17 +342,13 @@ func translateUsage(raw json.RawMessage) *oaiUsage {
 		TotalTokens:      u.TotalTokenCount,
 	}
 	if u.ThoughtsTokenCount > 0 {
-		out.CompletionTokensDetails = &struct {
-			ReasoningTokens int `json:"reasoning_tokens"`
-		}{ReasoningTokens: u.ThoughtsTokenCount}
+		out.CompletionTokensDetails = &egress.CompletionTokensDetails{ReasoningTokens: u.ThoughtsTokenCount}
 	}
 	// A cached count is part of the prompt count; one larger than the prompt is
 	// not a reading this gateway can meter (it would record more cache hits
 	// than tokens), so it is left out while the prompt count stands.
 	if u.CachedContentTokenCount > 0 && u.CachedContentTokenCount <= u.PromptTokenCount {
-		out.PromptTokensDetails = &struct {
-			CachedTokens int `json:"cached_tokens"`
-		}{CachedTokens: u.CachedContentTokenCount}
+		out.PromptTokensDetails = &egress.PromptTokensDetails{CachedTokens: u.CachedContentTokenCount}
 	}
 	return out
 }

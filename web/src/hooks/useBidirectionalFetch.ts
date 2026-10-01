@@ -5,6 +5,23 @@ import { errorMessage } from "../utils/errors";
 const FETCH_SIZE = 200;
 const MAX_ROWS = 10000;
 
+/**
+ * Each row of `rows` swapped for its copy in `byId`, unless there is none or
+ * `keep` holds on to the row already listed.
+ */
+function replaceKept<T>(
+	rows: T[],
+	byId: Map<string, T>,
+	getId: (entry: T) => string,
+	keep: ((current: T, incoming: T) => boolean) | undefined,
+): T[] {
+	return rows.map((e) => {
+		const next = byId.get(getId(e));
+		if (next === undefined || keep?.(e, next)) return e;
+		return next;
+	});
+}
+
 export interface CursorResponse<T> {
 	entries: T[];
 	total: number;
@@ -210,11 +227,7 @@ export function useBidirectionalFetch<
 						if (oldest !== undefined) pendingMergesRef.current.delete(oldest);
 					}
 				}
-				return prev.map((e) => {
-					const next = updateMap.get(getId(e));
-					if (next === undefined || keep?.(e, next)) return e;
-					return next;
-				});
+				return replaceKept(prev, updateMap, getId, keep);
 			});
 		},
 		[getId, keep],
@@ -326,11 +339,7 @@ export function useBidirectionalFetch<
 					// refuses it: a row that finished after the fetch that prepended
 					// it reads finished on the next page, while a page that started
 					// before a fresher merge cannot put the older snapshot back.
-					const kept = prev.map((e) => {
-						const next = byId.get(getId(e));
-						if (next === undefined || keep?.(e, next)) return e;
-						return next;
-					});
+					const kept = replaceKept(prev, byId, getId, keep);
 					const existingIds = new Set(prev.map((e) => getId(e)));
 					const fresh = page.filter((e) => !existingIds.has(getId(e)));
 					return before ? [...fresh, ...kept] : [...kept, ...fresh];

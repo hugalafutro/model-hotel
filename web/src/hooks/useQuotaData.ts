@@ -40,6 +40,7 @@ import type {
 	ZAICodingQuotaLimit,
 	ZAICodingQuotaResponse,
 } from "../api/types";
+import { removeStoredKeys } from "./useLocalStorage";
 
 // The payload parsing behind these helpers lives in web-shared/quota so Front
 // Desk derives identical numbers from identical payloads. Re-exported here
@@ -88,11 +89,7 @@ export function setCachedData<T>(key: string, data: T) {
 }
 
 export function clearCachedData(key: string) {
-	try {
-		localStorage.removeItem(`${CACHE_PREFIX}:${key}`);
-	} catch {
-		/* ignore */
-	}
+	removeStoredKeys([`${CACHE_PREFIX}:${key}`]);
 }
 
 // ── Provider type detection ──────────────────────────────────────────────

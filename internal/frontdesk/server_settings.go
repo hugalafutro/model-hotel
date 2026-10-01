@@ -170,13 +170,7 @@ func (s *Server) autoSyncStatusNow(ctx context.Context) (autoSyncStatus, error) 
 		status.Stale = autoSyncStale(cfg, latestSync, haveLatest, s.poller.autoSyncIdle(), time.Now().UTC())
 		status.FleetState, status.FleetStateReasons = s.fleetStateFrom(ctx, members, cfg, state, found)
 		status.EffectivePrimaryID = effectivePrimaryID(members, cfg, state.PrimaryID)
-		var lastSync time.Time
-		for _, m := range members {
-			if m.LastConfigSyncAt != nil && m.LastConfigSyncAt.After(lastSync) {
-				lastSync = *m.LastConfigSyncAt
-			}
-		}
-		if !lastSync.IsZero() {
+		if lastSync, _ := fleetLastSync(members, time.Time{}, false); !lastSync.IsZero() {
 			status.LastSyncAt = lastSync.UTC().Format(time.RFC3339Nano)
 		}
 	}

@@ -1,8 +1,8 @@
 import { useTranslation } from "react-i18next";
 import type { LogEntry } from "../api/types";
 import { useVirtualRows } from "../hooks/useVirtualRows";
-import { onActivateKey } from "../utils/a11y";
 import { isInProgress } from "../utils/logHelpers";
+import { TimeSortHeader, VirtualRow } from "./DataTable";
 import { RequestLogCells } from "./logs/RequestLogCells";
 import { LOG_COL_WIDTHS, LOG_TABLE_MIN_W } from "./logTableWidths";
 import { ScrollTopButton } from "./ScrollTopButton";
@@ -109,19 +109,12 @@ export function VirtualLogTable(props: VirtualLogTableProps) {
 					{entries.length > 0 && (
 						<thead className="sticky top-0 z-10">
 							<tr>
-								<th
+								<TimeSortHeader
+									label={t("logs.table.timeDate")}
 									className={HEADER_BASE}
-									title={t("logs.table.timeDate")}
-									aria-sort={sortDir === "desc" ? "descending" : "ascending"}
-								>
-									<button
-										type="button"
-										className="cursor-pointer"
-										onClick={onSortToggle}
-									>
-										{t("logs.table.timeDate")} {sortDir === "desc" ? "↓" : "↑"}
-									</button>
-								</th>
+									sortDir={sortDir}
+									onSortToggle={onSortToggle}
+								/>
 								<th className={HEADER_BASE} title={t("logs.table.model")}>
 									{t("logs.table.model")}
 								</th>
@@ -176,21 +169,19 @@ export function VirtualLogTable(props: VirtualLogTableProps) {
 							const log = entries[vItem.index];
 							const inProgress = isInProgress(log, nowMs, staleThresholdMs);
 							return (
-								<tr
+								<VirtualRow
 									key={vItem.key}
-									data-index={vItem.index}
-									ref={virtualizer.measureElement}
-									className={`hover:bg-(--surface-hover) ${vItem.index % 2 === 1 ? "ui-row-even" : ""} ${inProgress ? "animate-pulse-subtle" : ""} cursor-pointer`}
-									tabIndex={0}
-									onClick={() => onRowClick(log)}
-									onKeyDown={onActivateKey(() => onRowClick(log))}
+									index={vItem.index}
+									measureRef={virtualizer.measureElement}
+									onActivate={() => onRowClick(log)}
+									className={inProgress ? "animate-pulse-subtle" : ""}
 								>
 									<RequestLogCells
 										log={log}
 										nowMs={nowMs}
 										staleThresholdMs={staleThresholdMs}
 									/>
-								</tr>
+								</VirtualRow>
 							);
 						})}
 					</tbody>

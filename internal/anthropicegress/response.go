@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/hugalafutro/model-hotel/internal/anthropic"
+	"github.com/hugalafutro/model-hotel/internal/egress"
 	"github.com/hugalafutro/model-hotel/internal/jsonfault"
 	"github.com/hugalafutro/model-hotel/internal/util"
 )
@@ -91,16 +92,12 @@ type completionToolCall struct {
 // directly) and the read count restated under prompt_tokens_details for
 // providers that only look there.
 type completionUsage struct {
-	PromptTokens             int                     `json:"prompt_tokens"`
-	CompletionTokens         int                     `json:"completion_tokens"`
-	TotalTokens              int                     `json:"total_tokens"`
-	CacheCreationInputTokens int                     `json:"cache_creation_input_tokens,omitempty"`
-	CacheReadInputTokens     int                     `json:"cache_read_input_tokens,omitempty"`
-	PromptTokensDetails      *completionCacheDetails `json:"prompt_tokens_details,omitempty"`
-}
-
-type completionCacheDetails struct {
-	CachedTokens int `json:"cached_tokens"`
+	PromptTokens             int                         `json:"prompt_tokens"`
+	CompletionTokens         int                         `json:"completion_tokens"`
+	TotalTokens              int                         `json:"total_tokens"`
+	CacheCreationInputTokens int                         `json:"cache_creation_input_tokens,omitempty"`
+	CacheReadInputTokens     int                         `json:"cache_read_input_tokens,omitempty"`
+	PromptTokensDetails      *egress.PromptTokensDetails `json:"prompt_tokens_details,omitempty"`
 }
 
 // BuildChatCompletion converts a non-streaming Anthropic Messages response
@@ -265,7 +262,7 @@ func buildUsage(u anthropic.UsageBlock) *completionUsage {
 	}
 	if u.CacheReadInputTokens > 0 {
 		out.CacheReadInputTokens = u.CacheReadInputTokens
-		out.PromptTokensDetails = &completionCacheDetails{CachedTokens: u.CacheReadInputTokens}
+		out.PromptTokensDetails = &egress.PromptTokensDetails{CachedTokens: u.CacheReadInputTokens}
 	}
 	return out
 }

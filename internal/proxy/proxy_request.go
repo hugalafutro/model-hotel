@@ -17,6 +17,7 @@ import (
 	"github.com/hugalafutro/model-hotel/internal/clientip"
 	"github.com/hugalafutro/model-hotel/internal/ctxkeys"
 	"github.com/hugalafutro/model-hotel/internal/debuglog"
+	"github.com/hugalafutro/model-hotel/internal/httpx"
 	"github.com/hugalafutro/model-hotel/internal/jsonfault"
 	"github.com/hugalafutro/model-hotel/internal/settings"
 	"github.com/hugalafutro/model-hotel/internal/util"
@@ -61,10 +62,9 @@ func modelTooLong(model string) bool {
 // it (trailerSafeTransport), and the TTFT probe's recovery lines name a failed
 // stream read by this class rather than by its text.
 func describeBodyReadFault(err error) string {
-	var tooLarge *http.MaxBytesError
 	var protocolErr textproto.ProtocolError
 	switch {
-	case errors.As(err, &tooLarge):
+	case httpx.IsBodyTooLarge(err):
 		return "the body exceeded the size limit"
 	case errors.As(err, &protocolErr), errors.Is(err, errMalformedTrailer):
 		return "a trailer carried a malformed MIME header"

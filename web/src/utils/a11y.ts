@@ -1,4 +1,4 @@
-import type { KeyboardEvent } from "react";
+import type { KeyboardEvent, RefObject } from "react";
 
 /**
  * Enter/Space activation for a clickable element that is not a button, which
@@ -62,4 +62,29 @@ export function moveOptionFocus(
 	}
 	options[next]?.focus();
 	return true;
+}
+
+/**
+ * popupKeyDown is the keydown handler for the wrapper of a listbox popup.
+ * While it is open, Escape runs `close` and hands focus back to the trigger
+ * (the focused option or search box unmounts with the menu, which would drop
+ * the keyboard user on body); every other key goes to moveOptionFocus.
+ */
+export function popupKeyDown(
+	e: KeyboardEvent,
+	open: boolean,
+	close: () => void,
+	triggerRef: RefObject<HTMLElement | null>,
+	listRef: RefObject<HTMLElement | null>,
+): void {
+	if (!open) return;
+	if (e.key === "Escape") {
+		e.stopPropagation();
+		close();
+		triggerRef.current?.focus();
+		return;
+	}
+	if (moveOptionFocus(listRef.current, e.key, document.activeElement)) {
+		e.preventDefault();
+	}
 }

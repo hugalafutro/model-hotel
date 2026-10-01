@@ -4,6 +4,7 @@ import (
 	"net/http"
 
 	"github.com/hugalafutro/model-hotel/internal/anthropic"
+	"github.com/hugalafutro/model-hotel/internal/egress"
 	"github.com/hugalafutro/model-hotel/internal/openairesponses"
 )
 
@@ -20,47 +21,20 @@ type nativeDialect interface {
 	// terminalEvent is the stream event that ends a completed stream, named
 	// in the truncation log line.
 	terminalEvent() string
-	parseUsage(body []byte) nativeUsage
+	parseUsage(body []byte) egress.NativeUsage
 	// carriesContent reports a non-streaming body holding any content item.
 	carriesContent(body []byte) bool
 	// stopStated reports a body that says how its generation ended (a
 	// stop_reason, a status): a provider that answered, whatever it carried.
 	stopStated(body []byte) bool
 	textBytes(body []byte) int
-	inspectStreamEvent(payload []byte) nativeStreamEvent
+	inspectStreamEvent(payload []byte) egress.NativeStreamEvent
 	// streamFailure is the terminal error frame in this dialect. responseID
 	// and sequence continue the stream the client was reading, for a dialect
 	// that numbers its events; the other ignores them.
 	streamFailure(message, kind, responseID string, sequence int) []byte
 	// writeError writes a non-streaming gateway error in this dialect.
 	writeError(w http.ResponseWriter, message string, status int)
-}
-
-// nativeUsage is the metering summary of one native body or stream. The cache
-// split is zero when the upstream reported no cache read.
-type nativeUsage struct {
-	promptTokens     int
-	completionTokens int
-	cacheHitTokens   int
-	cacheMissTokens  int
-}
-
-// nativeStreamEvent is the decoded summary of one native stream event.
-type nativeStreamEvent struct {
-	eventType       string
-	terminal        bool
-	inputTokens     int
-	hasInput        bool
-	outputTokens    int
-	hasOutput       bool
-	cacheHitTokens  int
-	cacheMissTokens int
-	errorMessage    string
-	carriesError    bool
-	textBytes       int
-	sequenceNumber  int
-	hasSequence     bool
-	responseID      string
 }
 
 // nativeAttempt is the dialect the current failover attempt forwards verbatim,
@@ -85,9 +59,8 @@ var anthropicNative nativeDialect = anthropicDialect{}
 func (anthropicDialect) label() string         { return "native anthropic" }
 func (anthropicDialect) terminalEvent() string { return "message_stop" }
 
-func (anthropicDialect) parseUsage(body []byte) nativeUsage {
-	u := anthropic.ParseResponseUsage(body)
-	return nativeUsage{promptTokens: u.PromptTokens, completionTokens: u.CompletionTokens, cacheHitTokens: u.CacheHitTokens, cacheMissTokens: u.CacheMissTokens}
+func (anthropicDialect) parseUsage(body []byte) egress.NativeUsage {
+	return anthropic.ParseResponseUsage(body)
 }
 
 func (anthropicDialect) carriesContent(body []byte) bool {
@@ -96,21 +69,8 @@ func (anthropicDialect) carriesContent(body []byte) bool {
 func (anthropicDialect) stopStated(body []byte) bool { return anthropic.ResponseStopReason(body) != "" }
 func (anthropicDialect) textBytes(body []byte) int   { return anthropic.ResponseTextBytes(body) }
 
-func (anthropicDialect) inspectStreamEvent(payload []byte) nativeStreamEvent {
-	info := anthropic.InspectStreamEvent(payload)
-	return nativeStreamEvent{
-		eventType:       info.Type,
-		terminal:        info.Type == "message_stop",
-		inputTokens:     info.InputTokens,
-		hasInput:        info.HasInput,
-		outputTokens:    info.OutputTokens,
-		hasOutput:       info.HasOutput,
-		cacheHitTokens:  info.CacheHitTokens,
-		cacheMissTokens: info.CacheMissTokens,
-		errorMessage:    info.ErrorMessage,
-		carriesError:    info.CarriesError,
-		textBytes:       info.TextBytes,
-	}
+func (anthropicDialect) inspectStreamEvent(payload []byte) egress.NativeStreamEvent {
+	return anthropic.InspectStreamEvent(payload)
 }
 
 func (anthropicDialect) streamFailure(message, _, _ string, _ int) []byte {
@@ -131,9 +91,8 @@ var responsesNative nativeDialect = responsesDialect{}
 func (responsesDialect) label() string         { return "native responses" }
 func (responsesDialect) terminalEvent() string { return "response.completed" }
 
-func (responsesDialect) parseUsage(body []byte) nativeUsage {
-	u := openairesponses.ParseResponseUsage(body)
-	return nativeUsage{promptTokens: u.PromptTokens, completionTokens: u.CompletionTokens, cacheHitTokens: u.CacheHitTokens, cacheMissTokens: u.CacheMissTokens}
+func (responsesDialect) parseUsage(body []byte) egress.NativeUsage {
+	return openairesponses.ParseResponseUsage(body)
 }
 
 func (responsesDialect) carriesContent(body []byte) bool {
@@ -144,24 +103,8 @@ func (responsesDialect) stopStated(body []byte) bool {
 }
 func (responsesDialect) textBytes(body []byte) int { return openairesponses.ResponseTextBytes(body) }
 
-func (responsesDialect) inspectStreamEvent(payload []byte) nativeStreamEvent {
-	info := openairesponses.InspectStreamEvent(payload)
-	return nativeStreamEvent{
-		eventType:       info.Type,
-		terminal:        info.Terminal,
-		inputTokens:     info.InputTokens,
-		hasInput:        info.HasInput,
-		outputTokens:    info.OutputTokens,
-		hasOutput:       info.HasOutput,
-		cacheHitTokens:  info.CacheHitTokens,
-		cacheMissTokens: info.CacheMissTokens,
-		errorMessage:    info.ErrorMessage,
-		carriesError:    info.CarriesError,
-		textBytes:       info.TextBytes,
-		sequenceNumber:  info.SequenceNumber,
-		hasSequence:     info.HasSequence,
-		responseID:      info.ResponseID,
-	}
+func (responsesDialect) inspectStreamEvent(payload []byte) egress.NativeStreamEvent {
+	return openairesponses.InspectStreamEvent(payload)
 }
 
 func (responsesDialect) streamFailure(message, kind, responseID string, sequence int) []byte {

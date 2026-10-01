@@ -10,7 +10,7 @@ import {
 	Server,
 	Tag,
 } from "@/lib/icons";
-import type { Model } from "../../api/types";
+import type { Model, PriceSources } from "../../api/types";
 import { CopyButton } from "../../components/CopyButton";
 import { PriceSourceHint } from "../../components/InfoHint";
 import { DetailItem } from "../../components/LogDetailItem";
@@ -104,6 +104,34 @@ export function ModelStatsGrid({
 			)}
 		</div>
 	);
+	const priceItem = (
+		field: PriceField,
+		source: keyof PriceSources,
+		icon: typeof DollarSign,
+		label: string,
+		unit: string,
+	) => {
+		const price = model[field];
+		return (
+			<DetailItem
+				emphasis="stat"
+				icon={icon}
+				label={label}
+				value={price != null ? `$${formatPrice(price)}/${unit}` : "-"}
+				mono
+				labelExtra={
+					price != null ? (
+						<PriceSourceHint
+							source={model.price_sources?.[source]}
+							className="shrink-0"
+						/>
+					) : undefined
+				}
+			>
+				{editing ? priceEditor(field) : undefined}
+			</DetailItem>
+		);
+	};
 	const numberEditor = (
 		field: "context_length" | "max_output_tokens",
 		min: number,
@@ -200,73 +228,30 @@ export function ModelStatsGrid({
 			>
 				{editing ? numberEditor("max_output_tokens", 1, 128000) : undefined}
 			</DetailItem>
-			{perSearch && (
-				<DetailItem
-					emphasis="stat"
-					icon={DollarSign}
-					label={t("models.detail.searchPrice")}
-					value={
-						model.search_price_per_thousand != null
-							? `$${formatPrice(model.search_price_per_thousand)}/1K`
-							: "-"
-					}
-					mono
-					labelExtra={
-						model.search_price_per_thousand != null ? (
-							<PriceSourceHint
-								source={model.price_sources?.search}
-								className="shrink-0"
-							/>
-						) : undefined
-					}
-				>
-					{editing ? priceEditor("search_price_per_thousand") : undefined}
-				</DetailItem>
-			)}
+			{perSearch &&
+				priceItem(
+					"search_price_per_thousand",
+					"search",
+					DollarSign,
+					t("models.detail.searchPrice"),
+					"1K",
+				)}
 			{showTokenPrices && (
 				<>
-					<DetailItem
-						emphasis="stat"
-						icon={DollarSign}
-						label={t("models.detail.inputPrice")}
-						value={
-							model.input_price_per_million != null
-								? `$${formatPrice(model.input_price_per_million)}/1M`
-								: "-"
-						}
-						mono
-						labelExtra={
-							model.input_price_per_million != null ? (
-								<PriceSourceHint
-									source={model.price_sources?.input}
-									className="shrink-0"
-								/>
-							) : undefined
-						}
-					>
-						{editing ? priceEditor("input_price_per_million") : undefined}
-					</DetailItem>
-					<DetailItem
-						emphasis="stat"
-						icon={Coins}
-						label={t("models.detail.outputPrice")}
-						value={
-							model.output_price_per_million != null
-								? `$${formatPrice(model.output_price_per_million)}/1M`
-								: "-"
-						}
-						mono
-						labelExtra={
-							model.output_price_per_million != null ? (
-								<PriceSourceHint
-									source={model.price_sources?.output}
-									className="shrink-0"
-								/>
-							) : undefined
-						}
-					>
-						{editing ? priceEditor("output_price_per_million") : undefined}
-					</DetailItem>
+					{priceItem(
+						"input_price_per_million",
+						"input",
+						DollarSign,
+						t("models.detail.inputPrice"),
+						"1M",
+					)}
+					{priceItem(
+						"output_price_per_million",
+						"output",
+						Coins,
+						t("models.detail.outputPrice"),
+						"1M",
+					)}
 				</>
 			)}
 			<DetailItem

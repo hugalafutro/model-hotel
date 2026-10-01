@@ -2,35 +2,10 @@ package anthropic
 
 import (
 	"bytes"
-	"encoding/json"
 	"testing"
+
+	"github.com/hugalafutro/model-hotel/internal/egress"
 )
-
-func TestRewriteModel(t *testing.T) {
-	body := []byte(`{"model":"hotel/claude","max_tokens":10,"system":"hi","messages":[{"role":"user","content":"x"}]}`)
-	out := RewriteModel(body, "claude-haiku-4-5-20251001")
-	var m map[string]any
-	if err := json.Unmarshal(out, &m); err != nil {
-		t.Fatalf("invalid output: %v", err)
-	}
-	if m["model"] != "claude-haiku-4-5-20251001" {
-		t.Errorf("model = %v, want rewritten", m["model"])
-	}
-	// Everything else preserved.
-	if m["max_tokens"].(float64) != 10 || m["system"] != "hi" {
-		t.Errorf("other fields altered: %v", m)
-	}
-	if msgs := m["messages"].([]any); len(msgs) != 1 {
-		t.Errorf("messages altered: %v", m["messages"])
-	}
-}
-
-func TestRewriteModel_InvalidBodyUnchanged(t *testing.T) {
-	body := []byte(`not json`)
-	if out := RewriteModel(body, "x"); string(out) != "not json" {
-		t.Errorf("invalid body should be returned unchanged, got %q", out)
-	}
-}
 
 func TestParseResponseUsage(t *testing.T) {
 	body := []byte(`{"id":"msg_1","type":"message","usage":{"input_tokens":42,"output_tokens":7}}`)
@@ -45,8 +20,8 @@ func TestParseResponseUsage(t *testing.T) {
 		t.Errorf("uncached split = (%d,%d), want (0,0)", u.CacheHitTokens, u.CacheMissTokens)
 	}
 	// Invalid body yields zeros.
-	if u := ParseResponseUsage([]byte(`not json`)); u != (ResponseUsage{}) {
-		t.Errorf("invalid usage = %+v, want a zero ResponseUsage", u)
+	if u := ParseResponseUsage([]byte(`not json`)); u != (egress.NativeUsage{}) {
+		t.Errorf("invalid usage = %+v, want a zero NativeUsage", u)
 	}
 }
 

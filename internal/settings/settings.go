@@ -29,6 +29,21 @@ const (
 	DefaultRequestTimeout = time.Minute
 )
 
+// DefaultBackupInterval is what an unset backup_interval reads as, and
+// MaxBackupInterval is the dashboard's weekly maximum. The backup scheduler
+// caps the interval it runs on at the maximum, and Front Desk's backup
+// watchdog judges a member by the same pair.
+const (
+	DefaultBackupInterval = 24 * time.Hour
+	MaxBackupInterval     = 7 * 24 * time.Hour
+)
+
+// HotPathReadTimeout bounds a settings read made on a request's path: the
+// breaker's verdict reads and the TPM limiter's horizon lookup at admission.
+// The values are cached, but a miss goes to the store, and a store that has
+// stopped answering must cost a request a pause rather than a stall.
+const HotPathReadTimeout = 100 * time.Millisecond
+
 // AllowedSettings is the allowlist of keys the API will accept.
 // The key set MUST be kept in sync with api.allowedSettings — add a
 // key to both or neither. TestAllowedSettingsSync enforces this at CI time.

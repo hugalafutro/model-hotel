@@ -146,7 +146,10 @@ export interface NanoGptUsageLike {
 export interface DeepSeekBalanceLike {
 	is_available?: boolean;
 	/** DeepSeek string-encodes its balances. */
-	balance_infos?: Array<{ total_balance?: string | null }> | null;
+	balance_infos?: Array<{
+		currency?: string;
+		total_balance?: string | null;
+	}> | null;
 }
 
 export interface OpenRouterBalanceLike {

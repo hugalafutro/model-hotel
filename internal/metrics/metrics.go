@@ -14,6 +14,8 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/collectors"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
+
+	"github.com/hugalafutro/model-hotel/internal/httpx"
 )
 
 // registry is a private registry so metrics are isolated from any global
@@ -153,15 +155,24 @@ type RejectedAttempt struct {
 func RecordRejectedAttempt(a RejectedAttempt) {
 	provider := labelOrUnknown(a.Provider)
 	model := labelOrUnknown(a.Model)
-	if a.PromptTokens > 0 {
-		tokensTotal.WithLabelValues(provider, model, "prompt").Add(float64(a.PromptTokens))
+	addTokens(provider, model, "prompt", a.PromptTokens)
+	addTokens(provider, model, "prompt_cached", a.PromptCachedTokens)
+	addCost(provider, model, a.Priced, a.CostUSD)
+}
+
+// addTokens books n tokens of one kind; zero and below add nothing.
+func addTokens(provider, model, kind string, n int) {
+	if n > 0 {
+		tokensTotal.WithLabelValues(provider, model, kind).Add(float64(n))
 	}
-	if a.PromptCachedTokens > 0 {
-		tokensTotal.WithLabelValues(provider, model, "prompt_cached").Add(float64(a.PromptCachedTokens))
-	}
-	// Same guard as Record: a counter panics on a negative add.
-	if a.Priced && a.CostUSD >= 0 {
-		costUSDTotal.WithLabelValues(provider, model).Add(a.CostUSD)
+}
+
+// addCost books a request's cost when it was priced. A counter refuses a
+// negative add with a panic, and a price is only range checked on the admin
+// API, not on catalog imports.
+func addCost(provider, model string, priced bool, costUSD float64) {
+	if priced && costUSD >= 0 {
+		costUSDTotal.WithLabelValues(provider, model).Add(costUSD)
 	}
 }
 
@@ -175,23 +186,11 @@ func Record(o Observation) {
 	if o.Streaming && o.TTFTSeconds > 0 {
 		ttftSeconds.WithLabelValues(provider, model).Observe(o.TTFTSeconds)
 	}
-	if o.PromptTokens > 0 {
-		tokensTotal.WithLabelValues(provider, model, "prompt").Add(float64(o.PromptTokens))
-	}
-	if o.CompletionTokens > 0 {
-		tokensTotal.WithLabelValues(provider, model, "completion").Add(float64(o.CompletionTokens))
-	}
-	if o.ReasoningTokens > 0 {
-		tokensTotal.WithLabelValues(provider, model, "reasoning").Add(float64(o.ReasoningTokens))
-	}
-	if o.PromptCachedTokens > 0 {
-		tokensTotal.WithLabelValues(provider, model, "prompt_cached").Add(float64(o.PromptCachedTokens))
-	}
-	// A counter refuses a negative add with a panic, and a price is only range
-	// checked on the admin API, not on catalog imports.
-	if o.Priced && o.CostUSD >= 0 {
-		costUSDTotal.WithLabelValues(provider, model).Add(o.CostUSD)
-	}
+	addTokens(provider, model, "prompt", o.PromptTokens)
+	addTokens(provider, model, "completion", o.CompletionTokens)
+	addTokens(provider, model, "reasoning", o.ReasoningTokens)
+	addTokens(provider, model, "prompt_cached", o.PromptCachedTokens)
+	addCost(provider, model, o.Priced, o.CostUSD)
 	for _, p := range o.FailoverProviders {
 		failoverAttemptsTotal.WithLabelValues(model, labelOrUnknown(p)).Inc()
 	}
@@ -270,7 +269,7 @@ func Handler() http.Handler {
 // provider 4xx.
 func statusClass(code int) string {
 	switch {
-	case code == 499:
+	case code == httpx.StatusClientClosedRequest:
 		return "499"
 	case code >= 200 && code < 300:
 		return "2xx"

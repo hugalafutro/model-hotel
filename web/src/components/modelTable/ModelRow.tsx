@@ -9,7 +9,7 @@ import {
 } from "../../utils/format";
 import { parseCapabilities, proxyModelID } from "../../utils/model";
 import { CopyablePill } from "../CopyablePill";
-import { CAP_META, hasCap } from "../capMeta";
+import { CAP_META, hasCap, PILL_BADGE } from "../capMeta";
 import { OutputIcons } from "../OutputBadges";
 
 /** One model in the virtual table. Cells match the width tables in order. */
@@ -60,7 +60,7 @@ export function ModelRow({
 					{CAP_META.filter((m) => hasCap(caps, m.key)).map((m) => (
 						<span
 							key={m.key}
-							className={`ui-badge inline-flex items-center px-1.5 py-0.5 text-[10px] font-medium border ${m.style}`}
+							className={`${PILL_BADGE} text-[10px] border ${m.style}`}
 						>
 							{t(m.labelKey)}
 						</span>

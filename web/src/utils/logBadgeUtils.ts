@@ -1,3 +1,5 @@
+import type { TFunction } from "i18next";
+import type { ModalNavConfig, ModalNavProps } from "../components/ModalNav";
 import { formatLocale } from "./format";
 /* =========================================================
    Shared utility functions for log badge rendering
@@ -104,3 +106,24 @@ export const formatLogTimestamp = (ts: string) => {
 		return ts;
 	}
 };
+
+/**
+ * A detail modal's nav config with the row phrase read out after each step:
+ * the row's log timestamp and its subject. Undefined when the modal has no nav.
+ */
+export function withRowLabel(
+	nav: ModalNavProps | undefined,
+	t: TFunction,
+	timestamp: string,
+	subject: string,
+): ModalNavConfig | undefined {
+	return (
+		nav && {
+			...nav,
+			rowLabel: t("common.rowStepLabel", {
+				time: formatLogTimestamp(timestamp),
+				subject,
+			}),
+		}
+	);
+}

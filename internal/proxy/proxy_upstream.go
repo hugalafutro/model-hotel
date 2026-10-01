@@ -97,7 +97,7 @@ func (h *Handler) doUpstream(ctx context.Context, req *http.Request, st *request
 		lastTransportErr = err
 		backoff := failoverBackoff(100*time.Millisecond, 500*time.Millisecond, try+1)
 		debuglog.Warn("proxy: transient upstream error, retrying same provider", "attempt", attempt+1, "try", try+1, "backoff", backoff, "request_written", wroteRequest.Load(), "provider", candidate.provider.Name, "provider_id", candidate.provider.ID,
-			"error", fencedFrameMessage(logData.fence(), logData.masks(), errString(err)))
+			"error", logData.fencedErr(err))
 		select {
 		case <-time.After(backoff):
 		case <-dialCtx.Done():
@@ -132,7 +132,7 @@ func (h *Handler) doUpstream(ctx context.Context, req *http.Request, st *request
 				Underlying: errString(err),
 			})
 			debuglog.Warn("proxy: upstream sent no response headers before the header timeout", "attempt", attempt+1, "provider", candidate.provider.Name, "provider_id", candidate.provider.ID,
-				"error", fencedFrameMessage(logData.fence(), logData.masks(), errString(err)))
+				"error", logData.fencedErr(err))
 		case isContextErr:
 			cancelOrigin := resolveCancelOrigin(dialCtx, err)
 			abandoned = requestAbandoned(dialCtx, err)
@@ -146,8 +146,8 @@ func (h *Handler) doUpstream(ctx context.Context, req *http.Request, st *request
 				Underlying: errString(lastTransportErr),
 			})
 			debuglog.Info("proxy: context cancelled during request to provider", "provider", logData.providerName, "provider_id", candidate.provider.ID, "model", logData.modelID, "origin", cancelOrigin,
-				"error", fencedFrameMessage(logData.fence(), logData.masks(), errString(err)),
-				"underlying", fencedFrameMessage(logData.fence(), logData.masks(), errString(lastTransportErr)))
+				"error", logData.fencedErr(err),
+				"underlying", logData.fencedErr(lastTransportErr))
 		default:
 			st.setReqErr(reqError{
 				Kind:       KindProviderError,
@@ -160,7 +160,7 @@ func (h *Handler) doUpstream(ctx context.Context, req *http.Request, st *request
 			// this line takes the same mask-then-fence pass setReqErr gives the
 			// Underlying above it.
 			debuglog.Warn("proxy: upstream request failed", "attempt", attempt+1, "provider", candidate.provider.Name, "provider_id", candidate.provider.ID,
-				"error", fencedFrameMessage(logData.fence(), logData.masks(), errString(err)))
+				"error", logData.fencedErr(err))
 		}
 		// An abandoned attempt (the client hung up, a hedge sibling won) says
 		// nothing about the provider, so the circuit breaker is not charged for

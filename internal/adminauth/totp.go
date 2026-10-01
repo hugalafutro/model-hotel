@@ -106,12 +106,7 @@ const (
 
 // allowCode refuses a second-factor check while codeThrottleKey is locked.
 func (h *TotpHandler) allowCode(w http.ResponseWriter, r *http.Request, what string) bool {
-	ok, retry := h.loginThrottle.Allowed(codeThrottleKey)
-	if !ok {
-		debuglog.Warn("totp: "+what+" throttled", "remote_addr", clientip.From(r))
-		httpx.RespondTooManyAttempts(w, retry)
-	}
-	return ok
+	return h.loginThrottle.Admit(w, codeThrottleKey, "totp: "+what+" throttled", "remote_addr", clientip.From(r))
 }
 
 // Register mounts the TOTP routes on the given router.
@@ -450,16 +445,12 @@ func (h *TotpHandler) Login(w http.ResponseWriter, r *http.Request) {
 	// Per-IP failure backoff (defense in depth atop the /api per-IP rate limit):
 	// refuse before doing any work while this key is locked.
 	throttleKey := h.ipLimiter.ClientIP(r)
-	if ok, retry := h.loginThrottle.Allowed(throttleKey); !ok {
-		debuglog.Warn("totp: login throttled", "remote_addr", clientip.From(r))
-		httpx.RespondTooManyAttempts(w, retry)
+	if !h.loginThrottle.Admit(w, throttleKey, "totp: login throttled", "remote_addr", clientip.From(r)) {
 		return
 	}
 	// Per-account backoff: without it a brute force spread across source IPs
 	// never trips the per-IP throttle above (the user login has the same).
-	if ok, retry := h.loginThrottle.Allowed(accountThrottleKey); !ok {
-		debuglog.Warn("totp: login account throttled", "remote_addr", clientip.From(r))
-		httpx.RespondTooManyAttempts(w, retry)
+	if !h.loginThrottle.Admit(w, accountThrottleKey, "totp: login account throttled", "remote_addr", clientip.From(r)) {
 		return
 	}
 	var req struct {

@@ -7,7 +7,6 @@ import (
 	"github.com/go-chi/chi/v5"
 
 	"github.com/hugalafutro/model-hotel/internal/debuglog"
-	"github.com/hugalafutro/model-hotel/internal/httpx"
 	"github.com/hugalafutro/model-hotel/internal/totp"
 	"github.com/hugalafutro/model-hotel/internal/user"
 )
@@ -136,9 +135,7 @@ func (h *Handler) UserTotpEnrollVerify(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	key := id.UserID.String()
-	if ok, retry := h.pwThrottle.Allowed(key); !ok {
-		debuglog.Warn("usertotp: enroll verify throttled", "username", id.Username)
-		httpx.RespondTooManyAttempts(w, retry)
+	if !h.pwThrottle.Admit(w, key, "usertotp: enroll verify throttled", "username", id.Username) {
 		return
 	}
 	verified, err := repo.Verify(r.Context(), req.Code)
@@ -183,9 +180,7 @@ func (h *Handler) UserTotpDisable(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	key := id.UserID.String()
-	if ok, retry := h.pwThrottle.Allowed(key); !ok {
-		debuglog.Warn("usertotp: disable throttled", "username", id.Username)
-		httpx.RespondTooManyAttempts(w, retry)
+	if !h.pwThrottle.Admit(w, key, "usertotp: disable throttled", "username", id.Username) {
 		return
 	}
 	authorized, err := repo.DisableWithCode(r.Context(), req.Code)

@@ -2,10 +2,7 @@ package frontdesk
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
-	"fmt"
-	"net/http"
 	"strings"
 	"time"
 
@@ -168,17 +165,9 @@ type memberCircuitStatus struct {
 // provider-wide and would attribute one model's outage to every model of the
 // provider.
 func (p *Poller) fetchMemberCircuits(ctx context.Context, baseURL, token string) (*MemberCircuits, error) {
-	status, body, err := callMemberLimited(ctx, p.client, maxCircuitStatusBytes, http.MethodGet, baseURL, memberCircuitsPath, token, nil)
-	if err != nil {
-		return nil, err
-	}
-	if status != http.StatusOK {
-		return nil, fmt.Errorf("circuit status api returned %d", status)
-	}
 	var payload memberCircuitStatus
-	if err := json.Unmarshal(body, &payload); err != nil {
-		// Not wrapped: the decoder error can echo a fragment of the response.
-		return nil, errors.New("frontdesk: parse circuit status response")
+	if err := getMemberJSON(ctx, p.client, maxCircuitStatusBytes, baseURL, memberCircuitsPath, token, "member circuit status", &payload); err != nil {
+		return nil, err
 	}
 	ledger := &MemberCircuits{Open: []OpenCircuit{}}
 	for _, prov := range payload.Providers {

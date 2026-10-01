@@ -479,24 +479,7 @@ func (h *Handler) discoverOne(ctx context.Context, discovery *provider.Discovery
 
 	publishFetchedAndEnrich(prov, models)
 
-	snapshot, snapErr := SnapshotProviderModels(provCtx, modelRepo, prov.ID)
-	if snapErr != nil {
-		debuglog.Debug("discovery: failed to snapshot models", "provider", prov.Name, "error", snapErr)
-	}
-	DampenOpenRouterPriceJitter(provider.TypeOf(prov), snapshot, models)
-
-	existingModelIDs := make([]string, 0, len(models))
-	upsertedModels := make([]*model.Model, 0, len(models))
-	upsertFailed := false
-	for _, m := range models {
-		if err := modelRepo.Upsert(provCtx, m); err != nil {
-			debuglog.Warn("discovery: failed to upsert model", "model", m.ModelID, "provider", prov.Name, "error", err)
-			upsertFailed = true
-			continue
-		}
-		existingModelIDs = append(existingModelIDs, m.ModelID)
-		upsertedModels = append(upsertedModels, m)
-	}
+	scan := UpsertScannedModels(provCtx, modelRepo, prov, models)
 
 	// Miss recording needs a trustworthy membership picture: skip it when a
 	// snapshot is unavailable (cannot confirm absentees), when any upsert
@@ -508,32 +491,18 @@ func (h *Handler) discoverOne(ctx context.Context, discovery *provider.Discovery
 	// recordMisses is false on request-bound callers so the ~70s probe
 	// backoff never overruns their HTTP timeout (see the doc comment).
 	var disabledRefs []model.DisabledModelRef
-	if recordMisses && snapErr == nil && !upsertFailed && !catalogFallback {
-		confirmedIDs, suspect := ConfirmMissingModels(provCtx, discovery, prov, h.cfg.MasterKey, existingModelIDs, snapshot, NewSuspectStreak(h.dbPool.Pool()))
-		if suspect {
-			debuglog.Warn("discovery: suspect scan, skipping missing-model recording", "provider", prov.Name, "provider_id", prov.ID)
-		} else {
-			var pendingRefs []model.DisabledModelRef
-			var err error
-			disabledRefs, pendingRefs, err = modelRepoRecordMissing(modelRepo, provCtx, prov.ID, prov.Name, confirmedIDs)
-			if err != nil {
-				debuglog.Debug("discovery: failed to record missing models", "provider", prov.Name, "error", err)
-			}
-			if len(pendingRefs) > 0 {
-				debuglog.Info("discovery: models confirmed missing but below disable threshold",
-					"provider", prov.Name, "provider_id", prov.ID, "pending", len(pendingRefs), "threshold", model.MissingScanThreshold)
-			}
-		}
+	if recordMisses && scan.SnapErr == nil && !scan.UpsertFailed && !catalogFallback {
+		disabledRefs, _ = RecordConfirmedMisses(provCtx, discovery, modelRepo, h.dbPool.Pool(), prov, h.cfg.MasterKey, scan)
 	}
 
 	// Without the before-snapshot the diff cannot be classified; the scan
 	// itself still completes and the result just omits the diff.
 	var diff *DiscoveryDiff
-	if snapErr == nil {
-		diff = BuildDiscoveryDiff(snapshot, upsertedModels, disabledRefs)
+	if scan.SnapErr == nil {
+		diff = BuildDiscoveryDiff(scan.Snapshot, scan.Upserted, disabledRefs)
 	}
 
-	syncFailoverForScan(provCtx, failoverRepo, existingModelIDs, disabledRefs, diff, func(modelID string, disabled bool, err error) bool {
+	syncFailoverForScan(provCtx, failoverRepo, scan.ExistingIDs, disabledRefs, diff, func(modelID string, disabled bool, err error) bool {
 		label := "model"
 		if disabled {
 			label = "disabled model"
@@ -545,15 +514,7 @@ func (h *Handler) discoverOne(ctx context.Context, discovery *provider.Discovery
 	// Reflect the scan in the failover "Last Sync" label.
 	stampFailoverSynced(provCtx, h.settingsRepo)
 
-	now := time.Now()
-	if _, err := dbExec(h.dbPool.Pool(), provCtx,
-		`UPDATE providers SET last_discovered_at = $1 WHERE id = $2`, now, prov.ID); err != nil {
-		debuglog.Debug("discovery: failed to update last_discovered_at", "provider_id", prov.ID, "error", err)
-	} else {
-		// Raw UPDATE bypasses the repository; evict this provider's cache
-		// entries so read-through Get sees the new last_discovered_at.
-		provider.EvictProviderCacheByID(prov.ID)
-	}
+	TouchLastDiscovered(provCtx, h.dbPool.Pool(), prov)
 	// Last, once every row this scan writes is committed: the dashboard re-reads
 	// its lists on this event, and the earlier fetched/enriched events fire
 	// before the upserts, so a re-read on those would still see the old
@@ -567,6 +528,80 @@ func (h *Handler) discoverOne(ctx context.Context, discovery *provider.Discovery
 		Metadata: map[string]any{"provider_id": prov.ID, "provider": prov.Name, "count": len(models)},
 	})
 	return result
+}
+
+// ScannedModels is what UpsertScannedModels leaves for the rest of a provider
+// scan: the pre-scan snapshot (SnapErr set when it could not be read) and
+// which listed models were written.
+type ScannedModels struct {
+	Snapshot     map[string]ModelSnapshot
+	SnapErr      error
+	ExistingIDs  []string
+	Upserted     []*model.Model
+	UpsertFailed bool
+}
+
+// UpsertScannedModels snapshots the provider's rows, dampens OpenRouter price
+// jitter against that snapshot, and upserts every listed model, carrying on
+// past a row that fails. A snapshot failure only disables the diff and miss
+// recording; the upserts still run.
+func UpsertScannedModels(ctx context.Context, repo *model.Repository, prov *provider.Provider, models []*model.Model) ScannedModels {
+	var s ScannedModels
+	s.Snapshot, s.SnapErr = SnapshotProviderModels(ctx, repo, prov.ID)
+	if s.SnapErr != nil {
+		debuglog.Debug("discovery: failed to snapshot models", "provider", prov.Name, "error", s.SnapErr)
+	}
+	DampenOpenRouterPriceJitter(provider.TypeOf(prov), s.Snapshot, models)
+
+	s.ExistingIDs = make([]string, 0, len(models))
+	s.Upserted = make([]*model.Model, 0, len(models))
+	for _, m := range models {
+		if err := repo.Upsert(ctx, m); err != nil {
+			debuglog.Error("discovery: failed to upsert model", "model_id", m.ModelID, "provider", prov.Name, "error", err)
+			s.UpsertFailed = true
+			continue
+		}
+		s.ExistingIDs = append(s.ExistingIDs, m.ModelID)
+		s.Upserted = append(s.Upserted, m)
+	}
+	return s
+}
+
+// RecordConfirmedMisses confirms which of the snapshot's models the scan no
+// longer sees (via confirmation probes) and records the misses; a model is
+// disabled only after model.MissingScanThreshold consecutive confirmed-missing
+// scans. Callers run it only when the snapshot was read and every upsert
+// landed. Returns the refs that crossed the threshold and were disabled, and
+// whether the scan's membership picture can be trusted: false when the scan is
+// suspect (nothing was recorded) or the misses could not be persisted.
+func RecordConfirmedMisses(ctx context.Context, discovery *provider.DiscoveryService, repo *model.Repository, pool *pgxpool.Pool, prov *provider.Provider, masterKey string, scan ScannedModels) (disabled []model.DisabledModelRef, trusted bool) {
+	confirmedIDs, suspect := ConfirmMissingModels(ctx, discovery, prov, masterKey, scan.ExistingIDs, scan.Snapshot, NewSuspectStreak(pool))
+	if suspect {
+		debuglog.Warn("discovery: suspect scan, skipping missing-model recording", "provider", prov.Name, "provider_id", prov.ID)
+		return nil, false
+	}
+	disabled, pending, err := modelRepoRecordMissing(repo, ctx, prov.ID, prov.Name, confirmedIDs)
+	if err != nil {
+		debuglog.Error("discovery: failed to record missing models", "provider", prov.Name, "error", err)
+		return disabled, false
+	}
+	if len(pending) > 0 {
+		debuglog.Info("discovery: models confirmed missing but below disable threshold",
+			"provider", prov.Name, "provider_id", prov.ID, "pending", len(pending), "threshold", model.MissingScanThreshold)
+	}
+	return disabled, true
+}
+
+// TouchLastDiscovered stamps the provider's last_discovered_at, on success and
+// failure alike, so the UI reflects that discovery was attempted. The raw
+// UPDATE bypasses the repository, so it evicts this provider's cache entries
+// for read-through Get to see the new value.
+func TouchLastDiscovered(ctx context.Context, pool *pgxpool.Pool, prov *provider.Provider) {
+	if _, err := dbExec(pool, ctx, `UPDATE providers SET last_discovered_at = $1 WHERE id = $2`, time.Now(), prov.ID); err != nil {
+		debuglog.Error("discovery: failed to update last_discovered_at", "provider", prov.Name, "provider_id", prov.ID, "error", err)
+		return
+	}
+	provider.EvictProviderCacheByID(prov.ID)
 }
 
 // loadProviderParam resolves the {id} route parameter to a provider, writing the

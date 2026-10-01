@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/hugalafutro/model-hotel/internal/debuglog"
+	"github.com/hugalafutro/model-hotel/internal/settings"
 )
 
 // ── Scheduler ────────────────────────────────────────────────────────
@@ -24,15 +25,11 @@ const backupSchedulerIdlePoll = 1 * time.Minute
 // setting; the dump itself still runs on the interval.
 const backupSchedulerRecheck = 5 * time.Minute
 
-// backupIntervalFloor and backupIntervalCeiling bound the backup_interval the
-// scheduler runs on. The floor keeps a tiny value from dumping back to back;
-// the ceiling is the dashboard's weekly maximum, so a value written past it
-// through the API or a config sync cannot park the scheduler indefinitely.
-// Front Desk's backup watchdog applies the same weekly ceiling.
-const (
-	backupIntervalFloor   = 5 * time.Minute
-	backupIntervalCeiling = 7 * 24 * time.Hour
-)
+// backupIntervalFloor is the shortest backup_interval the scheduler runs on, so
+// a tiny value cannot dump back to back. The ceiling is settings.MaxBackupInterval,
+// so a value written past it through the API or a config sync cannot park the
+// scheduler indefinitely.
+const backupIntervalFloor = 5 * time.Minute
 
 // StartScheduler starts the periodic backup scheduler goroutine and returns a
 // channel closed once that goroutine has returned, so a caller that owns the
@@ -122,7 +119,7 @@ func (h *BackupHandler) schedulerTick(ctx context.Context) time.Duration {
 	if !h.settingsRepo.GetBool(ctx, "backup_enabled", false) {
 		return backupSchedulerIdlePoll
 	}
-	interval := min(max(h.settingsRepo.GetDuration(ctx, "backup_interval", 24*time.Hour), backupIntervalFloor), backupIntervalCeiling)
+	interval := min(max(h.settingsRepo.GetDuration(ctx, "backup_interval", settings.DefaultBackupInterval), backupIntervalFloor), settings.MaxBackupInterval)
 	if wait := h.scheduledBackupWait(interval, time.Now()); wait > 0 {
 		debuglog.Debug("backup: last scheduled backup is recent, waiting", "wait", wait.Round(time.Second).String())
 		return min(wait, backupSchedulerRecheck)

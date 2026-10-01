@@ -74,3 +74,26 @@ func TestShapeError(t *testing.T) {
 		})
 	}
 }
+
+// ListAnswerDelivered calls only a recognised shape empty: the proxy fails a
+// provider over on its verdict and the model test fails a probe on it.
+func TestListAnswerDelivered(t *testing.T) {
+	for body, want := range map[string]bool{
+		`{"results":[{"index":0}]}`:         true,
+		`{"data":[{"index":0}]}`:            true,
+		`[{"index":0}]`:                     true,
+		`{"results":[ ]}`:                   false,
+		`{"results":null}`:                  false,
+		`{"results":""}`:                    false,
+		`[]`:                                false,
+		`[nope`:                             false,
+		`{nope`:                             false,
+		`null`:                              false,
+		`{"rankings":[{"index":0}]}`:        true,
+		`{"results":{"index":0},"data":[]}`: true,
+	} {
+		if got := util.ListAnswerDelivered([]byte(body), "results", "data"); got != want {
+			t.Errorf("ListAnswerDelivered(%s) = %v, want %v", body, got, want)
+		}
+	}
+}

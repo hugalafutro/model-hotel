@@ -108,9 +108,7 @@ var dummyHash = sync.OnceValue(func() string {
 // backoff on failures.
 func (h *UserLoginHandler) Login(w http.ResponseWriter, r *http.Request) {
 	throttleKey := h.ipLimiter.ClientIP(r)
-	if ok, retry := h.throttle.Allowed(throttleKey); !ok {
-		debuglog.Warn("userlogin: throttled", "remote_addr", clientip.From(r))
-		httpx.RespondTooManyAttempts(w, retry)
+	if !h.throttle.Admit(w, throttleKey, "userlogin: throttled", "remote_addr", clientip.From(r)) {
 		return
 	}
 
@@ -145,9 +143,7 @@ func (h *UserLoginHandler) Login(w http.ResponseWriter, r *http.Request) {
 	// Per-target-account backoff: without this, a brute force spread across
 	// source IPs never trips the per-IP throttle above.
 	userKey := "user:" + req.Username
-	if ok, retry := h.userThrottle.Allowed(userKey); !ok {
-		debuglog.Warn("userlogin: account throttled", "remote_addr", clientip.From(r))
-		httpx.RespondTooManyAttempts(w, retry)
+	if !h.userThrottle.Admit(w, userKey, "userlogin: account throttled", "remote_addr", clientip.From(r)) {
 		return
 	}
 

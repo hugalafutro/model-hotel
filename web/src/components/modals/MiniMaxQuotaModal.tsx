@@ -9,7 +9,7 @@ import {
 	LastRefreshedRow,
 	type OnToast,
 	QuotaBar,
-	QuotaModalHeaderActions,
+	QuotaModalHeader,
 	usedLeftText,
 	useQuotaBarMode,
 	useQuotaRefreshToast,
@@ -124,19 +124,13 @@ export function MiniMaxQuotaModal({
 	return (
 		<Modal
 			header={
-				<div className="flex justify-between items-start mb-6">
-					<div>
-						<h2 className="ui-modal-title">
-							{t("components.providerModals.miniMaxPlanQuota")}
-						</h2>
-					</div>
-					<QuotaModalHeaderActions
-						barMode={barMode}
-						onToggleBarMode={toggleBarMode}
-						onRefresh={handleRefresh}
-						isRefreshing={isRefreshing}
-					/>
-				</div>
+				<QuotaModalHeader
+					title={t("components.providerModals.miniMaxPlanQuota")}
+					barMode={barMode}
+					onToggleBarMode={toggleBarMode}
+					onRefresh={handleRefresh}
+					isRefreshing={isRefreshing}
+				/>
 			}
 			onClose={onClose}
 			scrollable

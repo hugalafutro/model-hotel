@@ -124,8 +124,6 @@ func buildLMStudioNativeModel(provider *Provider, m LMStudioV0Model) *model.Mode
 		caps.StructuredOutput = true // LM Studio supports response_format with JSON schema
 		caps.ToolCalling = slices.Contains(m.Capabilities, "tool_use")
 	}
-	inputMods, _ := json.Marshal(input)
-	outputMods, _ := json.Marshal(output)
 	capJSON, _ := json.Marshal(caps)
 
 	ownedBy := m.Publisher
@@ -148,8 +146,8 @@ func buildLMStudioNativeModel(provider *Provider, m LMStudioV0Model) *model.Mode
 		Description:      "LM Studio local model",
 		Capabilities:     string(capJSON),
 		Params:           "{}",
-		InputModalities:  string(inputMods),
-		OutputModalities: string(outputMods),
+		InputModalities:  marshalModalityList(input),
+		OutputModalities: marshalModalityList(output),
 		Modality:         modality,
 		ContextLength:    contextLength,
 		OwnedBy:          ownedBy,

@@ -132,30 +132,14 @@ func (l *IPLimiter) Middleware(next http.Handler) http.Handler {
 		// work only (see bucketEntry.admit).
 		maxWait := maxWaitFor(r.Context(), l.settings)
 
-		// Refuse before reserving when the bucket already says the wait is past
-		// the ceiling, so a refusal costs the IP nothing: see peekWait for what
-		// the reserve-then-cancel route costs instead, and for why the reading
-		// holds until the reservation under the admission lock. The zero test
-		// keeps a max_wait that somehow arrived negative from refusing a request
-		// the bucket can serve outright.
-		entry.admit.Lock()
-		if wait := peekWait(entry.limiter, time.Now()); wait > 0 && wait > maxWait {
-			entry.admit.Unlock()
-			reject429(w, entry, ip, wait, ipLogLabel, "rate limit exceeded")
+		// The IP's single bucket: a refusal costs the IP nothing, and the
+		// delay is within max_wait (see admitKeyed).
+		adm, refused := admitKeyed(entry, ip, nil, "", maxWait)
+		if refused != nil {
+			reject429(w, refused.by, refused.id, refused.retryAfter, ipLogLabel, "rate limit exceeded")
 			return
 		}
-
-		reservation := entry.limiter.Reserve()
-		if !reservation.OK() {
-			entry.admit.Unlock()
-			reject429(w, entry, ip, 0, ipLogLabel, "rate limit exceeded")
-			return
-		}
-
-		// The peek above read the same bucket under the same lock, and a cap
-		// change waits for it, so the delay is within max_wait.
-		delay := reservation.Delay()
-		entry.admit.Unlock()
+		reservation, delay := adm.res, adm.delay
 
 		if delay > 0 {
 			// Graceful backpressure: the wait is within the configured max_wait,

@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"net/http"
 	"slices"
 
 	"github.com/google/uuid"
@@ -49,9 +48,7 @@ func (d *DiscoveryService) discoverCohere(ctx context.Context, provider *Provide
 func (d *DiscoveryService) fetchCohereModels(ctx context.Context, provider *Provider, apiKey, nativeBaseURL, endpoint string, pricingCatalog []CoherePricingEntry) ([]*model.Model, error) {
 	models := make([]*model.Model, 0)
 
-	headers := http.Header{}
-	headers.Set("Authorization", "Bearer "+apiKey)
-	headers.Set("Content-Type", "application/json")
+	headers := bearerJSONHeader(apiKey)
 
 	// Paginate through all model pages
 	pageToken := ""
@@ -134,10 +131,10 @@ func buildCohereModel(provider *Provider, pricingCatalog []CoherePricingEntry, c
 		modelEntry.Description = pricing.Description
 		// Copied, not aliased: the entry is the package-global catalog row and
 		// every Cohere provider's models are built from it.
-		modelEntry.MaxOutputTokens = copyInt(pricing.MaxOutputTokens)
-		modelEntry.InputPricePerMillion = copyFloat(model.PriceOrNil(pricing.InputPricePerMillion))
-		modelEntry.OutputPricePerMillion = copyFloat(model.PriceOrNil(pricing.OutputPricePerMillion))
-		modelEntry.SearchPricePerThousand = copyFloat(model.PriceOrNil(pricing.SearchPricePerThousand))
+		modelEntry.MaxOutputTokens = clonePtr(pricing.MaxOutputTokens)
+		modelEntry.InputPricePerMillion = clonePtr(model.PriceOrNil(pricing.InputPricePerMillion))
+		modelEntry.OutputPricePerMillion = clonePtr(model.PriceOrNil(pricing.OutputPricePerMillion))
+		modelEntry.SearchPricePerThousand = clonePtr(model.PriceOrNil(pricing.SearchPricePerThousand))
 		modelEntry.StampPriceSources(model.PriceSourceCatalog)
 	} else {
 		// Minimal entry for models not in pricing catalog; models.dev fills
@@ -171,20 +168,4 @@ func cohereFeaturesToCapabilities(features []string) model.Capability {
 		}
 	}
 	return caps
-}
-
-func copyInt(p *int) *int {
-	if p == nil {
-		return nil
-	}
-	v := *p
-	return &v
-}
-
-func copyFloat(p *float64) *float64 {
-	if p == nil {
-		return nil
-	}
-	v := *p
-	return &v
 }

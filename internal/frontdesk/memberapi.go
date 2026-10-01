@@ -93,6 +93,23 @@ func callMemberLimited(ctx context.Context, client *http.Client, limit int64, me
 	return resp.StatusCode, data, nil
 }
 
+// getMemberJSON GETs path from the member under limit and decodes a 200 body into
+// out. Any other status is an error naming what was read. A decode failure is
+// reported without the decoder's error, which can echo a fragment of the response.
+func getMemberJSON(ctx context.Context, client *http.Client, limit int64, baseURL, path, token, what string, out any) error {
+	status, body, err := callMemberLimited(ctx, client, limit, http.MethodGet, baseURL, path, token, nil)
+	if err != nil {
+		return err
+	}
+	if status != http.StatusOK {
+		return fmt.Errorf("%s returned %d", what, status)
+	}
+	if err := json.Unmarshal(body, out); err != nil {
+		return errors.New("frontdesk: parse " + what)
+	}
+	return nil
+}
+
 // memberProbeTimeout bounds the add/edit-time token check so a hung or slow
 // member cannot stall the request; an exceeded deadline is treated as "could
 // not reach" (a warning), never as a wrong token.

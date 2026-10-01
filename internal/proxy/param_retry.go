@@ -276,7 +276,7 @@ func (h *Handler) issueRetry(r *http.Request, st *requestState, candidate modelC
 		// Same pass the main failover loop's transport error takes: the text can
 		// carry the upstream's own bytes.
 		debuglog.Warn(what, "attempt", attempt+1, "provider", candidate.provider.Name, "provider_id", candidate.provider.ID,
-			"error", fencedFrameMessage(st.logData.fence(), st.logData.masks(), errString(doErr)))
+			"error", st.logData.fencedErr(doErr))
 		if errors.Is(doErr, context.Canceled) || errors.Is(doErr, context.DeadlineExceeded) {
 			origin := "retry_timeout"
 			if errors.Is(doErr, context.Canceled) {

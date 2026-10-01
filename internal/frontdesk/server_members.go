@@ -111,9 +111,6 @@ func (s *Server) createMember(w http.ResponseWriter, r *http.Request) {
 		writeMemberValidationError(w, err)
 		return
 	}
-	fail := func(code, userMsg string, status int) {
-		writeCodedError(w, status, code, userMsg)
-	}
 
 	// Verify the token against the canonical member URL. Unlike an edit, an
 	// add requires a positive reply: an unreachable host or a refused/unexpected
@@ -123,11 +120,11 @@ func (s *Server) createMember(w http.ResponseWriter, r *http.Request) {
 	if !p.valid {
 		switch {
 		case !p.reached:
-			fail("unreachable", "Front Desk could not reach this member to verify it. Check the URL and that the host is running, then try again.", http.StatusBadRequest)
+			writeCodedError(w, http.StatusBadRequest, "unreachable", "Front Desk could not reach this member to verify it. Check the URL and that the host is running, then try again.")
 		case p.rejected():
-			fail("token_rejected", fmt.Sprintf("This member rejected the admin token (HTTP %d). Double-check the token and try again.", p.status), http.StatusBadRequest)
+			writeCodedError(w, http.StatusBadRequest, "token_rejected", fmt.Sprintf("This member rejected the admin token (HTTP %d). Double-check the token and try again.", p.status))
 		default:
-			fail("unverified", fmt.Sprintf("This host did not verify as a Front Desk member (HTTP %d). Check the URL points at a model-hotel instance and the token is correct.", p.status), http.StatusBadRequest)
+			writeCodedError(w, http.StatusBadRequest, "unverified", fmt.Sprintf("This host did not verify as a Front Desk member (HTTP %d). Check the URL points at a model-hotel instance and the token is correct.", p.status))
 		}
 		return
 	}
@@ -140,7 +137,7 @@ func (s *Server) createMember(w http.ResponseWriter, r *http.Request) {
 	// retry once the host answers /api/system cleanly.
 	ident, identOK := s.memberIdentity(r.Context(), memberURL, req.Token)
 	if !identOK {
-		fail("identity_unverified", "Front Desk verified the admin token but could not read this host's fleet identity (/api/system) to confirm it is not the fleet primary or an existing member. Check the host and try again.", http.StatusBadRequest)
+		writeCodedError(w, http.StatusBadRequest, "identity_unverified", "Front Desk verified the admin token but could not read this host's fleet identity (/api/system) to confirm it is not the fleet primary or an existing member. Check the host and try again.")
 		return
 	}
 	// Only a host claiming the primary role needs this desk's own id, to tell
@@ -149,7 +146,7 @@ func (s *Server) createMember(w http.ResponseWriter, r *http.Request) {
 	if ident.State == "primary" || ident.IsPrimary {
 		id, idErr := s.store.EnsureFrontdeskID(r.Context())
 		if idErr != nil {
-			fail("identity_unverified", "Front Desk could not read its own fleet identity to check who manages this host. Try again.", http.StatusInternalServerError)
+			writeCodedError(w, http.StatusInternalServerError, "identity_unverified", "Front Desk could not read its own fleet identity to check who manages this host. Try again.")
 			return
 		}
 		ownID = id
@@ -165,7 +162,7 @@ func (s *Server) createMember(w http.ResponseWriter, r *http.Request) {
 	// instance id that dedup cannot run, so the refusal stands; and a roster
 	// row the dedup could not identify refuses the add further down.
 	if ident.State == "primary" && (ident.FrontdeskID != ownID || ident.InstanceID == "") {
-		fail("already_primary", "This host is already the fleet primary (the config source of truth), reached under a different address. It cannot also be added as a member.", http.StatusConflict)
+		writeCodedError(w, http.StatusConflict, "already_primary", "This host is already the fleet primary (the config source of truth), reached under a different address. It cannot also be added as a member.")
 		return
 	}
 	// Past that window the host still reports the role it last heard (the flag
@@ -199,7 +196,7 @@ func (s *Server) createMember(w http.ResponseWriter, r *http.Request) {
 	takenOver := false
 	if ident.IsPrimary && ident.FrontdeskID != ownID {
 		if !s.adminMgr.Validate(strings.TrimSpace(req.ConfirmToken)) {
-			fail("primary_elsewhere", "Another Front Desk still names this host its fleet primary (the config source of truth). It may only be unreachable right now, and adding it here would take its fleet over. Remove it there first, or, if that Front Desk is gone for good, confirm this Front Desk's admin token to enrol it anyway.", http.StatusConflict)
+			writeCodedError(w, http.StatusConflict, "primary_elsewhere", "Another Front Desk still names this host its fleet primary (the config source of truth). It may only be unreachable right now, and adding it here would take its fleet over. Remove it there first, or, if that Front Desk is gone for good, confirm this Front Desk's admin token to enrol it anyway.")
 			return
 		}
 		takenOver = true
@@ -216,11 +213,11 @@ func (s *Server) createMember(w http.ResponseWriter, r *http.Request) {
 	if instanceID != "" {
 		dup, unidentified, derr := s.instanceAlreadyMember(r.Context(), "", instanceID)
 		if derr != nil {
-			fail("verify_failed", "Front Desk could not verify whether this host is already a member. Try again.", http.StatusInternalServerError)
+			writeCodedError(w, http.StatusInternalServerError, "verify_failed", "Front Desk could not verify whether this host is already a member. Try again.")
 			return
 		}
 		if dup {
-			fail("already_member", "This host is already a member (added under a different address). Remove the existing entry first if you want to re-add it.", http.StatusConflict)
+			writeCodedError(w, http.StatusConflict, "already_member", "This host is already a member (added under a different address). Remove the existing entry first if you want to re-add it.")
 			return
 		}
 		// A host admitted by the own-desk carve-out above claims to be this
@@ -228,7 +225,7 @@ func (s *Server) createMember(w http.ResponseWriter, r *http.Request) {
 		// identified. A row still without an instance_id could be this very host
 		// under its old address, so refuse rather than enrol the primary twice.
 		if ident.State == "primary" && unidentified != "" {
-			fail("identity_unverified", "This host reports being this fleet's primary, but member "+unidentified+" reports no instance id (it runs a release too old to report one, has no stored admin token, or did not answer), so Front Desk cannot rule out that they are the same host. Upgrade that member or store its admin token, or remove it first (on a two-member fleet, removing it disbands the fleet).", http.StatusBadRequest)
+			writeCodedError(w, http.StatusBadRequest, "identity_unverified", "This host reports being this fleet's primary, but member "+unidentified+" reports no instance id (it runs a release too old to report one, has no stored admin token, or did not answer), so Front Desk cannot rule out that they are the same host. Upgrade that member or store its admin token, or remove it first (on a two-member fleet, removing it disbands the fleet).")
 			return
 		}
 	}

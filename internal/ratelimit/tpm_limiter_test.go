@@ -14,6 +14,7 @@ import (
 	"golang.org/x/time/rate"
 
 	"github.com/hugalafutro/model-hotel/internal/ctxkeys"
+	"github.com/hugalafutro/model-hotel/internal/settings"
 )
 
 // TestTPMRetryAfter covers the three return paths of tpmRetryAfter: a budget
@@ -1190,8 +1191,8 @@ func TestTPMLimiter_HorizonReadCarriesItsOwnDeadline(t *testing.T) {
 	if !seen {
 		t.Fatal("the horizon read must carry a deadline of its own")
 	}
-	if shortest > settingsReadTimeout {
-		t.Errorf("the read's deadline should be no more than %v out, got %v", settingsReadTimeout, shortest)
+	if shortest > settings.HotPathReadTimeout {
+		t.Errorf("the read's deadline should be no more than %v out, got %v", settings.HotPathReadTimeout, shortest)
 	}
 }
 
@@ -1216,8 +1217,8 @@ func TestTPMLimiter_SweepReadCarriesTheLongerBound(t *testing.T) {
 	if longest > markRefreshTimeout {
 		t.Errorf("the sweep's deadline should be no more than %v out, got %v", markRefreshTimeout, longest)
 	}
-	if longest <= settingsReadTimeout {
-		t.Errorf("the sweep should wait longer than an admission's %v, got %v", settingsReadTimeout, longest)
+	if longest <= settings.HotPathReadTimeout {
+		t.Errorf("the sweep should wait longer than an admission's %v, got %v", settings.HotPathReadTimeout, longest)
 	}
 }
 

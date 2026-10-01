@@ -78,9 +78,7 @@ func (d *DiscoveryService) discoverOpenAI(ctx context.Context, provider *Provide
 // unaffected.
 func applyListingExtras(m *model.Model, entry OpenAIModel) *model.Model {
 	if input := listingInputModalities(entry.Architecture); len(input) > 0 {
-		if b, err := json.Marshal(input); err == nil {
-			m.InputModalities = string(b)
-		}
+		m.InputModalities = marshalModalityList(input)
 	}
 	n := listingContext(entry.Meta)
 	if n == 0 {

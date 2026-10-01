@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"net/http"
 	"slices"
 	"strconv"
 	"strings"
@@ -20,9 +19,7 @@ func (d *DiscoveryService) discoverOpenRouter(ctx context.Context, provider *Pro
 	baseURL := util.SanitizeBaseURL(provider.BaseURL)
 	url := fmt.Sprintf("%s/models", baseURL)
 
-	headers := http.Header{}
-	headers.Set("Authorization", "Bearer "+apiKey)
-	headers.Set("Content-Type", "application/json")
+	headers := bearerJSONHeader(apiKey)
 
 	bodyBytes, err := d.fetchURL(ctx, "GET", url, headers)
 	if err != nil {

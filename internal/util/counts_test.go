@@ -279,34 +279,28 @@ func TestDecodeCounts_OnlyIntegerFields(t *testing.T) {
 
 // A figure read straight off one member does not care what happened to the
 // others. A SUM does: losing an addend leaves a number that is wrong and
-// non-zero, so a caller that sums has to know which members it lost.
-func TestUnreadableCounts(t *testing.T) {
+// non-zero, so a caller that sums has to know when it lost one.
+func TestCountsUnreadable(t *testing.T) {
 	t.Parallel()
 	for _, tc := range []struct {
 		name string
 		raw  string
-		want []string
+		want bool
 	}{
-		{"all readable", `{"a":1,"b":"2","c":3.0}`, nil},
+		{"all readable", `{"a":1,"b":"2","c":3.0}`, false},
 		// Absent is not unreadable: a count the provider did not send is zero,
 		// and zero is a correct addend.
-		{"absent", `{"a":1}`, nil},
-		{"one unreadable", `{"a":1,"b":[],"c":3}`, []string{"b"}},
-		{"several", `{"a":{},"b":"lots","c":3}`, []string{"a", "b"}},
-		{"explicit null is not a count", `{"a":1,"b":null}`, []string{"b"}},
+		{"absent", `{"a":1}`, false},
+		{"one unreadable", `{"a":1,"b":[],"c":3}`, true},
+		{"several", `{"a":{},"b":"lots","c":3}`, true},
+		{"explicit null is not a count", `{"a":1,"b":null}`, true},
 		// Nothing readable at all: every named member is lost.
-		{"not an object", `[]`, []string{"a", "b", "c"}},
+		{"not an object", `[]`, true},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
-			got := util.UnreadableCounts(json.RawMessage(tc.raw), "a", "b", "c")
-			if len(got) != len(tc.want) {
-				t.Fatalf("got %v, want %v", got, tc.want)
-			}
-			for i := range got {
-				if got[i] != tc.want[i] {
-					t.Errorf("got %v, want %v", got, tc.want)
-				}
+			if got := util.CountsUnreadable(json.RawMessage(tc.raw), "a", "b", "c"); got != tc.want {
+				t.Errorf("got %v, want %v", got, tc.want)
 			}
 		})
 	}

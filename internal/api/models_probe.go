@@ -5,7 +5,6 @@ import (
 	"context"
 	"encoding/json"
 	"net/http"
-	"time"
 
 	"github.com/hugalafutro/model-hotel/internal/debuglog"
 	"github.com/hugalafutro/model-hotel/internal/endpointtype"
@@ -36,13 +35,7 @@ func buildTestRerankRequest(modelID, baseURL, providerType string) (body []byte,
 // self-heal executor is not used: its 400 retry rewrites chat parameters the
 // rerank body does not carry.
 func (h *Handler) doTestRerankRequest(ctx context.Context, providerType, targetURL, apiKey string, body []byte) (*http.Response, error) {
-	client := &http.Client{Timeout: 30 * time.Second}
-	if h.testModelTransport != nil {
-		client.Transport = h.testModelTransport
-	}
-	if h.testModelCheckRedirect != nil {
-		client.CheckRedirect = h.testModelCheckRedirect
-	}
+	client := h.testModelClient()
 	// #nosec G704 -- provider URL is admin-configured, not arbitrary user input
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, targetURL, bytes.NewReader(body))
 	if err != nil {
@@ -75,27 +68,6 @@ func countRankedResults(respBody []byte) int {
 		return 0
 	}
 	return max(len(out.Results), len(out.Data))
-}
-
-// billedSearchUnits reads how many search units a rerank probe answer was
-// billed for (Cohere's meta.billed_units.search_units), the same member the
-// proxy meters live traffic by; zero for providers that bill per token.
-func billedSearchUnits(respBody []byte) int {
-	var envelope struct {
-		Meta struct {
-			BilledUnits json.RawMessage `json:"billed_units"`
-		} `json:"meta"`
-	}
-	if json.Unmarshal(respBody, &envelope) != nil || !util.JSONMemberSet(envelope.Meta.BilledUnits) {
-		return 0
-	}
-	var billed struct {
-		SearchUnits int `json:"search_units"`
-	}
-	if util.DecodeCountsTolerant(envelope.Meta.BilledUnits, &billed) != nil {
-		return 0
-	}
-	return util.ClampTokenCount(billed.SearchUnits)
 }
 
 // probeEndpointType is the request_logs.endpoint_type a probe row carries:

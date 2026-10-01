@@ -2,7 +2,11 @@ import { useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import type { Model } from "../../api/types";
 import { CAP_META, type CapKey } from "../../components/capMeta";
-import { formatPriceInput, parseCapabilities } from "../../utils/model";
+import {
+	formatPriceInput,
+	parseCapabilities,
+	roundPrice,
+} from "../../utils/model";
 
 interface UseModelEditorParams {
 	model: Model;
@@ -87,12 +91,17 @@ export function useModelEditor({ model, onUpdate }: UseModelEditorParams) {
 		[model],
 	);
 
+	/** Reset the form to the model's current values. */
+	const reseed = () => {
+		setEditData(editValuesFrom(model));
+		setEditCaps(editCapsFrom(model));
+	};
+
 	// Re-sync editData when model changes while editing
 	const currentEditVersion = editing ? model.id : "";
 	if (editing && currentEditVersion !== editVersion) {
 		setEditVersion(currentEditVersion);
-		setEditData(editValuesFrom(model));
-		setEditCaps(editCapsFrom(model));
+		reseed();
 	}
 	// Outside edit mode the form follows the model, so a change made elsewhere
 	// (a price reset to source after a save in this same modal) is what the
@@ -102,8 +111,7 @@ export function useModelEditor({ model, onUpdate }: UseModelEditorParams) {
 	const [seededKey, setSeededKey] = useState(seedKey);
 	if (!editing && seedKey !== seededKey) {
 		setSeededKey(seedKey);
-		setEditData(editValuesFrom(model));
-		setEditCaps(editCapsFrom(model));
+		reseed();
 	}
 
 	const getFieldLabel = (key: string): string =>
@@ -133,8 +141,7 @@ export function useModelEditor({ model, onUpdate }: UseModelEditorParams) {
 			const stored = model[field];
 			return (
 				editData[field] !== "" &&
-				Number(editData[field]) !==
-					(stored != null ? Math.round(stored * 10000) / 10000 : null)
+				Number(editData[field]) !== (stored != null ? roundPrice(stored) : null)
 			);
 		};
 		for (const field of [
@@ -165,8 +172,7 @@ export function useModelEditor({ model, onUpdate }: UseModelEditorParams) {
 	const discardEdit = () => {
 		setConfirmFields(null);
 		setEditing(false);
-		setEditData(editValuesFrom(model));
-		setEditCaps(editCapsFrom(model));
+		reseed();
 	};
 
 	const handleSave = () => {

@@ -9,6 +9,7 @@ import type {
 	MemberView,
 } from "../../api/types";
 import { useToast } from "../../context/ToastContext";
+import { useLatestRequest } from "../../hooks/useLatestRequest";
 import { reportResults } from "../../utils/syncResults";
 import { ConfirmModal } from "../ConfirmModal";
 import { Notice } from "../Notice";
@@ -106,7 +107,7 @@ export function FleetSyncWizard({
 	// Which probe is the newest: a probe answered after the operator moved on
 	// to another primary is dropped, or its reachable result would clear the
 	// new candidate's warning and open Next with the wrong host's data.
-	const probeSeq = useRef(0);
+	const probe = useLatestRequest();
 	// refresh is a mount-time dependency: it must not change identity when the
 	// UI language does (useTranslation hands out a new t on every language
 	// switch), or the mount effect re-runs and snaps an in-progress re-run back
@@ -117,26 +118,29 @@ export function FleetSyncWizard({
 		toastRef.current = toast;
 		tRef.current = t;
 	}, [toast, t]);
-	const refresh = useCallback(async (id: string) => {
-		if (!id) return;
-		const seq = ++probeSeq.current;
-		setLoading(true);
-		try {
-			const fs = await api.fleetStatus(id);
-			if (seq !== probeSeq.current) return;
-			// An unusable primary comes back without a member list (Go nil slice
-			// serialises to null); normalise so the gate helpers never touch null.
-			setStatus({ ...fs, members: fs.members ?? [] });
-		} catch (e) {
-			if (seq !== probeSeq.current) return;
-			toastRef.current(
-				e instanceof ApiError ? e.message : tRef.current("errors.generic"),
-				"error",
-			);
-		} finally {
-			if (seq === probeSeq.current) setLoading(false);
-		}
-	}, []);
+	const refresh = useCallback(
+		async (id: string) => {
+			if (!id) return;
+			const seq = probe.next();
+			setLoading(true);
+			try {
+				const fs = await api.fleetStatus(id);
+				if (!probe.isCurrent(seq)) return;
+				// An unusable primary comes back without a member list (Go nil slice
+				// serialises to null); normalise so the gate helpers never touch null.
+				setStatus({ ...fs, members: fs.members ?? [] });
+			} catch (e) {
+				if (!probe.isCurrent(seq)) return;
+				toastRef.current(
+					e instanceof ApiError ? e.message : tRef.current("errors.generic"),
+					"error",
+				);
+			} finally {
+				if (probe.isCurrent(seq)) setLoading(false);
+			}
+		},
+		[probe],
+	);
 
 	// Re-poll the fleet's versions and compare against the primary. The endpoint
 	// probes members on demand, so an operator who just aligned a member sees

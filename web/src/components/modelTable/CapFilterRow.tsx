@@ -1,7 +1,7 @@
 import { Fragment } from "react";
 import { useTranslation } from "react-i18next";
 import { CollapsibleToggle, useCollapsible } from "../CollapsibleToggle";
-import { CAP_META, type CapKey } from "../capMeta";
+import { CAP_META, type CapKey, PILL_BADGE } from "../capMeta";
 import { OUTPUT_ICON_BADGE, OutputIcon } from "../OutputBadges";
 import { OUTPUT_META, type OutputMeta } from "../outputMeta";
 
@@ -73,7 +73,7 @@ export function PillStrip({
 						data-dimmed={anyActive && !p.active ? "" : undefined}
 						{...(p.icon ? { "aria-label": p.label, title: p.label } : {})}
 						onClick={p.onToggle}
-						className={`${p.icon ? OUTPUT_ICON_BADGE : "ui-badge inline-flex items-center px-1.5 py-0.5 text-[10px] font-medium border"} transition-[color,background-color,border-color,filter] data-dimmed:grayscale data-dimmed:hover:grayscale-0 ${p.className}`}
+						className={`${p.icon ? OUTPUT_ICON_BADGE : `${PILL_BADGE} text-[10px] border`} transition-[color,background-color,border-color,filter] data-dimmed:grayscale data-dimmed:hover:grayscale-0 ${p.className}`}
 					>
 						{p.icon ? <OutputIcon meta={p.icon} /> : p.label}
 					</button>
@@ -85,7 +85,7 @@ export function PillStrip({
 					onClick={onClear}
 					aria-label={t("common.clearFilter")}
 					title={t("common.clearFilter")}
-					className="ui-badge inline-flex items-center px-1.5 py-0.5 text-[10px] font-medium text-gray-400 hover:text-gray-200"
+					className={`${PILL_BADGE} text-[10px] text-gray-400 hover:text-gray-200`}
 				>
 					✕
 				</button>

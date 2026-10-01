@@ -1,10 +1,14 @@
 package openairesponses
 
-import "testing"
+import (
+	"testing"
+
+	"github.com/hugalafutro/model-hotel/internal/egress"
+)
 
 func TestParseResponseUsage(t *testing.T) {
 	u := ParseResponseUsage([]byte(`{"id":"resp_1","usage":{"input_tokens":100,"input_tokens_details":{"cached_tokens":60},"output_tokens":"7","total_tokens":107}}`))
-	if u != (NativeUsage{PromptTokens: 100, CompletionTokens: 7, CacheHitTokens: 60, CacheMissTokens: 40}) {
+	if u != (egress.NativeUsage{PromptTokens: 100, CompletionTokens: 7, CacheHitTokens: 60, CacheMissTokens: 40}) {
 		t.Errorf("usage = %+v", u)
 	}
 	if u := ParseResponseUsage([]byte(`{"usage":{"input_tokens":10,"output_tokens":1}}`)); u.CacheHitTokens != 0 || u.CacheMissTokens != 0 || u.PromptTokens != 10 {
@@ -14,10 +18,10 @@ func TestParseResponseUsage(t *testing.T) {
 	if u := ParseResponseUsage([]byte(`{"usage":{"input_tokens":10,"input_tokens_details":{"cached_tokens":50},"output_tokens":1}}`)); u.CacheHitTokens != 0 {
 		t.Errorf("absurd cache split must be dropped: %+v", u)
 	}
-	if u := ParseResponseUsage([]byte(`{"usage":null}`)); u != (NativeUsage{}) {
+	if u := ParseResponseUsage([]byte(`{"usage":null}`)); u != (egress.NativeUsage{}) {
 		t.Errorf("null usage = %+v", u)
 	}
-	if u := ParseResponseUsage([]byte(`nope`)); u != (NativeUsage{}) {
+	if u := ParseResponseUsage([]byte(`nope`)); u != (egress.NativeUsage{}) {
 		t.Errorf("broken body = %+v", u)
 	}
 }

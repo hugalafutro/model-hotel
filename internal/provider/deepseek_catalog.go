@@ -109,9 +109,9 @@ func deepseekSpecToModel(spec *DeepSeekModelSpec, providerID uuid.UUID) *model.M
 		OutputModalities:             `["text"]`,
 		ContextLength:                &contextLen,
 		MaxOutputTokens:              &maxOutput,
-		InputPricePerMillion:         copyPrice(spec.InputPricePerMillionCacheMiss),
-		InputPricePerMillionCacheHit: copyPrice(spec.InputPricePerMillionCacheHit),
-		OutputPricePerMillion:        copyPrice(spec.OutputPricePerMillion),
+		InputPricePerMillion:         clonePtr(spec.InputPricePerMillionCacheMiss),
+		InputPricePerMillionCacheHit: clonePtr(spec.InputPricePerMillionCacheHit),
+		OutputPricePerMillion:        clonePtr(spec.OutputPricePerMillion),
 		OwnedBy:                      "deepseek",
 		Enabled:                      true,
 	}

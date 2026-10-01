@@ -115,8 +115,8 @@ export function nonTextOutputs(m: { output_modalities?: string }): string[] {
 	);
 }
 
-// A price rounded to at most four decimals.
-const roundPrice = (n: number) => Math.round(n * 10000) / 10000;
+/** A price rounded to at most four decimals. */
+export const roundPrice = (n: number) => Math.round(n * 10000) / 10000;
 
 /** A price for display: at most four decimals, in the format locale. */
 export function formatPrice(n: number | null | undefined): string {

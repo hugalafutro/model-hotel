@@ -1,7 +1,6 @@
 package proxy
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
 	"io"
@@ -516,18 +515,18 @@ func probeDeliveredContent(endpointType string, body []byte) bool {
 		if json.Unmarshal(body, &out) != nil || len(out.Data) == 0 {
 			return false
 		}
-		return !jsonValueIsEmpty(out.Data[0].Embedding)
+		return !util.JSONValueIsEmpty(out.Data[0].Embedding)
 	case endpointTypeRerank:
 		// Cohere, Jina and the local rerankers answer under "results", Voyage
 		// under "data", and text-embeddings-inference with the bare list.
-		return listAnswerDelivered(body, "results", "data")
+		return util.ListAnswerDelivered(body, "results", "data")
 	case endpointTypeImage:
 		// The OpenAI shape every /v1/images provider this gateway fronts
 		// answers in: the images under "data", each carrying its picture as
 		// b64_json or url. An entry whose picture fields are there but empty is
 		// no image: KoboldCpp answers a failed generation with
 		// {"data":[{"b64_json":""}]} under HTTP 200.
-		return listAnswerDelivered(body, "data") && imageEntriesDeliver(body)
+		return util.ListAnswerDelivered(body, "data") && imageEntriesDeliver(body)
 	}
 
 	var out ChatCompletionResponse
@@ -537,43 +536,14 @@ func probeDeliveredContent(endpointType string, body []byte) bool {
 	return chatAnswerCarriesContent(out)
 }
 
-// listAnswerDelivered reports whether a JSON answer whose payload is a list
-// under one of the given keys, or is itself that list, carries anything.
-//
-// Only a shape it recognises is ever called empty. A rerank or image provider
-// answering in a dialect this gateway does not translate (an object under
-// "data", the images under a key of its own) is forwarded to the client as it
-// came, and its answer is judged on bytes as before: not understanding a shape
-// is not evidence that it carries nothing, and calling it empty would fail a
-// healthy provider over and charge its circuit on every call. A body that will
-// not parse at all is not an answer on a JSON surface, the verdict the chat
-// path reaches through completionFault.
-func listAnswerDelivered(body []byte, keys ...string) bool {
-	trimmed := bytes.TrimSpace(body)
-	if len(trimmed) > 0 && trimmed[0] == '[' {
-		var list []json.RawMessage
-		return json.Unmarshal(trimmed, &list) == nil && len(list) > 0
-	}
-	var out map[string]json.RawMessage
-	if json.Unmarshal(body, &out) != nil || out == nil {
-		return false
-	}
-	for _, key := range keys {
-		if raw, ok := out[key]; ok {
-			return !jsonValueIsEmpty(raw)
-		}
-	}
-	return true
-}
-
 // imageEntriesDeliver reports whether an images answer's "data" list carries a
 // picture. It is false only when every entry is null or an object that names a
 // picture field (b64_json or url) and leaves every named one empty. An entry of
-// any other shape counts as delivered, for the reason listAnswerDelivered
+// any other shape counts as delivered, for the reason util.ListAnswerDelivered
 // gives: not understanding a shape is no evidence that it carries nothing. It
 // returns true for a "data" that is absent, empty or not a list; the caller asks
-// listAnswerDelivered first, and that is what rejects those bodies. The member is
-// read by its exact name, as listAnswerDelivered reads it through its map, so
+// util.ListAnswerDelivered first, and that is what rejects those bodies. The member is
+// read by its exact name, as util.ListAnswerDelivered reads it through its map, so
 // both judge the same list and both read a {"Data":...} body as a shape they do
 // not recognise.
 func imageEntriesDeliver(body []byte) bool {
@@ -596,26 +566,9 @@ func imageEntriesDeliver(body []byte) bool {
 		if !hasB64 && !hasURL {
 			return true
 		}
-		if !jsonValueIsEmpty(b64) || !jsonValueIsEmpty(url) {
+		if !util.JSONValueIsEmpty(b64) || !util.JSONValueIsEmpty(url) {
 			return true
 		}
-	}
-	return false
-}
-
-// jsonValueIsEmpty reports whether a raw JSON value carries nothing: absent,
-// null, an array with no elements, or a string with no characters.
-//
-// Structural rather than a comparison against the spellings encoding/json
-// happens to emit: `[]` and `[ ]` are the same empty array, and an exact-string
-// test reads `[ ]` as content.
-func jsonValueIsEmpty(raw json.RawMessage) bool {
-	v := bytes.TrimSpace(raw)
-	if len(v) == 0 || bytes.Equal(v, []byte("null")) {
-		return true
-	}
-	if len(v) >= 2 && (v[0] == '[' && v[len(v)-1] == ']' || v[0] == '"' && v[len(v)-1] == '"') {
-		return len(bytes.TrimSpace(v[1:len(v)-1])) == 0
 	}
 	return false
 }

@@ -111,14 +111,14 @@ func extractCacheTokens(u Usage) (hitTokens, missTokens int) {
 	// MinInt64 beside a cache hit of 5 wrapped to a large POSITIVE miss, which
 	// a clamp on the result then rounded down to a plausible-looking ceiling
 	// figure. Clamping the inputs makes the subtraction unwrappable.
-	prompt := clampTokenCount(u.PromptTokens)
+	prompt := util.ClampTokenCount(u.PromptTokens)
 	switch {
 	case u.PromptCacheHitTokens > 0:
-		hitTokens = clampTokenCount(u.PromptCacheHitTokens)
+		hitTokens = util.ClampTokenCount(u.PromptCacheHitTokens)
 	case u.CacheReadInputTokens > 0:
-		hitTokens = clampTokenCount(u.CacheReadInputTokens)
+		hitTokens = util.ClampTokenCount(u.CacheReadInputTokens)
 	case u.PromptTokensDetails != nil && u.PromptTokensDetails.CachedTokens > 0:
-		hitTokens = clampTokenCount(u.PromptTokensDetails.CachedTokens)
+		hitTokens = util.ClampTokenCount(u.PromptTokensDetails.CachedTokens)
 	default:
 		return 0, 0
 	}
@@ -271,7 +271,7 @@ func (h *Handler) recordTokenUsage(vkHash string, logData *requestLogData, promp
 	// (completion_tokens_details.reasoning_tokens is a breakdown, not an extra
 	// count), so adding it charged a reasoning model's thinking twice.
 	promptTokens, completionTokens, _ = sanitizeUsageCounts(promptTokens, completionTokens, reasoningTokens)
-	totalTokens := min(promptTokens+completionTokens, maxSaneTokenCount)
+	totalTokens := min(promptTokens+completionTokens, util.MaxSaneTokenCount)
 	if h.tpmLimiter != nil {
 		switch {
 		case vkHash != "":
@@ -394,7 +394,7 @@ func breakerRecordAction(statusCode int) breakerAction {
 		// provider through the same span: a bad key fails every model it is used
 		// for, so the second one to fail indicts the provider.
 		return breakerActionFailure
-	case statusCode == 404 || statusCode == 499:
+	case statusCode == 404 || statusCode == statusClientClosedRequest:
 		// 404 = stale/renamed model (model-specific, not provider health)
 		// 499 = client closed request (Nginx convention; not a provider signal)
 		return breakerActionNoOp
@@ -415,30 +415,17 @@ func estimateTokens(textBytes int) int {
 // bytesPerToken is the conventional text-to-token ratio the estimates above use.
 const bytesPerToken = 4
 
-// maxSaneTokenCount is the bound every provider-reported token figure is held
-// to before it becomes gateway state. The definition and its reasoning live in
-// internal/util so the dashboard's model test, which writes the same int4
-// columns, shares it.
-const maxSaneTokenCount = util.MaxSaneTokenCount
-
-// clampTokenCount folds one provider figure into [0, maxSaneTokenCount]. See
-// util.ClampTokenCount for why a negative folds to zero rather than rejecting
-// the block.
-func clampTokenCount(n int) int {
-	return util.ClampTokenCount(n)
-}
-
 // isTokenReading reports whether a streamed usage member carries a count worth
 // recording: positive and inside the bound. The streaming observers keep an
 // earlier reading rather than clamping, because a chunk saying zero, or saying
 // something absurd, says nothing about the count a previous chunk reported.
 func isTokenReading(n int) bool {
-	return n > 0 && n <= maxSaneTokenCount
+	return n > 0 && n <= util.MaxSaneTokenCount
 }
 
 // sanitizeUsageCounts clamps the three members of one usage block.
 func sanitizeUsageCounts(promptTokens, completionTokens, reasoningTokens int) (prompt, completion, reasoning int) {
-	return clampTokenCount(promptTokens), clampTokenCount(completionTokens), clampTokenCount(reasoningTokens)
+	return util.ClampTokenCount(promptTokens), util.ClampTokenCount(completionTokens), util.ClampTokenCount(reasoningTokens)
 }
 
 // clampReportedUsage is sanitizeUsageCounts for the paths that read a
@@ -462,7 +449,7 @@ func (h *Handler) clampReportedUsage(promptTokens, completionTokens, reasoningTo
 			"model", logData.modelID, "provider", logData.providerName,
 			"reported_prompt", promptTokens, "reported_completion", completionTokens, "reported_reasoning", reasoningTokens,
 			"recorded_prompt", prompt, "recorded_completion", completion, "recorded_reasoning", reasoning,
-			"ceiling", maxSaneTokenCount)
+			"ceiling", util.MaxSaneTokenCount)
 	}
 	return prompt, completion, reasoning
 }

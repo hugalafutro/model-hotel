@@ -47,6 +47,12 @@ const EMPTY: EnrolState = {
  */
 export function useTotpEnrollment(client: TotpClient, queryKey: QueryKey) {
 	const { t } = useTranslation();
+	// A 429 is the TOTP limiter, whatever the call: say so rather than the
+	// call's own failure.
+	const throttledOr = (err: unknown, fallback: string) =>
+		err instanceof ApiError && err.status === 429
+			? t("layout.auth.totpThrottled")
+			: fallback;
 	const { toast } = useToast();
 	const { copy } = useCopyToClipboard({ trackCopied: false });
 	const queryClient = useQueryClient();
@@ -113,12 +119,7 @@ export function useTotpEnrollment(client: TotpClient, queryKey: QueryKey) {
 			toast(t("settings.totp.verifiedSuccess"), "success");
 		},
 		onError: (err) =>
-			toast(
-				err instanceof ApiError && err.status === 429
-					? t("layout.auth.totpThrottled")
-					: t("settings.totp.failedToVerify"),
-				"error",
-			),
+			toast(throttledOr(err, t("settings.totp.failedToVerify")), "error"),
 	});
 
 	const disableMutation = useMutation({
@@ -130,12 +131,7 @@ export function useTotpEnrollment(client: TotpClient, queryKey: QueryKey) {
 			toast(t("settings.totp.disabled"), "success");
 		},
 		onError: (err) =>
-			toast(
-				err instanceof ApiError && err.status === 429
-					? t("layout.auth.totpThrottled")
-					: t("settings.totp.failedToDisable"),
-				"error",
-			),
+			toast(throttledOr(err, t("settings.totp.failedToDisable")), "error"),
 	});
 
 	return {

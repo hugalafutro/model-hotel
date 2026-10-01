@@ -6,7 +6,7 @@ import {
 	getAuthHeaders,
 } from "../../api/client";
 import type { AppLogEntry, LogEntry, LogsResponse } from "../../api/types";
-import { useLocalStorage } from "../../hooks/useLocalStorage";
+import { removeStoredKeys, useLocalStorage } from "../../hooks/useLocalStorage";
 
 /** How many recent errors of each kind to fetch, and the cap on the merged
  * list the shelf renders. */
@@ -134,13 +134,7 @@ export function useErrorShelf(): UseErrorShelf {
 
 	// One-time cleanup of the superseded per-kind dismissal keys.
 	useEffect(() => {
-		for (const k of LEGACY_KEYS) {
-			try {
-				localStorage.removeItem(k);
-			} catch {
-				/* ignore */
-			}
-		}
+		removeStoredKeys(LEGACY_KEYS);
 	}, []);
 
 	// Settings → "Reset dismissed error banners" un-acks the whole shelf.

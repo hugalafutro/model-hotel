@@ -21,24 +21,10 @@ import (
 // integer near 2^63 wrapped the charge sum and failed the int4 request-log
 // UPDATE. These tests pin the bound at every reader and at the charge.
 
-// The clamp's own table lives in internal/util, where the shared definition
-// is. This pins only that the proxy's alias is that definition, so a
-// re-definition here could not drift from it unnoticed.
-func TestClampTokenCount_IsTheSharedDefinition(t *testing.T) {
-	if maxSaneTokenCount != util.MaxSaneTokenCount {
-		t.Errorf("ceiling = %d, want the shared %d", maxSaneTokenCount, util.MaxSaneTokenCount)
-	}
-	for _, n := range []int{0, 1, maxSaneTokenCount, maxSaneTokenCount + 1, -500, math.MaxInt64, math.MinInt64} {
-		if got, want := clampTokenCount(n), util.ClampTokenCount(n); got != want {
-			t.Errorf("clampTokenCount(%d) = %d, want util's %d", n, got, want)
-		}
-	}
-}
-
 func TestSanitizeUsageCounts(t *testing.T) {
 	p, c, r := sanitizeUsageCounts(-500, math.MaxInt64, 7)
-	if p != 0 || c != maxSaneTokenCount || r != 7 {
-		t.Errorf("got (%d, %d, %d), want (0, %d, 7)", p, c, r, maxSaneTokenCount)
+	if p != 0 || c != util.MaxSaneTokenCount || r != 7 {
+		t.Errorf("got (%d, %d, %d), want (0, %d, 7)", p, c, r, util.MaxSaneTokenCount)
 	}
 }
 
@@ -47,7 +33,7 @@ func TestIsTokenReading(t *testing.T) {
 		in   int
 		want bool
 	}{
-		{0, false}, {-1, false}, {1, true}, {maxSaneTokenCount, true}, {maxSaneTokenCount + 1, false}, {math.MaxInt64, false},
+		{0, false}, {-1, false}, {1, true}, {util.MaxSaneTokenCount, true}, {util.MaxSaneTokenCount + 1, false}, {math.MaxInt64, false},
 	} {
 		if got := isTokenReading(tc.in); got != tc.want {
 			t.Errorf("isTokenReading(%d) = %v, want %v", tc.in, got, tc.want)
@@ -63,8 +49,8 @@ func TestSanitizeUsageCounts_SpelledForms(t *testing.T) {
 		t.Fatalf("decode: %v", err)
 	}
 	p, c, _ := sanitizeUsageCounts(u.PromptTokens, u.CompletionTokens, 0)
-	if p != 0 || c != maxSaneTokenCount {
-		t.Errorf("got (%d, %d), want (0, %d)", p, c, maxSaneTokenCount)
+	if p != 0 || c != util.MaxSaneTokenCount {
+		t.Errorf("got (%d, %d), want (0, %d)", p, c, util.MaxSaneTokenCount)
 	}
 }
 
@@ -82,14 +68,14 @@ func TestRecordTokenUsage_ClampsTheCharge(t *testing.T) {
 
 	vkRepo.addTokensCalls = nil
 	h.recordTokenUsage("test-hash", logData, math.MaxInt64, math.MaxInt64, math.MaxInt64)
-	if n := len(vkRepo.addTokensCalls); n != 1 || vkRepo.addTokensCalls[0].tokens != maxSaneTokenCount {
-		t.Fatalf("overflowing members: calls=%+v, want one call charging the ceiling %d", vkRepo.addTokensCalls, maxSaneTokenCount)
+	if n := len(vkRepo.addTokensCalls); n != 1 || vkRepo.addTokensCalls[0].tokens != util.MaxSaneTokenCount {
+		t.Fatalf("overflowing members: calls=%+v, want one call charging the ceiling %d", vkRepo.addTokensCalls, util.MaxSaneTokenCount)
 	}
 
 	vkRepo.addTokensCalls = nil
 	h.recordTokenUsage("test-hash", logData, 60_000_000, 60_000_000, 0)
-	if vkRepo.addTokensCalls[0].tokens != maxSaneTokenCount {
-		t.Errorf("in-range members whose sum is over the ceiling charged %d, want %d", vkRepo.addTokensCalls[0].tokens, maxSaneTokenCount)
+	if vkRepo.addTokensCalls[0].tokens != util.MaxSaneTokenCount {
+		t.Errorf("in-range members whose sum is over the ceiling charged %d, want %d", vkRepo.addTokensCalls[0].tokens, util.MaxSaneTokenCount)
 	}
 
 	vkRepo.addTokensCalls = nil
@@ -107,7 +93,7 @@ func TestObserveUsage_RefusesOutOfRangeMembers(t *testing.T) {
 		t.Fatalf("a real reading did not land: %+v", st)
 	}
 	st.observeUsage(&Usage{PromptTokens: -500, CompletionTokens: -100, CompletionTokensDetails: &CompletionTokensDetails{ReasoningTokens: -7}})
-	st.observeUsage(&Usage{PromptTokens: math.MaxInt32, CompletionTokens: math.MaxInt64, CompletionTokensDetails: &CompletionTokensDetails{ReasoningTokens: maxSaneTokenCount + 1}})
+	st.observeUsage(&Usage{PromptTokens: math.MaxInt32, CompletionTokens: math.MaxInt64, CompletionTokensDetails: &CompletionTokensDetails{ReasoningTokens: util.MaxSaneTokenCount + 1}})
 	if st.promptTokens != 12 || st.completionTokens != 34 || st.reasoningTokens != 3 {
 		t.Errorf("an out-of-range member replaced a good reading: %+v", st)
 	}
@@ -115,8 +101,8 @@ func TestObserveUsage_RefusesOutOfRangeMembers(t *testing.T) {
 
 func TestExtractCacheTokens_Clamps(t *testing.T) {
 	hit, miss := extractCacheTokens(Usage{PromptTokens: math.MaxInt64, PromptCacheHitTokens: math.MaxInt64})
-	if hit != maxSaneTokenCount || miss != 0 {
-		t.Errorf("OpenAI split = (%d, %d), want (%d, 0)", hit, miss, maxSaneTokenCount)
+	if hit != util.MaxSaneTokenCount || miss != 0 {
+		t.Errorf("OpenAI split = (%d, %d), want (%d, 0)", hit, miss, util.MaxSaneTokenCount)
 	}
 	hit, miss = extractCacheTokens(Usage{PromptTokens: -5, CacheReadInputTokens: 10})
 	if hit != 10 || miss != 0 {
@@ -133,8 +119,8 @@ func TestExtractCacheTokens_Clamps(t *testing.T) {
 
 func TestExtractPassthroughUsage_Clamps(t *testing.T) {
 	p, c := extractPassthroughUsage([]byte(`{"usage":{"prompt_tokens":-5,"completion_tokens":9223372036854775807}}`))
-	if p != 0 || c != maxSaneTokenCount {
-		t.Errorf("got (%d, %d), want (0, %d)", p, c, maxSaneTokenCount)
+	if p != 0 || c != util.MaxSaneTokenCount {
+		t.Errorf("got (%d, %d), want (0, %d)", p, c, util.MaxSaneTokenCount)
 	}
 	if p, c = extractPassthroughUsage([]byte(`{"usage":{"input_tokens":7,"output_tokens":3}}`)); p != 7 || c != 3 {
 		t.Errorf("a real block changed: (%d, %d), want (7, 3)", p, c)
@@ -180,14 +166,14 @@ func TestHandleNonStreamingResponse_NegativeUsageNeverCredits(t *testing.T) {
 
 func TestHandleNonStreamingResponse_OverflowUsageCappedEverywhere(t *testing.T) {
 	logData, charged, clientBody := nonStreamingUsageFixture(t, `{"prompt_tokens":9223372036854775807,"completion_tokens":"2147483647","total_tokens":9223372036854775807,"completion_tokens_details":{"reasoning_tokens":9223372036854775807}}`)
-	if logData.tokensPrompt != maxSaneTokenCount || logData.tokensCompletion != maxSaneTokenCount {
-		t.Errorf("row = (%d, %d), want both at the ceiling %d", logData.tokensPrompt, logData.tokensCompletion, maxSaneTokenCount)
+	if logData.tokensPrompt != util.MaxSaneTokenCount || logData.tokensCompletion != util.MaxSaneTokenCount {
+		t.Errorf("row = (%d, %d), want both at the ceiling %d", logData.tokensPrompt, logData.tokensCompletion, util.MaxSaneTokenCount)
 	}
-	if logData.tokensCompletionReasoning != maxSaneTokenCount {
-		t.Errorf("row reasoning = %d, want the ceiling %d", logData.tokensCompletionReasoning, maxSaneTokenCount)
+	if logData.tokensCompletionReasoning != util.MaxSaneTokenCount {
+		t.Errorf("row reasoning = %d, want the ceiling %d", logData.tokensCompletionReasoning, util.MaxSaneTokenCount)
 	}
-	if len(charged) != 1 || charged[0].tokens != maxSaneTokenCount {
-		t.Errorf("charge = %+v, want one call at the ceiling %d", charged, maxSaneTokenCount)
+	if len(charged) != 1 || charged[0].tokens != util.MaxSaneTokenCount {
+		t.Errorf("charge = %+v, want one call at the ceiling %d", charged, util.MaxSaneTokenCount)
 	}
 	// The caller's body is NOT rewritten by the bound. (It still goes through
 	// a decode and re-encode, so a quoted count comes back unquoted; what the
@@ -240,16 +226,16 @@ func TestHandleNativeNonStreaming_ClampsUsage(t *testing.T) {
 	}
 	aw.Finalize()
 
-	if logData.tokensPrompt != maxSaneTokenCount || logData.tokensCompletion != maxSaneTokenCount {
-		t.Errorf("row = (%d, %d), want both at the ceiling %d", logData.tokensPrompt, logData.tokensCompletion, maxSaneTokenCount)
+	if logData.tokensPrompt != util.MaxSaneTokenCount || logData.tokensCompletion != util.MaxSaneTokenCount {
+		t.Errorf("row = (%d, %d), want both at the ceiling %d", logData.tokensPrompt, logData.tokensCompletion, util.MaxSaneTokenCount)
 	}
 	// The cache split is written from the same parse and lands in two more
 	// int4 columns: an unclamped miss (input + cache_creation) failed the
 	// whole terminal UPDATE and stranded the row.
-	if logData.tokensPromptCacheHit != maxSaneTokenCount || logData.tokensPromptCacheMiss != maxSaneTokenCount {
-		t.Errorf("cache split = (%d, %d), want both at the ceiling %d", logData.tokensPromptCacheHit, logData.tokensPromptCacheMiss, maxSaneTokenCount)
+	if logData.tokensPromptCacheHit != util.MaxSaneTokenCount || logData.tokensPromptCacheMiss != util.MaxSaneTokenCount {
+		t.Errorf("cache split = (%d, %d), want both at the ceiling %d", logData.tokensPromptCacheHit, logData.tokensPromptCacheMiss, util.MaxSaneTokenCount)
 	}
-	if len(vkRepo.addTokensCalls) != 1 || vkRepo.addTokensCalls[0].tokens != maxSaneTokenCount {
+	if len(vkRepo.addTokensCalls) != 1 || vkRepo.addTokensCalls[0].tokens != util.MaxSaneTokenCount {
 		t.Errorf("charge = %+v, want one call at the ceiling", vkRepo.addTokensCalls)
 	}
 }

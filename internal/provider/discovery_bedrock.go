@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"net/http"
 	"strings"
 
 	"github.com/hugalafutro/model-hotel/internal/debuglog"
@@ -27,9 +26,7 @@ import (
 func (d *DiscoveryService) discoverBedrock(ctx context.Context, provider *Provider, apiKey string) ([]*model.Model, error) {
 	baseURL := util.SanitizeBaseURL(provider.BaseURL)
 
-	headers := http.Header{}
-	headers.Set("Authorization", "Bearer "+apiKey)
-	headers.Set("Content-Type", "application/json")
+	headers := bearerJSONHeader(apiKey)
 
 	bodyBytes, err := d.fetchURL(ctx, "GET", baseURL+"/models", headers)
 	if err != nil {

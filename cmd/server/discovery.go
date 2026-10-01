@@ -208,7 +208,7 @@ func scanProvider(ctx context.Context, deps discoveryDeps, discoverySvc *provide
 		// that discovery was *attempted*. Without this, a chronically
 		// failing provider shows a stale "Last discovered" timestamp
 		// that makes the scheduled timer appear broken.
-		touchLastDiscovered(ctx, deps.pool, p)
+		api.TouchLastDiscovered(ctx, deps.pool, p)
 		return false, false
 	}
 
@@ -220,24 +220,7 @@ func scanProvider(ctx context.Context, deps discoveryDeps, discoverySvc *provide
 	// Snapshot pre-scan state so background metadata/membership changes
 	// can be recorded for the Models nav badge. A snapshot failure only
 	// disables the diff for this provider; the scan itself proceeds.
-	snapshot, snapErr := api.SnapshotProviderModels(ctx, deps.modelRepo, p.ID)
-	if snapErr != nil {
-		debuglog.Debug("discovery: failed to snapshot models", "provider", p.Name, "error", snapErr)
-	}
-	api.DampenOpenRouterPriceJitter(provider.TypeOf(p), snapshot, models)
-
-	existingModelIDs := make([]string, 0, len(models))
-	upsertedModels := make([]*model.Model, 0, len(models))
-	upsertFailed := false
-	for _, m := range models {
-		if err := deps.modelRepo.Upsert(ctx, m); err != nil {
-			debuglog.Error("discovery: failed to upsert model", "model_id", m.ModelID, "error", err)
-			upsertFailed = true
-		} else {
-			existingModelIDs = append(existingModelIDs, m.ModelID)
-			upsertedModels = append(upsertedModels, m)
-		}
-	}
+	scan := api.UpsertScannedModels(ctx, deps.modelRepo, p, models)
 	// Miss recording needs a trustworthy membership picture: skip it
 	// when the snapshot is unavailable (absentees cannot be confirmed),
 	// any upsert failed (a DB error must not count a listed model as
@@ -248,8 +231,8 @@ func scanProvider(ctx context.Context, deps discoveryDeps, discoverySvc *provide
 	// confirmed-missing scans.
 	var disabledRefs []model.DisabledModelRef
 	missTrusted := !catalogFallback
-	if snapErr == nil && !upsertFailed && !catalogFallback {
-		disabledRefs, missTrusted = recordMissingModels(ctx, deps, discoverySvc, p, existingModelIDs, snapshot)
+	if scan.SnapErr == nil && !scan.UpsertFailed && !catalogFallback {
+		disabledRefs, missTrusted = api.RecordConfirmedMisses(ctx, discoverySvc, deps.modelRepo, deps.pool, p, deps.cfg.MasterKey, scan)
 	}
 	if len(disabledRefs) > 0 {
 		result.ModelsDisabled += len(disabledRefs)
@@ -264,8 +247,8 @@ func scanProvider(ctx context.Context, deps discoveryDeps, discoverySvc *provide
 	// Record this provider's model-level diff (added/reenabled/disabled/
 	// metadata-updated) for later review. Failover group churn is folded
 	// in once after the global failover sync below.
-	if snapErr == nil {
-		diff := api.BuildDiscoveryDiff(snapshot, upsertedModels, disabledRefs)
+	if scan.SnapErr == nil {
+		diff := api.BuildDiscoveryDiff(scan.Snapshot, scan.Upserted, disabledRefs)
 		if wrote, err := api.AppendDiscoveryChange(ctx, deps.pool, source, &p.ID, p.Name, diff); err != nil {
 			debuglog.Error("discovery: failed to record changes", "provider", p.Name, "error", err)
 		} else if wrote {
@@ -273,9 +256,9 @@ func scanProvider(ctx context.Context, deps discoveryDeps, discoverySvc *provide
 		}
 	}
 
-	touchLastDiscovered(ctx, deps.pool, p)
+	api.TouchLastDiscovered(ctx, deps.pool, p)
 	debuglog.Info("discovery: discovered models", "count", len(models), "provider", p.Name)
-	return changed, snapErr == nil && !upsertFailed && missTrusted
+	return changed, scan.SnapErr == nil && !scan.UpsertFailed && missTrusted
 }
 
 // modelPruneWarned remembers the last model_prune_days value the pass warned
@@ -344,42 +327,6 @@ func pruneRetiredModels(ctx context.Context, deps discoveryDeps, scannedOK []uui
 		debuglog.Warn("discovery: prune hit the per-pass cap, the rest goes next pass", "cap", modelPruneBatch)
 	}
 	return len(pruned)
-}
-
-// recordMissingModels confirms which of the snapshot's models this scan no
-// longer sees (via confirmation probes) and records the misses; a model is
-// disabled only after model.MissingScanThreshold consecutive confirmed-missing
-// scans. Returns the refs that crossed the threshold and were disabled, and
-// whether this scan's membership picture can be trusted: false when the scan
-// is suspect (nothing was recorded) or the misses could not be persisted, so
-// the caller withholds the prune for this provider as well.
-func recordMissingModels(ctx context.Context, deps discoveryDeps, discoverySvc *provider.DiscoveryService, p *provider.Provider, existingModelIDs []string, snapshot map[string]api.ModelSnapshot) (disabled []model.DisabledModelRef, trusted bool) {
-	confirmedIDs, suspect := api.ConfirmMissingModels(ctx, discoverySvc, p, deps.cfg.MasterKey, existingModelIDs, snapshot, api.NewSuspectStreak(deps.pool))
-	if suspect {
-		debuglog.Warn("discovery: suspect scan, skipping missing-model recording", "provider", p.Name)
-		return nil, false
-	}
-	disabledRefs, pendingRefs, err := deps.modelRepo.RecordMissingModels(ctx, p.ID, p.Name, confirmedIDs)
-	if err != nil {
-		debuglog.Error("discovery: failed to record missing models", "provider", p.Name, "error", err)
-		return disabledRefs, false
-	}
-	if len(pendingRefs) > 0 {
-		debuglog.Info("discovery: models confirmed missing but below disable threshold",
-			"provider", p.Name, "pending", len(pendingRefs), "threshold", model.MissingScanThreshold)
-	}
-	return disabledRefs, true
-}
-
-// touchLastDiscovered stamps the provider's last_discovered_at, on success and
-// failure alike, so the UI reflects that discovery was attempted.
-func touchLastDiscovered(ctx context.Context, pool *pgxpool.Pool, p *provider.Provider) {
-	now := time.Now()
-	if _, err := pool.Exec(ctx, `UPDATE providers SET last_discovered_at = $1 WHERE id = $2`, now, p.ID); err != nil {
-		debuglog.Error("discovery: failed to update last_discovered_at", "provider", p.Name, "error", err)
-		return
-	}
-	provider.EvictProviderCacheByID(p.ID)
 }
 
 // syncFailoverAfterDiscovery rebuilds auto failover groups for every model

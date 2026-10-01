@@ -208,12 +208,6 @@ func (d *DiscoveryService) buildOllamaModel(provider *Provider, modelID string, 
 		caps.StructuredOutput = !ollamaCloudServed(TypeOf(provider), modelID)
 	}
 	capJSON, _ := json.Marshal(caps)
-	inputMods, _ := json.Marshal(input)
-	outputMods := "[]"
-	if len(output) > 0 {
-		b, _ := json.Marshal(output)
-		outputMods = string(b)
-	}
 
 	var contextLength *int
 	for k, v := range show.ModelInfo {
@@ -241,8 +235,8 @@ func (d *DiscoveryService) buildOllamaModel(provider *Provider, modelID string, 
 		DisplayName:      modelID,
 		Capabilities:     string(capJSON),
 		Params:           "{}",
-		InputModalities:  string(inputMods),
-		OutputModalities: outputMods,
+		InputModalities:  marshalModalityList(input),
+		OutputModalities: marshalModalityList(output),
 		Modality:         modality,
 		ContextLength:    contextLength,
 		OwnedBy:          ownedBy,

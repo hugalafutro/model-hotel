@@ -90,6 +90,12 @@ func (l *requestLogData) masks() credentialMasker {
 	return l.masker
 }
 
+// fencedErr renders an error for a log line through this request's content
+// fence and credential masker, the two passes fence and masks supply.
+func (l *requestLogData) fencedErr(err error) string {
+	return fencedFrameMessage(l.fence(), l.masks(), errString(err))
+}
+
 // attemptDetail reduces an upstream error text to what the trail may carry:
 // credential-masked, whitespace-collapsed and capped at maxAttemptDetailRunes
 // on a rune boundary. The input is expected to be already sanitized

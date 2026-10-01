@@ -546,13 +546,20 @@ func (h *Handler) TestModel(w http.ResponseWriter, r *http.Request) {
 	content, tps, promptTokens, completionTokens := parseTestModelResponse(respBody, duration)
 	var ranked *int
 	var searchUnits int
+	delivered := true
 	if m.Modality == "rerank" {
-		n := countRankedResults(respBody)
-		ranked = &n
-		searchUnits = billedSearchUnits(respBody)
+		// Judged by the rule the proxy applies to live rerank answers: an
+		// explicit empty list fails, a shape it does not recognise passes,
+		// since other proxies pass an upstream 2xx through. The count is shown
+		// only when the shape names one.
+		delivered = util.ListAnswerDelivered(respBody, "results", "data")
+		if n := countRankedResults(respBody); n > 0 {
+			ranked = &n
+		}
+		searchUnits = util.RerankSearchUnits(respBody)
 	}
 	cost := probeCost(m, searchUnits, promptTokens, completionTokens)
-	if ranked != nil && *ranked == 0 {
+	if !delivered {
 		// A 200 with nothing ranked is what the live path rejects as an empty
 		// answer; reporting it as healthy would route traffic to a model that
 		// returns no rankings.
@@ -676,19 +683,25 @@ func buildTestModelRequest(m *model.Model, prov *provider.Provider) (baseBody []
 	return baseBody, providerType, targetURL, reqHash
 }
 
-// doTestModelRequest sends the probe through the shared self-heal executor with
-// a 30s-timeout client, honoring the test-only transport/redirect hooks when
-// set. Routing through paramrewrite.SelfHealChatCompletion means the probe uses
+// testModelClient is the 30s-timeout client every Test button probe is sent
+// with, honoring the test-only transport/redirect hooks when set.
+func (h *Handler) testModelClient() *http.Client {
+	client := &http.Client{Timeout: 30 * time.Second}
+	if h.testModelTransport != nil {
+		client.Transport = h.testModelTransport
+	}
+	if h.testModelCheckRedirect != nil {
+		client.CheckRedirect = h.testModelCheckRedirect
+	}
+	return client
+}
+
+// doTestModelRequest sends the probe through the shared self-heal executor on
+// testModelClient. Routing through paramrewrite.SelfHealChatCompletion means the probe uses
 // the same body-rewrite and 400 param-retry (e.g. max_tokens ->
 // max_completion_tokens) that the proxy failover loop uses for live traffic.
 func (h *Handler) doTestModelRequest(ctx context.Context, providerType, targetURL, modelID, apiKey string, baseBody []byte) (*http.Response, error) {
-	testClient := &http.Client{Timeout: 30 * time.Second}
-	if h.testModelTransport != nil {
-		testClient.Transport = h.testModelTransport
-	}
-	if h.testModelCheckRedirect != nil {
-		testClient.CheckRedirect = h.testModelCheckRedirect
-	}
+	testClient := h.testModelClient()
 	switch providerType {
 	case "vertex-express":
 		return h.doTestModelEgressRequest(ctx, testClient, targetURL, providerType, modelID, apiKey, baseBody,

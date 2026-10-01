@@ -1,5 +1,7 @@
 package util
 
+import "encoding/json"
+
 // MaxSaneTokenCount is the largest token figure one provider response may
 // contribute to metering or the request log. Past it a value is not a count in
 // another spelling; it is a different kind of wrong, and DecodeCounts, which
@@ -43,4 +45,30 @@ const MaxSaneTokenCount = 10_000_000
 // into the same int4 columns.
 func ClampTokenCount(n int) int {
 	return min(max(n, 0), MaxSaneTokenCount)
+}
+
+// RerankSearchUnits reads how many search units a rerank answer was billed
+// for: Cohere's meta.billed_units.search_units. Providers that bill per token
+// carry no such member and read as zero. Only that member is decoded; the
+// ranked results are never inspected. The proxy meters live traffic and the
+// dashboard's model test prices its probe from this one reading.
+func RerankSearchUnits(body []byte) int {
+	var envelope struct {
+		Meta struct {
+			BilledUnits json.RawMessage `json:"billed_units"`
+		} `json:"meta"`
+	}
+	if json.Unmarshal(body, &envelope) != nil || !JSONMemberSet(envelope.Meta.BilledUnits) {
+		return 0
+	}
+	var billed struct {
+		SearchUnits int `json:"search_units"`
+	}
+	// Same tolerance as the usage members: a count quoted or written with a
+	// fraction is still a count, and a member this struct has no field for
+	// does not cost the count beside it.
+	if DecodeCountsTolerant(envelope.Meta.BilledUnits, &billed) != nil {
+		return 0
+	}
+	return ClampTokenCount(billed.SearchUnits)
 }

@@ -97,11 +97,18 @@ func (s *ssoLogin) beginState(r *http.Request, w http.ResponseWriter, st any) bo
 		respondError(w, "failed to start SSO", err, http.StatusInternalServerError)
 		return false
 	}
+	s.setStateCookie(w, r, id.String(), int(s.ttl.Seconds()))
+	return true
+}
+
+// setStateCookie writes the login-state cookie with value and maxAge (-1
+// expires it).
+func (s *ssoLogin) setStateCookie(w http.ResponseWriter, r *http.Request, value string, maxAge int) {
 	http.SetCookie(w, &http.Cookie{ //nolint:gosec // G124: Secure resolved from COOKIE_SECURE like the session cookie; HttpOnly/SameSite set below
 		Name:     s.cookieName,
-		Value:    id.String(),
+		Value:    value,
 		Path:     s.cookiePath,
-		MaxAge:   int(s.ttl.Seconds()),
+		MaxAge:   maxAge,
 		HttpOnly: true,
 		// The same Secure rule as the session cookie this flow ends in: a
 		// hard-coded Secure attribute is dropped by the browser on the plain-http
@@ -113,7 +120,6 @@ func (s *ssoLogin) beginState(r *http.Request, w http.ResponseWriter, st any) bo
 		// CSRF/replay defense, not the cookie's SameSite mode.
 		SameSite: http.SameSiteLaxMode,
 	})
-	return true
 }
 
 // consumeState runs the callback prologue every SSO flow shares: expire the
@@ -220,15 +226,7 @@ func (s *ssoLogin) redirectError(w http.ResponseWriter, r *http.Request, code st
 
 // clearCookie expires the login-state cookie.
 func (s *ssoLogin) clearCookie(w http.ResponseWriter, r *http.Request) {
-	http.SetCookie(w, &http.Cookie{ //nolint:gosec // G124: Secure resolved from COOKIE_SECURE like the session cookie; HttpOnly/SameSite set below
-		Name:     s.cookieName,
-		Value:    "",
-		Path:     s.cookiePath,
-		MaxAge:   -1,
-		HttpOnly: true,
-		Secure:   authcookie.Secure(r, s.cookieSecure),
-		SameSite: http.SameSiteLaxMode,
-	})
+	s.setStateCookie(w, r, "", -1)
 }
 
 // newSSOThrottle is the per-IP failure backoff every SSO callback uses, matching

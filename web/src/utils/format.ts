@@ -11,7 +11,9 @@ import i18next from "i18next";
 // below phrases itself through i18next and is the dashboard's own.
 
 export {
+	clamp,
 	formatCompact,
+	formatCount as formatWithCommas,
 	formatDecimal,
 	formatDollars,
 	formatKwh,
@@ -107,12 +109,13 @@ export function formatTime(ts: number | string): string {
 	});
 }
 
+/** Full date and time in formatLocale()'s default style. */
+export function formatDateTime(ts: number | string): string {
+	return new Date(ts).toLocaleString(formatLocale());
+}
+
 /** Alias of formatTimestamp; the two names render the same string. */
 export const formatDateTimeShort = formatTimestamp;
-
-export function formatWithCommas(n: number): string {
-	return Math.round(n).toLocaleString(formatLocale());
-}
 
 /** `v` to at most `decimals` places, trailing zeros dropped ("1.50" reads "1.5"). */
 export function dropTrailingZero(v: number, decimals: number): string {

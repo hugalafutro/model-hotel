@@ -1,4 +1,4 @@
-import { isQuotaPayloadSpent, windowPct } from "@web-shared/quota";
+import { deepseekUsd, isQuotaPayloadSpent, windowPct } from "@web-shared/quota";
 import type { CSSProperties } from "react";
 import { useTranslation } from "react-i18next";
 import type {
@@ -137,11 +137,8 @@ function contentFor(
 		}
 		case "deepseek": {
 			const b = payload as DeepSeekBalance;
-			const usd = b.balance_infos?.find(
-				(i) => i.currency === "USD",
-			)?.total_balance;
 			return {
-				label: usd == null ? "-" : formatDollars(Number(usd)),
+				label: deepseekUsd(b) ?? "-",
 				title: t("quota.badge.deepseekBalance", { provider }),
 			};
 		}

@@ -10,6 +10,7 @@ import { SettingToggleRow } from "../../components/SettingToggleRow";
 import { useStorage } from "../../context/StorageContext";
 import { useToast } from "../../context/ToastContext";
 import {
+	removeStoredKeys,
 	storedBool,
 	storedNumber,
 	useLocalStorage,
@@ -264,11 +265,7 @@ export function DataStorageSettings({
 								<button
 									type="button"
 									onClick={() => {
-										try {
-											localStorage.removeItem(ACKED_KEYS_STORAGE);
-										} catch {
-											/* ignore */
-										}
+										removeStoredKeys([ACKED_KEYS_STORAGE]);
 										window.dispatchEvent(
 											new CustomEvent("dismissedErrorsReset"),
 										);
