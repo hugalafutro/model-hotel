@@ -194,26 +194,13 @@ export function TimeSeriesChart({
 		setIsDragging(false);
 	}, []);
 
-	// Mouse wheel / trackpad horizontal scroll
-	const onWheel = useCallback(
-		(e: React.WheelEvent<HTMLDivElement>) => {
-			if (!pannable) return;
-			// deltaX: trackpad horizontal swipe; deltaMode 1 = lines
-			const rawDelta =
-				e.deltaMode === 1
-					? e.deltaX * 20
-					: Math.abs(e.deltaX) > Math.abs(e.deltaY)
-						? e.deltaX
-						: e.deltaY;
-			if (rawDelta === 0) return;
-			e.preventDefault();
-			// Scroll right (positive delta) = see older data (decrease start)
-			const shift = rawDelta > 0 ? -1 : 1;
-			const newStart = clamp(effectiveStart + shift, 0, maxStart);
-			panTo(newStart);
-		},
-		[pannable, maxStart, effectiveStart, panTo],
-	);
+	// A button step ends any drag in progress: the drag pans from the offset
+	// it started at, so its next move would overwrite the step.
+	const stepPan = (by: number) => {
+		dragRef.current = null;
+		setIsDragging(false);
+		panTo(effectiveStart + by);
+	};
 
 	const header = (
 		<div className="flex items-center justify-between mb-4">
@@ -265,12 +252,14 @@ export function TimeSeriesChart({
 					borderRadius: "8px",
 					userSelect: isDragging ? "none" : undefined,
 					WebkitUserSelect: isDragging ? "none" : undefined,
+					// Vertical swipes scroll the page; horizontal ones drag the
+					// chart instead of being taken over (and cancelled) as a scroll.
+					touchAction: pannable ? "pan-y" : undefined,
 				}}
 				onPointerDown={pannable ? onPointerDown : undefined}
 				onPointerMove={pannable ? onPointerMove : undefined}
 				onPointerUp={pannable ? onPointerUp : undefined}
 				onPointerCancel={pannable ? onPointerUp : undefined}
-				onWheel={pannable ? onWheel : undefined}
 			>
 				{isDragging && (
 					<div
@@ -424,11 +413,31 @@ export function TimeSeriesChart({
 					</AreaChart>
 				</ResponsiveContainer>
 			</div>
-			{pannable && (canPanLeft || canPanRight) && (
+			{pannable && (
 				<div className="flex items-center justify-center gap-2 mt-2 text-xs text-(--text-muted) select-none">
-					{canPanLeft && <span>→</span>}
+					{/* The arrows point the way a drag goes, so → shows older data.
+					    As buttons they make panning reachable without a pointer.
+					    At an edge they stay mounted (aria-disabled, not removed or
+					    disabled) so keyboard focus is not dropped. */}
+					<button
+						type="button"
+						className="ui-icon-btn px-1"
+						aria-label={t("dashboard.chart.panOlder")}
+						aria-disabled={!canPanLeft}
+						onClick={() => canPanLeft && stepPan(-1)}
+					>
+						→
+					</button>
 					<span>{t("dashboard.chart.dragToPan")}</span>
-					{canPanRight && <span>←</span>}
+					<button
+						type="button"
+						className="ui-icon-btn px-1"
+						aria-label={t("dashboard.chart.panNewer")}
+						aria-disabled={!canPanRight}
+						onClick={() => canPanRight && stepPan(1)}
+					>
+						←
+					</button>
 				</div>
 			)}
 		</div>

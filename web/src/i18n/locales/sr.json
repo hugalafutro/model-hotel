@@ -358,7 +358,9 @@
 			"avgDurationOver": "Просечно трајање /{{range}}",
 			"cacheHit": "Погађање кеша",
 			"today": "Данас, {{date}}",
-			"yesterday": "Јуче, {{date}}"
+			"yesterday": "Јуче, {{date}}",
+			"panOlder": "Прикажи старије податке",
+			"panNewer": "Прикажи новије податке"
 		},
 		"usage": {
 			"topModels": "Топ модели",

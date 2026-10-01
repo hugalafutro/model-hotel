@@ -344,7 +344,9 @@
 			"avgDurationOver": "Gns Varighed/{{range}}",
 			"cacheHit": "Cache Hit",
 			"today": "I Dag {{date}}",
-			"yesterday": "I går {{date}}"
+			"yesterday": "I går {{date}}",
+			"panOlder": "Vis ældre data",
+			"panNewer": "Vis nyere data"
 		},
 		"usage": {
 			"topModels": "Topmodeller",

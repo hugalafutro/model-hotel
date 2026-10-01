@@ -344,7 +344,9 @@
 			"avgDurationOver": "Durchschnittsdauer /{{range}}",
 			"cacheHit": "Cache-Treffer",
 			"today": "Heute, {{date}}",
-			"yesterday": "Gestern, {{date}}"
+			"yesterday": "Gestern, {{date}}",
+			"panOlder": "Ältere Daten anzeigen",
+			"panNewer": "Neuere Daten anzeigen"
 		},
 		"usage": {
 			"topModels": "Top-Modelle",

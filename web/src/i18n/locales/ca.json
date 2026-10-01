@@ -358,7 +358,9 @@
 			"avgDurationOver": "Durada mitjana /{{range}}",
 			"cacheHit": "Encert de memòria cau",
 			"today": "Avui, {{date}}",
-			"yesterday": "Ahir, {{date}}"
+			"yesterday": "Ahir, {{date}}",
+			"panOlder": "Mostra dades més antigues",
+			"panNewer": "Mostra dades més recents"
 		},
 		"usage": {
 			"topModels": "Models principals",

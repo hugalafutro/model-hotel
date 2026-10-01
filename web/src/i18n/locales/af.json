@@ -344,7 +344,9 @@
 			"avgDurationOver": "Gemiddelde duur /{{range}}",
 			"cacheHit": "Kas treffer",
 			"today": "Vandag, {{date}}",
-			"yesterday": "Gister {{date}}"
+			"yesterday": "Gister {{date}}",
+			"panOlder": "Wys ouer data",
+			"panNewer": "Wys nuwer data"
 		},
 		"usage": {
 			"topModels": "Top modelle",

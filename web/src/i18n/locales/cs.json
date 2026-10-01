@@ -372,7 +372,9 @@
 			"avgDurationOver": "Prům. trvání/{{range}}",
 			"cacheHit": "Zásah do mezipaměti",
 			"today": "Dnes, {{date}}",
-			"yesterday": "Včera, {{date}}"
+			"yesterday": "Včera, {{date}}",
+			"panOlder": "Zobrazit starší data",
+			"panNewer": "Zobrazit novější data"
 		},
 		"usage": {
 			"topModels": "Nej. modely",

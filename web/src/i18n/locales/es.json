@@ -358,7 +358,9 @@
 			"avgDurationOver": "Duración media/{{range}}",
 			"cacheHit": "Acierto de caché",
 			"today": "Hoy, {{date}}",
-			"yesterday": "Ayer, {{date}}"
+			"yesterday": "Ayer, {{date}}",
+			"panOlder": "Mostrar datos más antiguos",
+			"panNewer": "Mostrar datos más recientes"
 		},
 		"usage": {
 			"topModels": "Top modelos",

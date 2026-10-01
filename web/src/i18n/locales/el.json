@@ -344,7 +344,9 @@
 			"avgDurationOver": "Μέση διάρκεια/{{range}}",
 			"cacheHit": "Hit Προσωρινής Αποθήκευσης",
 			"today": "Σήμερα, {{date}}",
-			"yesterday": "Χθες, {{date}}"
+			"yesterday": "Χθες, {{date}}",
+			"panOlder": "Εμφάνιση παλαιότερων δεδομένων",
+			"panNewer": "Εμφάνιση νεότερων δεδομένων"
 		},
 		"usage": {
 			"topModels": "Κορυφαία μοντέλα",
