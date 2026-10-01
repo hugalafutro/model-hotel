@@ -135,7 +135,8 @@ func TestBackupStaleEmitsOnceAcrossPolls(t *testing.T) {
 // interval while the next one is being written, and must stay quiet (the false
 // alert the grace exists for); one past the interval by more than the hour of
 // grace must alert. The interval is the member's own, never judged tighter than
-// a day, so a weekly member is not flagged on day two.
+// a day, so a weekly member is not flagged on day two, nor looser than a week,
+// so a member reporting an absurd interval cannot silence its own alert.
 func TestBackupStaleThresholdBoundary(t *testing.T) {
 	for _, tc := range []struct {
 		name      string
@@ -152,6 +153,7 @@ func TestBackupStaleThresholdBoundary(t *testing.T) {
 		{"weekly: in the day form, six days in", "7d", 6 * 24 * time.Hour, false},
 		{"weekly: a week and an hour past the grace", "168h", 7*24*time.Hour + 2*time.Hour, true},
 		{"unparseable interval reads as a day", "fortnightly", 26 * time.Hour, true},
+		{"past the weekly ceiling is judged weekly", "1000d", 7*24*time.Hour + 2*time.Hour, true},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			srv, store := newTestServer(t)

@@ -1578,6 +1578,31 @@ func TestSchedulerTick_LongWaitIsRecheckedNotSleptOut(t *testing.T) {
 	}
 }
 
+// An interval past the weekly ceiling runs weekly: a value written through the
+// API or a config sync cannot park the scheduler for years.
+func TestSchedulerTick_IntervalCappedAtAWeek(t *testing.T) {
+	dir := t.TempDir()
+	ss := &mockSettingsStore{
+		getBoolFn:     func(context.Context, string, bool) bool { return true },
+		getDurationFn: func(context.Context, string, time.Duration) time.Duration { return 1000 * 24 * time.Hour },
+	}
+	h := NewBackupHandler("postgres://invalid:invalid@127.0.0.1:1/nonexistent", dir, &mockAdminAuth{}, ss)
+	// A scheduled dump eight days old: due under the cap, years away without it.
+	path := filepath.Join(dir, "backup_20260101_000000_0004_auto.dump")
+	if err := os.WriteFile(path, []byte("x"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	old := time.Now().Add(-8 * 24 * time.Hour)
+	if err := os.Chtimes(path, old, old); err != nil {
+		t.Fatal(err)
+	}
+	h.schedulerTick(context.Background())
+	// The failed attempt anchors the interval, so a wait proves the tick dumped.
+	if got := h.scheduledBackupWait(time.Hour, time.Now()); got < 59*time.Minute {
+		t.Errorf("wait after the tick = %v: an eight-day-old dump under a capped interval was not followed by an attempt", got)
+	}
+}
+
 // A dump that fails writes no file; the attempt itself anchors the interval,
 // so the re-check cadence does not turn a broken pg_dump into a retry every
 // few minutes.
