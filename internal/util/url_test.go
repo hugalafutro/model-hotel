@@ -1,6 +1,12 @@
 package util
 
-import "testing"
+import (
+	"errors"
+	"fmt"
+	"net/url"
+	"strings"
+	"testing"
+)
 
 func TestSanitizeBaseURL(t *testing.T) {
 	tests := []struct {
@@ -86,5 +92,17 @@ func TestRedactURLUserinfo(t *testing.T) {
 		if got := RedactURLUserinfo(in); got != want {
 			t.Errorf("RedactURLUserinfo(%q) = %q, want %q", in, got, want)
 		}
+	}
+}
+
+func TestURLParseReason(t *testing.T) {
+	reason := errors.New("net/url: invalid userinfo")
+	err := fmt.Errorf("wrapped: %w", &url.Error{Op: "parse", URL: "http://operator:secret@example.invalid", Err: reason})
+	if got := URLParseReason(err); !errors.Is(got, reason) || strings.Contains(got.Error(), "secret") {
+		t.Errorf("URLParseReason = %q, want the reason alone", got)
+	}
+	other := errors.New("not a parse error")
+	if got := URLParseReason(other); !errors.Is(got, other) {
+		t.Errorf("URLParseReason changed a non-url error: %v", got)
 	}
 }

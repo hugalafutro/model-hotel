@@ -1,6 +1,8 @@
 package util
 
 import (
+	"errors"
+	"net/url"
 	"regexp"
 	"strings"
 )
@@ -54,4 +56,16 @@ var URLUserinfoRE = regexp.MustCompile(`([a-zA-Z][a-zA-Z0-9+.-]*://)[^/?\s"]*@`)
 // supplied. Text without a URL credential is returned unchanged.
 func RedactURLUserinfo(text string) string {
 	return URLUserinfoRE.ReplaceAllString(text, "${1}***@")
+}
+
+// URLParseReason strips the quoted URL from a url.Parse error and keeps the
+// reason. The URL a caller supplied may carry a credential in its userinfo or
+// query, and an error from parsing it reaches logs and API responses; the
+// caller already knows which URL it sent.
+func URLParseReason(err error) error {
+	var ue *url.Error
+	if errors.As(err, &ue) {
+		return ue.Err
+	}
+	return err
 }

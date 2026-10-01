@@ -375,7 +375,7 @@ func formatCORSOriginRows(origins []string) []configRow {
 func (c *Config) ValidateProviderURL(rawURL string) error {
 	u, err := url.Parse(rawURL)
 	if err != nil {
-		return fmt.Errorf("invalid URL: %w", err)
+		return fmt.Errorf("invalid URL: %w", util.URLParseReason(err))
 	}
 
 	host := u.Hostname()

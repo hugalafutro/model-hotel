@@ -90,7 +90,9 @@ func querySecrets(rawQuery string) []string {
 // hand, since url.Parse fails on the same input: the credential query values,
 // and the userinfo up to the LAST '@' before the query. The pattern in
 // util.RedactURLUserinfo stops at whitespace or a quote, which a pasted
-// password in a URL that does not parse may well hold. Each is listed raw and,
+// password in a URL that does not parse may well hold. The cut is not at the
+// first '/' either, since such a password may hold one too: an '@' in the path
+// over-masks a diagnostic, which is the safe failure. Each is listed raw and,
 // where it differs, in the %q rendering a parse error quotes it in.
 func rawURLSecrets(rawURL string) []string {
 	beforeQuery, q, hasQuery := strings.Cut(rawURL, "?")
