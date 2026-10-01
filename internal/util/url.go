@@ -71,22 +71,26 @@ func URLParseReason(err error) error {
 }
 
 // credentialQueryParams are the query parameter names a key may travel in (a
-// custom gateway may authenticate by ?key=). Only these count: treating every
-// query value as a secret would redact Azure's ?api-version=... out of the one
-// diagnostic an operator needs when a version is refused.
+// custom gateway may authenticate by ?key=), in the form credentialParamName
+// reduces them to. Only these count: treating every query value as a secret
+// would redact Azure's ?api-version=... out of the one diagnostic an operator
+// needs when a version is refused.
 var credentialQueryParams = map[string]bool{
-	"key": true, "api_key": true, "apikey": true, "api-key": true,
-	"x-api-key": true, "x-goog-api-key": true,
-	"token": true, "access_token": true, "auth_token": true, "refresh_token": true,
-	"secret": true, "client_secret": true, "secret_key": true, "access_key": true,
+	"key": true, "apikey": true, "xapikey": true, "xgoogapikey": true,
+	"token": true, "apitoken": true, "accesstoken": true, "authtoken": true, "refreshtoken": true,
+	"secret": true, "clientsecret": true, "secretkey": true, "accesskey": true,
 	"password": true,
 	// Signed-URL credentials: Azure SAS and S3 presigned URLs.
-	"sig": true, "signature": true, "x-amz-signature": true,
-	"x-amz-credential": true, "x-amz-security-token": true,
+	"sig": true, "signature": true, "xamzsignature": true,
+	"xamzcredential": true, "xamzsecuritytoken": true,
 }
 
+// credentialParamName folds the spellings of one name together: case, and the
+// "-" or "_" between its words, so api_token, api-token and apiToken match.
+var credentialParamName = strings.NewReplacer("-", "", "_", "")
+
 // IsCredentialQueryParam reports whether a query parameter of that name
-// carries a credential. name is the decoded name, matched case-insensitively.
+// carries a credential. name is the decoded name.
 func IsCredentialQueryParam(name string) bool {
-	return credentialQueryParams[strings.ToLower(name)]
+	return credentialQueryParams[credentialParamName.Replace(strings.ToLower(name))]
 }

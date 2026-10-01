@@ -108,7 +108,7 @@ func TestURLParseReason(t *testing.T) {
 }
 
 func TestIsCredentialQueryParam(t *testing.T) {
-	for _, name := range []string{"key", "API_KEY", "Token", "password", "client_secret", "X-Goog-Api-Key", "X-Amz-Signature", "sig"} {
+	for _, name := range []string{"key", "API_KEY", "Token", "password", "client_secret", "X-Goog-Api-Key", "X-Amz-Signature", "sig", "api_token", "api-token", "apiToken", "accessToken"} {
 		if !IsCredentialQueryParam(name) {
 			t.Errorf("IsCredentialQueryParam(%q) = false, want true", name)
 		}
