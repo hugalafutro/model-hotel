@@ -183,14 +183,14 @@ describe("ModelDetailModal", () => {
 	});
 
 	describe("capabilities editing", () => {
-		const customModel = { ...mockModel, provider_type: "custom" };
+		const customModel = { ...mockModel, capabilities_editable: true };
 
-		it("offers no capability toggles on a provider that is not custom", async () => {
+		it("offers no capability toggles where the backend says they are not editable", async () => {
 			const user = userEvent.setup();
 			renderWithProviders(
 				<ModelDetailModal
 					{...defaultProps}
-					model={{ ...mockModel, provider_type: "openai" }}
+					model={{ ...mockModel, capabilities_editable: false }}
 				/>,
 			);
 			await user.click(screen.getByText("Edit"));

@@ -44,9 +44,12 @@ export interface Model {
 	/** context_length / max_output_tokens were edited by an operator and survive
 	 * discovery until an explicit limits_customized=false unpins them. */
 	limits_customized: boolean;
-	/** A custom provider's capabilities were set by an operator and survive
-	 * discovery until an explicit capabilities_customized=false unpins them. */
+	/** The capabilities were set by an operator and survive discovery until an
+	 * explicit capabilities_customized=false unpins them. */
 	capabilities_customized?: boolean;
+	/** The operator may set this model's capabilities by hand: its provider is
+	 * custom or self-hosted. */
+	capabilities_editable?: boolean;
 	/** The stored provider_type of the model's provider ("custom", "openai", ...). */
 	provider_type?: string;
 	/**

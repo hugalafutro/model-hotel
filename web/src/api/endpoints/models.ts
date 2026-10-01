@@ -83,8 +83,8 @@ export const models = {
 			/** false clears the operator limits pin and nulls context_length and
 			 *  max_output_tokens so the next discovery scan refills them. */
 			limits_customized?: boolean;
-			/** Replaces a custom provider's model capabilities whole and pins
-			 *  them; the API refuses it for any other provider type. */
+			/** Replaces the model's capabilities whole and pins them; the API
+			 *  takes it only on a custom or self-hosted provider's models. */
 			capabilities?: Record<string, boolean>;
 			/** false clears the operator capabilities pin so the next discovery
 			 *  scan writes the listing's reading again. */

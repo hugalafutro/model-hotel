@@ -1241,7 +1241,7 @@
 			"testSuccessRanked": "النجاح | النتائج المرتبة: {{count}}{{ttftPart}} | المدة: {{duration}}s",
 			"limitsPinned": "حدود السياق والإخراج مثبّتة بواسطة المشغّل",
 			"capabilitiesPinned": "القدرات محددة من قبل المشغل",
-			"capabilitiesEditHint": "يبلّغ المزوّدون المخصّصون فقط بما تذكره قائمتهم. فعّل ما يدعمه هذا النموذج."
+			"capabilitiesEditHint": "يبلّغ هذا المزوّد فقط بما يذكره خادمه. فعّل ما يدعمه هذا النموذج."
 		},
 		"table": {
 			"sortByModelName": "الترتيب حسب اسم النموذج",

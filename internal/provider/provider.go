@@ -337,15 +337,15 @@ func (r *Repository) Update(ctx context.Context, id uuid.UUID, req UpdateProvide
 		maskedKey = &mk
 	}
 
-	// A hand-set capabilities pin belongs to a custom provider (the model API
-	// takes the edit nowhere else), so re-typing the provider away from custom
-	// releases its models' pins in the same statement: the new type's discovery
-	// owns their capabilities from the next scan on.
+	// A hand-set capabilities pin belongs to a custom or self-hosted provider
+	// (the model API takes the edit nowhere else), so re-typing the provider
+	// to any other type releases its models' pins in the same statement: the
+	// new type's discovery owns their capabilities from the next scan on.
 	query := `
 		WITH released AS (
 			UPDATE models SET capabilities_customized = false
 			WHERE provider_id = $11 AND capabilities_customized
-			  AND $12::text IS NOT NULL AND $12::text <> 'custom'
+			  AND $17
 		)
 		UPDATE providers
 		SET name = COALESCE($1, name),
@@ -373,7 +373,8 @@ func (r *Repository) Update(ctx context.Context, id uuid.UUID, req UpdateProvide
 		req.Enabled, req.AutodiscoveryEnabled,
 		req.ScheduledDisableOn.Set, req.ScheduledDisableOn.Value, id, req.ProviderType,
 		req.MaxInFlight.Set, req.MaxInFlight.Value,
-		req.QuotaReservePercent.Set, req.QuotaReservePercent.Value))
+		req.QuotaReservePercent.Set, req.QuotaReservePercent.Value,
+		req.ProviderType != nil && !OperatorServedType(*req.ProviderType)))
 	if err != nil {
 		debuglog.Error("provider: update failed", "id", id, "error", err)
 		return nil, err

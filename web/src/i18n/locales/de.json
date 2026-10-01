@@ -1077,7 +1077,7 @@
 			"testSuccessRanked": "Erfolg | Gereihte Ergebnisse: {{count}}{{ttftPart}} | Dauer: {{duration}}s",
 			"limitsPinned": "Kontext- und Ausgabelimits vom Betreiber angeheftet",
 			"capabilitiesPinned": "Fähigkeiten vom Betreiber festgelegt",
-			"capabilitiesEditHint": "Benutzerdefinierte Anbieter melden nur, was ihre Liste angibt. Schalte ein, was dieses Modell unterstützt."
+			"capabilitiesEditHint": "Dieser Anbieter meldet nur, was sein Server angibt. Schalte ein, was dieses Modell unterstützt."
 		},
 		"table": {
 			"sortByModelName": "Nach Modellnamen sortieren",

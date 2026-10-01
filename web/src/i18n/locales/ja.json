@@ -1077,7 +1077,7 @@
 			"testSuccessRanked": "成功 | ランク付け結果: {{count}}{{ttftPart}} | 期間: {{duration}}s",
 			"limitsPinned": "コンテキストと出力の上限はオペレーターにより固定されています",
 			"capabilitiesPinned": "オペレーターが設定した機能",
-			"capabilitiesEditHint": "カスタムプロバイダーは一覧に記載された内容のみを報告します。このモデルが対応する機能をオンにしてください。"
+			"capabilitiesEditHint": "このプロバイダーはサーバーが報告する内容のみを伝えます。このモデルが対応する機能をオンにしてください。"
 		},
 		"table": {
 			"sortByModelName": "モデル名でソート",

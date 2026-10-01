@@ -852,8 +852,9 @@ func TestRepository_Update(t *testing.T) {
 	}
 }
 
-// Re-typing a provider away from custom releases its models' capabilities
-// pins; keeping it custom, or leaving the type alone, does not.
+// Re-typing a provider to a type whose capabilities are not hand-set releases
+// its models' capabilities pins; moving between custom and a self-hosted type,
+// or leaving the type alone, does not.
 func TestRepository_Update_RetypeReleasesCapabilitiesPins(t *testing.T) {
 	repo := newTestRepo(t)
 	ctx := context.Background()
@@ -876,8 +877,8 @@ func TestRepository_Update_RetypeReleasesCapabilitiesPins(t *testing.T) {
 		}
 		return v
 	}
-	custom, openai, name := "custom", "openai", uniqueName(t)
-	for _, req := range []UpdateProviderRequest{{Name: &name}, {ProviderType: &custom}} {
+	custom, ollama, openai, name := "custom", "ollama", "openai", uniqueName(t)
+	for _, req := range []UpdateProviderRequest{{Name: &name}, {ProviderType: &ollama}, {ProviderType: &custom}} {
 		if _, err := repo.Update(ctx, p.ID, req, nil, nil, nil); err != nil {
 			t.Fatalf("Update: %v", err)
 		}

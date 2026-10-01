@@ -1077,7 +1077,7 @@
 			"testSuccessRanked": "Siker | Rangsorolt találatok: {{count}}{{ttftPart}} | Időtartam: {{duration}}másodperc",
 			"limitsPinned": "Kontextus- és kimeneti korlátok az üzemeltető által rögzítve",
 			"capabilitiesPinned": "Az üzemeltető által beállított képességek",
-			"capabilitiesEditHint": "Az egyéni szolgáltatók csak azt jelentik, amit a listájuk tartalmaz. Kapcsold be, amit ez a modell támogat."
+			"capabilitiesEditHint": "Ez a szolgáltató csak azt jelenti, amit a szervere közöl. Kapcsold be, amit ez a modell támogat."
 		},
 		"table": {
 			"sortByModelName": "Rendezés modellnév szerint",

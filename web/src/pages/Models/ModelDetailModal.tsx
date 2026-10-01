@@ -205,9 +205,9 @@ export function ModelDetailModal({
 				</div>
 			)}
 
-			{/* A custom provider's capabilities are the operator's to set; the
-			    edit pins them (capabilities_customized) until an unpin hands
-			    them back to the next scan. */}
+			{/* A custom or self-hosted provider's capabilities are the
+			    operator's to set; the edit pins them (capabilities_customized)
+			    until an unpin hands them back to the next scan. */}
 			{model.capabilities_customized && (
 				<div
 					data-testid="caps-pin-banner"

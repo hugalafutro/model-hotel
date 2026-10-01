@@ -1121,7 +1121,7 @@
 			"testSuccessRanked": "Successo | Risultati classificati: {{count}}{{ttftPart}} | Durata: {{duration}}s",
 			"limitsPinned": "Limiti di contesto e output fissati dall'operatore",
 			"capabilitiesPinned": "Capacità impostate dall'operatore",
-			"capabilitiesEditHint": "I provider personalizzati riportano solo ciò che dice il loro elenco. Attiva ciò che questo modello supporta."
+			"capabilitiesEditHint": "Questo provider riporta solo ciò che dice il suo server. Attiva ciò che questo modello supporta."
 		},
 		"table": {
 			"sortByModelName": "Ordina per nome modello",

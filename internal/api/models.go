@@ -34,35 +34,38 @@ import (
 
 // ModelResponse is the JSON response format for model API endpoints.
 type ModelResponse struct {
-	ID                           string             `json:"id"`
-	ModelID                      string             `json:"model_id"`
-	Name                         string             `json:"name"`
-	Description                  string             `json:"description"`
-	DisplayName                  string             `json:"display_name"`
-	ProviderID                   string             `json:"provider_id"`
-	ProviderName                 string             `json:"provider_name"`
-	ProviderEnabled              bool               `json:"provider_enabled"`
-	Capabilities                 string             `json:"capabilities"`
-	Params                       string             `json:"params"`
-	Modality                     string             `json:"modality"`
-	InputModalities              string             `json:"input_modalities"`
-	OutputModalities             string             `json:"output_modalities"`
-	ContextLength                *int               `json:"context_length"`
-	MaxOutputTokens              *int               `json:"max_output_tokens"`
-	InputPricePerMillion         *float64           `json:"input_price_per_million"`
-	InputPricePerMillionCacheHit *float64           `json:"input_price_per_million_cache_hit"`
-	OutputPricePerMillion        *float64           `json:"output_price_per_million"`
-	SearchPricePerThousand       *float64           `json:"search_price_per_thousand"`
-	OwnedBy                      string             `json:"owned_by"`
-	Enabled                      bool               `json:"enabled"`
-	DisabledManually             bool               `json:"disabled_manually"`
-	PriceCustomized              bool               `json:"price_customized"`
-	LimitsCustomized             bool               `json:"limits_customized"`
-	CapabilitiesCustomized       bool               `json:"capabilities_customized"`
-	ProviderType                 string             `json:"provider_type"`
-	PriceSources                 model.PriceSources `json:"price_sources"`
-	CreatedAt                    string             `json:"created_at"`
-	LastSeenAt                   string             `json:"last_seen_at"`
+	ID                           string   `json:"id"`
+	ModelID                      string   `json:"model_id"`
+	Name                         string   `json:"name"`
+	Description                  string   `json:"description"`
+	DisplayName                  string   `json:"display_name"`
+	ProviderID                   string   `json:"provider_id"`
+	ProviderName                 string   `json:"provider_name"`
+	ProviderEnabled              bool     `json:"provider_enabled"`
+	Capabilities                 string   `json:"capabilities"`
+	Params                       string   `json:"params"`
+	Modality                     string   `json:"modality"`
+	InputModalities              string   `json:"input_modalities"`
+	OutputModalities             string   `json:"output_modalities"`
+	ContextLength                *int     `json:"context_length"`
+	MaxOutputTokens              *int     `json:"max_output_tokens"`
+	InputPricePerMillion         *float64 `json:"input_price_per_million"`
+	InputPricePerMillionCacheHit *float64 `json:"input_price_per_million_cache_hit"`
+	OutputPricePerMillion        *float64 `json:"output_price_per_million"`
+	SearchPricePerThousand       *float64 `json:"search_price_per_thousand"`
+	OwnedBy                      string   `json:"owned_by"`
+	Enabled                      bool     `json:"enabled"`
+	DisabledManually             bool     `json:"disabled_manually"`
+	PriceCustomized              bool     `json:"price_customized"`
+	LimitsCustomized             bool     `json:"limits_customized"`
+	CapabilitiesCustomized       bool     `json:"capabilities_customized"`
+	// CapabilitiesEditable says whether the operator may set this model's
+	// capabilities by hand: its provider is custom or self-hosted.
+	CapabilitiesEditable bool               `json:"capabilities_editable"`
+	ProviderType         string             `json:"provider_type"`
+	PriceSources         model.PriceSources `json:"price_sources"`
+	CreatedAt            string             `json:"created_at"`
+	LastSeenAt           string             `json:"last_seen_at"`
 }
 
 func modelToResponse(m model.Model) ModelResponse {
@@ -92,6 +95,7 @@ func modelToResponse(m model.Model) ModelResponse {
 		PriceCustomized:              m.PriceCustomized,
 		LimitsCustomized:             m.LimitsCustomized,
 		CapabilitiesCustomized:       m.CapabilitiesCustomized,
+		CapabilitiesEditable:         provider.OperatorServedType(m.ProviderType),
 		ProviderType:                 m.ProviderType,
 		PriceSources:                 m.PriceSources,
 		CreatedAt:                    m.CreatedAt.Format(time.RFC3339),
@@ -294,11 +298,11 @@ func (h *Handler) UpdateModel(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Capabilities are set by hand only where discovery takes the provider at
-	// its word and knows nothing more: a custom provider. Every other type's
-	// capabilities come from its own API or the vendor data, and a pin there
-	// would freeze them against the next genuine change. An unpin is taken on
-	// any type: a provider's type can be changed after its models were pinned,
-	// and the pin must not outlive it with no way to clear it.
+	// its word and knows nothing more: a custom or self-hosted provider. Every
+	// other type's capabilities come from the vendor's own API or data, and a
+	// pin there would freeze them against the next genuine change. An unpin is
+	// taken on any type: a provider's type can be changed after its models
+	// were pinned, and the pin must not outlive it with no way to clear it.
 	unpinCaps := req.CapabilitiesCustomized != nil && !*req.CapabilitiesCustomized
 	if (req.Capabilities != nil || req.CapabilitiesCustomized != nil) && !unpinCaps {
 		current, err := modelRepo.Get(r.Context(), id)
@@ -306,8 +310,8 @@ func (h *Handler) UpdateModel(w http.ResponseWriter, r *http.Request) {
 			respondLookupError(w, err, pgx.ErrNoRows, "model not found", fmt.Sprintf("failed to load model %s", id))
 			return
 		}
-		if current.ProviderType != "custom" {
-			writeCodedError(w, http.StatusBadRequest, "capabilities_custom_only", "capabilities can be edited only on a custom provider's models")
+		if !provider.OperatorServedType(current.ProviderType) {
+			writeCodedError(w, http.StatusBadRequest, "capabilities_not_editable", "capabilities can be edited only on a custom or self-hosted provider's models")
 			return
 		}
 	}

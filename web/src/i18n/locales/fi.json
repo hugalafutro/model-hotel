@@ -1077,7 +1077,7 @@
 			"testSuccessRanked": "Onnistui | Järjestetyt tulokset: {{count}}{{ttftPart}} | Kesto: {{duration}}s",
 			"limitsPinned": "Konteksti- ja tulosterajat operaattorin kiinnittämiä",
 			"capabilitiesPinned": "Operaattorin asettamat ominaisuudet",
-			"capabilitiesEditHint": "Mukautetut palveluntarjoajat ilmoittavat vain sen, mitä niiden luettelo kertoo. Ota käyttöön se, mitä tämä malli tukee."
+			"capabilitiesEditHint": "Tämä palveluntarjoaja ilmoittaa vain sen, mitä sen palvelin kertoo. Ota käyttöön se, mitä tämä malli tukee."
 		},
 		"table": {
 			"sortByModelName": "Järjestä mallin nimen mukaan",

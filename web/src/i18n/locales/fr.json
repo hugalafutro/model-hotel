@@ -1121,7 +1121,7 @@
 			"testSuccessRanked": "Succès | Résultats classés : {{count}}{{ttftPart}} | Durée: {{duration}}s",
 			"limitsPinned": "Limites de contexte et de sortie épinglées par l'opérateur",
 			"capabilitiesPinned": "Capacités définies par l'opérateur",
-			"capabilitiesEditHint": "Les fournisseurs personnalisés ne signalent que ce qu'indique leur liste. Activez ce que ce modèle prend en charge."
+			"capabilitiesEditHint": "Ce fournisseur ne signale que ce qu'indique son serveur. Activez ce que ce modèle prend en charge."
 		},
 		"table": {
 			"sortByModelName": "Trier par nom de modèle",

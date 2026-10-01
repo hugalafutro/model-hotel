@@ -1121,7 +1121,7 @@
 			"testSuccessRanked": "Succes | Rezultate clasate: {{count}}{{ttftPart}} | Durată: {{duration}}s",
 			"limitsPinned": "Limitele de context și ieșire fixate de operator",
 			"capabilitiesPinned": "Capabilități setate de operator",
-			"capabilitiesEditHint": "Furnizorii personalizați raportează doar ce spune lista lor. Activează ce suportă acest model."
+			"capabilitiesEditHint": "Acest furnizor raportează doar ce spune serverul său. Activează ce suportă acest model."
 		},
 		"table": {
 			"sortByModelName": "Sortează după numele modelului",
