@@ -76,7 +76,13 @@ func URLParseReason(err error) error {
 // diagnostic an operator needs when a version is refused.
 var credentialQueryParams = map[string]bool{
 	"key": true, "api_key": true, "apikey": true, "api-key": true,
-	"token": true, "access_token": true, "secret": true, "password": true,
+	"x-api-key": true, "x-goog-api-key": true,
+	"token": true, "access_token": true, "auth_token": true, "refresh_token": true,
+	"secret": true, "client_secret": true, "secret_key": true, "access_key": true,
+	"password": true,
+	// Signed-URL credentials: Azure SAS and S3 presigned URLs.
+	"sig": true, "signature": true, "x-amz-signature": true,
+	"x-amz-credential": true, "x-amz-security-token": true,
 }
 
 // IsCredentialQueryParam reports whether a query parameter of that name
