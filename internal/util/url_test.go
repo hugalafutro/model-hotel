@@ -106,3 +106,16 @@ func TestURLParseReason(t *testing.T) {
 		t.Errorf("URLParseReason changed a non-url error: %v", got)
 	}
 }
+
+func TestIsCredentialQueryParam(t *testing.T) {
+	for _, name := range []string{"key", "API_KEY", "Token", "password"} {
+		if !IsCredentialQueryParam(name) {
+			t.Errorf("IsCredentialQueryParam(%q) = false, want true", name)
+		}
+	}
+	for _, name := range []string{"api-version", "alt", "keys", ""} {
+		if IsCredentialQueryParam(name) {
+			t.Errorf("IsCredentialQueryParam(%q) = true, want false", name)
+		}
+	}
+}
