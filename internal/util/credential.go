@@ -51,10 +51,9 @@ var unambiguousKeyShape = regexp.MustCompile(`\bAIza[0-9A-Za-z_-]{30,}|\bAKIA[A-
 // "has_secret=true" and "prompt_token=3" are left alone. A bare "key=" counts
 // only where a query parameter starts ("?key=", "&key=", Google's style): the
 // gateway logs a virtual key's NAME under a "key" attribute, which a text log
-// renders after a space. The value
-// stops at the next separator (& , ;), a closing bracket, whitespace, a quote
-// or a backslash, so the rest of the line survives and a JSON body stays
-// valid.
+// renders after a space. The value stops at the next separator (& , ;), a
+// closing bracket, whitespace, a quote or a backslash, so the rest of the line
+// survives and a JSON body stays valid.
 var secretParamShape = regexp.MustCompile(`(?i)(?:(^|[?&\s"':(\[{,;])((?:client_|refresh_|access_|auth_)?(?:token|secret|password)|(?:api|access|secret|client)[_-]?key)|[?&]key)=[^&,;)\]}\s"'\\<>]+`)
 
 // CredentialMinLen is the shortest provider key the exact-value mask will

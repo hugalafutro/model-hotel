@@ -113,8 +113,9 @@ func (d *DiscoveryService) doDiscoveryRequest(ctx context.Context, newReq func()
 	for attempt := range maxDiscoveryRetries {
 		req, err := newReq()
 		if err != nil {
-			// A request that fails to build quotes its raw URL.
-			return nil, util.URLParseReason(err)
+			// A request that fails to build quotes its raw URL, so only the
+			// parse reason is kept.
+			return nil, fmt.Errorf("failed to create request: %w", util.URLParseReason(err))
 		}
 		if attempt > 0 {
 			backoff := retryBackoff(d.retryBaseDelay, attempt)
@@ -212,7 +213,7 @@ func (d *DiscoveryService) fetchURL(ctx context.Context, method, rawURL string, 
 	resp, err := d.doDiscoveryRequest(ctx, func() (*http.Request, error) {
 		req, err := http.NewRequestWithContext(ctx, method, rawURL, http.NoBody)
 		if err != nil {
-			return nil, fmt.Errorf("failed to create request: %w", err)
+			return nil, err
 		}
 		for k, vs := range headers {
 			for _, v := range vs {
@@ -223,15 +224,6 @@ func (d *DiscoveryService) fetchURL(ctx context.Context, method, rawURL string, 
 		return req, nil
 	})
 	if err != nil {
-		// A request that never got built (a URL that fails to parse) reaches
-		// here with last == nil, and its error quotes the URL. Scrub from the
-		// inputs this function was handed instead of from a request.
-		if last == nil {
-			// url.Parse fails for the same reason NewRequest did, and the error
-			// prints the raw URL whole, so the query is split off by hand.
-			secrets := append(secretsOf(headers, nil), rawURLSecrets(rawURL)...)
-			err = &maskedError{text: maskRawURLText(secrets, err.Error()), cause: err}
-		}
 		return nil, fmt.Errorf("http request failed: %w", err)
 	}
 	defer func() { _ = resp.Body.Close() }()
