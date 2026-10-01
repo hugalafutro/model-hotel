@@ -126,7 +126,8 @@ func (d *DiscoveryService) probeLocal(ctx context.Context, endpoint, apiKey stri
 
 	req, err := http.NewRequestWithContext(reqCtx, http.MethodGet, endpoint, http.NoBody)
 	if err != nil {
-		return nil, false, err
+		// A parse error quotes the raw endpoint, userinfo included.
+		return nil, false, &maskedError{text: maskRawURLText(nil, err.Error()), cause: err}
 	}
 	if apiKey != "" {
 		req.Header.Set("Authorization", "Bearer "+apiKey)

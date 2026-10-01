@@ -547,9 +547,8 @@ func TestDecodeErrors_DropUpstreamLiteral(t *testing.T) {
 	}
 }
 
-// The local-server fingerprint probe logs its transport failures too. It used
-// to log the endpoint whole, which keeps any user:password the operator put in
-// the base URL, and the raw error, which carries whatever a proxy quoted back.
+// The local-server probe's failure log carries the host and a masked error,
+// never the base URL's user:password or a key a proxy quotes back.
 func TestIdentifyLocalServer_ProbeFailureLogDoesNotCarryTheKey(t *testing.T) {
 	logged := captureDebuglog(t)
 	failing := roundTripperFunc(func(r *http.Request) (*http.Response, error) {
@@ -566,5 +565,32 @@ func TestIdentifyLocalServer_ProbeFailureLogDoesNotCarryTheKey(t *testing.T) {
 	}
 	if strings.Contains(logged.String(), leakedKey) {
 		t.Errorf("the key reached the probe log:\n%s", logged.String())
+	}
+}
+
+// An unparseable URL prints whole, userinfo included, in both the fetch error
+// and the provider-type fallback's warning. Neither may carry the password or a
+// query key.
+func TestUnparseableURL_UserinfoAndQueryKeyAreScrubbed(t *testing.T) {
+	logged := captureDebuglog(t)
+	raw := "http://operator:" + leakedKey + "@example.invalid\x7f/v1?key=" + leakedKey
+
+	svc := &DiscoveryService{httpClient: &http.Client{Timeout: 2 * time.Second}}
+	_, err := svc.fetchURL(context.Background(), http.MethodGet, raw, http.Header{})
+	if err == nil {
+		t.Fatal("expected a parse error")
+	}
+	if strings.Contains(err.Error(), leakedKey) {
+		t.Errorf("fetch error carries the key: %s", err.Error())
+	}
+
+	if got := TypeFromHostname(raw); got != "openai" {
+		t.Errorf("TypeFromHostname = %q, want the openai fallback", got)
+	}
+	if !strings.Contains(logged.String(), "failed to parse base URL") {
+		t.Fatalf("the parse failure was not logged:\n%s", logged.String())
+	}
+	if strings.Contains(logged.String(), leakedKey) {
+		t.Errorf("the key reached the parse-failure log:\n%s", logged.String())
 	}
 }
