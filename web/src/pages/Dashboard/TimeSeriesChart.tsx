@@ -194,6 +194,14 @@ export function TimeSeriesChart({
 		setIsDragging(false);
 	}, []);
 
+	// A button step ends any drag in progress: the drag pans from the offset
+	// it started at, so its next move would overwrite the step.
+	const stepPan = (by: number) => {
+		dragRef.current = null;
+		setIsDragging(false);
+		panTo(effectiveStart + by);
+	};
+
 	const header = (
 		<div className="flex items-center justify-between mb-4">
 			<h3 className="text-lg font-semibold text-(--text-primary) flex items-center gap-2">
@@ -405,31 +413,31 @@ export function TimeSeriesChart({
 					</AreaChart>
 				</ResponsiveContainer>
 			</div>
-			{pannable && (canPanLeft || canPanRight) && (
+			{pannable && (
 				<div className="flex items-center justify-center gap-2 mt-2 text-xs text-(--text-muted) select-none">
 					{/* The arrows point the way a drag goes, so → shows older data.
-					    As buttons they make panning reachable without a pointer. */}
-					{canPanLeft && (
-						<button
-							type="button"
-							className="ui-icon-btn px-1"
-							aria-label={t("dashboard.chart.panOlder")}
-							onClick={() => panTo(effectiveStart - 1)}
-						>
-							→
-						</button>
-					)}
+					    As buttons they make panning reachable without a pointer.
+					    At an edge they stay mounted (aria-disabled, not removed or
+					    disabled) so keyboard focus is not dropped. */}
+					<button
+						type="button"
+						className="ui-icon-btn px-1"
+						aria-label={t("dashboard.chart.panOlder")}
+						aria-disabled={!canPanLeft}
+						onClick={() => canPanLeft && stepPan(-1)}
+					>
+						→
+					</button>
 					<span>{t("dashboard.chart.dragToPan")}</span>
-					{canPanRight && (
-						<button
-							type="button"
-							className="ui-icon-btn px-1"
-							aria-label={t("dashboard.chart.panNewer")}
-							onClick={() => panTo(effectiveStart + 1)}
-						>
-							←
-						</button>
-					)}
+					<button
+						type="button"
+						className="ui-icon-btn px-1"
+						aria-label={t("dashboard.chart.panNewer")}
+						aria-disabled={!canPanRight}
+						onClick={() => canPanRight && stepPan(1)}
+					>
+						←
+					</button>
 				</div>
 			)}
 		</div>

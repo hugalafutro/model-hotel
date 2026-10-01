@@ -345,8 +345,8 @@
 			"cacheHit": "キャッシュヒット",
 			"today": "本日、 {{date}}",
 			"yesterday": "昨日、 {{date}}",
-			"panOlder": "古いデータを表示",
-			"panNewer": "新しいデータを表示"
+			"panOlder": "より古いデータを表示",
+			"panNewer": "より新しいデータを表示"
 		},
 		"usage": {
 			"topModels": "トップモデル",

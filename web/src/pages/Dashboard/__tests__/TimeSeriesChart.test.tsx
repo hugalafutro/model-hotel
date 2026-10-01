@@ -409,6 +409,16 @@ function dragBy(el: HTMLElement, dx: number) {
 	fireEvent.pointerUp(el, { pointerId: 1 });
 }
 
+// Whether the pan button toward older/newer data is live. Both stay mounted
+// while the chart is pannable; the one at an edge is aria-disabled.
+function canPan(way: "older" | "newer") {
+	const name = way === "older" ? "Show older data" : "Show newer data";
+	return (
+		screen.getByRole("button", { name }).getAttribute("aria-disabled") !==
+		"true"
+	);
+}
+
 describe("Drag-to-pan", () => {
 	it("shows grab cursor when data exceeds viewport", () => {
 		const data = generateData(15); // 15 > 12 (viewportSize for 1h)
@@ -449,8 +459,8 @@ describe("Drag-to-pan", () => {
 		// Should show "drag to pan" text and arrows when pannable
 		expect(screen.getByText("drag to pan")).toBeInTheDocument();
 		// At start, can pan left (toward older data) but not right
-		expect(screen.getByText("→")).toBeInTheDocument();
-		expect(screen.queryByText("←")).not.toBeInTheDocument();
+		expect(canPan("older")).toBe(true);
+		expect(canPan("newer")).toBe(false);
 	});
 
 	it("shows right arrow when can pan left (toward older data)", () => {
@@ -465,7 +475,7 @@ describe("Drag-to-pan", () => {
 		);
 
 		// At start position, should show right arrow (can pan left = see older data)
-		expect(screen.getByText("→")).toBeInTheDocument();
+		expect(canPan("older")).toBe(true);
 	});
 
 	it("shows left arrow when can pan right (toward newer data)", async () => {
@@ -486,8 +496,8 @@ describe("Drag-to-pan", () => {
 		dragBy(chartContainer, 100);
 
 		// One bucket back, not a jump to the oldest edge: both ways stay open
-		expect(screen.getByText("←")).toBeInTheDocument();
-		expect(screen.getByText("→")).toBeInTheDocument();
+		expect(canPan("newer")).toBe(true);
+		expect(canPan("older")).toBe(true);
 	});
 
 	it("lets touch drag the chart sideways while vertical swipes scroll the page", () => {
@@ -503,7 +513,7 @@ describe("Drag-to-pan", () => {
 		expect(pane).toHaveStyle("touch-action: pan-y");
 	});
 
-	it("pans one bucket at a time with the arrow buttons", async () => {
+	it("pans one bucket at a time with the arrow buttons, keeping focus at an edge", async () => {
 		const user = userEvent.setup();
 		renderWithProviders(
 			<TimeSeriesChart
@@ -513,16 +523,48 @@ describe("Drag-to-pan", () => {
 				metric="Requests"
 			/>,
 		);
+		const older = screen.getByRole("button", { name: "Show older data" });
+		const newer = screen.getByRole("button", { name: "Show newer data" });
+		expect(canPan("newer")).toBe(false);
 
-		await user.click(screen.getByRole("button", { name: "Show older data" }));
-		expect(
-			screen.getByRole("button", { name: "Show older data" }),
-		).toBeInTheDocument();
-		await user.click(screen.getByRole("button", { name: "Show newer data" }));
-		// Back at the latest edge
-		expect(
-			screen.queryByRole("button", { name: "Show newer data" }),
-		).not.toBeInTheDocument();
+		await user.click(older);
+		expect(canPan("newer")).toBe(true);
+		expect(canPan("older")).toBe(true);
+
+		// Back at the latest edge by keyboard: the button stays, focused
+		newer.focus();
+		await user.keyboard("{Enter}");
+		expect(canPan("newer")).toBe(false);
+		expect(newer).toHaveFocus();
+
+		// A press at the edge does nothing
+		await user.keyboard("{Enter}");
+		expect(canPan("newer")).toBe(false);
+		expect(canPan("older")).toBe(true);
+	});
+
+	it("ends a drag in progress when a pan button is pressed", async () => {
+		const user = userEvent.setup();
+		renderWithProviders(
+			<TimeSeriesChart
+				{...defaultProps}
+				data={generateData(20)}
+				range="1h"
+				metric="Requests"
+			/>,
+		);
+		const pane = screen.getByTestId("area-chart").closest("div") as HTMLElement;
+		fireEvent.pointerDown(pane, { clientX: 500, pointerId: 1 });
+		expect(pane).toHaveStyle("cursor: grabbing");
+
+		screen.getByRole("button", { name: "Show older data" }).focus();
+		await user.keyboard("{Enter}");
+		expect(pane).toHaveStyle("cursor: grab");
+		expect(canPan("newer")).toBe(true);
+
+		// The stale drag can no longer overwrite the step
+		fireEvent.pointerMove(pane, { clientX: 500, pointerId: 1 });
+		expect(canPan("newer")).toBe(true);
 	});
 
 	it("snaps back to latest when the range changes after panning", () => {
@@ -540,7 +582,7 @@ describe("Drag-to-pan", () => {
 		const chartContainer = screen.getByTestId("area-chart")
 			.parentElement as HTMLElement;
 		dragBy(chartContainer, 100);
-		expect(screen.getByText("←")).toBeInTheDocument();
+		expect(canPan("newer")).toBe(true);
 
 		// A stale pan (start 27) would still sit left of 1w's maxStart and keep
 		// the newer-data arrow; a reset snaps to latest and drops it.
@@ -552,8 +594,8 @@ describe("Drag-to-pan", () => {
 				metric="Requests"
 			/>,
 		);
-		expect(screen.queryByText("←")).not.toBeInTheDocument();
-		expect(screen.getByText("→")).toBeInTheDocument();
+		expect(canPan("newer")).toBe(false);
+		expect(canPan("older")).toBe(true);
 
 		// Returning to 1h must not resurrect the old pan: the stored position
 		// was dropped when the range changed, not merely hidden.
@@ -565,8 +607,8 @@ describe("Drag-to-pan", () => {
 				metric="Requests"
 			/>,
 		);
-		expect(screen.queryByText("←")).not.toBeInTheDocument();
-		expect(screen.getByText("→")).toBeInTheDocument();
+		expect(canPan("newer")).toBe(false);
+		expect(canPan("older")).toBe(true);
 	});
 
 	it("sets isDragging on pointer down", async () => {
@@ -641,7 +683,7 @@ describe("Drag-to-pan", () => {
 		// 1w pan from it. Dragging right would otherwise reveal older data.
 		fireEvent.pointerMove(chartContainer, { clientX: 400, pointerId: 1 });
 		expect(chartContainer).toHaveStyle("cursor: grab");
-		expect(screen.queryByText("←")).not.toBeInTheDocument();
+		expect(canPan("newer")).toBe(false);
 	});
 
 	it("clears isDragging on pointer up", async () => {
@@ -693,15 +735,15 @@ describe("Drag-to-pan", () => {
 		dragBy(chartContainer, 5000);
 
 		// Should still show left arrow (can pan right) but not right arrow
-		expect(screen.getByText("←")).toBeInTheDocument();
-		expect(screen.queryByText("→")).not.toBeInTheDocument();
+		expect(canPan("newer")).toBe(true);
+		expect(canPan("older")).toBe(false);
 
 		// Drag far past the newest data
 		dragBy(chartContainer, -5000);
 
 		// Should be back at start position
-		expect(screen.getByText("→")).toBeInTheDocument();
-		expect(screen.queryByText("←")).not.toBeInTheDocument();
+		expect(canPan("older")).toBe(true);
+		expect(canPan("newer")).toBe(false);
 	});
 
 	it("handles pointer cancel", async () => {
@@ -764,8 +806,8 @@ describe("Drag-to-pan", () => {
 		expect(fireEvent.wheel(chartContainer, { deltaX: 100 })).toBe(true);
 
 		// Still at the latest edge: no left arrow
-		expect(screen.queryByText("←")).not.toBeInTheDocument();
-		expect(screen.getByText("→")).toBeInTheDocument();
+		expect(canPan("newer")).toBe(false);
+		expect(canPan("older")).toBe(true);
 	});
 });
 

@@ -346,7 +346,7 @@
 			"today": "오늘, {{date}}",
 			"yesterday": "어제, {{date}}",
 			"panOlder": "이전 데이터 표시",
-			"panNewer": "최신 데이터 표시"
+			"panNewer": "더 최근 데이터 표시"
 		},
 		"usage": {
 			"topModels": "상위 모델",
