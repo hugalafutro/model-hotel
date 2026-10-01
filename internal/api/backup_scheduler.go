@@ -24,6 +24,16 @@ const backupSchedulerIdlePoll = 1 * time.Minute
 // setting; the dump itself still runs on the interval.
 const backupSchedulerRecheck = 5 * time.Minute
 
+// backupIntervalFloor and backupIntervalCeiling bound the backup_interval the
+// scheduler runs on. The floor keeps a tiny value from dumping back to back;
+// the ceiling is the dashboard's weekly maximum, so a value written past it
+// through the API or a config sync cannot park the scheduler indefinitely.
+// Front Desk's backup watchdog applies the same weekly ceiling.
+const (
+	backupIntervalFloor   = 5 * time.Minute
+	backupIntervalCeiling = 7 * 24 * time.Hour
+)
+
 // StartScheduler starts the periodic backup scheduler goroutine and returns a
 // channel closed once that goroutine has returned, so a caller that owns the
 // process lifetime can join it during shutdown instead of closing the pool
@@ -112,7 +122,7 @@ func (h *BackupHandler) schedulerTick(ctx context.Context) time.Duration {
 	if !h.settingsRepo.GetBool(ctx, "backup_enabled", false) {
 		return backupSchedulerIdlePoll
 	}
-	interval := max(h.settingsRepo.GetDuration(ctx, "backup_interval", 24*time.Hour), 5*time.Minute)
+	interval := min(max(h.settingsRepo.GetDuration(ctx, "backup_interval", 24*time.Hour), backupIntervalFloor), backupIntervalCeiling)
 	if wait := h.scheduledBackupWait(interval, time.Now()); wait > 0 {
 		debuglog.Debug("backup: last scheduled backup is recent, waiting", "wait", wait.Round(time.Second).String())
 		return min(wait, backupSchedulerRecheck)

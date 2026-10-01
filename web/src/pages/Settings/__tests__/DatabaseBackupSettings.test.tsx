@@ -1743,6 +1743,35 @@ describe("DatabaseBackupSettings additional coverage", () => {
 		await waitFor(() => expect((slider as HTMLInputElement).value).toBe("0.5"));
 	});
 
+	// Asserted on the number box: jsdom clamps a range input's value to its
+	// min/max on its own, so the range input would pass without the clamp.
+	it.each([
+		["7d", "168"],
+		["1d12h", "36"],
+		["1000d", "168"],
+		["336h", "168"],
+		["60s", "0.5"],
+	])("shows the stored interval %s as %s hours", async (stored, shown) => {
+		server.use(
+			http.get("/api/settings", () =>
+				HttpResponse.json({
+					backup_enabled: "true",
+					backup_interval: stored,
+				}),
+			),
+		);
+		renderWithProviders(
+			<DatabaseBackupSettings collapsed={false} onToggle={onToggle} />,
+		);
+		const slider = await screen.findByLabelText("Backup Interval");
+		let row = slider.parentElement;
+		while (row && !row.querySelector('input[type="number"]')) {
+			row = row.parentElement;
+		}
+		const box = row?.querySelector('input[type="number"]') as HTMLInputElement;
+		await waitFor(() => expect(box.value).toBe(shown));
+	});
+
 	it("falls back to 24h when the stored interval is unparseable", async () => {
 		server.use(
 			http.get("/api/settings", () =>

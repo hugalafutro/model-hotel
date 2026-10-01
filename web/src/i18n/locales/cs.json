@@ -2049,7 +2049,7 @@
 				"enabled": "Povolit pravidelné zálohování",
 				"enabledDescription": "Automaticky vytvářet zálohy v pravidelných intervalech a odstraňovat staré pomocí rotace syn/otec/děd.",
 				"interval": "Interval zálohování",
-				"intervalDescription": "Jak často vytvářet automatické zálohování (0 = zakázáno).",
+				"intervalDescription": "Jak často vytvářet automatické zálohování.",
 				"sonRetention": "Denní uchovávání (syn)",
 				"sonRetentionDescription": "Ponechat poslední zálohu z posledních N dní.",
 				"fatherRetention": "Týdenní uchovávání (otec)",

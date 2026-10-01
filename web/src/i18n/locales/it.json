@@ -1988,7 +1988,7 @@
 				"enabled": "Abilita Backup Periodico",
 				"enabledDescription": "Crea automaticamente i backup ad intervalli regolari e pota quelli vecchi usando la rotazione figlio/padre/nonno.",
 				"interval": "Intervallo Di Backup",
-				"intervalDescription": "Quanto spesso creare un backup automatico (0 = disabilitato).",
+				"intervalDescription": "Quanto spesso creare un backup automatico.",
 				"sonRetention": "Conservazione giornaliera (Figlio)",
 				"sonRetentionDescription": "Mantenere il backup più recente da ciascuno degli ultimi N giorni.",
 				"fatherRetention": "Conservazione settimanale (Padre)",

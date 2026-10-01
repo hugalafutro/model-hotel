@@ -1927,7 +1927,7 @@
 				"enabled": "Periodische Sicherung aktivieren",
 				"enabledDescription": "Erstellen Sie automatisch Sicherungen in regelmäßigen Abständen und entfernen Sie alte per Sohn/Vater/Großvater-Rotation.",
 				"interval": "Sicherungsintervall",
-				"intervalDescription": "Wie oft ein automatisches Backup erstellt werden soll (0 = deaktiviert).",
+				"intervalDescription": "Wie oft ein automatisches Backup erstellt werden soll.",
 				"sonRetention": "Tägliche Aufbewahrung (Sohn)",
 				"sonRetentionDescription": "Behalte die aktuellste Sicherung aus jedem der letzten N Tage.",
 				"fatherRetention": "Wöchentliche Aufbewahrung (Vater)",

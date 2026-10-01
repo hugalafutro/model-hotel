@@ -1927,7 +1927,7 @@
 				"enabled": "Aktiver Periodisk Sikkerhedskopi",
 				"enabledDescription": "Opret automatisk sikkerhedskopier med regelmæssige mellemrum og beskære gamle med søn/far/bedstefar rotation.",
 				"interval": "Backup Interval",
-				"intervalDescription": "Hvor ofte til at oprette en automatisk backup (0 = deaktiveret).",
+				"intervalDescription": "Hvor ofte til at oprette en automatisk backup.",
 				"sonRetention": "Daglig Opbevaring (Son)",
 				"sonRetentionDescription": "Behold den seneste backup fra hver af de sidste N dage.",
 				"fatherRetention": "Ugentlig Tilbageholdelse (Fader)",

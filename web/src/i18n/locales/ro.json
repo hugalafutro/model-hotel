@@ -1988,7 +1988,7 @@
 				"enabled": "Activează Backup-ul periodic",
 				"enabledDescription": "Creează automat copii de rezervă la intervale regulate și le elimină pe cele vechi folosind rotația fiu/tată/bunic.",
 				"interval": "Interval de backup",
-				"intervalDescription": "Cât de des se creează o copie de rezervă automată (0 = dezactivat).",
+				"intervalDescription": "Cât de des se creează o copie de rezervă automată.",
 				"sonRetention": "Retenție zilnică (Son)",
 				"sonRetentionDescription": "Păstrați cea mai recentă copie de rezervă de la fiecare dintre ultimele N zile.",
 				"fatherRetention": "Retenție săptămânală (Father)",

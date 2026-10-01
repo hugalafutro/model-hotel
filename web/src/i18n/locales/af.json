@@ -1927,7 +1927,7 @@
 				"enabled": "Aktiveer periodieke rugsteun",
 				"enabledDescription": "Skep outomaties rugsteun op gereelde intervalle en verwyder ou rugsteun deur 'n seun-/vader-/oupa-rotasie.",
 				"interval": "Rugsteuninterval",
-				"intervalDescription": "Hoe gereeld om 'n outomatiese rugsteun te skep (0 = gedeaktiveer).",
+				"intervalDescription": "Hoe gereeld om 'n outomatiese rugsteun te skep.",
 				"sonRetention": "Daaglikse behoud (Seun)",
 				"sonRetentionDescription": "Bewaar die mees onlangse rugsteun van elk van die laaste N dae.",
 				"fatherRetention": "Weklikse behoud (Vader)",

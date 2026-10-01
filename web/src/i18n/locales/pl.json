@@ -2049,7 +2049,7 @@
 				"enabled": "Włącz okresową kopię zapasową",
 				"enabledDescription": "Automatycznie twórz kopie zapasowe w regularnych odstępach czasu i usuwaj starsze przy użyciu rotacji syn/ojca/dziadka.",
 				"interval": "Interwał kopii zapasowej",
-				"intervalDescription": "Jak często tworzyć automatyczną kopię zapasową (0 = wyłączoną).",
+				"intervalDescription": "Jak często tworzyć automatyczną kopię zapasową.",
 				"sonRetention": "Dzienne zatrzymanie (Son)",
 				"sonRetentionDescription": "Zachowaj najnowszą kopię zapasową z każdego z ostatnich N dni.",
 				"fatherRetention": "Tygodniowe zatrzymywanie (ojciec)",

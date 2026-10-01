@@ -1988,7 +1988,7 @@
 				"enabled": "Activer la sauvegarde périodique",
 				"enabledDescription": "Créez automatiquement des sauvegardes à intervalles réguliers et supprimez les anciennes en utilisant la rotation fils/père/grand-père.",
 				"interval": "Intervalle de sauvegarde",
-				"intervalDescription": "Fréquence de création d'une sauvegarde automatique (0 = désactivé).",
+				"intervalDescription": "Fréquence de création d'une sauvegarde automatique.",
 				"sonRetention": "Rétention quotidienne (Fils)",
 				"sonRetentionDescription": "Garder la sauvegarde la plus récente de chacun des N derniers jours.",
 				"fatherRetention": "Rétention hebdomadaire (Père)",

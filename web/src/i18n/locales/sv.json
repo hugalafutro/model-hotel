@@ -1927,7 +1927,7 @@
 				"enabled": "Aktivera periodisk säkerhetskopiering",
 				"enabledDescription": "Skapa automatiskt säkerhetskopior med jämna mellanrum och beskära gamla med hjälp av son/far/farfars rotation.",
 				"interval": "Intervall för säkerhetskopiering",
-				"intervalDescription": "Hur ofta du skapar en automatisk backup (0 = inaktiverad).",
+				"intervalDescription": "Hur ofta du skapar en automatisk backup.",
 				"sonRetention": "Daglig lagring (Son)",
 				"sonRetentionDescription": "Håll den senaste säkerhetskopian från var och en av de senaste N dagarna.",
 				"fatherRetention": "Veckovis kvarhållande (fader)",

@@ -1988,7 +1988,7 @@
 				"enabled": "Activa la còpia de seguretat periòdica",
 				"enabledDescription": "Crea automàticament còpies de seguretat a intervals regulars i elimina les més antigues seguint una rotació de tipus fill/pare/avi.",
 				"interval": "Interval de còpia de seguretat",
-				"intervalDescription": "Amb quina freqüència crear una còpia de seguretat automàtica (0 = desactivat).",
+				"intervalDescription": "Amb quina freqüència crear una còpia de seguretat automàtica.",
 				"sonRetention": "Retenció diària (fill)",
 				"sonRetentionDescription": "Conserva la còpia de seguretat més recent de cadascun dels últims N dies.",
 				"fatherRetention": "Retenció setmanal (pare)",

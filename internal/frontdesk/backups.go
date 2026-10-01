@@ -50,6 +50,12 @@ const (
 	// a member backing up more often is still only flagged after a missed day.
 	memberBackupMinInterval = 24 * time.Hour
 
+	// memberBackupMaxInterval is the longest interval the watchdog judges a
+	// member by: the dashboard's weekly maximum, which the member's scheduler
+	// also caps at. The interval is the member's own report, so without a
+	// ceiling a member reporting an absurd one would never be flagged.
+	memberBackupMaxInterval = 7 * 24 * time.Hour
+
 	// backupWatchInterval is how often every member's listing is re-read. The
 	// signal's threshold is at least a day, so a tighter tick would add member load
 	// without making the alert meaningfully earlier.
@@ -163,10 +169,11 @@ func (s *Server) checkMemberBackups(ctx context.Context) {
 
 // backupStaleAfter is how old a member's newest scheduled backup may be before
 // the member counts as unprotected: its own interval, never judged tighter than
-// a day, plus the grace for the dump's duration and the scheduler's lag. A
-// member on a weekly schedule is thereby not flagged six days of every seven.
+// a day or looser than a week, plus the grace for the dump's duration and the
+// scheduler's lag. A member on a weekly schedule is thereby not flagged six
+// days of every seven.
 func backupStaleAfter(interval time.Duration) time.Duration {
-	return max(interval, memberBackupMinInterval) + memberBackupStaleGrace
+	return min(max(interval, memberBackupMinInterval), memberBackupMaxInterval) + memberBackupStaleGrace
 }
 
 // memberBackupInterval reads the member's backup_interval setting, parsed with
