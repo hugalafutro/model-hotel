@@ -495,6 +495,20 @@ describe("ModelDetailModal", () => {
 		expect(screen.getByText("Edit")).toBeInTheDocument();
 	});
 
+	it("cancels an edit on a click outside and stays open and usable", async () => {
+		const user = userEvent.setup();
+		renderWithProviders(<ModelDetailModal {...defaultProps} />);
+		await user.click(screen.getByText("Edit"));
+		await user.click(screen.getByRole("button", { name: "Close dialog" }));
+		await waitFor(() =>
+			expect(screen.queryByText("Save Changes")).not.toBeInTheDocument(),
+		);
+		expect(onClose).not.toHaveBeenCalled();
+		// The dialog still answers: a second click outside closes it.
+		await user.click(screen.getByRole("button", { name: "Close dialog" }));
+		await waitFor(() => expect(onClose).toHaveBeenCalledTimes(1));
+	});
+
 	it("enters edit mode when Edit button is clicked", async () => {
 		const user = userEvent.setup();
 		renderWithProviders(<ModelDetailModal {...defaultProps} />);

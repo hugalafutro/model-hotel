@@ -82,12 +82,12 @@ export function ModelDetailModal({
 		handleTest,
 	} = useModelActions({ model, onDiscover, onTest, onToast });
 
-	const handleClose = () => {
-		if (editing) {
-			handleCancelEdit();
-		} else {
-			onClose();
-		}
+	// A close while editing cancels the edit (or asks about unsaved changes)
+	// and keeps the dialog open.
+	const requestClose = () => {
+		if (!editing) return true;
+		handleCancelEdit();
+		return false;
 	};
 
 	const pMid = proxyModelID(model.provider_name, model.model_id);
@@ -120,7 +120,8 @@ export function ModelDetailModal({
 					</div>
 				</div>
 			}
-			onClose={handleClose}
+			onCloseRequest={requestClose}
+			onClose={onClose}
 			maxWidth="max-w-xl"
 			zIndex={zIndex}
 			scrollable

@@ -266,6 +266,43 @@ describe("Modal", () => {
 		await waitFor(() => expect(onClose).toHaveBeenCalledTimes(1));
 	});
 
+	it("keeps a dialog whose close request is refused visible, and closes it once allowed", () => {
+		vi.useFakeTimers();
+		try {
+			let allow = false;
+			const onCloseRequest = vi.fn(() => allow);
+			render(
+				<Modal onClose={onClose} onCloseRequest={onCloseRequest}>
+					Content
+				</Modal>,
+			);
+			act(() => {
+				vi.advanceTimersByTime(50);
+			});
+			const dialog = screen.getByRole("dialog");
+			const backdrop = screen.getByRole("button", { name: "Close dialog" });
+
+			// Refused: no fade, no onClose, and the dialog keeps answering.
+			act(() => {
+				backdrop.click();
+				vi.advanceTimersByTime(1000);
+			});
+			expect(onCloseRequest).toHaveBeenCalledTimes(1);
+			expect(onClose).not.toHaveBeenCalled();
+			expect(dialog.style.opacity).not.toBe("0");
+
+			// Allowed: the same dialog closes normally.
+			allow = true;
+			act(() => {
+				backdrop.click();
+				vi.advanceTimersByTime(1000);
+			});
+			expect(onClose).toHaveBeenCalledTimes(1);
+		} finally {
+			vi.useRealTimers();
+		}
+	});
+
 	it("closes on the opacity transition end and cancels the fallback timer", () => {
 		vi.useFakeTimers();
 		try {

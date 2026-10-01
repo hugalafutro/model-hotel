@@ -37,6 +37,14 @@ interface ModalProps {
 	// subject, which is the thing that flag exists to prevent. Callers pass
 	// scrollable with it: the stepper hangs the dialog from the top.
 	nav?: ModalNavConfig;
+	// Asked before any user-initiated close (backdrop, Escape, the X, the
+	// ref's close) starts the fade. Returning false keeps the dialog as it is,
+	// for a caller that answers a close with something of its own (an unsaved-
+	// changes prompt, cancelling an edit). onClose itself must unmount the
+	// dialog: by the time it runs the dialog has faded out and will not
+	// reopen, so a caller that only cancels an edit there leaves an invisible
+	// dialog over the page that swallows every click.
+	onCloseRequest?: () => boolean;
 	onClose: () => void;
 	maxWidth?: string;
 	scrollable?: boolean;
@@ -104,6 +112,7 @@ export const Modal = forwardRef<ModalHandle, ModalProps>(function Modal(
 		closeOnBackdrop = true,
 		dismissible = true,
 		nav,
+		onCloseRequest,
 		onClose,
 		maxWidth = "max-w-md",
 		scrollable = false,
@@ -184,6 +193,7 @@ export const Modal = forwardRef<ModalHandle, ModalProps>(function Modal(
 
 	const handleClose = useCallback(() => {
 		if (closingRef.current) return;
+		if (onCloseRequest && !onCloseRequest()) return;
 		closingRef.current = true;
 		setOpacity(0);
 		// Fallback: if onTransitionEnd never fires (e.g. jsdom),
@@ -191,7 +201,7 @@ export const Modal = forwardRef<ModalHandle, ModalProps>(function Modal(
 		fallbackTimerRef.current = setTimeout(() => {
 			if (closingRef.current) onClose();
 		}, FADE_DURATION + 50);
-	}, [onClose]);
+	}, [onClose, onCloseRequest]);
 
 	const handleTransitionEnd = useCallback(
 		(e: React.TransitionEvent) => {
