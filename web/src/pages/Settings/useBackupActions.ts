@@ -125,8 +125,9 @@ export function useBackupActions() {
 
 	const backupEnabled = settings?.backup_enabled === "true";
 	// Parse interval: backend stores as Go duration string (e.g. "86400s" or "24h"),
-	// or the day form older frontends wrote ("7d"). Display and edit in hours,
-	// clamped to the slider's range: the scheduler caps the interval at 168h too.
+	// or the day form older frontends wrote ("7d", "1d12h"). Display and edit in
+	// hours, clamped to the slider's 0.5h-168h range; the scheduler runs anything
+	// past 168h at 168h, so the shown ceiling matches what actually happens.
 	const rawInterval = settingOr(settings, "backup_interval");
 	const intervalHours = (() => {
 		const parsed = (() => {
@@ -134,8 +135,8 @@ export function useBackupActions() {
 			if (hMatch) return Number(hMatch[1]);
 			const sMatch = rawInterval.match(/^(\d+(?:\.\d+)?)s$/);
 			if (sMatch) return Math.round((Number(sMatch[1]) / 3600) * 10) / 10;
-			const dMatch = rawInterval.match(/^(\d+)d$/);
-			if (dMatch) return Number(dMatch[1]) * 24;
+			const dMatch = rawInterval.match(/^(\d+)d(?:(\d+(?:\.\d+)?)h)?$/);
+			if (dMatch) return Number(dMatch[1]) * 24 + Number(dMatch[2] ?? 0);
 			return Number.parseFloat(SETTING_DEFAULTS.backup_interval);
 		})();
 		return Math.min(Math.max(parsed, 0.5), 168);

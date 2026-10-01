@@ -21,9 +21,11 @@ func TestParseDuration(t *testing.T) {
 		// Day counts past what a time.Duration holds error out instead of
 		// wrapping negative, which a reader would floor to its minimum.
 		{"106751d", 106751 * 24 * time.Hour, false},
+		{"106751d23h", 106751*24*time.Hour + 23*time.Hour, false},
 		{"106752d", 0, true},
 		{"106751d24h", 0, true},
 		{"-106752d", 0, true},
+		{"-106751d-24h", 0, true},
 	} {
 		got, err := ParseDuration(tc.in)
 		if (err != nil) != tc.wantErr || got != tc.want {
