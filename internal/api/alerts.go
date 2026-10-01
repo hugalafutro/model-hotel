@@ -14,6 +14,7 @@ import (
 	"github.com/hugalafutro/model-hotel/internal/alert"
 	"github.com/hugalafutro/model-hotel/internal/auth"
 	"github.com/hugalafutro/model-hotel/internal/debuglog"
+	"github.com/hugalafutro/model-hotel/internal/util"
 )
 
 // RegisterAlerts mounts the alerting API routes:
@@ -153,7 +154,9 @@ func (h *Handler) SendAlertTest(w http.ResponseWriter, r *http.Request) {
 			code = "send_failed"
 		}
 		debuglog.Warn("api: test notification failed", "code", code, "error", err)
-		writeCodedError(w, http.StatusBadGateway, code, err.Error())
+		// A transport error quotes the apprise-api URL, which may carry a
+		// credential in its userinfo or query.
+		writeCodedError(w, http.StatusBadGateway, code, util.MaskCredentials(nil, err.Error()))
 		return
 	}
 	writeJSON(w, map[string]bool{"ok": true})

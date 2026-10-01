@@ -82,7 +82,7 @@ func normalizeMemberURL(raw string, allowHTTP bool) (string, error) {
 	}
 	u, err := url.Parse(raw)
 	if err != nil {
-		return "", fmt.Errorf("%w: url is not valid: %w", ErrValidation, err)
+		return "", fmt.Errorf("%w: url is not valid: %w", ErrValidation, util.URLParseReason(err))
 	}
 	if u.Scheme != "http" && u.Scheme != "https" {
 		return "", fmt.Errorf("%w: url must use http or https", ErrValidation)
@@ -136,11 +136,13 @@ func stripUserinfo(raw string) string {
 var urlUserinfoRE = util.URLUserinfoRE
 
 // redactErrURL renders err for a monitor-readable field, removing any userinfo
-// embedded in a URL inside the message. net/http already masks the password in
-// a *url.Error it returns, but keeps the username, and a member row stored
-// before normalizeMemberURL began rejecting userinfo can still carry both.
+// embedded in a URL inside the message, then any credential the shared mask
+// recognises (a key passed by name in the URL's query among them). net/http
+// already masks the password in a *url.Error it returns, but keeps the
+// username, and a member row stored before normalizeMemberURL began rejecting
+// userinfo can still carry both.
 func redactErrURL(err error) string {
-	return urlUserinfoRE.ReplaceAllString(err.Error(), "$1")
+	return util.MaskCredentials(nil, urlUserinfoRE.ReplaceAllString(err.Error(), "$1"))
 }
 
 // nullTime renders a nullable epoch-nanosecond column as an optional UTC time,

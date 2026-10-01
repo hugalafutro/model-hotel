@@ -508,3 +508,18 @@ func TestRegisterAlertsRoutes(t *testing.T) {
 		}
 	}
 }
+
+// A transport failure quotes the apprise-api URL, which may carry a credential
+// in its query, and the test endpoint returns the error text to the browser.
+func TestSendAlertTestUnreachableDoesNotEchoAQueryKey(t *testing.T) {
+	h := &Handler{cfg: &config.Config{MasterKey: secretTestMasterKey}, settingsRepo: &mockSettingsStore{}}
+	rec := httptest.NewRecorder()
+	h.SendAlertTest(rec, httptest.NewRequest(http.MethodPost, "/alert/test",
+		strings.NewReader(`{"api_url":"http://127.0.0.1:1/apprise?key=alertquerysecret","targets":["ntfys://ntfy.example.com/one"]}`)))
+	if rec.Code != http.StatusBadGateway {
+		t.Fatalf("unreachable = %d %s", rec.Code, rec.Body.String())
+	}
+	if strings.Contains(rec.Body.String(), "alertquerysecret") {
+		t.Errorf("the query key is in the response: %s", rec.Body.String())
+	}
+}

@@ -77,7 +77,7 @@ func (d *DiscoveryService) fetchQuotaJSON(ctx context.Context, provider *Provide
 func (d *DiscoveryService) fetchQuotaJSONAt(ctx context.Context, provider *Provider, apiKey, method, fullURL, label, resource string, out any, expected ...int) error {
 	req, err := http.NewRequestWithContext(ctx, method, fullURL, http.NoBody)
 	if err != nil {
-		return fmt.Errorf("%s: failed to create request for provider %s: %w", label, provider.Name, err)
+		return fmt.Errorf("%s: failed to create request for provider %s: %w", label, provider.Name, util.URLParseReason(err))
 	}
 
 	req.Header.Set("Authorization", "Bearer "+apiKey)

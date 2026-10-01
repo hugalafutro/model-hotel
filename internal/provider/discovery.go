@@ -18,6 +18,7 @@ import (
 	"github.com/hugalafutro/model-hotel/internal/debuglog"
 	"github.com/hugalafutro/model-hotel/internal/httpx"
 	"github.com/hugalafutro/model-hotel/internal/model"
+	"github.com/hugalafutro/model-hotel/internal/util"
 )
 
 // DiscoveryService handles model discovery across different LLM providers.
@@ -112,7 +113,8 @@ func (d *DiscoveryService) doDiscoveryRequest(ctx context.Context, newReq func()
 	for attempt := range maxDiscoveryRetries {
 		req, err := newReq()
 		if err != nil {
-			return nil, err
+			// A request that fails to build quotes its raw URL.
+			return nil, util.URLParseReason(err)
 		}
 		if attempt > 0 {
 			backoff := retryBackoff(d.retryBaseDelay, attempt)
