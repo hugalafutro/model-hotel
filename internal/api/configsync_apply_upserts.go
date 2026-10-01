@@ -184,7 +184,8 @@ func upsertProviders(ctx context.Context, tx pgx.Tx, providers []ExportProvider,
 		// the same guard CreateProvider/UpdateProvider use
 		// (config.ValidateProviderURL): it resolves DNS and blocks loopback, RFC
 		// 1918/ULA, link-local, CGNAT and cloud-metadata addresses (hosts in
-		// ALLOWED_PROVIDER_HOSTS are exempted). The runtime proxy SafeDialer blocks
+		// ALLOWED_PROVIDER_HOSTS are exempted), and refuses a credential in the
+		// URL's userinfo or query. The runtime proxy SafeDialer blocks
 		// these at dial time too, but rejecting here keeps the poisoned value out of
 		// the database. Nil validateURL disables the check.
 		if validateURL != nil {

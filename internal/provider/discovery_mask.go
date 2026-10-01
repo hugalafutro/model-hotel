@@ -49,7 +49,9 @@ func secretsOf(h http.Header, u *url.URL) []string {
 // still be scrubbed from the text after its '?'.
 func querySecrets(rawQuery string) []string {
 	var secrets []string
-	for _, seg := range strings.Split(rawQuery, "&") {
+	// ";" too: url.ParseQuery refuses it, but a legacy row or a raw URL may
+	// still use it as a separator.
+	for _, seg := range strings.FieldsFunc(rawQuery, func(r rune) bool { return r == '&' || r == ';' }) {
 		name, raw, ok := strings.Cut(seg, "=")
 		// A server decodes the name before it reads it, so ?%6bey= is ?key=.
 		if dec, err := url.QueryUnescape(name); err == nil {
