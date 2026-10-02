@@ -414,9 +414,15 @@ func TestMaskKeyShapedTokens_ParamNameRules(t *testing.T) {
 			"max_token=5 has_secret=true prompt_token=3 token_type=bearer ?api-version=2024&alt=json&keyword=x"},
 		// A name inside a value already taken is not matched again.
 		{"?password=a?password=S3CRETVALUE&alt=json", "?password=[redacted]&alt=json"},
-		// A vertical tab is part of the value, wherever it sits.
+		// A vertical tab or a non-ASCII byte is part of the value, wherever it sits.
 		{"?api_key=\vS3CRETVALUE", "?api_key=[redacted]"},
 		{"?api_key=S3CRET\vVALUE", "?api_key=[redacted]"},
+		{"?api_key=S3CRET\x85VALUE", "?api_key=[redacted]"},
+		// A JSON escape counts as the character it encodes.
+		{`{"message":"?api_key=\u000bS3CRETVALUE"}`, `{"message":"?api_key=[redacted]"}`},
+		{`{"message":"?api_key=S3CRET\u000BVALUE\u0026alt=json"}`, `{"message":"?api_key=[redacted]\u0026alt=json"}`},
+		{`{"message":"?api_key=S3CRETVALUE\u0022 x"}`, `{"message":"?api_key=[redacted]\u0022 x"}`},
+		{`{"message":"?api_key=S3CRETVALUE\u00"}`, `{"message":"?api_key=[redacted]\u00"}`},
 	} {
 		if got := string(MaskKeyShapedTokens([]byte(tc.in))); got != tc.want {
 			t.Errorf("MaskKeyShapedTokens(%q) = %q, want %q", tc.in, got, tc.want)

@@ -5,6 +5,7 @@ import (
 	"net/url"
 	"regexp"
 	"slices"
+	"strconv"
 	"strings"
 )
 
@@ -55,17 +56,23 @@ var paramNameShape = regexp.MustCompile(`(^|[?&\s"':(\[{,;])([\p{L}\p{N}%_-]+)=`
 // is a diagnostic.
 var queryOnlyParams = map[string]bool{"key": true, "sig": true, "signature": true}
 
+// paramValueStops end a credential value: the separators & , ;, a closing
+// bracket, a space, tab, CR, LF or form feed, a quote, a backslash and an
+// angle bracket. A vertical tab is not one, nor is any non-ASCII byte:
+// stopping there would leave the value, or its tail, unmasked.
+const paramValueStops = "&,;)]} \t\r\n\f\"'\\<>"
+
 // secretParamSpans returns the [start, end) spans of every credential passed
 // by name in a query string or a form body ("?api_key=...",
 // "&client_secret=..."), whatever format the value has: the name says what it
 // is, so no key shape is needed. A name counts when IsCredentialQueryParam
 // does, after percent-decoding, the one vocabulary the base_url validator
 // refuses with, so "max_token=5", "has_secret=true" and "prompt_token=3" are
-// left alone. The value stops at the next separator (& , ;), a closing
-// bracket, a space, tab, CR, LF or form feed, a quote or a backslash, so the
-// rest of the line survives and a JSON body stays valid. A vertical tab is
-// not a stop byte: one leading the value would leave an empty span and the
-// value unmasked.
+// left alone. The value stops at a paramValueStops character, so the rest of
+// the line survives and a JSON body stays valid. A JSON \uXXXX escape counts
+// as the character it encodes: an upstream error arrives JSON-encoded, and an
+// encoder writes a control character as \u000b, so stopping at its backslash
+// would leave the value unmasked.
 func secretParamSpans(s string) [][2]int {
 	var spans [][2]int
 	last := 0
@@ -86,8 +93,17 @@ func secretParamSpans(s string) [][2]int {
 		}
 		start := loc[1]
 		end := start
-		for end < len(s) && !strings.ContainsRune("&,;)]} \t\r\n\f\"'\\<>", rune(s[end])) {
-			end++
+		for end < len(s) {
+			r, size := rune(s[end]), 1
+			if s[end] == '\\' && len(s) >= end+6 && s[end+1] == 'u' {
+				if code, err := strconv.ParseUint(s[end+2:end+6], 16, 16); err == nil {
+					r, size = rune(code), 6
+				}
+			}
+			if strings.ContainsRune(paramValueStops, r) {
+				break
+			}
+			end += size
 		}
 		if end > start {
 			spans = append(spans, [2]int{start, end})
