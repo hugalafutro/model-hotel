@@ -48,10 +48,16 @@ func (d *DiscoveryService) discoverSGLang(ctx context.Context, provider *Provide
 			"provider", provider.Name, "provider_id", provider.ID, "error", err)
 	} else {
 		var parsed SGLangModelInfo
-		if err := json.Unmarshal(infoBytes, &parsed); err != nil || !isSGLangModelInfo(infoBytes) {
+		switch err := json.Unmarshal(infoBytes, &parsed); {
+		case err != nil:
 			debuglog.Warn("discovery: sglang model info unreadable, listing taken as is",
 				"provider", provider.Name, "provider_id", provider.ID, "error", jsonfault.Describe(err, len(infoBytes)))
-		} else {
+		case !isSGLangModelInfo(infoBytes):
+			// Decodable but not the route's shape: a proxy or another server
+			// answering 200 with its own body.
+			debuglog.Warn("discovery: sglang model info is not SGLang's, listing taken as is",
+				"provider", provider.Name, "provider_id", provider.ID, "bytes", len(infoBytes))
+		default:
 			info = &parsed
 		}
 	}
