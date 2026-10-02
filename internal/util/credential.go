@@ -51,11 +51,12 @@ var unambiguousKeyShape = regexp.MustCompile(`\bAIza[0-9A-Za-z_-]{30,}|\bAKIA[A-
 // boundary and drops it unless it encodes a paramBoundaries character, so an
 // escaped letter stays part of the name. Text that only looks escaped, such
 // as the path C:\tmp\naccess_token=..., is masked too: the safe side.
-var paramNameShape = regexp.MustCompile(`(^|[?&\s"':(\[{,;]|\\u[0-9a-fA-F]{4}|\\[fnrt"])([\p{L}\p{N}%_-]+)=`)
+var paramNameShape = regexp.MustCompile(`(^|[?&\s\v"':(\[{,;]|\\u[0-9a-fA-F]{4}|\\[fnrt"])([\p{L}\p{N}%_-]+)=`)
 
 // paramBoundaries are the characters a parameter name may follow: "?", "&",
-// whitespace (the regexp's \s), a quote, ":", an opening bracket, "," and ";".
-const paramBoundaries = "?& \t\n\f\r\"':([{,;"
+// whitespace (the regexp's \s plus a vertical tab), a quote, ":", an opening
+// bracket, "," and ";".
+const paramBoundaries = "?& \t\n\v\f\r\"':([{,;"
 
 // queryOnlyParams are credential names too common in ordinary text to mask
 // anywhere but where a query parameter starts ("?key=", "&sig="): the gateway
@@ -118,9 +119,10 @@ func secretParamSpans(s string) [][2]int {
 			q, size := jsonCharAt(s, start)
 			if q == '\'' || (q == '"' && (size > 1 || !endsJSONString(s[start+1:]))) {
 				// A quoted value (password="..."): mask what the quotes hold,
-				// spaces included. A raw double quote, a backslash (raw or
-				// escaped) or a line break still ends it, so an unclosed quote
-				// cannot run past a JSON string or the line.
+				// spaces included. Its own closing quote, a backslash (raw or
+				// escaped), a line break, or a raw double quote that closes a
+				// JSON string (endsJSONString) still ends it, so an unclosed
+				// quote cannot run past a JSON string or the line.
 				start += size
 				stops, quoted = string(q)+"\\\r\n", true
 			}
@@ -128,7 +130,7 @@ func secretParamSpans(s string) [][2]int {
 		end := start
 		for end < limit {
 			r, size := jsonCharAt(s, end)
-			if strings.ContainsRune(stops, r) || quoted && s[end] == '"' {
+			if strings.ContainsRune(stops, r) || quoted && s[end] == '"' && endsJSONString(s[end+1:]) {
 				break
 			}
 			end += size
@@ -222,6 +224,9 @@ func MaskKeyShapedTokens(body []byte) []byte {
 	last := 0
 	for _, span := range secretParamSpans(string(body)) {
 		eq, end := span[0], span[1]
+		if eq < last { // already inside a masked span; never slice backwards on hostile input
+			continue
+		}
 		if string(body[eq:end]) == "[redacted" && end < len(body) && body[end] == ']' {
 			continue
 		}

@@ -423,8 +423,9 @@ func TestMaskKeyShapedTokens_KeepsJSONValid(t *testing.T) {
 				for _, tail := range []string{"", "\n{}", "{}", " status=400", "."} {
 					in := []byte(string(body) + tail)
 					var v any
-					if got := MaskKeyShapedTokens(in); json.NewDecoder(strings.NewReader(string(got))).Decode(&v) != nil {
-						t.Errorf("MaskKeyShapedTokens(%s) = %s, its JSON is no longer valid", in, got)
+					got := MaskKeyShapedTokens(in)
+					if json.NewDecoder(strings.NewReader(string(got))).Decode(&v) != nil || !strings.HasSuffix(string(got), "}"+tail) {
+						t.Errorf("MaskKeyShapedTokens(%s) = %s, its JSON or the text after it changed", in, got)
 					}
 				}
 			}
@@ -494,9 +495,12 @@ func TestMaskKeyShapedTokens_ParamNameRules(t *testing.T) {
 		{`msg="call api_key=" err="boom"`, `msg="call api_key=" err="boom"`},
 		{`upstream error: {"error":"bad api_key="} status=400`, `upstream error: {"error":"bad api_key="} status=400`},
 		// A lone backslash ends an unclosed quote; a raw double quote inside
-		// single quotes ends the value too, leaving what follows it.
+		// single quotes ends the value only where a JSON string closes.
 		{`password='S3CRET\ diagnostic`, `password='[redacted]\ diagnostic`},
-		{`password='ab"cd' x`, `password='[redacted]"cd' x`},
+		{`password='ab"cd' x`, `password='[redacted]' x`},
+		// A vertical tab can precede a name, raw or escaped.
+		{"x\vapi_key=S3CRETVALUE", "x\vapi_key=[redacted]"},
+		{`{"m":"x\u000bapi_key=S3CRETVALUE"}`, `{"m":"x\u000bapi_key=[redacted]"}`},
 		{`{"m":"x\"key=S3CRETVALUE"}`, `{"m":"x\"key=S3CRETVALUE"}`},
 		// Uppercase hex in an escaped boundary still marks a query position.
 		{`{"m":"x\u003FKEY=S3CRETVALUE"}`, `{"m":"x\u003FKEY=[redacted]"}`},
