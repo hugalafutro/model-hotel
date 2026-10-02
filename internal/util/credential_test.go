@@ -1,6 +1,7 @@
 package util
 
 import (
+	"encoding/json"
 	"net/url"
 	"regexp"
 	"slices"
@@ -398,6 +399,19 @@ func TestSecretParamShapeCoversValidatorNames(t *testing.T) {
 // The cases the shared vocabulary decides beyond plain spellings: a
 // percent-encoded name is decoded as the validator decodes it, and the names
 // common in ordinary text count only where a query parameter starts.
+// The masker reads the encoder's own output: json.Marshal escapes "&" and
+// control characters, and the masked body must still be valid JSON.
+func TestMaskKeyShapedTokens_JSONEncodedParams(t *testing.T) {
+	body, err := json.Marshal(map[string]string{"message": "auth failed for https://up.example/v1?alt=json&key=S3CRETONE&api_key=\vS3CRETTWO&sig=S3CRET/THREE"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := MaskKeyShapedTokens(body)
+	if strings.Contains(string(got), "S3CRET") || !json.Valid(got) {
+		t.Errorf("MaskKeyShapedTokens(%s) = %s, want every value masked and valid JSON", body, got)
+	}
+}
+
 func TestMaskKeyShapedTokens_ParamNameRules(t *testing.T) {
 	for _, tc := range []struct{ in, want string }{
 		{"GET /v1?api%5Fkey=S3CRETVALUE&alt=json", "GET /v1?api%5Fkey=[redacted]&alt=json"},
@@ -434,6 +448,11 @@ func TestMaskKeyShapedTokens_ParamNameRules(t *testing.T) {
 		{`?api_key=S3CRETVALUE\u000`, `?api_key=[redacted]\u000`},
 		// An escaped line break is no query position for a query-only name.
 		{`{"m":"x\nsignature=invalid"}`, `{"m":"x\nsignature=invalid"}`},
+		{`{"m":"x\"key=S3CRETVALUE"}`, `{"m":"x\"key=S3CRETVALUE"}`},
+		// Uppercase hex in an escaped boundary still marks a query position.
+		{`{"m":"x\u003FKEY=S3CRETVALUE"}`, `{"m":"x\u003FKEY=[redacted]"}`},
+		// An escaped letter or "/" is part of the text, like its raw form.
+		{`{"m":"caf\u00e9token=hello \/api_key=abc"}`, `{"m":"caf\u00e9token=hello \/api_key=abc"}`},
 	} {
 		if got := string(MaskKeyShapedTokens([]byte(tc.in))); got != tc.want {
 			t.Errorf("MaskKeyShapedTokens(%q) = %q, want %q", tc.in, got, tc.want)

@@ -45,15 +45,17 @@ var ambiguousKeyShape = regexp.MustCompile(`\b(?:sk|gsk|xai|hf|fw|r8)[-_][A-Za-z
 var unambiguousKeyShape = regexp.MustCompile(`\bAIza[0-9A-Za-z_-]{30,}|\bAKIA[A-Z0-9]{16}\b|\beyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}(?:\.[A-Za-z0-9_-]{5,})?`)
 
 // paramNameShape finds a parameter name and its "=" where a parameter can
-// start (the text start, "?", "&", whitespace, a quote, ":", an opening
-// bracket, "," or ";", or a JSON escape: an encoder writes "&" as \u0026 and
-// a line break as \n). Group 1 is that boundary, group 2 the raw name.
-// secretParamSpans decides which names carry a credential.
-var paramNameShape = regexp.MustCompile(`(^|[?&\s"':(\[{,;]|\\u[0-9a-fA-F]{4}|\\[bfnrt"/])([\p{L}\p{N}%_-]+)=`)
+// start: the text start, a paramBoundaries character, or a JSON escape of one
+// (an encoder writes "&" as \u0026 and a line break as \n). Group 1 is that
+// boundary, group 2 the raw name. secretParamSpans decodes an escaped
+// boundary and drops it unless it encodes a paramBoundaries character, so an
+// escaped letter stays part of the name. Text that only looks escaped, such
+// as the path C:\tmp\naccess_token=..., is masked too: the safe side.
+var paramNameShape = regexp.MustCompile(`(^|[?&\s"':(\[{,;]|\\u[0-9a-fA-F]{4}|\\[fnrt"])([\p{L}\p{N}%_-]+)=`)
 
-// queryParamStart are the paramNameShape boundaries where a query parameter
-// starts, raw or JSON-escaped (lower-cased).
-var queryParamStart = map[string]bool{"?": true, "&": true, `\u003f`: true, `\u0026`: true}
+// paramBoundaries are the characters a parameter name may follow: "?", "&",
+// whitespace (the regexp's \s), a quote, ":", an opening bracket, "," and ";".
+const paramBoundaries = "?& \t\n\f\r\"':([{,;"
 
 // queryOnlyParams are credential names too common in ordinary text to mask
 // anywhere but where a query parameter starts ("?key=", "&sig="): the gateway
@@ -85,6 +87,13 @@ func secretParamSpans(s string) [][2]int {
 		if loc[4] < last {
 			continue // inside a value already taken
 		}
+		var boundary rune // stays 0 at the text start
+		if loc[2] < loc[3] {
+			boundary, _ = jsonCharAt(s[loc[2]:loc[3]], 0)
+			if !strings.ContainsRune(paramBoundaries, boundary) {
+				continue // an escaped letter is part of the text, not a boundary
+			}
+		}
 		name := s[loc[4]:loc[5]]
 		if decoded, err := url.QueryUnescape(name); err == nil {
 			name = decoded
@@ -93,7 +102,7 @@ func secretParamSpans(s string) [][2]int {
 		if !credentialQueryParams[folded] {
 			continue
 		}
-		if queryOnlyParams[folded] && !queryParamStart[strings.ToLower(s[loc[2]:loc[3]])] {
+		if queryOnlyParams[folded] && boundary != '?' && boundary != '&' {
 			continue
 		}
 		start := loc[1]
@@ -115,7 +124,9 @@ func secretParamSpans(s string) [][2]int {
 
 // jsonCharAt returns the character at s[i] and its length in s, reading a
 // JSON escape (\uXXXX, \n, \/, ...) as the character it encodes. Any other
-// byte, a lone backslash included, stands for itself.
+// byte, a lone backslash included, stands for itself. Only one level of
+// encoding is read: in JSON nested inside a JSON string, an escape arrives
+// doubled and ends the value at its first backslash.
 func jsonCharAt(s string, i int) (rune, int) {
 	if s[i] != '\\' || i+1 >= len(s) {
 		return rune(s[i]), 1
