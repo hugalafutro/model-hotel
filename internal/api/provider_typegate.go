@@ -97,14 +97,22 @@ func (h *Handler) confirmLocalServerType(w http.ResponseWriter, r *http.Request,
 
 	identity, err := h.discoveryService().IdentifyLocalServer(r.Context(), baseURL, apiKey, providerType)
 	if err != nil {
-		if !errors.Is(err, provider.ErrLocalServerUnreachable) {
+		if !errors.Is(err, provider.ErrLocalServerUnreachable) && r.Context().Err() == nil {
 			debuglog.Warn("provider: local server probe failed", "type", providerType, "error", err)
 		}
-		writeProviderTypeGateError(w, providerTypeGateResponse{
+		// Any other error is a check that could not be completed on a server
+		// that did answer (an emulator probe failing after the expected
+		// family matched): nothing is saved, and a retry clears it.
+		resp := providerTypeGateResponse{
 			Code:     codeProviderUnreachable,
 			Error:    "could not reach a server at this address",
 			Expected: providerType,
-		})
+		}
+		if !errors.Is(err, provider.ErrLocalServerUnreachable) {
+			resp.Code = codeProviderTypeUnconfirmed
+			resp.Error = "the server at this address could not be confirmed as " + providerType + "; try again"
+		}
+		writeProviderTypeGateError(w, resp)
 		return false
 	}
 

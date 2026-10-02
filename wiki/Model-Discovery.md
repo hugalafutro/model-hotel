@@ -881,7 +881,7 @@ A model whose usecases name only endpoints Model Hotel does not route (`video`, 
 
 | Info | Effect |
 |------|--------|
-| `is_generation: false` | class `embedding`, or `rerank` when an architecture ends in `ForSequenceClassification`; no chat capability |
+| `is_generation: false` | class `embedding`, or `rerank` when an architecture ends in `ForSequenceClassification` (a reward or classifier model shares that architecture and is filed the same way; the model probe then shows it answers no rerank); no chat capability |
 | `reasoning_parser` set | reasoning |
 | `tool_call_parser` set | tool calling |
 | `has_image_understanding` | vision, `image` among the inputs |

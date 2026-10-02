@@ -180,7 +180,7 @@ func TestDiscoverSGLang_InfoAppliesToItsOwnModelOnly(t *testing.T) {
 			_, _ = w.Write([]byte(`{"object":"list","data":[
 				{"id":"qwen3-0.6b","object":"model","max_model_len":8192},
 				{"id":"qwen3-0.6b-lora-sql","object":"model","parent":"qwen3-0.6b","max_model_len":8192},
-				{"id":"bge-m3","object":"model","max_model_len":8192}]}`))
+				{"id":"bge-m3","object":"model","parent":{"odd":"shape"},"max_model_len":8192}]}`))
 		case "/get_model_info":
 			_, _ = w.Write([]byte(sglangModelInfoBody))
 		default:
@@ -230,10 +230,10 @@ func TestDiscoverSGLang_UnnamedInfoNeedsASingleEntry(t *testing.T) {
 				w.WriteHeader(http.StatusNotFound)
 			}
 		}))
+		t.Cleanup(srv.Close)
 		svc := &DiscoveryService{httpClient: srv.Client()}
 		provider := &Provider{ID: uuid.New(), ProviderType: "sglang", BaseURL: srv.URL + "/v1"}
 		models, err := svc.discoverSGLang(context.Background(), provider, "")
-		srv.Close()
 		if err != nil || len(models) == 0 {
 			t.Fatalf("discoverSGLang: %v, %d models", err, len(models))
 		}

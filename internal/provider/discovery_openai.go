@@ -92,6 +92,16 @@ func applyListingExtras(m *model.Model, entry OpenAIModel) *model.Model {
 	return m
 }
 
+// listingString reads a raw listing member as a string, "" for any other
+// shape (null included).
+func listingString(raw json.RawMessage) string {
+	var s string
+	if len(raw) == 0 || json.Unmarshal(raw, &s) != nil {
+		return ""
+	}
+	return s
+}
+
 // listingInputModalities reads architecture.input_modalities, returning nil for
 // any other shape.
 func listingInputModalities(raw json.RawMessage) []string {

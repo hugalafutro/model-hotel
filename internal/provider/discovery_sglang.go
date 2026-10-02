@@ -78,7 +78,9 @@ func (d *DiscoveryService) discoverSGLang(ctx context.Context, provider *Provide
 // worker's) is what the listing says, as for custom. A server that does not
 // generate (is_generation false) serves embeddings, or reranking when its
 // architecture is a sequence classifier (the cross-encoder rerankers SGLang
-// serves on /v1/rerank); a generation server is chat, with reasoning when a
+// serves on /v1/rerank; a reward or classifier model is the same
+// architecture and is filed the same way, which the model probe then
+// disproves); a generation server is chat, with reasoning when a
 // reasoning parser is configured, tool calling when a tool-call parser is,
 // and image or audio input when the model understands them. Structured
 // output is always on: SGLang constrains any generation model through its
@@ -97,7 +99,7 @@ func buildSGLangModel(provider *Provider, entry OpenAIModel, info *SGLangModelIn
 		Enabled:      true,
 	}
 	applyListingExtras(m, entry)
-	if info == nil || (info.ServedModelName != "" && entry.ID != info.ServedModelName && entry.Parent != info.ServedModelName) {
+	if info == nil || (info.ServedModelName != "" && entry.ID != info.ServedModelName && listingString(entry.Parent) != info.ServedModelName) {
 		caps := model.Capability{Streaming: true}
 		capJSON, _ := json.Marshal(caps)
 		m.Capabilities = string(capJSON)
@@ -108,6 +110,7 @@ func buildSGLangModel(provider *Provider, entry OpenAIModel, info *SGLangModelIn
 		for _, arch := range info.Architectures {
 			if strings.HasSuffix(arch, "ForSequenceClassification") {
 				m.Modality = "rerank"
+				break
 			}
 		}
 		return m
