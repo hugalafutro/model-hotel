@@ -449,8 +449,12 @@ func TestMaskKeyShapedTokens_ParamNameRules(t *testing.T) {
 		// Names that only contain a credential word are not credentials.
 		{"max_token=5 has_secret=true prompt_token=3 token_type=bearer ?api-version=2024&alt=json&keyword=x",
 			"max_token=5 has_secret=true prompt_token=3 token_type=bearer ?api-version=2024&alt=json&keyword=x"},
-		// A name inside a value already taken is not matched again.
-		{"?password=a?password=S3CRETVALUE&alt=json", "?password=[redacted]&alt=json"},
+		// A value ends where the next credential name starts, so each name
+		// masks its own value, quoted or not.
+		{"?password=a?password=S3CRETVALUE&alt=json", "?password=[redacted]?password=[redacted]&alt=json"},
+		{`token=' password='S3CRETVALUE'`, `token=' password='[redacted]'`},
+		{`{"m":"token=\" password=\"S3CRETVALUE\""}`, `{"m":"token=\" password=\"[redacted]\""}`},
+		{`secret='apiKey= api_key='S3CRETVALUE'`, `secret='apiKey= api_key='[redacted]'`},
 		// A vertical tab or a non-ASCII byte is part of the value, wherever it sits.
 		{"?api_key=\vS3CRETVALUE", "?api_key=[redacted]"},
 		{"?api_key=S3CRET\vVALUE", "?api_key=[redacted]"},

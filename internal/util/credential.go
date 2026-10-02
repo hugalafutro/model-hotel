@@ -81,12 +81,11 @@ const paramValueStops = "&,;)]} \t\r\n\f\"'\\<>"
 // encoder writes a vertical tab as \u000b and "/" as \/, so stopping at the
 // backslash would leave the value, or its tail, unmasked.
 func secretParamSpans(s string) [][2]int {
-	var spans [][2]int
-	last := 0
+	// First every credential name, as [boundary start, value start]: a value
+	// ends where the next one starts, so a quoted value that runs over another
+	// name=value cannot hide it.
+	var names [][2]int
 	for _, loc := range paramNameShape.FindAllStringSubmatchIndex(s, -1) {
-		if loc[4] < last {
-			continue // inside a value already taken
-		}
 		var boundary rune // stays 0 at the text start
 		if loc[2] < loc[3] {
 			boundary, _ = jsonCharAt(s[loc[2]:loc[3]], 0)
@@ -105,7 +104,15 @@ func secretParamSpans(s string) [][2]int {
 		if queryOnlyParams[folded] && boundary != '?' && boundary != '&' {
 			continue
 		}
-		start := loc[1]
+		names = append(names, [2]int{loc[2], loc[1]})
+	}
+	var spans [][2]int
+	for i, n := range names {
+		limit := len(s)
+		if i+1 < len(names) {
+			limit = names[i+1][0]
+		}
+		start := n[1]
 		stops, quoted := paramValueStops, false
 		if start < len(s) {
 			q, size := jsonCharAt(s, start)
@@ -119,7 +126,7 @@ func secretParamSpans(s string) [][2]int {
 			}
 		}
 		end := start
-		for end < len(s) {
+		for end < limit {
 			r, size := jsonCharAt(s, end)
 			if strings.ContainsRune(stops, r) || quoted && s[end] == '"' {
 				break
@@ -127,8 +134,7 @@ func secretParamSpans(s string) [][2]int {
 			end += size
 		}
 		if end > start {
-			spans = append(spans, [2]int{start, end})
-			last = end
+			spans = append(spans, [2]int{start, min(end, limit)})
 		}
 	}
 	return spans
