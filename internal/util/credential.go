@@ -62,8 +62,10 @@ var queryOnlyParams = map[string]bool{"key": true, "sig": true, "signature": tru
 // does, after percent-decoding, the one vocabulary the base_url validator
 // refuses with, so "max_token=5", "has_secret=true" and "prompt_token=3" are
 // left alone. The value stops at the next separator (& , ;), a closing
-// bracket, whitespace, a quote or a backslash, so the rest of the line
-// survives and a JSON body stays valid.
+// bracket, a space, tab, CR, LF or form feed, a quote or a backslash, so the
+// rest of the line survives and a JSON body stays valid. A vertical tab is
+// not a stop byte: one leading the value would leave an empty span and the
+// value unmasked.
 func secretParamSpans(s string) [][2]int {
 	var spans [][2]int
 	last := 0
@@ -84,7 +86,7 @@ func secretParamSpans(s string) [][2]int {
 		}
 		start := loc[1]
 		end := start
-		for end < len(s) && !strings.ContainsRune("&,;)]} \t\r\n\v\f\"'\\<>", rune(s[end])) {
+		for end < len(s) && !strings.ContainsRune("&,;)]} \t\r\n\f\"'\\<>", rune(s[end])) {
 			end++
 		}
 		if end > start {
