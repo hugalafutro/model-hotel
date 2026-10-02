@@ -409,6 +409,25 @@ func TestMaskKeyShapedTokens_JSONEncodedParams(t *testing.T) {
 	}
 }
 
+// Masking never breaks a JSON body, whatever follows a credential name inside
+// the encoded string.
+func TestMaskKeyShapedTokens_KeepsJSONValid(t *testing.T) {
+	parts := []string{"", `"`, "'", `\`, `"S3 CRET"`, ",", ":", "}", "]", "\v", " ", "\u2028", "&x=1", `"x" y=`, "true"}
+	for _, prefix := range []string{"api_key=", "x api_key=", "?api_key="} {
+		for _, a := range parts {
+			for _, b := range parts {
+				body, err := json.Marshal(map[string]any{"m": prefix + a + b, "n": []string{"v"}})
+				if err != nil {
+					t.Fatal(err)
+				}
+				if got := MaskKeyShapedTokens(body); !json.Valid(got) {
+					t.Errorf("MaskKeyShapedTokens(%s) = %s, not valid JSON", body, got)
+				}
+			}
+		}
+	}
+}
+
 // The cases the shared vocabulary decides beyond plain spellings: a
 // percent-encoded name is decoded as the validator decodes it, and the names
 // common in ordinary text count only where a query parameter starts.
@@ -460,6 +479,15 @@ func TestMaskKeyShapedTokens_ParamNameRules(t *testing.T) {
 		{`{"a":"url?api_key=" , "b":1}`, `{"a":"url?api_key=" , "b":1}`},
 		// Inside quotes only the closing quote or a raw double quote ends the value.
 		{`{"m":"password='ab\"cd' x"}`, `{"m":"password='[redacted]' x"}`},
+		{`password=",hunter2" next`, `password="[redacted]" next`},
+		{`password=":hunter2:"`, `password="[redacted]"`},
+		{`password="x=y" next`, `password="[redacted]" next`},
+		{`{"m":"api_key=\",x\""}`, `{"m":"api_key=\"[redacted]\""}`},
+		{`msg="call api_key=" err="boom"`, `msg="call api_key=" err="boom"`},
+		// A lone backslash ends an unclosed quote; a raw double quote inside
+		// single quotes ends the value too, leaving what follows it.
+		{`password='S3CRET\ diagnostic`, `password='[redacted]\ diagnostic`},
+		{`password='ab"cd' x`, `password='[redacted]"cd' x`},
 		{`{"m":"x\"key=S3CRETVALUE"}`, `{"m":"x\"key=S3CRETVALUE"}`},
 		// Uppercase hex in an escaped boundary still marks a query position.
 		{`{"m":"x\u003FKEY=S3CRETVALUE"}`, `{"m":"x\u003FKEY=[redacted]"}`},
