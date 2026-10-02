@@ -35,7 +35,8 @@ const localProbeTimeout = 5 * time.Second
 // was not chosen.
 //
 // The expected family's fingerprint is asked first, so adding a server as the
-// type it really is touches only that product's own endpoint. Asking another
+// type it really is touches only that product's own endpoint (Ollama also
+// gets LocalAI's probe, see localServerEmulators). Asking another
 // family's route first is not harmless: LM Studio logs every unknown route as
 // an ERROR, so each LM Studio add left a KoboldCPP probe in its log. The other
 // fingerprints still follow, in a fixed order, when the expected one does not
@@ -61,11 +62,6 @@ func (d *DiscoveryService) IdentifyLocalServer(ctx context.Context, baseURL, api
 			break
 		}
 	}
-	// A family another one emulates is asked after the emulator when the
-	// emulated family is the expected one and matched: LocalAI answers
-	// Ollama's /api/tags in Ollama's shape, so a LocalAI added as Ollama would
-	// pass as one and lose its own discovery. The one extra GET lands on a
-	// real Ollama as a 404 it logs at its request level.
 	for _, p := range probes {
 		body, ok, err := d.probeLocal(ctx, origin+p.path, apiKey)
 		if err != nil {
@@ -79,6 +75,11 @@ func (d *DiscoveryService) IdentifyLocalServer(ctx context.Context, baseURL, api
 		if !matched {
 			continue
 		}
+		// A matched expected family that another one emulates is checked
+		// against the emulator too: LocalAI answers Ollama's /api/tags in
+		// Ollama's shape, so a LocalAI added as Ollama would pass as one and
+		// lose its own discovery. The one extra GET lands on a real Ollama as
+		// a 404 it logs at its request level.
 		if emulator, ok := localServerEmulators[p.family]; ok && p.family == expected {
 			for _, q := range probes {
 				if q.family != emulator {

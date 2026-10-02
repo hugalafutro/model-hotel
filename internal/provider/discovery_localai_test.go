@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
 	"github.com/google/uuid"
@@ -24,7 +25,8 @@ const localAICapabilitiesBody = `{"object":"list","data":[
 	{"id":"piper-lessac","object":"model","capabilities":["tts"],"input_modalities":["text"],"output_modalities":["audio"],"context_size":4096},
 	{"id":"dreamshaper-8","object":"model","capabilities":["image"],"input_modalities":["text"],"output_modalities":["image"],"context_size":4096},
 	{"id":"silero-vad","object":"model","capabilities":["vad"],"input_modalities":["audio"],"output_modalities":[],"context_size":4096},
-	{"id":"loose-file.gguf","object":"model","capabilities":null,"input_modalities":null,"output_modalities":null}
+	{"id":"loose-file.gguf","object":"model","capabilities":null,"input_modalities":null,"output_modalities":null},
+	{"id":"nomic-embed.gguf","object":"model","capabilities":null,"input_modalities":null,"output_modalities":null}
 ]}`
 
 func TestDiscoverLocalAI_ClassesCapsAndContext(t *testing.T) {
@@ -52,8 +54,8 @@ func TestDiscoverLocalAI_ClassesCapsAndContext(t *testing.T) {
 	for _, m := range models {
 		byID[m.ModelID] = m
 	}
-	if _, listed := byID["silero-vad"]; listed || len(models) != 8 {
-		t.Fatalf("got %d models, want 8 with the vad model skipped", len(models))
+	if _, listed := byID["silero-vad"]; listed || len(models) != 9 {
+		t.Fatalf("got %d models, want 9 with the vad model skipped", len(models))
 	}
 
 	for id, want := range map[string]string{
@@ -85,10 +87,20 @@ func TestDiscoverLocalAI_ClassesCapsAndContext(t *testing.T) {
 	if c := caps("loose-file.gguf"); !c.Streaming || c.ToolCalling || c.Reasoning || c.Vision {
 		t.Errorf("loose file caps = %+v, want streaming only", c)
 	}
-	// A config-less file states no class: the name heuristics may still read
-	// an embedding model out of it, which an explicit chat would forbid.
-	if got := byID["loose-file.gguf"].Modality; got != "" {
-		t.Errorf("loose file modality = %q, want none", got)
+	// A config-less file states no class: the central classification keeps
+	// a plain one as chat with its capabilities, and reads an embedding
+	// model out of a name that says so, which an explicit chat would forbid.
+	for _, id := range []string{"loose-file.gguf", "nomic-embed.gguf"} {
+		if got := byID[id].Modality; got != "" {
+			t.Errorf("%s modality = %q, want none before classification", id, got)
+		}
+		NormalizeModelClassification(byID[id])
+	}
+	if got := byID["loose-file.gguf"].Modality; got != "chat" || !caps("loose-file.gguf").Streaming {
+		t.Errorf("loose file after classification = %q with caps %s, want chat with streaming", got, byID["loose-file.gguf"].Capabilities)
+	}
+	if got := byID["nomic-embed.gguf"].Modality; got != "embedding" {
+		t.Errorf("embedding-named file after classification = %q, want embedding", got)
 	}
 	// A side model states its class and nothing else: the arrays and chat
 	// capabilities are the classifier's to fill from the class.
@@ -179,6 +191,34 @@ func TestIdentifyLocalServer_LocalAIAgainstOllamaFingerprint(t *testing.T) {
 		if got.Type != want {
 			t.Errorf("IdentifyLocalServer(expected %q) = %q, want %q", expected, got.Type, want)
 		}
+	}
+}
+
+// A real Ollama added as Ollama is still Ollama: the emulator probe that
+// follows its match gets a 404 and falls through.
+func TestIdentifyLocalServer_RealOllamaAsOllama(t *testing.T) {
+	var paths []string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		paths = append(paths, r.URL.Path)
+		if r.URL.Path == "/api/tags" {
+			w.Header().Set("Content-Type", "application/json")
+			_, _ = w.Write([]byte(`{"models":[{"name":"llama3:8b"}]}`))
+			return
+		}
+		w.WriteHeader(http.StatusNotFound)
+	}))
+	defer srv.Close()
+
+	svc := &DiscoveryService{httpClient: srv.Client()}
+	got, err := svc.IdentifyLocalServer(context.Background(), srv.URL, "", "ollama")
+	if err != nil {
+		t.Fatalf("IdentifyLocalServer: %v", err)
+	}
+	if got.Type != "ollama" {
+		t.Errorf("type = %q, want ollama", got.Type)
+	}
+	if want := []string{"/api/tags", "/v1/models/capabilities"}; strings.Join(paths, " ") != strings.Join(want, " ") {
+		t.Errorf("probed %v, want %v", paths, want)
 	}
 }
 
