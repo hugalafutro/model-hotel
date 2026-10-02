@@ -43,18 +43,57 @@ var ambiguousKeyShape = regexp.MustCompile(`\b(?:sk|gsk|xai|hf|fw|r8)[-_][A-Za-z
 // payload are the parts that carry claims.
 var unambiguousKeyShape = regexp.MustCompile(`\bAIza[0-9A-Za-z_-]{30,}|\bAKIA[A-Z0-9]{16}\b|\beyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}(?:\.[A-Za-z0-9_-]{5,})?`)
 
-// secretParamShape is a credential passed by name in a query string or a form
-// body ("?api_key=...", "&client_secret=..."), whatever format the value has:
-// the name says what it is, so no key shape is needed. The name must start a
-// parameter (the text start, "?", "&", whitespace, a quote, ":", an opening
-// bracket, "," or ";") and be one of the credential names, so "max_token=5",
-// "has_secret=true" and "prompt_token=3" are left alone. A bare "key=" counts
-// only where a query parameter starts ("?key=", "&key=", Google's style): the
-// gateway logs a virtual key's NAME under a "key" attribute, which a text log
-// renders after a space. The value stops at the next separator (& , ;), a
-// closing bracket, whitespace, a quote or a backslash, so the rest of the line
+// paramNameShape finds a parameter name and its "=" where a parameter can
+// start (the text start, "?", "&", whitespace, a quote, ":", an opening
+// bracket, "," or ";"). Group 1 is that boundary, group 2 the raw name.
+// secretParamSpans decides which names carry a credential.
+var paramNameShape = regexp.MustCompile(`(^|[?&\s"':(\[{,;])([\p{L}\p{N}%_-]+)=`)
+
+// queryOnlyParams are credential names too common in ordinary text to mask
+// anywhere but where a query parameter starts ("?key=", "&sig="): the gateway
+// logs a virtual key's NAME under a "key" attribute, and "signature=invalid"
+// is a diagnostic.
+var queryOnlyParams = map[string]bool{"key": true, "sig": true, "signature": true}
+
+// secretParamSpans returns the [start, end) spans of every credential passed
+// by name in a query string or a form body ("?api_key=...",
+// "&client_secret=..."), whatever format the value has: the name says what it
+// is, so no key shape is needed. A name counts when IsCredentialQueryParam
+// does, after percent-decoding, the one vocabulary the base_url validator
+// refuses with, so "max_token=5", "has_secret=true" and "prompt_token=3" are
+// left alone. The value stops at the next separator (& , ;), a closing
+// bracket, whitespace, a quote or a backslash, so the rest of the line
 // survives and a JSON body stays valid.
-var secretParamShape = regexp.MustCompile(`(?i)(?:(^|[?&\s"':(\[{,;])((?:client_|refresh_|access_|auth_)?(?:token|secret|password)|(?:api|access|secret|client)[_-]?key)|[?&]key)=[^&,;)\]}\s"'\\<>]+`)
+func secretParamSpans(s string) [][2]int {
+	var spans [][2]int
+	last := 0
+	for _, loc := range paramNameShape.FindAllStringSubmatchIndex(s, -1) {
+		if loc[4] < last {
+			continue // inside a value already taken
+		}
+		name := s[loc[4]:loc[5]]
+		if decoded, err := url.QueryUnescape(name); err == nil {
+			name = decoded
+		}
+		folded := credentialParamName.Replace(strings.ToLower(name))
+		if !credentialQueryParams[folded] {
+			continue
+		}
+		if queryOnlyParams[folded] && (loc[2] == loc[3] || (s[loc[2]] != '?' && s[loc[2]] != '&')) {
+			continue
+		}
+		start := loc[1]
+		end := start
+		for end < len(s) && !strings.ContainsRune("&,;)]} \t\r\n\v\f\"'\\<>", rune(s[end])) {
+			end++
+		}
+		if end > start {
+			spans = append(spans, [2]int{start, end})
+			last = end
+		}
+	}
+	return spans
+}
 
 // CredentialMinLen is the shortest provider key the exact-value mask will
 // redact. Keyless local providers carry an empty key and a handful of test or
@@ -103,9 +142,8 @@ func MaskKeyShapedTokens(body []byte) []byte {
 	// marker is kept: a bare "[redacted" with no "]" after it is a value.
 	var out []byte
 	last := 0
-	for _, loc := range secretParamShape.FindAllIndex(body, -1) {
-		start, end := loc[0], loc[1]
-		eq := start + bytes.IndexByte(body[start:end], '=') + 1
+	for _, span := range secretParamSpans(string(body)) {
+		eq, end := span[0], span[1]
 		if string(body[eq:end]) == "[redacted" && end < len(body) && body[end] == ']' {
 			continue
 		}
@@ -142,7 +180,7 @@ func maskShapes(s string) string {
 		return s
 	}
 	if !ambiguousKeyShape.MatchString(s) && !unambiguousKeyShape.MatchString(s) &&
-		!URLUserinfoRE.MatchString(s) && !secretParamShape.MatchString(s) {
+		!URLUserinfoRE.MatchString(s) && secretParamSpans(s) == nil {
 		return s
 	}
 	return string(MaskKeyShapedTokens([]byte(s)))

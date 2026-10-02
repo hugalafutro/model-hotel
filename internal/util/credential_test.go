@@ -354,7 +354,7 @@ func TestMaskCredentials_ReturnsCleanTextUncopied(t *testing.T) {
 // dropping any literal from the check fails its row.
 func TestMayHoldShape_ImpliedByEveryPattern(t *testing.T) {
 	t.Parallel()
-	patterns := []*regexp.Regexp{ambiguousKeyShape, unambiguousKeyShape, URLUserinfoRE, secretParamShape}
+	patterns := []*regexp.Regexp{ambiguousKeyShape, unambiguousKeyShape, URLUserinfoRE, paramNameShape}
 	for _, s := range []string{
 		"sk-0123456789abcdef0", "sk_0123456789abcdef0", "Authorization: BeArEr abcdefghijklmnopq",
 		"AIza" + strings.Repeat("a", 30), "AKIA0123456789ABCDEF", "eyJabcdefghij.abcdefghijk",
@@ -365,6 +365,58 @@ func TestMayHoldShape_ImpliedByEveryPattern(t *testing.T) {
 		}
 		if !mayHoldShape(s) {
 			t.Errorf("%q skipped", s)
+		}
+	}
+}
+
+// TestSecretParamShapeCoversValidatorNames pins the two layers to one
+// vocabulary: every name the base_url validator refuses as a credential is one
+// the text masker redacts, in each spelling the validator folds together.
+func TestSecretParamShapeCoversValidatorNames(t *testing.T) {
+	for name := range credentialQueryParams {
+		letters := strings.Split(name, "")
+		for _, spelling := range []string{
+			name, strings.ToUpper(name),
+			strings.Join(letters, "_"), "_" + strings.Join(letters, "-") + "_", strings.Join(letters, "__"),
+		} {
+			if !IsCredentialQueryParam(spelling) {
+				t.Fatalf("IsCredentialQueryParam(%q) = false", spelling)
+			}
+			inputs := []string{"GET http://gw.example/v1?" + spelling + "=S3CRETVALUE&alt=json"}
+			if !queryOnlyParams[name] { // these count only where a query parameter starts
+				inputs = append(inputs, "upstream said ("+spelling+"=S3CRETVALUE) alt=json")
+			}
+			for _, in := range inputs {
+				if got := string(MaskKeyShapedTokens([]byte(in))); strings.Contains(got, "S3CRETVALUE") || !strings.Contains(got, "alt=json") {
+					t.Errorf("MaskKeyShapedTokens(%q) = %q, want the value redacted and the rest kept", in, got)
+				}
+			}
+		}
+	}
+}
+
+// The cases the shared vocabulary decides beyond plain spellings: a
+// percent-encoded name is decoded as the validator decodes it, and the names
+// common in ordinary text count only where a query parameter starts.
+func TestMaskKeyShapedTokens_ParamNameRules(t *testing.T) {
+	for _, tc := range []struct{ in, want string }{
+		{"GET /v1?api%5Fkey=S3CRETVALUE&alt=json", "GET /v1?api%5Fkey=[redacted]&alt=json"},
+		{"GET /v1?%6Bey=S3CRETVALUE", "GET /v1?%6Bey=[redacted]"},
+		// Case folding reaches non-ASCII letters, as the validator's does.
+		{"GET /v1?AP\u0130_KEY=S3CRETVALUE", "GET /v1?AP\u0130_KEY=[redacted]"},
+		{"GET /v1?api_secret=S3CRETVALUE", "GET /v1?api_secret=[redacted]"},
+		{"GET /v1?sv=1&sig=S3CRETVALUE", "GET /v1?sv=1&sig=[redacted]"},
+		{"backup verified signature=invalid key=prod", "backup verified signature=invalid key=prod"},
+		{"signature=invalid", "signature=invalid"},
+		{"x-amz-signature=S3CRETVALUE", "x-amz-signature=[redacted]"},
+		// Names that only contain a credential word are not credentials.
+		{"max_token=5 has_secret=true prompt_token=3 token_type=bearer ?api-version=2024&alt=json&keyword=x",
+			"max_token=5 has_secret=true prompt_token=3 token_type=bearer ?api-version=2024&alt=json&keyword=x"},
+		// A name inside a value already taken is not matched again.
+		{"?password=a?password=S3CRETVALUE&alt=json", "?password=[redacted]&alt=json"},
+	} {
+		if got := string(MaskKeyShapedTokens([]byte(tc.in))); got != tc.want {
+			t.Errorf("MaskKeyShapedTokens(%q) = %q, want %q", tc.in, got, tc.want)
 		}
 	}
 }
