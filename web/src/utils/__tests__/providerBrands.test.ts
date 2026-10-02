@@ -57,6 +57,7 @@ describe("PROVIDER_PREFIXES", () => {
 			"lmstudio",
 			"koboldcpp",
 			"localai",
+			"sglang",
 			"opencode",
 		];
 
@@ -81,6 +82,7 @@ describe("PROVIDER_PREFIXES", () => {
 			"lmstudio",
 			"koboldcpp",
 			"localai",
+			"sglang",
 			"opencode",
 		];
 

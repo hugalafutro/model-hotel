@@ -86,6 +86,8 @@ export const PROVIDER_PARAM_INCOMPATIBILITY: Record<
 	// LocalAI maps reasoning_effort onto its own reasoning switch, so nothing
 	// is dropped for it.
 	localai: {},
+	// SGLang honours the OpenAI chat parameters it knows and ignores the rest.
+	sglang: {},
 	// The backend forwards reasoning_effort to a custom endpoint untouched.
 	custom: {},
 };
@@ -137,6 +139,7 @@ export function normalizeToProviderType(providerName: string): string {
 		lmstudio: ["lmstudio", "lm-studio"],
 		koboldcpp: ["koboldcpp", "kobold"],
 		localai: ["localai", "local-ai"],
+		sglang: ["sglang", "sgl-project"],
 		"opencode-zen": ["opencode-zen", "opencode zen"],
 		"opencode-go": ["opencode-go", "opencode go"],
 	};

@@ -217,7 +217,7 @@ func TestIdentifyLocalServer_RealOllamaAsOllama(t *testing.T) {
 	if got.Type != "ollama" {
 		t.Errorf("type = %q, want ollama", got.Type)
 	}
-	if want := []string{"/api/tags", "/v1/models/capabilities"}; strings.Join(paths, " ") != strings.Join(want, " ") {
+	if want := []string{"/api/tags", "/v1/models/capabilities", "/get_model_info"}; strings.Join(paths, " ") != strings.Join(want, " ") {
 		t.Errorf("probed %v, want %v", paths, want)
 	}
 }

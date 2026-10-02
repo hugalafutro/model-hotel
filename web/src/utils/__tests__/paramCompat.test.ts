@@ -157,6 +157,10 @@ describe("normalizeToProviderType - substring heuristic", () => {
 		expect(normalizeToProviderType("Local AI g15")).toBe("localai");
 	});
 
+	it("matches SGLang g15 to sglang", () => {
+		expect(normalizeToProviderType("SGLang g15")).toBe("sglang");
+	});
+
 	it("matches z.ai Coding Pro to zai-coding", () => {
 		expect(normalizeToProviderType("z.ai Coding Pro")).toBe("zai-coding");
 	});

@@ -6,6 +6,7 @@ import (
 	"errors"
 	"io"
 	"net/http"
+	"slices"
 	"strings"
 	"time"
 
@@ -36,7 +37,7 @@ const localProbeTimeout = 5 * time.Second
 //
 // The expected family's fingerprint is asked first, so adding a server as the
 // type it really is touches only that product's own endpoint (Ollama also
-// gets LocalAI's probe, see localServerEmulators). Asking another
+// gets its emulators' probes, see localServerEmulators). Asking another
 // family's route first is not harmless: LM Studio logs every unknown route as
 // an ERROR, so each LM Studio add left a KoboldCPP probe in its log. The other
 // fingerprints still follow, in a fixed order, when the expected one does not
@@ -75,14 +76,14 @@ func (d *DiscoveryService) IdentifyLocalServer(ctx context.Context, baseURL, api
 		if !matched {
 			continue
 		}
-		// A matched expected family that another one emulates is checked
-		// against the emulator too: LocalAI answers Ollama's /api/tags in
-		// Ollama's shape, so a LocalAI added as Ollama would pass as one and
-		// lose its own discovery. The one extra GET lands on a real Ollama as
-		// a 404 it logs at its request level.
-		if emulator, ok := localServerEmulators[p.family]; ok && p.family == expected {
+		// A matched expected family that others emulate is checked against
+		// the emulators too: LocalAI and SGLang answer Ollama's /api/tags in
+		// Ollama's shape, so either added as Ollama would pass as one and
+		// lose its own discovery. The extra GETs land on a real Ollama as
+		// 404s it logs at its request level.
+		if p.family == expected {
 			for _, q := range probes {
-				if q.family != emulator {
+				if !slices.Contains(localServerEmulators[p.family], q.family) {
 					continue
 				}
 				if body, ok, err := d.probeLocal(ctx, origin+q.path, apiKey); err == nil && ok {
@@ -101,10 +102,10 @@ func (d *DiscoveryService) IdentifyLocalServer(ctx context.Context, baseURL, api
 	return LocalServerIdentity{}, nil
 }
 
-// localServerEmulators names, per family, the other family that answers its
+// localServerEmulators names, per family, the other families that answer its
 // fingerprint too, so a server added as the emulated family is still told
-// apart. Only LocalAI emulates another family's native listing today.
-var localServerEmulators = map[string]string{"ollama": "localai"}
+// apart. LocalAI and SGLang both serve Ollama's tag listing in Ollama's shape.
+var localServerEmulators = map[string][]string{"ollama": {"localai", "sglang"}}
 
 // localServerProbe is one family's fingerprint: the endpoint that identifies
 // it and the check its answer has to pass.
@@ -136,6 +137,10 @@ func localServerProbes() []localServerProbe {
 		// so the Ollama fingerprint alone would claim it.
 		{"localai", "/v1/models/capabilities", func(body []byte) (string, bool) {
 			return "", isLocalAICapabilitiesListing(body)
+		}},
+		// SGLang: its model info, which nothing else serves on that route.
+		{"sglang", "/get_model_info", func(body []byte) (string, bool) {
+			return "", isSGLangModelInfo(body)
 		}},
 		// Ollama: the native tag listing.
 		{"ollama", "/api/tags", func(body []byte) (string, bool) {

@@ -103,7 +103,7 @@ describe("localProviderPlaceholders", () => {
 	// These are placeholders, never values: a self-hosted server's address is
 	// the operator's to supply, and a containerised Model Hotel cannot reach
 	// its own localhost.
-	it.each(["ollama", "koboldcpp", "lmstudio", "localai"])(
+	it.each(["ollama", "koboldcpp", "lmstudio", "localai", "sglang"])(
 		"offers a routable example address for %s",
 		(type) => {
 			const example = localProviderPlaceholders[type];
@@ -131,6 +131,10 @@ describe("isLocalProviderType", () => {
 		expect(isLocalProviderType("localai")).toBe(true);
 	});
 
+	it("returns true for sglang", () => {
+		expect(isLocalProviderType("sglang")).toBe(true);
+	});
+
 	it("returns false for openai", () => {
 		expect(isLocalProviderType("openai")).toBe(false);
 	});
@@ -150,6 +154,7 @@ describe("hasEditableBaseUrl", () => {
 		"koboldcpp",
 		"lmstudio",
 		"localai",
+		"sglang",
 	])("leaves the base URL editable for %s", (type) => {
 		expect(hasEditableBaseUrl(type)).toBe(true);
 	});
@@ -292,6 +297,10 @@ describe("providerTypeTranslationKeys", () => {
 		expect(providerTypeTranslationKeys.localai).toBe("providers.type_localai");
 	});
 
+	it("has translation key for sglang", () => {
+		expect(providerTypeTranslationKeys.sglang).toBe("providers.type_sglang");
+	});
+
 	it("has translation key for nanogpt", () => {
 		expect(providerTypeTranslationKeys.nanogpt).toBe("providers.type_nanogpt");
 	});
@@ -348,6 +357,10 @@ describe("providerTypeAllowsEmptyKey", () => {
 
 	it("returns true for localai", () => {
 		expect(providerTypeAllowsEmptyKey("localai")).toBe(true);
+	});
+
+	it("returns true for sglang", () => {
+		expect(providerTypeAllowsEmptyKey("sglang")).toBe(true);
 	});
 
 	it("returns false for openai", () => {

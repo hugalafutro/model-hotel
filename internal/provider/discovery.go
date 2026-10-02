@@ -482,6 +482,8 @@ func (d *DiscoveryService) DiscoverModels(ctx context.Context, provider *Provide
 			return d.discoverLMStudio(ctx, provider, apiKey)
 		case "localai":
 			return d.discoverLocalAI(ctx, provider, apiKey)
+		case "sglang":
+			return d.discoverSGLang(ctx, provider, apiKey)
 		default:
 			return d.discoverOpenAI(ctx, provider, apiKey)
 		}

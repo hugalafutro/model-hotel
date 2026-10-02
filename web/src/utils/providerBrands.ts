@@ -18,6 +18,7 @@ export type ProviderBrand =
 	| "lmstudio"
 	| "koboldcpp"
 	| "localai"
+	| "sglang"
 	| "opencode"
 	| "opencode-go"
 	| "neuralwatt"
@@ -51,6 +52,7 @@ export const PROVIDER_BRAND_COLORS: Record<ProviderBrand, string> = {
 	lmstudio: "#E879F9",
 	koboldcpp: "#DC2626",
 	localai: "#1D4ED8",
+	sglang: "#7C3AED",
 	opencode: "#2D2D2D",
 	"opencode-go": "#2D2D2D",
 	neuralwatt: "#ac4324",
@@ -73,6 +75,7 @@ export const PROVIDER_PREFIXES: Record<ProviderBrand, string> = {
 	lmstudio: "LM",
 	koboldcpp: "KC",
 	localai: "LAI",
+	sglang: "SGL",
 	opencode: "OC",
 	bedrock: "AWS",
 	azure: "AZ",

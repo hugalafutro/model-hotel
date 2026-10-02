@@ -806,6 +806,7 @@
 		"type_koboldcpp": "KoboldCPP",
 		"type_lmstudio": "LM Studio",
 		"type_localai": "LocalAI",
+		"type_sglang": "SGLang",
 		"form_modal_title": "Додати постачальника",
 		"form_type_label": "Тип",
 		"form_name_label": "Ім'я",

@@ -240,7 +240,7 @@ Providers on the merge (union): **Z.AI**, **xAI**, **DeepSeek**, **OpenCode Go**
 A provider's type is chosen by the operator in the add dialog and stored on the
 row (`providers.provider_type`); nothing re-derives it from the URL afterwards.
 
-For the four self-hosted server families (Ollama, LM Studio, KoboldCPP, LocalAI) the
+For the five self-hosted server families (Ollama, LM Studio, KoboldCPP, LocalAI, SGLang) the
 address says nothing about what is listening on it, so the choice is
 **verified** before the provider is saved: Model Hotel probes the identifying
 endpoint of the chosen family and refuses the save if another server answers,
@@ -278,8 +278,8 @@ Hostname rules (`detectByHost`, exact and suffix matching):
 | `api.neuralwatt.com`, `neuralwatt.com`, `*.neuralwatt.com` | - | `neuralwatt` |
 | Any other host | - | `openai` (fallback) |
 
-Self-hosted servers have no entry here: `ollama`, `lmstudio`, `koboldcpp` and
-`localai` are chosen, not matched, and run on whatever address and port the operator gave.
+Self-hosted servers have no entry here: `ollama`, `lmstudio`, `koboldcpp`,
+`localai` and `sglang` are chosen, not matched, and run on whatever address and port the operator gave.
 `anthropic-messages` has none either, and for the same reason: it names a wire
 format rather than a vendor, so no host implies it. `api.anthropic.com` resolves
 to `anthropic` as it always has.
@@ -291,20 +291,22 @@ to `anthropic` as it always has.
 | `koboldcpp` | `GET {origin}/api/extra/version` | `result` equals `KoboldCpp` (the reply also carries the version and the modality flags) |
 | `lmstudio` | `GET {origin}/api/v0/models` | a `data` array with LM Studio's native model fields |
 | `localai` | `GET {origin}/v1/models/capabilities` | a `data` array whose entries carry a `capabilities` member |
+| `sglang` | `GET {origin}/get_model_info` | a `model_path` string beside an `is_generation` boolean |
 | `ollama` | `GET {origin}/api/tags` | a `models` array |
 
 The match is on the body, never on the status: LM Studio answers routes it does
 not serve with HTTP 200 and an `{"error": ...}` body, so a status-only check
 would identify it as whichever family was probed first. LocalAI's fingerprint
 sits ahead of Ollama's in the fixed order because LocalAI also answers
-`/api/tags` in Ollama's shape, and when `ollama` is the chosen type and its
-fingerprint matches, LocalAI's is asked as well, so a LocalAI added as
-`ollama` is refused naming `localai` rather than discovered as a lesser Ollama.
+`/api/tags` in Ollama's shape, and so does SGLang; when `ollama` is the chosen
+type and its fingerprint matches, both of theirs are asked as well, so a LocalAI
+or SGLang added as `ollama` is refused naming the real family rather than
+discovered as a lesser Ollama.
 
 The chosen type's endpoint is asked first, so a server added as the type it
 really is sees only its own endpoint (LM Studio logs every route it does not
 serve as an `ERROR`). The other endpoints follow, in the table's order, only
-when that one does not match (apart from the LocalAI check above), which is
+when that one does not match (apart from the emulator checks above), which is
 how a mismatch names the family that did answer.
 
 Each probe is bounded at 5 seconds. The operator is waiting on the add dialog
@@ -870,6 +872,34 @@ A model whose usecases name only endpoints Model Hotel does not route (`video`, 
 | Pricing | None (self-hosted) |
 | Capabilities | Chat models: streaming and structured output always (LocalAI constrains any llama.cpp model with a grammar built from the schema), tool calling when the listing carries `tools`, reasoning when it carries `thinking`, vision when it carries `vision` or lists `image` among the inputs. LocalAI detects `tools` and `thinking` from the loaded model's template, so a model that has never been loaded may gain them on a later scan; the operator can also pin them. Every other class: none. models.dev does not enrich a self-hosted server's models |
 | Modalities | Chat models: `input_modalities` from the listing (`text`, `image`, `audio`, `video`), text out. Every other class: derived centrally from the class |
+
+### SGLang
+
+**Source files:** `discovery_sglang.go`
+
+**Method:** SGLang serves one model per process behind an OpenAI-compatible API. Discovery reads `GET /v1/models` for the served name and `max_model_len` (the context the server runs with, marked live), and `GET /get_model_info` at the origin for what that model can do: `is_generation` (an embedding server says false), the `reasoning_parser` and `tool_call_parser` the server was launched with, and `has_image_understanding` / `has_audio_understanding` from the model's own config. Every listed name is that model, so the info applies to each.
+
+| Info | Effect |
+|------|--------|
+| `is_generation: false` | class `embedding`, no chat capability |
+| `reasoning_parser` set | reasoning |
+| `tool_call_parser` set | tool calling |
+| `has_image_understanding` | vision, `image` among the inputs |
+| `has_audio_understanding` | audio input, `audio` among the inputs |
+
+Structured output is always on for a generation model: SGLang constrains any of them through its grammar backend. A server whose info route does not answer (an older SGLang, a proxy in front of it) is read from the listing alone, which carries no class and only streaming, as `custom` reads it.
+
+**Detection:** Chosen by the operator, confirmed by probing `/get_model_info` when the provider is added or its URL changed.
+
+**Hardcoded / missing:**
+
+| Field | Value |
+|-------|-------|
+| Context length | `max_model_len` from the listing, marked live |
+| Max output tokens | Not set |
+| Pricing | None (self-hosted) |
+| Capabilities | Chat models: streaming and structured output always, the rest from the info as above. Embedding servers: none. models.dev does not enrich a self-hosted server's models |
+| Modalities | Chat models: text plus `image` and `audio` as the info reports, text out. Embedding servers: derived centrally from the class |
 
 ### KoboldCPP
 

@@ -21,7 +21,7 @@ func ProviderSupportsStreamOptions(providerType string) bool {
 		return false
 	default:
 		// All OpenAI-compatible providers (openai, deepseek, xai, openrouter,
-		// ollama, ollama-cloud, nanogpt, zai-coding, lmstudio, koboldcpp, localai,
+		// ollama, ollama-cloud, nanogpt, zai-coding, lmstudio, koboldcpp, localai, sglang,
 		// neuralwatt, bedrock, etc.) accept or silently ignore stream_options.
 		return true
 	}

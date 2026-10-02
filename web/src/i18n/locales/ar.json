@@ -840,6 +840,7 @@
 		"type_koboldcpp": "KoboldCPP",
 		"type_lmstudio": "LM Studio",
 		"type_localai": "LocalAI",
+		"type_sglang": "SGLang",
 		"form_modal_title": "إضافة موفر",
 		"form_type_label": "نوع",
 		"form_name_label": "الاسم",
