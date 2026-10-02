@@ -56,6 +56,13 @@ func (d *DiscoveryService) discoverSGLang(ctx context.Context, provider *Provide
 		}
 	}
 
+	// An info that names no served model can only be matched to a listing of
+	// one; applied to a merged listing it would describe models it never saw.
+	if info != nil && info.ServedModelName == "" && len(listing.Data) != 1 {
+		debuglog.Warn("discovery: sglang model info names no model, listing of several taken as is",
+			"provider", provider.Name, "provider_id", provider.ID, "models", len(listing.Data))
+		info = nil
+	}
 	models := make([]*model.Model, 0, len(listing.Data))
 	for _, entry := range listing.Data {
 		models = append(models, buildSGLangModel(provider, entry, info))

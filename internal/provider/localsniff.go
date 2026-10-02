@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"net/http"
 	"slices"
@@ -48,8 +49,9 @@ const localProbeTimeout = 5 * time.Second
 // unknown routes with HTTP 200 and an {"error": ...} body, so a status-only
 // check would identify it as whatever was asked first.
 //
-// A returned error means no probe reached the server. A nil error with an
-// empty Type means the server answered but matched no fingerprint.
+// A returned error means no probe reached the server, or an emulator check
+// after the expected family's match could not be completed. A nil error with
+// an empty Type means the server answered but matched no fingerprint.
 func (d *DiscoveryService) IdentifyLocalServer(ctx context.Context, baseURL, apiKey, expected string) (LocalServerIdentity, error) {
 	origin := localServerOrigin(baseURL)
 	reached := false
@@ -86,10 +88,18 @@ func (d *DiscoveryService) IdentifyLocalServer(ctx context.Context, baseURL, api
 				if !slices.Contains(localServerEmulators[p.family], q.family) {
 					continue
 				}
-				if body, ok, err := d.probeLocal(ctx, origin+q.path, apiKey); err == nil && ok {
-					if v, matched := q.match(body); matched {
-						return LocalServerIdentity{Type: q.family, Version: v}, nil
-					}
+				body, ok, err := d.probeLocal(ctx, origin+q.path, apiKey)
+				if err != nil {
+					// The server answered a moment ago, so this is a transient
+					// fault; saving it as the expected family on an unanswered
+					// question could file an emulator under the wrong type.
+					return LocalServerIdentity{}, fmt.Errorf("%s fingerprint could not be checked: %w", q.family, err)
+				}
+				if !ok {
+					continue
+				}
+				if v, matched := q.match(body); matched {
+					return LocalServerIdentity{Type: q.family, Version: v}, nil
 				}
 			}
 		}

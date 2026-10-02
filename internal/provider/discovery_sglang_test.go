@@ -209,6 +209,64 @@ func TestDiscoverSGLang_InfoAppliesToItsOwnModelOnly(t *testing.T) {
 	}
 }
 
+// An info that names no served model is matched to a listing of one, and
+// left out of a listing of several.
+func TestDiscoverSGLang_UnnamedInfoNeedsASingleEntry(t *testing.T) {
+	for _, tc := range []struct {
+		listing   string
+		wantTools bool
+	}{
+		{`{"object":"list","data":[{"id":"qwen3-0.6b","object":"model"}]}`, true},
+		{`{"object":"list","data":[{"id":"qwen3-0.6b","object":"model"},{"id":"other","object":"model"}]}`, false},
+	} {
+		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			w.Header().Set("Content-Type", "application/json")
+			switch r.URL.Path {
+			case "/v1/models":
+				_, _ = w.Write([]byte(tc.listing))
+			case "/get_model_info":
+				_, _ = w.Write([]byte(`{"model_path":"/m","is_generation":true,"tool_call_parser":"qwen"}`))
+			default:
+				w.WriteHeader(http.StatusNotFound)
+			}
+		}))
+		svc := &DiscoveryService{httpClient: srv.Client()}
+		provider := &Provider{ID: uuid.New(), ProviderType: "sglang", BaseURL: srv.URL + "/v1"}
+		models, err := svc.discoverSGLang(context.Background(), provider, "")
+		srv.Close()
+		if err != nil || len(models) == 0 {
+			t.Fatalf("discoverSGLang: %v, %d models", err, len(models))
+		}
+		if got := sglangCaps(t, models[0]).ToolCalling; got != tc.wantTools {
+			t.Errorf("listing of %d with unnamed info: tools = %v, want %v", len(models), got, tc.wantTools)
+		}
+	}
+}
+
+// A transient failure on the emulator check after Ollama's match is an
+// error, not an Ollama: the server was reachable a moment ago, and saving the
+// expected family on an unanswered question could file an emulator wrongly.
+func TestIdentifyLocalServer_EmulatorProbeFailureIsAnError(t *testing.T) {
+	var srv *httptest.Server
+	srv = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/api/tags":
+			w.Header().Set("Content-Type", "application/json")
+			_, _ = w.Write([]byte(`{"models":[{"name":"llama3:8b"}]}`))
+		default:
+			// Drop the connection: a transport error, not a status.
+			srv.CloseClientConnections()
+		}
+	}))
+	defer srv.Close()
+
+	svc := &DiscoveryService{httpClient: srv.Client()}
+	got, err := svc.IdentifyLocalServer(context.Background(), srv.URL, "", "ollama")
+	if err == nil || got.Type != "" {
+		t.Errorf("IdentifyLocalServer = %+v, %v; want an error and no type", got, err)
+	}
+}
+
 func TestDiscoverSGLang_RejectsMalformedListing(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		_, _ = w.Write([]byte(`{"object":"list","data":"nope"}`))
