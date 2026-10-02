@@ -47,7 +47,7 @@ var unambiguousKeyShape = regexp.MustCompile(`\bAIza[0-9A-Za-z_-]{30,}|\bAKIA[A-
 // start (the text start, "?", "&", whitespace, a quote, ":", an opening
 // bracket, "," or ";"). Group 1 is that boundary, group 2 the raw name.
 // secretParamSpans decides which names carry a credential.
-var paramNameShape = regexp.MustCompile(`(^|[?&\s"':(\[{,;])([A-Za-z0-9%_-]+)=`)
+var paramNameShape = regexp.MustCompile(`(^|[?&\s"':(\[{,;])([\p{L}\p{N}%_-]+)=`)
 
 // queryOnlyParams are credential names too common in ordinary text to mask
 // anywhere but where a query parameter starts ("?key=", "&sig="): the gateway

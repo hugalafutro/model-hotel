@@ -402,6 +402,8 @@ func TestMaskKeyShapedTokens_ParamNameRules(t *testing.T) {
 	for _, tc := range []struct{ in, want string }{
 		{"GET /v1?api%5Fkey=S3CRETVALUE&alt=json", "GET /v1?api%5Fkey=[redacted]&alt=json"},
 		{"GET /v1?%6Bey=S3CRETVALUE", "GET /v1?%6Bey=[redacted]"},
+		// Case folding reaches non-ASCII letters, as the validator's does.
+		{"GET /v1?AP\u0130_KEY=S3CRETVALUE", "GET /v1?AP\u0130_KEY=[redacted]"},
 		{"GET /v1?api_secret=S3CRETVALUE", "GET /v1?api_secret=[redacted]"},
 		{"GET /v1?sv=1&sig=S3CRETVALUE", "GET /v1?sv=1&sig=[redacted]"},
 		{"backup verified signature=invalid key=prod", "backup verified signature=invalid key=prod"},
@@ -410,7 +412,7 @@ func TestMaskKeyShapedTokens_ParamNameRules(t *testing.T) {
 		{"max_token=5 has_secret=true prompt_token=3 token_type=bearer ?api-version=2024&alt=json&keyword=x",
 			"max_token=5 has_secret=true prompt_token=3 token_type=bearer ?api-version=2024&alt=json&keyword=x"},
 		// A name inside a value already taken is not matched again.
-		{"?token=a?b=c&alt=json", "?token=[redacted]&alt=json"},
+		{"?password=a?password=S3CRETVALUE&alt=json", "?password=[redacted]&alt=json"},
 	} {
 		if got := string(MaskKeyShapedTokens([]byte(tc.in))); got != tc.want {
 			t.Errorf("MaskKeyShapedTokens(%q) = %q, want %q", tc.in, got, tc.want)
