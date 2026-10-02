@@ -31,6 +31,10 @@ type LocalServerIdentity struct {
 // same box, so a slow answer is a wrong answer.
 const localProbeTimeout = 5 * time.Second
 
+// localProbeBodyCap bounds what getOnce reads: a fingerprint or a model card
+// (TabbyAPI's carries the whole chat template) is well under it.
+const localProbeBodyCap = 1 << 20
+
 // IdentifyLocalServer asks the server behind baseURL which family it belongs
 // to, using one identifying endpoint per family. It is used as a gate when a
 // provider is added or its URL changed, never as a way to guess a type that
@@ -68,6 +72,10 @@ func (d *DiscoveryService) IdentifyLocalServer(ctx context.Context, baseURL, api
 	for _, p := range probes {
 		body, status, err := d.probeLocal(ctx, origin+p.path, apiKey)
 		if err != nil {
+			// A status beside the error means the server answered and the
+			// body did not arrive whole: the host is alive, the route is
+			// not a match.
+			reached = reached || status != 0
 			continue
 		}
 		reached = true
@@ -186,10 +194,11 @@ func (d *DiscoveryService) probeLocal(ctx context.Context, endpoint, apiKey stri
 	return d.getOnce(ctx, endpoint, apiKey, localProbeTimeout)
 }
 
-// getOnce is one GET with no retry: the body, the status, and an error only
-// for a request that got no response. A fingerprint probe bounds it with
-// localProbeTimeout; a discovery read that must not retry (TabbyAPI's card
-// routes, whose 503 is an answer) passes 0 and keeps the client's own
+// getOnce is one GET with no retry: the body, the status, and an error for
+// a request that got no response (status 0) or whose body did not arrive
+// whole or within the size cap (status set). A fingerprint probe bounds it
+// with localProbeTimeout; a discovery read that must not retry (TabbyAPI's
+// card routes, whose 503 is an answer) passes 0 and keeps the client's own
 // deadline.
 func (d *DiscoveryService) getOnce(ctx context.Context, endpoint, apiKey string, timeout time.Duration) ([]byte, int, error) {
 	reqCtx, cancel := ctx, func() {}
@@ -217,10 +226,14 @@ func (d *DiscoveryService) getOnce(ctx context.Context, endpoint, apiKey string,
 	}
 	defer func() { _ = resp.Body.Close() }()
 
-	// Fingerprint bodies are tiny; a large one is not one of ours.
-	body, err := io.ReadAll(io.LimitReader(resp.Body, 1<<20))
+	// Fingerprints and model cards are small; a body over the cap is not
+	// one of ours, and is reported rather than cut short and misread.
+	body, err := io.ReadAll(io.LimitReader(resp.Body, localProbeBodyCap+1))
 	if err != nil {
-		return nil, 0, maskedRequestError(req, err)
+		return nil, resp.StatusCode, maskedRequestError(req, err)
+	}
+	if len(body) > localProbeBodyCap {
+		return nil, resp.StatusCode, fmt.Errorf("body over %d bytes", localProbeBodyCap)
 	}
 	return body, resp.StatusCode, nil
 }

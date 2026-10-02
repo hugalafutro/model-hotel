@@ -136,7 +136,7 @@ func (d *DiscoveryService) discoverTabbyAPI(ctx context.Context, provider *Provi
 		models = append(models, buildTabbyAPIEmbeddingModel(provider, embedding.ID))
 	}
 	debuglog.Info("discovery: tabbyapi discovered models", "models", len(models), "provider", provider.Name, "provider_id", provider.ID,
-		"loaded", loaded != nil && loaded.Parameters != nil, "embedding", embedding != nil)
+		"loaded", loaded != nil, "embedding", embedding != nil)
 	return models, nil
 }
 

@@ -240,6 +240,8 @@ func TestDiscoverTabbyAPI_CardPrecedenceAndFaults(t *testing.T) {
 		"200 with another server's body":    {http.StatusOK, `<html>proxy</html>`},
 		"200 with an id but odd parameters": {http.StatusOK, `{"id":"m","parameters":"lots"}`},
 		"200 without an id":                 {http.StatusOK, `{"models":[]}`},
+		"200 with a numeric id":             {http.StatusOK, `{"id":5,"parameters":null}`},
+		"503 with an empty detail":          {http.StatusServiceUnavailable, `{"detail":""}`},
 		"connection dropped":                {0, ""},
 	} {
 		t.Run(name+" fails the scan", func(t *testing.T) {
@@ -259,6 +261,21 @@ func TestDiscoverTabbyAPI_CardPrecedenceAndFaults(t *testing.T) {
 			t.Errorf("caps = %+v, want structured from the card alone", c)
 		}
 	})
+}
+
+// A server that answers every probe but never delivers the body whole was
+// reached: the add is refused as "no family matched", not as unreachable.
+func TestIdentifyLocalServer_BodyReadFaultCountsAsReached(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Length", "100")
+		_, _ = w.Write([]byte(`{"short":`))
+	}))
+	defer srv.Close()
+	svc := &DiscoveryService{httpClient: srv.Client()}
+	got, err := svc.IdentifyLocalServer(context.Background(), srv.URL, "", "koboldcpp")
+	if err != nil || got.Type != "" {
+		t.Errorf("IdentifyLocalServer = %+v, %v; want no type and no error", got, err)
+	}
 }
 
 // An emulator fingerprint that answers a 5xx after the expected family
