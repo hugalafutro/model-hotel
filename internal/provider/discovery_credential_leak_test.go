@@ -615,3 +615,17 @@ func TestRawURLSecrets_SemicolonSeparatedQuery(t *testing.T) {
 		t.Errorf("the ;-separated key survived: %s", got)
 	}
 }
+
+// A URL that parses but names no host is logged by its reason alone, and a
+// padded one is judged on the same trimmed text hostType parsed.
+func TestTypeFromHostname_NoHostLogsReasonNotURL(t *testing.T) {
+	for _, raw := range []string{"api.example.invalid/v1?token=" + leakedKey, "\t/v1"} {
+		logged := captureDebuglog(t)
+		if got := TypeFromHostname(raw); got != "openai" {
+			t.Errorf("TypeFromHostname(%q) = %q, want the openai fallback", raw, got)
+		}
+		if out := logged.String(); !strings.Contains(out, "no host") || strings.Contains(out, "example.invalid") || strings.Contains(out, leakedKey) {
+			t.Errorf("TypeFromHostname(%q) logged:\n%s\nwant the no-host reason and no URL text", raw, out)
+		}
+	}
+}

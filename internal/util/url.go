@@ -4,6 +4,7 @@ import (
 	"errors"
 	"net/url"
 	"regexp"
+	"strconv"
 	"strings"
 )
 
@@ -64,8 +65,9 @@ func RedactURLUserinfo(text string) string {
 // caller already knows which URL it sent. The reason itself quotes the bytes
 // it refused (`invalid port ":sk-..." after host`, `ParseAddr("sk-...")`), and
 // a credential pasted into the wrong place of a URL lands in exactly those, so
-// a quoted span is masked too unless it is too short to hold one: a single
-// character or a %XX escape is the diagnostic an operator needs.
+// a quoted span is masked too unless it holds three bytes or fewer: a single
+// character or a %XX escape is the diagnostic an operator needs, and no key
+// is that short.
 func URLParseReason(err error) error {
 	ue, ok := errors.AsType[*url.Error](err)
 	if !ok {
@@ -73,7 +75,7 @@ func URLParseReason(err error) error {
 	}
 	if reason := ue.Err.Error(); strings.Contains(reason, `"`) {
 		return errors.New(quotedSpan.ReplaceAllStringFunc(reason, func(span string) string {
-			if len(span) <= len(`"\x7f"`) {
+			if raw, err := strconv.Unquote(span); err == nil && len(raw) <= len("%zz") {
 				return span
 			}
 			return `"***"`
@@ -91,14 +93,11 @@ var quotedSpan = regexp.MustCompile(`"(?:[^"\\]|\\.)*"`)
 // reduces them to. Only these count: treating every query value as a secret
 // would redact Azure's ?api-version=... out of the one diagnostic an operator
 // needs when a version is refused. One list for both layers: the base_url
-// validator folds a name and looks it up, and the text masker
-// (secretParamShape) matches each name with any run of "-" or "_" around its
-// letters, so a raw name the validator refuses is never one the masker lets
-// through. A percent-encoded name is the exception: the validator decodes it,
-// the masker reads text as it is.
+// validator and the text masker (secretParamSpans) both decode and fold a
+// name and look it up here.
 var credentialQueryParams = map[string]bool{
 	"key": true, "apikey": true, "xapikey": true, "xgoogapikey": true,
-	"accesskey": true, "secretkey": true, "clientkey": true,
+	"accesskey": true, "secretkey": true, "clientkey": true, "apisecret": true,
 	"token": true, "apitoken": true, "accesstoken": true, "authtoken": true, "refreshtoken": true, "clienttoken": true,
 	"secret": true, "clientsecret": true, "accesssecret": true, "authsecret": true, "refreshsecret": true,
 	"password": true, "clientpassword": true, "accesspassword": true, "authpassword": true, "refreshpassword": true,

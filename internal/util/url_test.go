@@ -116,7 +116,7 @@ func TestURLParseReason(t *testing.T) {
 	}
 	// A single refused character or escape is too short to hold a key and is
 	// what the operator needs to fix the URL.
-	for raw, want := range map[string]string{"http://ho st/v1": `" "`, "http://host/%zz": `"%zz"`} {
+	for raw, want := range map[string]string{"http://ho st/v1": `" "`, "http://host/%zz": `"%zz"`, "http://host/%z\xc3": `"%z\xc3"`} {
 		_, parseErr := url.Parse(raw)
 		if got := URLParseReason(parseErr); got == nil || !strings.Contains(got.Error(), want) {
 			t.Errorf("URLParseReason(%q) = %v, want %s kept", raw, got, want)
@@ -130,7 +130,7 @@ func TestIsCredentialQueryParam(t *testing.T) {
 			t.Errorf("IsCredentialQueryParam(%q) = false, want true", name)
 		}
 	}
-	for _, name := range []string{"api-version", "alt", "keys", "client_id", "signed", "tokens", ""} {
+	for _, name := range []string{"api-version", "alt", "keys", "client_id", "api_secret_id", "signed", "tokens", ""} {
 		if IsCredentialQueryParam(name) {
 			t.Errorf("IsCredentialQueryParam(%q) = true, want false", name)
 		}

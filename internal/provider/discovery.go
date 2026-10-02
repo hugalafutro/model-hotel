@@ -353,7 +353,7 @@ func TypeFromHostname(baseURL string) string {
 		// The parse reason, not the URL: a key pasted into the port or host
 		// position sits where rawURLSecrets does not look.
 		reason := "no host"
-		if _, err := url.Parse(baseURL); err != nil {
+		if _, err := url.Parse(strings.TrimSpace(baseURL)); err != nil {
 			reason = util.URLParseReason(err).Error()
 		}
 		debuglog.Warn("discovery: failed to parse base URL", "reason", reason)
