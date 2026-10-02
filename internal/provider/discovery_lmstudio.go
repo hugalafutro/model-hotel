@@ -163,15 +163,9 @@ func buildLMStudioNativeModel(provider *Provider, m LMStudioV0Model) *model.Mode
 func (d *DiscoveryService) discoverLMStudioOpenAI(ctx context.Context, provider *Provider, apiKey string) ([]*model.Model, error) {
 	baseURL := util.SanitizeBaseURL(provider.BaseURL)
 
-	bodyBytes, err := d.fetchURL(ctx, "GET", baseURL+"/models", bearerHeader(apiKey))
+	modelsResp, err := d.fetchOpenAIListing(ctx, "lmstudio", provider, baseURL+"/models", bearerHeader(apiKey))
 	if err != nil {
-		debuglog.Error("discovery: lmstudio http request failed", "provider", provider.Name, "provider_id", provider.ID, "error", err)
-		return nil, fmt.Errorf("lmstudio: failed to fetch models for provider %s: %w", provider.Name, err)
-	}
-
-	var modelsResp OpenAIModelsResponse
-	if err := json.Unmarshal(bodyBytes, &modelsResp); err != nil {
-		return nil, fmt.Errorf("lmstudio: failed to decode response for provider %s: %s", provider.Name, jsonfault.Describe(err, len(bodyBytes)))
+		return nil, err
 	}
 
 	models := make([]*model.Model, 0, len(modelsResp.Data))

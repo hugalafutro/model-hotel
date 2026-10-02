@@ -245,9 +245,9 @@ func (d *DiscoveryService) discoverXAIMinimalModels(ctx context.Context, provide
 		return nil, fmt.Errorf("xAI: http request failed for provider %s: %w", provider.Name, err)
 	}
 
-	var openAIResp OpenAIModelsResponse
-	if err := json.Unmarshal(bodyBytes, &openAIResp); err != nil {
-		return nil, fmt.Errorf("xAI: failed to decode minimal models response for provider %s: %s", provider.Name, jsonfault.Describe(err, len(bodyBytes)))
+	openAIResp, err := decodeOpenAIListing("xAI", provider, bodyBytes)
+	if err != nil {
+		return nil, err
 	}
 
 	models := make([]*model.Model, 0, len(openAIResp.Data))

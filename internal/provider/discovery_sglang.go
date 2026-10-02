@@ -3,7 +3,6 @@ package provider
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 	"strings"
 
 	"github.com/hugalafutro/model-hotel/internal/debuglog"
@@ -31,13 +30,9 @@ type SGLangModelInfo struct {
 // front of it) keeps the listing alone, which is what custom would read.
 func (d *DiscoveryService) discoverSGLang(ctx context.Context, provider *Provider, apiKey string) ([]*model.Model, error) {
 	baseURL := util.SanitizeBaseURL(provider.BaseURL)
-	bodyBytes, err := d.fetchURL(ctx, "GET", baseURL+"/models", bearerHeader(apiKey))
+	listing, err := d.fetchOpenAIListing(ctx, "sglang", provider, baseURL+"/models", bearerHeader(apiKey))
 	if err != nil {
-		return nil, fmt.Errorf("sglang: failed to fetch models for provider %s: %w", provider.Name, err)
-	}
-	var listing OpenAIModelsResponse
-	if err := json.Unmarshal(bodyBytes, &listing); err != nil {
-		return nil, fmt.Errorf("sglang: failed to decode response for provider %s: %s", provider.Name, jsonfault.Describe(err, len(bodyBytes)))
+		return nil, err
 	}
 
 	var info *SGLangModelInfo
