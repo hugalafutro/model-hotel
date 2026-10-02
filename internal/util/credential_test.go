@@ -396,9 +396,6 @@ func TestSecretParamShapeCoversValidatorNames(t *testing.T) {
 	}
 }
 
-// The cases the shared vocabulary decides beyond plain spellings: a
-// percent-encoded name is decoded as the validator decodes it, and the names
-// common in ordinary text count only where a query parameter starts.
 // The masker reads the encoder's own output: json.Marshal escapes "&" and
 // control characters, and the masked body must still be valid JSON.
 func TestMaskKeyShapedTokens_JSONEncodedParams(t *testing.T) {
@@ -412,6 +409,9 @@ func TestMaskKeyShapedTokens_JSONEncodedParams(t *testing.T) {
 	}
 }
 
+// The cases the shared vocabulary decides beyond plain spellings: a
+// percent-encoded name is decoded as the validator decodes it, and the names
+// common in ordinary text count only where a query parameter starts.
 func TestMaskKeyShapedTokens_ParamNameRules(t *testing.T) {
 	for _, tc := range []struct{ in, want string }{
 		{"GET /v1?api%5Fkey=S3CRETVALUE&alt=json", "GET /v1?api%5Fkey=[redacted]&alt=json"},
