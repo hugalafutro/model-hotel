@@ -88,6 +88,8 @@ export const PROVIDER_PARAM_INCOMPATIBILITY: Record<
 	localai: {},
 	// SGLang honours the OpenAI chat parameters it knows and ignores the rest.
 	sglang: {},
+	// TabbyAPI takes the OpenAI chat parameters and its own sampler extras.
+	tabbyapi: {},
 	// The backend forwards reasoning_effort to a custom endpoint untouched.
 	custom: {},
 };
@@ -140,6 +142,7 @@ export function normalizeToProviderType(providerName: string): string {
 		koboldcpp: ["koboldcpp", "kobold"],
 		localai: ["localai", "local-ai"],
 		sglang: ["sglang", "sgl-project"],
+		tabbyapi: ["tabbyapi", "tabby-api", "exllama"],
 		"opencode-zen": ["opencode-zen", "opencode zen"],
 		"opencode-go": ["opencode-go", "opencode go"],
 	};

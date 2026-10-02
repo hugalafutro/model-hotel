@@ -240,7 +240,7 @@ Providers on the merge (union): **Z.AI**, **xAI**, **DeepSeek**, **OpenCode Go**
 A provider's type is chosen by the operator in the add dialog and stored on the
 row (`providers.provider_type`); nothing re-derives it from the URL afterwards.
 
-For the five self-hosted server families (Ollama, LM Studio, KoboldCPP, LocalAI, SGLang) the
+For the six self-hosted server families (Ollama, LM Studio, KoboldCPP, LocalAI, SGLang, TabbyAPI) the
 address says nothing about what is listening on it, so the choice is
 **verified** before the provider is saved: Model Hotel probes the identifying
 endpoint of the chosen family and refuses the save if another server answers,
@@ -279,7 +279,7 @@ Hostname rules (`detectByHost`, exact and suffix matching):
 | Any other host | - | `openai` (fallback) |
 
 Self-hosted servers have no entry here: `ollama`, `lmstudio`, `koboldcpp`,
-`localai` and `sglang` are chosen, not matched, and run on whatever address and port the operator gave.
+`localai`, `sglang` and `tabbyapi` are chosen, not matched, and run on whatever address and port the operator gave.
 `anthropic-messages` has none either, and for the same reason: it names a wire
 format rather than a vendor, so no host implies it. `api.anthropic.com` resolves
 to `anthropic` as it always has.
@@ -288,6 +288,7 @@ to `anthropic` as it always has.
 
 | Type | Endpoint | Match |
 |------|----------|-------|
+| `tabbyapi` | `GET {origin}/.well-known/serviceinfo` | `software.name` equals `TabbyAPI` (answers without a key and without a model loaded) |
 | `koboldcpp` | `GET {origin}/api/extra/version` | `result` equals `KoboldCpp` (the reply also carries the version and the modality flags) |
 | `lmstudio` | `GET {origin}/api/v0/models` | a `data` array with LM Studio's native model fields |
 | `localai` | `GET {origin}/v1/models/capabilities` | a `data` array whose entries carry a `capabilities` member |
@@ -301,7 +302,10 @@ sits ahead of Ollama's in the fixed order because LocalAI also answers
 `/api/tags` in Ollama's shape, and so does SGLang; when `ollama` is the chosen
 type and its fingerprint matches, both of theirs are asked as well, so a LocalAI
 or SGLang added as `ollama` is refused naming the real family rather than
-discovered as a lesser Ollama.
+discovered as a lesser Ollama. TabbyAPI's sits ahead of KoboldCPP's for the
+same reason: TabbyAPI answers `/api/extra/version` as `KoboldCpp` for Kobold
+clients, so a TabbyAPI added as `koboldcpp` gets the serviceinfo check and is
+refused naming `tabbyapi`.
 
 The chosen type's endpoint is asked first, so a server added as the type it
 really is sees only its own endpoint (LM Studio logs every route it does not
@@ -900,6 +904,33 @@ Structured output is always on for a generation model: SGLang constrains any of 
 | Pricing | None (self-hosted) |
 | Capabilities | Chat models: streaming and structured output always, the rest from the info as above. Embedding servers: none. models.dev does not enrich a self-hosted server's models |
 | Modalities | Chat models: text plus `image` and `audio` as the info reports, text out. Embedding servers: derived centrally from the class |
+
+### TabbyAPI
+
+**Source files:** `discovery_tabbyapi.go`
+
+**Method:** TabbyAPI (the ExLlamaV3 server) loads one chat model at a time and, in a second container, one embedding model. Discovery reads `GET /v1/models` for the names, with llama-server's `meta` on the loaded entry (`n_ctx`, the loaded `max_seq_len`, marked live); `GET /v1/model` for the loaded chat model's card, whose `parameters` block says what it was loaded with; and `GET /v1/model/embedding` for the embedding model's card. The chat card applies to the listed entry of its `id`. A key without admin rights lists the loaded chat model alone, so the embedding model is added from its card; an admin key lists the whole model directory, the embedding model's folder among it (filed once, as the embedding model), where every other entry is a model that is not loaded (or a configured dummy name) and is filed as a plain chat model with streaming only, as `custom` would read it, since nothing says what it can do until it is loaded. An empty container answers its card route with TabbyAPI's own 4xx, which is not a fault.
+
+| Parameter | Effect |
+|-----------|--------|
+| `use_vision` | vision, `image` among the inputs (a vision projector was loaded with the model) |
+| `prompt_template_content` renders a `tools` block | tool calling (what TabbyAPI itself reads the template for) |
+| `prompt_template_content` opens a `<think>` block | reasoning (TabbyAPI parses the block out as `reasoning_content`) |
+| `max_seq_len` | context length when the listing's `meta.n_ctx` is absent (the directory listing has none) |
+
+Structured output is on for the loaded model: TabbyAPI constrains generation to a JSON schema through its grammar filter. The embedding model is filed as `embedding`, served on `/v1/embeddings`.
+
+**Detection:** Chosen by the operator, confirmed by probing `/.well-known/serviceinfo` when the provider is added or its URL changed. TabbyAPI also impersonates KoboldCpp on `/api/extra/version`, so a TabbyAPI added as `koboldcpp` is refused naming the real family.
+
+**Hardcoded / missing:**
+
+| Field | Value |
+|-------|-------|
+| Context length | `meta.n_ctx` from the listing, else the card's `max_seq_len`; marked live |
+| Max output tokens | Not set |
+| Pricing | None (self-hosted) |
+| Capabilities | Loaded chat model: streaming and structured output always, the rest from the card as above. Unloaded entries: streaming only. Embedding model: none. models.dev does not enrich a self-hosted server's models |
+| Modalities | Chat models: text plus `image` when `use_vision`, text out. Embedding model: derived centrally from the class |
 
 ### KoboldCPP
 

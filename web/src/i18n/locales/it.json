@@ -787,6 +787,7 @@
 		"type_lmstudio": "LM Studio",
 		"type_localai": "LocalAI",
 		"type_sglang": "SGLang",
+		"type_tabbyapi": "TabbyAPI",
 		"form_modal_title": "Aggiungi Provider",
 		"form_type_label": "Tipo",
 		"form_name_label": "Nome",

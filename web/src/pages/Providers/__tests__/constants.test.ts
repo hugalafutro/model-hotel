@@ -103,7 +103,7 @@ describe("localProviderPlaceholders", () => {
 	// These are placeholders, never values: a self-hosted server's address is
 	// the operator's to supply, and a containerised Model Hotel cannot reach
 	// its own localhost.
-	it.each(["ollama", "koboldcpp", "lmstudio", "localai", "sglang"])(
+	it.each(["ollama", "koboldcpp", "lmstudio", "localai", "sglang", "tabbyapi"])(
 		"offers a routable example address for %s",
 		(type) => {
 			const example = localProviderPlaceholders[type];
@@ -155,6 +155,7 @@ describe("hasEditableBaseUrl", () => {
 		"lmstudio",
 		"localai",
 		"sglang",
+		"tabbyapi",
 	])("leaves the base URL editable for %s", (type) => {
 		expect(hasEditableBaseUrl(type)).toBe(true);
 	});
@@ -301,6 +302,12 @@ describe("providerTypeTranslationKeys", () => {
 		expect(providerTypeTranslationKeys.sglang).toBe("providers.type_sglang");
 	});
 
+	it("has translation key for tabbyapi", () => {
+		expect(providerTypeTranslationKeys.tabbyapi).toBe(
+			"providers.type_tabbyapi",
+		);
+	});
+
 	it("has translation key for nanogpt", () => {
 		expect(providerTypeTranslationKeys.nanogpt).toBe("providers.type_nanogpt");
 	});
@@ -361,6 +368,10 @@ describe("providerTypeAllowsEmptyKey", () => {
 
 	it("returns true for sglang", () => {
 		expect(providerTypeAllowsEmptyKey("sglang")).toBe(true);
+	});
+
+	it("returns true for tabbyapi", () => {
+		expect(providerTypeAllowsEmptyKey("tabbyapi")).toBe(true);
 	});
 
 	it("returns false for openai", () => {

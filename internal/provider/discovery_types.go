@@ -70,11 +70,12 @@ type NeuralWattQuotaResponse struct {
 // self-hosted servers add to the same listing. llama.cpp's llama-server (in
 // the OpenRouter shape) reports each model's input modalities under
 // architecture and, once a model is loaded, the context it runs with under
-// meta.n_ctx; vLLM reports the context it serves as max_model_len; SGLang
-// lists LoRA adapters beside the served model with parent set to it. All are
-// kept raw and read leniently (listingInputModalities, listingContext,
-// wholePositive, listingString): a server that sends one in a shape of its
-// own must not fail the decode of the whole listing.
+// meta.n_ctx (TabbyAPI sets the same field to the loaded max_seq_len); vLLM
+// reports the context it serves as max_model_len; SGLang lists LoRA adapters
+// beside the served model with parent set to it. All are kept raw and read
+// leniently (listingInputModalities, listingContext, wholePositive,
+// listingString): a server that sends one in a shape of its own must not
+// fail the decode of the whole listing.
 type OpenAIModel struct {
 	ID           string          `json:"id"`
 	Object       string          `json:"object"`

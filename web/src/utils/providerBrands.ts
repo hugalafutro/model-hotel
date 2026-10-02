@@ -19,6 +19,7 @@ export type ProviderBrand =
 	| "koboldcpp"
 	| "localai"
 	| "sglang"
+	| "tabbyapi"
 	| "opencode"
 	| "opencode-go"
 	| "neuralwatt"
@@ -53,6 +54,7 @@ export const PROVIDER_BRAND_COLORS: Record<ProviderBrand, string> = {
 	koboldcpp: "#DC2626",
 	localai: "#1D4ED8",
 	sglang: "#7C3AED",
+	tabbyapi: "#F97316",
 	opencode: "#2D2D2D",
 	"opencode-go": "#2D2D2D",
 	neuralwatt: "#ac4324",
@@ -76,6 +78,7 @@ export const PROVIDER_PREFIXES: Record<ProviderBrand, string> = {
 	koboldcpp: "KC",
 	localai: "LAI",
 	sglang: "SGL",
+	tabbyapi: "TAB",
 	opencode: "OC",
 	bedrock: "AWS",
 	azure: "AZ",

@@ -80,9 +80,10 @@ func (d *DiscoveryService) IdentifyLocalServer(ctx context.Context, baseURL, api
 		}
 		// A matched expected family that others emulate is checked against
 		// the emulators too: LocalAI and SGLang answer Ollama's /api/tags in
-		// Ollama's shape, so either added as Ollama would pass as one and
-		// lose its own discovery. The extra GETs land on a real Ollama as
-		// 404s it logs at its request level.
+		// Ollama's shape, and TabbyAPI answers KoboldCPP's /api/extra/version
+		// as KoboldCpp, so any of them added as the family it imitates would
+		// pass as one and lose its own discovery. The extra GETs land on a
+		// real Ollama or KoboldCPP as 404s they log at their request level.
 		if p.family == expected {
 			for _, q := range probes {
 				if !slices.Contains(localServerEmulators[p.family], q.family) {
@@ -114,8 +115,9 @@ func (d *DiscoveryService) IdentifyLocalServer(ctx context.Context, baseURL, api
 
 // localServerEmulators names, per family, the other families that answer its
 // fingerprint too, so a server added as the emulated family is still told
-// apart. LocalAI and SGLang both serve Ollama's tag listing in Ollama's shape.
-var localServerEmulators = map[string][]string{"ollama": {"localai", "sglang"}}
+// apart. LocalAI and SGLang both serve Ollama's tag listing in Ollama's shape;
+// TabbyAPI impersonates KoboldCPP on its version route.
+var localServerEmulators = map[string][]string{"ollama": {"localai", "sglang"}, "koboldcpp": {"tabbyapi"}}
 
 // localServerProbe is one family's fingerprint: the endpoint that identifies
 // it and the check its answer has to pass.
@@ -130,6 +132,13 @@ type localServerProbe struct {
 // reorders it.
 func localServerProbes() []localServerProbe {
 	return []localServerProbe{
+		// TabbyAPI: its service info names the software, with or without a
+		// model loaded and without a key. Asked before KoboldCPP's: TabbyAPI
+		// answers /api/extra/version as KoboldCpp for Kobold clients, so the
+		// KoboldCPP fingerprint alone would claim it.
+		{"tabbyapi", "/.well-known/serviceinfo", func(body []byte) (string, bool) {
+			return "", isTabbyAPIServiceInfo(body)
+		}},
 		// KoboldCPP: /api/extra/version reports the product name outright.
 		{"koboldcpp", "/api/extra/version", func(body []byte) (string, bool) {
 			var v KoboldCPPVersionResponse
