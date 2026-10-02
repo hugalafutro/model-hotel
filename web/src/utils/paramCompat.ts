@@ -134,9 +134,9 @@ export function normalizeToProviderType(providerName: string): string {
 		cohere: ["cohere"],
 		"zai-coding": ["z.ai", "zai", "z-ai"],
 		nanogpt: ["nanogpt", "nano-gpt"],
-		lmstudio: ["lmstudio", "lm-studio", "lm studio"],
+		lmstudio: ["lmstudio", "lm-studio"],
 		koboldcpp: ["koboldcpp", "kobold"],
-		localai: ["localai", "local-ai", "local ai"],
+		localai: ["localai", "local-ai"],
 		"opencode-zen": ["opencode-zen", "opencode zen"],
 		"opencode-go": ["opencode-go", "opencode go"],
 	};

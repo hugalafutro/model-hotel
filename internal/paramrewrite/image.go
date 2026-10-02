@@ -11,7 +11,7 @@ import (
 // RewriteImageRequest adapts an OpenAI-shaped /v1/images/generations body to
 // what a provider TYPE's image API accepts; like the other type-keyed rewrites
 // here it cannot tell a relay behind that type apart from the real endpoint.
-// Today that is xAI only: its image API has no "size" and answers 400
+// xAI: its image API has no "size" and answers 400
 // "Argument not supported: size" to any request carrying one, which the OpenAI
 // SDKs and open-webui send by default. The dimensions are kept as the
 // aspect_ratio the grok-imagine family accepts when they reduce to one of its
@@ -25,9 +25,10 @@ import (
 // LocalAI is the other case: its default response_format is "url", and the
 // URL names the LocalAI server's own /generated-images route, which answers
 // only with its API key and from its own network, so a client of this gateway
-// can never fetch it. A body that leaves response_format unset is sent as
-// b64_json; one that asks for "url" explicitly is left alone, since the caller
-// then knows where the server is.
+// can never fetch it. A body that leaves response_format unset (or null) is
+// sent as b64_json; one that asks for "url" explicitly is left alone, since
+// the caller said what it wants. That rewrite adds a member rather than
+// dropping one, so it reports nothing to log.
 func RewriteImageRequest(body []byte, providerType, modelID string) (out []byte, droppedSize, chosenRatio string) {
 	switch providerType {
 	case "xai":
@@ -36,7 +37,7 @@ func RewriteImageRequest(body []byte, providerType, modelID string) (out []byte,
 		if !ok {
 			return body, "", ""
 		}
-		if _, has := raw["response_format"]; has {
+		if v, has := raw["response_format"]; has && v != nil {
 			return body, "", ""
 		}
 		raw["response_format"] = "b64_json"

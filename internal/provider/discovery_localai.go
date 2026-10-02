@@ -90,9 +90,10 @@ func (d *DiscoveryService) discoverLocalAI(ctx context.Context, provider *Provid
 // modifiers the listing reports; structured output is always on, since LocalAI
 // constrains any llama.cpp model with a grammar built from the schema. An
 // entry with no capabilities at all is a bare model file without a config,
-// which LocalAI serves as chat with its defaults. One that names only
-// usecases Model Hotel has no endpoint for (video, vad, detection, ...) is
-// returned as nil.
+// which LocalAI serves with its chat defaults; it gets the chat capabilities
+// but no explicit class, so the central classification can still read an
+// embedding or reranker out of its name. One that names only usecases Model
+// Hotel has no endpoint for (video, vad, detection, ...) is returned as nil.
 func buildLocalAIModel(provider *Provider, m LocalAICapabilitiesModel) *model.Model {
 	base := &model.Model{
 		ID:           uuid.New(),
@@ -140,7 +141,9 @@ func buildLocalAIModel(provider *Provider, m LocalAICapabilitiesModel) *model.Mo
 		input = append(input, "image")
 	}
 	capJSON, _ := json.Marshal(caps)
-	base.Modality = "chat"
+	if len(m.Capabilities) > 0 {
+		base.Modality = "chat"
+	}
 	base.Capabilities = string(capJSON)
 	base.InputModalities = marshalModalityList(input)
 	base.OutputModalities = marshalModalityList([]string{"text"})

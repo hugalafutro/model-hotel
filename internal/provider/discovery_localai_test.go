@@ -57,7 +57,7 @@ func TestDiscoverLocalAI_ClassesCapsAndContext(t *testing.T) {
 	}
 
 	for id, want := range map[string]string{
-		"qwen3-1.7b": "chat", "gemma-3-4b-it": "chat", "loose-file.gguf": "chat",
+		"qwen3-1.7b": "chat", "gemma-3-4b-it": "chat",
 		"nomic-embed-text-v1.5": "embedding", "bge-reranker-v2-m3": "rerank",
 		"whisper-base.en": "stt", "piper-lessac": "tts", "dreamshaper-8": "image",
 	} {
@@ -84,6 +84,11 @@ func TestDiscoverLocalAI_ClassesCapsAndContext(t *testing.T) {
 	}
 	if c := caps("loose-file.gguf"); !c.Streaming || c.ToolCalling || c.Reasoning || c.Vision {
 		t.Errorf("loose file caps = %+v, want streaming only", c)
+	}
+	// A config-less file states no class: the name heuristics may still read
+	// an embedding model out of it, which an explicit chat would forbid.
+	if got := byID["loose-file.gguf"].Modality; got != "" {
+		t.Errorf("loose file modality = %q, want none", got)
 	}
 	// A side model states its class and nothing else: the arrays and chat
 	// capabilities are the classifier's to fill from the class.
@@ -156,19 +161,24 @@ func TestIdentifyLocalServer_LocalAI(t *testing.T) {
 	}
 }
 
-// LocalAI also serves Ollama's /api/tags in Ollama's shape. With no expected
-// family, its own fingerprint is asked first, so it is not filed as Ollama.
-func TestIdentifyLocalServer_LocalAINotMistakenForOllama(t *testing.T) {
+// LocalAI also serves Ollama's /api/tags in Ollama's shape. In the fixed
+// order (no expected family, or one that does not match) its own fingerprint
+// is asked before Ollama's, so it is not filed as Ollama. A LocalAI added AS
+// Ollama is accepted: the expected family is asked first and the server does
+// answer as one, which is the operator's choice to make.
+func TestIdentifyLocalServer_LocalAIAgainstOllamaFingerprint(t *testing.T) {
 	srv := localAIFingerprintServer(t)
 	defer srv.Close()
 
 	svc := &DiscoveryService{httpClient: srv.Client()}
-	got, err := svc.IdentifyLocalServer(context.Background(), srv.URL, "", "koboldcpp")
-	if err != nil {
-		t.Fatalf("IdentifyLocalServer: %v", err)
-	}
-	if got.Type != "localai" {
-		t.Errorf("type = %q, want localai ahead of the Ollama lookalike", got.Type)
+	for expected, want := range map[string]string{"": "localai", "koboldcpp": "localai", "ollama": "ollama"} {
+		got, err := svc.IdentifyLocalServer(context.Background(), srv.URL, "", expected)
+		if err != nil {
+			t.Fatalf("IdentifyLocalServer(expected %q): %v", expected, err)
+		}
+		if got.Type != want {
+			t.Errorf("IdentifyLocalServer(expected %q) = %q, want %q", expected, got.Type, want)
+		}
 	}
 }
 

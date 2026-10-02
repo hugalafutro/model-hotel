@@ -117,7 +117,7 @@ func TestRewriteImageRequest_Grok2ImageDropsBothMembers(t *testing.T) {
 // members ride through untouched.
 func TestRewriteImageRequest_LocalAIDefaultsToB64(t *testing.T) {
 	t.Parallel()
-	out, dropped, chosen := RewriteImageRequest([]byte(`{"model":"dreamshaper-8","prompt":"p","size":"256x256","n":1}`), "localai", "dreamshaper-8")
+	out, dropped, chosen := RewriteImageRequest([]byte(`{"model":"dreamshaper-8","prompt":"p","size":"256x256","n":1,"response_format":null}`), "localai", "dreamshaper-8")
 	var raw map[string]any
 	if err := json.Unmarshal(out, &raw); err != nil {
 		t.Fatalf("output is not JSON: %v: %s", err, out)
