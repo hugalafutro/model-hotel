@@ -106,20 +106,21 @@ func secretParamSpans(s string) [][2]int {
 			continue
 		}
 		start := loc[1]
-		stops := paramValueStops
+		stops, quoted := paramValueStops, false
 		if start < len(s) {
-			if q, size := jsonCharAt(s, start); q == '"' || q == '\'' {
+			q, size := jsonCharAt(s, start)
+			if q == '\'' || (q == '"' && (size > 1 || !endsJSONString(s[start+1:]))) {
 				// A quoted value (password="..."): mask what the quotes hold,
-				// spaces included. A double quote or a backslash still ends
-				// it, so an unclosed quote cannot run past a JSON string.
+				// spaces included. A raw double quote still ends it, so an
+				// unclosed quote cannot run past a JSON string.
 				start += size
-				stops = string(q) + "\"\\\r\n"
+				stops, quoted = string(q)+"\r\n", true
 			}
 		}
 		end := start
 		for end < len(s) {
 			r, size := jsonCharAt(s, end)
-			if strings.ContainsRune(stops, r) {
+			if strings.ContainsRune(stops, r) || quoted && s[end] == '"' {
 				break
 			}
 			end += size
@@ -130,6 +131,14 @@ func secretParamSpans(s string) [][2]int {
 		}
 	}
 	return spans
+}
+
+// endsJSONString reports whether rest follows the raw '"' that closes a JSON
+// string ("...api_key=","n":...), where the quote is structure, not the
+// start of a quoted value.
+func endsJSONString(rest string) bool {
+	rest = strings.TrimLeft(rest, " \t\r\n")
+	return rest == "" || strings.ContainsRune(",:}]", rune(rest[0]))
 }
 
 // jsonCharAt returns the character at s[i] and its length in s, reading a

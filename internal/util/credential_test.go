@@ -455,6 +455,11 @@ func TestMaskKeyShapedTokens_ParamNameRules(t *testing.T) {
 		{`{"m":"?api_key=\u0022S3CRETVALUE\u0022"}`, `{"m":"?api_key=\u0022[redacted]\u0022"}`},
 		{`{"m":"password='S3CRETVALUE"}`, `{"m":"password='[redacted]"}`},
 		{`api_key="" next`, `api_key="" next`},
+		// The raw quote that closes a JSON string is structure, not an opener.
+		{`{"m":"x api_key=","n":"value"}`, `{"m":"x api_key=","n":"value"}`},
+		{`{"a":"url?api_key=" , "b":1}`, `{"a":"url?api_key=" , "b":1}`},
+		// Inside quotes only the closing quote or a raw double quote ends the value.
+		{`{"m":"password='ab\"cd' x"}`, `{"m":"password='[redacted]' x"}`},
 		{`{"m":"x\"key=S3CRETVALUE"}`, `{"m":"x\"key=S3CRETVALUE"}`},
 		// Uppercase hex in an escaped boundary still marks a query position.
 		{`{"m":"x\u003FKEY=S3CRETVALUE"}`, `{"m":"x\u003FKEY=[redacted]"}`},
