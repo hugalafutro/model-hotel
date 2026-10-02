@@ -105,10 +105,19 @@ func TestURLParseReason(t *testing.T) {
 	if got := URLParseReason(other); !errors.Is(got, other) {
 		t.Errorf("URLParseReason changed a non-url error: %v", got)
 	}
+	// The reason quotes the bytes it refused, and a key pasted into the port or
+	// the host lands there.
+	for _, raw := range []string{"http://host:sk-SECRET123/v1", "http://[sk-SECRET123]/v1"} {
+		_, parseErr := url.Parse(raw)
+		got := URLParseReason(parseErr)
+		if got == nil || strings.Contains(got.Error(), "SECRET") || !strings.Contains(got.Error(), `"***"`) {
+			t.Errorf("URLParseReason(%q) = %v, want the quoted bytes masked", raw, got)
+		}
+	}
 }
 
 func TestIsCredentialQueryParam(t *testing.T) {
-	for _, name := range []string{"key", "API_KEY", "Token", "password", "client_secret", "X-Goog-Api-Key", "X-Amz-Signature", "sig", "api_token", "api-token", "apiToken", "accessToken"} {
+	for _, name := range []string{"key", "API_KEY", "Token", "password", "client_secret", "X-Goog-Api-Key", "X-Amz-Signature", "sig", "api_token", "api-token", "apiToken", "accessToken", "client_token", "auth-password"} {
 		if !IsCredentialQueryParam(name) {
 			t.Errorf("IsCredentialQueryParam(%q) = false, want true", name)
 		}

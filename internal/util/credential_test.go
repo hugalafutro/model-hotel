@@ -368,3 +368,23 @@ func TestMayHoldShape_ImpliedByEveryPattern(t *testing.T) {
 		}
 	}
 }
+
+// TestSecretParamShapeCoversValidatorNames pins the two layers to one
+// vocabulary: every name the base_url validator refuses as a credential is one
+// the text masker redacts, in each spelling the validator folds together.
+func TestSecretParamShapeCoversValidatorNames(t *testing.T) {
+	for _, words := range credentialParamWords {
+		for _, sep := range []string{"_", "-", ""} {
+			name := strings.Join(words, sep)
+			for _, spelling := range []string{name, strings.ToUpper(name)} {
+				if !IsCredentialQueryParam(spelling) {
+					t.Fatalf("IsCredentialQueryParam(%q) = false", spelling)
+				}
+				in := "GET http://gw.example/v1?" + spelling + "=S3CRETVALUE&alt=json"
+				if got := string(MaskKeyShapedTokens([]byte(in))); strings.Contains(got, "S3CRETVALUE") || !strings.Contains(got, "alt=json") {
+					t.Errorf("MaskKeyShapedTokens(%q) = %q, want the value redacted and the rest kept", in, got)
+				}
+			}
+		}
+	}
+}
