@@ -26,7 +26,7 @@ const tabbyAPIEmbeddingCardBody = `{"id":"all-MiniLM-L6-v2","object":"model","cr
 const tabbyAPIServiceInfoBody = `{"version":0.1,"software":{"name":"TabbyAPI","repository":"https://github.com/theroyallab/tabbyAPI","homepage":"https://github.com/theroyallab/tabbyAPI"},"api":{"openai":{"name":"OpenAI API","relative_url":"/v1","version":1},"koboldai":{"name":"KoboldAI API","relative_url":"/api","version":1}}}`
 
 // tabbyAPIServer answers like TabbyAPI 2026-10 with the given listing, loaded
-// chat card and embedding card; an empty card is the route's own 4xx for an
+// chat card and embedding card; an empty card is the route's own 503 for an
 // empty container.
 func tabbyAPIServer(t *testing.T, listing, card, embedding string) (*httptest.Server, *[]string) {
 	t.Helper()
@@ -35,7 +35,7 @@ func tabbyAPIServer(t *testing.T, listing, card, embedding string) (*httptest.Se
 		paths = append(paths, r.URL.Path)
 		w.Header().Set("Content-Type", "application/json")
 		empty := func(what string) {
-			w.WriteHeader(http.StatusBadRequest)
+			w.WriteHeader(http.StatusServiceUnavailable)
 			_, _ = w.Write([]byte(`{"detail":"` + what + ` model is not loaded."}`))
 		}
 		switch r.URL.Path {
@@ -164,8 +164,10 @@ func TestDiscoverTabbyAPI_ParameterVariants(t *testing.T) {
 }
 
 // The listing's meta.n_ctx wins over the card's max_seq_len, as the doc says;
-// a card answered with a body that is no model card, or not answered at all,
-// leaves the listing read as custom would, and the capability loss is logged.
+// a card answered with a body that is no model card leaves the listing read
+// as custom would (logged); a card route that faults or answers a status that
+// is neither an answer nor an empty container fails the scan, so the stored
+// capabilities stay.
 func TestDiscoverTabbyAPI_CardPrecedenceAndFaults(t *testing.T) {
 	t.Run("listing n_ctx over card max_seq_len", func(t *testing.T) {
 		card := `{"id":"Qwen3-4B-exl3-4bpw","parameters":{"max_seq_len":2048,"prompt_template_content":""}}`
@@ -195,23 +197,74 @@ func TestDiscoverTabbyAPI_CardPrecedenceAndFaults(t *testing.T) {
 			t.Errorf("caps = %+v, want streaming only without a card", c)
 		}
 	})
-	t.Run("card route drops the connection", func(t *testing.T) {
-		var srv *httptest.Server
-		srv = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			if r.URL.Path == "/v1/models" {
+	for name, cardStatus := range map[string]int{"card route answers 500": http.StatusInternalServerError, "card route answers 401": http.StatusUnauthorized, "card route drops the connection": 0} {
+		t.Run(name, func(t *testing.T) {
+			var srv *httptest.Server
+			srv = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 				w.Header().Set("Content-Type", "application/json")
+				if r.URL.Path == "/v1/models" {
+					_, _ = w.Write([]byte(tabbyAPIListingBody))
+					return
+				}
+				if cardStatus == 0 {
+					srv.CloseClientConnections()
+					return
+				}
+				w.WriteHeader(cardStatus)
+				_, _ = w.Write([]byte(`{"detail":"nope"}`))
+			}))
+			defer srv.Close()
+			svc := &DiscoveryService{httpClient: srv.Client()}
+			models, err := svc.discoverTabbyAPI(context.Background(), &Provider{ID: uuid.New(), ProviderType: "tabbyapi", BaseURL: srv.URL + "/v1"}, "")
+			if err == nil || models != nil {
+				t.Fatalf("discoverTabbyAPI = %+v, %v; want the scan to fail", models, err)
+			}
+		})
+	}
+	t.Run("card route 404 is no card", func(t *testing.T) {
+		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			w.Header().Set("Content-Type", "application/json")
+			if r.URL.Path == "/v1/models" {
 				_, _ = w.Write([]byte(tabbyAPIListingBody))
 				return
 			}
-			srv.CloseClientConnections()
+			w.WriteHeader(http.StatusNotFound)
+			_, _ = w.Write([]byte(`{"detail":"Not Found"}`))
 		}))
 		defer srv.Close()
 		svc := &DiscoveryService{httpClient: srv.Client()}
 		models, err := svc.discoverTabbyAPI(context.Background(), &Provider{ID: uuid.New(), ProviderType: "tabbyapi", BaseURL: srv.URL + "/v1"}, "")
-		if err != nil || len(models) != 1 || models[0].ModelID != "Qwen3-4B-exl3-4bpw" {
+		if err != nil || len(models) != 1 {
 			t.Fatalf("discoverTabbyAPI = %+v, %v; want the listing alone", models, err)
 		}
 	})
+}
+
+// An emulator fingerprint that answers neither 200 nor 404 after the expected
+// family matched (a 5xx, a 401 on that one route) is an unanswered question:
+// the add is refused as unconfirmed rather than saved as the family the
+// emulator imitates.
+func TestIdentifyLocalServer_EmulatorProbeIndeterminateStatusIsAnError(t *testing.T) {
+	for _, status := range []int{http.StatusInternalServerError, http.StatusUnauthorized} {
+		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			w.Header().Set("Content-Type", "application/json")
+			switch r.URL.Path {
+			case "/api/extra/version":
+				_, _ = w.Write([]byte(`{"result":"KoboldCpp","version":"1.74"}`))
+			case "/.well-known/serviceinfo":
+				w.WriteHeader(status)
+				_, _ = w.Write([]byte(`{"detail":"later"}`))
+			default:
+				w.WriteHeader(http.StatusNotFound)
+			}
+		}))
+		svc := &DiscoveryService{httpClient: srv.Client()}
+		got, err := svc.IdentifyLocalServer(context.Background(), srv.URL, "", "koboldcpp")
+		srv.Close()
+		if err == nil || got.Type != "" {
+			t.Errorf("status %d: IdentifyLocalServer = %+v, %v; want an error and no type", status, got, err)
+		}
+	}
 }
 
 // A listing that does not name the loaded model (dummy names only) still

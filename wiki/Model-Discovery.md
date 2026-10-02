@@ -312,7 +312,10 @@ The chosen type's endpoint is asked first, so a server added as the type it
 really is sees only its own endpoint (LM Studio logs every route it does not
 serve as an `ERROR`). The other endpoints follow, in the table's order, only
 when that one does not match (apart from the emulator checks above), which is
-how a mismatch names the family that did answer.
+how a mismatch names the family that did answer. An emulator check that gets
+neither a 200 nor a 404 (a 5xx, a transport fault) refuses the add as
+unconfirmed, to be retried, rather than saving the emulator under the family
+it imitates.
 
 Each probe is bounded at 5 seconds. The operator is waiting on the add dialog
 and the server is on the LAN or the same box, so a slow answer is a wrong
@@ -910,7 +913,7 @@ Structured output is always on for a generation model: SGLang constrains any of 
 
 **Source files:** `discovery_tabbyapi.go`
 
-**Method:** TabbyAPI (the ExLlamaV3 server) loads one chat model at a time and, in a second container, one embedding model. Discovery reads `GET /v1/models` for the names, with llama-server's `meta` on the loaded entry (`n_ctx`, the loaded `max_seq_len`, marked live); `GET /v1/model` for the loaded chat model's card, whose `parameters` block says what it was loaded with; and `GET /v1/model/embedding` for the embedding model's card. The chat card applies to the listed entry of its `id`. A key without admin rights lists the loaded chat model alone, so the embedding model is added from its card; an admin key lists the whole model directory, the embedding model's folder among it (filed once, as the embedding model, while that container holds it; as an unloaded chat entry otherwise), where every other entry is a model that is not loaded (or a configured dummy name) and is filed as a plain chat model with streaming only, as `custom` would read it, since nothing says what it can do until it is loaded. An empty container answers its card route with TabbyAPI's own 4xx, which is not a fault.
+**Method:** TabbyAPI (the ExLlamaV3 server) loads one chat model at a time and, in a second container, one embedding model. Discovery reads `GET /v1/models` for the names, with llama-server's `meta` on the loaded entry (`n_ctx`, the loaded `max_seq_len`, marked live); `GET /v1/model` for the loaded chat model's card, whose `parameters` block says what it was loaded with; and `GET /v1/model/embedding` for the embedding model's card. The chat card applies to the listed entry of its `id`. A key without admin rights lists the loaded chat model alone, so the embedding model is added from its card; an admin key lists the whole model directory, the embedding model's folder among it (filed once, as the embedding model, while that container holds it; as an unloaded chat entry otherwise), where every other entry is a model that is not loaded (or a configured dummy name) and is filed as a plain chat model with streaming only, as `custom` would read it, since nothing says what it can do until it is loaded. An empty container answers its card route with TabbyAPI's own 503 (an older TabbyAPI without the route, 404), which is no card and not a fault; any other status or a transport fault fails the scan, so the capabilities the last good scan stored are kept rather than overwritten with streaming only.
 
 | Parameter | Effect |
 |-----------|--------|

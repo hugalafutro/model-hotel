@@ -3,8 +3,8 @@ package provider
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
+	"net/http"
 	"regexp"
 
 	"github.com/hugalafutro/model-hotel/internal/debuglog"
@@ -48,7 +48,7 @@ var (
 // embedding model the second container holds. A key without admin rights
 // lists the loaded chat model alone; an admin key lists the whole model
 // directory, the embedding model's folder among it, where nothing says what
-// an unloaded entry can do. Either card route answers TabbyAPI's own 4xx
+// an unloaded entry can do. Either card route answers TabbyAPI's own 503
 // while its container is empty, which is not a fault.
 func (d *DiscoveryService) discoverTabbyAPI(ctx context.Context, provider *Provider, apiKey string) ([]*model.Model, error) {
 	baseURL := util.SanitizeBaseURL(provider.BaseURL)
@@ -61,8 +61,14 @@ func (d *DiscoveryService) discoverTabbyAPI(ctx context.Context, provider *Provi
 		return nil, fmt.Errorf("tabbyapi: failed to decode response for provider %s: %s", provider.Name, jsonfault.Describe(err, len(bodyBytes)))
 	}
 
-	loaded := d.fetchTabbyAPICard(ctx, provider, baseURL+"/model", apiKey, "chat")
-	embedding := d.fetchTabbyAPICard(ctx, provider, baseURL+"/model/embedding", apiKey, "embedding")
+	loaded, err := d.fetchTabbyAPICard(ctx, provider, baseURL+"/model", apiKey, "chat")
+	if err != nil {
+		return nil, err
+	}
+	embedding, err := d.fetchTabbyAPICard(ctx, provider, baseURL+"/model/embedding", apiKey, "embedding")
+	if err != nil {
+		return nil, err
+	}
 
 	// Each card applies to the listed entry of its id. A listing that names
 	// neither (a dummy-names listing, or a key that lists another directory)
@@ -94,35 +100,37 @@ func (d *DiscoveryService) discoverTabbyAPI(ctx context.Context, provider *Provi
 	return models, nil
 }
 
-// fetchTabbyAPICard reads one of TabbyAPI's loaded-model routes. A status
-// other than 200 leaves nil: an empty container is the route's own 4xx, and
-// fetchURL has logged the status either way. A transport fault is warned
-// about, since it costs the scan every capability it would have read; so is
-// a body that is not a model card.
-func (d *DiscoveryService) fetchTabbyAPICard(ctx context.Context, provider *Provider, url, apiKey, which string) *TabbyAPIModelCard {
-	bodyBytes, err := d.fetchURL(ctx, "GET", url, bearerHeader(apiKey))
-	if err != nil {
-		var status *httpError
-		if !errors.As(err, &status) {
-			debuglog.Warn("discovery: tabbyapi "+which+" model card unavailable, listing taken as is",
-				"provider", provider.Name, "provider_id", provider.ID, "error", err)
-		}
-		return nil
+// fetchTabbyAPICard reads one of TabbyAPI's loaded-model routes with a
+// single GET (probeLocal, not the retrying fetchURL: the route's 503 for an
+// empty container is its normal answer, not a transient to retry). That 503,
+// and an older TabbyAPI's 404 for a route it lacks, are no card, not a fault.
+// Any other status or a transport fault fails the scan: a scan that went on
+// would file the loaded model as streaming only and overwrite the
+// capabilities the last good scan stored. A 200 whose body is not a model
+// card (a proxy or another server answering with its own) is logged and
+// counts as no card.
+func (d *DiscoveryService) fetchTabbyAPICard(ctx context.Context, provider *Provider, url, apiKey, which string) (*TabbyAPIModelCard, error) {
+	bodyBytes, status, err := d.probeLocal(ctx, url, apiKey)
+	switch {
+	case err != nil:
+		return nil, fmt.Errorf("tabbyapi: failed to fetch the %s model card for provider %s: %w", which, provider.Name, err)
+	case status == http.StatusServiceUnavailable || status == http.StatusNotFound:
+		return nil, nil
+	case status != http.StatusOK:
+		return nil, fmt.Errorf("tabbyapi: failed to fetch the %s model card for provider %s: HTTP %d", which, provider.Name, status)
 	}
 	var card TabbyAPIModelCard
 	if err := json.Unmarshal(bodyBytes, &card); err != nil {
 		debuglog.Warn("discovery: tabbyapi "+which+" model card unreadable, skipped",
 			"provider", provider.Name, "provider_id", provider.ID, "error", jsonfault.Describe(err, len(bodyBytes)))
-		return nil
+		return nil, nil
 	}
 	if card.ID == "" {
-		// Decodable but not the route's shape: a proxy or another server
-		// answering 200 with its own body.
 		debuglog.Warn("discovery: tabbyapi "+which+" model card is not TabbyAPI's, skipped",
 			"provider", provider.Name, "provider_id", provider.ID, "bytes", len(bodyBytes))
-		return nil
+		return nil, nil
 	}
-	return &card
+	return &card, nil
 }
 
 // buildTabbyAPIModel files one listed chat model. The loaded model's card

@@ -66,12 +66,12 @@ func (d *DiscoveryService) IdentifyLocalServer(ctx context.Context, baseURL, api
 		}
 	}
 	for _, p := range probes {
-		body, ok, err := d.probeLocal(ctx, origin+p.path, apiKey)
+		body, status, err := d.probeLocal(ctx, origin+p.path, apiKey)
 		if err != nil {
 			continue
 		}
 		reached = true
-		if !ok {
+		if status != http.StatusOK {
 			continue
 		}
 		version, matched := p.match(body)
@@ -91,14 +91,19 @@ func (d *DiscoveryService) IdentifyLocalServer(ctx context.Context, baseURL, api
 				if !slices.Contains(localServerEmulators[p.family], q.family) {
 					continue
 				}
-				body, ok, err := d.probeLocal(ctx, origin+q.path, apiKey)
+				body, status, err := d.probeLocal(ctx, origin+q.path, apiKey)
+				// The server answered a moment ago, so a transport fault or
+				// a status that is neither an answer nor a "no such route"
+				// (a 5xx, a 401 on the one route) is a transient fault;
+				// saving it as the expected family on an unanswered question
+				// could file an emulator under the wrong type.
+				if err == nil && status != http.StatusOK && status != http.StatusNotFound {
+					err = fmt.Errorf("HTTP %d", status)
+				}
 				if err != nil {
-					// The server answered a moment ago, so this is a transient
-					// fault; saving it as the expected family on an unanswered
-					// question could file an emulator under the wrong type.
 					return LocalServerIdentity{}, fmt.Errorf("%s fingerprint could not be checked: %w", q.family, err)
 				}
-				if !ok {
+				if status != http.StatusOK {
 					continue
 				}
 				if v, matched := q.match(body); matched {
@@ -170,21 +175,21 @@ func localServerProbes() []localServerProbe {
 	}
 }
 
-// probeLocal performs one fingerprint GET. It reports the body, whether the
-// response was a 200 worth inspecting, and an error only when the server could
+// probeLocal performs one fingerprint GET. It reports the body, the status
+// (only a 200 is worth inspecting), and an error only when the server could
 // not be reached at all (so a 404 still counts as "the host is alive").
 //
 // The key is sent for the same reason discovery sends it: a self-hosted server
 // can sit behind a password or an authenticating proxy, and an unauthenticated
 // probe would see a 401 and conclude the server is not what it says it is.
-func (d *DiscoveryService) probeLocal(ctx context.Context, endpoint, apiKey string) ([]byte, bool, error) {
+func (d *DiscoveryService) probeLocal(ctx context.Context, endpoint, apiKey string) ([]byte, int, error) {
 	reqCtx, cancel := context.WithTimeout(ctx, localProbeTimeout)
 	defer cancel()
 
 	req, err := http.NewRequestWithContext(reqCtx, http.MethodGet, endpoint, http.NoBody)
 	if err != nil {
 		// A parse error quotes the raw endpoint, userinfo included.
-		return nil, false, &maskedError{text: maskRawURLText(rawURLSecrets(endpoint), err.Error()), cause: err}
+		return nil, 0, &maskedError{text: maskRawURLText(rawURLSecrets(endpoint), err.Error()), cause: err}
 	}
 	if apiKey != "" {
 		req.Header.Set("Authorization", "Bearer "+apiKey)
@@ -196,16 +201,16 @@ func (d *DiscoveryService) probeLocal(ctx context.Context, endpoint, apiKey stri
 		// off the request for an upstream or proxy that quotes the key back.
 		err = maskedRequestError(req, err)
 		debuglog.Debug("provider: local server probe failed", "host", req.URL.Host, "error", err.Error())
-		return nil, false, err
+		return nil, 0, err
 	}
 	defer func() { _ = resp.Body.Close() }()
 
 	// Fingerprint bodies are tiny; a large one is not one of ours.
 	body, err := io.ReadAll(io.LimitReader(resp.Body, 1<<20))
 	if err != nil {
-		return nil, false, nil
+		return nil, 0, nil
 	}
-	return body, resp.StatusCode == http.StatusOK, nil
+	return body, resp.StatusCode, nil
 }
 
 // isLMStudioModelListing reports whether body is LM Studio's /api/v0/models
