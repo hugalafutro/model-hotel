@@ -163,15 +163,15 @@ func TestIdentifyLocalServer_LocalAI(t *testing.T) {
 
 // LocalAI also serves Ollama's /api/tags in Ollama's shape. In the fixed
 // order (no expected family, or one that does not match) its own fingerprint
-// is asked before Ollama's, so it is not filed as Ollama. A LocalAI added AS
-// Ollama is accepted: the expected family is asked first and the server does
-// answer as one, which is the operator's choice to make.
+// is asked before Ollama's, so it is not filed as Ollama; and a LocalAI added
+// AS Ollama is told apart by asking its own fingerprint after Ollama's
+// matched, so the add is refused naming localai.
 func TestIdentifyLocalServer_LocalAIAgainstOllamaFingerprint(t *testing.T) {
 	srv := localAIFingerprintServer(t)
 	defer srv.Close()
 
 	svc := &DiscoveryService{httpClient: srv.Client()}
-	for expected, want := range map[string]string{"": "localai", "koboldcpp": "localai", "ollama": "ollama"} {
+	for expected, want := range map[string]string{"": "localai", "koboldcpp": "localai", "ollama": "localai"} {
 		got, err := svc.IdentifyLocalServer(context.Background(), srv.URL, "", expected)
 		if err != nil {
 			t.Fatalf("IdentifyLocalServer(expected %q): %v", expected, err)
@@ -206,6 +206,8 @@ func TestLocalAIFingerprintFailsClosed(t *testing.T) {
 		`{"object":"list","data":[{"id":"m","capabilities":["chat"]}]}`:        true,
 		`{"object":"list","data":[{"id":"m","capabilities":null}]}`:            true,
 		`{"object":"list","data":[{"id":"m","object":"model"}]}`:               false,
+		`{"object":"list","data":[{"id":"m","capabilities":"chat"}]}`:          false,
+		`{"object":"list","data":[{"id":"m","capabilities":{"a":1}}]}`:         false,
 		`{"error":{"code":401,"message":"An authentication key is required"}}`: false,
 		`{"object":"list"}`: false,
 		`not json`:          false,

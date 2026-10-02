@@ -87,8 +87,11 @@ func (d *DiscoveryService) discoverLocalAI(ctx context.Context, provider *Provid
 // buildLocalAIModel files one listing entry. A model whose usecases name an
 // endpoint class gets that class, stated explicitly so no name heuristic can
 // move it. A chat or completion model is filed as chat with the modalities and
-// modifiers the listing reports; structured output is always on, since LocalAI
-// constrains any llama.cpp model with a grammar built from the schema. An
+// modifiers the listing reports; structured output is always on: the listing
+// does not name the backend, llama.cpp is the one that serves the GGUF files
+// LocalAI is mostly run with and LocalAI constrains it with a grammar built
+// from the schema, and the operator can unpin it for a backend that does
+// not honour response_format. An
 // entry with no capabilities at all is a bare model file without a config,
 // which LocalAI serves with its chat defaults; it gets the chat capabilities
 // but no explicit class, so the central classification can still read an
@@ -151,10 +154,11 @@ func buildLocalAIModel(provider *Provider, m LocalAICapabilitiesModel) *model.Mo
 }
 
 // isLocalAICapabilitiesListing reports whether body is LocalAI's
-// /v1/models/capabilities response: a data array whose entries carry a
-// capabilities array. Nothing else serves that route, so an empty data array
-// (a LocalAI with no models configured) counts too, as long as the body is
-// not an error envelope.
+// /v1/models/capabilities response: a data array whose every entry carries a
+// capabilities member that is a string array or null (LocalAI writes null for
+// a model file without a config). Nothing else serves that route, so an
+// empty data array (a LocalAI with no models configured) counts too, as long
+// as the body is not an error envelope.
 func isLocalAICapabilitiesListing(body []byte) bool {
 	var listing struct {
 		Error json.RawMessage `json:"error"`
@@ -166,7 +170,8 @@ func isLocalAICapabilitiesListing(body []byte) bool {
 		return false
 	}
 	for _, d := range listing.Data {
-		if len(d.Capabilities) == 0 {
+		var caps []string
+		if len(d.Capabilities) == 0 || json.Unmarshal(d.Capabilities, &caps) != nil {
 			return false
 		}
 	}

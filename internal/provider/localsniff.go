@@ -61,6 +61,11 @@ func (d *DiscoveryService) IdentifyLocalServer(ctx context.Context, baseURL, api
 			break
 		}
 	}
+	// A family another one emulates is asked after the emulator when the
+	// emulated family is the expected one and matched: LocalAI answers
+	// Ollama's /api/tags in Ollama's shape, so a LocalAI added as Ollama would
+	// pass as one and lose its own discovery. The one extra GET lands on a
+	// real Ollama as a 404 it logs at its request level.
 	for _, p := range probes {
 		body, ok, err := d.probeLocal(ctx, origin+p.path, apiKey)
 		if err != nil {
@@ -70,9 +75,23 @@ func (d *DiscoveryService) IdentifyLocalServer(ctx context.Context, baseURL, api
 		if !ok {
 			continue
 		}
-		if version, matched := p.match(body); matched {
-			return LocalServerIdentity{Type: p.family, Version: version}, nil
+		version, matched := p.match(body)
+		if !matched {
+			continue
 		}
+		if emulator, ok := localServerEmulators[p.family]; ok && p.family == expected {
+			for _, q := range probes {
+				if q.family != emulator {
+					continue
+				}
+				if body, ok, err := d.probeLocal(ctx, origin+q.path, apiKey); err == nil && ok {
+					if v, matched := q.match(body); matched {
+						return LocalServerIdentity{Type: q.family, Version: v}, nil
+					}
+				}
+			}
+		}
+		return LocalServerIdentity{Type: p.family, Version: version}, nil
 	}
 
 	if !reached {
@@ -80,6 +99,11 @@ func (d *DiscoveryService) IdentifyLocalServer(ctx context.Context, baseURL, api
 	}
 	return LocalServerIdentity{}, nil
 }
+
+// localServerEmulators names, per family, the other family that answers its
+// fingerprint too, so a server added as the emulated family is still told
+// apart. Only LocalAI emulates another family's native listing today.
+var localServerEmulators = map[string]string{"ollama": "localai"}
 
 // localServerProbe is one family's fingerprint: the endpoint that identifies
 // it and the check its answer has to pass.
