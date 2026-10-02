@@ -407,6 +407,7 @@ func TestMaskKeyShapedTokens_ParamNameRules(t *testing.T) {
 		{"GET /v1?api_secret=S3CRETVALUE", "GET /v1?api_secret=[redacted]"},
 		{"GET /v1?sv=1&sig=S3CRETVALUE", "GET /v1?sv=1&sig=[redacted]"},
 		{"backup verified signature=invalid key=prod", "backup verified signature=invalid key=prod"},
+		{"signature=invalid", "signature=invalid"},
 		{"x-amz-signature=S3CRETVALUE", "x-amz-signature=[redacted]"},
 		// Names that only contain a credential word are not credentials.
 		{"max_token=5 has_secret=true prompt_token=3 token_type=bearer ?api-version=2024&alt=json&keyword=x",
