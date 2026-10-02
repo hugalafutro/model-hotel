@@ -410,7 +410,7 @@ func TestMaskKeyShapedTokens_JSONEncodedParams(t *testing.T) {
 }
 
 // Masking never breaks a JSON body, whatever follows a credential name inside
-// the encoded string.
+// an encoded string or whatever text follows the body.
 func TestMaskKeyShapedTokens_KeepsJSONValid(t *testing.T) {
 	parts := []string{"", `"`, "'", `\`, `"S3 CRET"`, ",", ":", "}", "]", "\v", " ", "\u2028", "&x=1", `"x" y=`, "true"}
 	for _, prefix := range []string{"api_key=", "x api_key=", "?api_key="} {
@@ -420,8 +420,12 @@ func TestMaskKeyShapedTokens_KeepsJSONValid(t *testing.T) {
 				if err != nil {
 					t.Fatal(err)
 				}
-				if got := MaskKeyShapedTokens(body); !json.Valid(got) {
-					t.Errorf("MaskKeyShapedTokens(%s) = %s, not valid JSON", body, got)
+				for _, tail := range []string{"", "\n{}", "{}", " status=400", "."} {
+					in := []byte(string(body) + tail)
+					var v any
+					if got := MaskKeyShapedTokens(in); json.NewDecoder(strings.NewReader(string(got))).Decode(&v) != nil {
+						t.Errorf("MaskKeyShapedTokens(%s) = %s, its JSON is no longer valid", in, got)
+					}
 				}
 			}
 		}
@@ -484,6 +488,7 @@ func TestMaskKeyShapedTokens_ParamNameRules(t *testing.T) {
 		{`password="x=y" next`, `password="[redacted]" next`},
 		{`{"m":"api_key=\",x\""}`, `{"m":"api_key=\"[redacted]\""}`},
 		{`msg="call api_key=" err="boom"`, `msg="call api_key=" err="boom"`},
+		{`upstream error: {"error":"bad api_key="} status=400`, `upstream error: {"error":"bad api_key="} status=400`},
 		// A lone backslash ends an unclosed quote; a raw double quote inside
 		// single quotes ends the value too, leaving what follows it.
 		{`password='S3CRET\ diagnostic`, `password='[redacted]\ diagnostic`},

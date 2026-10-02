@@ -111,9 +111,9 @@ func secretParamSpans(s string) [][2]int {
 			q, size := jsonCharAt(s, start)
 			if q == '\'' || (q == '"' && (size > 1 || !endsJSONString(s[start+1:]))) {
 				// A quoted value (password="..."): mask what the quotes hold,
-				// spaces included. A raw double quote, a lone backslash or a
-				// line break still ends it, so an unclosed quote cannot run
-				// past a JSON string or the line.
+				// spaces included. A raw double quote, a backslash (raw or
+				// escaped) or a line break still ends it, so an unclosed quote
+				// cannot run past a JSON string or the line.
 				start += size
 				stops, quoted = string(q)+"\\\r\n", true
 			}
@@ -136,14 +136,16 @@ func secretParamSpans(s string) [][2]int {
 
 // endsJSONString reports whether rest follows a raw '"' that closes a string
 // rather than opening a quoted value: the end of the text, or what a JSON
-// document or a logfmt line puts after a closed string ("...api_key=","n":1
-// or msg="... api_key=" err=...). It runs on any text, so it asks for the
-// next token, not just a separator: password=",hunter2" is a quoted value.
+// document or a logfmt line puts after a closed string ("...api_key=","n":1,
+// "...api_key="} or msg="... api_key=" err=...). It runs on any text, so after
+// "," or ":" it asks for the next JSON token: password=",hunter2" is a quoted
+// value. The cost is a plain-text quoted secret that itself starts like one of
+// those (password="}x", password=" a=b"), which stays unmasked.
 func endsJSONString(rest string) bool {
 	return afterClosedString.MatchString(rest)
 }
 
-var afterClosedString = regexp.MustCompile(`^(?:\s*$|\s*[,:]\s*(?:["{\[0-9-]|true\b|false\b|null\b)|\s*[}\]]\s*(?:$|[,}\]])|\s+[\p{L}\p{N}_.-]+=)`)
+var afterClosedString = regexp.MustCompile(`^(?:\s*$|\s*[,:]\s*(?:["{\[0-9-]|true\b|false\b|null\b)|\s*[}\]]|\s+[\p{L}\p{N}_.-]+=)`)
 
 // jsonCharAt returns the character at s[i] and its length in s, reading a
 // JSON escape (\uXXXX, \n, \/, ...) as the character it encodes. Any other
