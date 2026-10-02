@@ -46,9 +46,14 @@ var unambiguousKeyShape = regexp.MustCompile(`\bAIza[0-9A-Za-z_-]{30,}|\bAKIA[A-
 
 // paramNameShape finds a parameter name and its "=" where a parameter can
 // start (the text start, "?", "&", whitespace, a quote, ":", an opening
-// bracket, "," or ";"). Group 1 is that boundary, group 2 the raw name.
+// bracket, "," or ";", or a JSON escape: an encoder writes "&" as \u0026 and
+// a line break as \n). Group 1 is that boundary, group 2 the raw name.
 // secretParamSpans decides which names carry a credential.
-var paramNameShape = regexp.MustCompile(`(^|[?&\s"':(\[{,;])([\p{L}\p{N}%_-]+)=`)
+var paramNameShape = regexp.MustCompile(`(^|[?&\s"':(\[{,;]|\\u[0-9a-fA-F]{4}|\\[bfnrt"/])([\p{L}\p{N}%_-]+)=`)
+
+// queryParamStart are the paramNameShape boundaries where a query parameter
+// starts, raw or JSON-escaped (lower-cased).
+var queryParamStart = map[string]bool{"?": true, "&": true, `\u003f`: true, `\u0026`: true}
 
 // queryOnlyParams are credential names too common in ordinary text to mask
 // anywhere but where a query parameter starts ("?key=", "&sig="): the gateway
@@ -69,10 +74,10 @@ const paramValueStops = "&,;)]} \t\r\n\f\"'\\<>"
 // does, after percent-decoding, the one vocabulary the base_url validator
 // refuses with, so "max_token=5", "has_secret=true" and "prompt_token=3" are
 // left alone. The value stops at a paramValueStops character, so the rest of
-// the line survives and a JSON body stays valid. A JSON \uXXXX escape counts
-// as the character it encodes: an upstream error arrives JSON-encoded, and an
-// encoder writes a control character as \u000b, so stopping at its backslash
-// would leave the value unmasked.
+// the line survives and a JSON body stays valid. A JSON escape counts as the
+// character it encodes: an upstream error arrives JSON-encoded, and an
+// encoder writes a vertical tab as \u000b and "/" as \/, so stopping at the
+// backslash would leave the value, or its tail, unmasked.
 func secretParamSpans(s string) [][2]int {
 	var spans [][2]int
 	last := 0
@@ -88,18 +93,13 @@ func secretParamSpans(s string) [][2]int {
 		if !credentialQueryParams[folded] {
 			continue
 		}
-		if queryOnlyParams[folded] && (loc[2] == loc[3] || (s[loc[2]] != '?' && s[loc[2]] != '&')) {
+		if queryOnlyParams[folded] && !queryParamStart[strings.ToLower(s[loc[2]:loc[3]])] {
 			continue
 		}
 		start := loc[1]
 		end := start
 		for end < len(s) {
-			r, size := rune(s[end]), 1
-			if s[end] == '\\' && len(s) >= end+6 && s[end+1] == 'u' {
-				if code, err := strconv.ParseUint(s[end+2:end+6], 16, 16); err == nil {
-					r, size = rune(code), 6
-				}
-			}
+			r, size := jsonCharAt(s, end)
 			if strings.ContainsRune(paramValueStops, r) {
 				break
 			}
@@ -111,6 +111,24 @@ func secretParamSpans(s string) [][2]int {
 		}
 	}
 	return spans
+}
+
+// jsonCharAt returns the character at s[i] and its length in s, reading a
+// JSON escape (\uXXXX, \n, \/, ...) as the character it encodes. Any other
+// byte, a lone backslash included, stands for itself.
+func jsonCharAt(s string, i int) (rune, int) {
+	if s[i] != '\\' || i+1 >= len(s) {
+		return rune(s[i]), 1
+	}
+	if s[i+1] == 'u' && len(s) >= i+6 {
+		if code, err := strconv.ParseUint(s[i+2:i+6], 16, 16); err == nil {
+			return rune(code), 6
+		}
+	}
+	if j := strings.IndexByte(`bfnrt"/\`, s[i+1]); j >= 0 {
+		return rune("\b\f\n\r\t\"/\\"[j]), 2
+	}
+	return '\\', 1
 }
 
 // CredentialMinLen is the shortest provider key the exact-value mask will

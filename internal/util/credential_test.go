@@ -423,6 +423,17 @@ func TestMaskKeyShapedTokens_ParamNameRules(t *testing.T) {
 		{`{"message":"?api_key=S3CRET\u000BVALUE\u0026alt=json"}`, `{"message":"?api_key=[redacted]\u0026alt=json"}`},
 		{`{"message":"?api_key=S3CRETVALUE\u0022 x"}`, `{"message":"?api_key=[redacted]\u0022 x"}`},
 		{`{"message":"?api_key=S3CRETVALUE\u00"}`, `{"message":"?api_key=[redacted]\u00"}`},
+		{`{"m":"https://x/?alt=json\u0026api_key=S3CRETVALUE"}`, `{"m":"https://x/?alt=json\u0026api_key=[redacted]"}`},
+		{`{"m":"x\u0026key=S3CRETVALUE line one\napi_key=S3CRETVALUE"}`, `{"m":"x\u0026key=[redacted] line one\napi_key=[redacted]"}`},
+		{`?api_key=FIRST\u0026api_key=SECOND`, `?api_key=[redacted]\u0026api_key=[redacted]`},
+		{`{"m":"?api_key=abc\/def+ghi"}`, `{"m":"?api_key=[redacted]"}`},
+		{`{"m":"?api_key=S3CRET\ud83d\ude00VALUE"}`, `{"m":"?api_key=[redacted]"}`},
+		// A malformed or double escape is a plain backslash, which ends the value.
+		{`{"m":"?api_key=S3CRET\u00zzVALUE"}`, `{"m":"?api_key=[redacted]\u00zzVALUE"}`},
+		{`{"m":"?api_key=S3CRET\\u0026VALUE"}`, `{"m":"?api_key=[redacted]\\u0026VALUE"}`},
+		{`?api_key=S3CRETVALUE\u000`, `?api_key=[redacted]\u000`},
+		// An escaped line break is no query position for a query-only name.
+		{`{"m":"x\nsignature=invalid"}`, `{"m":"x\nsignature=invalid"}`},
 	} {
 		if got := string(MaskKeyShapedTokens([]byte(tc.in))); got != tc.want {
 			t.Errorf("MaskKeyShapedTokens(%q) = %q, want %q", tc.in, got, tc.want)
