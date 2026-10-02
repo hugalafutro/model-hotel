@@ -106,10 +106,20 @@ func secretParamSpans(s string) [][2]int {
 			continue
 		}
 		start := loc[1]
+		stops := paramValueStops
+		if start < len(s) {
+			if q, size := jsonCharAt(s, start); q == '"' || q == '\'' {
+				// A quoted value (password="..."): mask what the quotes hold,
+				// spaces included. A double quote or a backslash still ends
+				// it, so an unclosed quote cannot run past a JSON string.
+				start += size
+				stops = string(q) + "\"\\\r\n"
+			}
+		}
 		end := start
 		for end < len(s) {
 			r, size := jsonCharAt(s, end)
-			if strings.ContainsRune(paramValueStops, r) {
+			if strings.ContainsRune(stops, r) {
 				break
 			}
 			end += size

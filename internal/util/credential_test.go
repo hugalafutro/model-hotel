@@ -399,7 +399,7 @@ func TestSecretParamShapeCoversValidatorNames(t *testing.T) {
 // The masker reads the encoder's own output: json.Marshal escapes "&" and
 // control characters, and the masked body must still be valid JSON.
 func TestMaskKeyShapedTokens_JSONEncodedParams(t *testing.T) {
-	body, err := json.Marshal(map[string]string{"message": "auth failed for https://up.example/v1?alt=json&key=S3CRETONE&api_key=\vS3CRETTWO&sig=S3CRET/THREE"})
+	body, err := json.Marshal(map[string]string{"message": "auth failed for https://up.example/v1?alt=json&key=S3CRETONE&api_key=\vS3CRETTWO&sig=S3CRET/THREE password=\"S3CRET FOUR\""})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -448,6 +448,13 @@ func TestMaskKeyShapedTokens_ParamNameRules(t *testing.T) {
 		{`?api_key=S3CRETVALUE\u000`, `?api_key=[redacted]\u000`},
 		// An escaped line break is no query position for a query-only name.
 		{`{"m":"x\nsignature=invalid"}`, `{"m":"x\nsignature=invalid"}`},
+		// A quoted value is masked up to its closing quote, raw or escaped; an
+		// unclosed one stops at a double quote, so the JSON string survives.
+		{`password="hunter2 pass" next`, `password="[redacted]" next`},
+		{`{"m":"api_key=\"S3CRET VALUE\" x"}`, `{"m":"api_key=\"[redacted]\" x"}`},
+		{`{"m":"?api_key=\u0022S3CRETVALUE\u0022"}`, `{"m":"?api_key=\u0022[redacted]\u0022"}`},
+		{`{"m":"password='S3CRETVALUE"}`, `{"m":"password='[redacted]"}`},
+		{`api_key="" next`, `api_key="" next`},
 		{`{"m":"x\"key=S3CRETVALUE"}`, `{"m":"x\"key=S3CRETVALUE"}`},
 		// Uppercase hex in an escaped boundary still marks a query position.
 		{`{"m":"x\u003FKEY=S3CRETVALUE"}`, `{"m":"x\u003FKEY=[redacted]"}`},
