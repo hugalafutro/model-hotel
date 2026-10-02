@@ -17,6 +17,7 @@ export type ProviderBrand =
 	| "nanogpt"
 	| "lmstudio"
 	| "koboldcpp"
+	| "localai"
 	| "opencode"
 	| "opencode-go"
 	| "neuralwatt"
@@ -49,6 +50,7 @@ export const PROVIDER_BRAND_COLORS: Record<ProviderBrand, string> = {
 	nanogpt: "#0EA5B0",
 	lmstudio: "#E879F9",
 	koboldcpp: "#DC2626",
+	localai: "#1D4ED8",
 	opencode: "#2D2D2D",
 	"opencode-go": "#2D2D2D",
 	neuralwatt: "#ac4324",
@@ -70,6 +72,7 @@ export const PROVIDER_PREFIXES: Record<ProviderBrand, string> = {
 	cohere: "COH",
 	lmstudio: "LM",
 	koboldcpp: "KC",
+	localai: "LAI",
 	opencode: "OC",
 	bedrock: "AWS",
 	azure: "AZ",

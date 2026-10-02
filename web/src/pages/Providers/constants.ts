@@ -45,6 +45,7 @@ export const providerHomepages: Record<string, string> = {
 	neuralwatt: "https://neuralwatt.com",
 	koboldcpp: "https://github.com/LostRuins/koboldcpp",
 	lmstudio: "https://lmstudio.ai",
+	localai: "https://localai.io",
 	bedrock: "https://aws.amazon.com/bedrock",
 	azure: "https://ai.azure.com",
 	"vertex-express": "https://cloud.google.com/vertex-ai",
@@ -58,10 +59,16 @@ export const localProviderPlaceholders: Record<string, string> = {
 	ollama: "http://192.168.1.50:11434",
 	koboldcpp: "http://192.168.1.50:5001",
 	lmstudio: "http://192.168.1.50:1234",
+	localai: "http://192.168.1.50:8080",
 };
 
 /** Self-hosted provider types whose base URL is editable (not locked). */
-export const localProviderTypes = new Set(["ollama", "koboldcpp", "lmstudio"]);
+export const localProviderTypes = new Set([
+	"ollama",
+	"koboldcpp",
+	"lmstudio",
+	"localai",
+]);
 
 /** Returns true for provider types whose base URL defaults to localhost but may run elsewhere. */
 export function isLocalProviderType(type: string): boolean {
@@ -109,6 +116,7 @@ export const providerTypeTranslationKeys: Record<string, string> = {
 	neuralwatt: "providers.type_neuralwatt",
 	koboldcpp: "providers.type_koboldcpp",
 	lmstudio: "providers.type_lmstudio",
+	localai: "providers.type_localai",
 	bedrock: "providers.type_bedrock",
 	azure: "providers.type_azure",
 	"vertex-express": "providers.type_vertex_express",
@@ -120,7 +128,8 @@ export function providerTypeAllowsEmptyKey(type: string): boolean {
 		type === "ollama" ||
 		type === "custom" ||
 		type === "koboldcpp" ||
-		type === "lmstudio"
+		type === "lmstudio" ||
+		type === "localai"
 	);
 }
 

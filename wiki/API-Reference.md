@@ -369,7 +369,7 @@ The plaintext API key is never returned; `masked_key` is a display-only preview.
 | `name` | string | Yes | 1-100 characters, unique in the routing form (see below), no `/`, and not `hotel` |
 | `base_url` | string | Yes | 1-500 characters, must use HTTPS unless `ALLOW_HTTP_PROVIDERS=true` |
 | `provider_type` | string | No | One of the known types (see [Model Discovery](Model-Discovery#provider-type)). Omitted, it is derived from the vendor hostname |
-| `api_key` | string | No | 1-500 characters (required for most providers, optional for Ollama, KoboldCPP, LMStudio, OpenCode Zen, custom) |
+| `api_key` | string | No | 1-500 characters (required for most providers, optional for Ollama, KoboldCPP, LMStudio, LocalAI, OpenCode Zen, custom) |
 
 **Names must be routable.** A request names a model as `<provider>/<model>` and
 the proxy splits it at the first `/`, so a name containing `/` could never be
@@ -396,7 +396,7 @@ again. Restoring a backup taken before the rule is the usual way to reach this.
 from the hostname only, so `http://box:11434` becomes a generic OpenAI-compatible
 provider rather than an Ollama one: no native discovery, no keyless waiver.
 Scripts that used to rely on the old port detection (11434 / 5001 / 1234) need
-`"provider_type": "ollama" | "koboldcpp" | "lmstudio"` added. When a self-hosted
+`"provider_type": "ollama" | "koboldcpp" | "lmstudio" | "localai"` added. When a self-hosted
 type is named, the address is probed before the provider is saved and the
 request fails with `provider_type_mismatch`, `provider_type_unconfirmed` or
 `provider_unreachable` if the server does not answer as that type, so the server

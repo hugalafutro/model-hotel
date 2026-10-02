@@ -83,6 +83,9 @@ export const PROVIDER_PARAM_INCOMPATIBILITY: Record<
 	lmstudio: {
 		reasoning_effort: "paramCompat.lmstudio.reasoningEffort",
 	},
+	// LocalAI maps reasoning_effort onto its own reasoning switch, so nothing
+	// is dropped for it.
+	localai: {},
 	// The backend forwards reasoning_effort to a custom endpoint untouched.
 	custom: {},
 };
@@ -131,8 +134,9 @@ export function normalizeToProviderType(providerName: string): string {
 		cohere: ["cohere"],
 		"zai-coding": ["z.ai", "zai", "z-ai"],
 		nanogpt: ["nanogpt", "nano-gpt"],
-		lmstudio: ["lmstudio", "lm-studio", "lm studio"],
+		lmstudio: ["lmstudio", "lm-studio"],
 		koboldcpp: ["koboldcpp", "kobold"],
+		localai: ["localai", "local-ai"],
 		"opencode-zen": ["opencode-zen", "opencode zen"],
 		"opencode-go": ["opencode-go", "opencode go"],
 	};
