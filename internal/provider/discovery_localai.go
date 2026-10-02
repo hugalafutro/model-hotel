@@ -6,8 +6,6 @@ import (
 	"fmt"
 	"slices"
 
-	"github.com/google/uuid"
-
 	"github.com/hugalafutro/model-hotel/internal/debuglog"
 	"github.com/hugalafutro/model-hotel/internal/jsonfault"
 	"github.com/hugalafutro/model-hotel/internal/model"
@@ -98,18 +96,7 @@ func (d *DiscoveryService) discoverLocalAI(ctx context.Context, provider *Provid
 // embedding or reranker out of its name. One that names only usecases Model
 // Hotel has no endpoint for (video, vad, detection, ...) is returned as nil.
 func buildLocalAIModel(provider *Provider, m LocalAICapabilitiesModel) *model.Model {
-	base := &model.Model{
-		ID:           uuid.New(),
-		ProviderID:   provider.ID,
-		ModelID:      m.ID,
-		Name:         m.ID,
-		DisplayName:  m.ID,
-		Description:  "LocalAI model",
-		Capabilities: "{}",
-		Params:       "{}",
-		OwnedBy:      "localai",
-		Enabled:      true,
-	}
+	base := newServedModel(provider, m.ID, "localai", "LocalAI model")
 	if m.ContextSize > 0 {
 		cl := m.ContextSize
 		base.ContextLength = &cl

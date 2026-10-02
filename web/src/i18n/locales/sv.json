@@ -767,6 +767,7 @@
 		"type_lmstudio": "LM Studio",
 		"type_localai": "LocalAI",
 		"type_sglang": "SGLang",
+		"type_tabbyapi": "TabbyAPI",
 		"form_modal_title": "Lägg till leverantör",
 		"form_type_label": "Typ",
 		"form_name_label": "Namn",

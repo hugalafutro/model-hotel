@@ -46,7 +46,8 @@ func sglangServer(t *testing.T, info string) (*httptest.Server, *[]string) {
 	return srv, &paths
 }
 
-func sglangCaps(t *testing.T, m *model.Model) model.Capability {
+// decodeCaps reads a discovered model's capabilities JSON.
+func decodeCaps(t *testing.T, m *model.Model) model.Capability {
 	t.Helper()
 	var c model.Capability
 	if err := json.Unmarshal([]byte(m.Capabilities), &c); err != nil {
@@ -72,7 +73,7 @@ func TestDiscoverSGLang_ClassCapsAndContext(t *testing.T) {
 	if m.Modality != "chat" {
 		t.Errorf("modality = %q, want chat", m.Modality)
 	}
-	if c := sglangCaps(t, m); !c.Streaming || !c.StructuredOutput || !c.Reasoning || !c.ToolCalling || c.Vision || c.AudioInput {
+	if c := decodeCaps(t, m); !c.Streaming || !c.StructuredOutput || !c.Reasoning || !c.ToolCalling || c.Vision || c.AudioInput {
 		t.Errorf("caps = %+v, want streaming, structured, reasoning and tools from the parsers, no vision or audio", c)
 	}
 	if m.InputModalities != `["text"]` || m.OutputModalities != `["text"]` {
@@ -130,7 +131,7 @@ func TestDiscoverSGLang_InfoVariants(t *testing.T) {
 				}
 				return
 			}
-			c := sglangCaps(t, m)
+			c := decodeCaps(t, m)
 			if c.Vision != tc.wantVision || c.AudioInput != tc.wantAudio || c.ToolCalling != tc.wantTools || c.Reasoning {
 				t.Errorf("caps = %+v", c)
 			}
@@ -157,7 +158,7 @@ func TestDiscoverSGLang_WithoutModelInfo(t *testing.T) {
 	if m.Modality != "" {
 		t.Errorf("modality = %q, want none stated", m.Modality)
 	}
-	if c := sglangCaps(t, m); !c.Streaming || c.ToolCalling || c.Reasoning || c.StructuredOutput {
+	if c := decodeCaps(t, m); !c.Streaming || c.ToolCalling || c.Reasoning || c.StructuredOutput {
 		t.Errorf("caps = %+v, want streaming only", c)
 	}
 	if m.ContextLength == nil || *m.ContextLength != 8192 {
@@ -200,11 +201,11 @@ func TestDiscoverSGLang_InfoAppliesToItsOwnModelOnly(t *testing.T) {
 		byID[m.ModelID] = m
 	}
 	for _, id := range []string{"qwen3-0.6b", "qwen3-0.6b-lora-sql"} {
-		if byID[id].Modality != "chat" || !sglangCaps(t, byID[id]).ToolCalling {
+		if byID[id].Modality != "chat" || !decodeCaps(t, byID[id]).ToolCalling {
 			t.Errorf("%s = %q with caps %s, want chat with the worker's capabilities", id, byID[id].Modality, byID[id].Capabilities)
 		}
 	}
-	if m := byID["bge-m3"]; m.Modality != "" || sglangCaps(t, m).ToolCalling {
+	if m := byID["bge-m3"]; m.Modality != "" || decodeCaps(t, m).ToolCalling {
 		t.Errorf("foreign model = %q with caps %s, want the listing alone", m.Modality, m.Capabilities)
 	}
 }
@@ -237,7 +238,7 @@ func TestDiscoverSGLang_UnnamedInfoNeedsASingleEntry(t *testing.T) {
 		if err != nil || len(models) == 0 {
 			t.Fatalf("discoverSGLang: %v, %d models", err, len(models))
 		}
-		if got := sglangCaps(t, models[0]).ToolCalling; got != tc.wantTools {
+		if got := decodeCaps(t, models[0]).ToolCalling; got != tc.wantTools {
 			t.Errorf("listing of %d with unnamed info: tools = %v, want %v", len(models), got, tc.wantTools)
 		}
 	}

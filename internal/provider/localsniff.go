@@ -31,14 +31,18 @@ type LocalServerIdentity struct {
 // same box, so a slow answer is a wrong answer.
 const localProbeTimeout = 5 * time.Second
 
+// localProbeBodyCap bounds what getOnce reads: a fingerprint or a model card
+// (TabbyAPI's carries the whole chat template) is well under it.
+const localProbeBodyCap = 1 << 20
+
 // IdentifyLocalServer asks the server behind baseURL which family it belongs
 // to, using one identifying endpoint per family. It is used as a gate when a
 // provider is added or its URL changed, never as a way to guess a type that
 // was not chosen.
 //
 // The expected family's fingerprint is asked first, so adding a server as the
-// type it really is touches only that product's own endpoint (Ollama also
-// gets its emulators' probes, see localServerEmulators). Asking another
+// type it really is touches only that product's own endpoint (Ollama and
+// KoboldCPP also get their emulators' probes, see localServerEmulators). Asking another
 // family's route first is not harmless: LM Studio logs every unknown route as
 // an ERROR, so each LM Studio add left a KoboldCPP probe in its log. The other
 // fingerprints still follow, in a fixed order, when the expected one does not
@@ -66,12 +70,16 @@ func (d *DiscoveryService) IdentifyLocalServer(ctx context.Context, baseURL, api
 		}
 	}
 	for _, p := range probes {
-		body, ok, err := d.probeLocal(ctx, origin+p.path, apiKey)
+		body, status, err := d.probeLocal(ctx, origin+p.path, apiKey)
 		if err != nil {
+			// A status beside the error means the server answered and the
+			// body did not arrive whole: the host is alive, the route is
+			// not a match.
+			reached = reached || status != 0
 			continue
 		}
 		reached = true
-		if !ok {
+		if status != http.StatusOK {
 			continue
 		}
 		version, matched := p.match(body)
@@ -80,22 +88,30 @@ func (d *DiscoveryService) IdentifyLocalServer(ctx context.Context, baseURL, api
 		}
 		// A matched expected family that others emulate is checked against
 		// the emulators too: LocalAI and SGLang answer Ollama's /api/tags in
-		// Ollama's shape, so either added as Ollama would pass as one and
-		// lose its own discovery. The extra GETs land on a real Ollama as
-		// 404s it logs at its request level.
+		// Ollama's shape, and TabbyAPI answers KoboldCPP's /api/extra/version
+		// as KoboldCpp, so any of them added as the family it imitates would
+		// pass as one and lose its own discovery. The extra GETs land on a
+		// real Ollama as 404s it logs at its request level, and on a real
+		// KoboldCPP's own serviceinfo, which names KoboldCpp and so fails the
+		// TabbyAPI check.
 		if p.family == expected {
 			for _, q := range probes {
 				if !slices.Contains(localServerEmulators[p.family], q.family) {
 					continue
 				}
-				body, ok, err := d.probeLocal(ctx, origin+q.path, apiKey)
+				body, status, err := d.probeLocal(ctx, origin+q.path, apiKey)
+				// The server answered a moment ago, so a transport fault or
+				// a 5xx is a transient fault; saving it as the expected
+				// family on an unanswered question could file an emulator
+				// under the wrong type. A 4xx is the route not being there
+				// (or a proxy refusing an unknown one), which is an answer.
+				if err == nil && status >= http.StatusInternalServerError {
+					err = fmt.Errorf("HTTP %d", status)
+				}
 				if err != nil {
-					// The server answered a moment ago, so this is a transient
-					// fault; saving it as the expected family on an unanswered
-					// question could file an emulator under the wrong type.
 					return LocalServerIdentity{}, fmt.Errorf("%s fingerprint could not be checked: %w", q.family, err)
 				}
-				if !ok {
+				if status != http.StatusOK {
 					continue
 				}
 				if v, matched := q.match(body); matched {
@@ -114,8 +130,9 @@ func (d *DiscoveryService) IdentifyLocalServer(ctx context.Context, baseURL, api
 
 // localServerEmulators names, per family, the other families that answer its
 // fingerprint too, so a server added as the emulated family is still told
-// apart. LocalAI and SGLang both serve Ollama's tag listing in Ollama's shape.
-var localServerEmulators = map[string][]string{"ollama": {"localai", "sglang"}}
+// apart. LocalAI and SGLang both serve Ollama's tag listing in Ollama's shape;
+// TabbyAPI impersonates KoboldCPP on its version route.
+var localServerEmulators = map[string][]string{"ollama": {"localai", "sglang"}, "koboldcpp": {"tabbyapi"}}
 
 // localServerProbe is one family's fingerprint: the endpoint that identifies
 // it and the check its answer has to pass.
@@ -130,6 +147,13 @@ type localServerProbe struct {
 // reorders it.
 func localServerProbes() []localServerProbe {
 	return []localServerProbe{
+		// TabbyAPI: its service info names the software, with or without a
+		// model loaded and without a key. Asked before KoboldCPP's: TabbyAPI
+		// answers /api/extra/version as KoboldCpp for Kobold clients, so the
+		// KoboldCPP fingerprint alone would claim it.
+		{"tabbyapi", "/.well-known/serviceinfo", func(body []byte) (string, bool) {
+			return "", isTabbyAPIServiceInfo(body)
+		}},
 		// KoboldCPP: /api/extra/version reports the product name outright.
 		{"koboldcpp", "/api/extra/version", func(body []byte) (string, bool) {
 			var v KoboldCPPVersionResponse
@@ -159,21 +183,34 @@ func localServerProbes() []localServerProbe {
 	}
 }
 
-// probeLocal performs one fingerprint GET. It reports the body, whether the
-// response was a 200 worth inspecting, and an error only when the server could
+// probeLocal performs one fingerprint GET. It reports the body, the status
+// (only a 200 is worth inspecting), and an error only when the server could
 // not be reached at all (so a 404 still counts as "the host is alive").
 //
 // The key is sent for the same reason discovery sends it: a self-hosted server
 // can sit behind a password or an authenticating proxy, and an unauthenticated
 // probe would see a 401 and conclude the server is not what it says it is.
-func (d *DiscoveryService) probeLocal(ctx context.Context, endpoint, apiKey string) ([]byte, bool, error) {
-	reqCtx, cancel := context.WithTimeout(ctx, localProbeTimeout)
+func (d *DiscoveryService) probeLocal(ctx context.Context, endpoint, apiKey string) ([]byte, int, error) {
+	return d.getOnce(ctx, endpoint, apiKey, localProbeTimeout)
+}
+
+// getOnce is one GET with no retry: the body, the status, and an error for
+// a request that got no response (status 0) or whose body did not arrive
+// whole or within the size cap (status set). A fingerprint probe bounds it
+// with localProbeTimeout; a discovery read that must not retry (TabbyAPI's
+// card routes, whose 503 is an answer) passes 0 and keeps the client's own
+// deadline.
+func (d *DiscoveryService) getOnce(ctx context.Context, endpoint, apiKey string, timeout time.Duration) ([]byte, int, error) {
+	reqCtx, cancel := ctx, func() {}
+	if timeout > 0 {
+		reqCtx, cancel = context.WithTimeout(ctx, timeout)
+	}
 	defer cancel()
 
 	req, err := http.NewRequestWithContext(reqCtx, http.MethodGet, endpoint, http.NoBody)
 	if err != nil {
 		// A parse error quotes the raw endpoint, userinfo included.
-		return nil, false, &maskedError{text: maskRawURLText(rawURLSecrets(endpoint), err.Error()), cause: err}
+		return nil, 0, &maskedError{text: maskRawURLText(rawURLSecrets(endpoint), err.Error()), cause: err}
 	}
 	if apiKey != "" {
 		req.Header.Set("Authorization", "Bearer "+apiKey)
@@ -185,16 +222,20 @@ func (d *DiscoveryService) probeLocal(ctx context.Context, endpoint, apiKey stri
 		// off the request for an upstream or proxy that quotes the key back.
 		err = maskedRequestError(req, err)
 		debuglog.Debug("provider: local server probe failed", "host", req.URL.Host, "error", err.Error())
-		return nil, false, err
+		return nil, 0, err
 	}
 	defer func() { _ = resp.Body.Close() }()
 
-	// Fingerprint bodies are tiny; a large one is not one of ours.
-	body, err := io.ReadAll(io.LimitReader(resp.Body, 1<<20))
+	// Fingerprints and model cards are small; a body over the cap is not
+	// one of ours, and is reported rather than cut short and misread.
+	body, err := io.ReadAll(io.LimitReader(resp.Body, localProbeBodyCap+1))
 	if err != nil {
-		return nil, false, nil
+		return nil, resp.StatusCode, maskedRequestError(req, err)
 	}
-	return body, resp.StatusCode == http.StatusOK, nil
+	if len(body) > localProbeBodyCap {
+		return nil, resp.StatusCode, fmt.Errorf("body over %d bytes", localProbeBodyCap)
+	}
+	return body, resp.StatusCode, nil
 }
 
 // isLMStudioModelListing reports whether body is LM Studio's /api/v0/models

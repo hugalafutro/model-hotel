@@ -230,13 +230,13 @@ func BuildProviderTargetURL(baseURL, providerType, endpoint string) string {
 			return u.Scheme + "://" + u.Host + "/openai/v1" + endpoint
 		}
 		return sanitized + endpoint
-	case "vertex-express", "anthropic", "anthropic-messages", "ollama", "lmstudio", "koboldcpp", "localai", "sglang":
+	case "vertex-express", "anthropic", "anthropic-messages", "ollama", "lmstudio", "koboldcpp", "localai", "sglang", "tabbyapi":
 		// Vertex AI express keys work only on the native publisher routes under
 		// {host}/v1 (the egress adapter builds the
 		// /publishers/google/models/{m}:generateContent endpoint).
 		//
 		// The rest expose their API under /v1 too: Ollama, LM Studio, KoboldCPP,
-		// LocalAI and SGLang all serve /v1/chat/completions, and both Anthropic types serve
+		// LocalAI, SGLang and TabbyAPI all serve /v1/chat/completions, and both Anthropic types serve
 		// /v1/messages (Anthropic's compatibility layer lives under /v1 too).
 		// Auto-add the prefix when the configured base URL omits it (e.g. a bare
 		// http://host:11434, which discovery accepts but proxying would otherwise

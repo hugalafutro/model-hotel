@@ -399,6 +399,51 @@ func TestBuildUpstreamBody_StripsEmptyToolCalls(t *testing.T) {
 	}
 }
 
+// TabbyAPI renders its chat template from messages dumped without their null
+// members, so an assistant turn's null or missing content has to travel as ""
+// there and only there.
+func TestBuildUpstreamBody_FillsNullAssistantContentForTabbyAPI(t *testing.T) {
+	t.Parallel()
+
+	inputBody := `{"model":"m","messages":[` +
+		`{"role":"user","content":null},` +
+		`{"role":"assistant","content":null,"tool_calls":[{"id":"c1","type":"function","function":{"name":"f","arguments":"{}"}}]},` +
+		`{"role":"tool","tool_call_id":"c1","content":"ok"},` +
+		`{"role":"assistant","content":"kept"},` +
+		`{"role":"assistant","tool_calls":[{"id":"c2","type":"function","function":{"name":"f","arguments":"{}"}}]},` +
+		`{"role":"tool","tool_call_id":"c2","content":"ok"},` +
+		`"not a message"]}`
+
+	for providerType, fills := range map[string]bool{"tabbyapi": true, "openai": false, "sglang": false} {
+		result := BuildUpstreamBody([]byte(inputBody), providerType, "m", "m", false, &sync.Map{}, &sync.Map{}, nil, providerType)
+		var raw map[string]any
+		if err := json.Unmarshal(result, &raw); err != nil {
+			t.Fatalf("%s: result is not valid JSON: %v", providerType, err)
+		}
+		msgs := raw["messages"].([]any)
+		var wantNull any
+		if fills {
+			wantNull = ""
+		}
+		if got := msgs[1].(map[string]any)["content"]; got != wantNull {
+			t.Errorf("%s: null assistant content = %#v, want %#v", providerType, got, wantNull)
+		}
+		got, present := msgs[4].(map[string]any)["content"]
+		if present != fills || (fills && got != "") {
+			t.Errorf("%s: missing assistant content = %#v (present %v), want filled=%v", providerType, got, present, fills)
+		}
+		if got := msgs[0].(map[string]any)["content"]; got != nil {
+			t.Errorf("%s: user content = %#v, want null left alone", providerType, got)
+		}
+		if got := msgs[3].(map[string]any)["content"]; got != "kept" {
+			t.Errorf("%s: text assistant content = %#v, want unchanged", providerType, got)
+		}
+		if len(msgs) != 7 {
+			t.Errorf("%s: %d messages, want 7 (the non-object entry kept)", providerType, len(msgs))
+		}
+	}
+}
+
 func TestBuildUpstreamBody_StripEmptyToolCallsTolerantOfShapes(t *testing.T) {
 	t.Parallel()
 
@@ -443,6 +488,7 @@ func TestNeedsRewrite(t *testing.T) {
 		{name: "provider that wants injection", providerType: "opencode-go", modelID: "glm-4.6", want: true},
 		{name: "model family that ignores json_schema", providerType: "bedrock", modelID: "glm-5.3", want: true},
 		{name: "nothing to do", providerType: "bedrock", modelID: "claude-4", want: false},
+		{name: "tabbyapi always rebuilds for its null-content fill", providerType: "tabbyapi", modelID: "m", want: true},
 		{name: "unknown provider type", providerType: "made-up", modelID: "m", want: false},
 	}
 	for _, tc := range cases {

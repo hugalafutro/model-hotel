@@ -437,17 +437,17 @@ func TestIdentifyLocalServer_AsksExpectedFamilyFirst(t *testing.T) {
 		t.Fatalf("mismatch: IdentifyLocalServer = %+v, %v; want lmstudio detected", got, err)
 	}
 	// The expected one moves to the front and the rest keep the table order.
-	if want := []string{"/api/tags", "/api/extra/version", "/api/v0/models"}; !slices.Equal(paths, want) {
+	if want := []string{"/api/tags", "/.well-known/serviceinfo", "/api/extra/version", "/api/v0/models"}; !slices.Equal(paths, want) {
 		t.Errorf("probed %v, want %v", paths, want)
 	}
 
 	// Already first, or no family at all: the table order stands.
-	for _, expected := range []string{"koboldcpp", "jan"} {
+	for _, expected := range []string{"tabbyapi", "jan"} {
 		paths = nil
 		if _, err := svc.IdentifyLocalServer(context.Background(), lmStudio.URL+"/v1", "", expected); err != nil {
 			t.Fatalf("expected %q: %v", expected, err)
 		}
-		if want := []string{"/api/extra/version", "/api/v0/models"}; !slices.Equal(paths, want) {
+		if want := []string{"/.well-known/serviceinfo", "/api/extra/version", "/api/v0/models"}; !slices.Equal(paths, want) {
 			t.Errorf("expected %q: probed %v, want %v", expected, paths, want)
 		}
 	}

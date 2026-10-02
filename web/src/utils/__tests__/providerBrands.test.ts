@@ -58,6 +58,7 @@ describe("PROVIDER_PREFIXES", () => {
 			"koboldcpp",
 			"localai",
 			"sglang",
+			"tabbyapi",
 			"opencode",
 		];
 
@@ -83,6 +84,7 @@ describe("PROVIDER_PREFIXES", () => {
 			"koboldcpp",
 			"localai",
 			"sglang",
+			"tabbyapi",
 			"opencode",
 		];
 

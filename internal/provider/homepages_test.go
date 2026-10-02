@@ -33,6 +33,7 @@ var officialHomepages = map[string]string{
 	"lmstudio":           "https://lmstudio.ai",
 	"localai":            "https://localai.io",
 	"sglang":             "https://sgl-project.github.io",
+	"tabbyapi":           "https://github.com/theroyallab/tabbyAPI",
 	"bedrock":            "https://aws.amazon.com/bedrock",
 	"azure":              "https://ai.azure.com",
 	"vertex-express":     "https://cloud.google.com/vertex-ai",

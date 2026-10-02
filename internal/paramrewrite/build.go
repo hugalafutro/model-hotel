@@ -21,7 +21,7 @@ func ProviderSupportsStreamOptions(providerType string) bool {
 		return false
 	default:
 		// All OpenAI-compatible providers (openai, deepseek, xai, openrouter,
-		// ollama, ollama-cloud, nanogpt, zai-coding, lmstudio, koboldcpp, localai, sglang,
+		// ollama, ollama-cloud, nanogpt, zai-coding, lmstudio, koboldcpp, localai, sglang, tabbyapi,
 		// neuralwatt, bedrock, etc.) accept or silently ignore stream_options.
 		return true
 	}
@@ -37,12 +37,15 @@ func ProviderSupportsStreamOptions(providerType string) bool {
 // requested model and whether the request streams; HasLearnedRewrites answers
 // for what a 400 has taught. The empty-tool_calls sanitization depends on the
 // body alone, so a caller that skips the rebuild on a false here still
-// forwards an empty tool_calls array to a provider that rejects it.
+// forwards an empty tool_calls array to a provider that rejects it. TabbyAPI
+// always rebuilds: its null-content fill is a message rewrite the body alone
+// does not announce.
 func NeedsRewrite(providerType, modelID string) bool {
 	return len(ProviderUnsupportedParams[providerType]) > 0 ||
 		NeedsProviderInjection(providerType) ||
 		jsonModeOnlyProviders[providerType] ||
-		schemaIgnoredByModel(modelID)
+		schemaIgnoredByModel(modelID) ||
+		providerType == "tabbyapi"
 }
 
 // BuildUpstreamBody rewrites the client request body for a specific provider
@@ -60,7 +63,8 @@ func NeedsRewrite(providerType, modelID string) bool {
 //  7. Extra param stripping (additional rejected params, e.g. from 400 auto-retry)
 //     and, for the chat-completions builder only, the json_schema fallback for
 //     a provider that only serves JSON mode
-//  8. Message sanitization (drop empty tool_calls arrays)
+//  8. Message sanitization (drop empty tool_calls arrays; for TabbyAPI, an
+//     assistant turn's null or missing content becomes "")
 //
 // Injection (step 3) runs before all stripping (steps 5-7) so that a param a
 // provider injects but the upstream then rejects (learned into the deprecation
@@ -198,6 +202,9 @@ func buildUpstreamBody(
 
 	// 8. Message sanitization
 	stripEmptyToolCalls(raw)
+	if providerType == "tabbyapi" {
+		fillNullAssistantContent(raw)
+	}
 
 	if b, err := json.Marshal(raw); err == nil {
 		return b
@@ -248,6 +255,31 @@ func stripEmptyToolCalls(raw map[string]any) {
 		}
 		if tc, ok := msg["tool_calls"].([]any); ok && len(tc) == 0 {
 			delete(msg, "tool_calls")
+		}
+	}
+}
+
+// fillNullAssistantContent gives an assistant turn without text an empty
+// string for content. A tool-calling turn carries null content in the OpenAI
+// shape, or none at all (the SDKs send null, the gateway's own /v1/messages
+// ingress omits the key), but TabbyAPI dumps each message with exclude_none
+// before rendering its chat template, so either way the key is gone and a
+// template that reads message.content (Qwen3's does) fails the request with
+// a 400 TemplateError; the empty string renders as the no-text turn it is.
+// Only TabbyAPI gets this: the other providers take null and absence as the
+// spec says.
+func fillNullAssistantContent(raw map[string]any) {
+	msgs, ok := raw["messages"].([]any)
+	if !ok {
+		return
+	}
+	for _, m := range msgs {
+		msg, ok := m.(map[string]any)
+		if !ok || msg["role"] != "assistant" {
+			continue
+		}
+		if c, present := msg["content"]; !present || c == nil {
+			msg["content"] = ""
 		}
 	}
 }

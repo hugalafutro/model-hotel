@@ -47,6 +47,7 @@ export const providerHomepages: Record<string, string> = {
 	lmstudio: "https://lmstudio.ai",
 	localai: "https://localai.io",
 	sglang: "https://sgl-project.github.io",
+	tabbyapi: "https://github.com/theroyallab/tabbyAPI",
 	bedrock: "https://aws.amazon.com/bedrock",
 	azure: "https://ai.azure.com",
 	"vertex-express": "https://cloud.google.com/vertex-ai",
@@ -62,6 +63,7 @@ export const localProviderPlaceholders: Record<string, string> = {
 	lmstudio: "http://192.168.1.50:1234",
 	localai: "http://192.168.1.50:8080",
 	sglang: "http://192.168.1.50:30000",
+	tabbyapi: "http://192.168.1.50:5000",
 };
 
 /** Self-hosted provider types whose base URL is editable (not locked). */
@@ -71,6 +73,7 @@ export const localProviderTypes = new Set([
 	"lmstudio",
 	"localai",
 	"sglang",
+	"tabbyapi",
 ]);
 
 /** Returns true for provider types whose base URL defaults to localhost but may run elsewhere. */
@@ -121,6 +124,7 @@ export const providerTypeTranslationKeys: Record<string, string> = {
 	lmstudio: "providers.type_lmstudio",
 	localai: "providers.type_localai",
 	sglang: "providers.type_sglang",
+	tabbyapi: "providers.type_tabbyapi",
 	bedrock: "providers.type_bedrock",
 	azure: "providers.type_azure",
 	"vertex-express": "providers.type_vertex_express",
@@ -134,7 +138,8 @@ export function providerTypeAllowsEmptyKey(type: string): boolean {
 		type === "koboldcpp" ||
 		type === "lmstudio" ||
 		type === "localai" ||
-		type === "sglang"
+		type === "sglang" ||
+		type === "tabbyapi"
 	);
 }
 
