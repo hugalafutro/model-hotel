@@ -400,8 +400,8 @@ func TestBuildUpstreamBody_StripsEmptyToolCalls(t *testing.T) {
 }
 
 // TabbyAPI renders its chat template from messages dumped without their null
-// members, so an assistant turn's null content has to travel as "" there and
-// only there.
+// members, so an assistant turn's null or missing content has to travel as ""
+// there and only there.
 func TestBuildUpstreamBody_FillsNullAssistantContentForTabbyAPI(t *testing.T) {
 	t.Parallel()
 
@@ -410,17 +410,27 @@ func TestBuildUpstreamBody_FillsNullAssistantContentForTabbyAPI(t *testing.T) {
 		`{"role":"assistant","content":null,"tool_calls":[{"id":"c1","type":"function","function":{"name":"f","arguments":"{}"}}]},` +
 		`{"role":"tool","tool_call_id":"c1","content":"ok"},` +
 		`{"role":"assistant","content":"kept"},` +
+		`{"role":"assistant","tool_calls":[{"id":"c2","type":"function","function":{"name":"f","arguments":"{}"}}]},` +
+		`{"role":"tool","tool_call_id":"c2","content":"ok"},` +
 		`"not a message"]}`
 
-	for providerType, want := range map[string]any{"tabbyapi": "", "openai": nil, "sglang": nil} {
+	for providerType, fills := range map[string]bool{"tabbyapi": true, "openai": false, "sglang": false} {
 		result := BuildUpstreamBody([]byte(inputBody), providerType, "m", "m", false, &sync.Map{}, &sync.Map{}, nil, providerType)
 		var raw map[string]any
 		if err := json.Unmarshal(result, &raw); err != nil {
 			t.Fatalf("%s: result is not valid JSON: %v", providerType, err)
 		}
 		msgs := raw["messages"].([]any)
-		if got := msgs[1].(map[string]any)["content"]; got != want {
-			t.Errorf("%s: tool-calling assistant content = %#v, want %#v", providerType, got, want)
+		var wantNull any
+		if fills {
+			wantNull = ""
+		}
+		if got := msgs[1].(map[string]any)["content"]; got != wantNull {
+			t.Errorf("%s: null assistant content = %#v, want %#v", providerType, got, wantNull)
+		}
+		got, present := msgs[4].(map[string]any)["content"]
+		if present != fills || (fills && got != "") {
+			t.Errorf("%s: missing assistant content = %#v (present %v), want filled=%v", providerType, got, present, fills)
 		}
 		if got := msgs[0].(map[string]any)["content"]; got != nil {
 			t.Errorf("%s: user content = %#v, want null left alone", providerType, got)
@@ -428,8 +438,8 @@ func TestBuildUpstreamBody_FillsNullAssistantContentForTabbyAPI(t *testing.T) {
 		if got := msgs[3].(map[string]any)["content"]; got != "kept" {
 			t.Errorf("%s: text assistant content = %#v, want unchanged", providerType, got)
 		}
-		if len(msgs) != 5 {
-			t.Errorf("%s: %d messages, want 5 (the non-object entry kept)", providerType, len(msgs))
+		if len(msgs) != 7 {
+			t.Errorf("%s: %d messages, want 7 (the non-object entry kept)", providerType, len(msgs))
 		}
 	}
 }

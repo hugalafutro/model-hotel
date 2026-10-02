@@ -129,6 +129,12 @@ func TestDiscoverTabbyAPI_ParameterVariants(t *testing.T) {
 			wantInput:   `["text"]`,
 			wantContext: 2048,
 		},
+		// Odd shapes cost their own field only: the template still reads.
+		"off-shape fields are read as absent": {
+			params:    `{"max_seq_len":"lots","use_vision":"yes","prompt_template_content":"{%- if tools %}{{ tools }}{%- endif %}"}`,
+			wantInput: `["text"]`,
+			wantTools: true,
+		},
 	} {
 		t.Run(name, func(t *testing.T) {
 			srv, _ := tabbyAPIServer(t, listing, card(tc.params), "")
@@ -147,10 +153,86 @@ func TestDiscoverTabbyAPI_ParameterVariants(t *testing.T) {
 			if m.InputModalities != tc.wantInput {
 				t.Errorf("input = %s, want %s", m.InputModalities, tc.wantInput)
 			}
-			if m.ContextLength == nil || *m.ContextLength != tc.wantContext || !m.LiveMeta.ContextLength {
+			switch {
+			case tc.wantContext == 0 && m.ContextLength != nil:
+				t.Errorf("context = %d, want none from an off-shape max_seq_len", *m.ContextLength)
+			case tc.wantContext > 0 && (m.ContextLength == nil || *m.ContextLength != tc.wantContext || !m.LiveMeta.ContextLength):
 				t.Errorf("context = %v, want %d live from max_seq_len", m.ContextLength, tc.wantContext)
 			}
 		})
+	}
+}
+
+// The listing's meta.n_ctx wins over the card's max_seq_len, as the doc says;
+// a card answered with a body that is no model card, or not answered at all,
+// leaves the listing read as custom would, and the capability loss is logged.
+func TestDiscoverTabbyAPI_CardPrecedenceAndFaults(t *testing.T) {
+	t.Run("listing n_ctx over card max_seq_len", func(t *testing.T) {
+		card := `{"id":"Qwen3-4B-exl3-4bpw","parameters":{"max_seq_len":2048,"prompt_template_content":""}}`
+		srv, _ := tabbyAPIServer(t, tabbyAPIListingBody, card, "")
+		defer srv.Close()
+		svc := &DiscoveryService{httpClient: srv.Client()}
+		models, err := svc.discoverTabbyAPI(context.Background(), &Provider{ID: uuid.New(), ProviderType: "tabbyapi", BaseURL: srv.URL + "/v1"}, "")
+		if err != nil || len(models) != 1 {
+			t.Fatalf("discoverTabbyAPI = %+v, %v", models, err)
+		}
+		if models[0].ContextLength == nil || *models[0].ContextLength != 4096 {
+			t.Errorf("context = %v, want the listing's 4096", models[0].ContextLength)
+		}
+		if c := decodeCaps(t, models[0]); !c.StructuredOutput || c.ToolCalling {
+			t.Errorf("caps = %+v, want structured from the card, no tools from an empty template", c)
+		}
+	})
+	t.Run("card route answers another server's body", func(t *testing.T) {
+		srv, _ := tabbyAPIServer(t, tabbyAPIListingBody, `<html>proxy</html>`, `{"models":[]}`)
+		defer srv.Close()
+		svc := &DiscoveryService{httpClient: srv.Client()}
+		models, err := svc.discoverTabbyAPI(context.Background(), &Provider{ID: uuid.New(), ProviderType: "tabbyapi", BaseURL: srv.URL + "/v1"}, "")
+		if err != nil || len(models) != 1 {
+			t.Fatalf("discoverTabbyAPI = %+v, %v; want the listing alone", models, err)
+		}
+		if c := decodeCaps(t, models[0]); !c.Streaming || c.StructuredOutput {
+			t.Errorf("caps = %+v, want streaming only without a card", c)
+		}
+	})
+	t.Run("card route drops the connection", func(t *testing.T) {
+		var srv *httptest.Server
+		srv = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			if r.URL.Path == "/v1/models" {
+				w.Header().Set("Content-Type", "application/json")
+				_, _ = w.Write([]byte(tabbyAPIListingBody))
+				return
+			}
+			srv.CloseClientConnections()
+		}))
+		defer srv.Close()
+		svc := &DiscoveryService{httpClient: srv.Client()}
+		models, err := svc.discoverTabbyAPI(context.Background(), &Provider{ID: uuid.New(), ProviderType: "tabbyapi", BaseURL: srv.URL + "/v1"}, "")
+		if err != nil || len(models) != 1 || models[0].ModelID != "Qwen3-4B-exl3-4bpw" {
+			t.Fatalf("discoverTabbyAPI = %+v, %v; want the listing alone", models, err)
+		}
+	})
+}
+
+// A listing that does not name the loaded model (dummy names only) still
+// gets it from the card: it is what the server serves.
+func TestDiscoverTabbyAPI_LoadedCardWithoutListedEntry(t *testing.T) {
+	srv, _ := tabbyAPIServer(t, `{"object":"list","data":[{"id":"gpt-3.5-turbo","object":"model","owned_by":"tabbyAPI"}]}`, tabbyAPIModelCardBody, "")
+	defer srv.Close()
+	svc := &DiscoveryService{httpClient: srv.Client()}
+	models, err := svc.discoverTabbyAPI(context.Background(), &Provider{ID: uuid.New(), ProviderType: "tabbyapi", BaseURL: srv.URL + "/v1"}, "")
+	if err != nil || len(models) != 2 {
+		t.Fatalf("discoverTabbyAPI = %+v, %v; want the dummy and the loaded model", models, err)
+	}
+	loaded := models[1]
+	if loaded.ModelID != "Qwen3-4B-exl3-4bpw" {
+		t.Fatalf("second model = %s, want the loaded one from the card", loaded.ModelID)
+	}
+	if c := decodeCaps(t, loaded); !c.ToolCalling || !c.Reasoning || !c.StructuredOutput {
+		t.Errorf("caps = %+v, want tools, reasoning and structured from the card", c)
+	}
+	if loaded.ContextLength == nil || *loaded.ContextLength != 4096 {
+		t.Errorf("context = %v, want 4096 from the card", loaded.ContextLength)
 	}
 }
 
@@ -262,18 +344,22 @@ func TestIdentifyLocalServer_TabbyAPI(t *testing.T) {
 	}
 }
 
-// A real KoboldCPP added as KoboldCPP gets the one extra serviceinfo GET and
-// stays KoboldCPP.
+// A real KoboldCPP added as KoboldCPP gets the one extra serviceinfo GET,
+// which it answers with its own serviceinfo naming KoboldCpp, and stays
+// KoboldCPP.
 func TestIdentifyLocalServer_RealKoboldCPPAsKoboldCPP(t *testing.T) {
 	var paths []string
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		paths = append(paths, r.URL.Path)
 		w.Header().Set("Content-Type", "application/json")
-		if r.URL.Path == "/api/extra/version" {
+		switch r.URL.Path {
+		case "/api/extra/version":
 			_, _ = w.Write([]byte(`{"result":"KoboldCpp","version":"1.98"}`))
-			return
+		case "/.well-known/serviceinfo":
+			_, _ = w.Write([]byte(`{"version":0.2,"software":{"name":"KoboldCpp","version":"1.98","repository":"https://github.com/LostRuins/koboldcpp"},"api":{"koboldai":{"name":"KoboldAI API","relative_url":"/api","version":1}}}`))
+		default:
+			w.WriteHeader(http.StatusNotFound)
 		}
-		w.WriteHeader(http.StatusNotFound)
 	}))
 	defer srv.Close()
 

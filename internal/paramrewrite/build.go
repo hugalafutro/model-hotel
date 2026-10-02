@@ -64,7 +64,7 @@ func NeedsRewrite(providerType, modelID string) bool {
 //     and, for the chat-completions builder only, the json_schema fallback for
 //     a provider that only serves JSON mode
 //  8. Message sanitization (drop empty tool_calls arrays; for TabbyAPI, an
-//     assistant turn's null content becomes "")
+//     assistant turn's null or missing content becomes "")
 //
 // Injection (step 3) runs before all stripping (steps 5-7) so that a param a
 // provider injects but the upstream then rejects (learned into the deprecation
@@ -259,13 +259,15 @@ func stripEmptyToolCalls(raw map[string]any) {
 	}
 }
 
-// fillNullAssistantContent turns an assistant turn's "content": null into "".
-// A tool-calling turn carries null content in the OpenAI shape (the SDKs
-// send it that way), but TabbyAPI dumps each message with exclude_none before
-// rendering its chat template, so the key is gone and a template that reads
-// message.content (Qwen3's does) fails the request with a 400 TemplateError;
-// the empty string renders as the no-text turn it is. Only TabbyAPI gets
-// this: the other providers take null as the spec says.
+// fillNullAssistantContent gives an assistant turn without text an empty
+// string for content. A tool-calling turn carries null content in the OpenAI
+// shape, or none at all (the SDKs send null, the gateway's own /v1/messages
+// ingress omits the key), but TabbyAPI dumps each message with exclude_none
+// before rendering its chat template, so either way the key is gone and a
+// template that reads message.content (Qwen3's does) fails the request with
+// a 400 TemplateError; the empty string renders as the no-text turn it is.
+// Only TabbyAPI gets this: the other providers take null and absence as the
+// spec says.
 func fillNullAssistantContent(raw map[string]any) {
 	msgs, ok := raw["messages"].([]any)
 	if !ok {
@@ -276,7 +278,7 @@ func fillNullAssistantContent(raw map[string]any) {
 		if !ok || msg["role"] != "assistant" {
 			continue
 		}
-		if c, present := msg["content"]; present && c == nil {
+		if c, present := msg["content"]; !present || c == nil {
 			msg["content"] = ""
 		}
 	}

@@ -3,6 +3,7 @@ package provider
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"regexp"
 
@@ -15,15 +16,22 @@ import (
 // TabbyAPIModelCard is TabbyAPI's GET /v1/model: the one chat model the
 // process has loaded, with the parameters it was loaded with (context, cache,
 // vision projector) and the chat template it renders with. The /v1/models
-// listing names the same model but carries no parameters.
+// listing names the same model but carries no parameters. The parameters are
+// kept raw and read leniently (wholePositive, listingString, listingBool): a
+// field in a shape of its own must not cost the card its other fields.
 type TabbyAPIModelCard struct {
 	ID         string `json:"id"`
 	Parameters *struct {
-		MaxSeqLen             int    `json:"max_seq_len"`
-		UseVision             bool   `json:"use_vision"`
-		PromptTemplate        string `json:"prompt_template"`
-		PromptTemplateContent string `json:"prompt_template_content"`
+		MaxSeqLen             json.RawMessage `json:"max_seq_len"`
+		UseVision             json.RawMessage `json:"use_vision"`
+		PromptTemplateContent json.RawMessage `json:"prompt_template_content"`
 	} `json:"parameters"`
+}
+
+// listingBool reads a raw member as a boolean, false for any other shape.
+func listingBool(raw json.RawMessage) bool {
+	var b bool
+	return len(raw) > 0 && json.Unmarshal(raw, &b) == nil && b
 }
 
 var (
@@ -56,8 +64,12 @@ func (d *DiscoveryService) discoverTabbyAPI(ctx context.Context, provider *Provi
 	loaded := d.fetchTabbyAPICard(ctx, provider, baseURL+"/model", apiKey, "chat")
 	embedding := d.fetchTabbyAPICard(ctx, provider, baseURL+"/model/embedding", apiKey, "embedding")
 
-	models := make([]*model.Model, 0, len(listing.Data)+1)
-	embeddingListed := false
+	// Each card applies to the listed entry of its id. A listing that names
+	// neither (a dummy-names listing, or a key that lists another directory)
+	// still gets the loaded models from the cards: they are what the server
+	// serves.
+	models := make([]*model.Model, 0, len(listing.Data)+2)
+	loadedListed, embeddingListed := false, false
 	for _, entry := range listing.Data {
 		if embedding != nil && entry.ID == embedding.ID {
 			models = append(models, buildTabbyAPIEmbeddingModel(provider, entry.ID))
@@ -67,8 +79,12 @@ func (d *DiscoveryService) discoverTabbyAPI(ctx context.Context, provider *Provi
 		var card *TabbyAPIModelCard
 		if loaded != nil && entry.ID == loaded.ID {
 			card = loaded
+			loadedListed = true
 		}
 		models = append(models, buildTabbyAPIModel(provider, entry, card))
+	}
+	if loaded != nil && !loadedListed {
+		models = append(models, buildTabbyAPIModel(provider, OpenAIModel{ID: loaded.ID}, loaded))
 	}
 	if embedding != nil && !embeddingListed {
 		models = append(models, buildTabbyAPIEmbeddingModel(provider, embedding.ID))
@@ -78,17 +94,31 @@ func (d *DiscoveryService) discoverTabbyAPI(ctx context.Context, provider *Provi
 	return models, nil
 }
 
-// fetchTabbyAPICard reads one of TabbyAPI's loaded-model routes. An empty
-// container is the route's own 4xx and leaves nil; a body that is not a
-// model card is logged and leaves nil too.
+// fetchTabbyAPICard reads one of TabbyAPI's loaded-model routes. A status
+// other than 200 leaves nil: an empty container is the route's own 4xx, and
+// fetchURL has logged the status either way. A transport fault is warned
+// about, since it costs the scan every capability it would have read; so is
+// a body that is not a model card.
 func (d *DiscoveryService) fetchTabbyAPICard(ctx context.Context, provider *Provider, url, apiKey, which string) *TabbyAPIModelCard {
 	bodyBytes, err := d.fetchURL(ctx, "GET", url, bearerHeader(apiKey))
 	if err != nil {
+		var status *httpError
+		if !errors.As(err, &status) {
+			debuglog.Warn("discovery: tabbyapi "+which+" model card unavailable, listing taken as is",
+				"provider", provider.Name, "provider_id", provider.ID, "error", err)
+		}
 		return nil
 	}
 	var card TabbyAPIModelCard
-	if err := json.Unmarshal(bodyBytes, &card); err != nil || card.ID == "" {
+	if err := json.Unmarshal(bodyBytes, &card); err != nil {
 		debuglog.Warn("discovery: tabbyapi "+which+" model card unreadable, skipped",
+			"provider", provider.Name, "provider_id", provider.ID, "error", jsonfault.Describe(err, len(bodyBytes)))
+		return nil
+	}
+	if card.ID == "" {
+		// Decodable but not the route's shape: a proxy or another server
+		// answering 200 with its own body.
+		debuglog.Warn("discovery: tabbyapi "+which+" model card is not TabbyAPI's, skipped",
 			"provider", provider.Name, "provider_id", provider.ID, "bytes", len(bodyBytes))
 		return nil
 	}
@@ -114,15 +144,15 @@ func buildTabbyAPIModel(provider *Provider, entry OpenAIModel, card *TabbyAPIMod
 	caps := model.Capability{Streaming: true}
 	if card != nil && card.Parameters != nil {
 		p := card.Parameters
+		template := listingString(p.PromptTemplateContent)
 		caps.StructuredOutput = true
-		caps.Vision = p.UseVision
-		caps.ToolCalling = tabbyAPITemplateTools.MatchString(p.PromptTemplateContent)
-		caps.Reasoning = tabbyAPITemplateThink.MatchString(p.PromptTemplateContent)
-		if p.UseVision {
+		caps.Vision = listingBool(p.UseVision)
+		caps.ToolCalling = tabbyAPITemplateTools.MatchString(template)
+		caps.Reasoning = tabbyAPITemplateThink.MatchString(template)
+		if caps.Vision {
 			m.InputModalities = marshalModalityList([]string{"text", "image"})
 		}
-		if m.ContextLength == nil && p.MaxSeqLen > 0 {
-			n := p.MaxSeqLen
+		if n := wholePositive(p.MaxSeqLen); m.ContextLength == nil && n > 0 {
 			m.ContextLength = &n
 			m.MarkLiveMetaFromCurrent()
 		}

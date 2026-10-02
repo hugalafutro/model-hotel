@@ -305,7 +305,8 @@ or SGLang added as `ollama` is refused naming the real family rather than
 discovered as a lesser Ollama. TabbyAPI's sits ahead of KoboldCPP's for the
 same reason: TabbyAPI answers `/api/extra/version` as `KoboldCpp` for Kobold
 clients, so a TabbyAPI added as `koboldcpp` gets the serviceinfo check and is
-refused naming `tabbyapi`.
+refused naming `tabbyapi` (a real KoboldCPP serves its own serviceinfo, which
+names KoboldCpp and passes).
 
 The chosen type's endpoint is asked first, so a server added as the type it
 really is sees only its own endpoint (LM Studio logs every route it does not
@@ -909,7 +910,7 @@ Structured output is always on for a generation model: SGLang constrains any of 
 
 **Source files:** `discovery_tabbyapi.go`
 
-**Method:** TabbyAPI (the ExLlamaV3 server) loads one chat model at a time and, in a second container, one embedding model. Discovery reads `GET /v1/models` for the names, with llama-server's `meta` on the loaded entry (`n_ctx`, the loaded `max_seq_len`, marked live); `GET /v1/model` for the loaded chat model's card, whose `parameters` block says what it was loaded with; and `GET /v1/model/embedding` for the embedding model's card. The chat card applies to the listed entry of its `id`. A key without admin rights lists the loaded chat model alone, so the embedding model is added from its card; an admin key lists the whole model directory, the embedding model's folder among it (filed once, as the embedding model), where every other entry is a model that is not loaded (or a configured dummy name) and is filed as a plain chat model with streaming only, as `custom` would read it, since nothing says what it can do until it is loaded. An empty container answers its card route with TabbyAPI's own 4xx, which is not a fault.
+**Method:** TabbyAPI (the ExLlamaV3 server) loads one chat model at a time and, in a second container, one embedding model. Discovery reads `GET /v1/models` for the names, with llama-server's `meta` on the loaded entry (`n_ctx`, the loaded `max_seq_len`, marked live); `GET /v1/model` for the loaded chat model's card, whose `parameters` block says what it was loaded with; and `GET /v1/model/embedding` for the embedding model's card. The chat card applies to the listed entry of its `id`. A key without admin rights lists the loaded chat model alone, so the embedding model is added from its card; an admin key lists the whole model directory, the embedding model's folder among it (filed once, as the embedding model, while that container holds it; as an unloaded chat entry otherwise), where every other entry is a model that is not loaded (or a configured dummy name) and is filed as a plain chat model with streaming only, as `custom` would read it, since nothing says what it can do until it is loaded. An empty container answers its card route with TabbyAPI's own 4xx, which is not a fault.
 
 | Parameter | Effect |
 |-----------|--------|

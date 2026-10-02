@@ -37,8 +37,8 @@ const localProbeTimeout = 5 * time.Second
 // was not chosen.
 //
 // The expected family's fingerprint is asked first, so adding a server as the
-// type it really is touches only that product's own endpoint (Ollama also
-// gets its emulators' probes, see localServerEmulators). Asking another
+// type it really is touches only that product's own endpoint (Ollama and
+// KoboldCPP also get their emulators' probes, see localServerEmulators). Asking another
 // family's route first is not harmless: LM Studio logs every unknown route as
 // an ERROR, so each LM Studio add left a KoboldCPP probe in its log. The other
 // fingerprints still follow, in a fixed order, when the expected one does not
@@ -83,7 +83,9 @@ func (d *DiscoveryService) IdentifyLocalServer(ctx context.Context, baseURL, api
 		// Ollama's shape, and TabbyAPI answers KoboldCPP's /api/extra/version
 		// as KoboldCpp, so any of them added as the family it imitates would
 		// pass as one and lose its own discovery. The extra GETs land on a
-		// real Ollama or KoboldCPP as 404s they log at their request level.
+		// real Ollama as 404s it logs at its request level, and on a real
+		// KoboldCPP's own serviceinfo, which names KoboldCpp and so fails the
+		// TabbyAPI check.
 		if p.family == expected {
 			for _, q := range probes {
 				if !slices.Contains(localServerEmulators[p.family], q.family) {
