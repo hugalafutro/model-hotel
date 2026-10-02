@@ -5,6 +5,7 @@ import (
 	"net/url"
 	"regexp"
 	"slices"
+	"strconv"
 	"strings"
 )
 
@@ -44,10 +45,18 @@ var ambiguousKeyShape = regexp.MustCompile(`\b(?:sk|gsk|xai|hf|fw|r8)[-_][A-Za-z
 var unambiguousKeyShape = regexp.MustCompile(`\bAIza[0-9A-Za-z_-]{30,}|\bAKIA[A-Z0-9]{16}\b|\beyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}(?:\.[A-Za-z0-9_-]{5,})?`)
 
 // paramNameShape finds a parameter name and its "=" where a parameter can
-// start (the text start, "?", "&", whitespace, a quote, ":", an opening
-// bracket, "," or ";"). Group 1 is that boundary, group 2 the raw name.
-// secretParamSpans decides which names carry a credential.
-var paramNameShape = regexp.MustCompile(`(^|[?&\s"':(\[{,;])([\p{L}\p{N}%_-]+)=`)
+// start: the text start, a paramBoundaries character, or a JSON escape of one
+// (an encoder writes "&" as \u0026 and a line break as \n). Group 1 is that
+// boundary, group 2 the raw name. secretParamSpans decodes an escaped
+// boundary and drops it unless it encodes a paramBoundaries character, so an
+// escaped letter stays part of the name. Text that only looks escaped, such
+// as the path C:\tmp\naccess_token=..., is masked too: the safe side.
+var paramNameShape = regexp.MustCompile(`(^|[?&\s\v"':(\[{,;]|\\u[0-9a-fA-F]{4}|\\[fnrt"])([\p{L}\p{N}%_-]+)=`)
+
+// paramBoundaries are the characters a parameter name may follow: "?", "&",
+// whitespace (the regexp's \s plus a vertical tab), a quote, ":", an opening
+// bracket, "," and ";".
+const paramBoundaries = "?& \t\n\v\f\r\"':([{,;"
 
 // queryOnlyParams are credential names too common in ordinary text to mask
 // anywhere but where a query parameter starts ("?key=", "&sig="): the gateway
@@ -55,21 +64,35 @@ var paramNameShape = regexp.MustCompile(`(^|[?&\s"':(\[{,;])([\p{L}\p{N}%_-]+)=`
 // is a diagnostic.
 var queryOnlyParams = map[string]bool{"key": true, "sig": true, "signature": true}
 
+// paramValueStops end a credential value: the separators & , ;, a closing
+// bracket, a space, tab, CR, LF or form feed, a quote, a backslash and an
+// angle bracket. A vertical tab is not one, nor is any non-ASCII byte:
+// stopping there would leave the value, or its tail, unmasked.
+const paramValueStops = "&,;)]} \t\r\n\f\"'\\<>"
+
 // secretParamSpans returns the [start, end) spans of every credential passed
 // by name in a query string or a form body ("?api_key=...",
 // "&client_secret=..."), whatever format the value has: the name says what it
 // is, so no key shape is needed. A name counts when IsCredentialQueryParam
 // does, after percent-decoding, the one vocabulary the base_url validator
 // refuses with, so "max_token=5", "has_secret=true" and "prompt_token=3" are
-// left alone. The value stops at the next separator (& , ;), a closing
-// bracket, whitespace, a quote or a backslash, so the rest of the line
-// survives and a JSON body stays valid.
+// left alone. The value stops at a paramValueStops character, so the rest of
+// the line survives and a JSON body stays valid. A JSON escape counts as the
+// character it encodes: an upstream error arrives JSON-encoded, and an
+// encoder writes a vertical tab as \u000b and "/" as \/, so stopping at the
+// backslash would leave the value, or its tail, unmasked.
 func secretParamSpans(s string) [][2]int {
-	var spans [][2]int
-	last := 0
+	// First every credential name, as [boundary start, value start]: a value
+	// ends where the next one starts, so a quoted value that runs over another
+	// name=value cannot hide it.
+	var names [][2]int
 	for _, loc := range paramNameShape.FindAllStringSubmatchIndex(s, -1) {
-		if loc[4] < last {
-			continue // inside a value already taken
+		var boundary rune // stays 0 at the text start
+		if loc[2] < loc[3] {
+			boundary, _ = jsonCharAt(s[loc[2]:loc[3]], 0)
+			if !strings.ContainsRune(paramBoundaries, boundary) {
+				continue // an escaped letter is part of the text, not a boundary
+			}
 		}
 		name := s[loc[4]:loc[5]]
 		if decoded, err := url.QueryUnescape(name); err == nil {
@@ -79,20 +102,77 @@ func secretParamSpans(s string) [][2]int {
 		if !credentialQueryParams[folded] {
 			continue
 		}
-		if queryOnlyParams[folded] && (loc[2] == loc[3] || (s[loc[2]] != '?' && s[loc[2]] != '&')) {
+		if queryOnlyParams[folded] && boundary != '?' && boundary != '&' {
 			continue
 		}
-		start := loc[1]
+		names = append(names, [2]int{loc[2], loc[1]})
+	}
+	var spans [][2]int
+	for i, n := range names {
+		limit := len(s)
+		if i+1 < len(names) {
+			limit = names[i+1][0]
+		}
+		start := n[1]
+		stops, quoted := paramValueStops, false
+		if start < len(s) {
+			q, size := jsonCharAt(s, start)
+			if q == '\'' || (q == '"' && (size > 1 || !endsJSONString(s[start+1:]))) {
+				// A quoted value (password="..."): mask what the quotes hold,
+				// spaces included. Its own closing quote, a backslash (raw or
+				// escaped), a line break, or a raw double quote that closes a
+				// JSON string (endsJSONString) still ends it, so an unclosed
+				// quote cannot run past a JSON string or the line.
+				start += size
+				stops, quoted = string(q)+"\\\r\n", true
+			}
+		}
 		end := start
-		for end < len(s) && !strings.ContainsRune("&,;)]} \t\r\n\v\f\"'\\<>", rune(s[end])) {
-			end++
+		for end < limit {
+			r, size := jsonCharAt(s, end)
+			if strings.ContainsRune(stops, r) || quoted && s[end] == '"' && endsJSONString(s[end+1:]) {
+				break
+			}
+			end += size
 		}
 		if end > start {
-			spans = append(spans, [2]int{start, end})
-			last = end
+			spans = append(spans, [2]int{start, min(end, limit)})
 		}
 	}
 	return spans
+}
+
+// endsJSONString reports whether rest follows a raw '"' that closes a string
+// rather than opening a quoted value: the end of the text, or what a JSON
+// document or a logfmt line puts after a closed string ("...api_key=","n":1,
+// "...api_key="} or msg="... api_key=" err=...). It runs on any text, so after
+// "," or ":" it asks for the next JSON token: password=",hunter2" is a quoted
+// value. The cost is a plain-text quoted secret that itself starts like one of
+// those (password="}x", password=" a=b"), which stays unmasked.
+func endsJSONString(rest string) bool {
+	return afterClosedString.MatchString(rest)
+}
+
+var afterClosedString = regexp.MustCompile(`^(?:\s*$|\s*[,:]\s*(?:["{\[0-9-]|true\b|false\b|null\b)|\s*[}\]]|\s+[\p{L}\p{N}_.-]+=)`)
+
+// jsonCharAt returns the character at s[i] and its length in s, reading a
+// JSON escape (\uXXXX, \n, \/, ...) as the character it encodes. Any other
+// byte, a lone backslash included, stands for itself. Only one level of
+// encoding is read: in JSON nested inside a JSON string, an escape arrives
+// doubled and ends the value at its first backslash.
+func jsonCharAt(s string, i int) (rune, int) {
+	if s[i] != '\\' || i+1 >= len(s) {
+		return rune(s[i]), 1
+	}
+	if s[i+1] == 'u' && len(s) >= i+6 {
+		if code, err := strconv.ParseUint(s[i+2:i+6], 16, 16); err == nil {
+			return rune(code), 6
+		}
+	}
+	if j := strings.IndexByte(`bfnrt"/\`, s[i+1]); j >= 0 {
+		return rune("\b\f\n\r\t\"/\\"[j]), 2
+	}
+	return '\\', 1
 }
 
 // CredentialMinLen is the shortest provider key the exact-value mask will
@@ -144,6 +224,9 @@ func MaskKeyShapedTokens(body []byte) []byte {
 	last := 0
 	for _, span := range secretParamSpans(string(body)) {
 		eq, end := span[0], span[1]
+		if eq < last { // already inside a masked span; never slice backwards on hostile input
+			continue
+		}
 		if string(body[eq:end]) == "[redacted" && end < len(body) && body[end] == ']' {
 			continue
 		}

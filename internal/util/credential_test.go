@@ -1,6 +1,7 @@
 package util
 
 import (
+	"encoding/json"
 	"net/url"
 	"regexp"
 	"slices"
@@ -395,6 +396,43 @@ func TestSecretParamShapeCoversValidatorNames(t *testing.T) {
 	}
 }
 
+// The masker reads the encoder's own output: json.Marshal escapes "&" and
+// control characters, and the masked body must still be valid JSON.
+func TestMaskKeyShapedTokens_JSONEncodedParams(t *testing.T) {
+	body, err := json.Marshal(map[string]string{"message": "auth failed for https://up.example/v1?alt=json&key=S3CRETONE&api_key=\vS3CRETTWO&sig=S3CRET/THREE password=\"S3CRET FOUR\""})
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := MaskKeyShapedTokens(body)
+	if strings.Contains(string(got), "S3CRET") || !json.Valid(got) {
+		t.Errorf("MaskKeyShapedTokens(%s) = %s, want every value masked and valid JSON", body, got)
+	}
+}
+
+// Masking never breaks a JSON body, whatever follows a credential name inside
+// an encoded string or whatever text follows the body.
+func TestMaskKeyShapedTokens_KeepsJSONValid(t *testing.T) {
+	parts := []string{"", `"`, "'", `\`, `"S3 CRET"`, ",", ":", "}", "]", "\v", " ", "\u2028", "&x=1", `"x" y=`, "true"}
+	for _, prefix := range []string{"api_key=", "x api_key=", "?api_key="} {
+		for _, a := range parts {
+			for _, b := range parts {
+				body, err := json.Marshal(map[string]any{"m": prefix + a + b, "n": []string{"v"}})
+				if err != nil {
+					t.Fatal(err)
+				}
+				for _, tail := range []string{"", "\n{}", "{}", " status=400", "."} {
+					in := []byte(string(body) + tail)
+					var v any
+					got := MaskKeyShapedTokens(in)
+					if json.NewDecoder(strings.NewReader(string(got))).Decode(&v) != nil || !strings.HasSuffix(string(got), "}"+tail) {
+						t.Errorf("MaskKeyShapedTokens(%s) = %s, its JSON or the text after it changed", in, got)
+					}
+				}
+			}
+		}
+	}
+}
+
 // The cases the shared vocabulary decides beyond plain spellings: a
 // percent-encoded name is decoded as the validator decodes it, and the names
 // common in ordinary text count only where a query parameter starts.
@@ -412,8 +450,62 @@ func TestMaskKeyShapedTokens_ParamNameRules(t *testing.T) {
 		// Names that only contain a credential word are not credentials.
 		{"max_token=5 has_secret=true prompt_token=3 token_type=bearer ?api-version=2024&alt=json&keyword=x",
 			"max_token=5 has_secret=true prompt_token=3 token_type=bearer ?api-version=2024&alt=json&keyword=x"},
-		// A name inside a value already taken is not matched again.
-		{"?password=a?password=S3CRETVALUE&alt=json", "?password=[redacted]&alt=json"},
+		// A value ends where the next credential name starts, so each name
+		// masks its own value, quoted or not.
+		{"?password=a?password=S3CRETVALUE&alt=json", "?password=[redacted]?password=[redacted]&alt=json"},
+		{`token=' password='S3CRETVALUE'`, `token=' password='[redacted]'`},
+		{`{"m":"token=\" password=\"S3CRETVALUE\""}`, `{"m":"token=\" password=\"[redacted]\""}`},
+		{`secret='apiKey= api_key='S3CRETVALUE'`, `secret='apiKey= api_key='[redacted]'`},
+		// A vertical tab or a non-ASCII byte is part of the value, wherever it sits.
+		{"?api_key=\vS3CRETVALUE", "?api_key=[redacted]"},
+		{"?api_key=S3CRET\vVALUE", "?api_key=[redacted]"},
+		{"?api_key=S3CRET\x85VALUE", "?api_key=[redacted]"},
+		// A JSON escape counts as the character it encodes.
+		{`{"message":"?api_key=\u000bS3CRETVALUE"}`, `{"message":"?api_key=[redacted]"}`},
+		{`{"message":"?api_key=S3CRET\u000BVALUE\u0026alt=json"}`, `{"message":"?api_key=[redacted]\u0026alt=json"}`},
+		{`{"message":"?api_key=S3CRETVALUE\u0022 x"}`, `{"message":"?api_key=[redacted]\u0022 x"}`},
+		{`{"message":"?api_key=S3CRETVALUE\u00"}`, `{"message":"?api_key=[redacted]\u00"}`},
+		{`{"m":"https://x/?alt=json\u0026api_key=S3CRETVALUE"}`, `{"m":"https://x/?alt=json\u0026api_key=[redacted]"}`},
+		{`{"m":"x\u0026key=S3CRETVALUE line one\napi_key=S3CRETVALUE"}`, `{"m":"x\u0026key=[redacted] line one\napi_key=[redacted]"}`},
+		{`?api_key=FIRST\u0026api_key=SECOND`, `?api_key=[redacted]\u0026api_key=[redacted]`},
+		{`{"m":"?api_key=abc\/def+ghi"}`, `{"m":"?api_key=[redacted]"}`},
+		{`{"m":"?api_key=S3CRET\ud83d\ude00VALUE"}`, `{"m":"?api_key=[redacted]"}`},
+		// A malformed or double escape is a plain backslash, which ends the value.
+		{`{"m":"?api_key=S3CRET\u00zzVALUE"}`, `{"m":"?api_key=[redacted]\u00zzVALUE"}`},
+		{`{"m":"?api_key=S3CRET\\u0026VALUE"}`, `{"m":"?api_key=[redacted]\\u0026VALUE"}`},
+		{`?api_key=S3CRETVALUE\u000`, `?api_key=[redacted]\u000`},
+		// An escaped line break is no query position for a query-only name.
+		{`{"m":"x\nsignature=invalid"}`, `{"m":"x\nsignature=invalid"}`},
+		// A quoted value is masked up to its closing quote, raw or escaped; an
+		// unclosed one stops at a double quote, so the JSON string survives.
+		{`password="hunter2 pass" next`, `password="[redacted]" next`},
+		{`{"m":"api_key=\"S3CRET VALUE\" x"}`, `{"m":"api_key=\"[redacted]\" x"}`},
+		{`{"m":"?api_key=\u0022S3CRETVALUE\u0022"}`, `{"m":"?api_key=\u0022[redacted]\u0022"}`},
+		{`{"m":"password='S3CRETVALUE"}`, `{"m":"password='[redacted]"}`},
+		{`api_key="" next`, `api_key="" next`},
+		// The raw quote that closes a JSON string is structure, not an opener.
+		{`{"m":"x api_key=","n":"value"}`, `{"m":"x api_key=","n":"value"}`},
+		{`{"a":"url?api_key=" , "b":1}`, `{"a":"url?api_key=" , "b":1}`},
+		// Inside quotes only the closing quote or a raw double quote ends the value.
+		{`{"m":"password='ab\"cd' x"}`, `{"m":"password='[redacted]' x"}`},
+		{`password=",hunter2" next`, `password="[redacted]" next`},
+		{`password=":hunter2:"`, `password="[redacted]"`},
+		{`password="x=y" next`, `password="[redacted]" next`},
+		{`{"m":"api_key=\",x\""}`, `{"m":"api_key=\"[redacted]\""}`},
+		{`msg="call api_key=" err="boom"`, `msg="call api_key=" err="boom"`},
+		{`upstream error: {"error":"bad api_key="} status=400`, `upstream error: {"error":"bad api_key="} status=400`},
+		// A lone backslash ends an unclosed quote; a raw double quote inside
+		// single quotes ends the value only where a JSON string closes.
+		{`password='S3CRET\ diagnostic`, `password='[redacted]\ diagnostic`},
+		{`password='ab"cd' x`, `password='[redacted]' x`},
+		// A vertical tab can precede a name, raw or escaped.
+		{"x\vapi_key=S3CRETVALUE", "x\vapi_key=[redacted]"},
+		{`{"m":"x\u000bapi_key=S3CRETVALUE"}`, `{"m":"x\u000bapi_key=[redacted]"}`},
+		{`{"m":"x\"key=S3CRETVALUE"}`, `{"m":"x\"key=S3CRETVALUE"}`},
+		// Uppercase hex in an escaped boundary still marks a query position.
+		{`{"m":"x\u003FKEY=S3CRETVALUE"}`, `{"m":"x\u003FKEY=[redacted]"}`},
+		// An escaped letter or "/" is part of the text, like its raw form.
+		{`{"m":"caf\u00e9token=hello \/api_key=abc"}`, `{"m":"caf\u00e9token=hello \/api_key=abc"}`},
 	} {
 		if got := string(MaskKeyShapedTokens([]byte(tc.in))); got != tc.want {
 			t.Errorf("MaskKeyShapedTokens(%q) = %q, want %q", tc.in, got, tc.want)
