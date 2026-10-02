@@ -2,7 +2,6 @@ package provider
 
 import (
 	"context"
-	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"slices"
@@ -67,15 +66,6 @@ func tabbyAPIServer(t *testing.T, listing, card, embedding string) (*httptest.Se
 	return srv, &paths
 }
 
-func tabbyAPICaps(t *testing.T, m *model.Model) model.Capability {
-	t.Helper()
-	var c model.Capability
-	if err := json.Unmarshal([]byte(m.Capabilities), &c); err != nil {
-		t.Fatalf("%s capabilities: %v", m.ModelID, err)
-	}
-	return c
-}
-
 func TestDiscoverTabbyAPI_LoadedModelCapsAndContext(t *testing.T) {
 	srv, paths := tabbyAPIServer(t, tabbyAPIListingBody, tabbyAPIModelCardBody, "")
 	defer srv.Close()
@@ -93,7 +83,7 @@ func TestDiscoverTabbyAPI_LoadedModelCapsAndContext(t *testing.T) {
 	if m.Modality != "chat" {
 		t.Errorf("modality = %q, want chat", m.Modality)
 	}
-	if c := tabbyAPICaps(t, m); !c.Streaming || !c.StructuredOutput || !c.Reasoning || !c.ToolCalling || c.Vision {
+	if c := decodeCaps(t, m); !c.Streaming || !c.StructuredOutput || !c.Reasoning || !c.ToolCalling || c.Vision {
 		t.Errorf("caps = %+v, want streaming, structured, reasoning and tools from the template, no vision", c)
 	}
 	if m.InputModalities != `["text"]` || m.OutputModalities != `["text"]` {
@@ -150,7 +140,7 @@ func TestDiscoverTabbyAPI_ParameterVariants(t *testing.T) {
 				t.Fatalf("discoverTabbyAPI = %+v, %v; want one model", models, err)
 			}
 			m := models[0]
-			c := tabbyAPICaps(t, m)
+			c := decodeCaps(t, m)
 			if c.Vision != tc.wantVision || c.ToolCalling != tc.wantTools || c.Reasoning != tc.wantReasoning || !c.StructuredOutput || !c.Streaming {
 				t.Errorf("caps = %+v, want vision=%v tools=%v reasoning=%v, structured and streaming", c, tc.wantVision, tc.wantTools, tc.wantReasoning)
 			}
@@ -192,7 +182,7 @@ func TestDiscoverTabbyAPI_DirectoryListingAndEmbeddingModel(t *testing.T) {
 		if m.Modality != "chat" {
 			t.Errorf("%s modality = %q, want chat", id, m.Modality)
 		}
-		if c := tabbyAPICaps(t, m); !c.Streaming || c.StructuredOutput || c.ToolCalling || c.Reasoning || c.Vision {
+		if c := decodeCaps(t, m); !c.Streaming || c.StructuredOutput || c.ToolCalling || c.Reasoning || c.Vision {
 			t.Errorf("%s caps = %+v, want streaming only for an unloaded model", id, c)
 		}
 		if m.ContextLength != nil {
@@ -200,7 +190,7 @@ func TestDiscoverTabbyAPI_DirectoryListingAndEmbeddingModel(t *testing.T) {
 		}
 	}
 	loaded := byID["Qwen3-4B-exl3-4bpw"]
-	if c := tabbyAPICaps(t, loaded); !c.ToolCalling || !c.Reasoning || !c.StructuredOutput {
+	if c := decodeCaps(t, loaded); !c.ToolCalling || !c.Reasoning || !c.StructuredOutput {
 		t.Errorf("loaded model caps = %+v, want tools, reasoning and structured from its card", c)
 	}
 	// The directory listing has no n_ctx for it; the card's max_seq_len stands in.
@@ -226,7 +216,7 @@ func TestDiscoverTabbyAPI_EmbeddingAddedAndEmptyChatContainer(t *testing.T) {
 	if err != nil || len(models) != 2 {
 		t.Fatalf("discoverTabbyAPI = %+v, %v; want the listed model plus the embedding one", models, err)
 	}
-	if c := tabbyAPICaps(t, models[0]); !c.Streaming || c.StructuredOutput || c.ToolCalling {
+	if c := decodeCaps(t, models[0]); !c.Streaming || c.StructuredOutput || c.ToolCalling {
 		t.Errorf("caps without a card = %+v, want streaming only", c)
 	}
 	if models[0].ContextLength == nil || *models[0].ContextLength != 4096 {

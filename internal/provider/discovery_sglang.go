@@ -6,8 +6,6 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/google/uuid"
-
 	"github.com/hugalafutro/model-hotel/internal/debuglog"
 	"github.com/hugalafutro/model-hotel/internal/jsonfault"
 	"github.com/hugalafutro/model-hotel/internal/model"
@@ -92,18 +90,7 @@ func (d *DiscoveryService) discoverSGLang(ctx context.Context, provider *Provide
 // output is always on: SGLang constrains any generation model through its
 // grammar backend.
 func buildSGLangModel(provider *Provider, entry OpenAIModel, info *SGLangModelInfo) *model.Model {
-	m := &model.Model{
-		ID:           uuid.New(),
-		ProviderID:   provider.ID,
-		ModelID:      entry.ID,
-		Name:         entry.ID,
-		DisplayName:  entry.ID,
-		Description:  "SGLang model",
-		Capabilities: "{}",
-		Params:       "{}",
-		OwnedBy:      "sglang",
-		Enabled:      true,
-	}
+	m := newServedModel(provider, entry.ID, "sglang", "SGLang model")
 	applyListingExtras(m, entry)
 	if info == nil || (info.ServedModelName != "" && entry.ID != info.ServedModelName && listingString(entry.Parent) != info.ServedModelName) {
 		caps := model.Capability{Streaming: true}

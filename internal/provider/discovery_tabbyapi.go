@@ -6,8 +6,6 @@ import (
 	"fmt"
 	"regexp"
 
-	"github.com/google/uuid"
-
 	"github.com/hugalafutro/model-hotel/internal/debuglog"
 	"github.com/hugalafutro/model-hotel/internal/jsonfault"
 	"github.com/hugalafutro/model-hotel/internal/model"
@@ -108,21 +106,10 @@ func (d *DiscoveryService) fetchTabbyAPICard(ctx context.Context, provider *Prov
 // (meta.n_ctx, which TabbyAPI sets to the loaded max_seq_len) is read for
 // both, with the card's max_seq_len as the fallback for the loaded one.
 func buildTabbyAPIModel(provider *Provider, entry OpenAIModel, card *TabbyAPIModelCard) *model.Model {
-	m := &model.Model{
-		ID:               uuid.New(),
-		ProviderID:       provider.ID,
-		ModelID:          entry.ID,
-		Name:             entry.ID,
-		DisplayName:      entry.ID,
-		Description:      "TabbyAPI model",
-		Modality:         "chat",
-		Capabilities:     "{}",
-		Params:           "{}",
-		OwnedBy:          "tabbyapi",
-		Enabled:          true,
-		InputModalities:  marshalModalityList([]string{"text"}),
-		OutputModalities: marshalModalityList([]string{"text"}),
-	}
+	m := newServedModel(provider, entry.ID, "tabbyapi", "TabbyAPI model")
+	m.Modality = "chat"
+	m.InputModalities = marshalModalityList([]string{"text"})
+	m.OutputModalities = marshalModalityList([]string{"text"})
 	applyListingExtras(m, entry)
 	caps := model.Capability{Streaming: true}
 	if card != nil && card.Parameters != nil {
@@ -148,19 +135,9 @@ func buildTabbyAPIModel(provider *Provider, entry OpenAIModel, card *TabbyAPIMod
 // buildTabbyAPIEmbeddingModel files the embedding model TabbyAPI's second
 // container holds, served on /v1/embeddings.
 func buildTabbyAPIEmbeddingModel(provider *Provider, id string) *model.Model {
-	return &model.Model{
-		ID:           uuid.New(),
-		ProviderID:   provider.ID,
-		ModelID:      id,
-		Name:         id,
-		DisplayName:  id,
-		Description:  "TabbyAPI embedding model",
-		Modality:     "embedding",
-		Capabilities: "{}",
-		Params:       "{}",
-		OwnedBy:      "tabbyapi",
-		Enabled:      true,
-	}
+	m := newServedModel(provider, id, "tabbyapi", "TabbyAPI embedding model")
+	m.Modality = "embedding"
+	return m
 }
 
 // isTabbyAPIServiceInfo reports whether body is TabbyAPI's
