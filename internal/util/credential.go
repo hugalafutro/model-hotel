@@ -47,22 +47,24 @@ var unambiguousKeyShape = regexp.MustCompile(`\bAIza[0-9A-Za-z_-]{30,}|\bAKIA[A-
 // body ("?api_key=...", "&client_secret=..."), whatever format the value has:
 // the name says what it is, so no key shape is needed. The name must start a
 // parameter (the text start, "?", "&", whitespace, a quote, ":", an opening
-// bracket, "," or ";") and be one of credentialParamWords, its words joined by
-// an optional "-" or "_" in any case, so "max_token=5", "has_secret=true" and
-// "prompt_token=3" are left alone. A bare "key=" counts
+// bracket, "," or ";") and be one of credentialQueryParams in any case, with
+// any run of "-" or "_" around its letters, so "max_token=5",
+// "has_secret=true" and "prompt_token=3" are left alone. A bare "key=" counts
 // only where a query parameter starts ("?key=", "&key=", Google's style): the
 // gateway logs a virtual key's NAME under a "key" attribute, which a text log
 // renders after a space. The value stops at the next separator (& , ;), a
 // closing bracket, whitespace, a quote or a backslash, so the rest of the line
 // survives and a JSON body stays valid.
 var secretParamShape = func() *regexp.Regexp {
-	var names []string
-	for _, words := range credentialParamWords {
-		if len(words) > 1 || words[0] != "key" {
-			names = append(names, strings.Join(words, "[_-]?"))
+	spelled := func(name string) string { return "[_-]*" + strings.Join(strings.Split(name, ""), "[_-]*") }
+	names := make([]string, 0, len(credentialQueryParams))
+	for name := range credentialQueryParams {
+		if name != "key" {
+			names = append(names, spelled(name))
 		}
 	}
-	return regexp.MustCompile(`(?i)(?:(^|[?&\s"':(\[{,;])(` + strings.Join(names, "|") + `)|[?&]key)=[^&,;)\]}\s"'\\<>]+`)
+	slices.Sort(names) // a stable pattern across runs
+	return regexp.MustCompile(`(?i)(?:(^|[?&\s"':(\[{,;])(` + strings.Join(names, "|") + `)|[?&]` + spelled("key") + `)[_-]*=[^&,;)\]}\s"'\\<>]+`)
 }()
 
 // CredentialMinLen is the shortest provider key the exact-value mask will

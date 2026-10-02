@@ -350,7 +350,13 @@ func detectByHost(host, path string) string {
 func TypeFromHostname(baseURL string) string {
 	typ, _, ok := hostType(baseURL)
 	if !ok {
-		debuglog.Warn("discovery: failed to parse base URL", "url", maskRawURLText(rawURLSecrets(baseURL), baseURL))
+		// The parse reason, not the URL: a key pasted into the port or host
+		// position sits where rawURLSecrets does not look.
+		reason := "no host"
+		if _, err := url.Parse(baseURL); err != nil {
+			reason = util.URLParseReason(err).Error()
+		}
+		debuglog.Warn("discovery: failed to parse base URL", "reason", reason)
 	}
 	return typ
 }

@@ -64,53 +64,51 @@ func RedactURLUserinfo(text string) string {
 // caller already knows which URL it sent. The reason itself quotes the bytes
 // it refused (`invalid port ":sk-..." after host`, `ParseAddr("sk-...")`), and
 // a credential pasted into the wrong place of a URL lands in exactly those, so
-// every quoted span is masked too.
+// a quoted span is masked too unless it is too short to hold one: a single
+// character or a %XX escape is the diagnostic an operator needs.
 func URLParseReason(err error) error {
 	ue, ok := errors.AsType[*url.Error](err)
 	if !ok {
 		return err
 	}
 	if reason := ue.Err.Error(); strings.Contains(reason, `"`) {
-		return errors.New(quotedSpan.ReplaceAllString(reason, `"***"`))
+		return errors.New(quotedSpan.ReplaceAllStringFunc(reason, func(span string) string {
+			if len(span) <= len(`"\x7f"`) {
+				return span
+			}
+			return `"***"`
+		}))
 	}
 	return ue.Err
 }
 
-// quotedSpan is a double-quoted span of a url.Parse reason.
-var quotedSpan = regexp.MustCompile(`"[^"]*"`)
+// quotedSpan is a strconv.Quote span of a url.Parse reason, escaped quotes
+// included, so a '"' inside the refused bytes does not end it early.
+var quotedSpan = regexp.MustCompile(`"(?:[^"\\]|\\.)*"`)
 
-// credentialParamWords are the parameter names a key may travel in (a custom
-// gateway may authenticate by ?key=), split into words. Only these count:
-// treating every query value as a secret would redact Azure's
-// ?api-version=... out of the one diagnostic an operator needs when a version
-// is refused. One list for both layers: the base_url validator folds a name
-// and looks it up (credentialQueryParams), and the text masker matches the
-// words joined by an optional "-" or "_" (secretParamShape), so a name the
-// validator refuses is never one the masker lets through.
-var credentialParamWords = [][]string{
-	{"key"}, {"api", "key"}, {"x", "api", "key"}, {"x", "goog", "api", "key"},
-	{"access", "key"}, {"secret", "key"}, {"client", "key"},
-	{"token"}, {"api", "token"}, {"access", "token"}, {"auth", "token"},
-	{"refresh", "token"}, {"client", "token"},
-	{"secret"}, {"client", "secret"}, {"access", "secret"}, {"auth", "secret"}, {"refresh", "secret"},
-	{"password"}, {"client", "password"}, {"access", "password"}, {"auth", "password"}, {"refresh", "password"},
+// credentialQueryParams are the query parameter names a key may travel in (a
+// custom gateway may authenticate by ?key=), in the form credentialParamName
+// reduces them to. Only these count: treating every query value as a secret
+// would redact Azure's ?api-version=... out of the one diagnostic an operator
+// needs when a version is refused. One list for both layers: the base_url
+// validator folds a name and looks it up, and the text masker
+// (secretParamShape) matches each name with any run of "-" or "_" around its
+// letters, so a raw name the validator refuses is never one the masker lets
+// through. A percent-encoded name is the exception: the validator decodes it,
+// the masker reads text as it is.
+var credentialQueryParams = map[string]bool{
+	"key": true, "apikey": true, "xapikey": true, "xgoogapikey": true,
+	"accesskey": true, "secretkey": true, "clientkey": true,
+	"token": true, "apitoken": true, "accesstoken": true, "authtoken": true, "refreshtoken": true, "clienttoken": true,
+	"secret": true, "clientsecret": true, "accesssecret": true, "authsecret": true, "refreshsecret": true,
+	"password": true, "clientpassword": true, "accesspassword": true, "authpassword": true, "refreshpassword": true,
 	// Signed-URL credentials: Azure SAS and S3 presigned URLs.
-	{"sig"}, {"signature"}, {"x", "amz", "signature"},
-	{"x", "amz", "credential"}, {"x", "amz", "security", "token"},
+	"sig": true, "signature": true, "xamzsignature": true,
+	"xamzcredential": true, "xamzsecuritytoken": true,
 }
 
-// credentialQueryParams holds credentialParamWords in the form
-// credentialParamName reduces a name to.
-var credentialQueryParams = func() map[string]bool {
-	m := make(map[string]bool, len(credentialParamWords))
-	for _, words := range credentialParamWords {
-		m[strings.Join(words, "")] = true
-	}
-	return m
-}()
-
-// credentialParamName folds the spellings of one name together: case, and the
-// "-" or "_" between its words, so api_token, api-token and apiToken match.
+// credentialParamName folds the spellings of one name together: case, and
+// every "-" or "_", so api_token, api-token and apiToken match.
 var credentialParamName = strings.NewReplacer("-", "", "_", "")
 
 // IsCredentialQueryParam reports whether a query parameter of that name

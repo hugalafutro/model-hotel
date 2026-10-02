@@ -579,6 +579,8 @@ func TestUnparseableURL_UserinfoAndQueryKeyAreScrubbed(t *testing.T) {
 		"userinfo with space and quote": {"http://operator:pass word\"" + leakedKey + "@example.invalid/v1", leakedKey},
 		"query key":                     {"http://example.invalid\x7f/v1?key=" + leakedKey, leakedKey},
 		"percent-encoded query name":    {"http://example.invalid\x7f/v1?%6bey=" + leakedKey, leakedKey},
+		// No key shape, so only the parse-reason mask stands between it and the log.
+		"unprefixed key in the port": {"http://example.invalid:PORTSECRETVALUE99/v1", "PORTSECRETVALUE99"},
 	} {
 		t.Run(name, func(t *testing.T) {
 			logged := captureDebuglog(t)
