@@ -76,10 +76,13 @@ type NeuralWattQuotaResponse struct {
 // server that sends one in a shape of its own must not fail the decode of the
 // whole listing.
 type OpenAIModel struct {
-	ID           string          `json:"id"`
-	Object       string          `json:"object"`
-	Created      int64           `json:"created"`
-	OwnedBy      string          `json:"owned_by"`
+	ID      string `json:"id"`
+	Object  string `json:"object"`
+	Created int64  `json:"created"`
+	OwnedBy string `json:"owned_by"`
+	// Parent names the base model of an adapter (SGLang lists LoRA adapters
+	// beside the served model with parent set to it).
+	Parent       string          `json:"parent,omitempty"`
 	Architecture json.RawMessage `json:"architecture,omitempty"`
 	Meta         json.RawMessage `json:"meta,omitempty"`
 	MaxModelLen  json.RawMessage `json:"max_model_len,omitempty"`

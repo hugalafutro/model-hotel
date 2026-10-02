@@ -877,11 +877,11 @@ A model whose usecases name only endpoints Model Hotel does not route (`video`, 
 
 **Source files:** `discovery_sglang.go`
 
-**Method:** SGLang serves one model per process behind an OpenAI-compatible API. Discovery reads `GET /v1/models` for the served name and `max_model_len` (the context the server runs with, marked live), and `GET /get_model_info` at the origin for what that model can do: `is_generation` (an embedding server says false), the `reasoning_parser` and `tool_call_parser` the server was launched with, and `has_image_understanding` / `has_audio_understanding` from the model's own config. Every listed name is that model, so the info applies to each.
+**Method:** SGLang serves one model per process behind an OpenAI-compatible API. Discovery reads `GET /v1/models` for the served names and `max_model_len` (the context the server runs with, marked live), and `GET /get_model_info` at the origin for what the answering process's model can do: `is_generation` (a server that does not generate serves embeddings, or reranking when its architecture is a sequence classifier), the `reasoning_parser` and `tool_call_parser` the server was launched with, and `has_image_understanding` / `has_audio_understanding` from the model's own config. The info applies to the listed entry of its `served_model_name` and to an adapter whose `parent` is that name; behind the SGLang router, which merges several workers' listings, any other listed model is read from the listing alone.
 
 | Info | Effect |
 |------|--------|
-| `is_generation: false` | class `embedding`, no chat capability |
+| `is_generation: false` | class `embedding`, or `rerank` when an architecture ends in `ForSequenceClassification`; no chat capability |
 | `reasoning_parser` set | reasoning |
 | `tool_call_parser` set | tool calling |
 | `has_image_understanding` | vision, `image` among the inputs |

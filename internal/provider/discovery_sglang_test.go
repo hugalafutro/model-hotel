@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"slices"
 	"testing"
 
 	"github.com/google/uuid"
@@ -102,8 +103,12 @@ func TestDiscoverSGLang_InfoVariants(t *testing.T) {
 			wantVision: true, wantAudio: true,
 		},
 		"embedding server": {
-			info:      `{"model_path":"/models/bge-m3","is_generation":false,"reasoning_parser":"","tool_call_parser":""}`,
+			info:      `{"model_path":"/models/bge-m3","is_generation":false,"reasoning_parser":"","tool_call_parser":"","architectures":["XLMRobertaModel"]}`,
 			wantClass: "embedding",
+		},
+		"reranker server": {
+			info:      `{"model_path":"/models/bge-reranker-v2-m3","is_generation":false,"architectures":["XLMRobertaForSequenceClassification"]}`,
+			wantClass: "rerank",
 		},
 	} {
 		t.Run(name, func(t *testing.T) {
@@ -119,9 +124,9 @@ func TestDiscoverSGLang_InfoVariants(t *testing.T) {
 			if m.Modality != tc.wantClass {
 				t.Errorf("modality = %q, want %q", m.Modality, tc.wantClass)
 			}
-			if tc.wantClass == "embedding" {
+			if tc.wantClass != "chat" {
 				if m.Capabilities != "{}" {
-					t.Errorf("embedding caps = %s, want none", m.Capabilities)
+					t.Errorf("%s caps = %s, want none", tc.wantClass, m.Capabilities)
 				}
 				return
 			}
@@ -163,6 +168,47 @@ func TestDiscoverSGLang_WithoutModelInfo(t *testing.T) {
 	}
 }
 
+// The info describes the answering worker's model. Behind the SGLang router
+// the listing merges every worker's models, so the info applies to its own
+// served name and to an adapter whose parent is that name, and any other
+// listed model is read from the listing alone.
+func TestDiscoverSGLang_InfoAppliesToItsOwnModelOnly(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		switch r.URL.Path {
+		case "/v1/models":
+			_, _ = w.Write([]byte(`{"object":"list","data":[
+				{"id":"qwen3-0.6b","object":"model","max_model_len":8192},
+				{"id":"qwen3-0.6b-lora-sql","object":"model","parent":"qwen3-0.6b","max_model_len":8192},
+				{"id":"bge-m3","object":"model","max_model_len":8192}]}`))
+		case "/get_model_info":
+			_, _ = w.Write([]byte(sglangModelInfoBody))
+		default:
+			w.WriteHeader(http.StatusNotFound)
+		}
+	}))
+	defer srv.Close()
+
+	svc := &DiscoveryService{httpClient: srv.Client()}
+	provider := &Provider{ID: uuid.New(), ProviderType: "sglang", BaseURL: srv.URL + "/v1"}
+	models, err := svc.discoverSGLang(context.Background(), provider, "")
+	if err != nil || len(models) != 3 {
+		t.Fatalf("discoverSGLang: %v, %d models", err, len(models))
+	}
+	byID := map[string]*model.Model{}
+	for _, m := range models {
+		byID[m.ModelID] = m
+	}
+	for _, id := range []string{"qwen3-0.6b", "qwen3-0.6b-lora-sql"} {
+		if byID[id].Modality != "chat" || !sglangCaps(t, byID[id]).ToolCalling {
+			t.Errorf("%s = %q with caps %s, want chat with the worker's capabilities", id, byID[id].Modality, byID[id].Capabilities)
+		}
+	}
+	if m := byID["bge-m3"]; m.Modality != "" || sglangCaps(t, m).ToolCalling {
+		t.Errorf("foreign model = %q with caps %s, want the listing alone", m.Modality, m.Capabilities)
+	}
+}
+
 func TestDiscoverSGLang_RejectsMalformedListing(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		_, _ = w.Write([]byte(`{"object":"list","data":"nope"}`))
@@ -179,17 +225,21 @@ func TestDiscoverSGLang_RejectsMalformedListing(t *testing.T) {
 // SGLang added AS Ollama is told apart by the emulator check after Ollama's
 // tag listing matched.
 func TestIdentifyLocalServer_SGLang(t *testing.T) {
-	srv, _ := sglangServer(t, sglangModelInfoBody)
+	srv, paths := sglangServer(t, sglangModelInfoBody)
 	defer srv.Close()
 
 	svc := &DiscoveryService{httpClient: srv.Client()}
 	for _, expected := range []string{"", "sglang", "ollama"} {
+		*paths = nil
 		got, err := svc.IdentifyLocalServer(context.Background(), srv.URL+"/v1", "", expected)
 		if err != nil {
 			t.Fatalf("IdentifyLocalServer(expected %q): %v", expected, err)
 		}
 		if got.Type != "sglang" {
 			t.Errorf("IdentifyLocalServer(expected %q) = %q, want sglang", expected, got.Type)
+		}
+		if expected != "ollama" && slices.Contains(*paths, "/api/tags") {
+			t.Errorf("IdentifyLocalServer(expected %q) asked Ollama's route before SGLang's own: %v", expected, *paths)
 		}
 	}
 }

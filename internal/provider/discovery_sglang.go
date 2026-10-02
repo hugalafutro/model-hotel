@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"strings"
 
 	"github.com/google/uuid"
 
@@ -13,18 +14,17 @@ import (
 	"github.com/hugalafutro/model-hotel/internal/util"
 )
 
-// SGLangModelInfo is SGLang's GET /get_model_info: the one model a server
-// process serves, with what its launch flags and the model's own config say it
-// can do. Nothing in the OpenAI listing carries any of this.
+// SGLangModelInfo is SGLang's GET /get_model_info: the one model the
+// answering process serves, with what its launch flags and the model's own
+// config say it can do. Nothing in the OpenAI listing carries any of this.
 type SGLangModelInfo struct {
-	ModelPath             string `json:"model_path"`
-	ServedModelName       string `json:"served_model_name"`
-	IsGeneration          *bool  `json:"is_generation"`
-	ReasoningParser       string `json:"reasoning_parser"`
-	ToolCallParser        string `json:"tool_call_parser"`
-	HasImageUnderstanding bool   `json:"has_image_understanding"`
-	HasAudioUnderstanding bool   `json:"has_audio_understanding"`
-	ModelType             string `json:"model_type"`
+	ServedModelName       string   `json:"served_model_name"`
+	IsGeneration          bool     `json:"is_generation"`
+	ReasoningParser       string   `json:"reasoning_parser"`
+	ToolCallParser        string   `json:"tool_call_parser"`
+	HasImageUnderstanding bool     `json:"has_image_understanding"`
+	HasAudioUnderstanding bool     `json:"has_audio_understanding"`
+	Architectures         []string `json:"architectures"`
 }
 
 // discoverSGLang reads the OpenAI listing for the served names and the
@@ -65,14 +65,17 @@ func (d *DiscoveryService) discoverSGLang(ctx context.Context, provider *Provide
 }
 
 // buildSGLangModel files one listed model. The info route describes the one
-// model the process serves; every listed name is that model (SGLang lists the
-// served name, and adapters of it), so the info applies to each. An embedding
-// server (is_generation false) states the embedding class; a generation
-// server is chat, with reasoning when a reasoning parser is configured, tool
-// calling when a tool-call parser is, and image or audio input when the model
-// understands them. Structured output is always on: SGLang constrains any
-// generation model through its grammar backend. Without the info the model is
-// what the listing says, as for custom.
+// model the answering process serves, so it applies to the entry of that name
+// and to an adapter whose parent is that name; any other listed name (the
+// SGLang router merges several workers' listings, and the info is one
+// worker's) is what the listing says, as for custom. A server that does not
+// generate (is_generation false) serves embeddings, or reranking when its
+// architecture is a sequence classifier (the cross-encoder rerankers SGLang
+// serves on /v1/rerank); a generation server is chat, with reasoning when a
+// reasoning parser is configured, tool calling when a tool-call parser is,
+// and image or audio input when the model understands them. Structured
+// output is always on: SGLang constrains any generation model through its
+// grammar backend.
 func buildSGLangModel(provider *Provider, entry OpenAIModel, info *SGLangModelInfo) *model.Model {
 	m := &model.Model{
 		ID:           uuid.New(),
@@ -87,14 +90,19 @@ func buildSGLangModel(provider *Provider, entry OpenAIModel, info *SGLangModelIn
 		Enabled:      true,
 	}
 	applyListingExtras(m, entry)
-	if info == nil {
+	if info == nil || (info.ServedModelName != "" && entry.ID != info.ServedModelName && entry.Parent != info.ServedModelName) {
 		caps := model.Capability{Streaming: true}
 		capJSON, _ := json.Marshal(caps)
 		m.Capabilities = string(capJSON)
 		return m
 	}
-	if info.IsGeneration != nil && !*info.IsGeneration {
+	if !info.IsGeneration {
 		m.Modality = "embedding"
+		for _, arch := range info.Architectures {
+			if strings.HasSuffix(arch, "ForSequenceClassification") {
+				m.Modality = "rerank"
+			}
+		}
 		return m
 	}
 	input := []string{"text"}
@@ -123,7 +131,8 @@ func buildSGLangModel(provider *Provider, entry OpenAIModel, info *SGLangModelIn
 // isSGLangModelInfo reports whether body is SGLang's /get_model_info answer:
 // a model_path string beside an is_generation boolean, which no other server
 // pairs on that route. An error envelope (SGLang answers an unknown route
-// with {"detail": ...}) has neither.
+// with {"detail": ...}) has neither. Discovery asks the same question of the
+// body before trusting it, so a decoded info always carries both.
 func isSGLangModelInfo(body []byte) bool {
 	var info struct {
 		ModelPath    *string `json:"model_path"`
