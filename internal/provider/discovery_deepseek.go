@@ -2,11 +2,8 @@ package provider
 
 import (
 	"context"
-	"encoding/json"
-	"fmt"
 
 	"github.com/hugalafutro/model-hotel/internal/debuglog"
-	"github.com/hugalafutro/model-hotel/internal/jsonfault"
 	"github.com/hugalafutro/model-hotel/internal/model"
 	"github.com/hugalafutro/model-hotel/internal/util"
 )
@@ -16,16 +13,9 @@ func (d *DiscoveryService) discoverDeepSeek(ctx context.Context, provider *Provi
 
 	headers := bearerJSONHeader(apiKey)
 
-	bodyBytes, err := d.fetchURL(ctx, "GET", baseURL+"/models", headers)
+	openAIResp, err := d.fetchOpenAIListing(ctx, "deepseek", provider, baseURL+"/models", headers)
 	if err != nil {
-		debuglog.Error("discovery: deepseek fetch models failed", "provider", provider.Name, "provider_id", provider.ID, "error", err)
-		return nil, fmt.Errorf("deepseek: failed to fetch models for provider %s: %w", provider.Name, err)
-	}
-
-	var openAIResp OpenAIModelsResponse
-	if err := json.Unmarshal(bodyBytes, &openAIResp); err != nil {
-		debuglog.Error("discovery: deepseek json decode failed", "provider", provider.Name, "provider_id", provider.ID, "error", jsonfault.Describe(err, len(bodyBytes)))
-		return nil, fmt.Errorf("deepseek: failed to decode response for provider %s: %s", provider.Name, jsonfault.Describe(err, len(bodyBytes)))
+		return nil, err
 	}
 
 	// Live /models only carries id + owner; merge unions it with the catalog

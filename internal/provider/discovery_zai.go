@@ -3,12 +3,10 @@ package provider
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 
 	"github.com/google/uuid"
 
 	"github.com/hugalafutro/model-hotel/internal/debuglog"
-	"github.com/hugalafutro/model-hotel/internal/jsonfault"
 	"github.com/hugalafutro/model-hotel/internal/model"
 	"github.com/hugalafutro/model-hotel/internal/util"
 )
@@ -51,14 +49,9 @@ func (d *DiscoveryService) discoverZAICodingLive(ctx context.Context, provider *
 
 	headers := bearerJSONHeader(apiKey)
 
-	bodyBytes, err := d.fetchURL(ctx, "GET", baseURL+"/models", headers)
+	resp, err := d.fetchOpenAIListing(ctx, "zai-coding", provider, baseURL+"/models", headers)
 	if err != nil {
-		return nil, fmt.Errorf("zai-coding: failed to fetch models for provider %s: %w", provider.Name, err)
-	}
-
-	var resp OpenAIModelsResponse
-	if err := json.Unmarshal(bodyBytes, &resp); err != nil {
-		return nil, fmt.Errorf("zai-coding: failed to decode models for provider %s: %s", provider.Name, jsonfault.Describe(err, len(bodyBytes)))
+		return nil, err
 	}
 
 	models := make([]*model.Model, 0, len(resp.Data))

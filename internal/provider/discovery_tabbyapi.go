@@ -8,7 +8,6 @@ import (
 	"regexp"
 
 	"github.com/hugalafutro/model-hotel/internal/debuglog"
-	"github.com/hugalafutro/model-hotel/internal/jsonfault"
 	"github.com/hugalafutro/model-hotel/internal/model"
 	"github.com/hugalafutro/model-hotel/internal/util"
 )
@@ -92,13 +91,9 @@ var (
 // while its container is empty, which is no card and not a fault.
 func (d *DiscoveryService) discoverTabbyAPI(ctx context.Context, provider *Provider, apiKey string) ([]*model.Model, error) {
 	baseURL := util.SanitizeBaseURL(provider.BaseURL)
-	bodyBytes, err := d.fetchURL(ctx, "GET", baseURL+"/models", bearerHeader(apiKey))
+	listing, err := d.fetchOpenAIListing(ctx, "tabbyapi", provider, baseURL+"/models", bearerHeader(apiKey))
 	if err != nil {
-		return nil, fmt.Errorf("tabbyapi: failed to fetch models for provider %s: %w", provider.Name, err)
-	}
-	var listing OpenAIModelsResponse
-	if err := json.Unmarshal(bodyBytes, &listing); err != nil {
-		return nil, fmt.Errorf("tabbyapi: failed to decode response for provider %s: %s", provider.Name, jsonfault.Describe(err, len(bodyBytes)))
+		return nil, err
 	}
 
 	loaded, err := d.fetchTabbyAPICard(ctx, provider, baseURL+"/model", apiKey, "chat")
