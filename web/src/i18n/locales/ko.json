@@ -766,6 +766,7 @@
 		"type_koboldcpp": "KoboldCPP",
 		"type_lmstudio": "LM Studio",
 		"type_localai": "LocalAI",
+		"type_sglang": "SGLang",
 		"form_modal_title": "공급자 추가",
 		"form_type_label": "유형",
 		"form_name_label": "이름",

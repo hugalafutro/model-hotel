@@ -105,7 +105,35 @@ func TestConfirmLocalServerType_Mismatch(t *testing.T) {
 	}
 }
 
-// A server that is up but is not one of the three families cannot confirm the
+// An emulator check that fails in transport after Ollama's listing matched
+// is refused as unconfirmed, not saved as Ollama: the server did answer, so
+// it is not unreachable, and a retry settles which family it is.
+func TestConfirmLocalServerType_EmulatorCheckFailed(t *testing.T) {
+	var srv *httptest.Server
+	srv = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/api/tags" {
+			w.Header().Set("Content-Type", "application/json")
+			_, _ = w.Write([]byte(`{"models":[{"name":"llama3:8b"}]}`))
+			return
+		}
+		srv.CloseClientConnections()
+	}))
+	defer srv.Close()
+
+	h := &Handler{}
+	withDiscoveryAgainst(h, srv.Client())
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodPost, "/providers", http.NoBody)
+	if h.confirmLocalServerType(rec, req, "ollama", srv.URL+"/v1", "") {
+		t.Fatal("expected the gate to block an unconfirmed server")
+	}
+	body := gateBody(t, rec)
+	if body.Code != codeProviderTypeUnconfirmed || body.Detected != "" {
+		t.Errorf("code/detected = %q/%q, want %q and no family", body.Code, body.Detected, codeProviderTypeUnconfirmed)
+	}
+}
+
+// A server that is up but is not one of the families cannot confirm the
 // choice either, so it is refused rather than saved on trust.
 func TestConfirmLocalServerType_Unconfirmed(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
