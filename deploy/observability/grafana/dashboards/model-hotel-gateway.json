@@ -1521,7 +1521,7 @@
       "type": "table",
       "id": 22,
       "title": "Tokens by model",
-      "description": "Top 20 provider / model / kind combinations by tokens over the dashboard time range.",
+      "description": "Top 20 provider / model / kind combinations by tokens over the dashboard time range. Only prompt and completion are listed: prompt_cached is the share of prompt the provider served from its cache and reasoning the share of completion spent thinking, so both are subsets, not extra counts. The Prompt cache hit share stat carries the cache view.",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
@@ -1616,7 +1616,7 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "topk(20, sum by (provider, model, kind) (increase(modelhotel_tokens_total{provider=~\"$provider\"}[$__range])))",
+          "expr": "topk(20, sum by (provider, model, kind) (increase(modelhotel_tokens_total{provider=~\"$provider\", kind=~\"prompt|completion\"}[$__range])))",
           "datasource": {
             "type": "prometheus",
             "uid": "prometheus"
