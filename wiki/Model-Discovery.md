@@ -304,8 +304,8 @@ fingerprint matches, LocalAI's is asked as well, so a LocalAI added as
 The chosen type's endpoint is asked first, so a server added as the type it
 really is sees only its own endpoint (LM Studio logs every route it does not
 serve as an `ERROR`). The other endpoints follow, in the table's order, only
-when that one does not match, which is how a mismatch names the family that
-did answer.
+when that one does not match (apart from the LocalAI check above), which is
+how a mismatch names the family that did answer.
 
 Each probe is bounded at 5 seconds. The operator is waiting on the add dialog
 and the server is on the LAN or the same box, so a slow answer is a wrong
@@ -855,7 +855,7 @@ Every model is filed under the class its usecases name, stated explicitly so no 
 | `image` | `image` |
 | `chat` or `completion` | `chat` |
 
-A model whose usecases name only endpoints Model Hotel does not route (`video`, `vad`, `detection`, `sound_generation`, ...) is skipped and logged. An entry with no capabilities at all is a model file without a config, which LocalAI serves with its chat defaults; it gets the chat capabilities but no explicit class, so the central classification keeps a plain file as chat and still reads an embedding or reranker out of a name that says so.
+A model whose usecases name only endpoints Model Hotel does not route (`video`, `vad`, `detection`, `sound_generation`, ...) is skipped and logged. An entry with no capabilities at all is a model file without a config, which LocalAI serves with its chat defaults; it gets the chat capabilities but no explicit class, so the central classification keeps a plain file as chat and still reads an embedding or reranker out of a name that says so, which clears those capabilities again.
 
 **Detection:** Chosen by the operator, confirmed by probing `/v1/models/capabilities` when the provider is added or its URL changed.
 
