@@ -73,7 +73,7 @@ func (h *Handler) CreateProvider(w http.ResponseWriter, r *http.Request) {
 	// logged once.
 	if derivedType && req.ProviderType == "openai" {
 		debuglog.Info("provider: no provider_type given, treating as a generic OpenAI-compatible endpoint",
-			"name", req.Name, "hint", "self-hosted servers (ollama, lmstudio, koboldcpp) must name their type to get native discovery")
+			"name", req.Name, "hint", "self-hosted servers (ollama, lmstudio, koboldcpp, localai) must name their type to get native discovery")
 	}
 
 	// Some providers (e.g. OpenCode Zen) support keyless access for free models, so

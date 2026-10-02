@@ -56,6 +56,7 @@ describe("PROVIDER_PREFIXES", () => {
 			"nanogpt",
 			"lmstudio",
 			"koboldcpp",
+			"localai",
 			"opencode",
 		];
 
@@ -79,6 +80,7 @@ describe("PROVIDER_PREFIXES", () => {
 			"nanogpt",
 			"lmstudio",
 			"koboldcpp",
+			"localai",
 			"opencode",
 		];
 

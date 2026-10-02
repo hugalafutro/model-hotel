@@ -805,6 +805,7 @@
 		"type_neuralwatt": "NeuralWatt",
 		"type_koboldcpp": "KoboldCPP",
 		"type_lmstudio": "LM Studio",
+		"type_localai": "LocalAI",
 		"form_modal_title": "Добавить поставщика",
 		"form_type_label": "Тип",
 		"form_name_label": "Наименование",

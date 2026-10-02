@@ -103,7 +103,7 @@ describe("localProviderPlaceholders", () => {
 	// These are placeholders, never values: a self-hosted server's address is
 	// the operator's to supply, and a containerised Model Hotel cannot reach
 	// its own localhost.
-	it.each(["ollama", "koboldcpp", "lmstudio"])(
+	it.each(["ollama", "koboldcpp", "lmstudio", "localai"])(
 		"offers a routable example address for %s",
 		(type) => {
 			const example = localProviderPlaceholders[type];
@@ -127,6 +127,10 @@ describe("isLocalProviderType", () => {
 		expect(isLocalProviderType("lmstudio")).toBe(true);
 	});
 
+	it("returns true for localai", () => {
+		expect(isLocalProviderType("localai")).toBe(true);
+	});
+
 	it("returns false for openai", () => {
 		expect(isLocalProviderType("openai")).toBe(false);
 	});
@@ -139,12 +143,16 @@ describe("isLocalProviderType", () => {
 describe("hasEditableBaseUrl", () => {
 	// The two hand-entered dialects and the self-hosted servers: an operator
 	// types the address, so the field must not be locked or pre-filled.
-	it.each(["custom", "anthropic-messages", "ollama", "koboldcpp", "lmstudio"])(
-		"leaves the base URL editable for %s",
-		(type) => {
-			expect(hasEditableBaseUrl(type)).toBe(true);
-		},
-	);
+	it.each([
+		"custom",
+		"anthropic-messages",
+		"ollama",
+		"koboldcpp",
+		"lmstudio",
+		"localai",
+	])("leaves the base URL editable for %s", (type) => {
+		expect(hasEditableBaseUrl(type)).toBe(true);
+	});
 
 	// Hosted APIs live at one known address, which the dialog fills in and locks
 	// so it cannot be mistyped. "anthropic" is the pointed case: its Messages
@@ -280,6 +288,10 @@ describe("providerTypeTranslationKeys", () => {
 		);
 	});
 
+	it("has translation key for localai", () => {
+		expect(providerTypeTranslationKeys.localai).toBe("providers.type_localai");
+	});
+
 	it("has translation key for nanogpt", () => {
 		expect(providerTypeTranslationKeys.nanogpt).toBe("providers.type_nanogpt");
 	});
@@ -332,6 +344,10 @@ describe("providerTypeAllowsEmptyKey", () => {
 
 	it("returns true for lmstudio", () => {
 		expect(providerTypeAllowsEmptyKey("lmstudio")).toBe(true);
+	});
+
+	it("returns true for localai", () => {
+		expect(providerTypeAllowsEmptyKey("localai")).toBe(true);
 	});
 
 	it("returns false for openai", () => {

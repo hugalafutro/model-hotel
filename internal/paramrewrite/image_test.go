@@ -64,6 +64,8 @@ func TestRewriteImageRequest_LeavesEverythingElseAlone(t *testing.T) {
 		{"openai keeps size", `{"model":"dall-e-3","prompt":"p","size":"1024x1024"}`, "openai"},
 		{"xai without size", `{"model":"m","prompt":"p","n":2}`, "xai"},
 		{"xai unparseable", `{"model":"m","prompt":"p","size":"1024x1024"`, "xai"},
+		{"localai explicit url", `{"model":"m","prompt":"p","response_format":"url"}`, "localai"},
+		{"localai unparseable", `{"model":"m","prompt":"p"`, "localai"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
@@ -107,5 +109,20 @@ func TestRewriteImageRequest_Grok2ImageDropsBothMembers(t *testing.T) {
 	out, dropped, _ := RewriteImageRequest([]byte(`{"model":"grok-2-image-1212","prompt":"p","n":1}`), "xai", "grok-2-image-1212")
 	if string(out) != `{"model":"grok-2-image-1212","prompt":"p","n":1}` || dropped != "" {
 		t.Errorf("a body with neither member must pass untouched, got %s", out)
+	}
+}
+
+// LocalAI's url form points at the LocalAI host itself, behind its key, so a
+// body that leaves response_format unset asks for b64_json instead; the other
+// members ride through untouched.
+func TestRewriteImageRequest_LocalAIDefaultsToB64(t *testing.T) {
+	t.Parallel()
+	out, dropped, chosen := RewriteImageRequest([]byte(`{"model":"dreamshaper-8","prompt":"p","size":"256x256","n":1}`), "localai", "dreamshaper-8")
+	var raw map[string]any
+	if err := json.Unmarshal(out, &raw); err != nil {
+		t.Fatalf("output is not JSON: %v: %s", err, out)
+	}
+	if raw["response_format"] != "b64_json" || raw["size"] != "256x256" || raw["n"] != float64(1) || dropped != "" || chosen != "" {
+		t.Errorf("RewriteImageRequest(localai) = %s (dropped %q chosen %q), want response_format b64_json and the rest kept", out, dropped, chosen)
 	}
 }

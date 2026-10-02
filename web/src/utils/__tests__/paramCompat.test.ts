@@ -153,6 +153,10 @@ describe("normalizeToProviderType - substring heuristic", () => {
 		expect(normalizeToProviderType("KoboldCpp Local")).toBe("koboldcpp");
 	});
 
+	it("matches Local AI g15 to localai", () => {
+		expect(normalizeToProviderType("Local AI g15")).toBe("localai");
+	});
+
 	it("matches z.ai Coding Pro to zai-coding", () => {
 		expect(normalizeToProviderType("z.ai Coding Pro")).toBe("zai-coding");
 	});

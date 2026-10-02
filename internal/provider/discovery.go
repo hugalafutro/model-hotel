@@ -480,6 +480,8 @@ func (d *DiscoveryService) DiscoverModels(ctx context.Context, provider *Provide
 			return d.discoverKoboldCPP(ctx, provider, apiKey)
 		case "lmstudio":
 			return d.discoverLMStudio(ctx, provider, apiKey)
+		case "localai":
+			return d.discoverLocalAI(ctx, provider, apiKey)
 		default:
 			return d.discoverOpenAI(ctx, provider, apiKey)
 		}

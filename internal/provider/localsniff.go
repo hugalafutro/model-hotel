@@ -106,6 +106,12 @@ func localServerProbes() []localServerProbe {
 		{"lmstudio", "/api/v0/models", func(body []byte) (string, bool) {
 			return "", isLMStudioModelListing(body)
 		}},
+		// LocalAI: its capabilities listing, which nothing else serves. Asked
+		// before Ollama's: LocalAI also answers /api/tags in Ollama's shape,
+		// so the Ollama fingerprint alone would claim it.
+		{"localai", "/v1/models/capabilities", func(body []byte) (string, bool) {
+			return "", isLocalAICapabilitiesListing(body)
+		}},
 		// Ollama: the native tag listing.
 		{"ollama", "/api/tags", func(body []byte) (string, bool) {
 			return "", isOllamaTagListing(body)

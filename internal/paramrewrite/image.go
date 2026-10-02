@@ -21,8 +21,30 @@ import (
 // forwarded as it came, like every other rewriter here. It reports the size it
 // dropped and the aspect_ratio it chose, each empty when nothing happened, so
 // the caller can log every body it changed.
+//
+// LocalAI is the other case: its default response_format is "url", and the
+// URL names the LocalAI server's own /generated-images route, which answers
+// only with its API key and from its own network, so a client of this gateway
+// can never fetch it. A body that leaves response_format unset is sent as
+// b64_json; one that asks for "url" explicitly is left alone, since the caller
+// then knows where the server is.
 func RewriteImageRequest(body []byte, providerType, modelID string) (out []byte, droppedSize, chosenRatio string) {
-	if providerType != "xai" {
+	switch providerType {
+	case "xai":
+	case "localai":
+		raw, ok := decodeObject(body)
+		if !ok {
+			return body, "", ""
+		}
+		if _, has := raw["response_format"]; has {
+			return body, "", ""
+		}
+		raw["response_format"] = "b64_json"
+		if out, err := json.Marshal(raw); err == nil {
+			return out, "", ""
+		}
+		return body, "", ""
+	default:
 		return body, "", ""
 	}
 	raw, ok := decodeObject(body)

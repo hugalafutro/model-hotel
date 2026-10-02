@@ -240,7 +240,7 @@ Providers on the merge (union): **Z.AI**, **xAI**, **DeepSeek**, **OpenCode Go**
 A provider's type is chosen by the operator in the add dialog and stored on the
 row (`providers.provider_type`); nothing re-derives it from the URL afterwards.
 
-For the three self-hosted server families (Ollama, LM Studio, KoboldCPP) the
+For the four self-hosted server families (Ollama, LM Studio, KoboldCPP, LocalAI) the
 address says nothing about what is listening on it, so the choice is
 **verified** before the provider is saved: Model Hotel probes the identifying
 endpoint of the chosen family and refuses the save if another server answers,
@@ -278,8 +278,8 @@ Hostname rules (`detectByHost`, exact and suffix matching):
 | `api.neuralwatt.com`, `neuralwatt.com`, `*.neuralwatt.com` | - | `neuralwatt` |
 | Any other host | - | `openai` (fallback) |
 
-Self-hosted servers have no entry here: `ollama`, `lmstudio` and `koboldcpp`
-are chosen, not matched, and run on whatever address and port the operator gave.
+Self-hosted servers have no entry here: `ollama`, `lmstudio`, `koboldcpp` and
+`localai` are chosen, not matched, and run on whatever address and port the operator gave.
 `anthropic-messages` has none either, and for the same reason: it names a wire
 format rather than a vendor, so no host implies it. `api.anthropic.com` resolves
 to `anthropic` as it always has.
@@ -290,11 +290,15 @@ to `anthropic` as it always has.
 |------|----------|-------|
 | `koboldcpp` | `GET {origin}/api/extra/version` | `result` equals `KoboldCpp` (the reply also carries the version and the modality flags) |
 | `lmstudio` | `GET {origin}/api/v0/models` | a `data` array with LM Studio's native model fields |
+| `localai` | `GET {origin}/v1/models/capabilities` | a `data` array whose entries carry a `capabilities` member |
 | `ollama` | `GET {origin}/api/tags` | a `models` array |
 
 The match is on the body, never on the status: LM Studio answers routes it does
 not serve with HTTP 200 and an `{"error": ...}` body, so a status-only check
-would identify it as whichever family was probed first.
+would identify it as whichever family was probed first. LocalAI's fingerprint
+sits ahead of Ollama's in the fixed order because LocalAI also answers
+`/api/tags` in Ollama's shape; a LocalAI added as `ollama` is still accepted,
+since that is the family the operator asked for and the server does answer it.
 
 The chosen type's endpoint is asked first, so a server added as the type it
 really is sees only its own endpoint (LM Studio logs every route it does not
@@ -832,6 +836,39 @@ Rerank models are billed per search unit rather than per token, so their per-tok
 | Pricing | None (self-hosted) |
 | Capabilities | Chat models: streaming and structured output always, tool calling when the native listing's `capabilities` contains `tool_use` (native tool support in the chat template). A model is a chat model when its `type` is `llm` or `vlm`, or when an absent or unknown type is filed as chat by the central class derivation (so an unknown type named like a reranker is not). Embeddings and every other class: none, since they stream nothing and take no `response_format`. The `/v1/models` fallback cannot tell the types apart and gives every model streaming and structured output, which the central classification then clears on the embedding and rerank models. models.dev does not enrich a self-hosted server's models. LM Studio also runs tool calls on models without native `tool_use`, through its default prompt-based tool format, so a model without the tool-calling flag may still answer a request that sends tools |
 | Modalities | From the native listing's model `type`: `embeddings` produces `["embedding"]`, `vlm` takes `["text","image"]` in and states the `chat` class, `llm` states `chat`. The `/v1/models` fallback carries no type, so the class is derived from the model id there. |
+
+### LocalAI
+
+**Source files:** `discovery_localai.go`
+
+**Method:** LocalAI is a self-hosted server that runs many backends (llama.cpp, whisper, piper, stable-diffusion, ...) behind one OpenAI-compatible API. Discovery reads `GET /v1/models/capabilities`, LocalAI's own superset of `/v1/models`, which names per model the usecases its configuration serves, the input and output modalities, and the context size the server will honour. A LocalAI too old for that route is read from the plain `/v1/models` listing instead, which carries no class.
+
+Every model is filed under the class its usecases name, stated explicitly so no name heuristic can move it. LocalAI tags every model on its llama.cpp backend as `chat` as well, so a reranker reports `chat` and `rerank`; the dedicated endpoint wins, in this order:
+
+| Usecase | Class |
+|---------|-------|
+| `rerank` | `rerank` |
+| `embeddings` | `embedding` |
+| `transcript` | `stt` |
+| `tts` | `tts` |
+| `image` | `image` |
+| `chat` or `completion` | `chat` |
+
+A model whose usecases name only endpoints Model Hotel does not route (`video`, `vad`, `detection`, `sound_generation`, ...) is skipped and logged. An entry with no capabilities at all is a model file without a config, which LocalAI serves as chat with its defaults, and is filed as chat.
+
+**Detection:** Chosen by the operator, confirmed by probing `/v1/models/capabilities` when the provider is added or its URL changed.
+
+**Image generation:** LocalAI's default `response_format` is `url`, and the URL names LocalAI's own `/generated-images` route, which answers only with LocalAI's key and from its own network. A request that leaves `response_format` unset is forwarded as `b64_json`; one that asks for `url` explicitly is left alone.
+
+**Hardcoded / missing:**
+
+| Field | Value |
+|-------|-------|
+| Context length | `context_size` from the listing, marked live, so a config edit propagates on the next scan |
+| Max output tokens | Not set |
+| Pricing | None (self-hosted) |
+| Capabilities | Chat models: streaming and structured output always (LocalAI constrains any llama.cpp model with a grammar built from the schema), tool calling when the listing carries `tools`, reasoning when it carries `thinking`, vision when it carries `vision` or lists `image` among the inputs. LocalAI detects `tools` and `thinking` from the loaded model's template, so a model that has never been loaded may gain them on a later scan; the operator can also pin them. Every other class: none. models.dev does not enrich a self-hosted server's models |
+| Modalities | Chat models: `input_modalities` from the listing (`text`, `image`, `audio`, `video`), text out. Every other class: derived centrally from the class |
 
 ### KoboldCPP
 
