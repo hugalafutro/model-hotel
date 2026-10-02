@@ -93,11 +93,11 @@ func (d *DiscoveryService) IdentifyLocalServer(ctx context.Context, baseURL, api
 				}
 				body, status, err := d.probeLocal(ctx, origin+q.path, apiKey)
 				// The server answered a moment ago, so a transport fault or
-				// a status that is neither an answer nor a "no such route"
-				// (a 5xx, a 401 on the one route) is a transient fault;
-				// saving it as the expected family on an unanswered question
-				// could file an emulator under the wrong type.
-				if err == nil && status != http.StatusOK && status != http.StatusNotFound {
+				// a 5xx is a transient fault; saving it as the expected
+				// family on an unanswered question could file an emulator
+				// under the wrong type. A 4xx is the route not being there
+				// (or a proxy refusing an unknown one), which is an answer.
+				if err == nil && status >= http.StatusInternalServerError {
 					err = fmt.Errorf("HTTP %d", status)
 				}
 				if err != nil {
@@ -183,7 +183,19 @@ func localServerProbes() []localServerProbe {
 // can sit behind a password or an authenticating proxy, and an unauthenticated
 // probe would see a 401 and conclude the server is not what it says it is.
 func (d *DiscoveryService) probeLocal(ctx context.Context, endpoint, apiKey string) ([]byte, int, error) {
-	reqCtx, cancel := context.WithTimeout(ctx, localProbeTimeout)
+	return d.getOnce(ctx, endpoint, apiKey, localProbeTimeout)
+}
+
+// getOnce is one GET with no retry: the body, the status, and an error only
+// for a request that got no response. A fingerprint probe bounds it with
+// localProbeTimeout; a discovery read that must not retry (TabbyAPI's card
+// routes, whose 503 is an answer) passes 0 and keeps the client's own
+// deadline.
+func (d *DiscoveryService) getOnce(ctx context.Context, endpoint, apiKey string, timeout time.Duration) ([]byte, int, error) {
+	reqCtx, cancel := ctx, func() {}
+	if timeout > 0 {
+		reqCtx, cancel = context.WithTimeout(ctx, timeout)
+	}
 	defer cancel()
 
 	req, err := http.NewRequestWithContext(reqCtx, http.MethodGet, endpoint, http.NoBody)
@@ -208,7 +220,7 @@ func (d *DiscoveryService) probeLocal(ctx context.Context, endpoint, apiKey stri
 	// Fingerprint bodies are tiny; a large one is not one of ours.
 	body, err := io.ReadAll(io.LimitReader(resp.Body, 1<<20))
 	if err != nil {
-		return nil, 0, nil
+		return nil, 0, maskedRequestError(req, err)
 	}
 	return body, resp.StatusCode, nil
 }

@@ -163,11 +163,12 @@ func TestDiscoverTabbyAPI_ParameterVariants(t *testing.T) {
 	}
 }
 
-// The listing's meta.n_ctx wins over the card's max_seq_len, as the doc says;
-// a card answered with a body that is no model card leaves the listing read
-// as custom would (logged); a card route that faults or answers a status that
-// is neither an answer nor an empty container fails the scan, so the stored
-// capabilities stay.
+// The listing's meta.n_ctx wins over the card's max_seq_len, as the doc says.
+// No card and no fault is TabbyAPI's own detail answer only: 503 (400 on a
+// build before April 2025) for an empty container, 404 for a route an older
+// build lacks. A proxy's 503 or 404 page, a 200 that is no card, any other
+// status or a transport fault fails the scan, so the stored capabilities
+// stay.
 func TestDiscoverTabbyAPI_CardPrecedenceAndFaults(t *testing.T) {
 	t.Run("listing n_ctx over card max_seq_len", func(t *testing.T) {
 		card := `{"id":"Qwen3-4B-exl3-4bpw","parameters":{"max_seq_len":2048,"prompt_template_content":""}}`
@@ -185,67 +186,87 @@ func TestDiscoverTabbyAPI_CardPrecedenceAndFaults(t *testing.T) {
 			t.Errorf("caps = %+v, want structured from the card, no tools from an empty template", c)
 		}
 	})
-	t.Run("card route answers another server's body", func(t *testing.T) {
-		srv, _ := tabbyAPIServer(t, tabbyAPIListingBody, `<html>proxy</html>`, `{"models":[]}`)
-		defer srv.Close()
-		svc := &DiscoveryService{httpClient: srv.Client()}
-		models, err := svc.discoverTabbyAPI(context.Background(), &Provider{ID: uuid.New(), ProviderType: "tabbyapi", BaseURL: srv.URL + "/v1"}, "")
-		if err != nil || len(models) != 1 {
-			t.Fatalf("discoverTabbyAPI = %+v, %v; want the listing alone", models, err)
-		}
-		if c := decodeCaps(t, models[0]); !c.Streaming || c.StructuredOutput {
-			t.Errorf("caps = %+v, want streaming only without a card", c)
-		}
-	})
-	for name, cardStatus := range map[string]int{"card route answers 500": http.StatusInternalServerError, "card route answers 401": http.StatusUnauthorized, "card route drops the connection": 0} {
-		t.Run(name, func(t *testing.T) {
-			var srv *httptest.Server
-			srv = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-				w.Header().Set("Content-Type", "application/json")
-				if r.URL.Path == "/v1/models" {
-					_, _ = w.Write([]byte(tabbyAPIListingBody))
-					return
-				}
-				if cardStatus == 0 {
-					srv.CloseClientConnections()
-					return
-				}
-				w.WriteHeader(cardStatus)
-				_, _ = w.Write([]byte(`{"detail":"nope"}`))
-			}))
-			defer srv.Close()
-			svc := &DiscoveryService{httpClient: srv.Client()}
-			models, err := svc.discoverTabbyAPI(context.Background(), &Provider{ID: uuid.New(), ProviderType: "tabbyapi", BaseURL: srv.URL + "/v1"}, "")
-			if err == nil || models != nil {
-				t.Fatalf("discoverTabbyAPI = %+v, %v; want the scan to fail", models, err)
-			}
-		})
-	}
-	t.Run("card route 404 is no card", func(t *testing.T) {
-		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	// cardAnswer serves the listing and answers both card routes with one
+	// status and body (0 drops the connection).
+	cardAnswer := func(status int, body string) *httptest.Server {
+		var srv *httptest.Server
+		srv = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			w.Header().Set("Content-Type", "application/json")
 			if r.URL.Path == "/v1/models" {
 				_, _ = w.Write([]byte(tabbyAPIListingBody))
 				return
 			}
-			w.WriteHeader(http.StatusNotFound)
-			_, _ = w.Write([]byte(`{"detail":"Not Found"}`))
+			if status == 0 {
+				srv.CloseClientConnections()
+				return
+			}
+			w.WriteHeader(status)
+			_, _ = w.Write([]byte(body))
 		}))
+		return srv
+	}
+	scan := func(t *testing.T, srv *httptest.Server) ([]*model.Model, error) {
+		t.Helper()
 		defer srv.Close()
 		svc := &DiscoveryService{httpClient: srv.Client()}
-		models, err := svc.discoverTabbyAPI(context.Background(), &Provider{ID: uuid.New(), ProviderType: "tabbyapi", BaseURL: srv.URL + "/v1"}, "")
+		return svc.discoverTabbyAPI(context.Background(), &Provider{ID: uuid.New(), ProviderType: "tabbyapi", BaseURL: srv.URL + "/v1"}, "")
+	}
+	for name, tc := range map[string]struct {
+		status int
+		body   string
+	}{
+		"503 empty container":              {http.StatusServiceUnavailable, `{"detail":"No models are currently loaded."}`},
+		"400 empty container, older build": {http.StatusBadRequest, `{"detail":"No models are currently loaded."}`},
+		"404 route absent, older build":    {http.StatusNotFound, `{"detail":"Not Found"}`},
+	} {
+		t.Run(name+" is no card", func(t *testing.T) {
+			models, err := scan(t, cardAnswer(tc.status, tc.body))
+			if err != nil || len(models) != 1 {
+				t.Fatalf("discoverTabbyAPI = %+v, %v; want the listing alone", models, err)
+			}
+			if c := decodeCaps(t, models[0]); !c.Streaming || c.StructuredOutput {
+				t.Errorf("caps = %+v, want streaming only without a card", c)
+			}
+		})
+	}
+	for name, tc := range map[string]struct {
+		status int
+		body   string
+	}{
+		"500":                               {http.StatusInternalServerError, `{"detail":"nope"}`},
+		"401":                               {http.StatusUnauthorized, `{"detail":"Unauthorized"}`},
+		"503 from a proxy":                  {http.StatusServiceUnavailable, `<html>upstream down</html>`},
+		"404 from a proxy":                  {http.StatusNotFound, `<html>not here</html>`},
+		"200 with another server's body":    {http.StatusOK, `<html>proxy</html>`},
+		"200 with an id but odd parameters": {http.StatusOK, `{"id":"m","parameters":"lots"}`},
+		"200 without an id":                 {http.StatusOK, `{"models":[]}`},
+		"connection dropped":                {0, ""},
+	} {
+		t.Run(name+" fails the scan", func(t *testing.T) {
+			models, err := scan(t, cardAnswer(tc.status, tc.body))
+			if err == nil || models != nil {
+				t.Fatalf("discoverTabbyAPI = %+v, %v; want the scan to fail", models, err)
+			}
+		})
+	}
+	t.Run("card with null parameters is a card", func(t *testing.T) {
+		srv, _ := tabbyAPIServer(t, tabbyAPIListingBody, `{"id":"Qwen3-4B-exl3-4bpw","parameters":null}`, "")
+		models, err := scan(t, srv)
 		if err != nil || len(models) != 1 {
-			t.Fatalf("discoverTabbyAPI = %+v, %v; want the listing alone", models, err)
+			t.Fatalf("discoverTabbyAPI = %+v, %v", models, err)
+		}
+		if c := decodeCaps(t, models[0]); !c.StructuredOutput || c.ToolCalling {
+			t.Errorf("caps = %+v, want structured from the card alone", c)
 		}
 	})
 }
 
-// An emulator fingerprint that answers neither 200 nor 404 after the expected
-// family matched (a 5xx, a 401 on that one route) is an unanswered question:
-// the add is refused as unconfirmed rather than saved as the family the
-// emulator imitates.
-func TestIdentifyLocalServer_EmulatorProbeIndeterminateStatusIsAnError(t *testing.T) {
-	for _, status := range []int{http.StatusInternalServerError, http.StatusUnauthorized} {
+// An emulator fingerprint that answers a 5xx after the expected family
+// matched is an unanswered question: the add is refused as unconfirmed rather
+// than saved as the family the emulator imitates. A 4xx is an answer (the
+// route is not there, or a proxy refused it), so the expected family stands.
+func TestIdentifyLocalServer_EmulatorProbeStatuses(t *testing.T) {
+	for status, wantType := range map[int]string{http.StatusInternalServerError: "", http.StatusBadGateway: "", http.StatusUnauthorized: "koboldcpp", http.StatusForbidden: "koboldcpp", http.StatusNotFound: "koboldcpp"} {
 		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			w.Header().Set("Content-Type", "application/json")
 			switch r.URL.Path {
@@ -261,8 +282,8 @@ func TestIdentifyLocalServer_EmulatorProbeIndeterminateStatusIsAnError(t *testin
 		svc := &DiscoveryService{httpClient: srv.Client()}
 		got, err := svc.IdentifyLocalServer(context.Background(), srv.URL, "", "koboldcpp")
 		srv.Close()
-		if err == nil || got.Type != "" {
-			t.Errorf("status %d: IdentifyLocalServer = %+v, %v; want an error and no type", status, got, err)
+		if (err == nil) != (wantType != "") || got.Type != wantType {
+			t.Errorf("status %d: IdentifyLocalServer = %+v, %v; want type %q", status, got, err, wantType)
 		}
 	}
 }
