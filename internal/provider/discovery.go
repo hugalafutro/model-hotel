@@ -2,6 +2,7 @@ package provider
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -17,6 +18,7 @@ import (
 	"github.com/hugalafutro/model-hotel/internal/auth"
 	"github.com/hugalafutro/model-hotel/internal/debuglog"
 	"github.com/hugalafutro/model-hotel/internal/httpx"
+	"github.com/hugalafutro/model-hotel/internal/jsonfault"
 	"github.com/hugalafutro/model-hotel/internal/model"
 	"github.com/hugalafutro/model-hotel/internal/util"
 )
@@ -198,6 +200,30 @@ func httpErrorFrom(err error) *httpError {
 // so the body replays on retry.
 func (d *DiscoveryService) doDiscoveryRequestPrebuilt(ctx context.Context, req *http.Request) (*http.Response, error) {
 	return d.doDiscoveryRequest(ctx, func() (*http.Request, error) { return req, nil })
+}
+
+// fetchOpenAIListing GETs an OpenAI-shaped /models listing and decodes it,
+// logging and wrapping both failures under the family's name. A family whose
+// fetch failure has a branch of its own (a 404 that falls back to a catalog,
+// a 403 passed up as is) fetches itself and decodes with decodeOpenAIListing.
+func (d *DiscoveryService) fetchOpenAIListing(ctx context.Context, kind string, provider *Provider, url string, headers http.Header) (OpenAIModelsResponse, error) {
+	bodyBytes, err := d.fetchURL(ctx, "GET", url, headers)
+	if err != nil {
+		debuglog.Error("discovery: "+kind+" fetch models failed", "provider", provider.Name, "provider_id", provider.ID, "error", err)
+		return OpenAIModelsResponse{}, fmt.Errorf("%s: failed to fetch models for provider %s: %w", kind, provider.Name, err)
+	}
+	return decodeOpenAIListing(kind, provider, bodyBytes)
+}
+
+// decodeOpenAIListing reads a /models body as the OpenAI listing shape.
+func decodeOpenAIListing(kind string, provider *Provider, body []byte) (OpenAIModelsResponse, error) {
+	var listing OpenAIModelsResponse
+	if err := json.Unmarshal(body, &listing); err != nil {
+		desc := jsonfault.Describe(err, len(body))
+		debuglog.Error("discovery: "+kind+" json decode failed", "provider", provider.Name, "provider_id", provider.ID, "error", desc)
+		return OpenAIModelsResponse{}, fmt.Errorf("%s: failed to decode response for provider %s: %s", kind, provider.Name, desc)
+	}
+	return listing, nil
 }
 
 // fetchURL makes an HTTP request with the given headers, reads the response

@@ -245,7 +245,7 @@ func (d *DiscoveryService) discoverXAIMinimalModels(ctx context.Context, provide
 		return nil, fmt.Errorf("xAI: http request failed for provider %s: %w", provider.Name, err)
 	}
 
-	openAIResp, err := decodeOpenAIListing("xAI", provider, bodyBytes)
+	openAIResp, err := decodeOpenAIListing("xai", provider, bodyBytes)
 	if err != nil {
 		return nil, err
 	}
