@@ -297,8 +297,9 @@ The match is on the body, never on the status: LM Studio answers routes it does
 not serve with HTTP 200 and an `{"error": ...}` body, so a status-only check
 would identify it as whichever family was probed first. LocalAI's fingerprint
 sits ahead of Ollama's in the fixed order because LocalAI also answers
-`/api/tags` in Ollama's shape; a LocalAI added as `ollama` is still accepted,
-since that is the family the operator asked for and the server does answer it.
+`/api/tags` in Ollama's shape, and when `ollama` is the chosen type and its
+fingerprint matches, LocalAI's is asked as well, so a LocalAI added as
+`ollama` is refused naming `localai` rather than discovered as a lesser Ollama.
 
 The chosen type's endpoint is asked first, so a server added as the type it
 really is sees only its own endpoint (LM Studio logs every route it does not
@@ -854,7 +855,7 @@ Every model is filed under the class its usecases name, stated explicitly so no 
 | `image` | `image` |
 | `chat` or `completion` | `chat` |
 
-A model whose usecases name only endpoints Model Hotel does not route (`video`, `vad`, `detection`, `sound_generation`, ...) is skipped and logged. An entry with no capabilities at all is a model file without a config, which LocalAI serves as chat with its defaults, and is filed as chat.
+A model whose usecases name only endpoints Model Hotel does not route (`video`, `vad`, `detection`, `sound_generation`, ...) is skipped and logged. An entry with no capabilities at all is a model file without a config, which LocalAI serves with its chat defaults; it gets the chat capabilities but no explicit class, so the central classification keeps a plain file as chat and still reads an embedding or reranker out of a name that says so.
 
 **Detection:** Chosen by the operator, confirmed by probing `/v1/models/capabilities` when the provider is added or its URL changed.
 
