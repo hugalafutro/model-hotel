@@ -25,6 +25,7 @@ const localAICapabilitiesBody = `{"object":"list","data":[
 	{"id":"piper-lessac","object":"model","capabilities":["tts"],"input_modalities":["text"],"output_modalities":["audio"],"context_size":4096},
 	{"id":"dreamshaper-8","object":"model","capabilities":["image"],"input_modalities":["text"],"output_modalities":["image"],"context_size":4096},
 	{"id":"silero-vad","object":"model","capabilities":["vad"],"input_modalities":["audio"],"output_modalities":[],"context_size":4096},
+	{"id":"huge-ctx","object":"model","capabilities":["chat"],"input_modalities":["text"],"output_modalities":["text"],"context_size":4294967296},
 	{"id":"loose-file.gguf","object":"model","capabilities":null,"input_modalities":null,"output_modalities":null},
 	{"id":"nomic-embed.gguf","object":"model","capabilities":null,"input_modalities":null,"output_modalities":null}
 ]}`
@@ -54,8 +55,8 @@ func TestDiscoverLocalAI_ClassesCapsAndContext(t *testing.T) {
 	for _, m := range models {
 		byID[m.ModelID] = m
 	}
-	if _, listed := byID["silero-vad"]; listed || len(models) != 9 {
-		t.Fatalf("got %d models, want 9 with the vad model skipped", len(models))
+	if _, listed := byID["silero-vad"]; listed || len(models) != 10 {
+		t.Fatalf("got %d models, want 10 with the vad model skipped", len(models))
 	}
 
 	for id, want := range map[string]string{
@@ -113,6 +114,11 @@ func TestDiscoverLocalAI_ClassesCapsAndContext(t *testing.T) {
 	}
 	if got := byID["loose-file.gguf"].ContextLength; got != nil {
 		t.Errorf("loose file context = %v, want none", *got)
+	}
+	// A context_size the 32-bit models column cannot hold is dropped, not
+	// carried into an upsert that would fail the whole provider's scan.
+	if got := byID["huge-ctx"].ContextLength; got != nil {
+		t.Errorf("oversized context = %v, want none", *got)
 	}
 	if !byID["qwen3-1.7b"].LiveMeta.ContextLength {
 		t.Error("context length is not marked live")
