@@ -120,6 +120,9 @@ func TestDiscoverLocalAI_ClassesCapsAndContext(t *testing.T) {
 	if got := byID["huge-ctx"].ContextLength; got != nil {
 		t.Errorf("oversized context = %v, want none", *got)
 	}
+	if byID["huge-ctx"].LiveMeta.ContextLength {
+		t.Error("dropped context length is marked live")
+	}
 	if !byID["qwen3-1.7b"].LiveMeta.ContextLength {
 		t.Error("context length is not marked live")
 	}
