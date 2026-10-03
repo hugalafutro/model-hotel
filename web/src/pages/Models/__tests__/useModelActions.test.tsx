@@ -1,6 +1,6 @@
 import { act, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import type { Model } from "../../../api/types";
+import type { Model, ModelTestResult } from "../../../api/types";
 import { useModelActions } from "../useModelActions";
 
 const model = { id: "m1", provider_id: "p1" } as Model;
@@ -176,6 +176,56 @@ describe("useModelActions", () => {
 		expect(onToast).toHaveBeenCalledTimes(2);
 		expect(onToast).toHaveBeenLastCalledWith(expect.any(String), "success");
 		expect(state()).toBe("0|-|-|-");
+	});
+
+	it("arms no timer when the action settles after the component is gone", async () => {
+		// A test that settles after the modal closed (or after the test runner
+		// unmounted it) must not schedule the three-second flash: nothing would
+		// clear it, and it would fire into a torn-down environment.
+		let settleTest!: (result: ModelTestResult) => void;
+		const onTest = vi.fn(
+			() =>
+				new Promise<ModelTestResult>((resolve) => {
+					settleTest = resolve;
+				}),
+		);
+		let settleDiscover!: () => void;
+		const onDiscover = vi.fn(
+			() =>
+				new Promise<void>((resolve) => {
+					settleDiscover = resolve;
+				}),
+		);
+		const onToast = vi.fn();
+		const { unmount } = render(
+			<Harness
+				model={model}
+				onTest={onTest}
+				onDiscover={onDiscover}
+				onToast={onToast}
+			/>,
+		);
+		await act(async () => {
+			screen.getByText("test").click();
+			screen.getByText("discover").click();
+		});
+		unmount();
+		await act(async () => {
+			settleTest({
+				success: false,
+				ttft_ms: 0,
+				duration_ms: 0,
+				streaming: false,
+				response: "",
+				error: "late",
+			});
+			settleDiscover();
+		});
+		expect(onToast).toHaveBeenCalledWith(
+			expect.stringContaining("late"),
+			"error",
+		);
+		expect(vi.getTimerCount()).toBe(0);
 	});
 
 	it("words a rerank probe's ranked result count", async () => {

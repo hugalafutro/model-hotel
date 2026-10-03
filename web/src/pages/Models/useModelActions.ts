@@ -10,7 +10,8 @@ export type { ModelTestResult };
  * The modal's two provider-facing actions and their transient state: a
  * re-discovery with a 30s cooldown, and a test request whose outcome toasts
  * and flashes the button red for three seconds on failure. Every timer is
- * cleared on unmount.
+ * cleared on unmount, and an action that settles after unmount (the modal
+ * closed mid-request) arms none, since nothing would clear it.
  */
 export function useModelActions({
 	model,
@@ -30,9 +31,12 @@ export function useModelActions({
 	const [testError, setTestError] = useState(false);
 	const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 	const testErrorTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+	const mountedRef = useRef(true);
 
 	useEffect(() => {
+		mountedRef.current = true;
 		return () => {
+			mountedRef.current = false;
 			if (timerRef.current) clearInterval(timerRef.current);
 			if (testErrorTimerRef.current) clearTimeout(testErrorTimerRef.current);
 		};
@@ -43,6 +47,7 @@ export function useModelActions({
 		setDiscovering(true);
 		try {
 			await onDiscover(model.provider_id);
+			if (!mountedRef.current) return;
 			setCooldown(30);
 			timerRef.current = setInterval(() => {
 				setCooldown((prev) => {
@@ -66,6 +71,7 @@ export function useModelActions({
 	};
 
 	const flashTestError = () => {
+		if (!mountedRef.current) return;
 		setTestError(true);
 		if (testErrorTimerRef.current) clearTimeout(testErrorTimerRef.current);
 		testErrorTimerRef.current = setTimeout(() => setTestError(false), 3000);
