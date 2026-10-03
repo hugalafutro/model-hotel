@@ -30,7 +30,10 @@ type LocalAICapabilitiesModel struct {
 	Capabilities     []string `json:"capabilities"`
 	InputModalities  []string `json:"input_modalities"`
 	OutputModalities []string `json:"output_modalities"`
-	ContextSize      int      `json:"context_size"`
+	// ContextSize is read through wholePositive like every other listing
+	// integer: the models column is a 32-bit integer, so an oversized or
+	// malformed value is dropped rather than failing the provider's upsert.
+	ContextSize json.RawMessage `json:"context_size"`
 }
 
 // localAIEndpointClasses maps the LocalAI usecases Model Hotel can route to
@@ -97,8 +100,7 @@ func (d *DiscoveryService) discoverLocalAI(ctx context.Context, provider *Provid
 // Hotel has no endpoint for (video, vad, detection, ...) is returned as nil.
 func buildLocalAIModel(provider *Provider, m LocalAICapabilitiesModel) *model.Model {
 	base := newServedModel(provider, m.ID, "localai", "LocalAI model")
-	if m.ContextSize > 0 {
-		cl := m.ContextSize
+	if cl := wholePositive(m.ContextSize); cl > 0 {
 		base.ContextLength = &cl
 	}
 
