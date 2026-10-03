@@ -31,8 +31,8 @@ var officialHomepages = map[string]string{
 	"neuralwatt":         "https://neuralwatt.com",
 	"koboldcpp":          "https://github.com/LostRuins/koboldcpp",
 	"lmstudio":           "https://lmstudio.ai",
-	"localai":            "https://localai.io",
-	"sglang":             "https://sgl-project.github.io",
+	"localai":            "https://github.com/mudler/LocalAI",
+	"sglang":             "https://github.com/sgl-project/sglang",
 	"tabbyapi":           "https://github.com/theroyallab/tabbyAPI",
 	"bedrock":            "https://aws.amazon.com/bedrock",
 	"azure":              "https://ai.azure.com",
@@ -76,10 +76,11 @@ func TestReadmeProviderLinksAreTheOfficialAddresses(t *testing.T) {
 	if err != nil {
 		t.Fatalf("read %s: %v", readmePath, err)
 	}
-	// The paragraph runs to the next blank line, so a reflow keeps every link.
-	para := regexp.MustCompile(`(?ms)^Pick a provider family.*?(?:\n\n|\z)`).Find(readme)
+	// The list is two paragraphs, **Hosted:** and **Self-hosted:**, each
+	// running to the next blank line, so a reflow keeps every link.
+	para := regexp.MustCompile(`(?ms)^\*\*Hosted:\*\*.*?\n\n\*\*Self-hosted:\*\*.*?(?:\n\n|\z)`).Find(readme)
 	if para == nil {
-		t.Fatalf("provider list paragraph (\"Pick a provider family ...\") not found in %s", readmePath)
+		t.Fatalf("provider list paragraphs (\"**Hosted:** ...\" and \"**Self-hosted:** ...\") not found in %s", readmePath)
 	}
 	listed := map[string]bool{}
 	for _, m := range regexp.MustCompile(`\]\((https?://[^)]+)\)`).FindAllSubmatch(para, -1) {
