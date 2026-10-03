@@ -8,7 +8,7 @@ import (
 )
 
 // officialHomepages pins every provider card's link to the address its maker
-// publishes. A change here is deliberate: check the new address against the
+// publishes: the project site, or the repository for open-source servers. A change here is deliberate: check the new address against the
 // vendor's own channels first. koboldcpp.com is an impostor site; the project
 // lives on its author's GitHub (LostRuins/koboldcpp discussion #2499).
 var officialHomepages = map[string]string{

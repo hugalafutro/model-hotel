@@ -12,7 +12,7 @@
 > **AI-Assisted Project Disclaimer:**
 > Human judgment applied at every stage, particularly around architectural decisions, UX flows, and quality control.
 
-A single OpenAI-compatible endpoint in front of all your LLM providers, cloud or self-hosted. Add the same model from any number of providers and a failover group forms around it automatically: requests go to the providers in the order you set, and when one runs out of quota or goes down, the next one answers, with no change on the client side. A provider that ran dry is skipped until its quota resets, then rejoins on its own. Models are auto-discovered the moment you add a provider. No prompt data is ever stored. Full feature tour, screenshots, and the security/auth breakdown live on [GitHub](https://github.com/hugalafutro/model-hotel#readme).
+A single OpenAI-compatible endpoint in front of all your LLM providers, cloud or self-hosted. Add the same model from any number of providers and a failover group forms around it automatically: requests go to the providers in the order you set, and when one runs out of quota or goes down, the next one answers, with no change on the client side. A provider whose quota is spent is skipped until it resets, then rejoins on its own. Models are auto-discovered the moment you add a provider and, if you want, on a schedule. No prompt data is ever stored. Full feature tour, screenshots, and the security/auth breakdown live on [GitHub](https://github.com/hugalafutro/model-hotel#readme).
 
 > **Live demo:** poke around a real instance at [mh.site19.ddns.net](https://mh.site19.ddns.net) - rebuilds fresh every 30 minutes.
 
