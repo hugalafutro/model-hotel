@@ -207,7 +207,10 @@ export async function streamArenaResponse(
 		);
 		if (mountedRef.current) {
 			toast(
-				t("hooks.useArenaRunner.generationError", { model, error: msg }),
+				t("hooks.useArenaRunner.generationError", {
+					model: label,
+					error: msg,
+				}),
 				"error",
 			);
 		}

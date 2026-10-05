@@ -105,6 +105,30 @@ describe("useArenaRunner abort", () => {
 			);
 		});
 
+		it("names the side, not the model, in a competition error toast", async () => {
+			server.use(
+				http.post("/api/chat/arena", () =>
+					HttpResponse.json({ error: "bad request" }, { status: 400 }),
+				),
+			);
+			const toastMock = vi.fn();
+			const deps = createMockDeps({
+				arenaModeRef: { current: "competition" },
+				toast: toastMock as ReturnType<typeof useToast>["toast"],
+			});
+			const { result } = renderHook(() => useArenaRunner(deps), {
+				wrapper: createWrapper(),
+			});
+
+			await act(async () => {
+				result.current.streamModel("P/model-a", "", "prompt", 0, "A", 0);
+			});
+			const [message, kind] = toastMock.mock.calls[0] as [string, string];
+			expect(kind).toBe("error");
+			expect(message).not.toContain("P/model-a");
+			expect(message).toContain(i18next.t("chat.controls.modelA"));
+		});
+
 		it("lets a stream cancelled during retry backoff wake without unsettling its replacement", async () => {
 			// The retry sleep ignores the abort, so a cancelled stream wakes up
 			// to a second time later. If the slot was swapped in the meantime,
