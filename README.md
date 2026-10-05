@@ -186,23 +186,27 @@ Add a provider and the service pulls the model list automatically via the provid
  <sub>Models overview</sub>
 </p>
 
-| Provider | Context Length | Pricing | Reasoning Flags | Input/Output Modalities | Source |
-|---|---|---|---|---|---|
-| DeepSeek | ✅ | ✅ | ✅ | ✅ | API (`/models`) + Catalog |
-| NanoGPT | ✅ | ✅ | ✅ | ✅ | API (`/models?detailed=true`) |
-| Z.AI | ✅ | ✅ | ✅ | ✅ | API (`/models`) + Catalog |
-| OpenCode Go | ✅ | ✅ | ✅ | ✅ | API (`/models`) |
-| OpenCode Zen | ✅ | ✅ | ✅ | ✅ | API (`/models`) + Catalog |
-| OpenAI | ✅ | ✅ | ✅ | ✅ | API (`/models`) + Catalog |
-| OpenRouter | ✅ | ✅ | ✅ | ✅ | API (`/models`) |
-| Anthropic | ✅ | ✅ | ✅ | ✅ | API + models.dev |
-| xAI | ✅ | ✅ | ✅ | ✅ | API (`/language-models`) + Catalog |
-| Kimi Code | ✅ | *(none)* | ✅ | ✅ | API (`/models`) |
-| Google AI Studio | ✅ | ✅ | ✅ | ✅ | API (`/v1beta/models`) + models.dev |
-| Cohere | ✅ | ✅ | ✅ | ✅ | API (`/v1/models`) + Catalog |
-| Ollama Cloud | ✅ | models.dev | ✅ | ✅ | API (`/api/show`) |
-
-<sub>As of writing, and for hosted providers only. A checkmark means discovery fills that field, from the provider's API where the API offers it and from the built-in catalog or models.dev otherwise; a model none of the three knows yet keeps empty values until one catches up, and a value you edit by hand stays yours across rescans. Self-hosted servers (Ollama, LM Studio, KoboldCPP, LocalAI, SGLang, TabbyAPI) are left out: what they serve, and at what price, is yours to decide.</sub>
+<table>
+  <thead>
+    <tr><th>Provider</th><th>Context Length</th><th>Pricing</th><th>Reasoning Flags</th><th>Input/Output Modalities</th><th>Source</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>DeepSeek</td><td>✅</td><td>✅</td><td>✅</td><td>✅</td><td>API (<code>/models</code>) + Catalog</td></tr>
+    <tr><td>NanoGPT</td><td>✅</td><td>✅</td><td>✅</td><td>✅</td><td>API (<code>/models?detailed=true</code>)</td></tr>
+    <tr><td>Z.AI</td><td>✅</td><td>✅</td><td>✅</td><td>✅</td><td>API (<code>/models</code>) + Catalog</td></tr>
+    <tr><td>OpenCode Go</td><td>✅</td><td>✅</td><td>✅</td><td>✅</td><td>API (<code>/models</code>)</td></tr>
+    <tr><td>OpenCode Zen</td><td>✅</td><td>✅</td><td>✅</td><td>✅</td><td>API (<code>/models</code>) + Catalog</td></tr>
+    <tr><td>OpenAI</td><td>✅</td><td>✅</td><td>✅</td><td>✅</td><td>API (<code>/models</code>) + Catalog</td></tr>
+    <tr><td>OpenRouter</td><td>✅</td><td>✅</td><td>✅</td><td>✅</td><td>API (<code>/models</code>)</td></tr>
+    <tr><td>Anthropic</td><td>✅</td><td>✅</td><td>✅</td><td>✅</td><td>API + models.dev</td></tr>
+    <tr><td>xAI</td><td>✅</td><td>✅</td><td>✅</td><td>✅</td><td>API (<code>/language-models</code>) + Catalog</td></tr>
+    <tr><td>Kimi Code</td><td>✅</td><td><em>(none)</em></td><td>✅</td><td>✅</td><td>API (<code>/models</code>)</td></tr>
+    <tr><td>Google AI Studio</td><td>✅</td><td>✅</td><td>✅</td><td>✅</td><td>API (<code>/v1beta/models</code>) + models.dev</td></tr>
+    <tr><td>Cohere</td><td>✅</td><td>✅</td><td>✅</td><td>✅</td><td>API (<code>/v1/models</code>) + Catalog</td></tr>
+    <tr><td>Ollama Cloud</td><td>✅</td><td>models.dev</td><td>✅</td><td>✅</td><td>API (<code>/api/show</code>)</td></tr>
+    <tr><td colspan="6"><sub>As of writing, and for hosted providers only. A checkmark means discovery fills that field, from the provider's API where the API offers it and from the built-in catalog or models.dev otherwise; a model none of the three knows yet keeps empty values until one catches up, and a value you edit by hand stays yours across rescans. Self-hosted servers (Ollama, LM Studio, KoboldCPP, LocalAI, SGLang, TabbyAPI) are left out: what they serve, and at what price, is yours to decide.</sub></td></tr>
+  </tbody>
+</table>
 
 Every hosted model is then enriched from [models.dev](https://models.dev/), an open-source model catalogue that provides pricing, context limits, capabilities, and modality data for 200+ providers. The enrichment is non-destructive: it only fills fields that are empty or missing, never overwriting data that was already populated. This makes the full precedence per field **live provider data → built-in catalog → models.dev → empty**: you get the freshest values the provider reports, the catalog and models.dev only fill what's missing, and a stale catalog can never mask fresh live data. Custom endpoints and self-hosted servers are left out of both the catalog and models.dev steps: they serve whatever their operator loaded, and a local model named like a hosted one is not that model. If models.dev is unreachable, discovery proceeds normally using whatever data the provider returned and the download is retried in the background, so your existing catalogue is never at risk.
 
@@ -438,81 +442,8 @@ docker compose up -d
 > [!NOTE]
 > The app only sees the variables listed under its `environment:` key; `.env` just fills their `${...}` placeholders. To use any other variable (for example `COOKIE_SECURE`, `METRICS_TOKEN` or `LOG_FORMAT`), add it to that list, e.g. `- COOKIE_SECURE=${COOKIE_SECURE:-always}`. `COOKIE_SECURE` sets the `Secure` attribute on the dashboard login cookies: `always` (the default) sends them only over HTTPS or to `http://localhost`, so logging in over plain HTTP from another machine (e.g. `http://192.168.1.10:8081`) fails until you set `auto` (follows the request: TLS or `X-Forwarded-Proto: https`) or `never` (plain-HTTP LAN).
 
-### API Example
-```bash
-# List available models
-curl http://localhost:8081/v1/models \
-  -H "Authorization: Bearer $VIRTUAL_KEY"
-
-# Chat completion (with hotel routing for automatic failover)
-curl -X POST http://localhost:8081/v1/chat/completions \
-  -H "Authorization: Bearer $VIRTUAL_KEY" \
-  -H "Content-Type: application/json" \
-  -d '{"model": "hotel/glm-4.6", "messages": [{"role": "user", "content": "Hello!"}]}'
-
-# Anthropic Messages API (point Claude Code or the anthropic SDK at the gateway;
-# x-api-key is accepted alongside Authorization: Bearer)
-curl -X POST http://localhost:8081/v1/messages \
-  -H "x-api-key: $VIRTUAL_KEY" \
-  -H "Content-Type: application/json" \
-  -d '{"model": "hotel/claude-sonnet-4-6", "max_tokens": 1024, "messages": [{"role": "user", "content": "Hello!"}]}'
-
-# OpenAI Responses API (point Codex CLI or the openai SDK's Responses client at the gateway)
-curl -X POST http://localhost:8081/v1/responses \
-  -H "Authorization: Bearer $VIRTUAL_KEY" \
-  -H "Content-Type: application/json" \
-  -d '{"model": "hotel/gpt-5.6-sol", "input": "Hello!", "stream": true}'
-
-# Embeddings (multimodal endpoints support the same provider/model and hotel/ routing)
-curl -X POST http://localhost:8081/v1/embeddings \
-  -H "Authorization: Bearer $VIRTUAL_KEY" \
-  -H "Content-Type: application/json" \
-  -d '{"model": "OpenAI/text-embedding-3-small", "input": "Hello!"}'
-
-# Speech-to-text (multipart upload)
-curl -X POST http://localhost:8081/v1/audio/transcriptions \
-  -H "Authorization: Bearer $VIRTUAL_KEY" \
-  -F model="OpenAI/whisper-1" -F file=@speech.mp3
-```
-
-The proxy also serves `/v1/rerank` (Cohere-style document rerank, common in RAG stacks; Cohere's per-search billing is read off the answer and priced into spend and budgets),
-`/v1/images/generations`, `/v1/images/edits`, `/v1/images/variations`,
-`/v1/audio/speech`, and `/v1/audio/translations` as transparent OpenAI-compatible pass-through
-(failover, circuit breaker, and virtual-key access control included; request/response content
-is never logged). Gemini TTS models, which Google serves through `generateContent` alone, are
-reached through the native route and answer as `wav` or `pcm`. See the [API Reference](https://github.com/hugalafutro/model-hotel/wiki/API-Reference) for the full endpoint listing.
-
-A native **Anthropic Messages API** (`POST /v1/messages`) lets Claude Code and the anthropic SDKs
-drive the gateway directly, so an Anthropic client fails over across *every* provider in a `hotel/`
-group, not just Claude. Requests routed to a non-Anthropic provider are translated to and from the
-OpenAI shape (text, vision, tools, and tool results); requests routed to an Anthropic-family provider
-are forwarded natively, so extended-thinking blocks and prompt caching survive end to end. Auth
-accepts `x-api-key` (what Anthropic clients send) as well as `Authorization: Bearer`.
-
-The **OpenAI Responses API** (`POST /v1/responses`) is served the same way, so Responses-only
-clients such as Codex CLI drive the gateway directly and fail over across a `hotel/` group.
-A request routed to OpenAI itself is forwarded verbatim to OpenAI's own `/v1/responses` (hosted
-tools, encrypted reasoning and prompt caching survive); every other candidate gets the request
-translated to Chat Completions and the answer, stream or error rendered back as Responses events
-(text and image input, function tools in and out, reasoning summaries, usage). The gateway is
-stateless: `store` must be false, and `previous_response_id` and `conversation` are refused with a
-400 naming the field; hosted tools other than `web_search` (dropped on translated routes) and custom
-tools are accepted only when every candidate is OpenAI itself. Point Codex at it with a `model_providers` entry whose `base_url` is
-`http://<gateway>/v1` and `wire_api = "responses"`.
-
-OpenAI's newest models (the gpt-5.4+ and gpt-5.6 families) reject tool calling combined with
-reasoning on `/v1/chat/completions` and demand OpenAI's Responses API instead. The gateway heals
-this transparently: the first such request gets the upstream 400, is retried against
-`/v1/responses` on the spot, and the requirement is remembered per model so every later
-tools+reasoning request routes there directly. Clients keep speaking plain Chat Completions in
-both directions (streaming included); reasoning summaries come back as `reasoning_content`, and
-the gateway always sends `store: false` so OpenAI keeps no conversation state. The pro tier
-(`o1-pro`, `o3-pro`, `gpt-5.x-pro`), which OpenAI serves over the Responses API alone, routes
-there from the first request on `api.openai.com`, and any other model that refuses the chat
-endpoint with OpenAI's "not a chat model" 404 is learned and re-routed the same way. OpenCode Zen
-and OpenCode Go serve their GPT models over the Responses API alone too (a 400 "Model does not
-support this protocol"); that refusal is learned and re-routed the same way, with the OpenCode Go
-session header kept on the re-issue.
+### API Endpoints
+One base URL, one virtual key, every endpoint. The core is the OpenAI-compatible [`/v1/chat/completions`](https://github.com/hugalafutro/model-hotel/wiki/API-Reference#post-v1chatcompletions) and [`/v1/models`](https://github.com/hugalafutro/model-hotel/wiki/API-Reference#get-v1models), and the same routing (`hotel/<model>` for failover, `<provider>/<model>` for a direct hit) carries [embeddings, rerank, image generation and edits, text-to-speech and speech-to-text](https://github.com/hugalafutro/model-hotel/wiki/API-Reference#multimodal-endpoints) as transparent pass-through. Two more client dialects are translated on the way in and out: the [Anthropic Messages API](https://github.com/hugalafutro/model-hotel/wiki/API-Reference#post-v1messages), so Claude Code and the anthropic SDKs fail over across every provider in a group and are forwarded natively when the candidate is Anthropic itself, and the [OpenAI Responses API](https://github.com/hugalafutro/model-hotel/wiki/API-Reference#post-v1responses), so Codex CLI and other Responses-only clients do the same and are forwarded verbatim when the candidate is OpenAI. Models that OpenAI serves only over Responses are [re-routed there on the fly](https://github.com/hugalafutro/model-hotel/wiki/API-Reference#post-v1chatcompletions) while the client keeps speaking Chat Completions. Request and response bodies are never logged. Parameters, streaming formats and curl examples for every endpoint are in the [API Reference](https://github.com/hugalafutro/model-hotel/wiki/API-Reference).
 
 ### Metrics & log shipping
 
