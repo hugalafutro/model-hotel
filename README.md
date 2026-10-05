@@ -273,12 +273,6 @@ A live SSE event bus delivers toast notifications for discovery outcomes, model 
 Secrets never sit in the clear: provider keys and SSO client secrets are [encrypted at rest](https://github.com/hugalafutro/model-hotel/wiki/Security#encryption-at-rest) with AES-256-GCM under a `MASTER_KEY` strengthened by Argon2id, and virtual keys, the admin token and every session token are stored only as [SHA-256 hashes](https://github.com/hugalafutro/model-hotel/wiki/Security#hashing). Outbound calls to providers go through [SSRF protection](https://github.com/hugalafutro/model-hotel/wiki/Security#provider-url-validation-ssrf-prevention) that resolves each hostname, refuses private and cloud-metadata addresses and dials by IP, and every response carries the usual [security headers](https://github.com/hugalafutro/model-hotel/wiki/Security#security-headers). For the dashboard you pick how to log in: the admin token, a [passkey](https://github.com/hugalafutro/model-hotel/wiki/Security#webauthnfido2-passkey-authentication) (Touch ID, Windows Hello, YubiKey), the token plus an [authenticator app](https://github.com/hugalafutro/model-hotel/wiki/Security#totp--authenticator-app-two-factor-2fa) as a second factor, [single sign-on](https://github.com/hugalafutro/model-hotel/wiki/Security#single-sign-on-openid-connect) through any OpenID Connect provider, or [GitHub](https://github.com/hugalafutro/model-hotel/wiki/Security#github-sign-in). All of them mint the same short-lived session, SSO and GitHub are gated by an email allowlist, and local login always keeps working, so a misconfigured provider cannot lock you out. Repeated login failures and rate-limit abuse can be handed to [CrowdSec](https://github.com/hugalafutro/model-hotel/wiki/CrowdSec) at the edge. Everything from key derivation to session lifetimes is in the [Security wiki](https://github.com/hugalafutro/model-hotel/wiki/Security).
 
 <p align="center">
- <img src="docs/screenshots/login_passkey.png" alt="Login screen with passkey, SSO, GitHub, username/password, and TOTP" width="360">
- <br>
- <sub>Various login mechanisms supported</sub>
-</p>
-
-<p align="center">
   <a href="docs/screenshots/settings_authentication.png"><img src="docs/screenshots/settings_auth_local.png" width="800" alt="Authentication settings: passkeys, active sessions, TOTP, tab timeout and password policy"></a>
 <br><br>
   <a href="docs/screenshots/settings_authentication.png"><img src="docs/screenshots/settings_auth_oidc.png" width="390" alt="Authentication settings: OIDC single sign-on"></a>
@@ -442,10 +436,10 @@ docker compose up -d
 > [!NOTE]
 > The app only sees the variables listed under its `environment:` key; `.env` just fills their `${...}` placeholders. To use any other variable (for example `COOKIE_SECURE`, `METRICS_TOKEN` or `LOG_FORMAT`), add it to that list, e.g. `- COOKIE_SECURE=${COOKIE_SECURE:-always}`. `COOKIE_SECURE` sets the `Secure` attribute on the dashboard login cookies: `always` (the default) sends them only over HTTPS or to `http://localhost`, so logging in over plain HTTP from another machine (e.g. `http://192.168.1.10:8081`) fails until you set `auto` (follows the request: TLS or `X-Forwarded-Proto: https`) or `never` (plain-HTTP LAN).
 
-### API Endpoints
+### [<img src="docs/icons/api.svg" width="20" height="20" style="vertical-align:middle;margin-right:6px;" alt=""> API Endpoints](#-api-endpoints)
 One base URL, one virtual key, every endpoint. The core is the OpenAI-compatible [`/v1/chat/completions`](https://github.com/hugalafutro/model-hotel/wiki/API-Reference#post-v1chatcompletions) and [`/v1/models`](https://github.com/hugalafutro/model-hotel/wiki/API-Reference#get-v1models), and the same routing (`hotel/<model>` for failover, `<provider>/<model>` for a direct hit) carries [embeddings, rerank, image generation and edits, text-to-speech and speech-to-text](https://github.com/hugalafutro/model-hotel/wiki/API-Reference#multimodal-endpoints) as transparent pass-through. Two more client dialects are translated on the way in and out: the [Anthropic Messages API](https://github.com/hugalafutro/model-hotel/wiki/API-Reference#post-v1messages), so Claude Code and the anthropic SDKs fail over across every provider in a group and are forwarded natively when the candidate is Anthropic itself, and the [OpenAI Responses API](https://github.com/hugalafutro/model-hotel/wiki/API-Reference#post-v1responses), so Codex CLI and other Responses-only clients do the same and are forwarded verbatim when the candidate is OpenAI. Models that OpenAI serves only over Responses are [re-routed there on the fly](https://github.com/hugalafutro/model-hotel/wiki/API-Reference#post-v1chatcompletions) while the client keeps speaking Chat Completions. Request and response bodies are never logged. Parameters, streaming formats and curl examples for every endpoint are in the [API Reference](https://github.com/hugalafutro/model-hotel/wiki/API-Reference).
 
-### Metrics & log shipping
+### [<img src="docs/icons/logging.svg" width="20" height="20" style="vertical-align:middle;margin-right:6px;" alt=""> Metrics & log shipping](#-metrics--log-shipping)
 
 A Prometheus endpoint is exposed at `/metrics` (request rates by provider/model/status,
 latency and TTFT histograms, token counters, a dollar spend counter per provider and model, failover attempts per provider, upstream 429s by
@@ -484,6 +478,39 @@ sync) to a stateless [Apprise](https://github.com/caronc/apprise) container, whi
 Telegram, email, Discord, Slack, Matrix, a raw webhook, and around 80 other destinations; only the
 event summary is sent, never request content. See the [Alerting wiki](https://github.com/hugalafutro/model-hotel/wiki/Alerting).
 
+### [<img src="docs/icons/backup.svg" width="20" height="20" style="vertical-align:middle;margin-right:6px;" alt=""> Backup & Restore](#-backup--restore)
+Backups are created via the Settings page or the admin API (`POST /api/backups`) using an unfiltered `pg_dump --format=custom` with zstd compression (level 12 on request, level 19 for scheduled backups). The resulting `.dump` files therefore contain *every* database table, not just the configuration ones: providers (encrypted keys), models, virtual key hashes, failover groups, and settings, but also request logs, app logs, the audit log, discovery history, quota snapshots, dashboard user accounts, TOTP secrets and recovery-code hashes, and WebAuthn credentials and sessions. Treat a `.dump` as sensitive and store it accordingly.
+
+<h3 align="center">Restoring a backup</h3>
+
+The dumps are zstd-compressed, so restoring outside the app needs `pg_restore` 16 or later built with zstd (the `postgres:16-alpine` image qualifies).
+
+```bash
+# Direct
+pg_restore --clean --if-exists -d YOUR_DB backup_file.dump
+
+# Via Docker
+docker exec -i postgres-container pg_restore --clean --if-exists -U user -d dbname < backup_file.dump
+```
+
+<h3 align="center">Critical requirements for a working restore</h3>
+
+| Requirement | Details |
+|---|---|
+| **MASTER_KEY must match** | Provider API keys are AES-256-GCM encrypted using a key derived from `MASTER_KEY` via Argon2id. Restoring with a different `MASTER_KEY` will leave all provider keys unrecoverable. The app will start, but key decryption will fail. |
+| **Admin token is not in the backup** | The admin token hash lives in `DATA_DIR/admin-token` on the filesystem, not in the database. If that file is lost, a new token is auto-generated on next boot. Check startup logs for the new token. |
+| **Virtual keys are irrecoverable** | Virtual keys are stored as SHA-256 hashes only. Plaintext virtual keys are never persisted. If you lose the plaintext keys, they cannot be recovered from the backup (by design). |
+
+<h3 align="center">What is and isn't in the backup</h3>
+
+**Included** (in the database, captured by `pg_dump`): providers (encrypted keys, nonces, salts), models, virtual keys (hashes only), failover groups, settings, request and app logs, the audit log, discovery history, quota snapshots, user accounts, TOTP secrets and recovery-code hashes, WebAuthn credentials and sessions.
+
+**Not included** (filesystem only): `DATA_DIR/admin-token` (admin token hash), `DATA_DIR/backups/` (the backup files themselves), `MASTER_KEY` (environment variable).
+
+### [<img src="docs/icons/license.svg" width="20" height="20" style="vertical-align:middle;margin-right:6px;" alt=""> License](#-license)
+
+[MIT](LICENSE). See [CONTRIBUTING.md](CONTRIBUTING.md) for the contributor license agreement.
+
 ### Full Documentation
 - [Configuration](https://github.com/hugalafutro/model-hotel/wiki/Configuration): Environment variables, runtime settings, Docker Compose
 - [API Reference](https://github.com/hugalafutro/model-hotel/wiki/API-Reference): Proxy and admin endpoints
@@ -500,36 +527,6 @@ event summary is sent, never request content. See the [Alerting wiki](https://gi
 - [High Availability](https://github.com/hugalafutro/model-hotel/wiki/High-Availability): Front Desk control plane + Traefik, drop-in HA across multiple instances
 - [Bellhop](https://github.com/hugalafutro/model-hotel/wiki/Bellhop): Android companion app, pairing, roles, monitoring and operator controls
 - [Development](https://github.com/hugalafutro/model-hotel/wiki/Development): Local setup, build commands, contributing
-
-### [<img src="docs/icons/backup.svg" width="20" height="20" style="vertical-align:middle;margin-right:6px;" alt=""> Backup & Restore](#-backup--restore)
-Backups are created via the Settings page or the admin API (`POST /api/backups`) using an unfiltered `pg_dump --format=custom` with zstd compression (level 12 on request, level 19 for scheduled backups). The resulting `.dump` files therefore contain *every* database table, not just the configuration ones: providers (encrypted keys), models, virtual key hashes, failover groups, and settings, but also request logs, app logs, the audit log, discovery history, quota snapshots, dashboard user accounts, TOTP secrets and recovery-code hashes, and WebAuthn credentials and sessions. Treat a `.dump` as sensitive and store it accordingly.
-
-### Restoring a backup
-The dumps are zstd-compressed, so restoring outside the app needs `pg_restore` 16 or later built with zstd (the `postgres:16-alpine` image qualifies).
-
-```bash
-# Direct
-pg_restore --clean --if-exists -d YOUR_DB backup_file.dump
-
-# Via Docker
-docker exec -i postgres-container pg_restore --clean --if-exists -U user -d dbname < backup_file.dump
-```
-
-### Critical requirements for a working restore
-| Requirement | Details |
-|---|---|
-| **MASTER_KEY must match** | Provider API keys are AES-256-GCM encrypted using a key derived from `MASTER_KEY` via Argon2id. Restoring with a different `MASTER_KEY` will leave all provider keys unrecoverable. The app will start, but key decryption will fail. |
-| **Admin token is not in the backup** | The admin token hash lives in `DATA_DIR/admin-token` on the filesystem, not in the database. If that file is lost, a new token is auto-generated on next boot. Check startup logs for the new token. |
-| **Virtual keys are irrecoverable** | Virtual keys are stored as SHA-256 hashes only. Plaintext virtual keys are never persisted. If you lose the plaintext keys, they cannot be recovered from the backup (by design). |
-
-### What is and isn't in the backup
-**Included** (in the database, captured by `pg_dump`): providers (encrypted keys, nonces, salts), models, virtual keys (hashes only), failover groups, settings, request and app logs, the audit log, discovery history, quota snapshots, user accounts, TOTP secrets and recovery-code hashes, WebAuthn credentials and sessions.
-
-**Not included** (filesystem only): `DATA_DIR/admin-token` (admin token hash), `DATA_DIR/backups/` (the backup files themselves), `MASTER_KEY` (environment variable).
-
-### [<img src="docs/icons/license.svg" width="20" height="20" style="vertical-align:middle;margin-right:6px;" alt=""> License](#-license)
-
-[MIT](LICENSE). See [CONTRIBUTING.md](CONTRIBUTING.md) for the contributor license agreement.
 
 
 <div align="center">
