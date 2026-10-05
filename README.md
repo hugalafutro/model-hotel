@@ -194,7 +194,7 @@ Add a provider and the service pulls the model list automatically via the provid
     <tr><td>OpenRouter</td><td>✅</td><td>✅</td><td>✅</td><td>✅</td><td>API (<code>/models</code>)</td></tr>
     <tr><td>Anthropic</td><td>✅</td><td>✅</td><td>✅</td><td>✅</td><td>API + models.dev</td></tr>
     <tr><td>xAI</td><td>✅</td><td>✅</td><td>✅</td><td>✅</td><td>API (<code>/language-models</code>) + Catalog</td></tr>
-    <tr><td>Kimi Code</td><td>✅</td><td><em>(none)</em></td><td>✅</td><td>✅</td><td>API (<code>/models</code>)</td></tr>
+    <tr><td>Kimi Code</td><td>✅</td><td>models.dev</td><td>✅</td><td>✅</td><td>API (<code>/models</code>) + models.dev</td></tr>
     <tr><td>Google AI Studio</td><td>✅</td><td>✅</td><td>✅</td><td>✅</td><td>API (<code>/v1beta/models</code>) + models.dev</td></tr>
     <tr><td>Cohere</td><td>✅</td><td>✅</td><td>✅</td><td>✅</td><td>API (<code>/v1/models</code>) + Catalog</td></tr>
     <tr><td>Ollama Cloud</td><td>✅</td><td>models.dev</td><td>✅</td><td>✅</td><td>API (<code>/api/show</code>)</td></tr>

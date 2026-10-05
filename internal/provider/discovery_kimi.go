@@ -15,9 +15,9 @@ import (
 
 // kimiCodeModel is one entry in the Kimi Code /models listing. The endpoint is
 // OpenAI-shaped but carries rich extras (display name, context length,
-// capability flags) that discovery maps directly; these model IDs (k3,
-// kimi-for-coding…) are absent from models.dev, so the live listing is the
-// only metadata source.
+// capability flags) that discovery maps directly. The listing names models by
+// subscription route (k3, kimi-for-coding…), which modelsDevIDAliases maps onto
+// the moonshotai entry for pricing; everything else comes from the listing.
 type kimiCodeModel struct {
 	ID                string `json:"id"`
 	DisplayName       string `json:"display_name"`
