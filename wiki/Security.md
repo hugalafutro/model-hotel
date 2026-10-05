@@ -162,7 +162,15 @@ Login endpoints are IP rate-limited to prevent brute-force probing of passkeys. 
 
 Time-based one-time passwords (RFC 6238) add a second factor to admin login, independent of passkeys. TOTP needs no environment variable: it is opt-in at runtime from the **Settings** page (scan the QR code with any authenticator app, enter the 6-digit code, and save the one-time recovery codes shown). The TOTP secret is encrypted at rest with AES-256-GCM under `MASTER_KEY`, the same as provider keys, and is never logged.
 
-![Settings Authentication](screenshots/settings_authentication.png)
+<p align="center">
+  <a href="screenshots/settings_authentication.png"><img src="screenshots/settings_auth_local.png" width="800" alt="Authentication settings: passkeys, active sessions, TOTP, tab timeout and password policy"></a>
+<br><br>
+  <a href="screenshots/settings_authentication.png"><img src="screenshots/settings_auth_oidc.png" width="390" alt="Authentication settings: OIDC single sign-on"></a>
+  &nbsp;&nbsp;
+  <a href="screenshots/settings_authentication.png"><img src="screenshots/settings_auth_github.png" width="390" alt="Authentication settings: GitHub sign-in"></a>
+  <br>
+  <sub>The Authentication settings page, split into its three sections. Click any panel for the full view.</sub>
+</p>
 
 *Settings page - Authentication section: passkey registration and the registered-credential list with the active sessions beneath them, the authenticator-app (TOTP) enable control, the tab timeout and the password policy (breached-password screening, with an inline note on what the lookup sends), then the single sign-on (OIDC and GitHub) configuration, the admin-login methods managed together.*
 
@@ -225,6 +233,10 @@ The issuer URL is the provider's bare origin (e.g. `https://auth.example.com`), 
 Every route under `/api`, the status routes included, sits behind the per-IP limiter, which charges a request once however many times it is mounted. Status routes need no authentication: the login screen polls them, and they read a few cached settings keys and make no outbound call. Start and callback write a login-state row per request. The GitHub callback is additionally covered by the per-key backoff described above; GitHub OAuth Apps support neither PKCE nor a nonce, which is why its flow is state-only.
 
 Configuration lives entirely in the settings store (no migration): `oidc_enabled`, `oidc_issuer_url`, `oidc_client_id`, `oidc_client_secret` (encrypted), `oidc_public_base_url`, and `oidc_allowed_emails`.
+
+### GitHub Sign-In
+
+GitHub works the same way as a separate option. GitHub is OAuth2 only (no OpenID Connect, no ID token), so instead of verifying an ID token it reads the account's verified emails from the GitHub API and matches them against the same kind of allowlist: an unverified address never counts, and the account's stable numeric id and login are logged on each sign-in (source `github`). Register a GitHub OAuth App, set its Authorization callback URL to `<public base URL>/api/auth/github/callback`, and paste the Client ID and secret into Settings. A "Sign in with GitHub" button then appears alongside the SSO button. As with OIDC, the session is delivered over an HttpOnly cookie, and local login always keeps working.
 
 ### Proxy API Authentication (Virtual Keys)
 

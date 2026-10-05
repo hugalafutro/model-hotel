@@ -102,7 +102,7 @@ export const PROVIDER_PARAM_INCOMPATIBILITY: Record<
  * panel) hold a name, not a provider row.
  *
  * Handles common cases like "OpenAI" → "openai", "Anthropic Pro" → "anthropic",
- * "Google AI Studio (Gemini)" → "google", etc.
+ * "Google AI Studio" → "google", etc.
  */
 export function normalizeToProviderType(providerName: string): string {
 	if (!providerName) return "openai"; // fallback

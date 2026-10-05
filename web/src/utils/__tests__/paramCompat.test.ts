@@ -20,8 +20,8 @@ describe("normalizeToProviderType", () => {
 		expect(normalizeToProviderType("Anthropic Pro")).toBe("anthropic");
 	});
 
-	it("uses substring heuristic for Google AI Studio (Gemini)", () => {
-		expect(normalizeToProviderType("Google AI Studio (Gemini)")).toBe("google");
+	it("uses substring heuristic for Google AI Studio", () => {
+		expect(normalizeToProviderType("Google AI Studio")).toBe("google");
 	});
 
 	it("returns openai fallback for empty string", () => {

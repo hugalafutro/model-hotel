@@ -35,6 +35,44 @@ The `x-api-key` header (what the Anthropic SDKs send) carries the virtual key ju
 
 All endpoints share the same model routing (`hotel/<model>` failover or `<provider>/<model>` direct), virtual-key authentication, `allowed_providers` access control, rate limiting, circuit breaker, and request logging. See [Multimodal Endpoints](#multimodal-endpoints) below.
 
+### Quick examples
+
+```bash
+# List available models
+curl http://localhost:8081/v1/models \
+  -H "Authorization: Bearer $PROXY_KEY"
+
+# Chat completion (with hotel routing for automatic failover)
+curl -X POST http://localhost:8081/v1/chat/completions \
+  -H "Authorization: Bearer $PROXY_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"model": "hotel/glm-4.6", "messages": [{"role": "user", "content": "Hello!"}]}'
+
+# Anthropic Messages API (point Claude Code or the anthropic SDK at the gateway;
+# x-api-key is accepted alongside Authorization: Bearer)
+curl -X POST http://localhost:8081/v1/messages \
+  -H "x-api-key: $PROXY_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"model": "hotel/claude-sonnet-4-6", "max_tokens": 1024, "messages": [{"role": "user", "content": "Hello!"}]}'
+
+# OpenAI Responses API (point Codex CLI or the openai SDK's Responses client at the gateway)
+curl -X POST http://localhost:8081/v1/responses \
+  -H "Authorization: Bearer $PROXY_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"model": "hotel/gpt-5.6-sol", "input": "Hello!", "stream": true}'
+
+# Embeddings (multimodal endpoints support the same provider/model and hotel/ routing)
+curl -X POST http://localhost:8081/v1/embeddings \
+  -H "Authorization: Bearer $PROXY_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"model": "OpenAI/text-embedding-3-small", "input": "Hello!"}'
+
+# Speech-to-text (multipart upload)
+curl -X POST http://localhost:8081/v1/audio/transcriptions \
+  -H "Authorization: Bearer $PROXY_KEY" \
+  -F model="OpenAI/whisper-1" -F file=@speech.mp3
+```
+
 ### GET `/v1/models`
 
 Returns the model list in OpenAI-compatible format.

@@ -205,7 +205,13 @@ The badge is passive, and an operator who does not open the dashboard never lear
 
 Each provider type has its own discovery implementation in `internal/provider/discovery_*.go`. Discovery reads the type stored on the provider row, which is the one the operator picked when adding it. A row without a type (created before the column existed) falls back to the legacy URL derivation. Types with no dedicated implementation, including `custom`, use OpenAI-compatible discovery.
 
+### Where each field comes from
+
+**Z.AI, xAI, OpenAI, DeepSeek, and OpenCode (Go & Zen) combine a live `/models` listing with a built-in catalog:** the API supplies the authoritative model list (plus live pricing and modalities for xAI) and the catalog backfills the fields the API leaves out (context window, max output, capability flags, and a price only where models.dev has none or has it wrong). For Z.AI, xAI, and DeepSeek the catalog *also* surfaces models the listing doesn't advertise but that still work - a freshly released GLM the listing hasn't caught up to, older Grok models xAI keeps callable without listing them, or DeepSeek's `deepseek-chat` and `deepseek-reasoner` aliases. OpenAI and OpenCode Zen backfill only: a model Zen drops from its listing is never resurrected, and the OpenAI path doubles as the generic OpenAI-compatible type, so its catalog must not add models to a host that does not serve them. The OpenCode Go catalog is an override channel that ships empty. Live values always win; the catalog only fills gaps. xAI (on 403) and OpenCode Go (on 404) fall back to the catalog when the account or endpoint can't list; the others abort the scan on error so a transient failure never disables existing models. Google AI Studio provides rich metadata (context, thinking support) from its native API, with prices from models.dev. Cohere uses its native API with full pagination for model discovery; capability flags (tool calling, vision, structured output, reasoning) and modalities come from the listing's feature list, and a built-in catalog supplies per-token and per-search prices. NanoGPT and Anthropic expose richer model metadata through their own APIs; Anthropic takes its prices and its reasoning flag from models.dev because the Anthropic listing advertises neither. Kimi Code is the one hosted provider with no price anywhere: its listing carries none and its model IDs (k3, kimi-for-coding) are absent from models.dev, so those models meter at zero and discovery says so in the log. Ollama and Ollama Cloud enrich models via the `/api/show` endpoint; Ollama Cloud's own models.dev entry carries no cost data, so its prices come from the cross-provider index when a match exists.
+
 ### The modality class is derived, not written
+
+Every discovered model carries three classification fields with closed vocabularies. `input_modalities` lists what the model accepts (`text`, `image`, `audio`, `video`, `pdf`); `output_modalities` lists what it produces (`text`, `image`, `audio`, `video`, plus `embedding` and `rerank` for those endpoint families); and `modality` is an *endpoint class* derived from the arrays (`chat`, `embedding`, `rerank`, `image`, `video`, `tts`, or `stt`). The class is never hand-set per provider: one central deriver computes it after enrichment, so a vision chat model ("understands images") can't be confused with an image-generation model ("produces images"), and non-chat models are reliably kept out of the chat and arena pickers while remaining visible on `/v1/models` and in failover groups.
 
 `models.modality` is a derived *endpoint class* with a closed vocabulary: `chat`, `embedding`, `rerank`, `image`, `video`, `tts`, `stt`. Discovery never hand-writes it. `input_modalities` and `output_modalities` are the source of truth, and `NormalizeModelClassification` (`internal/provider/model_class.go`) derives the class from them once, after models.dev enrichment and immediately before the upsert.
 
@@ -677,7 +683,7 @@ Known models: `MiniMax-M3`, `MiniMax-M2.7` (+ `MiniMax-M2.7-highspeed`), `MiniMa
 
 The catalog and model conversion logic is shared with OpenCode Go via `OpenCodeModelSpec` and `OpenCodeCatalogToModel`. The Zen catalog is a **metadata override channel** that backfills live models and surfaces none: today it holds two rows that restrict the input modalities models.dev over-advertises for free models whose deployment rejects audio or video. Rows carry no price.
 
-### xAI (Grok)
+### xAI
 
 **Source files:** `discovery_xai.go`, `xai_catalog.go`, `xai_types.go`, `catalog_merge.go`
 
@@ -751,7 +757,7 @@ Image-generation models come from a separate listing, `GET /image-generation-mod
 
 **Pricing conversion:** OpenRouter reports prices as per-token strings (e.g., `"0.000002"`). These are converted to $/1M tokens by multiplying by 1,000,000.
 
-### Google AI Studio (Gemini)
+### Google AI Studio
 
 **Source files:** `discovery_google.go`, `google_catalog.go` (the retired-model list), `google_types.go`
 
