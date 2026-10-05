@@ -677,7 +677,7 @@ Known models: `MiniMax-M3`, `MiniMax-M2.7` (+ `MiniMax-M2.7-highspeed`), `MiniMa
 
 The catalog and model conversion logic is shared with OpenCode Go via `OpenCodeModelSpec` and `OpenCodeCatalogToModel`. The Zen catalog is a **metadata override channel** that backfills live models and surfaces none: today it holds two rows that restrict the input modalities models.dev over-advertises for free models whose deployment rejects audio or video. Rows carry no price.
 
-### xAI (Grok)
+### xAI
 
 **Source files:** `discovery_xai.go`, `xai_catalog.go`, `xai_types.go`, `catalog_merge.go`
 
@@ -751,7 +751,7 @@ Image-generation models come from a separate listing, `GET /image-generation-mod
 
 **Pricing conversion:** OpenRouter reports prices as per-token strings (e.g., `"0.000002"`). These are converted to $/1M tokens by multiplying by 1,000,000.
 
-### Google AI Studio (Gemini)
+### Google AI Studio
 
 **Source files:** `discovery_google.go`, `google_catalog.go` (the retired-model list), `google_types.go`
 
