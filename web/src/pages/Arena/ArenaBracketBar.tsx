@@ -4,7 +4,7 @@ import { Play, X } from "@/lib/icons";
 import { MatchupCard } from "./MatchupCard";
 import { BracketPreviewPill } from "./shared";
 import type { ArenaView } from "./useArena";
-import { sideOrder } from "./utils";
+import { blindLabel, sideOrder } from "./utils";
 
 /** The bracket preview and the run/stop button. */
 export function ArenaBracketBar({
@@ -123,14 +123,13 @@ export function ArenaBracketBar({
 																response={response}
 																isRunning={arena.isRunning}
 																phase={arena.phase}
-																// Setup needs the names to assign personas; from the
-																// run on, a matchup is blind until voted.
-																blind={
-																	arena.arenaMode === "competition" &&
-																	arena.phase !== "setup" &&
-																	mu.vote === null &&
-																	!response?.error
-																}
+																blind={blindLabel(
+																	mu,
+																	slotKey,
+																	i,
+																	arena.arenaMode,
+																	arena.phase,
+																)}
 																onPersonaChange={arena.handlePersonaChange}
 																onVote={arena.handleVote}
 															/>

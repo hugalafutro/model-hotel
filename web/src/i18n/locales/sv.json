@@ -2825,7 +2825,7 @@
 			"entries_one": "{{count}} post",
 			"entries_other": "{{count}} poster",
 			"entries": "poster",
-			"historyOff": "Matchhistorik är av. Slå på den under"
+			"historyOff": "Matchhistorik är av. Slå på den under <settings>Inställningar</settings>."
 		},
 		"logDetailModal": {
 			"logEntryDetails": "Loggpost Detaljer",

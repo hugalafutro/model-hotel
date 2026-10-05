@@ -2825,7 +2825,7 @@
 			"entries_one": "{{count}} のエントリ",
 			"entries_other": "{{count}} 項目",
 			"entries": "項目",
-			"historyOff": "対戦履歴はオフです。有効にするには次を開いてください:"
+			"historyOff": "対戦履歴はオフです。有効にするには次を開いてください: <settings>設定</settings>。"
 		},
 		"logDetailModal": {
 			"logEntryDetails": "ログエントリの詳細",

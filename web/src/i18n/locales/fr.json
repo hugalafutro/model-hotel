@@ -2898,7 +2898,7 @@
 			"entries_many": "Entrées {{count}}",
 			"entries_other": "Entrées {{count}}",
 			"entries": "entrées",
-			"historyOff": "L'historique des matchs est désactivé. Activez-le dans"
+			"historyOff": "L'historique des matchs est désactivé. Activez-le dans <settings>Paramètres</settings>."
 		},
 		"logDetailModal": {
 			"logEntryDetails": "Détails de l'entrée de journal",

@@ -2825,7 +2825,7 @@
 			"entries_one": "{{count}} invoer",
 			"entries_other": "{{count}} items",
 			"entries": "vermeldingen",
-			"historyOff": "Wedstrijdgeschiedenis staat uit. Zet hem aan onder"
+			"historyOff": "Wedstrijdgeschiedenis staat uit. Zet hem aan onder <settings>Instellingen</settings>."
 		},
 		"logDetailModal": {
 			"logEntryDetails": "Log invoer details",

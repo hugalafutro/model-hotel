@@ -2898,7 +2898,7 @@
 			"entries_many": "{{count}} entradas",
 			"entries_other": "{{count}} entradas",
 			"entries": "entradas",
-			"historyOff": "El historial de partidas está desactivado. Actívalo en"
+			"historyOff": "El historial de partidas está desactivado. Actívalo en <settings>Ajustes</settings>."
 		},
 		"logDetailModal": {
 			"logEntryDetails": "Detalles del registro",

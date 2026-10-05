@@ -2825,7 +2825,7 @@
 			"entries_one": "{{count}} Eintrag",
 			"entries_other": "{{count}} Einträge",
 			"entries": "einträge",
-			"historyOff": "Der Matchverlauf ist deaktiviert. Aktiviere ihn unter"
+			"historyOff": "Der Matchverlauf ist deaktiviert. Aktiviere ihn unter <settings>Einstellungen</settings>."
 		},
 		"logDetailModal": {
 			"logEntryDetails": "Logeintragsdetails",

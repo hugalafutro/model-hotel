@@ -33,7 +33,7 @@ export function ResponseCard({
 	onSwapModel,
 	onCancelSlot,
 	showVote,
-	blind = false,
+	blind,
 	enabledModels,
 	params,
 }: ResponseCardProps) {
@@ -48,15 +48,7 @@ export function ResponseCard({
 	return (
 		<>
 			<ModelReplyCard
-				model={
-					blind
-						? t(
-								slotKey === "A"
-									? "chat.controls.modelA"
-									: "chat.controls.modelB",
-							)
-						: response.model
-				}
+				model={blind ? t(`chat.controls.model${blind}`) : response.model}
 				content={response.content}
 				thinkingContent={response.thinkingContent}
 				error={response.error}
@@ -69,8 +61,12 @@ export function ResponseCard({
 				shortenModelName={true}
 				showInfoIcon={!blind}
 				params={blind ? undefined : params}
+				// The amber "Thinking" cue comes from the catalog, so it would name
+				// the reasoning side of a blind pair.
 				isReasoningModel={
-					!!modelObj && !!parseCapabilities(modelObj.capabilities).reasoning
+					!blind &&
+					!!modelObj &&
+					!!parseCapabilities(modelObj.capabilities).reasoning
 				}
 				onModelNameClick={
 					modelObj && !blind ? () => setDetailModel(modelObj) : undefined

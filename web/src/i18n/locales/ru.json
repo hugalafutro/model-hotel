@@ -2971,7 +2971,7 @@
 			"entries_many": "{{count}} записей",
 			"entries_other": "{{count}} записи",
 			"entries": "записи",
-			"historyOff": "История матчей выключена. Включите её в разделе"
+			"historyOff": "История матчей выключена. Включите её в разделе <settings>Настройки</settings>."
 		},
 		"logDetailModal": {
 			"logEntryDetails": "Детали записи журнала",

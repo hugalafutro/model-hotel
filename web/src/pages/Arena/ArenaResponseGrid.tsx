@@ -3,7 +3,7 @@ import { ConfirmDialog } from "../../components/ConfirmDialog";
 import { ResponseCard } from "./ResponseCard";
 import { SwapPicker } from "./SwapPicker";
 import type { ArenaView } from "./useArena";
-import { sideOrder, usedModelIds } from "./utils";
+import { blindLabel, sideOrder, usedModelIds } from "./utils";
 
 /** The per-round response cards (matchups in competition mode, one card per model in compare mode) and the full-reset confirm dialog. */
 export function ArenaResponseGrid({ arena }: { arena: ArenaView }) {
@@ -103,7 +103,7 @@ export function ArenaResponseGrid({ arena }: { arena: ArenaView }) {
 												</div>
 											)}
 											<div className="grid grid-cols-1 md:grid-cols-2 grid-rows-[minmax(0,1fr)] auto-rows-[minmax(0,1fr)] gap-4 flex-1 min-h-0">
-												{sideOrder(mu).map((slotKey) => {
+												{sideOrder(mu).map((slotKey, position) => {
 													const slot = slotKey === "A" ? mu.slotA : mu.slotB;
 													const response =
 														slotKey === "A" ? mu.responseA : mu.responseB;
@@ -153,9 +153,13 @@ export function ArenaResponseGrid({ arena }: { arena: ArenaView }) {
 																	response.done &&
 																	(!other || other.done)
 																}
-																// Blind until voted; an error reveals the model so
-																// the user can see what to swap.
-																blind={mu.vote === null && !response.error}
+																blind={blindLabel(
+																	mu,
+																	slotKey,
+																	position,
+																	arena.arenaMode,
+																	arena.phase,
+																)}
 																params={slot?.params}
 															/>
 														)

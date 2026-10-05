@@ -9,7 +9,7 @@ import {
 	shuffleSides,
 } from "../builders";
 import type { BracketRound, Matchup, MatchupSlot } from "../types";
-import { sideOrder } from "../utils";
+import { blindLabel, sideOrder } from "../utils";
 
 const mkSlot = (modelId: string): MatchupSlot => ({
 	modelId,
@@ -278,7 +278,7 @@ describe("shuffleSides", () => {
 		expect(() => shuffleSides(undefined)).not.toThrow();
 	});
 
-	it("flips about half the time", () => {
+	it("draws both sides", () => {
 		const draws = new Set<boolean | undefined>();
 		for (let i = 0; i < 64; i++) {
 			const round: BracketRound = {
@@ -304,5 +304,50 @@ describe("sideOrder", () => {
 		expect(sideOrder({})).toEqual(["A", "B"]);
 		expect(sideOrder({ flipped: false })).toEqual(["A", "B"]);
 		expect(sideOrder({ flipped: true })).toEqual(["B", "A"]);
+	});
+});
+
+describe("blindLabel", () => {
+	const resp = (error: string | null = null) => ({
+		model: "p/m",
+		rawContent: "",
+		content: "x",
+		thinkingContent: "",
+		startTimeMs: 1,
+		done: true,
+		error,
+		metrics: null,
+	});
+	const mu = (
+		vote: "A" | "B" | null = null,
+		errorB: string | null = null,
+	): Matchup => ({
+		slotA: mkSlot("a"),
+		slotB: mkSlot("b"),
+		responseA: resp(),
+		responseB: resp(errorB),
+		vote,
+	});
+
+	it("labels by display position, not by slot", () => {
+		// A flipped matchup shows slot B on the left, so slot B reads "Model A".
+		expect(blindLabel(mu(), "B", 0, "competition", "voting")).toBe("A");
+		expect(blindLabel(mu(), "A", 1, "competition", "voting")).toBe("B");
+	});
+
+	it("names the model in compare mode, in setup, once voted, and on an error", () => {
+		expect(blindLabel(mu(), "A", 0, "compare", "running")).toBeUndefined();
+		expect(blindLabel(mu(), "A", 0, "competition", "setup")).toBeUndefined();
+		expect(
+			blindLabel(mu("A"), "A", 0, "competition", "voting"),
+		).toBeUndefined();
+		expect(
+			blindLabel(mu("A"), "B", 1, "competition", "voting"),
+		).toBeUndefined();
+		const errored = mu(null, "boom");
+		expect(
+			blindLabel(errored, "B", 1, "competition", "voting"),
+		).toBeUndefined();
+		expect(blindLabel(errored, "A", 0, "competition", "voting")).toBe("A");
 	});
 });

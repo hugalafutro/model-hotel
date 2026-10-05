@@ -2825,7 +2825,7 @@
 			"entries_one": "{{count}} post",
 			"entries_other": "{{count}} poster",
 			"entries": "poster",
-			"historyOff": "Kamphistorik er slået fra. Slå den til under"
+			"historyOff": "Kamphistorik er slået fra. Slå den til under <settings>Indstillinger</settings>."
 		},
 		"logDetailModal": {
 			"logEntryDetails": "Log Indtastningsoplysninger",

@@ -2971,7 +2971,7 @@
 			"entries_many": "{{count}} záznamu",
 			"entries_other": "{{count}} záznamů",
 			"entries": "položek",
-			"historyOff": "Historie zápasů je vypnutá. Zapněte ji v sekci"
+			"historyOff": "Historie zápasů je vypnutá. Zapněte ji v sekci <settings>Nastavení</settings>."
 		},
 		"logDetailModal": {
 			"logEntryDetails": "Detail log záznamu",

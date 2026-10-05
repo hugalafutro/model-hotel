@@ -2825,7 +2825,7 @@
 			"entries_one": "{{count}} oppføring",
 			"entries_other": "{{count}} oppføringer",
 			"entries": "oppføringer",
-			"historyOff": "Kamphistorikk er av. Slå den på under"
+			"historyOff": "Kamphistorikk er av. Slå den på under <settings>Innstillinger</settings>."
 		},
 		"logDetailModal": {
 			"logEntryDetails": "Detaljer for loggoppføring",

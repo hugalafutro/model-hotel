@@ -2971,7 +2971,7 @@
 			"entries_many": "{{count}} wpisów",
 			"entries_other": "{{count}} wpisu",
 			"entries": "wpisy",
-			"historyOff": "Historia pojedynków jest wyłączona. Włącz ją w sekcji"
+			"historyOff": "Historia pojedynków jest wyłączona. Włącz ją w sekcji <settings>Ustawienia</settings>."
 		},
 		"logDetailModal": {
 			"logEntryDetails": "Szczegóły wpisu dziennika",

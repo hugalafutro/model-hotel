@@ -2825,7 +2825,7 @@
 			"entries_one": "{{count}} merkintä",
 			"entries_other": "{{count}} tietuetta",
 			"entries": "merkinnät",
-			"historyOff": "Otteluhistoria on pois päältä. Ota se käyttöön kohdassa"
+			"historyOff": "Otteluhistoria on pois päältä. Ota se käyttöön kohdassa <settings>Asetukset</settings>."
 		},
 		"logDetailModal": {
 			"logEntryDetails": "Loki Merkintöjen Tiedot",

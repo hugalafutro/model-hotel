@@ -131,7 +131,6 @@ export function ConversationConfig({
 								{t("components.conversationConfig.delay", {
 									delay: turnDelayMs,
 								})}
-								ms
 							</span>
 						</span>
 					)}

@@ -2825,7 +2825,7 @@
 			"entries_one": "{{count}} 条目",
 			"entries_other": "{{count}} 条目",
 			"entries": "条目",
-			"historyOff": "对战历史已关闭。请在此处开启："
+			"historyOff": "对战历史已关闭。请在此处开启： <settings>设置</settings>。"
 		},
 		"logDetailModal": {
 			"logEntryDetails": "日志条目详细信息",

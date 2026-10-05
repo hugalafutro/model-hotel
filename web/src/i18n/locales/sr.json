@@ -2898,7 +2898,7 @@
 			"entries_few": "{{count}} уноса",
 			"entries_other": "{{count}} уноса",
 			"entries": "уносе",
-			"historyOff": "Историја мечева је искључена. Укључите је у одељку"
+			"historyOff": "Историја мечева је искључена. Укључите је у одељку <settings>Подешавања</settings>."
 		},
 		"logDetailModal": {
 			"logEntryDetails": "Детаљи уноса у дневник",

@@ -2825,7 +2825,7 @@
 			"entries_one": "{{count}} bejegyzés",
 			"entries_other": "{{count}} bejegyzés",
 			"entries": "bejegyzések",
-			"historyOff": "A meccstörténet ki van kapcsolva. Kapcsold be itt:"
+			"historyOff": "A meccstörténet ki van kapcsolva. Kapcsold be itt: <settings>Beállítások</settings>."
 		},
 		"logDetailModal": {
 			"logEntryDetails": "Naplóbejegyzés részletei",

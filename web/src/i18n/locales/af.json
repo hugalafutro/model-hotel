@@ -2825,7 +2825,7 @@
 			"entries_one": "{{count}} inskrywing",
 			"entries_other": "{{count}} inskrywings",
 			"entries": "inskrywings",
-			"historyOff": "Wedstrydgeskiedenis is af. Skakel dit aan onder"
+			"historyOff": "Wedstrydgeskiedenis is af. Skakel dit aan onder <settings>Instellings</settings>."
 		},
 		"logDetailModal": {
 			"logEntryDetails": "Inskrywingbesonderhede",

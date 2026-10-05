@@ -2825,7 +2825,7 @@
 			"entries_one": "{{count}} giriş",
 			"entries_other": "{{count}} girişler",
 			"entries": "girişler",
-			"historyOff": "Maç geçmişi kapalı. Şuradan açın:"
+			"historyOff": "Maç geçmişi kapalı. Şuradan açın: <settings>Ayarlar</settings>."
 		},
 		"logDetailModal": {
 			"logEntryDetails": "Günlük Kaydı Ayrıntıları",

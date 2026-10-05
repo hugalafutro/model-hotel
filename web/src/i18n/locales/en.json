@@ -2825,7 +2825,7 @@
 			"entries_one": "{{count}} entry",
 			"entries_other": "{{count}} entries",
 			"entries": "entries",
-			"historyOff": "Match history is off. Turn it on under"
+			"historyOff": "Match history is off. Turn it on under <settings>Settings</settings>."
 		},
 		"logDetailModal": {
 			"logEntryDetails": "Log Entry Details",

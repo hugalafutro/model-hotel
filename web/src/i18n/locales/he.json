@@ -2898,7 +2898,7 @@
 			"entries_two": "{{count}} רשומות",
 			"entries_other": "{{count}} רשומות",
 			"entries": "רשומות",
-			"historyOff": "היסטוריית המשחקים כבויה. הפעל אותה תחת"
+			"historyOff": "היסטוריית המשחקים כבויה. הפעל אותה תחת <settings>הגדרות</settings>."
 		},
 		"logDetailModal": {
 			"logEntryDetails": "פרטי הרישום ביומן",

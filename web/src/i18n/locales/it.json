@@ -2898,7 +2898,7 @@
 			"entries_many": "{{count}} voci",
 			"entries_other": "{{count}} voci",
 			"entries": "voci",
-			"historyOff": "La cronologia delle partite è disattivata. Attivala in"
+			"historyOff": "La cronologia delle partite è disattivata. Attivala in <settings>Impostazioni</settings>."
 		},
 		"logDetailModal": {
 			"logEntryDetails": "Dettagli Voce Log",

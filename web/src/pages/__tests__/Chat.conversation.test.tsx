@@ -1,4 +1,4 @@
-import { screen, waitFor } from "@testing-library/react";
+import { screen, waitFor, within } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { LucideIcon } from "@/lib/icons";
 import { mockAllDefaults } from "../../test/helpers";
@@ -157,7 +157,11 @@ describe("Chat", () => {
 			renderWithProviders(<Chat />);
 
 			await waitFor(() => {
-				expect(screen.getAllByText("Round: 1 / 10").length).toBeGreaterThan(0);
+				expect(
+					within(
+						screen.getByText(/tokens$/).closest(".ui-card") as HTMLElement,
+					).getByText("Round: 1 / 10"),
+				).toBeInTheDocument();
 			});
 			expect(screen.getByText("2.5s")).toBeInTheDocument();
 			expect(screen.getByText("150 tokens")).toBeInTheDocument();
@@ -239,7 +243,11 @@ describe("Chat", () => {
 			renderWithProviders(<Chat />);
 
 			await waitFor(() => {
-				expect(screen.getAllByText("Round: 5 / 10").length).toBeGreaterThan(0);
+				expect(
+					within(
+						screen.getByText(/tokens$/).closest(".ui-card") as HTMLElement,
+					).getByText("Round: 5 / 10"),
+				).toBeInTheDocument();
 			});
 			expect(screen.getByText("45.0s")).toBeInTheDocument();
 			expect(screen.getByText("1.3K tokens")).toBeInTheDocument();
@@ -514,7 +522,11 @@ describe("Chat", () => {
 			renderWithProviders(<Chat />);
 
 			await waitFor(() => {
-				expect(screen.getAllByText("Round: 2 / 10").length).toBeGreaterThan(0);
+				expect(
+					within(
+						screen.getByText(/tokens$/).closest(".ui-card") as HTMLElement,
+					).getByText("Round: 2 / 10"),
+				).toBeInTheDocument();
 			});
 		});
 
@@ -547,7 +559,11 @@ describe("Chat", () => {
 			renderWithProviders(<Chat />);
 
 			await waitFor(() => {
-				expect(screen.getAllByText("Round: 3 / 10").length).toBeGreaterThan(0);
+				expect(
+					within(
+						screen.getByText(/tokens$/).closest(".ui-card") as HTMLElement,
+					).getByText("Round: 3 / 10"),
+				).toBeInTheDocument();
 			});
 		});
 	});

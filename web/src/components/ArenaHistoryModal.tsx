@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { useTranslation } from "react-i18next";
+import { Trans, useTranslation } from "react-i18next";
 import { Link } from "react-router";
 import {
 	Bot,
@@ -420,10 +420,14 @@ export function ArenaHistoryModal({
 					</p>
 					{!arenaHistoryEnabled && (
 						<p className="text-amber-400 text-xs mt-3">
-							{t("components.arenaHistoryModal.historyOff")}{" "}
-							<Link to="/settings" className="ui-link-accent underline">
-								{t("layout.nav.settings")}
-							</Link>
+							<Trans
+								i18nKey="components.arenaHistoryModal.historyOff"
+								components={{
+									settings: (
+										<Link to="/settings" className="ui-link-accent underline" />
+									),
+								}}
+							/>
 						</p>
 					)}
 				</div>

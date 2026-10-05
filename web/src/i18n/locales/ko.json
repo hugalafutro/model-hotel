@@ -2825,7 +2825,7 @@
 			"entries_one": "{{count}} 항목",
 			"entries_other": "{{count}} 항목",
 			"entries": "항목",
-			"historyOff": "대결 기록이 꺼져 있습니다. 다음에서 켜세요:"
+			"historyOff": "대결 기록이 꺼져 있습니다. 다음에서 켜세요: <settings>설정</settings>."
 		},
 		"logDetailModal": {
 			"logEntryDetails": "로그 항목 세부 정보",

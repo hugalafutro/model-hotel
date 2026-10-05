@@ -59,8 +59,8 @@ export interface MatchupCardProps {
 	response: ArenaResponse | null;
 	isRunning: boolean;
 	phase: BracketPhase;
-	/** Hide the model's identity (competition mode, before the matchup is voted). */
-	blind?: boolean;
+	/** The label shown instead of the model while the matchup is blind ("A" left, "B" right), undefined once it may be named. */
+	blind?: "A" | "B";
 	onPersonaChange: (
 		roundIdx: number,
 		matchupIdx: number,
@@ -92,8 +92,8 @@ export interface ResponseCardProps {
 		modelId: string,
 	) => void;
 	showVote: boolean;
-	/** Hide the model's identity (competition mode, before the matchup is voted). */
-	blind?: boolean;
+	/** The label shown instead of the model while the matchup is blind ("A" left, "B" right), undefined once it may be named. */
+	blind?: "A" | "B";
 	enabledModels: Model[];
 	params?: GenerationParams;
 }

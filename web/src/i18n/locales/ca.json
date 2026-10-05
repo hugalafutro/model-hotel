@@ -2898,7 +2898,7 @@
 			"entries_many": "{{count}} entrades",
 			"entries_other": "{{count}} entrades",
 			"entries": "entrades",
-			"historyOff": "L'historial de partides està desactivat. Activa'l a"
+			"historyOff": "L'historial de partides està desactivat. Activa'l a <settings>Configuració</settings>."
 		},
 		"logDetailModal": {
 			"logEntryDetails": "Detalls de l'entrada del registre",

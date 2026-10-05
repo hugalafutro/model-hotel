@@ -18,7 +18,7 @@ export function MatchupCard({
 	response,
 	isRunning,
 	phase,
-	blind = false,
+	blind,
 	onPersonaChange,
 	onVote,
 }: MatchupCardProps) {
@@ -64,11 +64,7 @@ export function MatchupCard({
 					title={blind ? undefined : slot.modelId}
 				>
 					{blind
-						? t(
-								slotKey === "A"
-									? "chat.controls.modelA"
-									: "chat.controls.modelB",
-							)
+						? t(`chat.controls.model${blind}`)
 						: shortModelName(slot.modelId)}
 				</span>
 				{!blind && <ParamsTooltip params={slot.params} />}

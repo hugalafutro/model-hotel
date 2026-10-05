@@ -2898,7 +2898,7 @@
 			"entries_few": "{{count}} intrări",
 			"entries_other": "{{count}} de intrări",
 			"entries": "intrări",
-			"historyOff": "Istoricul meciurilor este dezactivat. Activează-l din"
+			"historyOff": "Istoricul meciurilor este dezactivat. Activează-l din <settings>Setări</settings>."
 		},
 		"logDetailModal": {
 			"logEntryDetails": "Detalii intrare jurnal",

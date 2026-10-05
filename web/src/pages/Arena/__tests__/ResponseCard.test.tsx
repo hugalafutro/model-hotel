@@ -616,7 +616,7 @@ describe("ResponseCard", () => {
 
 describe("ResponseCard blind", () => {
 	it("hides the model behind its slot label until the matchup is voted", () => {
-		render(<ResponseCard {...defaultProps} slotKey="B" blind />, {
+		render(<ResponseCard {...defaultProps} slotKey="A" blind="B" />, {
 			wrapper: AllProviders,
 		});
 		expect(screen.getByText("Model B")).toBeInTheDocument();
@@ -627,8 +627,8 @@ describe("ResponseCard blind", () => {
 		).not.toBeInTheDocument();
 	});
 
-	it("shows the model once voted", () => {
-		render(<ResponseCard {...defaultProps} vote="A" blind={false} />, {
+	it("names the model when not blind", () => {
+		render(<ResponseCard {...defaultProps} vote="A" />, {
 			wrapper: AllProviders,
 		});
 		expect(screen.getByText(/gemma3:4b/)).toBeInTheDocument();
