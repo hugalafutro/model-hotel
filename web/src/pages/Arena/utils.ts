@@ -69,16 +69,36 @@ export function clearSlot(
 }
 
 /**
+ * The key a slot's in-flight stream is tracked by (abort controller and the
+ * running set). Keyed by position, not model id: a blind swap may put the
+ * opponent's model into the other slot, and two streams of one model must
+ * stop and settle independently.
+ */
+export function streamKey(
+	roundIdx: number,
+	matchupIdx: number,
+	slotKey: "A" | "B",
+): string {
+	return `${roundIdx}:${matchupIdx}:${slotKey}`;
+}
+
+/**
  * Every model id already on the board in this round, except the slot being
- * swapped, so the swap picker cannot offer a duplicate.
+ * swapped, so the swap picker cannot offer a duplicate. In a blind round
+ * (competition mode) only voted, revealed matchups are excluded, whatever the
+ * picker's own matchup: an excluded model from an unvoted one would name its
+ * unseen side (the opponent in a one-matchup round, another matchup's
+ * survivor otherwise), so the picker may offer those models instead.
  */
 export function usedModelIds(
 	round: BracketRound,
 	exceptMatchup: number,
 	exceptSlot: "A" | "B",
+	blind = false,
 ): string[] {
 	const ids: string[] = [];
 	round.matchups.forEach((m, mi) => {
+		if (blind && m.vote === null) return;
 		for (const key of ["A", "B"] as const) {
 			if (mi === exceptMatchup && key === exceptSlot) continue;
 			const slot = m[SLOT_KEY[key]];
@@ -131,25 +151,29 @@ export function collectSlots(round: BracketRound): SlotDispatch[] {
 }
 
 /**
- * Stagger slots by provider and dispatch with optional delay. Returns the ids
- * of the timers still pending, so a stop or an unmount can cancel the slots
- * whose turn has not come yet instead of letting them start a stream into a
- * run that is already over.
+ * Stagger slots by provider and dispatch with optional delay. Returns the
+ * timers still pending with the slot each one will start, so a stop, an
+ * unmount, or a cancel of that one slot can drop it instead of letting it
+ * start a stream into a run that is over or a slot that was swapped.
  */
 export function staggerAndDispatch(
 	slots: SlotDispatch[],
 	knownProviders: string[],
 	dispatch: (slot: SlotDispatch) => void,
-): ReturnType<typeof setTimeout>[] {
+): { slot: SlotDispatch; timer: ReturnType<typeof setTimeout> }[] {
 	const staggered = staggerByProvider(
 		slots,
 		(s) => providerFromModelID(s.modelId, knownProviders),
 		300,
 	);
-	const timers: ReturnType<typeof setTimeout>[] = [];
+	const timers: { slot: SlotDispatch; timer: ReturnType<typeof setTimeout> }[] =
+		[];
 	for (const { item, delayMs } of staggered) {
 		if (delayMs > 0) {
-			timers.push(setTimeout(() => dispatch(item), delayMs));
+			timers.push({
+				slot: item,
+				timer: setTimeout(() => dispatch(item), delayMs),
+			});
 		} else {
 			dispatch(item);
 		}

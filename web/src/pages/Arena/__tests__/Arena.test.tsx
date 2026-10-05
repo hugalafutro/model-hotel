@@ -158,7 +158,9 @@ vi.mock("../../../components/ConfirmDialog", () => ({
 	ConfirmDialog: (props: MockConfirmDialogProps) => mockConfirmDialog(props),
 }));
 vi.mock("../MatchupCard", () => ({
-	MatchupCard: () => null,
+	MatchupCard: ({ slotKey }: { slotKey: "A" | "B" }) => (
+		<div data-testid="matchup-card" data-slot={slotKey} />
+	),
 }));
 vi.mock("../ResponseCard", () => ({
 	ResponseCard: () => null,
@@ -200,7 +202,9 @@ vi.mock("../WinnerSummaryModal", () => ({
 	),
 }));
 vi.mock("../SwapPicker", () => ({
-	SwapPicker: () => null,
+	SwapPicker: ({ alreadyUsed }: { alreadyUsed: string[] }) => (
+		<div data-testid="swap-picker" data-used={alreadyUsed.join(",")} />
+	),
 }));
 vi.mock("../shared", () => ({
 	BracketPreviewPill: ({
@@ -340,6 +344,123 @@ const VOTE_TO_CONTINUE = "Vote on all matchups to continue to the next round";
 function matchup(vote: string | null) {
 	return { slotA: null, slotB: null, responseA: null, responseB: null, vote };
 }
+
+describe("Arena - bracket bar with a cleared slot", () => {
+	const halfCleared = {
+		matchups: [
+			{
+				slotA: { modelId: "P/a", personaId: null, personaPrompt: "" },
+				slotB: null,
+				responseA: null,
+				responseB: null,
+				vote: null,
+			},
+		],
+	};
+
+	it("keeps both competition cards so the cleared backing slot stays hidden", () => {
+		mockArena({
+			arenaMode: "competition",
+			phase: "running",
+			currentRound: 0,
+			rounds: [halfCleared],
+		});
+		render(<Arena />);
+		expect(
+			screen.getAllByTestId("matchup-card").map((el) => el.dataset.slot),
+		).toEqual(["A", "B"]);
+	});
+
+	it("shows one card per compare model", () => {
+		mockArena({
+			arenaMode: "compare",
+			phase: "running",
+			currentRound: 0,
+			rounds: [halfCleared],
+		});
+		render(<Arena />);
+		expect(
+			screen.getAllByTestId("matchup-card").map((el) => el.dataset.slot),
+		).toEqual(["A"]);
+	});
+});
+
+describe("Arena - swap picker after a cancel", () => {
+	const slot = (modelId: string) => ({
+		modelId,
+		personaId: null,
+		personaPrompt: "",
+	});
+	const streaming = (model: string) => ({
+		model,
+		content: "",
+		done: false,
+		error: null,
+		startedAt: 1,
+	});
+	const cleared = (vote: "A" | "B" | null) => ({
+		matchups: [
+			{
+				slotA: null,
+				slotB: slot("P/opp"),
+				responseA: null,
+				responseB: streaming("P/opp"),
+				vote,
+			},
+		],
+	});
+
+	it("does not exclude the blind opponent, so the exclusion cannot name it", () => {
+		mockArena({
+			arenaMode: "competition",
+			phase: "running",
+			showResponseGrid: true,
+			currentRound: 0,
+			rounds: [cleared(null)],
+		});
+		render(<Arena />);
+		expect(screen.getByTestId("swap-picker").dataset.used).toBe("");
+	});
+
+	it("keeps another unvoted matchup's survivor out of a voted matchup's exclusions", () => {
+		mockArena({
+			arenaMode: "competition",
+			phase: "running",
+			showResponseGrid: true,
+			currentRound: 0,
+			rounds: [
+				{
+					matchups: [
+						...cleared("B").matchups,
+						{
+							slotA: null,
+							slotB: slot("P/survivor"),
+							responseA: null,
+							responseB: streaming("P/survivor"),
+							vote: null,
+						},
+					],
+				},
+			],
+		});
+		render(<Arena />);
+		expect(
+			screen.getAllByTestId("swap-picker").map((el) => el.dataset.used),
+		).toEqual(["P/opp", "P/opp"]);
+	});
+
+	it("excludes the opponent once the matchup is voted and named", () => {
+		mockArena({
+			arenaMode: "competition",
+			phase: "running",
+			showResponseGrid: true,
+			currentRound: 0,
+			rounds: [cleared("B")],
+		});
+		render(<Arena />);
+		expect(screen.getByTestId("swap-picker").dataset.used).toBe("P/opp");
+	});
+});
 
 describe("Arena - voting message", () => {
 	it("shows the vote-to-continue reason while votes are missing", () => {

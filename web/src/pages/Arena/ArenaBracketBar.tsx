@@ -101,7 +101,10 @@ export function ArenaBracketBar({
 												key={`matchup-${roundIdx}-${matchupIdx}`}
 												className="flex items-center gap-2"
 											>
-												{(mu.slotB === null
+												{/* Compare mode has no B side. A competition matchup keeps both
+												    cards even with a slot cleared: collapsing to one would show
+												    which backing slot was cancelled. */}
+												{(arena.arenaMode === "compare" && mu.slotB === null
 													? ["A" as const]
 													: sideOrder(mu)
 												).map((slotKey, i) => {

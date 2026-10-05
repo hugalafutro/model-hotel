@@ -10,7 +10,7 @@ import { fetchWithRetry } from "../../utils/stagger";
 import { streamRequestError } from "../../utils/streamError";
 import { extractThinking, sanitizeDelta } from "../../utils/thinking";
 import type { ArenaRunnerDeps } from "./useArenaRunner";
-import { patchSlotResponse, RESP_KEY } from "./utils";
+import { patchSlotResponse, RESP_KEY, streamKey } from "./utils";
 
 /** What one arena stream needs from the runner hook: mount-gated setters plus the abort registry. */
 export interface ArenaStreamContext
@@ -21,13 +21,15 @@ export interface ArenaStreamContext
 	 * last model is done; an aborted stream leaves the phase to whoever
 	 * cancelled it.
 	 */
-	finishModel: (model: string, settle?: boolean) => void;
+	finishModel: (key: string, settle?: boolean) => void;
 	abortMapRef: React.RefObject<Map<string, AbortController>>;
 	mountedRef: React.RefObject<boolean>;
 }
 
 export interface ArenaStreamArgs {
 	model: string;
+	/** What toasts call this reply: the model in compare mode, the blind side label in competition. */
+	label: string;
 	personaPrompt: string;
 	userPrompt: string;
 	roundIdx: number;
@@ -51,6 +53,7 @@ export async function streamArenaResponse(
 	const { t, toast, setRounds, finishModel, abortMapRef, mountedRef } = ctx;
 	const {
 		model,
+		label,
 		personaPrompt,
 		userPrompt,
 		roundIdx,
@@ -92,7 +95,7 @@ export async function streamArenaResponse(
 				) => {
 					toast(
 						t("hooks.useArenaRunner.retry", {
-							model,
+							model: label,
 							status: status || t("hooks.useArenaRunner.networkError"),
 							attempt,
 							delay: formatDecimal(delayMs / 1000, 1),
@@ -204,12 +207,22 @@ export async function streamArenaResponse(
 		);
 		if (mountedRef.current) {
 			toast(
-				t("hooks.useArenaRunner.generationError", { model, error: msg }),
+				t("hooks.useArenaRunner.generationError", {
+					model: label,
+					error: msg,
+				}),
 				"error",
 			);
 		}
 	} finally {
-		finishModel(model, !abortCtrl.signal.aborted);
-		abortMapRef.current.delete(model);
+		// A cancelled stream can outlive its slot: the retry backoff sleeps
+		// through the abort, and by the time it wakes a swap may have put a new
+		// stream under the same key. Only the stream that still owns the key
+		// may settle it; Cancel and Stop All already settled the one they removed.
+		const key = streamKey(roundIdx, matchupIdx, slotKey);
+		if (abortMapRef.current.get(key) === abortCtrl) {
+			finishModel(key, !abortCtrl.signal.aborted);
+			abortMapRef.current.delete(key);
+		}
 	}
 }

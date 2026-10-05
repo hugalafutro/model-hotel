@@ -89,7 +89,6 @@ export interface ResponseCardProps {
 		roundIdx: number,
 		matchupIdx: number,
 		slotKey: "A" | "B",
-		modelId: string,
 	) => void;
 	showVote: boolean;
 	/** The label shown instead of the model while the matchup is blind ("A" left, "B" right), undefined once it may be named. */

@@ -122,6 +122,7 @@ export function ArenaResponseGrid({ arena }: { arena: ArenaView }) {
 																	round,
 																	matchupIdx,
 																	slotKey,
+																	arena.arenaMode === "competition",
 																)}
 																onSelect={(modelId) =>
 																	arena.handleSwapCompleteAndUpdate(

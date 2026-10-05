@@ -1631,6 +1631,35 @@ describe("useArena", () => {
 			const updatedModels = updaterFn(["old-model", "other-model"]);
 			expect(updatedModels).toEqual(["new-model", "other-model"]);
 		});
+
+		it("keeps bracketModels free of duplicates when a blind swap picks the opponent", () => {
+			const setBracketModelsMock = vi.fn();
+			vi.mocked(useArenaState).mockReturnValue(
+				createMockArenaState({
+					bracketModels: ["old-model", "other-model"],
+					setBracketModels: setBracketModelsMock,
+				}),
+			);
+			vi.mocked(useArenaRunner).mockReturnValue(createMockArenaRunner());
+
+			const { result } = renderHook(() => useArena(), {
+				wrapper: createWrapper(),
+			});
+			act(() => {
+				result.current.handleSwapModel(0, 0, "A", "old-model");
+			});
+			act(() => {
+				result.current.handleSwapCompleteAndUpdate(0, 0, "A", "other-model");
+			});
+
+			const updaterFn = setBracketModelsMock.mock.calls[0]?.[0] as (
+				prev: string[],
+			) => string[];
+			expect(updaterFn(["old-model", "other-model"])).toEqual([
+				"old-model",
+				"other-model",
+			]);
+		});
 	});
 
 	describe("handlePersonaChange", () => {
