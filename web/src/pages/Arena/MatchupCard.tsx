@@ -46,6 +46,9 @@ export function MatchupCard({
 		response?.done;
 	const isWinner = vote === slotKey;
 	const isLoser = vote !== null && vote !== slotKey;
+	const displayName = blind
+		? t(`chat.controls.model${blind}`)
+		: shortModelName(slot.modelId);
 
 	return (
 		<div
@@ -63,9 +66,7 @@ export function MatchupCard({
 					className="text-xs font-medium text-(--text-primary) truncate"
 					title={blind ? undefined : slot.modelId}
 				>
-					{blind
-						? t(`chat.controls.model${blind}`)
-						: shortModelName(slot.modelId)}
+					{displayName}
 				</span>
 				{!blind && <ParamsTooltip params={slot.params} />}
 				{isRunning && !response?.done && (
@@ -94,6 +95,8 @@ export function MatchupCard({
 								: "cursor-default"
 						} ${isWinner ? "text-green-400" : ""}`}
 						title={vote === null ? t("arena.vote.title") : undefined}
+						// Named per card, since two blind thumbs otherwise read alike.
+						aria-label={`${t(vote === null ? "arena.vote.title" : "arena.vote.voted")}: ${displayName}`}
 					>
 						<VoteThumb
 							size={14}

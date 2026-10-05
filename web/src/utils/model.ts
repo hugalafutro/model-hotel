@@ -150,8 +150,9 @@ export function estimateCostUsd(
 	);
 }
 
-/** An estimated reply price for display; sub-cent-fraction amounts read as a floor. */
+/** An estimated reply price for display: a free model reads "$0", anything under the fourth decimal as a floor. */
 export function formatCostUsd(usd: number): string {
+	if (usd === 0) return "$0";
 	return usd < 0.0001 ? "<$0.0001" : `$${formatPrice(usd)}`;
 }
 

@@ -487,4 +487,14 @@ describe("formatCostUsd", () => {
 		expect(formatCostUsd(0.0123)).toBe("$0.0123");
 		expect(formatCostUsd(0.00003)).toBe("<$0.0001");
 	});
+
+	it("reads a free model as $0, not as a floor", () => {
+		expect(formatCostUsd(0)).toBe("$0");
+		expect(
+			estimateCostUsd(
+				{ input_price_per_million: 0, output_price_per_million: 0 },
+				{ promptTokens: 10, completionTokens: 10 },
+			),
+		).toBe(0);
+	});
 });

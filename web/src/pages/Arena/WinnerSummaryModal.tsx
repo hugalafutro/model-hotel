@@ -1,9 +1,11 @@
+import { Fragment } from "react";
 import { useTranslation } from "react-i18next";
 import { Trophy } from "@/lib/icons";
 import { Modal } from "../../components/Modal";
 import { getRoundLabel } from "../../utils/arenaRounds";
 import { shortModelName } from "../../utils/model";
 import type { WinnerSummaryModalProps } from "./types";
+import { sideOrder } from "./utils";
 
 export function WinnerSummaryModal({
 	winner,
@@ -45,25 +47,29 @@ export function WinnerSummaryModal({
 								key={`winner-match-${roundIdx}-${mi}`}
 								className="flex items-center gap-2 text-sm"
 							>
-								<span
-									className={
-										mu.vote === "A"
-											? "text-green-400 font-medium"
-											: "text-(--text-secondary)"
-									}
-								>
-									{mu.slotA ? shortModelName(mu.slotA.modelId) : t("arena.tbd")}
-								</span>
-								<span className="text-(--text-tertiary)">{t("arena.vs")}</span>
-								<span
-									className={
-										mu.vote === "B"
-											? "text-green-400 font-medium"
-											: "text-(--text-secondary)"
-									}
-								>
-									{mu.slotB ? shortModelName(mu.slotB.modelId) : t("arena.tbd")}
-								</span>
+								{/* Same left/right as the cards were shown, so the recap
+								    matches what was voted on. */}
+								{sideOrder(mu).map((key, i) => {
+									const slot = key === "A" ? mu.slotA : mu.slotB;
+									return (
+										<Fragment key={key}>
+											{i > 0 && (
+												<span className="text-(--text-tertiary)">
+													{t("arena.vs")}
+												</span>
+											)}
+											<span
+												className={
+													mu.vote === key
+														? "text-green-400 font-medium"
+														: "text-(--text-secondary)"
+												}
+											>
+												{slot ? shortModelName(slot.modelId) : t("arena.tbd")}
+											</span>
+										</Fragment>
+									);
+								})}
 								{mu.vote && (
 									<span className="text-xs text-(--accent)">
 										←{" "}

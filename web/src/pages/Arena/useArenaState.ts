@@ -18,6 +18,7 @@ import { pickRandom, randomChatModelId } from "../../utils/random";
 import {
 	buildCompareRound,
 	buildInitialRounds,
+	fillMissingSides,
 	getPreviewPairs,
 } from "./builders";
 import type { BracketPhase, BracketRound, WinnerModal } from "./types";
@@ -213,8 +214,8 @@ export function useArenaState(): ArenaStateAndActions {
 			enabled: persistArena,
 		});
 
-	const [rounds, setRounds] = useState<BracketRound[]>(
-		() => persisted?.rounds ?? [],
+	const [rounds, setRounds] = useState<BracketRound[]>(() =>
+		fillMissingSides(persisted?.rounds ?? []),
 	);
 	const [currentRound, setCurrentRound] = useState(
 		() => persisted?.currentRound ?? 0,

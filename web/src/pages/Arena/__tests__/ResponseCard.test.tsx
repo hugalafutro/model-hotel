@@ -634,3 +634,27 @@ describe("ResponseCard blind", () => {
 		expect(screen.getByText(/gemma3:4b/)).toBeInTheDocument();
 	});
 });
+
+describe("ResponseCard blind controls", () => {
+	it("hides Swap model while blind and names the vote button per card", () => {
+		render(<ResponseCard {...defaultProps} blind="B" showVote />, {
+			wrapper: AllProviders,
+		});
+		expect(
+			screen.queryByRole("button", { name: "Swap model" }),
+		).not.toBeInTheDocument();
+		expect(screen.getByRole("button", { name: "Re-roll" })).toBeInTheDocument();
+		expect(
+			screen.getByRole("button", { name: "Vote for this response: Model B" }),
+		).toBeInTheDocument();
+	});
+
+	it("offers Swap model again once revealed", () => {
+		render(<ResponseCard {...defaultProps} vote="A" />, {
+			wrapper: AllProviders,
+		});
+		expect(
+			screen.getByRole("button", { name: "Swap model" }),
+		).toBeInTheDocument();
+	});
+});

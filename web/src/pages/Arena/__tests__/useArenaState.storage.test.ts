@@ -187,7 +187,14 @@ describe("useArenaState", () => {
 				wrapper: createWrapper(),
 			});
 
-			expect(result.current.rounds).toEqual(mockRounds);
+			// Rounds saved before sides existed come back with one drawn, so a
+			// still-blind matchup is not shown in setup order.
+			const [mu] = result.current.rounds[0].matchups;
+			expect(typeof mu.flipped).toBe("boolean");
+			expect({ ...mu, flipped: undefined }).toEqual({
+				...mockRounds[0].matchups[0],
+				flipped: undefined,
+			});
 		});
 
 		it("initializes currentRound from localStorage", () => {

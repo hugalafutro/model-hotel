@@ -1,9 +1,10 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import type { GenerationParams } from "../../../api/types";
 import {
 	advanceWinners,
 	buildCompareRound,
 	buildInitialRounds,
+	fillMissingSides,
 	getPreviewPairs,
 	roundWinner,
 	shuffleSides,
@@ -279,23 +280,29 @@ describe("shuffleSides", () => {
 	});
 
 	it("draws both sides", () => {
-		const draws = new Set<boolean | undefined>();
-		for (let i = 0; i < 64; i++) {
-			const round: BracketRound = {
-				matchups: [
-					{
-						slotA: mkSlot("a"),
-						slotB: mkSlot("b"),
-						responseA: null,
-						responseB: null,
-						vote: null,
-					},
-				],
-			};
-			shuffleSides(round);
-			draws.add(round.matchups[0].flipped);
-		}
-		expect(draws).toEqual(new Set([true, false]));
+		const spy = vi.spyOn(Math, "random");
+		const round: BracketRound = {
+			matchups: [
+				{
+					slotA: mkSlot("a"),
+					slotB: mkSlot("b"),
+					responseA: null,
+					responseB: null,
+					vote: null,
+				},
+				{
+					slotA: mkSlot("c"),
+					slotB: mkSlot("d"),
+					responseA: null,
+					responseB: null,
+					vote: null,
+				},
+			],
+		};
+		spy.mockReturnValueOnce(0.2).mockReturnValueOnce(0.8);
+		shuffleSides(round);
+		expect(round.matchups.map((m) => m.flipped)).toEqual([true, false]);
+		spy.mockRestore();
 	});
 });
 
@@ -349,5 +356,36 @@ describe("blindLabel", () => {
 			blindLabel(errored, "B", 1, "competition", "voting"),
 		).toBeUndefined();
 		expect(blindLabel(errored, "A", 0, "competition", "voting")).toBe("A");
+	});
+});
+
+describe("fillMissingSides", () => {
+	it("draws a side only for matchups persisted without one", () => {
+		const spy = vi.spyOn(Math, "random").mockReturnValue(0.9);
+		const legacy: BracketRound[] = [
+			{
+				matchups: [
+					{
+						slotA: mkSlot("a"),
+						slotB: mkSlot("b"),
+						responseA: null,
+						responseB: null,
+						vote: null,
+					},
+					{
+						slotA: mkSlot("c"),
+						slotB: mkSlot("d"),
+						responseA: null,
+						responseB: null,
+						vote: null,
+						flipped: true,
+					},
+				],
+			},
+		];
+		const filled = fillMissingSides(legacy);
+		expect(filled[0].matchups.map((m) => m.flipped)).toEqual([false, true]);
+		expect(legacy[0].matchups[0].flipped).toBeUndefined();
+		spy.mockRestore();
 	});
 });

@@ -17,6 +17,7 @@ import {
 	estimateCostUsd,
 	findChatModel,
 	parseCapabilities,
+	shortModelName,
 } from "../../utils/model";
 import { ModelDetailModal } from "../Models/ModelDetailModal";
 import { VoteThumb } from "./shared";
@@ -44,11 +45,14 @@ export function ResponseCard({
 	const isLoser = vote !== null && vote !== slotKey;
 
 	const modelObj = findChatModel(enabledModels, response.model);
+	const displayName = blind
+		? t(`chat.controls.model${blind}`)
+		: shortModelName(response.model);
 
 	return (
 		<>
 			<ModelReplyCard
-				model={blind ? t(`chat.controls.model${blind}`) : response.model}
+				model={blind ? displayName : response.model}
 				content={response.content}
 				thinkingContent={response.thinkingContent}
 				error={response.error}
@@ -107,17 +111,21 @@ export function ResponseCard({
 								>
 									<RefreshCw size={14} />
 								</button>
-								<button
-									type="button"
-									onClick={() =>
-										onSwapModel(roundIdx, matchupIdx, slotKey, response.model)
-									}
-									className="ui-icon-btn"
-									title={t("arena.swapModel.title")}
-									aria-label={t("arena.swapModel.title")}
-								>
-									<ArrowLeftRight size={14} />
-								</button>
+								{/* Choosing a replacement names the slot, so a blind reply keeps its
+								    swap until the vote reveals it. */}
+								{!blind && (
+									<button
+										type="button"
+										onClick={() =>
+											onSwapModel(roundIdx, matchupIdx, slotKey, response.model)
+										}
+										className="ui-icon-btn"
+										title={t("arena.swapModel.title")}
+										aria-label={t("arena.swapModel.title")}
+									>
+										<ArrowLeftRight size={14} />
+									</button>
+								)}
 							</>
 						)}
 						{response.error && (
@@ -174,9 +182,8 @@ export function ResponseCard({
 										: "text-(--text-tertiary) hover:text-(--text-secondary)"
 								}`}
 								title={vote === null ? t("arena.vote.title") : undefined}
-								aria-label={
-									vote === null ? t("arena.vote.title") : t("arena.vote.voted")
-								}
+								// Named per card: two blind thumbs otherwise read alike.
+								aria-label={`${t(vote === null ? "arena.vote.title" : "arena.vote.voted")}: ${displayName}`}
 							>
 								<VoteThumb
 									size={18}
