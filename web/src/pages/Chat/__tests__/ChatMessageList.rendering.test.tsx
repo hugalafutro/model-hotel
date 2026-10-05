@@ -137,7 +137,7 @@ describe("ChatMessageList", () => {
 			renderWithProviders(<ChatMessageList {...defaultProps} />);
 			expect(screen.getByText(/500ms/)).toBeInTheDocument();
 			expect(screen.getByText(/40\.0 tok\/s/)).toBeInTheDocument();
-			expect(screen.getByText(/30 tok/)).toBeInTheDocument();
+			expect(screen.getByText("10 + 20 tok")).toBeInTheDocument();
 		});
 
 		it("renders copy button for user messages", () => {

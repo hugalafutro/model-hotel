@@ -562,7 +562,6 @@
 			"descriptionConversation": "观看两个模型相互对话",
 			"selectModelToStart": "选择一个模型开始聊天",
 			"keyboardHint": "按回车键发送，Shift+Enter换行",
-			"turnCount": "回合 {{current}} / {{max}}",
 			"tokens": "令牌",
 			"modelGenerating": "模型正在生成…",
 			"waitingNextTurn": "等待下一回合…",
@@ -690,7 +689,8 @@
 		},
 		"button": {
 			"stop": "停止所有",
-			"run": "运行竞技场"
+			"run": "运行竞技场",
+			"runCompare": "运行比较"
 		},
 		"disabledReason": {
 			"selectTwoModels": "选择至少 2 个模型",
@@ -2776,7 +2776,7 @@
 			"delay": "延迟： {{delay}}毫秒",
 			"round": "轮次： {{current}} / {{max}}",
 			"nextIn": "{{seconds}} 秒后开始下一轮…",
-			"status": "状态： {{state}}",
+			"status": "状态：",
 			"expandConfig": "展开配置",
 			"collapseConfig": "折叠配置",
 			"generationFailed": "生成失败 - 使用重试或更改模型以继续",
@@ -2791,7 +2791,14 @@
 			"reenterOrEditPrompt": "请重新输入或编辑您的提示词…",
 			"retry": "重试",
 			"retryFromTurn": "从第 {{turn}} 回合重试",
-			"stop": "停止"
+			"stop": "停止",
+			"state": {
+				"idle": "空闲",
+				"running": "运行中",
+				"paused": "已暂停",
+				"completed": "已完成",
+				"error": "错误"
+			}
 		},
 		"thinkingBlock": {
 			"thinking": "思考中"
@@ -2817,7 +2824,8 @@
 			"response_other": "{{count}} 回复",
 			"entries_one": "{{count}} 条目",
 			"entries_other": "{{count}} 条目",
-			"entries": "条目"
+			"entries": "条目",
+			"historyOff": "对战历史已关闭。请在此处开启："
 		},
 		"logDetailModal": {
 			"logEntryDetails": "日志条目详细信息",

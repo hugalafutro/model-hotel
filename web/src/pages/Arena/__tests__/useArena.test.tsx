@@ -1764,12 +1764,26 @@ describe("useArena", () => {
 				createMockArenaState({
 					runningModels: new Set(),
 					phase: "setup",
+					arenaMode: "competition",
 				}),
 			);
 			const { result: result2 } = renderHook(() => useArena(), {
 				wrapper: createWrapper(),
 			});
 			expect(result2.current.buttonLabel).toBe("Run Arena");
+
+			// Compare mode names its own run
+			vi.mocked(useArenaState).mockReturnValue(
+				createMockArenaState({
+					runningModels: new Set(),
+					phase: "setup",
+					arenaMode: "compare",
+				}),
+			);
+			const { result: result2b } = renderHook(() => useArena(), {
+				wrapper: createWrapper(),
+			});
+			expect(result2b.current.buttonLabel).toBe("Run Compare");
 
 			// Test null in voting phase
 			vi.mocked(useArenaState).mockReturnValue(

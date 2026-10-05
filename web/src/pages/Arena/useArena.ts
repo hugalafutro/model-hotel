@@ -8,7 +8,7 @@ import {
 	saveCompetitionToHistory,
 } from "../../utils/arenaHistory";
 import { getRoundLabel } from "../../utils/arenaRounds";
-import { advanceWinners, roundWinner } from "./builders";
+import { advanceWinners, roundWinner, shuffleSides } from "./builders";
 import type { Matchup, MatchupSlot } from "./types";
 import { useArenaRunner } from "./useArenaRunner";
 import { ARENA_STORAGE_KEYS, useArenaState } from "./useArenaState";
@@ -135,6 +135,7 @@ export function useArena() {
 			// Not last round — build next round matchups and advance
 			const nextRounds = produce(rounds, (draft) => {
 				advanceWinners(draft, currentRound);
+				shuffleSides(draft[currentRound + 1]);
 			});
 			setRounds(nextRounds);
 			roundsRef.current = nextRounds;
@@ -250,6 +251,7 @@ export function useArena() {
 						comparePersonaPrompt,
 					)
 				: buildInitialRoundsWithParams(bracketModels);
+		if (arenaMode !== "compare") shuffleSides(initialRounds[0]);
 		setRounds(initialRounds);
 		roundsRef.current = initialRounds;
 		currentRoundRef.current = 0;
@@ -300,6 +302,7 @@ export function useArena() {
 						shouldAdvance = true;
 						advanceRoundIdx = roundIdx;
 						advanceWinners(draft, roundIdx);
+						shuffleSides(draft[roundIdx + 1]);
 					} else {
 						shouldDeclareWinner = true;
 					}
@@ -454,9 +457,14 @@ export function useArena() {
 
 	const buttonLabel = useMemo(() => {
 		if (isRunning) return i18next.t("arena.button.stop");
-		if (phase === "setup") return i18next.t("arena.button.run");
+		if (phase === "setup")
+			return i18next.t(
+				arenaMode === "compare"
+					? "arena.button.runCompare"
+					: "arena.button.run",
+			);
 		return null;
-	}, [isRunning, phase]);
+	}, [isRunning, phase, arenaMode]);
 
 	const showResponseGrid = phase !== "setup";
 

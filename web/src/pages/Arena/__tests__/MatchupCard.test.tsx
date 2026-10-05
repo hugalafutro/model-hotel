@@ -735,3 +735,16 @@ describe("MatchupCard", () => {
 		});
 	});
 });
+
+describe("MatchupCard blind", () => {
+	it("labels the slot instead of naming the model", () => {
+		render(<MatchupCard {...defaultProps} phase="voting" blind />, {
+			wrapper: AllProviders,
+		});
+		expect(screen.getByText("Model A")).toBeInTheDocument();
+		expect(screen.queryByText("gemma-3b")).not.toBeInTheDocument();
+		expect(
+			screen.queryByTitle("test-provider/gemma-3b"),
+		).not.toBeInTheDocument();
+	});
+});

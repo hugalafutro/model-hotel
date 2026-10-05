@@ -150,3 +150,8 @@ export function staggerAndDispatch(
 	}
 	return timers;
 }
+
+/** The slots in display order: a flipped matchup shows B on the left. */
+export function sideOrder(mu: Pick<Matchup, "flipped">): ("A" | "B")[] {
+	return mu.flipped ? ["B", "A"] : ["A", "B"];
+}

@@ -167,10 +167,7 @@ export function ChatInputArea({
 								type="button"
 								onClick={
 									chat.isStreaming
-										? () => {
-												chat.setControlsCollapsed(false);
-												chat.handleStop();
-											}
+										? chat.handleStop
 										: () => {
 												chat.setControlsCollapsed(true);
 												chat.handleSend();
@@ -233,7 +230,7 @@ export function ChatInputArea({
 								<div className="flex items-center gap-4 text-sm text-(--text-secondary)">
 									<span className="flex items-center gap-1.5">
 										<Gauge size={14} />
-										{t("chat.misc.turnCount", {
+										{t("components.conversationConfig.round", {
 											current: Math.ceil(chat.currentTurn / 2),
 											max: chat.maxTurns,
 										})}
@@ -251,10 +248,7 @@ export function ChatInputArea({
 									{chat.isStreaming && (
 										<ActionIconButton
 											icon={CircleStop}
-											onClick={() => {
-												chat.setControlsCollapsed(false);
-												chat.handleStopConversation();
-											}}
+											onClick={chat.handleStopConversation}
 											title={t("chat.controls.stop")}
 											color="red"
 											size={16}

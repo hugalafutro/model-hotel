@@ -5,7 +5,7 @@ import type { GenerationParams } from "../api/types";
 import { useCopyToClipboard } from "../hooks/useCopyToClipboard";
 import { onActivateKey } from "../utils/a11y";
 import { formatDecimal, formatDuration, formatNumber } from "../utils/format";
-import { is5xxError, shortModelName } from "../utils/model";
+import { formatCostUsd, is5xxError, shortModelName } from "../utils/model";
 import { CARD_TINT_CLASS, type CardTint } from "./cardTint";
 import { InfoHint } from "./InfoHint";
 import { MARKDOWN_PROSE_CLASSES, MarkdownContent } from "./MarkdownContent";
@@ -33,6 +33,8 @@ interface ModelReplyCardProps {
 	error?: string | null;
 	/** Performance metrics */
 	metrics?: ModelReplyMetrics | null;
+	/** Estimated price of this reply in USD from the model's listed rates; null when unpriced */
+	costUsd?: number | null;
 	/** Whether the response is currently streaming */
 	isStreaming: boolean;
 	/** Start time in ms since epoch, enables the live elapsed counter */
@@ -102,6 +104,7 @@ export const ModelReplyCard = memo(function ModelReplyCard({
 	thinkingContent,
 	error,
 	metrics,
+	costUsd = null,
 	isStreaming,
 	startTimeMs,
 	isWinner = false,
@@ -193,8 +196,8 @@ export const ModelReplyCard = memo(function ModelReplyCard({
 			</button>
 		) : null;
 
-	// Duration, tokens per second and total tokens, in the card footer and
-	// again in the maximised header.
+	// Duration, tokens per second, prompt + completion tokens and the estimated
+	// price, in the card footer and again in the maximised header.
 	const metricsSummary = (size: "sm" | "md") => {
 		if (!metrics) return null;
 		const iconSize = size === "sm" ? 10 : 12;
@@ -214,9 +217,13 @@ export const ModelReplyCard = memo(function ModelReplyCard({
 				)}
 				{metrics.promptTokens + metrics.completionTokens > 0 && (
 					<span className={cell.trimEnd()}>
-						{formatNumber(metrics.promptTokens + metrics.completionTokens)}{" "}
+						{formatNumber(metrics.promptTokens)} +{" "}
+						{formatNumber(metrics.completionTokens)}{" "}
 						{t("components.modelReplyCard.tok")}
 					</span>
+				)}
+				{costUsd !== null && (
+					<span className={cell.trimEnd()}>{formatCostUsd(costUsd)}</span>
 				)}
 			</>
 		);

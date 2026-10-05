@@ -562,7 +562,6 @@
 			"descriptionConversation": "Kyk hoe gesels twee modelle met mekaar.",
 			"selectModelToStart": "Kies 'n model om mee te gesels.",
 			"keyboardHint": "Druk Enter om te stuur, Shift+Enter vir 'n nuwe reël.",
-			"turnCount": "Beurt {{current}} / {{max}}",
 			"tokens": "tokens",
 			"modelGenerating": "Model genereer tans…",
 			"waitingNextTurn": "Wag vir die volgende beurt…",
@@ -690,7 +689,8 @@
 		},
 		"button": {
 			"stop": "Stop alles",
-			"run": "Begin Arena"
+			"run": "Begin Arena",
+			"runCompare": "Begin vergelyking"
 		},
 		"disabledReason": {
 			"selectTwoModels": "Kies ten minste 2 modelle",
@@ -2776,7 +2776,7 @@
 			"delay": "Vertraging: {{delay}}ms",
 			"round": "Rondte: {{current}} / {{max}}",
 			"nextIn": "Volgende in {{seconds}}s…",
-			"status": "Status: {{state}}",
+			"status": "Status:",
 			"expandConfig": "Vou konfig oop",
 			"collapseConfig": "Vou konfigurasie in",
 			"generationFailed": "Generasie het misluk - gebruik Probeer weer of verander die model om voort te gaan",
@@ -2791,7 +2791,14 @@
 			"reenterOrEditPrompt": "Voer jou opdrag weer in of wysig dit…",
 			"retry": "Probeer weer",
 			"retryFromTurn": "Herprobeer vanaf beurt {{turn}}",
-			"stop": "Hou op"
+			"stop": "Hou op",
+			"state": {
+				"idle": "Ledig",
+				"running": "Loop",
+				"paused": "Onderbreek",
+				"completed": "Voltooi",
+				"error": "Fout"
+			}
 		},
 		"thinkingBlock": {
 			"thinking": "Denke"
@@ -2817,7 +2824,8 @@
 			"response_other": "{{count}} reaksies",
 			"entries_one": "{{count}} inskrywing",
 			"entries_other": "{{count}} inskrywings",
-			"entries": "inskrywings"
+			"entries": "inskrywings",
+			"historyOff": "Wedstrydgeskiedenis is af. Skakel dit aan onder"
 		},
 		"logDetailModal": {
 			"logEntryDetails": "Inskrywingbesonderhede",

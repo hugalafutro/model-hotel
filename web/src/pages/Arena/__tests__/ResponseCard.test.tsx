@@ -613,3 +613,24 @@ describe("ResponseCard", () => {
 		});
 	});
 });
+
+describe("ResponseCard blind", () => {
+	it("hides the model behind its slot label until the matchup is voted", () => {
+		render(<ResponseCard {...defaultProps} slotKey="B" blind />, {
+			wrapper: AllProviders,
+		});
+		expect(screen.getByText("Model B")).toBeInTheDocument();
+		expect(screen.queryByText(/gemma3:4b/)).not.toBeInTheDocument();
+		expect(screen.queryByTitle(/gemma3:4b/)).not.toBeInTheDocument();
+		expect(
+			screen.queryByRole("button", { name: /Model details/ }),
+		).not.toBeInTheDocument();
+	});
+
+	it("shows the model once voted", () => {
+		render(<ResponseCard {...defaultProps} vote="A" blind={false} />, {
+			wrapper: AllProviders,
+		});
+		expect(screen.getByText(/gemma3:4b/)).toBeInTheDocument();
+	});
+});

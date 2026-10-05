@@ -562,7 +562,6 @@
 			"descriptionConversation": "Titta på två modeller samtala med varandra",
 			"selectModelToStart": "Välj en modell för att börja chatta",
 			"keyboardHint": "Tryck Enter för att skicka, Shift+Enter för newline",
-			"turnCount": "Tur {{current}} / {{max}}",
 			"tokens": "tokens",
 			"modelGenerating": "Modell genererar…",
 			"waitingNextTurn": "Väntar på nästa tur…",
@@ -690,7 +689,8 @@
 		},
 		"button": {
 			"stop": "Stoppa alla",
-			"run": "Kör Arena"
+			"run": "Kör Arena",
+			"runCompare": "Kör jämförelse"
 		},
 		"disabledReason": {
 			"selectTwoModels": "Välj minst 2 modeller",
@@ -2776,7 +2776,7 @@
 			"delay": "Fördröjning: {{delay}}ms",
 			"round": "Runda: {{current}} / {{max}}",
 			"nextIn": "Nästa i {{seconds}}s…",
-			"status": "Status: {{state}}",
+			"status": "Status:",
 			"expandConfig": "Expandera konfiguration",
 			"collapseConfig": "Komprimera konfiguration",
 			"generationFailed": "Generering misslyckades - använd Försök igen eller ändra modellen för att fortsätta",
@@ -2791,7 +2791,14 @@
 			"reenterOrEditPrompt": "Ange eller redigera din prompt igen…",
 			"retry": "Försök igen",
 			"retryFromTurn": "Försök igen från tur {{turn}}",
-			"stop": "Stoppa"
+			"stop": "Stoppa",
+			"state": {
+				"idle": "Inaktiv",
+				"running": "Kör",
+				"paused": "Pausad",
+				"completed": "Slutförd",
+				"error": "Fel"
+			}
 		},
 		"thinkingBlock": {
 			"thinking": "Tänker"
@@ -2817,7 +2824,8 @@
 			"response_other": "{{count}} svar",
 			"entries_one": "{{count}} post",
 			"entries_other": "{{count}} poster",
-			"entries": "poster"
+			"entries": "poster",
+			"historyOff": "Matchhistorik är av. Slå på den under"
 		},
 		"logDetailModal": {
 			"logEntryDetails": "Loggpost Detaljer",

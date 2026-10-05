@@ -562,7 +562,6 @@
 			"descriptionConversation": "Watch two models converse with each other",
 			"selectModelToStart": "Select a model to start chatting",
 			"keyboardHint": "Press Enter to send, Shift+Enter for newline",
-			"turnCount": "Turn {{current}} / {{max}}",
 			"tokens": "tokens",
 			"modelGenerating": "Model is generating…",
 			"waitingNextTurn": "Waiting for next turn…",
@@ -690,7 +689,8 @@
 		},
 		"button": {
 			"stop": "Stop All",
-			"run": "Run Arena"
+			"run": "Run Arena",
+			"runCompare": "Run Compare"
 		},
 		"disabledReason": {
 			"selectTwoModels": "Select at least 2 models",
@@ -2776,7 +2776,7 @@
 			"delay": "Delay: {{delay}}ms",
 			"round": "Round: {{current}} / {{max}}",
 			"nextIn": "Next in {{seconds}}s…",
-			"status": "Status: {{state}}",
+			"status": "Status:",
 			"expandConfig": "Expand config",
 			"collapseConfig": "Collapse config",
 			"generationFailed": "Generation failed - use Retry or change the model to continue",
@@ -2791,7 +2791,14 @@
 			"reenterOrEditPrompt": "Re-enter or edit your prompt…",
 			"retry": "Retry",
 			"retryFromTurn": "Retry from Turn {{turn}}",
-			"stop": "Stop"
+			"stop": "Stop",
+			"state": {
+				"idle": "Idle",
+				"running": "Running",
+				"paused": "Paused",
+				"completed": "Completed",
+				"error": "Error"
+			}
 		},
 		"thinkingBlock": {
 			"thinking": "Thinking"
@@ -2817,7 +2824,8 @@
 			"response_other": "{{count}} responses",
 			"entries_one": "{{count}} entry",
 			"entries_other": "{{count}} entries",
-			"entries": "entries"
+			"entries": "entries",
+			"historyOff": "Match history is off. Turn it on under"
 		},
 		"logDetailModal": {
 			"logEntryDetails": "Log Entry Details",

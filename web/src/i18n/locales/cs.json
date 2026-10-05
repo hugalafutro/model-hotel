@@ -600,7 +600,6 @@
 			"descriptionConversation": "Podívejte se, jak spolu dvě modely konverzují",
 			"selectModelToStart": "Vyberte model a začněte chatovat",
 			"keyboardHint": "Stiskněte klávesu Enter pro odeslání, Shift+Enter pro nový řádek",
-			"turnCount": "Tah {{current}} / {{max}}",
 			"tokens": "tokeny",
 			"modelGenerating": "Model generuje…",
 			"waitingNextTurn": "Čekám na další tah…",
@@ -728,7 +727,8 @@
 		},
 		"button": {
 			"stop": "Zastavit vše",
-			"run": "Spustit arénu"
+			"run": "Spustit arénu",
+			"runCompare": "Spustit porovnání"
 		},
 		"disabledReason": {
 			"selectTwoModels": "Vyberte alespoň 2 modely",
@@ -2918,7 +2918,7 @@
 			"delay": "Zpoždění: {{delay}}ms",
 			"round": "Kolo: {{current}} / {{max}}",
 			"nextIn": "Další za {{seconds}} s…",
-			"status": "Stav: {{state}}",
+			"status": "Stav:",
 			"expandConfig": "Rozbalit nastavení",
 			"collapseConfig": "Sbalit nastavení",
 			"generationFailed": "Generování selhalo – pokračujte kliknutím na tlačítko „Zkusit znovu“ nebo změňte model",
@@ -2933,7 +2933,14 @@
 			"reenterOrEditPrompt": "Zadejte výzvu znovu nebo ji upravte…",
 			"retry": "Zkusit znovu",
 			"retryFromTurn": "Zkusit znovu z tahu {{turn}}",
-			"stop": "Zastav"
+			"stop": "Zastav",
+			"state": {
+				"idle": "Nečinný",
+				"running": "Běží",
+				"paused": "Pozastaveno",
+				"completed": "Dokončeno",
+				"error": "Chyba"
+			}
 		},
 		"thinkingBlock": {
 			"thinking": "Přemýšlím…"
@@ -2963,7 +2970,8 @@
 			"entries_few": "{{count}} záznamy",
 			"entries_many": "{{count}} záznamu",
 			"entries_other": "{{count}} záznamů",
-			"entries": "položek"
+			"entries": "položek",
+			"historyOff": "Historie zápasů je vypnutá. Zapněte ji v sekci"
 		},
 		"logDetailModal": {
 			"logEntryDetails": "Detail log záznamu",

@@ -18,6 +18,7 @@ export function MatchupCard({
 	response,
 	isRunning,
 	phase,
+	blind = false,
 	onPersonaChange,
 	onVote,
 }: MatchupCardProps) {
@@ -60,11 +61,17 @@ export function MatchupCard({
 				<Bot size={12} className="text-(--accent)" />
 				<span
 					className="text-xs font-medium text-(--text-primary) truncate"
-					title={slot.modelId}
+					title={blind ? undefined : slot.modelId}
 				>
-					{shortModelName(slot.modelId)}
+					{blind
+						? t(
+								slotKey === "A"
+									? "chat.controls.modelA"
+									: "chat.controls.modelB",
+							)
+						: shortModelName(slot.modelId)}
 				</span>
-				<ParamsTooltip params={slot.params} />
+				{!blind && <ParamsTooltip params={slot.params} />}
 				{isRunning && !response?.done && (
 					<span className="w-1.5 h-1.5 rounded-full bg-(--accent) animate-pulse shrink-0" />
 				)}

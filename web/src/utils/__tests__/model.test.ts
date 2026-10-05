@@ -1,7 +1,9 @@
 import { describe, expect, it } from "vitest";
 import {
 	chatModelIdSet,
+	estimateCostUsd,
 	findChatModel,
+	formatCostUsd,
 	formatPrice,
 	formatPriceInput,
 	is5xxError,
@@ -454,5 +456,35 @@ describe("matchesModelSearch", () => {
 		expect(matchesModelSearch({ ...model, display_name: "" }, "gpt-4o")).toBe(
 			true,
 		);
+	});
+});
+
+describe("estimateCostUsd", () => {
+	const model = {
+		input_price_per_million: 0.15,
+		output_price_per_million: 0.6,
+	};
+	const metrics = { promptTokens: 1_000_000, completionTokens: 500_000 };
+
+	it("prices prompt and completion tokens at their own rates", () => {
+		expect(estimateCostUsd(model, metrics)).toBeCloseTo(0.45, 10);
+	});
+
+	it("is null for an unknown model, a missing rate, or no usage", () => {
+		expect(estimateCostUsd(undefined, metrics)).toBeNull();
+		expect(
+			estimateCostUsd({ ...model, output_price_per_million: null }, metrics),
+		).toBeNull();
+		expect(estimateCostUsd(model, null)).toBeNull();
+		expect(
+			estimateCostUsd(model, { promptTokens: 0, completionTokens: 0 }),
+		).toBeNull();
+	});
+});
+
+describe("formatCostUsd", () => {
+	it("prints a dollar amount to four decimals and floors the tiny ones", () => {
+		expect(formatCostUsd(0.0123)).toBe("$0.0123");
+		expect(formatCostUsd(0.00003)).toBe("<$0.0001");
 	});
 });

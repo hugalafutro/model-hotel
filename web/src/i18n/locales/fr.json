@@ -581,7 +581,6 @@
 			"descriptionConversation": "Regarder deux modèles converser entre eux",
 			"selectModelToStart": "Sélectionnez un modèle pour commencer à discuter",
 			"keyboardHint": "Appuyez sur Entrée pour envoyer, Maj+Entrée pour la nouvelle ligne",
-			"turnCount": "Tour {{current}} / {{max}}",
 			"tokens": "jetons",
 			"modelGenerating": "Le modèle est en train de générer…",
 			"waitingNextTurn": "En attente du prochain tour…",
@@ -709,7 +708,8 @@
 		},
 		"button": {
 			"stop": "Arrêter tout",
-			"run": "Lancer l'Arena"
+			"run": "Lancer l'Arena",
+			"runCompare": "Lancer la comparaison"
 		},
 		"disabledReason": {
 			"selectTwoModels": "Sélectionnez au moins 2 modèles",
@@ -2847,7 +2847,7 @@
 			"delay": "Délai : {{delay}}ms",
 			"round": "Tour : {{current}} / {{max}}",
 			"nextIn": "Prochain dans {{seconds}}s…",
-			"status": "Statut : {{state}}",
+			"status": "Statut :",
 			"expandConfig": "Développer la configuration",
 			"collapseConfig": "Réduire la configuration",
 			"generationFailed": "Génération échouée - réessayez ou changez le modèle pour continuer",
@@ -2862,7 +2862,14 @@
 			"reenterOrEditPrompt": "Ressaisissez ou modifiez votre invite…",
 			"retry": "Réessayer",
 			"retryFromTurn": "Réessayez à partir du tour {{turn}}",
-			"stop": "Arrêter"
+			"stop": "Arrêter",
+			"state": {
+				"idle": "Inactif",
+				"running": "En cours",
+				"paused": "En pause",
+				"completed": "Terminé",
+				"error": "Erreur"
+			}
 		},
 		"thinkingBlock": {
 			"thinking": "Réflexion"
@@ -2890,7 +2897,8 @@
 			"entries_one": "Entrée {{count}}",
 			"entries_many": "Entrées {{count}}",
 			"entries_other": "Entrées {{count}}",
-			"entries": "entrées"
+			"entries": "entrées",
+			"historyOff": "L'historique des matchs est désactivé. Activez-le dans"
 		},
 		"logDetailModal": {
 			"logEntryDetails": "Détails de l'entrée de journal",

@@ -86,9 +86,11 @@ export function Layout({ children }: LayoutProps) {
 				    so the side gaps widen with the resolution instead of the page
 				    stretching; the 88rem floor clears the request log's fitted
 				    columns. A flex column, so a full-height table page fills what
-				    is left under the read-only banner with flex-1 min-h-0. */}
+				    is left under the read-only banner with flex-1 min-h-0. The
+				    48rem floor keeps the pickers and card grids intact on a
+				    narrow window: main scrolls sideways instead of squeezing. */}
 				<div
-					className="p-2 mx-auto h-full flex flex-col max-w-[max(88rem,calc(48rem+38vw))]"
+					className="p-2 mx-auto h-full flex flex-col min-w-[48rem] max-w-[max(88rem,calc(48rem+38vw))]"
 					data-layout="content"
 				>
 					<ReadOnlyBanner />

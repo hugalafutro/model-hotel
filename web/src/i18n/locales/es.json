@@ -581,7 +581,6 @@
 			"descriptionConversation": "Observa a dos modelos conversar entre sí",
 			"selectModelToStart": "Selecciona un modelo para empezar a chatear",
 			"keyboardHint": "Presione Enter para enviar, Mayús+Entrar para nueva línea",
-			"turnCount": "Turno {{current}} / {{max}}",
 			"tokens": "tokens",
 			"modelGenerating": "El modelo está generando…",
 			"waitingNextTurn": "Esperando el siguiente turno…",
@@ -709,7 +708,8 @@
 		},
 		"button": {
 			"stop": "Detener todo",
-			"run": "Ejecutar Arena"
+			"run": "Ejecutar Arena",
+			"runCompare": "Ejecutar comparación"
 		},
 		"disabledReason": {
 			"selectTwoModels": "Seleccione al menos 2 modelos",
@@ -2847,7 +2847,7 @@
 			"delay": "Retraso: {{delay}}ms",
 			"round": "Ronda: {{current}} / {{max}}",
 			"nextIn": "Siguiente en {{seconds}}s…",
-			"status": "Estado: {{state}}",
+			"status": "Estado:",
 			"expandConfig": "Expandir configuración",
 			"collapseConfig": "Contraer configuración",
 			"generationFailed": "Generación fallida - utilice Reintentar o cambie el modelo para continuar",
@@ -2862,7 +2862,14 @@
 			"reenterOrEditPrompt": "Vuelva a introducir o editar su prompt…",
 			"retry": "Reintentar",
 			"retryFromTurn": "Reintentar desde el turno {{turn}}",
-			"stop": "Parar"
+			"stop": "Parar",
+			"state": {
+				"idle": "Inactivo",
+				"running": "En curso",
+				"paused": "En pausa",
+				"completed": "Completado",
+				"error": "Error"
+			}
 		},
 		"thinkingBlock": {
 			"thinking": "Pensando"
@@ -2890,7 +2897,8 @@
 			"entries_one": "Entrada {{count}}",
 			"entries_many": "{{count}} entradas",
 			"entries_other": "{{count}} entradas",
-			"entries": "entradas"
+			"entries": "entradas",
+			"historyOff": "El historial de partidas está desactivado. Actívalo en"
 		},
 		"logDetailModal": {
 			"logEntryDetails": "Detalles del registro",

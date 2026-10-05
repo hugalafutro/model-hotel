@@ -1163,3 +1163,26 @@ describe("ArenaHistoryModal", () => {
 		});
 	});
 });
+
+describe("ArenaHistoryModal history-off hint", () => {
+	beforeEach(() => {
+		mockLocalStorage.store.clear();
+	});
+
+	it("tells the user history is off and links to Settings when nothing is saved", () => {
+		renderWithProviders(<ArenaHistoryModal onClose={vi.fn()} />);
+		expect(screen.getByText("No match history yet")).toBeInTheDocument();
+		expect(screen.getByText(/Match history is off/)).toBeInTheDocument();
+		expect(screen.getByRole("link", { name: "Settings" })).toHaveAttribute(
+			"href",
+			"/settings",
+		);
+	});
+
+	it("shows no hint when history is on and merely empty", () => {
+		mockLocalStorage.store.set("arenaHistoryEnabled", "true");
+		renderWithProviders(<ArenaHistoryModal onClose={vi.fn()} />);
+		expect(screen.getByText("No match history yet")).toBeInTheDocument();
+		expect(screen.queryByText(/Match history is off/)).not.toBeInTheDocument();
+	});
+});

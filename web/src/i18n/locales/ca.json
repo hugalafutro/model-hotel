@@ -581,7 +581,6 @@
 			"descriptionConversation": "Mira dos models conversar entre ells",
 			"selectModelToStart": "Selecciona un model per començar a xatejar",
 			"keyboardHint": "Premeu Intro per enviar, Maj+Intro per a un salt de línia.",
-			"turnCount": "Torn {{current}} / {{max}}",
 			"tokens": "tokens",
 			"modelGenerating": "El model està generant…",
 			"waitingNextTurn": "Esperant el proper torn…",
@@ -709,7 +708,8 @@
 		},
 		"button": {
 			"stop": "Aturar-ho tot",
-			"run": "Executa l'arena"
+			"run": "Executa l'arena",
+			"runCompare": "Executa la comparació"
 		},
 		"disabledReason": {
 			"selectTwoModels": "Seleccioneu almenys 2 models",
@@ -2847,7 +2847,7 @@
 			"delay": "Retard: {{delay}}ms",
 			"round": "Ronda: {{current}} / {{max}}",
 			"nextIn": "Següent en {{seconds}} s…",
-			"status": "Estat: {{state}}",
+			"status": "Estat:",
 			"expandConfig": "Expandir configuració",
 			"collapseConfig": "Tanca la configuració",
 			"generationFailed": "La generació ha fallat - utilitza Reprova o canvia el model per continuar",
@@ -2862,7 +2862,14 @@
 			"reenterOrEditPrompt": "Torna a introduir o modifica la teva instrucció…",
 			"retry": "Tornar a provar",
 			"retryFromTurn": "Torna a provar des del torn {{turn}}",
-			"stop": "Atura"
+			"stop": "Atura",
+			"state": {
+				"idle": "Inactiu",
+				"running": "En curs",
+				"paused": "En pausa",
+				"completed": "Completat",
+				"error": "Error"
+			}
 		},
 		"thinkingBlock": {
 			"thinking": "Pensant"
@@ -2890,7 +2897,8 @@
 			"entries_one": "{{count}} entrada",
 			"entries_many": "{{count}} entrades",
 			"entries_other": "{{count}} entrades",
-			"entries": "entrades"
+			"entries": "entrades",
+			"historyOff": "L'historial de partides està desactivat. Activa'l a"
 		},
 		"logDetailModal": {
 			"logEntryDetails": "Detalls de l'entrada del registre",

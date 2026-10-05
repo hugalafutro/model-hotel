@@ -90,6 +90,16 @@ export function advanceWinners(draft: BracketRound[], roundIdx: number): void {
 	}
 }
 
+/**
+ * Draws each matchup's display side at random. The cards are blind until
+ * voted, and the setup preview shows the pairs in board order, so a fixed
+ * left/right would give the identities away.
+ */
+export function shuffleSides(round: BracketRound | undefined): void {
+	if (!round) return;
+	for (const mu of round.matchups) mu.flipped = Math.random() < 0.5;
+}
+
 /** The model the final round's single matchup was voted for, if it was voted. */
 export function roundWinner(round: BracketRound): string | undefined {
 	const mu = round.matchups[0];

@@ -3,7 +3,7 @@ import { ConfirmDialog } from "../../components/ConfirmDialog";
 import { ResponseCard } from "./ResponseCard";
 import { SwapPicker } from "./SwapPicker";
 import type { ArenaView } from "./useArena";
-import { usedModelIds } from "./utils";
+import { sideOrder, usedModelIds } from "./utils";
 
 /** The per-round response cards (matchups in competition mode, one card per model in compare mode) and the full-reset confirm dialog. */
 export function ArenaResponseGrid({ arena }: { arena: ArenaView }) {
@@ -51,7 +51,7 @@ export function ArenaResponseGrid({ arena }: { arena: ArenaView }) {
 											<div
 												// biome-ignore lint/suspicious/noArrayIndexKey: matchup position is the stable identifier in compare mode
 												key={`compare-${roundIdx}-${matchupIdx}`}
-												className="rounded-xl border border-(--border-subtle) bg-(--surface)/50 p-4 h-[29rem] overflow-hidden"
+												className="rounded-xl border border-(--border-subtle) bg-(--surface)/50 p-4 max-h-[29rem] overflow-hidden flex flex-col"
 											>
 												{mu.slotA === null &&
 												roundIdx === arena.currentRound ? (
@@ -95,7 +95,7 @@ export function ArenaResponseGrid({ arena }: { arena: ArenaView }) {
 										<div
 											// biome-ignore lint/suspicious/noArrayIndexKey: matchup position is the stable identifier in competition mode
 											key={`comp-${roundIdx}-${matchupIdx}`}
-											className="rounded-xl border border-(--border-subtle) bg-(--surface)/50 p-4 h-[31rem] overflow-hidden flex flex-col"
+											className="rounded-xl border border-(--border-subtle) bg-(--surface)/50 p-4 max-h-[31rem] overflow-hidden flex flex-col"
 										>
 											{round.matchups.length > 1 && (
 												<div className="text-xs text-(--text-tertiary) font-medium uppercase tracking-wider mb-3 shrink-0">
@@ -103,80 +103,64 @@ export function ArenaResponseGrid({ arena }: { arena: ArenaView }) {
 												</div>
 											)}
 											<div className="grid grid-cols-1 md:grid-cols-2 grid-rows-[minmax(0,1fr)] auto-rows-[minmax(0,1fr)] gap-4 flex-1 min-h-0">
-												{mu.slotA === null &&
-												roundIdx === arena.currentRound ? (
-													<SwapPicker
-														enabledModels={arena.enabledModels}
-														disabledModels={arena.disabledModels}
-														alreadyUsed={usedModelIds(round, matchupIdx, "A")}
-														onSelect={(modelId) =>
-															arena.handleSwapCompleteAndUpdate(
-																roundIdx,
-																matchupIdx,
-																"A",
-																modelId,
-															)
-														}
-													/>
-												) : (
-													mu.responseA && (
-														<ResponseCard
-															response={mu.responseA}
-															vote={mu.vote}
-															slotKey="A"
-															roundIdx={roundIdx}
-															matchupIdx={matchupIdx}
-															onVote={arena.handleVote}
-															onRetry={arena.handleRetrySlot}
-															onSwapModel={arena.handleSwapModel}
-															onCancelSlot={arena.handleCancelSlot}
-															enabledModels={arena.enabledModels}
-															showVote={
-																roundIdx <= arena.currentRound &&
-																mu.responseA.done &&
-																(!mu.responseB || mu.responseB.done)
-															}
-															params={mu.slotA?.params}
-														/>
-													)
-												)}
-												{mu.slotB === null &&
-												roundIdx === arena.currentRound ? (
-													<SwapPicker
-														enabledModels={arena.enabledModels}
-														disabledModels={arena.disabledModels}
-														alreadyUsed={usedModelIds(round, matchupIdx, "B")}
-														onSelect={(modelId) =>
-															arena.handleSwapCompleteAndUpdate(
-																roundIdx,
-																matchupIdx,
-																"B",
-																modelId,
-															)
-														}
-													/>
-												) : (
-													mu.responseB && (
-														<ResponseCard
-															response={mu.responseB}
-															vote={mu.vote}
-															slotKey="B"
-															roundIdx={roundIdx}
-															matchupIdx={matchupIdx}
-															onVote={arena.handleVote}
-															onRetry={arena.handleRetrySlot}
-															onSwapModel={arena.handleSwapModel}
-															onCancelSlot={arena.handleCancelSlot}
-															enabledModels={arena.enabledModels}
-															showVote={
-																roundIdx <= arena.currentRound &&
-																mu.responseB.done &&
-																(!mu.responseA || mu.responseA.done)
-															}
-															params={mu.slotB?.params}
-														/>
-													)
-												)}
+												{sideOrder(mu).map((slotKey) => {
+													const slot = slotKey === "A" ? mu.slotA : mu.slotB;
+													const response =
+														slotKey === "A" ? mu.responseA : mu.responseB;
+													const other =
+														slotKey === "A" ? mu.responseB : mu.responseA;
+													if (
+														slot === null &&
+														roundIdx === arena.currentRound
+													) {
+														return (
+															<SwapPicker
+																key={slotKey}
+																enabledModels={arena.enabledModels}
+																disabledModels={arena.disabledModels}
+																alreadyUsed={usedModelIds(
+																	round,
+																	matchupIdx,
+																	slotKey,
+																)}
+																onSelect={(modelId) =>
+																	arena.handleSwapCompleteAndUpdate(
+																		roundIdx,
+																		matchupIdx,
+																		slotKey,
+																		modelId,
+																	)
+																}
+															/>
+														);
+													}
+													return (
+														response && (
+															<ResponseCard
+																key={slotKey}
+																response={response}
+																vote={mu.vote}
+																slotKey={slotKey}
+																roundIdx={roundIdx}
+																matchupIdx={matchupIdx}
+																onVote={arena.handleVote}
+																onRetry={arena.handleRetrySlot}
+																onSwapModel={arena.handleSwapModel}
+																onCancelSlot={arena.handleCancelSlot}
+																enabledModels={arena.enabledModels}
+																showVote={
+																	roundIdx <= arena.currentRound &&
+																	response.done &&
+																	(!other || other.done)
+																}
+																// Blind until voted; an error reveals the model so
+																// the user can see what to swap.
+																blind={mu.vote === null && !response.error}
+																params={slot?.params}
+															/>
+														)
+													);
+												})}
 											</div>
 										</div>
 									);

@@ -55,7 +55,7 @@ describe("ConversationConfig", () => {
 		it("renders status indicator", () => {
 			renderWithProviders(<ConversationConfig {...defaultProps} />);
 			expect(screen.getByText(/Status:/)).toBeInTheDocument();
-			expect(screen.getByText("idle")).toBeInTheDocument();
+			expect(screen.getByText("Idle")).toBeInTheDocument();
 		});
 
 		it("renders collapse/expand toggle button", () => {
@@ -344,5 +344,41 @@ describe("ConversationConfig", () => {
 				screen.getByPlaceholderText("Re-enter or edit your prompt…"),
 			).toBeInTheDocument();
 		});
+	});
+});
+
+describe("ConversationConfig status", () => {
+	const props = {
+		maxTurns: 5,
+		onMaxTurnsChange: vi.fn(),
+		turnDelayMs: 1000,
+		onTurnDelayMsChange: vi.fn(),
+		currentTurn: 0,
+		turnCountdown: 0,
+		configCollapsed: false,
+		onToggleCollapsed: vi.fn(),
+		input: "",
+		onInputChange: vi.fn(),
+		onStart: vi.fn(),
+		canStart: true,
+		selectedModel: "a/b",
+		selectedModelB: "c/d",
+	};
+
+	it("shows the translated state once, not the raw state after the label", () => {
+		renderWithProviders(
+			<ConversationConfig {...props} conversationState="idle" />,
+		);
+		expect(screen.getByText("Status:")).toBeInTheDocument();
+		expect(screen.getByText("Idle")).toBeInTheDocument();
+		expect(screen.queryByText(/idle Idle/)).not.toBeInTheDocument();
+		expect(screen.queryByText("idle")).not.toBeInTheDocument();
+	});
+
+	it("colours the error state red", () => {
+		renderWithProviders(
+			<ConversationConfig {...props} conversationState="error" />,
+		);
+		expect(screen.getByText("Error")).toHaveClass("text-red-400");
 	});
 });

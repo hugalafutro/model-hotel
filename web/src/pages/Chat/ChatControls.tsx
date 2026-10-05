@@ -57,10 +57,7 @@ export function ChatControls({ chat }: { chat: ChatView }) {
 							{chat.isStreaming && chat.chatSubMode === "chat" && (
 								<ActionIconButton
 									icon={CircleStop}
-									onClick={() => {
-										chat.setControlsCollapsed(false);
-										chat.handleStop();
-									}}
+									onClick={chat.handleStop}
 									title={t("chat.controls.stop")}
 									color="red"
 								/>

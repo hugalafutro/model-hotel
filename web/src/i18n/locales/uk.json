@@ -600,7 +600,6 @@
 			"descriptionConversation": "Дивіться, як дві моделі спілкуються між собою",
 			"selectModelToStart": "Виберіть модель, щоб почати чат",
 			"keyboardHint": "Натисніть клавішу Enter, щоб надіслати, Shift + Enter для нового рядка",
-			"turnCount": "Хід {{current}} / {{max}}",
 			"tokens": "токени",
 			"modelGenerating": "Модель генерує…",
 			"waitingNextTurn": "Чекаю на наступний хід…",
@@ -728,7 +727,8 @@
 		},
 		"button": {
 			"stop": "Зупинити все",
-			"run": "Запустити Arena"
+			"run": "Запустити Arena",
+			"runCompare": "Запустити порівняння"
 		},
 		"disabledReason": {
 			"selectTwoModels": "Виберіть принаймні 2 моделі",
@@ -2918,7 +2918,7 @@
 			"delay": "Затримка: {{delay}}мс",
 			"round": "Раунд: {{current}} / {{max}}",
 			"nextIn": "Далі через {{seconds}} с…",
-			"status": "Статус: {{state}}",
+			"status": "Статус:",
 			"expandConfig": "Розгорнути конфігурацію",
 			"collapseConfig": "Згорнути конфігурацію",
 			"generationFailed": "Не вдалося згенерувати - скористайтесь «Повторити» або змініть модель, щоб продовжити",
@@ -2933,7 +2933,14 @@
 			"reenterOrEditPrompt": "Введіть запит ще раз або відредагуйте його…",
 			"retry": "Повторити спробу",
 			"retryFromTurn": "Спробувати ще раз з Turn {{turn}}",
-			"stop": "Зупинити"
+			"stop": "Зупинити",
+			"state": {
+				"idle": "Очікування",
+				"running": "Виконується",
+				"paused": "Призупинено",
+				"completed": "Завершено",
+				"error": "Помилка"
+			}
 		},
 		"thinkingBlock": {
 			"thinking": "Мислення"
@@ -2963,7 +2970,8 @@
 			"entries_few": "{{count}} записи",
 			"entries_many": "{{count}} записів",
 			"entries_other": "{{count}} запису",
-			"entries": "записів"
+			"entries": "записів",
+			"historyOff": "Історію матчів вимкнено. Увімкніть її в розділі"
 		},
 		"logDetailModal": {
 			"logEntryDetails": "Подробиці журналу",

@@ -6,8 +6,10 @@ import {
 	buildInitialRounds,
 	getPreviewPairs,
 	roundWinner,
+	shuffleSides,
 } from "../builders";
 import type { BracketRound, Matchup, MatchupSlot } from "../types";
+import { sideOrder } from "../utils";
 
 const mkSlot = (modelId: string): MatchupSlot => ({
 	modelId,
@@ -248,5 +250,59 @@ describe("roundWinner", () => {
 
 	it("returns undefined for an empty round", () => {
 		expect(roundWinner({ matchups: [] })).toBeUndefined();
+	});
+});
+
+describe("shuffleSides", () => {
+	it("draws a side for every matchup and leaves a missing round alone", () => {
+		const round: BracketRound = {
+			matchups: [
+				{
+					slotA: mkSlot("a"),
+					slotB: mkSlot("b"),
+					responseA: null,
+					responseB: null,
+					vote: null,
+				},
+				{
+					slotA: mkSlot("c"),
+					slotB: mkSlot("d"),
+					responseA: null,
+					responseB: null,
+					vote: null,
+				},
+			],
+		};
+		shuffleSides(round);
+		for (const mu of round.matchups) expect(typeof mu.flipped).toBe("boolean");
+		expect(() => shuffleSides(undefined)).not.toThrow();
+	});
+
+	it("flips about half the time", () => {
+		const draws = new Set<boolean | undefined>();
+		for (let i = 0; i < 64; i++) {
+			const round: BracketRound = {
+				matchups: [
+					{
+						slotA: mkSlot("a"),
+						slotB: mkSlot("b"),
+						responseA: null,
+						responseB: null,
+						vote: null,
+					},
+				],
+			};
+			shuffleSides(round);
+			draws.add(round.matchups[0].flipped);
+		}
+		expect(draws).toEqual(new Set([true, false]));
+	});
+});
+
+describe("sideOrder", () => {
+	it("puts B first only for a flipped matchup", () => {
+		expect(sideOrder({})).toEqual(["A", "B"]);
+		expect(sideOrder({ flipped: false })).toEqual(["A", "B"]);
+		expect(sideOrder({ flipped: true })).toEqual(["B", "A"]);
 	});
 });

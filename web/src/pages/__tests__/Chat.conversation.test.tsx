@@ -157,7 +157,7 @@ describe("Chat", () => {
 			renderWithProviders(<Chat />);
 
 			await waitFor(() => {
-				expect(screen.getByText("Turn 1 / 10")).toBeInTheDocument();
+				expect(screen.getAllByText("Round: 1 / 10").length).toBeGreaterThan(0);
 			});
 			expect(screen.getByText("2.5s")).toBeInTheDocument();
 			expect(screen.getByText("150 tokens")).toBeInTheDocument();
@@ -239,7 +239,7 @@ describe("Chat", () => {
 			renderWithProviders(<Chat />);
 
 			await waitFor(() => {
-				expect(screen.getByText("Turn 5 / 10")).toBeInTheDocument();
+				expect(screen.getAllByText("Round: 5 / 10").length).toBeGreaterThan(0);
 			});
 			expect(screen.getByText("45.0s")).toBeInTheDocument();
 			expect(screen.getByText("1.3K tokens")).toBeInTheDocument();
@@ -514,7 +514,7 @@ describe("Chat", () => {
 			renderWithProviders(<Chat />);
 
 			await waitFor(() => {
-				expect(screen.getByText("Turn 2 / 10")).toBeInTheDocument();
+				expect(screen.getAllByText("Round: 2 / 10").length).toBeGreaterThan(0);
 			});
 		});
 
@@ -547,7 +547,7 @@ describe("Chat", () => {
 			renderWithProviders(<Chat />);
 
 			await waitFor(() => {
-				expect(screen.getByText("Turn 3 / 10")).toBeInTheDocument();
+				expect(screen.getAllByText("Round: 3 / 10").length).toBeGreaterThan(0);
 			});
 		});
 	});
@@ -646,7 +646,7 @@ describe("Chat", () => {
 	});
 
 	describe("Conversation Mode Action Buttons", () => {
-		it("calls setControlsCollapsed and handleStopConversation when Stop button is clicked", async () => {
+		it("calls handleStopConversation and leaves the controls card alone when Stop is clicked", async () => {
 			const setControlsCollapsed = vi.fn();
 			const handleStopConversation = vi.fn();
 
@@ -670,7 +670,9 @@ describe("Chat", () => {
 			const stopButtons = screen.getAllByRole("button", { name: "Stop" });
 			await user.click(stopButtons[stopButtons.length - 1]);
 
-			expect(setControlsCollapsed).toHaveBeenCalledWith(false);
+			// Re-expanding the 450px controls card on Stop shrank the transcript
+			// and scrolled the stopped reply out of view.
+			expect(setControlsCollapsed).not.toHaveBeenCalled();
 			expect(handleStopConversation).toHaveBeenCalled();
 		});
 

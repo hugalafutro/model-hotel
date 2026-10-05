@@ -1,9 +1,10 @@
-import type { ReactNode } from "react";
+import { Fragment, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import { Play, X } from "@/lib/icons";
 import { MatchupCard } from "./MatchupCard";
 import { BracketPreviewPill } from "./shared";
 import type { ArenaView } from "./useArena";
+import { sideOrder } from "./utils";
 
 /** The bracket preview and the run/stop button. */
 export function ArenaBracketBar({
@@ -100,37 +101,42 @@ export function ArenaBracketBar({
 												key={`matchup-${roundIdx}-${matchupIdx}`}
 												className="flex items-center gap-2"
 											>
-												<MatchupCard
-													slot={mu.slotA}
-													slotKey="A"
-													roundIdx={roundIdx}
-													matchupIdx={matchupIdx}
-													vote={mu.vote}
-													response={mu.responseA}
-													isRunning={arena.isRunning}
-													phase={arena.phase}
-													onPersonaChange={arena.handlePersonaChange}
-													onVote={arena.handleVote}
-												/>
-												{mu.slotB !== null && (
-													<>
-														<span className="text-(--accent) font-bold text-xs px-1">
-															{t("arena.vs")}
-														</span>
-														<MatchupCard
-															slot={mu.slotB}
-															slotKey="B"
-															roundIdx={roundIdx}
-															matchupIdx={matchupIdx}
-															vote={mu.vote}
-															response={mu.responseB}
-															isRunning={arena.isRunning}
-															phase={arena.phase}
-															onPersonaChange={arena.handlePersonaChange}
-															onVote={arena.handleVote}
-														/>
-													</>
-												)}
+												{(mu.slotB === null
+													? ["A" as const]
+													: sideOrder(mu)
+												).map((slotKey, i) => {
+													const response =
+														slotKey === "A" ? mu.responseA : mu.responseB;
+													return (
+														<Fragment key={slotKey}>
+															{i > 0 && (
+																<span className="text-(--accent) font-bold text-xs px-1">
+																	{t("arena.vs")}
+																</span>
+															)}
+															<MatchupCard
+																slot={slotKey === "A" ? mu.slotA : mu.slotB}
+																slotKey={slotKey}
+																roundIdx={roundIdx}
+																matchupIdx={matchupIdx}
+																vote={mu.vote}
+																response={response}
+																isRunning={arena.isRunning}
+																phase={arena.phase}
+																// Setup needs the names to assign personas; from the
+																// run on, a matchup is blind until voted.
+																blind={
+																	arena.arenaMode === "competition" &&
+																	arena.phase !== "setup" &&
+																	mu.vote === null &&
+																	!response?.error
+																}
+																onPersonaChange={arena.handlePersonaChange}
+																onVote={arena.handleVote}
+															/>
+														</Fragment>
+													);
+												})}
 											</div>
 										))}
 									</div>
@@ -209,12 +215,14 @@ export function ArenaBracketBar({
 				</div>
 			</div>
 
-			{/* Mode Description */}
-			<p className="text-xs text-(--text-tertiary) leading-snug line-clamp-3 mt-3">
-				{arena.arenaMode === "competition"
-					? t("arena.modeDescription.arena")
-					: t("arena.modeDescription.compare")}
-			</p>
+			{/* Mode description: only before a run, where it still tells the user something */}
+			{arena.phase === "setup" && (
+				<p className="text-xs text-(--text-tertiary) leading-snug line-clamp-3 mt-3">
+					{arena.arenaMode === "competition"
+						? t("arena.modeDescription.arena")
+						: t("arena.modeDescription.compare")}
+				</p>
+			)}
 		</div>
 	);
 }

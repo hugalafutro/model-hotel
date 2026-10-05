@@ -562,7 +562,6 @@
 			"descriptionConversation": "두 모델이 서로 대화를 나누는 모습을 지켜보세요",
 			"selectModelToStart": "채팅을 시작하려면 모델을 선택하세요",
 			"keyboardHint": "보내려면 Enter 키를, 새 줄을 입력하려면 Shift+Enter 키를 누르세요",
-			"turnCount": "차례 {{current}} / {{max}}",
 			"tokens": "토큰",
 			"modelGenerating": "모델이 다음을 생성하고 있습니다:…",
 			"waitingNextTurn": "다음 차례를 기다리며…",
@@ -690,7 +689,8 @@
 		},
 		"button": {
 			"stop": "모두 중지",
-			"run": "아레나 실행"
+			"run": "아레나 실행",
+			"runCompare": "비교 실행"
 		},
 		"disabledReason": {
 			"selectTwoModels": "최소 2개 이상의 모델을 선택하세요",
@@ -2776,7 +2776,7 @@
 			"delay": "지연: {{delay}}ms",
 			"round": "라운드: {{current}} / {{max}}",
 			"nextIn": "{{seconds}}초 후 다음…",
-			"status": "상태: {{state}}",
+			"status": "상태:",
 			"expandConfig": "설정 확장",
 			"collapseConfig": "설정 접기",
 			"generationFailed": "생성 실패 - 계속하려면 ‘다시 시도’를 클릭하거나 모델을 변경하세요",
@@ -2791,7 +2791,14 @@
 			"reenterOrEditPrompt": "프롬프트를 다시 입력하거나 수정하세요…",
 			"retry": "다시 시도",
 			"retryFromTurn": "{{turn}}번째 차례부터 다시 시도",
-			"stop": "중지"
+			"stop": "중지",
+			"state": {
+				"idle": "대기 중",
+				"running": "실행 중",
+				"paused": "일시 중지됨",
+				"completed": "완료됨",
+				"error": "오류"
+			}
 		},
 		"thinkingBlock": {
 			"thinking": "생각 중"
@@ -2817,7 +2824,8 @@
 			"response_other": "{{count}} 답변",
 			"entries_one": "{{count}} 항목",
 			"entries_other": "{{count}} 항목",
-			"entries": "항목"
+			"entries": "항목",
+			"historyOff": "대결 기록이 꺼져 있습니다. 다음에서 켜세요:"
 		},
 		"logDetailModal": {
 			"logEntryDetails": "로그 항목 세부 정보",

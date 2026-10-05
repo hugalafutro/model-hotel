@@ -135,7 +135,7 @@ describe("Chat controls collapse/expand", () => {
 			});
 		});
 
-		it("pressing Stop (during streaming) expands controls", async () => {
+		it("pressing Stop (during streaming) leaves controls collapsed", async () => {
 			// Use a slow stream so we can click stop before it finishes
 			const chunks = Array.from({ length: 20 }, (_, i) => ({
 				choices: [{ delta: { content: `chunk${i} ` }, index: 0 }],
@@ -174,13 +174,14 @@ describe("Chat controls collapse/expand", () => {
 			const stopButton = getControlsStopButton();
 			await user.click(stopButton);
 
-			// Controls should expand after stopping
-			await waitFor(
-				() => {
-					expect(isControlsExpanded()).toBe(true);
-				},
-				{ timeout: 5000 },
-			);
+			// Stop must not re-expand the card: that shrank the transcript and
+			// scrolled the stopped reply out of view.
+			await waitFor(() => {
+				expect(
+					screen.getByRole("button", { name: "Send" }),
+				).toBeInTheDocument();
+			});
+			expect(isControlsCollapsed()).toBe(true);
 		});
 
 		it("pressing Enter key while not streaming collapses controls", async () => {
@@ -215,7 +216,7 @@ describe("Chat controls collapse/expand", () => {
 			});
 		});
 
-		it("pressing Enter key during streaming expands controls", async () => {
+		it("pressing Enter key during streaming leaves controls collapsed", async () => {
 			// Use a slow stream so we can press Enter
 			const chunks = [
 				{ choices: [{ delta: { content: "Hello" }, index: 0 }] },
@@ -245,13 +246,15 @@ describe("Chat controls collapse/expand", () => {
 				expect(isControlsCollapsed()).toBe(true);
 			});
 
-			// Press Enter key during streaming (should stop and expand)
+			// Press Enter key during streaming (stops, card stays collapsed)
 			await user.keyboard("{Enter}");
 
-			// Controls should expand
 			await waitFor(() => {
-				expect(isControlsExpanded()).toBe(true);
+				expect(
+					screen.getByRole("button", { name: "Send" }),
+				).toBeInTheDocument();
 			});
+			expect(isControlsCollapsed()).toBe(true);
 		});
 
 		it("clicking the CollapsibleToggle still works", async () => {
@@ -478,7 +481,7 @@ describe("Chat controls collapse/expand", () => {
 			);
 		});
 
-		it("Pressing Stop (ConversationConfig) in conversation mode expands controls", async () => {
+		it("Pressing Stop (ConversationConfig) in conversation mode leaves controls collapsed", async () => {
 			// Setup two different models
 			server.use(...mockAllDefaults({ models: [mockModel, mockModelB] }));
 
@@ -536,13 +539,14 @@ describe("Chat controls collapse/expand", () => {
 			);
 			await user.click(stopButton);
 
-			// Controls should expand after stopping
-			await waitFor(
-				() => {
-					expect(isControlsExpanded()).toBe(true);
-				},
-				{ timeout: 5000 },
-			);
+			// Stop must not re-expand the card: that shrank the transcript and
+			// scrolled the stopped reply out of view.
+			await waitFor(() => {
+				expect(
+					screen.getByRole("button", { name: "Continue" }),
+				).toBeInTheDocument();
+			});
+			expect(isControlsCollapsed()).toBe(true);
 		});
 
 		it("Pressing Reset All expands controls", async () => {

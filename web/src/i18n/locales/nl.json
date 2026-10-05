@@ -562,7 +562,6 @@
 			"descriptionConversation": "Kijk hoe twee modellen met elkaar converseren",
 			"selectModelToStart": "Selecteer een model om te beginnen met chatten",
 			"keyboardHint": "Druk op Enter om te verzenden, Shift+Enter voor de nieuwe regel",
-			"turnCount": "Beurt {{current}} / {{max}}",
 			"tokens": "tokens",
 			"modelGenerating": "Het model genereert…",
 			"waitingNextTurn": "Wachten op volgende beurt…",
@@ -690,7 +689,8 @@
 		},
 		"button": {
 			"stop": "Alles stoppen",
-			"run": "Arena uitvoeren"
+			"run": "Arena uitvoeren",
+			"runCompare": "Vergelijking starten"
 		},
 		"disabledReason": {
 			"selectTwoModels": "Selecteer ten minste 2 modellen",
@@ -2776,7 +2776,7 @@
 			"delay": "Vertraging: {{delay}}ms",
 			"round": "Ronde: {{current}} / {{max}}",
 			"nextIn": "Volgende in {{seconds}}s…",
-			"status": "Status: {{state}}",
+			"status": "Status:",
 			"expandConfig": "Uitbreiden configuratie",
 			"collapseConfig": "Samenvouwen configuratie",
 			"generationFailed": "Genereren mislukt - probeer opnieuw of verander het model om door te gaan",
@@ -2791,7 +2791,14 @@
 			"reenterOrEditPrompt": "Voer je prompt opnieuw in of bewerk deze…",
 			"retry": "Opnieuw",
 			"retryFromTurn": "Probeer opnieuw van Turn {{turn}}",
-			"stop": "Stoppen"
+			"stop": "Stoppen",
+			"state": {
+				"idle": "Inactief",
+				"running": "Bezig",
+				"paused": "Gepauzeerd",
+				"completed": "Voltooid",
+				"error": "Fout"
+			}
 		},
 		"thinkingBlock": {
 			"thinking": "Denken"
@@ -2817,7 +2824,8 @@
 			"response_other": "{{count}} antwoorden",
 			"entries_one": "{{count}} invoer",
 			"entries_other": "{{count}} items",
-			"entries": "vermeldingen"
+			"entries": "vermeldingen",
+			"historyOff": "Wedstrijdgeschiedenis staat uit. Zet hem aan onder"
 		},
 		"logDetailModal": {
 			"logEntryDetails": "Log invoer details",
