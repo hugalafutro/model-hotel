@@ -252,7 +252,7 @@ The dashboard includes a built-in **Chat** interface for testing models interact
  <sub>Test conversational capabilities of models served by the proxy</sub>
 </p>
 
-**Arena** mode offers two sub-modes: **Competition** runs bracket tournaments where models face off in pairwise matchups. Vote for winners, and the bracket auto-advances to the next round until a champion emerges. **Compare** places two or more models in a grid with the same prompt for parallel evaluation, with per-slot personas and voting. Both modes support per-model generation parameters, streaming with thinking-block rendering, and per-response metrics. With Arena History enabled (see [No Prompts Logged](#-no-prompts-logged)), past sessions are saved to an arena history modal for review and restoration.
+**Arena** mode offers two sub-modes: **Competition** runs bracket tournaments where models face off in pairwise matchups. Voting is blind: each matchup shows its two replies as Model A and Model B in a random order and reveals the names only once you have voted, and the bracket auto-advances to the next round until a champion emerges. **Compare** places two or more models in a grid with the same prompt for parallel evaluation, with a shared persona and no voting. Both modes support per-model generation parameters, streaming with thinking-block rendering, and per-response metrics (duration, tokens per second, prompt and completion tokens, and an estimated price from the model's listed rates). With Arena History enabled (see [No Prompts Logged](#-no-prompts-logged)), past sessions are saved to an arena history modal for review and restoration.
 
 <p align="center">
  <img src="docs/screenshots/arena.png" alt="Arena" width="720">
