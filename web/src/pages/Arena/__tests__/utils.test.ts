@@ -503,6 +503,15 @@ describe("usedModelIds", () => {
 		expect(usedModelIds(round, 1, "B")).toEqual(["P/a1", "P/b1", "P/a2"]);
 	});
 
+	it("skips the whole matchup while blind, so the exclusion cannot name the opponent", () => {
+		const [round] = roundWith([
+			{ slotA: slot("P/a1"), slotB: slot("P/b1") },
+			{ slotA: slot("P/a2"), slotB: slot("P/b2") },
+		]);
+		expect(usedModelIds(round, 0, "A", true)).toEqual(["P/a2", "P/b2"]);
+		expect(usedModelIds(round, 1, "B", true)).toEqual(["P/a1", "P/b1"]);
+	});
+
 	it("skips empty slots (compare mode has no B side)", () => {
 		const [round] = roundWith([
 			{ slotA: slot("P/a1") },

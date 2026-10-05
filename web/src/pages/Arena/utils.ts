@@ -70,17 +70,21 @@ export function clearSlot(
 
 /**
  * Every model id already on the board in this round, except the slot being
- * swapped, so the swap picker cannot offer a duplicate.
+ * swapped, so the swap picker cannot offer a duplicate. While the matchup is
+ * blind the opponent's slot is skipped too: in a one-matchup round the single
+ * excluded model would name the unseen side, so the picker may offer the
+ * opponent's model instead of revealing it.
  */
 export function usedModelIds(
 	round: BracketRound,
 	exceptMatchup: number,
 	exceptSlot: "A" | "B",
+	blind = false,
 ): string[] {
 	const ids: string[] = [];
 	round.matchups.forEach((m, mi) => {
 		for (const key of ["A", "B"] as const) {
-			if (mi === exceptMatchup && key === exceptSlot) continue;
+			if (mi === exceptMatchup && (blind || key === exceptSlot)) continue;
 			const slot = m[SLOT_KEY[key]];
 			if (slot) ids.push(slot.modelId);
 		}

@@ -200,7 +200,9 @@ vi.mock("../WinnerSummaryModal", () => ({
 	),
 }));
 vi.mock("../SwapPicker", () => ({
-	SwapPicker: () => null,
+	SwapPicker: ({ alreadyUsed }: { alreadyUsed: string[] }) => (
+		<div data-testid="swap-picker" data-used={alreadyUsed.join(",")} />
+	),
 }));
 vi.mock("../shared", () => ({
 	BracketPreviewPill: ({
@@ -340,6 +342,56 @@ const VOTE_TO_CONTINUE = "Vote on all matchups to continue to the next round";
 function matchup(vote: string | null) {
 	return { slotA: null, slotB: null, responseA: null, responseB: null, vote };
 }
+
+describe("Arena - swap picker after a cancel", () => {
+	const slot = (modelId: string) => ({
+		modelId,
+		personaId: null,
+		personaPrompt: "",
+	});
+	const streaming = (model: string) => ({
+		model,
+		content: "",
+		done: false,
+		error: null,
+		startedAt: 1,
+	});
+	const cleared = (vote: "A" | "B" | null) => ({
+		matchups: [
+			{
+				slotA: null,
+				slotB: slot("P/opp"),
+				responseA: null,
+				responseB: streaming("P/opp"),
+				vote,
+			},
+		],
+	});
+
+	it("does not exclude the blind opponent, so the exclusion cannot name it", () => {
+		mockArena({
+			arenaMode: "competition",
+			phase: "running",
+			showResponseGrid: true,
+			currentRound: 0,
+			rounds: [cleared(null)],
+		});
+		render(<Arena />);
+		expect(screen.getByTestId("swap-picker").dataset.used).toBe("");
+	});
+
+	it("excludes the opponent once the matchup is voted and named", () => {
+		mockArena({
+			arenaMode: "competition",
+			phase: "running",
+			showResponseGrid: true,
+			currentRound: 0,
+			rounds: [cleared("B")],
+		});
+		render(<Arena />);
+		expect(screen.getByTestId("swap-picker").dataset.used).toBe("P/opp");
+	});
+});
 
 describe("Arena - voting message", () => {
 	it("shows the vote-to-continue reason while votes are missing", () => {
