@@ -122,13 +122,7 @@ export function ArenaResponseGrid({ arena }: { arena: ArenaView }) {
 																	round,
 																	matchupIdx,
 																	slotKey,
-																	blindLabel(
-																		mu,
-																		slotKey,
-																		position,
-																		arena.arenaMode,
-																		arena.phase,
-																	) !== undefined,
+																	arena.arenaMode === "competition",
 																)}
 																onSelect={(modelId) =>
 																	arena.handleSwapCompleteAndUpdate(

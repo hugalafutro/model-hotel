@@ -413,8 +413,9 @@ describe("staggerAndDispatch timers", () => {
 
 		const timers = staggerAndDispatch(slots, ["OpenAI"], dispatch);
 		expect(timers).toHaveLength(1);
+		expect(timers[0]?.slot).toBe(slots[1]);
 
-		for (const id of timers) clearTimeout(id);
+		for (const { timer } of timers) clearTimeout(timer);
 		vi.advanceTimersByTime(1000);
 		expect(dispatch).toHaveBeenCalledTimes(1);
 

@@ -422,6 +422,33 @@ describe("Arena - swap picker after a cancel", () => {
 		expect(screen.getByTestId("swap-picker").dataset.used).toBe("");
 	});
 
+	it("keeps another unvoted matchup's survivor out of a voted matchup's exclusions", () => {
+		mockArena({
+			arenaMode: "competition",
+			phase: "running",
+			showResponseGrid: true,
+			currentRound: 0,
+			rounds: [
+				{
+					matchups: [
+						...cleared("B").matchups,
+						{
+							slotA: null,
+							slotB: slot("P/survivor"),
+							responseA: null,
+							responseB: streaming("P/survivor"),
+							vote: null,
+						},
+					],
+				},
+			],
+		});
+		render(<Arena />);
+		expect(
+			screen.getAllByTestId("swap-picker").map((el) => el.dataset.used),
+		).toEqual(["P/opp", "P/opp"]);
+	});
+
 	it("excludes the opponent once the matchup is voted and named", () => {
 		mockArena({
 			arenaMode: "competition",

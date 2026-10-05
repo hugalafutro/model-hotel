@@ -1361,6 +1361,63 @@ describe("useArenaRunner", () => {
 			expect(setRoundsMock).toHaveBeenCalled();
 		});
 
+		it("drops a slot still waiting in the stagger window when it is cancelled", () => {
+			// Slot B is scheduled 300ms out. Cancelling it, then swapping a model
+			// in, must not let the old timer fire: it would start the cancelled
+			// model and overwrite the replacement's controller.
+			vi.useFakeTimers();
+			const rounds: BracketRound[] = [
+				{
+					matchups: [
+						{
+							slotA: {
+								modelId: "P/model-a",
+								personaId: null,
+								personaPrompt: "",
+								params: {},
+							},
+							slotB: {
+								modelId: "P/model-b",
+								personaId: null,
+								personaPrompt: "",
+								params: {},
+							},
+							responseA: null,
+							responseB: null,
+							vote: null,
+						},
+					],
+				},
+			];
+			const deps = createMockDeps({ rounds, roundsRef: { current: rounds } });
+			const { result } = renderHook(() => useArenaRunner(deps), {
+				wrapper: createWrapper(),
+			});
+
+			act(() => {
+				result.current.runRound(0);
+			});
+			expect(result.current.abortMapRef.current.has("0:0:B")).toBe(false);
+
+			act(() => {
+				result.current.handleCancelSlot(0, 0, "B");
+			});
+			act(() => {
+				result.current.handleSwapComplete(0, 0, "B", "P/new-model");
+			});
+			const replacement = result.current.abortMapRef.current.get("0:0:B");
+			expect(replacement).toBeDefined();
+
+			act(() => {
+				vi.advanceTimersByTime(1000);
+			});
+			expect(result.current.abortMapRef.current.get("0:0:B")).toBe(replacement);
+			act(() => {
+				result.current.handleStopAll();
+			});
+			vi.useRealTimers();
+		});
+
 		it("drops slots still waiting in the stagger window when the run is stopped", () => {
 			// Both slots are on the same provider, so the second one is scheduled
 			// 300ms out. Stopping before it fires must cancel it: otherwise it
