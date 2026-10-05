@@ -17,7 +17,8 @@ import (
 // OpenAI-shaped but carries rich extras (display name, context length,
 // capability flags) that discovery maps directly. The listing names models by
 // subscription route (k3, kimi-for-coding…), which modelsDevIDAliases maps onto
-// the moonshotai entry for pricing; everything else comes from the listing.
+// the moonshotai entry for pricing only; name, context and the listed
+// capability flags stay the listing's, and kimiCodeLiveModel fills the rest.
 type kimiCodeModel struct {
 	ID                string `json:"id"`
 	DisplayName       string `json:"display_name"`

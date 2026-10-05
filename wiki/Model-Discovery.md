@@ -646,7 +646,7 @@ Subscription keys only work against `api.kimi.com/coding` - they 401 on Moonshot
 
 Known models: `k3` (K3, up to 1M context), `k3-256k` (K3 at 256K), `kimi-for-coding` (K2.8 preview), `kimi-for-coding-highspeed` (K2.7 Code HighSpeed). All are thinking-only - reasoning cannot be disabled, and responses carry DeepSeek-style `reasoning_content`.
 
-**Pricing:** the listing carries no prices. Enrichment maps the route names onto models.dev's `moonshotai` entry (`k3` and `k3-256k` to `kimi-k3`, `kimi-for-coding-highspeed` to `kimi-k2.7-code-highspeed`, see `modelsDevIDAliases` in `modelsdev_providers.go`); the alias carries prices only, the route keeps its own listing's context, output cap and capabilities so each model meters at Moonshot's pay-per-token list price, the shadow cost the subscription saves. `kimi-for-coding` is the K2.8 preview, which models.dev does not list, so it stays unpriced until it does; the `kimi-code-plan-global` entry is never consulted because it prices every model at $0.
+**Pricing:** the listing carries no prices. Enrichment maps the route names onto models.dev's `moonshotai` entry (`k3` and `k3-256k` to `kimi-k3`, `kimi-for-coding-highspeed` to `kimi-k2.7-code-highspeed`, see `modelsDevIDAliases` in `modelsdev_providers.go`); the alias carries prices only, the route keeps its own listing's context and capability flags and takes no output cap from the underlying model, so each model meters at Moonshot's pay-per-token list price, the shadow cost the subscription saves. `kimi-for-coding` is the K2.8 preview, which models.dev does not list, so it stays unpriced until it does; the `kimi-code-plan-global` entry is never consulted because it prices every model at $0.
 
 ### MiniMax
 
