@@ -69,11 +69,26 @@ export function clearSlot(
 }
 
 /**
+ * The key a slot's in-flight stream is tracked by (abort controller and the
+ * running set). Keyed by position, not model id: a blind swap may put the
+ * opponent's model into the other slot, and two streams of one model must
+ * stop and settle independently.
+ */
+export function streamKey(
+	roundIdx: number,
+	matchupIdx: number,
+	slotKey: "A" | "B",
+): string {
+	return `${roundIdx}:${matchupIdx}:${slotKey}`;
+}
+
+/**
  * Every model id already on the board in this round, except the slot being
- * swapped, so the swap picker cannot offer a duplicate. While the matchup is
- * blind the opponent's slot is skipped too: in a one-matchup round the single
- * excluded model would name the unseen side, so the picker may offer the
- * opponent's model instead of revealing it.
+ * swapped, so the swap picker cannot offer a duplicate. While the picker's
+ * matchup is blind, only voted (revealed) matchups are excluded: an excluded
+ * model from an unvoted one would name its unseen side (the opponent in a
+ * one-matchup round, another matchup's survivor otherwise), so the picker may
+ * offer those models instead of revealing them.
  */
 export function usedModelIds(
 	round: BracketRound,
@@ -83,8 +98,9 @@ export function usedModelIds(
 ): string[] {
 	const ids: string[] = [];
 	round.matchups.forEach((m, mi) => {
+		if (blind && m.vote === null) return;
 		for (const key of ["A", "B"] as const) {
-			if (mi === exceptMatchup && (blind || key === exceptSlot)) continue;
+			if (mi === exceptMatchup && key === exceptSlot) continue;
 			const slot = m[SLOT_KEY[key]];
 			if (slot) ids.push(slot.modelId);
 		}

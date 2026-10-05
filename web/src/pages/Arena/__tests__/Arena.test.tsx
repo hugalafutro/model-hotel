@@ -158,7 +158,9 @@ vi.mock("../../../components/ConfirmDialog", () => ({
 	ConfirmDialog: (props: MockConfirmDialogProps) => mockConfirmDialog(props),
 }));
 vi.mock("../MatchupCard", () => ({
-	MatchupCard: () => null,
+	MatchupCard: ({ slotKey }: { slotKey: "A" | "B" }) => (
+		<div data-testid="matchup-card" data-slot={slotKey} />
+	),
 }));
 vi.mock("../ResponseCard", () => ({
 	ResponseCard: () => null,
@@ -342,6 +344,46 @@ const VOTE_TO_CONTINUE = "Vote on all matchups to continue to the next round";
 function matchup(vote: string | null) {
 	return { slotA: null, slotB: null, responseA: null, responseB: null, vote };
 }
+
+describe("Arena - bracket bar with a cleared slot", () => {
+	const halfCleared = {
+		matchups: [
+			{
+				slotA: { modelId: "P/a", personaId: null, personaPrompt: "" },
+				slotB: null,
+				responseA: null,
+				responseB: null,
+				vote: null,
+			},
+		],
+	};
+
+	it("keeps both competition cards so the cleared backing slot stays hidden", () => {
+		mockArena({
+			arenaMode: "competition",
+			phase: "running",
+			currentRound: 0,
+			rounds: [halfCleared],
+		});
+		render(<Arena />);
+		expect(
+			screen.getAllByTestId("matchup-card").map((el) => el.dataset.slot),
+		).toEqual(["A", "B"]);
+	});
+
+	it("shows one card per compare model", () => {
+		mockArena({
+			arenaMode: "compare",
+			phase: "running",
+			currentRound: 0,
+			rounds: [halfCleared],
+		});
+		render(<Arena />);
+		expect(
+			screen.getAllByTestId("matchup-card").map((el) => el.dataset.slot),
+		).toEqual(["A"]);
+	});
+});
 
 describe("Arena - swap picker after a cancel", () => {
 	const slot = (modelId: string) => ({

@@ -384,12 +384,7 @@ describe("ResponseCard", () => {
 			});
 			fireEvent.click(cancelButton);
 
-			expect(defaultProps.onCancelSlot).toHaveBeenCalledWith(
-				0,
-				0,
-				"A",
-				"Ollama-Cloud/gemma3:4b",
-			);
+			expect(defaultProps.onCancelSlot).toHaveBeenCalledWith(0, 0, "A");
 		});
 	});
 

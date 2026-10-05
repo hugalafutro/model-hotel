@@ -146,9 +146,7 @@ export function ResponseCard({
 						)}
 						<button
 							type="button"
-							onClick={() =>
-								onCancelSlot(roundIdx, matchupIdx, slotKey, response.model)
-							}
+							onClick={() => onCancelSlot(roundIdx, matchupIdx, slotKey)}
 							className={`text-red-400/60 hover:text-red-400 transition-colors ${response.done ? "invisible pointer-events-none" : ""}`}
 							title={t("arena.cancel.title")}
 							aria-label={t("arena.cancel.title")}

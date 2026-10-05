@@ -251,7 +251,7 @@ describe("useArenaRunner", () => {
 				// Invoke the updater with the model still present so the guard's
 				// running-set cleanup (delete + empty-set phase transition) runs.
 				setRunningModels: vi.fn((fn) => {
-					if (typeof fn === "function") fn(new Set(["P/embedding-model"]));
+					if (typeof fn === "function") fn(new Set(["0:0:A"]));
 				}),
 			});
 
@@ -381,7 +381,7 @@ describe("useArenaRunner", () => {
 				roundsRef,
 				setPhase: setPhaseMock,
 				setRunningModels: vi.fn((fn) => {
-					if (typeof fn === "function") fn(new Set(["P/rerank-model"]));
+					if (typeof fn === "function") fn(new Set(["0:0:B"]));
 				}),
 			});
 
@@ -855,7 +855,7 @@ describe("useArenaRunner", () => {
 			});
 
 			act(() => {
-				result.current.abortMapRef.current.set("P/model-a", abortCtrl);
+				result.current.abortMapRef.current.set("0:0:A", abortCtrl);
 			});
 
 			act(() => {
@@ -1022,7 +1022,7 @@ describe("useArenaRunner", () => {
 		it("handles cancel for a slot", () => {
 			const abortCtrl = new AbortController();
 			const setRoundsMock = vi.fn();
-			const setRunningModelsMock = vi.fn((fn) => fn(new Set(["P/model-a"])));
+			const setRunningModelsMock = vi.fn((fn) => fn(new Set(["0:0:A"])));
 
 			const deps = createMockDeps({
 				setRounds: setRoundsMock,
@@ -1034,11 +1034,11 @@ describe("useArenaRunner", () => {
 			});
 
 			act(() => {
-				result.current.abortMapRef.current.set("P/model-a", abortCtrl);
+				result.current.abortMapRef.current.set("0:0:A", abortCtrl);
 			});
 
 			act(() => {
-				result.current.handleCancelSlot(0, 0, "A", "P/model-a");
+				result.current.handleCancelSlot(0, 0, "A");
 			});
 
 			expect(abortCtrl.signal.aborted).toBe(true);
@@ -1049,7 +1049,7 @@ describe("useArenaRunner", () => {
 			const abortCtrl = new AbortController();
 			const setPhaseMock = vi.fn();
 			// Simulate cancelling the only running model (set becomes empty after delete)
-			const setRunningModelsMock = vi.fn((fn) => fn(new Set(["P/model-a"])));
+			const setRunningModelsMock = vi.fn((fn) => fn(new Set(["0:0:A"])));
 			const rounds: BracketRound[] = [
 				{
 					matchups: [
@@ -1081,11 +1081,11 @@ describe("useArenaRunner", () => {
 			});
 
 			act(() => {
-				result.current.abortMapRef.current.set("P/model-a", abortCtrl);
+				result.current.abortMapRef.current.set("0:0:A", abortCtrl);
 			});
 
 			act(() => {
-				result.current.handleCancelSlot(0, 0, "A", "P/model-a");
+				result.current.handleCancelSlot(0, 0, "A");
 			});
 
 			// Phase should transition because runningModels becomes empty
@@ -1097,7 +1097,7 @@ describe("useArenaRunner", () => {
 			const setPhaseMock = vi.fn();
 			// Simulate cancelling one model while another is still running
 			const setRunningModelsMock = vi.fn((fn) =>
-				fn(new Set(["P/model-a", "P/model-b"])),
+				fn(new Set(["0:0:A", "0:0:B"])),
 			);
 
 			const deps = createMockDeps({
@@ -1110,11 +1110,11 @@ describe("useArenaRunner", () => {
 			});
 
 			act(() => {
-				result.current.abortMapRef.current.set("P/model-a", abortCtrl);
+				result.current.abortMapRef.current.set("0:0:A", abortCtrl);
 			});
 
 			act(() => {
-				result.current.handleCancelSlot(0, 0, "A", "P/model-a");
+				result.current.handleCancelSlot(0, 0, "A");
 			});
 
 			// Phase should NOT transition because model-b is still running
@@ -1123,7 +1123,7 @@ describe("useArenaRunner", () => {
 
 		it("handleCancelSlot nulls slot and response", () => {
 			const abortCtrl = new AbortController();
-			const setRunningModelsMock = vi.fn((fn) => fn(new Set(["P/model-a"])));
+			const setRunningModelsMock = vi.fn((fn) => fn(new Set(["0:0:A"])));
 			const rounds: BracketRound[] = [
 				{
 					matchups: [
@@ -1164,11 +1164,11 @@ describe("useArenaRunner", () => {
 			});
 
 			act(() => {
-				result.current.abortMapRef.current.set("P/model-a", abortCtrl);
+				result.current.abortMapRef.current.set("0:0:A", abortCtrl);
 			});
 
 			act(() => {
-				result.current.handleCancelSlot(0, 0, "A", "P/model-a");
+				result.current.handleCancelSlot(0, 0, "A");
 			});
 
 			// Verify the immer produce() path was exercised - slot and response were nulled
@@ -1604,8 +1604,8 @@ describe("useArenaRunner", () => {
 			});
 
 			act(() => {
-				result.current.abortMapRef.current.set("P/model-a", abortCtrlA);
-				result.current.abortMapRef.current.set("P/model-b", abortCtrlB);
+				result.current.abortMapRef.current.set("0:0:A", abortCtrlA);
+				result.current.abortMapRef.current.set("0:0:B", abortCtrlB);
 			});
 
 			act(() => {

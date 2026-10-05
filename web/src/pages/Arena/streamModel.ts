@@ -10,7 +10,7 @@ import { fetchWithRetry } from "../../utils/stagger";
 import { streamRequestError } from "../../utils/streamError";
 import { extractThinking, sanitizeDelta } from "../../utils/thinking";
 import type { ArenaRunnerDeps } from "./useArenaRunner";
-import { patchSlotResponse, RESP_KEY } from "./utils";
+import { patchSlotResponse, RESP_KEY, streamKey } from "./utils";
 
 /** What one arena stream needs from the runner hook: mount-gated setters plus the abort registry. */
 export interface ArenaStreamContext
@@ -21,13 +21,15 @@ export interface ArenaStreamContext
 	 * last model is done; an aborted stream leaves the phase to whoever
 	 * cancelled it.
 	 */
-	finishModel: (model: string, settle?: boolean) => void;
+	finishModel: (key: string, settle?: boolean) => void;
 	abortMapRef: React.RefObject<Map<string, AbortController>>;
 	mountedRef: React.RefObject<boolean>;
 }
 
 export interface ArenaStreamArgs {
 	model: string;
+	/** What toasts call this reply: the model in compare mode, the blind side label in competition. */
+	label: string;
 	personaPrompt: string;
 	userPrompt: string;
 	roundIdx: number;
@@ -51,6 +53,7 @@ export async function streamArenaResponse(
 	const { t, toast, setRounds, finishModel, abortMapRef, mountedRef } = ctx;
 	const {
 		model,
+		label,
 		personaPrompt,
 		userPrompt,
 		roundIdx,
@@ -92,7 +95,7 @@ export async function streamArenaResponse(
 				) => {
 					toast(
 						t("hooks.useArenaRunner.retry", {
-							model,
+							model: label,
 							status: status || t("hooks.useArenaRunner.networkError"),
 							attempt,
 							delay: formatDecimal(delayMs / 1000, 1),
@@ -209,7 +212,8 @@ export async function streamArenaResponse(
 			);
 		}
 	} finally {
-		finishModel(model, !abortCtrl.signal.aborted);
-		abortMapRef.current.delete(model);
+		const key = streamKey(roundIdx, matchupIdx, slotKey);
+		finishModel(key, !abortCtrl.signal.aborted);
+		abortMapRef.current.delete(key);
 	}
 }

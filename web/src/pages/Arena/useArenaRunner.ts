@@ -13,7 +13,9 @@ import {
 	initMatchupResponses,
 	newArenaResponse,
 	patchSlotResponse,
+	sideOrder,
 	staggerAndDispatch,
+	streamKey,
 } from "./utils";
 
 export interface ArenaRunnerDeps {
@@ -53,7 +55,6 @@ export interface ArenaRunner {
 		roundIdx: number,
 		matchupIdx: number,
 		slotKey: "A" | "B",
-		modelId: string,
 	) => void;
 	handleSwapComplete: (
 		roundIdx: number,
@@ -137,10 +138,10 @@ export function useArenaRunner(deps: ArenaRunnerDeps): ArenaRunner {
 	);
 
 	const finishModel = useCallback(
-		(model: string, settle = true) => {
+		(key: string, settle = true) => {
 			setRunningModels((prev) => {
 				const next = new Set(prev);
-				next.delete(model);
+				next.delete(key);
 				if (next.size === 0 && settle) setPhase(settledPhase());
 				return next;
 			});
@@ -207,17 +208,30 @@ export function useArenaRunner(deps: ArenaRunnerDeps): ArenaRunner {
 						);
 					}),
 				);
-				finishModel(model);
+				finishModel(streamKey(roundIdx, matchupIdx, slotKey));
 				return;
 			}
 
 			const abortCtrl = new AbortController();
-			abortMapRef.current.set(model, abortCtrl);
+			abortMapRef.current.set(
+				streamKey(roundIdx, matchupIdx, slotKey),
+				abortCtrl,
+			);
+
+			// A competition reply streams blind (votes come after the round
+			// settles), so its toasts name the side the card shows, never the model.
+			let label = model;
+			if (arenaModeRef.current === "competition") {
+				const mu = roundsRef.current[roundIdx]?.matchups[matchupIdx];
+				const side = mu && sideOrder(mu).indexOf(slotKey) === 1 ? "B" : "A";
+				label = t(`chat.controls.model${side}`);
+			}
 
 			void streamArenaResponse(
 				{ t, toast, setRounds, finishModel, abortMapRef, mountedRef },
 				{
 					model,
+					label,
 					personaPrompt,
 					userPrompt,
 					roundIdx,
@@ -228,7 +242,16 @@ export function useArenaRunner(deps: ArenaRunnerDeps): ArenaRunner {
 				},
 			);
 		},
-		[t, toast, finishModel, setRounds, validModelIds, hasUsableAllowlist],
+		[
+			t,
+			toast,
+			finishModel,
+			setRounds,
+			validModelIds,
+			hasUsableAllowlist,
+			arenaModeRef,
+			roundsRef,
+		],
 	);
 
 	const runRound = useCallback(
@@ -243,7 +266,9 @@ export function useArenaRunner(deps: ArenaRunnerDeps): ArenaRunner {
 			const currentPrompt = promptOverride ?? (savedPrompt || prompt.trim());
 			const slots = collectSlots(round);
 
-			setRunningModels(new Set(slots.map((s) => s.modelId)));
+			setRunningModels(
+				new Set(slots.map((s) => streamKey(roundIdx, s.matchupIdx, s.slotKey))),
+			);
 			setPhase("running");
 
 			const now = Date.now();
@@ -330,7 +355,9 @@ export function useArenaRunner(deps: ArenaRunnerDeps): ArenaRunner {
 					);
 				}),
 			);
-			setRunningModels((prev) => new Set(prev).add(slot.modelId));
+			setRunningModels((prev) =>
+				new Set(prev).add(streamKey(roundIdx, matchupIdx, slotKey)),
+			);
 			setPhase("running");
 
 			streamModel(
@@ -355,18 +382,14 @@ export function useArenaRunner(deps: ArenaRunnerDeps): ArenaRunner {
 	);
 
 	const handleCancelSlot = useCallback(
-		(
-			roundIdx: number,
-			matchupIdx: number,
-			slotKey: "A" | "B",
-			modelId: string,
-		) => {
-			const ctrl = abortMapRef.current.get(modelId);
+		(roundIdx: number, matchupIdx: number, slotKey: "A" | "B") => {
+			const key = streamKey(roundIdx, matchupIdx, slotKey);
+			const ctrl = abortMapRef.current.get(key);
 			if (ctrl) {
 				ctrl.abort();
-				abortMapRef.current.delete(modelId);
+				abortMapRef.current.delete(key);
 			}
-			finishModel(modelId);
+			finishModel(key);
 			setRounds(
 				produce((draft) => {
 					clearSlot(draft, roundIdx, matchupIdx, slotKey);
@@ -405,7 +428,9 @@ export function useArenaRunner(deps: ArenaRunnerDeps): ArenaRunner {
 					);
 				}),
 			);
-			setRunningModels((prev) => new Set(prev).add(newModelId));
+			setRunningModels((prev) =>
+				new Set(prev).add(streamKey(roundIdx, matchupIdx, slotKey)),
+			);
 			setPhase("running");
 
 			streamModel(

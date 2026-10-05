@@ -503,13 +503,16 @@ describe("usedModelIds", () => {
 		expect(usedModelIds(round, 1, "B")).toEqual(["P/a1", "P/b1", "P/a2"]);
 	});
 
-	it("skips the whole matchup while blind, so the exclusion cannot name the opponent", () => {
+	it("excludes only voted matchups while blind, so no exclusion can name an unseen side", () => {
 		const [round] = roundWith([
 			{ slotA: slot("P/a1"), slotB: slot("P/b1") },
 			{ slotA: slot("P/a2"), slotB: slot("P/b2") },
+			{ slotA: slot("P/a3"), slotB: slot("P/b3"), vote: "A" },
 		]);
-		expect(usedModelIds(round, 0, "A", true)).toEqual(["P/a2", "P/b2"]);
-		expect(usedModelIds(round, 1, "B", true)).toEqual(["P/a1", "P/b1"]);
+		// Picker in matchup 0: matchup 1 is unvoted (its survivor would be
+		// named), matchup 2 is voted and may be excluded.
+		expect(usedModelIds(round, 0, "A", true)).toEqual(["P/a3", "P/b3"]);
+		expect(usedModelIds(round, 1, "B", true)).toEqual(["P/a3", "P/b3"]);
 	});
 
 	it("skips empty slots (compare mode has no B side)", () => {

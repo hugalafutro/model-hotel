@@ -226,9 +226,13 @@ export function useArena() {
 			const oldModelId = swapOutMapRef.current.get(key);
 			swapOutMapRef.current.delete(key);
 
+			// A blind swap may pick the opponent's model; keep the setup list free
+			// of duplicates so the bracket can still be re-run from setup.
 			if (oldModelId) {
 				setBracketModels((prev) =>
-					prev.map((id) => (id === oldModelId ? newModelId : id)),
+					prev.includes(newModelId)
+						? prev
+						: prev.map((id) => (id === oldModelId ? newModelId : id)),
 				);
 			}
 
