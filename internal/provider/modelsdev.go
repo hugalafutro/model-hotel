@@ -294,7 +294,7 @@ func (c *ModelsDevCache) FreeOnProvider(providerType, modelID string) bool {
 	}
 	c.mu.RLock()
 	defer c.mu.RUnlock()
-	spec := lookupFuzzyIn(c.byProvider[canonical.ID], canonicalModelsDevID(providerType, modelID))
+	spec := lookupFuzzyIn(c.byProvider[canonical.ID], modelID)
 	return spec != nil && spec.Cost != nil && spec.Cost.Input == 0 && spec.Cost.Output == 0
 }
 
@@ -511,6 +511,12 @@ func (c *ModelsDevCache) EnrichModel(m *model.Model, providerType string) bool {
 	if spec == nil {
 		return false
 	}
+	if canonicalModelsDevID(providerType, m.ModelID) != m.ModelID {
+		// An aliased route is priced as its underlying model but is not that
+		// model: its own listing says what it serves (context, output cap,
+		// capabilities), so only the prices cross over.
+		return fillPricesFromSpec(m, spec)
+	}
 
 	// Parse existing capabilities to merge.
 	var caps model.Capability
@@ -533,21 +539,7 @@ func (c *ModelsDevCache) EnrichModel(m *model.Model, providerType string) bool {
 	// Numeric fields: only set if nil.
 	enriched = fillIfEmpty(&m.ContextLength, spec.Limit.Context) || enriched
 	enriched = fillIfEmpty(&m.MaxOutputTokens, spec.Limit.Output) || enriched
-	// fillPrice fills one price and stamps models.dev beside it, so the price
-	// and the provenance the dashboard shows cannot be set apart.
-	fillPrice := func(dst **float64, v float64, src *string) {
-		if fillIfEmpty(dst, v) {
-			*src = model.PriceSourceModelsDev
-			enriched = true
-		}
-	}
-	if spec.Cost != nil {
-		fillPrice(&m.InputPricePerMillion, spec.Cost.Input, &m.PriceSources.Input)
-		fillPrice(&m.OutputPricePerMillion, spec.Cost.Output, &m.PriceSources.Output)
-		if spec.Cost.CacheRead != nil {
-			fillPrice(&m.InputPricePerMillionCacheHit, *spec.Cost.CacheRead, &m.PriceSources.CacheHit)
-		}
-	}
+	enriched = fillPricesFromSpec(m, spec) || enriched
 
 	// Capabilities: only set individual fields if they're currently false.
 	enriched = mergeSpecCapabilities(spec, &caps) || enriched
@@ -570,6 +562,28 @@ func (c *ModelsDevCache) EnrichModel(m *model.Model, providerType string) bool {
 		m.Capabilities = string(capJSON)
 	}
 	return enriched
+}
+
+// fillPricesFromSpec fills each empty price from the spec and stamps
+// models.dev beside it, so the price and the provenance the dashboard shows
+// cannot be set apart. It reports whether anything was filled.
+func fillPricesFromSpec(m *model.Model, spec *ModelsDevModelSpec) bool {
+	if spec.Cost == nil {
+		return false
+	}
+	filled := false
+	fillPrice := func(dst **float64, v float64, src *string) {
+		if fillIfEmpty(dst, v) {
+			*src = model.PriceSourceModelsDev
+			filled = true
+		}
+	}
+	fillPrice(&m.InputPricePerMillion, spec.Cost.Input, &m.PriceSources.Input)
+	fillPrice(&m.OutputPricePerMillion, spec.Cost.Output, &m.PriceSources.Output)
+	if spec.Cost.CacheRead != nil {
+		fillPrice(&m.InputPricePerMillionCacheHit, *spec.Cost.CacheRead, &m.PriceSources.CacheHit)
+	}
+	return filled
 }
 
 // EnrichModels enriches a batch of models using models.dev data. providerType

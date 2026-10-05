@@ -962,9 +962,19 @@ func TestEnrichModel_KimiCodeAliasesResolveMoonshotIDs(t *testing.T) {
 		{"k3-256k", 3, 15, 0.3},
 		{"kimi-for-coding-highspeed", 1.9, 8, 0.38},
 	} {
-		m := &model.Model{ModelID: tc.id}
+		// The live listing already said what the route serves; the alias
+		// must bring prices only, never the underlying model's limits, name
+		// or capabilities (k3-256k is a 256K route priced as the 1M kimi-k3).
+		ctx := 262144
+		m := &model.Model{ModelID: tc.id, DisplayName: "Route " + tc.id, ContextLength: &ctx, Capabilities: `{"reasoning":true}`}
 		if !cache.EnrichModel(m, "kimi-code") {
 			t.Fatalf("%s: expected enrichment via the moonshotai alias", tc.id)
+		}
+		if m.MaxOutputTokens != nil {
+			t.Errorf("%s: MaxOutputTokens = %v, want nil (alias is price-only)", tc.id, *m.MaxOutputTokens)
+		}
+		if *m.ContextLength != 262144 || m.DisplayName != "Route "+tc.id || m.Capabilities != `{"reasoning":true}` {
+			t.Errorf("%s: alias touched non-price fields: ctx=%d name=%q caps=%s", tc.id, *m.ContextLength, m.DisplayName, m.Capabilities)
 		}
 		if m.InputPricePerMillion == nil || *m.InputPricePerMillion != tc.wantIn {
 			t.Errorf("%s: InputPricePerMillion = %v, want %v", tc.id, m.InputPricePerMillion, tc.wantIn)
@@ -989,8 +999,5 @@ func TestEnrichModel_KimiCodeAliasesResolveMoonshotIDs(t *testing.T) {
 	}
 	if m.InputPricePerMillion != nil {
 		t.Errorf("InputPricePerMillion = %v, want nil", m.InputPricePerMillion)
-	}
-	if cache.FreeOnProvider("kimi-code", "k3") {
-		t.Error("k3 must not read as free: the alias resolves to the priced moonshotai row")
 	}
 }

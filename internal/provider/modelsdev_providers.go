@@ -59,7 +59,8 @@ var modelsDevProviderForType = map[string]modelsDevCanonical{
 // canonical models.dev entry uses, for the one case where they differ. Kimi
 // Code lists subscription route names (k3, k3-256k, kimi-for-coding-highspeed)
 // while models.dev's "moonshotai" entry prices the underlying models by their
-// API names, so without the alias every Kimi Code model metered at zero.
+// API names, so without the alias every Kimi Code model metered at zero. An
+// alias carries prices only: the route's own listing says what it serves.
 // kimi-for-coding is deliberately absent: Kimi documents it as the K2.8
 // preview, which models.dev does not list, so it stays unpriced rather than
 // being charged as a different model.
