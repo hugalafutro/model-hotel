@@ -124,7 +124,9 @@ describe("Arena", () => {
 			await waitForArenaLoad();
 
 			// Run button should be disabled in setup phase with no models
-			const runButton = screen.getByRole("button", { name: /Run Arena/i });
+			const runButton = screen.getByRole("button", {
+				name: /Run (Arena|Compare)/i,
+			});
 			expect(runButton).toBeDisabled();
 		});
 
@@ -134,7 +136,9 @@ describe("Arena", () => {
 			await waitForArenaLoad();
 
 			// Run button should show disabled state with a reason
-			const runButton = screen.getByRole("button", { name: /Run Arena/i });
+			const runButton = screen.getByRole("button", {
+				name: /Run (Arena|Compare)/i,
+			});
 			expect(runButton).toBeDisabled();
 		});
 	});

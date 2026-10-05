@@ -77,7 +77,9 @@ export async function setupAndRunArena(
 	await user.type(textarea, prompt);
 
 	// Click Run Arena
-	await user.click(screen.getByRole("button", { name: /Run Arena/i }));
+	await user.click(
+		screen.getByRole("button", { name: /Run (Arena|Compare)/i }),
+	);
 
 	// Wait for streaming to start (Stop All button appears)
 	await waitFor(

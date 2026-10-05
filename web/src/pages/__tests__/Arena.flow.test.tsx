@@ -167,7 +167,7 @@ describe("Arena", () => {
 			await user.type(promptTextarea, "Test prompt for arena");
 
 			// Run button should be disabled without models selected
-			const runButton = screen.getByRole("button", { name: /Run Arena/i });
+			const runButton = screen.getByRole("button", { name: /Run Compare/i });
 			expect(runButton).toBeDisabled();
 		});
 
