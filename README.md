@@ -74,36 +74,6 @@ If you lose it, delete `.data/admin-token` and restart to generate a new one. Th
 
 Open `http://localhost:8081`, log in with that token, add your first provider, and start proxying.
 
-### [<img src="docs/icons/health.svg" width="20" height="20" style="vertical-align:middle;margin-right:6px;" alt=""> High Availability](#-high-availability)
-Run several instances behind one client endpoint with no client-side change: a **Front Desk** control plane manages the fleet and replicates config to every member, while **Traefik** load-balances them with health checks and automatic failover. Members share one `MASTER_KEY` (so encrypted provider keys port across the fleet) and each keeps its own admin token.
-
-<p align="center">
-  <a href="docs/screenshots/frontdesk_members.png"><img src="docs/screenshots/frontdesk_members_pills.png" width="720" alt="Front Desk control plane: provider quota badge strip above four healthy fleet members"></a>
-  <br>
-  <sub>Front Desk (HA control app) Dashboard</sub>
-</p>
-
-Full deployment in the [High Availability wiki](https://github.com/hugalafutro/model-hotel/wiki/High-Availability).
-
-### [<img src="docs/icons/bellhop.svg" width="20" height="20" style="vertical-align:middle;margin-right:6px;" alt=""> Bellhop Companion App](#-bellhop-companion-app)
-
-**Bellhop**, the native Android companion app for Front Desk, turns a paired phone into a pocket view of the fleet: live member health, request traffic, provider quota badges, the event log, and, for operator devices, one-tap drain, activate, and config-sync behind a biometric prompt. A home-screen widget keeps the fleet and its badges on the launcher without opening anything. It talks only to Front Desk, holds no provider credentials, and authenticates with a device token you can revoke from either side.
-
-<p align="center">
- <a href="docs/screenshots/bellhop_dashboard.png"><img src="docs/screenshots/bellhop_dashboard.png" width="220" align="middle" alt="Bellhop dashboard: linked fleet with quota badges, health and traffic sparklines"></a>
- <a href="docs/screenshots/bellhop_member.png"><img src="docs/screenshots/bellhop_member.png" width="220" align="middle" alt="Bellhop member detail: request-traffic graph and operator controls"></a>
- <br>
- <sub>Bellhop (Android HA companion) Dashboard - Fleet member details</sub>
-</p>
-<p align="center">
- <a href="docs/screenshots/bellhop_widget.png"><img src="docs/screenshots/bellhop_widget.png" width="280" align="middle" alt="Bellhop home-screen widget: member health, quota badge strip and the latest fleet event"></a>
- <br><sub>Bellhop Android Home screen widget</sub>
-</p>
-
-> [!NOTE]
-> Full walkthrough in the [Bellhop wiki](https://github.com/hugalafutro/model-hotel/wiki/Bellhop); source under [`android/`](android/README.md).<br>
-> APK download: [![Latest Bellhop release](https://img.shields.io/github/v/release/hugalafutro/model-hotel?filter=bellhop-v*&label=Bellhop%20APK&color=3ddc84)](https://github.com/hugalafutro/model-hotel/releases/tag/bellhop-latest) (signed; [Obtainium](https://github.com/ImranR98/Obtainium)-compatible).
-
 ### [<img src="docs/icons/providers.svg" width="20" height="20" style="vertical-align:middle;margin-right:6px;" alt=""> One Endpoint, Many Providers](#-one-endpoint-many-providers)
 **Hosted:** [Anthropic](https://www.anthropic.com), [AWS Bedrock](https://aws.amazon.com/bedrock/), [Azure AI Foundry](https://ai.azure.com/), [Cohere](https://cohere.com/), [DeepSeek](https://www.deepseek.com), [Google AI Studio](https://aistudio.google.com/), [Kimi Code](https://www.kimi.com/), [MiniMax](https://www.minimax.io/), [NanoGPT](https://nano-gpt.com), [NeuralWatt](https://neuralwatt.com/), [Ollama Cloud](https://ollama.com), [OpenAI](https://openai.com/), [OpenCode Go](https://opencode.ai), [OpenCode Zen](https://opencode.ai), [OpenRouter](https://openrouter.ai/), [Vertex AI](https://cloud.google.com/vertex-ai) (express keys), [x.ai](https://x.ai/), [Z.AI](https://z.ai/). All but Anthropic and AWS Bedrock speak the OpenAI API; those two are native families, and a hand-entered endpoint that speaks Anthropic's native `/v1/messages` has its own type (`anthropic-messages`). Any other OpenAI-compatible API, hosted or local, can be added as a custom endpoint.
 
@@ -134,6 +104,36 @@ Prefix a model with `hotel/` to use its failover group. `hotel/glm-4.6` resolves
 Provider health is tracked with a **circuit breaker**, keyed per (provider, model) rather than per provider: after a configurable number of consecutive failures (default 5) that one model's circuit moves to **Open** and requests for that model skip that provider. The provider as a whole is only skipped once enough distinct model circuits are open (default 2, the "span" setting), so one broken model never condemns a healthy provider.
 
 After a cooldown period (default 60s), a single **HalfOpen** probe is allowed; if it succeeds the circuit closes. If it fails, the circuit re-opens with the cooldown doubled for every probe that has failed since it last closed, up to a ceiling (default 15 minutes; set the backoff limit to `0` to switch the doubling off). A circuit blocked by an exhausted provider quota is instead pinned until the quota window resets, up to a separate quota pin limit (default 24 hours, `0` to switch pinning off). State transitions are broadcast as SSE events, and the breaker can be disabled entirely in Settings. See [Failover and Hotel Routing](https://github.com/hugalafutro/model-hotel/wiki/Failover-and-Hotel-Routing) for the full breakdown.
+
+### [<img src="docs/icons/health.svg" width="20" height="20" style="vertical-align:middle;margin-right:6px;" alt=""> High Availability](#-high-availability)
+Run several instances behind one client endpoint with no client-side change: a **Front Desk** control plane manages the fleet and replicates config to every member, while **Traefik** load-balances them with health checks and automatic failover. Members share one `MASTER_KEY` (so encrypted provider keys port across the fleet) and each keeps its own admin token.
+
+<p align="center">
+  <a href="docs/screenshots/frontdesk_members.png"><img src="docs/screenshots/frontdesk_members_pills.png" width="720" alt="Front Desk control plane: provider quota badge strip above four healthy fleet members"></a>
+  <br>
+  <sub>Front Desk (HA control app) Dashboard</sub>
+</p>
+
+Full deployment in the [High Availability wiki](https://github.com/hugalafutro/model-hotel/wiki/High-Availability).
+
+### [<img src="docs/icons/bellhop.svg" width="20" height="20" style="vertical-align:middle;margin-right:6px;" alt=""> Bellhop Companion App](#-bellhop-companion-app)
+
+**Bellhop**, the native Android companion app for Front Desk, turns a paired phone into a pocket view of the fleet: live member health, request traffic, provider quota badges, the event log, and, for operator devices, one-tap drain, activate, and config-sync behind a biometric prompt. A home-screen widget keeps the fleet and its badges on the launcher without opening anything. It talks only to Front Desk, holds no provider credentials, and authenticates with a device token you can revoke from either side.
+
+<p align="center">
+ <a href="docs/screenshots/bellhop_dashboard.png"><img src="docs/screenshots/bellhop_dashboard.png" width="220" align="middle" alt="Bellhop dashboard: linked fleet with quota badges, health and traffic sparklines"></a>
+ <a href="docs/screenshots/bellhop_member.png"><img src="docs/screenshots/bellhop_member.png" width="220" align="middle" alt="Bellhop member detail: request-traffic graph and operator controls"></a>
+ <br>
+ <sub>Bellhop (Android HA companion) Dashboard - Fleet member details</sub>
+</p>
+<p align="center">
+ <a href="docs/screenshots/bellhop_widget.png"><img src="docs/screenshots/bellhop_widget.png" width="280" align="middle" alt="Bellhop home-screen widget: member health, quota badge strip and the latest fleet event"></a>
+ <br><sub>Bellhop Android Home screen widget</sub>
+</p>
+
+> [!NOTE]
+> Full walkthrough in the [Bellhop wiki](https://github.com/hugalafutro/model-hotel/wiki/Bellhop); source under [`android/`](android/README.md).<br>
+> APK download: [![Latest Bellhop release](https://img.shields.io/github/v/release/hugalafutro/model-hotel?filter=bellhop-v*&label=Bellhop%20APK&color=3ddc84)](https://github.com/hugalafutro/model-hotel/releases/tag/bellhop-latest) (signed; [Obtainium](https://github.com/ImranR98/Obtainium)-compatible).
 
 ### [<img src="docs/icons/virtualkeys.svg" width="20" height="20" style="vertical-align:middle;margin-right:6px;" alt=""> Per-Client Virtual Keys](#-per-client-virtual-keys)
 Issue separate API keys for different users or services. Each key is SHA-256 hashed before storage, so raw keys are never persisted. Track token usage per key, set per-key rate limits (requests/sec and burst) plus an optional tokens-per-minute (TPM) cap, give a key a dollar budget per day, week or month (requests are refused with `429` once the period's spend reaches it, and the key shows how much of it is used), restrict which providers a key may reach, delete a key to immediately cut off access, and never expose your real provider credentials. Keys can be created and deleted from the dashboard or the admin API.
