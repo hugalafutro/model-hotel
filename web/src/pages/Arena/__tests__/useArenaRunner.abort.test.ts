@@ -105,6 +105,58 @@ describe("useArenaRunner abort", () => {
 			);
 		});
 
+		it("lets a stream cancelled during retry backoff wake without unsettling its replacement", async () => {
+			// The retry sleep ignores the abort, so a cancelled stream wakes up
+			// to a second time later. If the slot was swapped in the meantime,
+			// the new stream owns the key: the stale finally must leave it alone.
+			let calls = 0;
+			let release: () => void = () => {};
+			server.use(
+				http.post("/api/chat/arena", async () => {
+					calls += 1;
+					if (calls === 1) {
+						return HttpResponse.json({ error: "busy" }, { status: 503 });
+					}
+					await new Promise<void>((resolve) => {
+						release = resolve;
+					});
+					return HttpResponse.json({ error: "too late" }, { status: 500 });
+				}),
+			);
+			const setRunningModels = vi.fn();
+			const deps = createMockDeps({ setRunningModels });
+			const { result } = renderHook(() => useArenaRunner(deps), {
+				wrapper: createWrapper(),
+			});
+
+			act(() => {
+				result.current.streamModel("P/model-a", "", "prompt", 0, "A", 0);
+			});
+			// The 503 landed and the retry toast fired; the stream is now asleep.
+			await waitFor(() => expect(deps.toast).toHaveBeenCalled());
+			act(() => {
+				result.current.handleCancelSlot(0, 0, "A");
+			});
+			act(() => {
+				result.current.streamModel("P/model-b", "", "prompt", 0, "A", 0);
+			});
+			await waitFor(() => expect(calls).toBe(2));
+			const replacement = result.current.abortMapRef.current.get("0:0:A");
+			expect(replacement).toBeDefined();
+			const settles = setRunningModels.mock.calls.length;
+
+			// Outlast the longest first backoff (1 s ± 25 %): the stale stream
+			// wakes, its fetch rejects on the aborted signal, its finally runs.
+			await new Promise((resolve) => setTimeout(resolve, 1400));
+			expect(result.current.abortMapRef.current.get("0:0:A")).toBe(replacement);
+			expect(setRunningModels.mock.calls.length).toBe(settles);
+
+			release();
+			await waitFor(() =>
+				expect(result.current.abortMapRef.current.size).toBe(0),
+			);
+		});
+
 		it("cancels one slot of a model streaming in both, the other keeps going", async () => {
 			// A blind swap may put the opponent's model into the other slot, so
 			// one model can stream twice in a matchup. Streams are tracked by

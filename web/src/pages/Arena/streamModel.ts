@@ -212,8 +212,14 @@ export async function streamArenaResponse(
 			);
 		}
 	} finally {
+		// A cancelled stream can outlive its slot: the retry backoff sleeps
+		// through the abort, and by the time it wakes a swap may have put a new
+		// stream under the same key. Only the stream that still owns the key
+		// may settle it; Cancel and Stop All already settled the one they removed.
 		const key = streamKey(roundIdx, matchupIdx, slotKey);
-		finishModel(key, !abortCtrl.signal.aborted);
-		abortMapRef.current.delete(key);
+		if (abortMapRef.current.get(key) === abortCtrl) {
+			finishModel(key, !abortCtrl.signal.aborted);
+			abortMapRef.current.delete(key);
+		}
 	}
 }
