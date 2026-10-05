@@ -936,3 +936,68 @@ func TestEnrichAndNormalize_SkipsOperatorServedTypes(t *testing.T) {
 		}
 	}
 }
+
+func TestEnrichModel_KimiCodeAliasesResolveMoonshotIDs(t *testing.T) {
+	// Kimi Code lists subscription route names; models.dev's moonshotai entry
+	// prices the underlying models by their API names. The alias table is the
+	// only bridge, and the exclusive mapping means a miss stays unpriced.
+	cache := loadCacheFromJSON(t, `{
+		"moonshotai": {"id":"moonshotai","name":"Moonshot AI","api":"","models":{
+			"kimi-k3":{"id":"kimi-k3","name":"Kimi K3","attachment":true,"reasoning":true,"tool_call":true,"modalities":{"input":["text","image"],"output":["text"]},"open_weights":true,"cost":{"input":3,"output":15,"cache_read":0.3},"limit":{"context":1048576,"output":1048576}},
+			"kimi-k2.7-code-highspeed":{"id":"kimi-k2.7-code-highspeed","name":"Kimi K2.7 Code HighSpeed","attachment":false,"reasoning":true,"tool_call":true,"modalities":{"input":["text"],"output":["text"]},"open_weights":true,"cost":{"input":1.9,"output":8,"cache_read":0.38},"limit":{"context":262144,"output":262144}}
+		}},
+		"kimi-code-plan-global": {"id":"kimi-code-plan-global","name":"Kimi Code","api":"","models":{
+			"k3":{"id":"k3","name":"Kimi K3","attachment":true,"reasoning":true,"tool_call":true,"modalities":{"input":["text"],"output":["text"]},"open_weights":true,"cost":{"input":0,"output":0},"limit":{"context":1048576,"output":131072}},
+			"kimi-for-coding":{"id":"kimi-for-coding","name":"kimi-for-coding","attachment":false,"reasoning":true,"tool_call":true,"modalities":{"input":["text"],"output":["text"]},"open_weights":true,"cost":{"input":0,"output":0},"limit":{"context":1048576,"output":32768}}
+		}}
+	}`)
+
+	for _, tc := range []struct {
+		id        string
+		wantIn    float64
+		wantOut   float64
+		wantCache float64
+	}{
+		{"k3", 3, 15, 0.3},
+		{"k3-256k", 3, 15, 0.3},
+		{"kimi-for-coding-highspeed", 1.9, 8, 0.38},
+	} {
+		// The live listing already said what the route serves; the alias
+		// must bring prices only, never the underlying model's limits, name
+		// or capabilities (k3-256k is a 256K route priced as the 1M kimi-k3).
+		ctx := 262144
+		m := &model.Model{ModelID: tc.id, DisplayName: "Route " + tc.id, ContextLength: &ctx, Capabilities: `{"reasoning":true}`}
+		if !cache.EnrichModel(m, "kimi-code") {
+			t.Fatalf("%s: expected enrichment via the moonshotai alias", tc.id)
+		}
+		if m.MaxOutputTokens != nil {
+			t.Errorf("%s: MaxOutputTokens = %v, want nil (alias is price-only)", tc.id, *m.MaxOutputTokens)
+		}
+		if *m.ContextLength != 262144 || m.DisplayName != "Route "+tc.id || m.Capabilities != `{"reasoning":true}` {
+			t.Errorf("%s: alias touched non-price fields: ctx=%d name=%q caps=%s", tc.id, *m.ContextLength, m.DisplayName, m.Capabilities)
+		}
+		if m.InputPricePerMillion == nil || *m.InputPricePerMillion != tc.wantIn {
+			t.Errorf("%s: InputPricePerMillion = %v, want %v", tc.id, m.InputPricePerMillion, tc.wantIn)
+		}
+		if m.OutputPricePerMillion == nil || *m.OutputPricePerMillion != tc.wantOut {
+			t.Errorf("%s: OutputPricePerMillion = %v, want %v", tc.id, m.OutputPricePerMillion, tc.wantOut)
+		}
+		if m.InputPricePerMillionCacheHit == nil || *m.InputPricePerMillionCacheHit != tc.wantCache {
+			t.Errorf("%s: InputPricePerMillionCacheHit = %v, want %v", tc.id, m.InputPricePerMillionCacheHit, tc.wantCache)
+		}
+		if m.PriceSources.Input != model.PriceSourceModelsDev {
+			t.Errorf("%s: PriceSources.Input = %q, want %q", tc.id, m.PriceSources.Input, model.PriceSourceModelsDev)
+		}
+	}
+
+	// The K2.8 preview has no models.dev counterpart: the $0 coding-plan entry
+	// must not be consulted and the exclusive mapping must not fall through, so
+	// the model stays unpriced instead of being charged as another model.
+	m := &model.Model{ModelID: "kimi-for-coding"}
+	if cache.EnrichModel(m, "kimi-code") {
+		t.Fatal("kimi-for-coding must stay unenriched: no moonshotai counterpart")
+	}
+	if m.InputPricePerMillion != nil {
+		t.Errorf("InputPricePerMillion = %v, want nil", m.InputPricePerMillion)
+	}
+}
