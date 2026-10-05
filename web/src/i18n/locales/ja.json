@@ -562,7 +562,6 @@
 			"descriptionConversation": "2つのモデルがお互いに会話するのを見る",
 			"selectModelToStart": "チャットを開始するモデルを選択してください",
 			"keyboardHint": "Enter キーを押して送信、Shift + Enter キーを押して改行します",
-			"turnCount": "ターン {{current}} / {{max}}",
 			"tokens": "トークン",
 			"modelGenerating": "モデルが… を生成しています",
 			"waitingNextTurn": "次のターンを待つ…",
@@ -690,7 +689,8 @@
 		},
 		"button": {
 			"stop": "すべて停止",
-			"run": "Arena を実行"
+			"run": "Arena を実行",
+			"runCompare": "比較を実行"
 		},
 		"disabledReason": {
 			"selectTwoModels": "少なくとも 2 つのモデルを選択してください",
@@ -2776,7 +2776,7 @@
 			"delay": "遅延: {{delay}}ms",
 			"round": "ラウンド： {{current}} / {{max}}",
 			"nextIn": "次は {{seconds}}s…",
-			"status": "ステータス: {{state}}",
+			"status": "ステータス:",
 			"expandConfig": "設定を展開",
 			"collapseConfig": "構成を閉じる",
 			"generationFailed": "生成に失敗しました - 続行するには再試行またはモデルの変更を使用してください",
@@ -2791,7 +2791,14 @@
 			"reenterOrEditPrompt": "プロンプトを再入力するか、編集してください…",
 			"retry": "再試行する",
 			"retryFromTurn": "ターン {{turn}}から再試行する",
-			"stop": "停止"
+			"stop": "停止",
+			"state": {
+				"idle": "待機中",
+				"running": "実行中",
+				"paused": "一時停止中",
+				"completed": "完了",
+				"error": "エラー"
+			}
 		},
 		"thinkingBlock": {
 			"thinking": "思考中"
@@ -2817,7 +2824,8 @@
 			"response_other": "{{count}} の回答",
 			"entries_one": "{{count}} のエントリ",
 			"entries_other": "{{count}} 項目",
-			"entries": "項目"
+			"entries": "項目",
+			"historyOff": "対戦履歴はオフです。有効にするには次を開いてください: <settings>設定</settings>。"
 		},
 		"logDetailModal": {
 			"logEntryDetails": "ログエントリの詳細",

@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react";
-import { useTranslation } from "react-i18next";
+import { Trans, useTranslation } from "react-i18next";
+import { Link } from "react-router";
 import {
 	Bot,
 	ChevronDown,
@@ -15,6 +16,7 @@ import {
 import { CollapseBody } from "../components/CollapsibleToggle";
 import { PaginationBar } from "../components/DataTable";
 import { Modal } from "../components/Modal";
+import { useStorage } from "../context/StorageContext";
 import { ARENA_PROMPTS, CHAT_PERSONAS } from "../data/presets";
 import { useWheelPaging } from "../hooks/useWheelPaging";
 import {
@@ -83,6 +85,7 @@ export function ArenaHistoryModal({
 	onRestore,
 }: ArenaHistoryModalProps) {
 	const { t } = useTranslation();
+	const { arenaHistoryEnabled } = useStorage();
 	const [entries, setEntries] = useState<ArenaHistoryEntry[]>(() =>
 		getArenaHistory(),
 	);
@@ -415,6 +418,18 @@ export function ArenaHistoryModal({
 					<p className="text-(--text-tertiary) text-xs mt-1">
 						{t("components.arenaHistoryModal.completedSessionsHere")}
 					</p>
+					{!arenaHistoryEnabled && (
+						<p className="text-amber-400 text-xs mt-3">
+							<Trans
+								i18nKey="components.arenaHistoryModal.historyOff"
+								components={{
+									settings: (
+										<Link to="/settings" className="ui-link-accent underline" />
+									),
+								}}
+							/>
+						</p>
+					)}
 				</div>
 			) : (
 				<div ref={wheelPagingRef} className="space-y-2">

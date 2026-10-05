@@ -562,7 +562,6 @@
 			"descriptionConversation": "Xem hai mô hình trò chuyện với nhau",
 			"selectModelToStart": "Chọn một mô hình để bắt đầu trò chuyện",
 			"keyboardHint": "Nhấn phím Enter để gửi, Shift+Enter để xuống dòng",
-			"turnCount": "Lượt {{current}} / {{max}}",
 			"tokens": "token",
 			"modelGenerating": "Mô hình đang tạo ra…",
 			"waitingNextTurn": "Đang chờ lượt tiếp theo…",
@@ -690,7 +689,8 @@
 		},
 		"button": {
 			"stop": "Dừng tất cả",
-			"run": "Chạy Arena"
+			"run": "Chạy Arena",
+			"runCompare": "Chạy so sánh"
 		},
 		"disabledReason": {
 			"selectTwoModels": "Chọn ít nhất 2 mô hình",
@@ -2776,7 +2776,7 @@
 			"delay": "Độ trễ: {{delay}}ms",
 			"round": "Vòng: {{current}} / {{max}}",
 			"nextIn": "Tiếp theo trong {{seconds}}s…",
-			"status": "Trạng thái: {{state}}",
+			"status": "Trạng thái:",
 			"expandConfig": "Mở rộng cấu hình",
 			"collapseConfig": "Thu gọn cấu hình",
 			"generationFailed": "Tạo phản hồi không thành công - hãy nhấn \"Thử lại\" hoặc đổi mô hình để tiếp tục",
@@ -2791,7 +2791,14 @@
 			"reenterOrEditPrompt": "Vui lòng nhập lại hoặc chỉnh sửa yêu cầu của bạn…",
 			"retry": "Thử lại",
 			"retryFromTurn": "Thử lại từ lượt {{turn}}",
-			"stop": "Dừng lại"
+			"stop": "Dừng lại",
+			"state": {
+				"idle": "Nhàn rỗi",
+				"running": "Đang chạy",
+				"paused": "Đã tạm dừng",
+				"completed": "Đã hoàn thành",
+				"error": "Lỗi"
+			}
 		},
 		"thinkingBlock": {
 			"thinking": "Suy nghĩ"
@@ -2817,7 +2824,8 @@
 			"response_other": "{{count}} các phản hồi",
 			"entries_one": "{{count}} mục",
 			"entries_other": "{{count}} các mục",
-			"entries": "các mục"
+			"entries": "các mục",
+			"historyOff": "Lịch sử trận đấu đang tắt. Bật trong <settings>Cài đặt</settings>."
 		},
 		"logDetailModal": {
 			"logEntryDetails": "Chi tiết mục nhật ký",

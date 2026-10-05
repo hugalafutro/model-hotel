@@ -638,7 +638,6 @@
 			"descriptionConversation": "شاهد نموذجين يتحاوران معًا",
 			"selectModelToStart": "حدد موديل لبدء الدردشة",
 			"keyboardHint": "اضغط Enter للإرسال، Shift+Enter للسطر الجديد",
-			"turnCount": "الدور {{current}} / {{max}}",
 			"tokens": "الرموز",
 			"modelGenerating": "النموذج يقوم بتوليد…",
 			"waitingNextTurn": "في انتظار الجولة التالية…",
@@ -766,7 +765,8 @@
 		},
 		"button": {
 			"stop": "إيقاف الكل",
-			"run": "تشغيل الساحة"
+			"run": "تشغيل الساحة",
+			"runCompare": "تشغيل المقارنة"
 		},
 		"disabledReason": {
 			"selectTwoModels": "حدد على الأقل اثنين من النماذج",
@@ -3060,7 +3060,7 @@
 			"delay": "التأخير: {{delay}}ms",
 			"round": "الجولة: {{current}} / {{max}}",
 			"nextIn": "التالي في {{seconds}}s…",
-			"status": "الحالة: {{state}}",
+			"status": "الحالة:",
 			"expandConfig": "توسيع التكوين",
 			"collapseConfig": "طي الإعدادات",
 			"generationFailed": "فشل الإنشاء - استخدم إعادة المحاولة أو تغيير النموذج للاستمرار",
@@ -3075,7 +3075,14 @@
 			"reenterOrEditPrompt": "أعد إدخال أو تحرير طلبك…",
 			"retry": "إعادة المحاولة",
 			"retryFromTurn": "إعادة المحاولة من الدور {{turn}}",
-			"stop": "توقف"
+			"stop": "توقف",
+			"state": {
+				"idle": "خامل",
+				"running": "قيد التشغيل",
+				"paused": "متوقف مؤقتًا",
+				"completed": "مكتمل",
+				"error": "خطأ"
+			}
 		},
 		"thinkingBlock": {
 			"thinking": "التفكير"
@@ -3109,7 +3116,8 @@
 			"response_two": "{{count}} ردان",
 			"response_few": "{{count}} ردود",
 			"response_many": "{{count}} ردًا",
-			"response_other": "{{count}} رد"
+			"response_other": "{{count}} رد",
+			"historyOff": "سجل المباريات متوقف. فعّله من <settings>الإعدادات</settings>."
 		},
 		"logDetailModal": {
 			"logEntryDetails": "تفاصيل إدخال السجل",

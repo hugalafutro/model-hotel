@@ -573,7 +573,9 @@ describe("Arena", () => {
 			const textarea = screen.getByRole("textbox", { name: /prompt/i });
 			await user.type(textarea, "Test prompt");
 
-			await user.click(screen.getByRole("button", { name: /Run Arena/i }));
+			await user.click(
+				screen.getByRole("button", { name: /Run (Arena|Compare)/i }),
+			);
 
 			// Should handle error - page should still be functional
 			await waitFor(

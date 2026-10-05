@@ -125,6 +125,38 @@ export function formatPrice(n: number | null | undefined): string {
 }
 
 /**
+ * A reply's price in USD from the model's listed per-million rates. Null when
+ * the model is unknown, unpriced on either side, or the reply has no usage.
+ */
+export function estimateCostUsd(
+	model:
+		| {
+				input_price_per_million?: number | null;
+				output_price_per_million?: number | null;
+		  }
+		| undefined,
+	metrics:
+		| { promptTokens: number; completionTokens: number }
+		| null
+		| undefined,
+): number | null {
+	if (!model || !metrics) return null;
+	const inRate = model.input_price_per_million;
+	const outRate = model.output_price_per_million;
+	if (inRate == null || outRate == null) return null;
+	if (metrics.promptTokens + metrics.completionTokens === 0) return null;
+	return (
+		(metrics.promptTokens * inRate + metrics.completionTokens * outRate) / 1e6
+	);
+}
+
+/** An estimated reply price for display: a free model reads "$0", anything under the fourth decimal as a floor. */
+export function formatCostUsd(usd: number): string {
+	if (usd === 0) return "$0";
+	return usd < 0.0001 ? "<$0.0001" : `$${formatPrice(usd)}`;
+}
+
+/**
  * The i18n key (under models.priceSource) explaining where a price came from.
  * An unrecorded source reads as "unknown": the row was stored before sources
  * were tracked, and the next discovery scan records one.

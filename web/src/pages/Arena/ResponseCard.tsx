@@ -13,7 +13,12 @@ import type { Model } from "../../api/types";
 import { CopyButton } from "../../components/CopyButton";
 import { ModelReplyCard } from "../../components/ModelReplyCard";
 import { useDisableModel } from "../../hooks/useDisableModel";
-import { findChatModel, parseCapabilities } from "../../utils/model";
+import {
+	estimateCostUsd,
+	findChatModel,
+	parseCapabilities,
+	shortModelName,
+} from "../../utils/model";
 import { ModelDetailModal } from "../Models/ModelDetailModal";
 import { VoteThumb } from "./shared";
 import type { ResponseCardProps } from "./types";
@@ -29,6 +34,7 @@ export function ResponseCard({
 	onSwapModel,
 	onCancelSlot,
 	showVote,
+	blind,
 	enabledModels,
 	params,
 }: ResponseCardProps) {
@@ -39,26 +45,36 @@ export function ResponseCard({
 	const isLoser = vote !== null && vote !== slotKey;
 
 	const modelObj = findChatModel(enabledModels, response.model);
+	const displayName = blind
+		? t(`chat.controls.model${blind}`)
+		: shortModelName(response.model);
 
 	return (
 		<>
 			<ModelReplyCard
-				model={response.model}
+				model={blind ? displayName : response.model}
 				content={response.content}
 				thinkingContent={response.thinkingContent}
 				error={response.error}
 				metrics={response.metrics}
+				costUsd={blind ? null : estimateCostUsd(modelObj, response.metrics)}
 				isStreaming={!response.done}
 				startTimeMs={response.startTimeMs}
 				isWinner={isWinner}
 				isLoser={isLoser}
 				shortenModelName={true}
-				showInfoIcon={true}
-				params={params}
+				showInfoIcon={!blind}
+				params={blind ? undefined : params}
+				// The amber "Thinking" cue comes from the catalog, so it would name
+				// the reasoning side of a blind pair.
 				isReasoningModel={
-					!!modelObj && !!parseCapabilities(modelObj.capabilities).reasoning
+					!blind &&
+					!!modelObj &&
+					!!parseCapabilities(modelObj.capabilities).reasoning
 				}
-				onModelNameClick={modelObj ? () => setDetailModel(modelObj) : undefined}
+				onModelNameClick={
+					modelObj && !blind ? () => setDetailModel(modelObj) : undefined
+				}
 				onDisableModel={
 					response.error && response.model
 						? () => disableModelMutation.mutate(response.model)
@@ -95,17 +111,21 @@ export function ResponseCard({
 								>
 									<RefreshCw size={14} />
 								</button>
-								<button
-									type="button"
-									onClick={() =>
-										onSwapModel(roundIdx, matchupIdx, slotKey, response.model)
-									}
-									className="ui-icon-btn"
-									title={t("arena.swapModel.title")}
-									aria-label={t("arena.swapModel.title")}
-								>
-									<ArrowLeftRight size={14} />
-								</button>
+								{/* Choosing a replacement names the slot, so a blind reply keeps its
+								    swap until the vote reveals it. */}
+								{!blind && (
+									<button
+										type="button"
+										onClick={() =>
+											onSwapModel(roundIdx, matchupIdx, slotKey, response.model)
+										}
+										className="ui-icon-btn"
+										title={t("arena.swapModel.title")}
+										aria-label={t("arena.swapModel.title")}
+									>
+										<ArrowLeftRight size={14} />
+									</button>
+								)}
 							</>
 						)}
 						{response.error && (
@@ -162,9 +182,8 @@ export function ResponseCard({
 										: "text-(--text-tertiary) hover:text-(--text-secondary)"
 								}`}
 								title={vote === null ? t("arena.vote.title") : undefined}
-								aria-label={
-									vote === null ? t("arena.vote.title") : t("arena.vote.voted")
-								}
+								// Named per card: two blind thumbs otherwise read alike.
+								aria-label={`${t(vote === null ? "arena.vote.title" : "arena.vote.voted")}: ${displayName}`}
 							>
 								<VoteThumb
 									size={18}
@@ -176,7 +195,7 @@ export function ResponseCard({
 					</>
 				}
 				footerEnd={null}
-				className="flex flex-col h-full"
+				className="flex flex-col h-full min-h-0"
 				headerClassName="px-4 py-1.5 border-b border-(--border-subtle)"
 				bodyClassName="px-4 pt-0 overflow-y-auto flex-1 min-h-0"
 				footerClassName="px-4 py-0.5 border-t border-(--border-subtle)"

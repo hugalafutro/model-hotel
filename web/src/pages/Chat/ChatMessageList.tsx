@@ -7,7 +7,11 @@ import { ModelReplyCard } from "../../components/ModelReplyCard";
 import { CHAT_PERSONAS } from "../../data/presets";
 import { useDisableModel } from "../../hooks/useDisableModel";
 import { formatTime } from "../../utils/format";
-import { isReasoningModel } from "../../utils/model";
+import {
+	estimateCostUsd,
+	findChatModel,
+	isReasoningModel,
+} from "../../utils/model";
 
 export interface ChatMessageListProps {
 	messages: ChatMessage[];
@@ -94,7 +98,8 @@ export function ChatMessageList({
 							className={`flex ${isConversationMode ? "justify-center" : "justify-end"}`}
 						>
 							<div
-								className={`max-w-[80%] p-2.5 ${isConversationMode ? "bg-gray-500/20 text-(--text-primary) border border-gray-500/30" : "bg-(--accent) text-white"}`}
+								// Outlined, not filled: a solid accent block outshone every reply.
+								className={`max-w-[80%] p-2.5 text-(--text-primary) border ${isConversationMode ? "bg-gray-500/20 border-gray-500/30" : "bg-(--accent)/10 border-(--accent)/50"}`}
 								style={{
 									borderRadius: "var(--radius-card)",
 								}}
@@ -107,9 +112,7 @@ export function ChatMessageList({
 									/>
 								)}
 								{msg.audioAttachment && (
-									<div
-										className={`flex items-center gap-1.5 mb-1.5 text-xs ${isConversationMode ? "text-(--text-secondary)" : "text-white/80"}`}
-									>
+									<div className="flex items-center gap-1.5 mb-1.5 text-xs text-(--text-secondary)">
 										<Mic size={12} />
 										<span>
 											{msg.audioAttachment.format.toUpperCase()}{" "}
@@ -118,20 +121,14 @@ export function ChatMessageList({
 									</div>
 								)}
 								{(msg.content || (!msg.imageUrl && !msg.audioAttachment)) && (
-									<MarkdownContent
-										className={`${isConversationMode ? "" : "[&_strong]:text-white [&_em]:text-white/80"}`}
-									>
-										{msg.content}
-									</MarkdownContent>
+									<MarkdownContent>{msg.content}</MarkdownContent>
 								)}
-								<div
-									className={`flex items-center gap-3 text-[11px] mt-0.5 ${isConversationMode ? "text-(--text-secondary)" : "text-white/60"}`}
-								>
+								<div className="flex items-center gap-3 text-[11px] mt-0.5 text-(--text-secondary)">
 									<span>{formatTime(msg.timestamp)}</span>
 									<CopyButton
 										text={msg.content}
 										size={10}
-										className={`inline-flex items-center transition-all ${isConversationMode ? "text-(--text-secondary) hover:text-(--text-primary)" : "text-white hover:drop-shadow-[var(--glow-text-primary)]"}`}
+										className="inline-flex items-center transition-all text-(--text-secondary) hover:text-(--text-primary)"
 									/>
 								</div>
 							</div>
@@ -153,6 +150,10 @@ export function ChatMessageList({
 								thinkingContent={msg.thinkingContent}
 								error={msg.error}
 								metrics={msg.metrics}
+								costUsd={estimateCostUsd(
+									findChatModel(enabledModels, msg.model || ""),
+									msg.metrics,
+								)}
 								isStreaming={isStreamingThis}
 								startTimeMs={isStreamingThis ? msg.timestamp : undefined}
 								shortenModelName={false}

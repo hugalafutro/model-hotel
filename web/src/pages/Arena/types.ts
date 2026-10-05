@@ -29,6 +29,9 @@ export interface Matchup {
 	responseA: ArenaResponse | null;
 	responseB: ArenaResponse | null;
 	vote: "A" | "B" | null;
+	/** Render slot B on the left. Drawn at random when the matchup is formed, so
+	 * the blind cards cannot be matched to the setup order. */
+	flipped?: boolean;
 }
 
 export interface BracketRound {
@@ -56,6 +59,8 @@ export interface MatchupCardProps {
 	response: ArenaResponse | null;
 	isRunning: boolean;
 	phase: BracketPhase;
+	/** The label shown instead of the model while the matchup is blind ("A" left, "B" right), undefined once it may be named. */
+	blind?: "A" | "B";
 	onPersonaChange: (
 		roundIdx: number,
 		matchupIdx: number,
@@ -87,6 +92,8 @@ export interface ResponseCardProps {
 		modelId: string,
 	) => void;
 	showVote: boolean;
+	/** The label shown instead of the model while the matchup is blind ("A" left, "B" right), undefined once it may be named. */
+	blind?: "A" | "B";
 	enabledModels: Model[];
 	params?: GenerationParams;
 }

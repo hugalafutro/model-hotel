@@ -562,7 +562,6 @@
 			"descriptionConversation": "Seuraa kahden mallin keskustelua",
 			"selectModelToStart": "Valitse malli, jolla chattailu voidaan aloittaa",
 			"keyboardHint": "Paina Enter lähettääksesi, Shift+Enter uudelle viivalle",
-			"turnCount": "Vuoro {{current}} / {{max}}",
 			"tokens": "tokenia",
 			"modelGenerating": "Malli tuottaa…",
 			"waitingNextTurn": "Odotan seuraavaa vuoroa…",
@@ -690,7 +689,8 @@
 		},
 		"button": {
 			"stop": "Pysäytä Kaikki",
-			"run": "Suorita Arena"
+			"run": "Suorita Arena",
+			"runCompare": "Suorita vertailu"
 		},
 		"disabledReason": {
 			"selectTwoModels": "Valitse vähintään 2 mallia",
@@ -2776,7 +2776,7 @@
 			"delay": "Viive: {{delay}}ms",
 			"round": "Kierros: {{current}} / {{max}}",
 			"nextIn": "Seuraava {{seconds}}s…",
-			"status": "Tila: {{state}}",
+			"status": "Tila:",
 			"expandConfig": "Laajenna asetukset",
 			"collapseConfig": "Supista asetukset",
 			"generationFailed": "Luominen epäonnistui - käytä Yritä uudelleen tai muuta mallia jatkaaksesi",
@@ -2791,7 +2791,14 @@
 			"reenterOrEditPrompt": "Kirjoita uudelleen tai muokkaa kehotteesi…",
 			"retry": "Yritä Uudelleen",
 			"retryFromTurn": "Yritä uudelleen vuorosta {{turn}}",
-			"stop": "Pysäytä"
+			"stop": "Pysäytä",
+			"state": {
+				"idle": "Käyttämätön",
+				"running": "Käynnissä",
+				"paused": "Keskeytetty",
+				"completed": "Valmis",
+				"error": "Virhe"
+			}
 		},
 		"thinkingBlock": {
 			"thinking": "Ajattelu"
@@ -2817,7 +2824,8 @@
 			"response_other": "{{count}} vastausta",
 			"entries_one": "{{count}} merkintä",
 			"entries_other": "{{count}} tietuetta",
-			"entries": "merkinnät"
+			"entries": "merkinnät",
+			"historyOff": "Otteluhistoria on pois päältä. Ota se käyttöön kohdassa <settings>Asetukset</settings>."
 		},
 		"logDetailModal": {
 			"logEntryDetails": "Loki Merkintöjen Tiedot",

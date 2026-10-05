@@ -562,7 +562,6 @@
 			"descriptionConversation": "Nézze meg, ahogy két modell beszélget egymással",
 			"selectModelToStart": "Válasszon ki egy modellt a csevegés megkezdéséhez",
 			"keyboardHint": "Az Enter billentyű lenyomásával küldheted el, a Shift+Enter billentyűkombinációval pedig új sort kezdhetsz",
-			"turnCount": "{{current}}. / {{max}}. kör",
 			"tokens": "token",
 			"modelGenerating": "A modell generál…",
 			"waitingNextTurn": "Várakozás a következő körre…",
@@ -690,7 +689,8 @@
 		},
 		"button": {
 			"stop": "Minden leállítása",
-			"run": "Run Arena"
+			"run": "Run Arena",
+			"runCompare": "Összehasonlítás indítása"
 		},
 		"disabledReason": {
 			"selectTwoModels": "Válasszon ki legalább 2 modellt",
@@ -2776,7 +2776,7 @@
 			"delay": "Késleltetés: {{delay}}ms",
 			"round": "Kör: {{current}} / {{max}}",
 			"nextIn": "Következő: {{seconds}}s…",
-			"status": "Állapot: {{state}}",
+			"status": "Állapot:",
 			"expandConfig": "Konfiguráció kibontása",
 			"collapseConfig": "Beállítások összecsukása",
 			"generationFailed": "A generálás sikertelen – a folytatáshoz kattintson az „Újrapróbálás” gombra, vagy válasszon másik modellt",
@@ -2791,7 +2791,14 @@
 			"reenterOrEditPrompt": "Írja be újra vagy szerkessze a promptot…",
 			"retry": "Újrapróbálás",
 			"retryFromTurn": "Újrapróbálás a(z) {{turn}}. körtől",
-			"stop": "Leállítás"
+			"stop": "Leállítás",
+			"state": {
+				"idle": "Tétlen",
+				"running": "Fut",
+				"paused": "Szüneteltetve",
+				"completed": "Befejezve",
+				"error": "Hiba"
+			}
 		},
 		"thinkingBlock": {
 			"thinking": "Gondolkodás"
@@ -2817,7 +2824,8 @@
 			"response_other": "{{count}} válasz",
 			"entries_one": "{{count}} bejegyzés",
 			"entries_other": "{{count}} bejegyzés",
-			"entries": "bejegyzések"
+			"entries": "bejegyzések",
+			"historyOff": "A meccstörténet ki van kapcsolva. Kapcsold be itt: <settings>Beállítások</settings>."
 		},
 		"logDetailModal": {
 			"logEntryDetails": "Naplóbejegyzés részletei",

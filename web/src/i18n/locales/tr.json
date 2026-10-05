@@ -562,7 +562,6 @@
 			"descriptionConversation": "İki modelin birbiriyle sohbet etmesini izleyin",
 			"selectModelToStart": "Sohbete başlamak için bir model seçin",
 			"keyboardHint": "Göndermek için Enter tuşuna, satır başı eklemek için Shift+Enter tuşlarına basın",
-			"turnCount": "Tur {{current}} / {{max}}",
 			"tokens": "jetonlar",
 			"modelGenerating": "Model yanıt oluşturuyor…",
 			"waitingNextTurn": "Sıradaki turu bekliyorum…",
@@ -690,7 +689,8 @@
 		},
 		"button": {
 			"stop": "Hepsini Durdur",
-			"run": "Run Arena"
+			"run": "Run Arena",
+			"runCompare": "Karşılaştırmayı çalıştır"
 		},
 		"disabledReason": {
 			"selectTwoModels": "En az 2 model seçin",
@@ -2776,7 +2776,7 @@
 			"delay": "Gecikme: {{delay}}ms",
 			"round": "Tur: {{current}} / {{max}}",
 			"nextIn": "Sıradaki {{seconds}} sn içinde…",
-			"status": "Durum: {{state}}",
+			"status": "Durum:",
 			"expandConfig": "Yapılandırmayı genişlet",
 			"collapseConfig": "Yapılandırmayı daralt",
 			"generationFailed": "İşlem başarısız oldu - devam etmek için Yeniden Dene seçeneğini kullanın veya modeli değiştirin",
@@ -2791,7 +2791,14 @@
 			"reenterOrEditPrompt": "Komut isteminizi yeniden girin veya düzenleyin…",
 			"retry": "Tekrar dene",
 			"retryFromTurn": "{{turn}}. turdan yeniden dene",
-			"stop": "Dur"
+			"stop": "Dur",
+			"state": {
+				"idle": "Boşta",
+				"running": "Çalışıyor",
+				"paused": "Duraklatıldı",
+				"completed": "Tamamlandı",
+				"error": "Hata"
+			}
 		},
 		"thinkingBlock": {
 			"thinking": "Düşünüyor"
@@ -2817,7 +2824,8 @@
 			"response_other": "{{count}} yanıtlar",
 			"entries_one": "{{count}} giriş",
 			"entries_other": "{{count}} girişler",
-			"entries": "girişler"
+			"entries": "girişler",
+			"historyOff": "Maç geçmişi kapalı. Şuradan açın: <settings>Ayarlar</settings>."
 		},
 		"logDetailModal": {
 			"logEntryDetails": "Günlük Kaydı Ayrıntıları",

@@ -600,7 +600,6 @@
 			"descriptionConversation": "Obserwuj rozmowę dwóch modeli",
 			"selectModelToStart": "Wybierz model, aby rozpocząć czat",
 			"keyboardHint": "Naciśnij Enter, aby wysłać, Shift+Enter dla nowej linii",
-			"turnCount": "Tura {{current}} / {{max}}",
 			"tokens": "tokeny",
 			"modelGenerating": "Model generuje…",
 			"waitingNextTurn": "Oczekiwanie na kolejną turę…",
@@ -728,7 +727,8 @@
 		},
 		"button": {
 			"stop": "Zatrzymaj wszystko",
-			"run": "Uruchom Arenę"
+			"run": "Uruchom Arenę",
+			"runCompare": "Uruchom porównanie"
 		},
 		"disabledReason": {
 			"selectTwoModels": "Wybierz co najmniej 2 modele",
@@ -2918,7 +2918,7 @@
 			"delay": "Opóźnienie: {{delay}}ms",
 			"round": "Runda: {{current}} / {{max}}",
 			"nextIn": "Następny za {{seconds}}s…",
-			"status": "Stan: {{state}}",
+			"status": "Stan:",
 			"expandConfig": "Rozwiń konfigurację",
 			"collapseConfig": "Zwiń konfigurację",
 			"generationFailed": "Generowanie nie powiodło się - spróbuj ponownie lub zmień model, aby kontynuować",
@@ -2933,7 +2933,14 @@
 			"reenterOrEditPrompt": "Wprowadź ponownie lub edytuj swój prompt…",
 			"retry": "Ponów próbę",
 			"retryFromTurn": "Ponów próbę od tury {{turn}}",
-			"stop": "Zatrzymaj"
+			"stop": "Zatrzymaj",
+			"state": {
+				"idle": "Bezczynny",
+				"running": "Działa",
+				"paused": "Wstrzymano",
+				"completed": "Zakończono",
+				"error": "Błąd"
+			}
 		},
 		"thinkingBlock": {
 			"thinking": "Myślenie"
@@ -2963,7 +2970,8 @@
 			"entries_few": "{{count}} wpisy",
 			"entries_many": "{{count}} wpisów",
 			"entries_other": "{{count}} wpisu",
-			"entries": "wpisy"
+			"entries": "wpisy",
+			"historyOff": "Historia pojedynków jest wyłączona. Włącz ją w sekcji <settings>Ustawienia</settings>."
 		},
 		"logDetailModal": {
 			"logEntryDetails": "Szczegóły wpisu dziennika",

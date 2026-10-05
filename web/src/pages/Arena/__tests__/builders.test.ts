@@ -1,13 +1,16 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import type { GenerationParams } from "../../../api/types";
 import {
 	advanceWinners,
 	buildCompareRound,
 	buildInitialRounds,
+	fillMissingSides,
 	getPreviewPairs,
 	roundWinner,
+	shuffleSides,
 } from "../builders";
 import type { BracketRound, Matchup, MatchupSlot } from "../types";
+import { blindLabel, sideOrder } from "../utils";
 
 const mkSlot = (modelId: string): MatchupSlot => ({
 	modelId,
@@ -248,5 +251,141 @@ describe("roundWinner", () => {
 
 	it("returns undefined for an empty round", () => {
 		expect(roundWinner({ matchups: [] })).toBeUndefined();
+	});
+});
+
+describe("shuffleSides", () => {
+	it("draws a side for every matchup and leaves a missing round alone", () => {
+		const round: BracketRound = {
+			matchups: [
+				{
+					slotA: mkSlot("a"),
+					slotB: mkSlot("b"),
+					responseA: null,
+					responseB: null,
+					vote: null,
+				},
+				{
+					slotA: mkSlot("c"),
+					slotB: mkSlot("d"),
+					responseA: null,
+					responseB: null,
+					vote: null,
+				},
+			],
+		};
+		shuffleSides(round);
+		for (const mu of round.matchups) expect(typeof mu.flipped).toBe("boolean");
+		expect(() => shuffleSides(undefined)).not.toThrow();
+	});
+
+	it("draws both sides", () => {
+		const spy = vi.spyOn(Math, "random");
+		const round: BracketRound = {
+			matchups: [
+				{
+					slotA: mkSlot("a"),
+					slotB: mkSlot("b"),
+					responseA: null,
+					responseB: null,
+					vote: null,
+				},
+				{
+					slotA: mkSlot("c"),
+					slotB: mkSlot("d"),
+					responseA: null,
+					responseB: null,
+					vote: null,
+				},
+			],
+		};
+		spy.mockReturnValueOnce(0.2).mockReturnValueOnce(0.8);
+		shuffleSides(round);
+		expect(round.matchups.map((m) => m.flipped)).toEqual([true, false]);
+		spy.mockRestore();
+	});
+});
+
+describe("sideOrder", () => {
+	it("puts B first only for a flipped matchup", () => {
+		expect(sideOrder({})).toEqual(["A", "B"]);
+		expect(sideOrder({ flipped: false })).toEqual(["A", "B"]);
+		expect(sideOrder({ flipped: true })).toEqual(["B", "A"]);
+	});
+});
+
+describe("blindLabel", () => {
+	const resp = (error: string | null = null) => ({
+		model: "p/m",
+		rawContent: "",
+		content: "x",
+		thinkingContent: "",
+		startTimeMs: 1,
+		done: true,
+		error,
+		metrics: null,
+	});
+	const mu = (
+		vote: "A" | "B" | null = null,
+		errorB: string | null = null,
+	): Matchup => ({
+		slotA: mkSlot("a"),
+		slotB: mkSlot("b"),
+		responseA: resp(),
+		responseB: resp(errorB),
+		vote,
+	});
+
+	it("labels by display position, not by slot", () => {
+		// A flipped matchup shows slot B on the left, so slot B reads "Model A".
+		expect(blindLabel(mu(), "B", 0, "competition", "voting")).toBe("A");
+		expect(blindLabel(mu(), "A", 1, "competition", "voting")).toBe("B");
+	});
+
+	it("names the model in compare mode, in setup, once voted, and on an error", () => {
+		expect(blindLabel(mu(), "A", 0, "compare", "running")).toBeUndefined();
+		expect(blindLabel(mu(), "A", 0, "competition", "setup")).toBeUndefined();
+		expect(
+			blindLabel(mu("A"), "A", 0, "competition", "voting"),
+		).toBeUndefined();
+		expect(
+			blindLabel(mu("A"), "B", 1, "competition", "voting"),
+		).toBeUndefined();
+		const errored = mu(null, "boom");
+		expect(
+			blindLabel(errored, "B", 1, "competition", "voting"),
+		).toBeUndefined();
+		expect(blindLabel(errored, "A", 0, "competition", "voting")).toBe("A");
+	});
+});
+
+describe("fillMissingSides", () => {
+	it("draws a side only for matchups persisted without one", () => {
+		const spy = vi.spyOn(Math, "random").mockReturnValue(0.9);
+		const legacy: BracketRound[] = [
+			{
+				matchups: [
+					{
+						slotA: mkSlot("a"),
+						slotB: mkSlot("b"),
+						responseA: null,
+						responseB: null,
+						vote: null,
+					},
+					{
+						slotA: mkSlot("c"),
+						slotB: mkSlot("d"),
+						responseA: null,
+						responseB: null,
+						vote: null,
+						flipped: true,
+					},
+				],
+			},
+		];
+		const filled = fillMissingSides(legacy);
+		expect(filled[0].matchups.map((m) => m.flipped)).toEqual([false, true]);
+		expect(legacy[0].matchups[0].flipped).toBeUndefined();
+		spy.mockRestore();
 	});
 });

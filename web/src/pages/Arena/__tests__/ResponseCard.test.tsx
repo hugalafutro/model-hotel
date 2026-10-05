@@ -613,3 +613,48 @@ describe("ResponseCard", () => {
 		});
 	});
 });
+
+describe("ResponseCard blind", () => {
+	it("hides the model behind its slot label until the matchup is voted", () => {
+		render(<ResponseCard {...defaultProps} slotKey="A" blind="B" />, {
+			wrapper: AllProviders,
+		});
+		expect(screen.getByText("Model B")).toBeInTheDocument();
+		expect(screen.queryByText(/gemma3:4b/)).not.toBeInTheDocument();
+		expect(screen.queryByTitle(/gemma3:4b/)).not.toBeInTheDocument();
+		expect(
+			screen.queryByRole("button", { name: /Model details/ }),
+		).not.toBeInTheDocument();
+	});
+
+	it("names the model when not blind", () => {
+		render(<ResponseCard {...defaultProps} vote="A" />, {
+			wrapper: AllProviders,
+		});
+		expect(screen.getByText(/gemma3:4b/)).toBeInTheDocument();
+	});
+});
+
+describe("ResponseCard blind controls", () => {
+	it("hides Swap model while blind and names the vote button per card", () => {
+		render(<ResponseCard {...defaultProps} blind="B" showVote />, {
+			wrapper: AllProviders,
+		});
+		expect(
+			screen.queryByRole("button", { name: "Swap model" }),
+		).not.toBeInTheDocument();
+		expect(screen.getByRole("button", { name: "Re-roll" })).toBeInTheDocument();
+		expect(
+			screen.getByRole("button", { name: "Vote for this response: Model B" }),
+		).toBeInTheDocument();
+	});
+
+	it("offers Swap model again once revealed", () => {
+		render(<ResponseCard {...defaultProps} vote="A" />, {
+			wrapper: AllProviders,
+		});
+		expect(
+			screen.getByRole("button", { name: "Swap model" }),
+		).toBeInTheDocument();
+	});
+});

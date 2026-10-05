@@ -380,7 +380,6 @@ export function useChat() {
 			e.preventDefault();
 			if (chatSubMode === "chat") {
 				if (isStreaming) {
-					setControlsCollapsed(false);
 					handleStop();
 				} else {
 					setControlsCollapsed(true);

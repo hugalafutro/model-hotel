@@ -1,7 +1,13 @@
 import type { GenerationParams } from "../../api/types";
+import type { ArenaSubMode } from "../../context/SidebarModeContext";
 import { providerFromModelID } from "../../utils/model";
 import { staggerByProvider } from "../../utils/stagger";
-import type { ArenaResponse, BracketRound, Matchup } from "./types";
+import type {
+	ArenaResponse,
+	BracketPhase,
+	BracketRound,
+	Matchup,
+} from "./types";
 
 /** The bracket sizes a competition can run: a power of two up to eight. */
 export const BRACKET_SIZES = [2, 4, 8];
@@ -149,4 +155,31 @@ export function staggerAndDispatch(
 		}
 	}
 	return timers;
+}
+
+/** The slots in display order: a flipped matchup shows B on the left. */
+export function sideOrder(mu: Pick<Matchup, "flipped">): ("A" | "B")[] {
+	return mu.flipped ? ["B", "A"] : ["A", "B"];
+}
+
+/**
+ * The label a blind card shows in place of its model, by display position
+ * ("A" left, "B" right), never by slot: the setup preview and the winner
+ * advance both put a known model in slot A, so a slot-keyed label would give
+ * the flip away. Undefined when the model may be named: compare mode, setup
+ * (personas are assigned by name), a voted matchup, or an errored reply, which
+ * the user has to see to swap.
+ */
+export function blindLabel(
+	mu: Matchup,
+	slotKey: "A" | "B",
+	position: number,
+	mode: ArenaSubMode,
+	phase: BracketPhase,
+): "A" | "B" | undefined {
+	if (mode !== "competition" || phase === "setup" || mu.vote !== null)
+		return undefined;
+	const response = slotKey === "A" ? mu.responseA : mu.responseB;
+	if (response?.error) return undefined;
+	return position === 0 ? "A" : "B";
 }

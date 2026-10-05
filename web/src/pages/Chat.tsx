@@ -72,10 +72,7 @@ export function Chat() {
 						chat.setControlsCollapsed(true);
 						chat.handleRetryConversation();
 					}}
-					onStop={() => {
-						chat.setControlsCollapsed(false);
-						chat.handleStopConversation();
-					}}
+					onStop={chat.handleStopConversation}
 					canStart={chat.canStartConversation}
 					disabledReason={chat.conversationDisabledReason}
 					selectedModel={chat.selectedModel}

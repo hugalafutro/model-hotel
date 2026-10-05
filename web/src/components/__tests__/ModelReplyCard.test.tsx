@@ -74,7 +74,7 @@ describe("ModelReplyCard", () => {
 			renderWithProviders(<ModelReplyCard {...defaultProps} />);
 			expect(screen.getByText(/500ms/)).toBeInTheDocument();
 			expect(screen.getByText(/40\.0 tok\/s/)).toBeInTheDocument();
-			expect(screen.getByText(/30 tok/)).toBeInTheDocument();
+			expect(screen.getByText("10 + 20 tok")).toBeInTheDocument();
 		});
 
 		it("renders thinking block when thinkingContent is provided", async () => {
@@ -481,5 +481,34 @@ describe("ModelReplyCard", () => {
 			);
 			expect(screen.getByTitle("Model details")).toBeInTheDocument();
 		});
+	});
+});
+
+describe("ModelReplyCard cost and token split", () => {
+	const props = {
+		model: "p/m",
+		content: "reply",
+		isStreaming: false,
+		metrics: {
+			durationMs: 500,
+			promptTokens: 182,
+			completionTokens: 966,
+			tokensPerSecond: 40,
+		},
+	};
+
+	it("shows prompt and completion tokens separately", () => {
+		renderWithProviders(<ModelReplyCard {...props} />);
+		expect(screen.getByText("182 + 966 tok")).toBeInTheDocument();
+	});
+
+	it("shows the estimated price when given one and nothing when unpriced", () => {
+		const { unmount } = renderWithProviders(
+			<ModelReplyCard {...props} costUsd={0.0123} />,
+		);
+		expect(screen.getByText("$0.0123")).toBeInTheDocument();
+		unmount();
+		renderWithProviders(<ModelReplyCard {...props} costUsd={null} />);
+		expect(screen.queryByText(/\$/)).not.toBeInTheDocument();
 	});
 });

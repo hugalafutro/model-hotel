@@ -581,7 +581,6 @@
 			"descriptionConversation": "Priviți două modele conversate între ele",
 			"selectModelToStart": "Selectați un model pentru a începe conversația",
 			"keyboardHint": "Apăsați Enter pentru a trimite, Shift+Enter pentru noua linie",
-			"turnCount": "Rândul {{current}} / {{max}}",
 			"tokens": "jetoane",
 			"modelGenerating": "Modelul generează…",
 			"waitingNextTurn": "Se așteaptă rândul următor…",
@@ -709,7 +708,8 @@
 		},
 		"button": {
 			"stop": "Oprește tot",
-			"run": "Rulează arena"
+			"run": "Rulează arena",
+			"runCompare": "Rulează comparația"
 		},
 		"disabledReason": {
 			"selectTwoModels": "Selectaţi cel puţin 2 modele",
@@ -2847,7 +2847,7 @@
 			"delay": "Întârziere: {{delay}}ms",
 			"round": "Runda: {{current}} / {{max}}",
 			"nextIn": "Următorul în {{seconds}}s…",
-			"status": "Status: {{state}}",
+			"status": "Status:",
 			"expandConfig": "Extinde configurarea",
 			"collapseConfig": "Restrânge configurația",
 			"generationFailed": "Generarea a eșuat - utilizați Reîncercați sau schimbați modelul pentru a continua",
@@ -2862,7 +2862,14 @@
 			"reenterOrEditPrompt": "Reintroduceți sau editați solicitarea…",
 			"retry": "Reîncercați",
 			"retryFromTurn": "Reîncercați de la Turn {{turn}}",
-			"stop": "Oprește"
+			"stop": "Oprește",
+			"state": {
+				"idle": "Inactiv",
+				"running": "În curs",
+				"paused": "În pauză",
+				"completed": "Finalizat",
+				"error": "Eroare"
+			}
 		},
 		"thinkingBlock": {
 			"thinking": "Gândire"
@@ -2890,7 +2897,8 @@
 			"entries_one": "{{count}} intrare",
 			"entries_few": "{{count}} intrări",
 			"entries_other": "{{count}} de intrări",
-			"entries": "intrări"
+			"entries": "intrări",
+			"historyOff": "Istoricul meciurilor este dezactivat. Activează-l din <settings>Setări</settings>."
 		},
 		"logDetailModal": {
 			"logEntryDetails": "Detalii intrare jurnal",

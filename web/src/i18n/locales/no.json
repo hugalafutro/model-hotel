@@ -562,7 +562,6 @@
 			"descriptionConversation": "Se to modeller samtale med hverandre",
 			"selectModelToStart": "Velg en modell å begynne å chatte",
 			"keyboardHint": "Trykk Enter for å sende, Shift+Enter for newline",
-			"turnCount": "Tur {{current}} / {{max}}",
 			"tokens": "tokener",
 			"modelGenerating": "Modell genererer…",
 			"waitingNextTurn": "Venter på neste omgang…",
@@ -690,7 +689,8 @@
 		},
 		"button": {
 			"stop": "Stopp alle",
-			"run": "Kjør Arena"
+			"run": "Kjør Arena",
+			"runCompare": "Kjør sammenligning"
 		},
 		"disabledReason": {
 			"selectTwoModels": "Velg minst 2 modeller",
@@ -2776,7 +2776,7 @@
 			"delay": "Forsinkelse: {{delay}}ms",
 			"round": "Runde: {{current}} / {{max}}",
 			"nextIn": "Neste i {{seconds}}s…",
-			"status": "Status: {{state}}",
+			"status": "Status:",
 			"expandConfig": "Ekspander konfigurasjon",
 			"collapseConfig": "Skjul konfigurasjon",
 			"generationFailed": "Generering feilet - bruk Prøv på nytt eller endre modellen for å fortsette",
@@ -2791,7 +2791,14 @@
 			"reenterOrEditPrompt": "Skriv inn på nytt eller rediger ledeteksten…",
 			"retry": "Prøv igjen",
 			"retryFromTurn": "Prøv igjen fra tur {{turn}}",
-			"stop": "Stopp"
+			"stop": "Stopp",
+			"state": {
+				"idle": "Inaktiv",
+				"running": "Kjører",
+				"paused": "Satt på pause",
+				"completed": "Fullført",
+				"error": "Feil"
+			}
 		},
 		"thinkingBlock": {
 			"thinking": "Tenker"
@@ -2817,7 +2824,8 @@
 			"response_other": "{{count}} svar",
 			"entries_one": "{{count}} oppføring",
 			"entries_other": "{{count}} oppføringer",
-			"entries": "oppføringer"
+			"entries": "oppføringer",
+			"historyOff": "Kamphistorikk er av. Slå den på under <settings>Innstillinger</settings>."
 		},
 		"logDetailModal": {
 			"logEntryDetails": "Detaljer for loggoppføring",

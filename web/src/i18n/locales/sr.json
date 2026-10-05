@@ -581,7 +581,6 @@
 			"descriptionConversation": "Погледајте како два модела разговарају један с другим",
 			"selectModelToStart": "Изаберите модел да бисте започели ћаскање.",
 			"keyboardHint": "Притисните Enter да пошаљете, Shift+Enter за нови ред",
-			"turnCount": "Потез {{current}} / {{max}}",
 			"tokens": "токени",
 			"modelGenerating": "Модел генерише…",
 			"waitingNextTurn": "Чекање на следећи потез…",
@@ -709,7 +708,8 @@
 		},
 		"button": {
 			"stop": "Заустави све",
-			"run": "Покрени арену"
+			"run": "Покрени арену",
+			"runCompare": "Покрени поређење"
 		},
 		"disabledReason": {
 			"selectTwoModels": "Изаберите најмање 2 модела",
@@ -2847,7 +2847,7 @@
 			"delay": "Закашњење: {{delay}}мс",
 			"round": "Рунда: {{current}} / {{max}}",
 			"nextIn": "Следеће за {{seconds}}с…",
-			"status": "Статус: {{state}}",
+			"status": "Статус:",
 			"expandConfig": "Прошири конфигурацију",
 			"collapseConfig": "Сакриј конфигурацију",
 			"generationFailed": "Генерација је пропала - користите Поново покушај или промените модел да бисте наставили",
@@ -2862,7 +2862,14 @@
 			"reenterOrEditPrompt": "Поново унесите или измените свој упит…",
 			"retry": "Поново покушај",
 			"retryFromTurn": "Поново покушај од потеза {{turn}}",
-			"stop": "Стоп"
+			"stop": "Стоп",
+			"state": {
+				"idle": "Неактиван",
+				"running": "Ради",
+				"paused": "Паузирано",
+				"completed": "Завршено",
+				"error": "Грешка"
+			}
 		},
 		"thinkingBlock": {
 			"thinking": "Размишљање"
@@ -2890,7 +2897,8 @@
 			"entries_one": "{{count}} унос",
 			"entries_few": "{{count}} уноса",
 			"entries_other": "{{count}} уноса",
-			"entries": "уносе"
+			"entries": "уносе",
+			"historyOff": "Историја мечева је искључена. Укључите је у одељку <settings>Подешавања</settings>."
 		},
 		"logDetailModal": {
 			"logEntryDetails": "Детаљи уноса у дневник",

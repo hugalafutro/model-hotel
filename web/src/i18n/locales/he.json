@@ -581,7 +581,6 @@
 			"descriptionConversation": "צפו בשני דגמים משוחחים זה עם זה",
 			"selectModelToStart": "בחר דגם כדי להתחיל לשוחח",
 			"keyboardHint": "לחץ על Enter כדי לשלוח, Shift+Enter כדי להוסיף שורה חדשה",
-			"turnCount": "תור {{current}} / {{max}}",
 			"tokens": "אסימונים",
 			"modelGenerating": "המודל מייצר…",
 			"waitingNextTurn": "מחכה לתור הבא…",
@@ -709,7 +708,8 @@
 		},
 		"button": {
 			"stop": "עצור הכל",
-			"run": "Run Arena"
+			"run": "Run Arena",
+			"runCompare": "הפעל השוואה"
 		},
 		"disabledReason": {
 			"selectTwoModels": "בחר לפחות 2 דגמים",
@@ -2847,7 +2847,7 @@
 			"delay": "עיכוב: {{delay}}מילי-שניות",
 			"round": "סיבוב: {{current}} / {{max}}",
 			"nextIn": "הבא בעוד {{seconds}} שנ'…",
-			"status": "סטטוס: {{state}}",
+			"status": "סטטוס:",
 			"expandConfig": "הרחב את הקובץ config",
 			"collapseConfig": "קפל את התצורה",
 			"generationFailed": "היצירה נכשלה - לחץ על \"נסה שוב\" או שנה את המודל כדי להמשיך",
@@ -2862,7 +2862,14 @@
 			"reenterOrEditPrompt": "הזן מחדש או ערוך את ההנחיה שלך…",
 			"retry": "נסה שוב",
 			"retryFromTurn": "נסה שוב מהתור {{turn}}",
-			"stop": "עצור"
+			"stop": "עצור",
+			"state": {
+				"idle": "לא פעיל",
+				"running": "פועל",
+				"paused": "מושהה",
+				"completed": "הושלם",
+				"error": "שגיאה"
+			}
 		},
 		"thinkingBlock": {
 			"thinking": "חושב"
@@ -2890,7 +2897,8 @@
 			"entries_one": "{{count}} רשומה",
 			"entries_two": "{{count}} רשומות",
 			"entries_other": "{{count}} רשומות",
-			"entries": "רשומות"
+			"entries": "רשומות",
+			"historyOff": "היסטוריית המשחקים כבויה. הפעל אותה תחת <settings>הגדרות</settings>."
 		},
 		"logDetailModal": {
 			"logEntryDetails": "פרטי הרישום ביומן",

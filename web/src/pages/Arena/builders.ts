@@ -90,6 +90,30 @@ export function advanceWinners(draft: BracketRound[], roundIdx: number): void {
 	}
 }
 
+/**
+ * Draws each matchup's display side at random. The cards are blind until
+ * voted, and the setup preview shows the pairs in board order, so a fixed
+ * left/right would give the identities away.
+ */
+export function shuffleSides(round: BracketRound | undefined): void {
+	if (!round) return;
+	for (const mu of round.matchups) mu.flipped = Math.random() < 0.5;
+}
+
+/**
+ * Draws a side for every matchup that has none. Rounds persisted before sides
+ * existed come back without `flipped`, and a fixed fallback order would show a
+ * still-blind matchup in setup order.
+ */
+export function fillMissingSides(rounds: BracketRound[]): BracketRound[] {
+	return rounds.map((round) => ({
+		...round,
+		matchups: round.matchups.map((mu) =>
+			mu.flipped === undefined ? { ...mu, flipped: Math.random() < 0.5 } : mu,
+		),
+	}));
+}
+
 /** The model the final round's single matchup was voted for, if it was voted. */
 export function roundWinner(round: BracketRound): string | undefined {
 	const mu = round.matchups[0];

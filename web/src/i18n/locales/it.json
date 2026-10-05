@@ -581,7 +581,6 @@
 			"descriptionConversation": "Guarda due modelli conversano tra loro",
 			"selectModelToStart": "Seleziona un modello per iniziare a chattare",
 			"keyboardHint": "Premi Invio per inviare, Maiusc+Invio per newline",
-			"turnCount": "Turno {{current}} / {{max}}",
 			"tokens": "token",
 			"modelGenerating": "Il modello sta generando…",
 			"waitingNextTurn": "In attesa del prossimo turno…",
@@ -709,7 +708,8 @@
 		},
 		"button": {
 			"stop": "Ferma Tutto",
-			"run": "Esegui Arena"
+			"run": "Esegui Arena",
+			"runCompare": "Avvia confronto"
 		},
 		"disabledReason": {
 			"selectTwoModels": "Seleziona almeno 2 modelli",
@@ -2847,7 +2847,7 @@
 			"delay": "Ritardo: {{delay}}ms",
 			"round": "round: {{current}} / {{max}}",
 			"nextIn": "Successivo in {{seconds}}s…",
-			"status": "Stato: {{state}}",
+			"status": "Stato:",
 			"expandConfig": "Espandi configurazione",
 			"collapseConfig": "Comprimi configurazione",
 			"generationFailed": "Generazione fallita - usa Riprova o cambia il modello per continuare",
@@ -2862,7 +2862,14 @@
 			"reenterOrEditPrompt": "Reinserisci o modifica il tuo prompt…",
 			"retry": "Riprova",
 			"retryFromTurn": "Riprova dal turno {{turn}}",
-			"stop": "Ferma"
+			"stop": "Ferma",
+			"state": {
+				"idle": "Inattivo",
+				"running": "In corso",
+				"paused": "In pausa",
+				"completed": "Completato",
+				"error": "Errore"
+			}
 		},
 		"thinkingBlock": {
 			"thinking": "Ragionamento"
@@ -2890,7 +2897,8 @@
 			"entries_one": "{{count}} voce",
 			"entries_many": "{{count}} voci",
 			"entries_other": "{{count}} voci",
-			"entries": "voci"
+			"entries": "voci",
+			"historyOff": "La cronologia delle partite è disattivata. Attivala in <settings>Impostazioni</settings>."
 		},
 		"logDetailModal": {
 			"logEntryDetails": "Dettagli Voce Log",

@@ -562,7 +562,6 @@
 			"descriptionConversation": "Παρακολουθήστε δύο μοντέλα συνομιλούν μεταξύ τους",
 			"selectModelToStart": "Επιλέξτε ένα μοντέλο για να ξεκινήσετε τη συνομιλία",
 			"keyboardHint": "Πατήστε Enter για αποστολή, Shift+Enter για νέα γραμμή",
-			"turnCount": "Σειρά {{current}} / {{max}}",
 			"tokens": "διακριτικά",
 			"modelGenerating": "Το μοντέλο δημιουργεί…",
 			"waitingNextTurn": "Αναμονή για την επόμενη σειρά…",
@@ -690,7 +689,8 @@
 		},
 		"button": {
 			"stop": "Διακοπή Όλων",
-			"run": "Εκτέλεση Αρένα"
+			"run": "Εκτέλεση Αρένα",
+			"runCompare": "Εκτέλεση σύγκρισης"
 		},
 		"disabledReason": {
 			"selectTwoModels": "Επιλέξτε τουλάχιστον 2 μοντέλα",
@@ -2776,7 +2776,7 @@
 			"delay": "Καθυστέρηση: {{delay}}ms",
 			"round": "Γύρος: {{current}} / {{max}}",
 			"nextIn": "Επόμενο στο {{seconds}}s…",
-			"status": "Κατάσταση: {{state}}",
+			"status": "Κατάσταση:",
 			"expandConfig": "Ανάπτυξη ρυθμίσεων",
 			"collapseConfig": "Σύμπτυξη ρυθμίσεων",
 			"generationFailed": "Η δημιουργία απέτυχε - χρησιμοποιήστε Επανάληψη ή αλλάξτε το μοντέλο για να συνεχίσετε",
@@ -2791,7 +2791,14 @@
 			"reenterOrEditPrompt": "Εισαγάγετε ξανά ή επεξεργαστείτε την προτροπή σας…",
 			"retry": "Επανάληψη",
 			"retryFromTurn": "Επανάληψη από τη σειρά {{turn}}",
-			"stop": "Διακοπή"
+			"stop": "Διακοπή",
+			"state": {
+				"idle": "Αδρανές",
+				"running": "Εκτελείται",
+				"paused": "Σε παύση",
+				"completed": "Ολοκληρώθηκε",
+				"error": "Σφάλμα"
+			}
 		},
 		"thinkingBlock": {
 			"thinking": "Σκέψη"
@@ -2817,7 +2824,8 @@
 			"response_other": "{{count}} απαντήσεις",
 			"entries_one": "{{count}} καταχώριση",
 			"entries_other": "{{count}} καταχωρήσεις",
-			"entries": "καταχωρήσεις"
+			"entries": "καταχωρήσεις",
+			"historyOff": "Το ιστορικό αγώνων είναι απενεργοποιημένο. Ενεργοποιήστε το στις <settings>Ρυθμίσεις</settings>."
 		},
 		"logDetailModal": {
 			"logEntryDetails": "Λεπτομέρειες Καταγραφής Καταχώρησης",

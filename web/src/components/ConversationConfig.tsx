@@ -131,7 +131,6 @@ export function ConversationConfig({
 								{t("components.conversationConfig.delay", {
 									delay: turnDelayMs,
 								})}
-								ms
 							</span>
 						</span>
 					)}
@@ -155,15 +154,13 @@ export function ConversationConfig({
 					{/* Status */}
 					<span className="text-xs text-(--text-secondary) flex items-center gap-1.5">
 						<Timer size={12} />
-						{t("components.conversationConfig.status", {
-							state: conversationState,
-						})}
+						{t("components.conversationConfig.status")}
 						<span
-							className={`capitalize ${
-								isError ? "text-red-400" : "text-(--text-primary)"
-							}`}
+							className={isError ? "text-red-400" : "text-(--text-primary)"}
 						>
-							{conversationState}
+							{t(`components.conversationConfig.state.${conversationState}`, {
+								defaultValue: conversationState,
+							})}
 						</span>
 					</span>
 					<CollapsibleToggle
