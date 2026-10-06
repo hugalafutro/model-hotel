@@ -11,11 +11,14 @@ A single OpenAI-compatible endpoint that sits in front of all your LLM providers
 ```bash
 git clone https://github.com/hugalafutro/model-hotel.git
 cd model-hotel
-cp .env.example .env   # Set MASTER_KEY and POSTGRES_PASSWORD
-docker compose up --build
+cp .env.example .env
+nano .env              # set MASTER_KEY and POSTGRES_PASSWORD; change HOST_PORT if 8081 is taken
+docker compose up --build -d
 ```
 
-On first start the server prints the admin token once, in a boxed `ADMIN TOKEN (save now ...)` panel. Read it with `docker compose logs app`, and save it: it is never shown again.
+To run the published image instead of building, follow [Deploy without Git](https://github.com/hugalafutro/model-hotel#-deploy-without-git) in the README: two files, no clone.
+
+On first start the server prints the admin token once, in a boxed `ADMIN TOKEN (save now ...)` panel. Read it with `docker compose logs app`, and save it: it is never shown again. To stop, update or remove the stack, see [Stop, Update, Remove](https://github.com/hugalafutro/model-hotel#-stop-update-remove) in the README.
 
 See [[Development]] for local setup details.
 
