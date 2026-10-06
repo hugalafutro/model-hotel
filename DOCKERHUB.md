@@ -70,7 +70,7 @@ ADMIN_TOKEN=
 # Optional: host port for the dashboard and API; change it if 8081 is taken
 # HOST_PORT=8081
 
-# Optional: WebAuthn/FIDO2 passkey login
+# Optional: WebAuthn/FIDO2 passkey login (only WEBAUTHN_RP_ID is required)
 # WEBAUTHN_RP_ID=your-domain.com
 # WEBAUTHN_RP_ORIGINS=https://your-domain.com
 ```
@@ -189,6 +189,8 @@ services:
 docker compose up -d
 ```
 
+Then read the admin token from `docker compose logs app` and open `http://localhost:8081` (or the `HOST_PORT` you set). The file sets `name: model-hotel`, so a second stack on the same host needs a different `name:` or `docker compose -p <other>`.
+
 > **Note:** The compose above is the production file; see Quick Start above for the development override. `WEBAUTHN_RP_ID` enables passkey login (empty to disable); `TRUSTED_PROXIES` trusts inbound `X-Forwarded-For` headers from reverse proxies; `KNOWN_PROXIES` allows outbound connections to internal LLM servers on private networks (bypasses SSRF protection). See the [Configuration wiki](https://github.com/hugalafutro/model-hotel/wiki/Configuration) for every variable.
 
 > **Note:** The app only sees the variables listed under its `environment:` key; `.env` just fills their `${...}` placeholders. To use any other variable (for example `COOKIE_SECURE`, `METRICS_TOKEN` or `LOG_FORMAT`), add it to that list, e.g. `- COOKIE_SECURE=${COOKIE_SECURE:-always}`. `COOKIE_SECURE` sets the `Secure` attribute on the dashboard login cookies: `always` (the default) sends them only over HTTPS or to `http://localhost`, so logging in over plain HTTP from another machine (e.g. `http://192.168.1.10:8081`) fails until you set `auto` (follows the request: TLS or `X-Forwarded-Proto: https`) or `never` (plain-HTTP LAN).
@@ -197,9 +199,9 @@ docker compose up -d
 
 `docker compose down` stops the stack and keeps your data. Both services use bind mounts under `./.data` (PostgreSQL in `./.data/pgdata`). There are no named volumes, so `down -v` removes nothing more.
 
-To update a two-file deployment, run `docker compose pull && docker compose up -d`. Compose changes do not reach you on their own: when the block in **Deploy without Git** differs from what you copied, merge the new block into your file by hand, keeping your step 3 image switch and any `environment:` entries you added, then run the same two commands. A clone that builds from source runs `git pull && docker compose up --build -d`. A clone switched to a prebuilt image has a local edit in `docker-compose.yml`, so run `git stash && git pull && git stash pop` (resolve any conflict in the `build:`/`image:` lines), then `docker compose pull && docker compose up -d`.
+To update a two-file deployment, run `docker compose pull && docker compose up -d`. Compose changes do not reach you on their own: diff the block in **Deploy without Git** against your file now and then, merge what changed by hand, keeping every local edit (the step 3 image switch, added `environment:` entries, an uncommented socket mount or apprise service), then run the same two commands. A clone that builds from source runs `git pull && docker compose up --build -d`. A clone switched to a prebuilt image has a local edit in `docker-compose.yml`, so run `git stash && git pull && git stash pop`; if the pop reports a conflict, fix the `build:`/`image:` lines, then run `git restore --staged docker-compose.yml && git stash drop`. Finish with `docker compose pull && docker compose up -d`.
 
-To remove everything, run `docker compose down` and delete `./.data`. `./.data/pgdata` belongs to PostgreSQL (uid 70), so this needs `sudo rm -rf .data`; the rest of `.data` belongs to uid 1000, which usually matches your host user.
+To remove everything, run `docker compose down --rmi all` (containers, network and the two images) and delete `./.data`. `./.data/pgdata` belongs to PostgreSQL (uid 70), so this needs `sudo rm -rf .data`; the rest of `.data` belongs to uid 1000, which usually matches your host user. `.env` and `docker-compose.yml` are yours to delete.
 
 ## High Availability
 
