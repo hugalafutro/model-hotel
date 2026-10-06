@@ -20,19 +20,19 @@ A single OpenAI-compatible endpoint in front of all your LLM providers, cloud or
 
 ## Quick Start
 
-Two ways in: clone and build from source (below), or skip the clone and run the published image from two files, see **Deploy without Git** below.
+Two ways in: clone and build from source (below), or skip the clone and run the published image from two files (see **Deploy without Git** below).
 
 ```bash
 git clone https://github.com/hugalafutro/model-hotel.git
 cd model-hotel
 
 cp .env.example .env
-nano .env          # set a strong MASTER_KEY and POSTGRES_PASSWORD
+nano .env          # set a strong MASTER_KEY and POSTGRES_PASSWORD; change HOST_PORT if 8081 is taken
 
 docker compose up --build -d
 ```
 
-For local development, layer the `compose.dev.yml` override instead. It mounts the Docker socket, turns on `DEBUG_LOG`, and allows embedding, so only use it in a trusted environment:
+For local development, layer the `compose.dev.yml` override instead. It mounts the Docker socket, turns on `DEBUG_LOG`, and allows embedding, so use it only in a trusted environment:
 
 ```bash
 # Development only:
@@ -49,15 +49,11 @@ docker compose logs app
 
 If you lose it, delete `.data/admin-token` and restart to generate a new one. The `ADMIN_TOKEN` environment variable seeds the token on first boot only: once `.data/admin-token` exists the file wins and the variable is ignored.
 
-Open `http://localhost:8081`, log in with that token, add your first provider, and start proxying.
-
-Port `8081` already taken? Set `HOST_PORT=8181` (any free port) in `.env`: the compose file maps it to the container and adds it to `CORS_ORIGINS` for you, so the dashboard answers on that port instead.
-
-Stopping, updating and removing the stack: see **Deploy without Git** below, step 5.
+Open `http://localhost:8081` (or the `HOST_PORT` you set), log in with that token, add your first provider, and start proxying. To stop, update or remove the stack, see **Stop, Update, Remove** below.
 
 ## Deploy without Git
 
-No `git clone` needed, and no build: the published image pulls in seconds. Create two files and go:
+No `git clone` needed, and no build. Create two files and go:
 
 **1.** Create `.env` with your secrets:
 
@@ -71,7 +67,7 @@ MASTER_KEY=<your-master-key>
 POSTGRES_PASSWORD=<your-postgres-password>
 ADMIN_TOKEN=
 
-# Optional: host port for the dashboard and API (default 8081)
+# Optional: host port for the dashboard and API; change it if 8081 is taken
 # HOST_PORT=8081
 
 # Optional: WebAuthn/FIDO2 passkey login
@@ -193,11 +189,17 @@ services:
 docker compose up -d
 ```
 
-**5.** Stop, update, remove. `docker compose down` stops the stack and keeps your data: both services use bind mounts under `./.data` (PostgreSQL in `./.data/pgdata`), there are no named volumes, so `down -v` removes nothing more. To update, run `docker compose pull && docker compose up -d` (prebuilt image) or `git pull && docker compose up --build -d` (built from source). To remove everything, run `docker compose down` and delete `./.data`; PostgreSQL writes `pgdata` as its own user (uid 70), so that last step needs `sudo rm -rf .data`.
-
 > **Note:** The compose above is the production file; see Quick Start above for the development override. `WEBAUTHN_RP_ID` enables passkey login (empty to disable); `TRUSTED_PROXIES` trusts inbound `X-Forwarded-For` headers from reverse proxies; `KNOWN_PROXIES` allows outbound connections to internal LLM servers on private networks (bypasses SSRF protection). See the [Configuration wiki](https://github.com/hugalafutro/model-hotel/wiki/Configuration) for every variable.
 
 > **Note:** The app only sees the variables listed under its `environment:` key; `.env` just fills their `${...}` placeholders. To use any other variable (for example `COOKIE_SECURE`, `METRICS_TOKEN` or `LOG_FORMAT`), add it to that list, e.g. `- COOKIE_SECURE=${COOKIE_SECURE:-always}`. `COOKIE_SECURE` sets the `Secure` attribute on the dashboard login cookies: `always` (the default) sends them only over HTTPS or to `http://localhost`, so logging in over plain HTTP from another machine (e.g. `http://192.168.1.10:8081`) fails until you set `auto` (follows the request: TLS or `X-Forwarded-Proto: https`) or `never` (plain-HTTP LAN).
+
+## Stop, Update, Remove
+
+`docker compose down` stops the stack and keeps your data. Both services use bind mounts under `./.data` (PostgreSQL in `./.data/pgdata`). There are no named volumes, so `down -v` removes nothing more.
+
+To update a two-file deployment, first compare your `docker-compose.yml` with the block in **Deploy without Git** and, if it changed, copy the new block and redo step 3 on it; then run `docker compose pull && docker compose up -d`. A clone that builds from source runs `git pull && docker compose up --build -d`. A clone that was switched to a prebuilt image runs `git pull` first, keeps its `build:`/`image:` edit, then `docker compose pull && docker compose up -d`.
+
+To remove everything, run `docker compose down` and delete `./.data`. The containers write it as their own users (the app as uid 1000, PostgreSQL as uid 70), so this needs `sudo rm -rf .data`.
 
 ## High Availability
 
