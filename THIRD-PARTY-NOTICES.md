@@ -6,7 +6,7 @@ Model Hotel is distributed under the MIT License (see [LICENSE](./LICENSE)).
 It bundles the third-party open-source components listed below; each is the
 property of its respective authors and is used under the terms reproduced here.
 
-_59 Go modules, 242 npm packages (regenerate with `make notices`)._
+_59 Go modules, 237 npm packages (regenerate with `make notices`)._
 
 ## Fonts
 
@@ -113,7 +113,6 @@ The web UI embeds the JetBrains Mono, Onest, and Schibsted Grotesk typefaces, an
 | [@types/debug](https://github.com/DefinitelyTyped/DefinitelyTyped/tree/master/types/debug) | 4.1.13 | npm | MIT |
 | [@types/estree](https://github.com/DefinitelyTyped/DefinitelyTyped/tree/master/types/estree) | 1.0.9 | npm | MIT |
 | [@types/estree-jsx](https://github.com/DefinitelyTyped/DefinitelyTyped/tree/master/types/estree-jsx) | 1.0.5 | npm | MIT |
-| [@types/hast](https://github.com/DefinitelyTyped/DefinitelyTyped/tree/master/types/hast) | 3.0.4 | npm | MIT |
 | [@types/hast](https://github.com/DefinitelyTyped/DefinitelyTyped/tree/master/types/hast) | 3.0.5 | npm | MIT |
 | [@types/katex](https://github.com/DefinitelyTyped/DefinitelyTyped/tree/master/types/katex) | 0.16.8 | npm | MIT |
 | [@types/mdast](https://github.com/DefinitelyTyped/DefinitelyTyped/tree/master/types/mdast) | 4.0.4 | npm | MIT |
@@ -139,7 +138,6 @@ The web UI embeds the JetBrains Mono, Onest, and Schibsted Grotesk typefaces, an
 | [color-name](https://github.com/colorjs/color-name) | 1.1.4 | npm | MIT |
 | [comma-separated-tokens](https://github.com/wooorm/comma-separated-tokens#readme) | 2.0.3 | npm | MIT |
 | [commander](https://github.com/tj/commander.js#readme) | 15.0.0 | npm | MIT |
-| [commander](https://github.com/tj/commander.js#readme) | 8.3.0 | npm | MIT |
 | [cookie-es](https://github.com/unjs/cookie-es#readme) | 3.1.1 | npm | MIT |
 | [csstype](https://github.com/frenic/csstype#readme) | 3.2.3 | npm | MIT |
 | [d3-array](https://d3js.org/d3-array/) | 3.2.4 | npm | ISC |
@@ -195,7 +193,6 @@ The web UI embeds the JetBrains Mono, Onest, and Schibsted Grotesk typefaces, an
 | [is-fullwidth-code-point](https://github.com/sindresorhus/is-fullwidth-code-point#readme) | 3.0.0 | npm | MIT |
 | [is-hexadecimal](https://github.com/wooorm/is-hexadecimal#readme) | 2.0.1 | npm | MIT |
 | [is-plain-obj](https://github.com/sindresorhus/is-plain-obj#readme) | 4.1.0 | npm | MIT |
-| [katex](https://katex.org) | 0.16.47 | npm | MIT |
 | [katex](https://katex.org) | 0.19.0 | npm | MIT |
 | [locate-path](https://github.com/sindresorhus/locate-path#readme) | 5.0.0 | npm | MIT |
 | [longest-streak](https://github.com/wooorm/longest-streak#readme) | 3.1.0 | npm | MIT |
@@ -255,7 +252,6 @@ The web UI embeds the JetBrains Mono, Onest, and Schibsted Grotesk typefaces, an
 | [parse5](https://parse5.js.org) | 7.3.0 | npm | MIT |
 | [path-exists](https://github.com/sindresorhus/path-exists#readme) | 4.0.0 | npm | MIT |
 | [pngjs](https://github.com/lukeapage/pngjs) | 5.0.0 | npm | MIT |
-| [property-information](https://github.com/wooorm/property-information#readme) | 7.1.0 | npm | MIT |
 | [property-information](https://github.com/wooorm/property-information#readme) | 7.2.0 | npm | MIT |
 | [qrcode](http://github.com/soldair/node-qrcode) | 1.5.4 | npm | MIT |
 | [react](https://react.dev/) | 19.3.0 | npm | MIT |
@@ -304,7 +300,6 @@ The web UI embeds the JetBrains Mono, Onest, and Schibsted Grotesk typefaces, an
 | [unist-util-stringify-position](https://github.com/syntax-tree/unist-util-stringify-position#readme) | 4.0.0 | npm | MIT |
 | [unist-util-visit](https://github.com/syntax-tree/unist-util-visit#readme) | 5.1.0 | npm | MIT |
 | [unist-util-visit-parents](https://github.com/syntax-tree/unist-util-visit-parents#readme) | 6.0.2 | npm | MIT |
-| [use-sync-external-store](https://github.com/react/react#readme) | 1.6.0 | npm | MIT |
 | [use-sync-external-store](https://github.com/react/react#readme) | 1.7.0 | npm | MIT |
 | [vfile](https://github.com/vfile/vfile#readme) | 6.0.3 | npm | MIT |
 | [vfile-location](https://github.com/vfile/vfile-location#readme) | 5.0.3 | npm | MIT |
@@ -357,7 +352,7 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 Copyright (c) Microsoft Corporation.
 
-Applies to: `@types/d3-array@3.2.2`, `@types/d3-color@3.1.3`, `@types/d3-ease@3.0.2`, `@types/d3-interpolate@3.0.4`, `@types/d3-path@3.1.1`, `@types/d3-scale@4.0.9`, `@types/d3-shape@3.1.8`, `@types/d3-time@3.0.4`, `@types/d3-timer@3.0.2`, `@types/debug@4.1.13`, `@types/estree@1.0.9`, `@types/estree-jsx@1.0.5`, `@types/hast@3.0.4`, `@types/hast@3.0.5`, `@types/katex@0.16.8`, `@types/mdast@4.0.4`, `@types/ms@2.1.0`, `@types/react@19.3.0`, `@types/unist@2.0.11`, `@types/unist@3.0.3`, `@types/use-sync-external-store@0.0.6`
+Applies to: `@types/d3-array@3.2.2`, `@types/d3-color@3.1.3`, `@types/d3-ease@3.0.2`, `@types/d3-interpolate@3.0.4`, `@types/d3-path@3.1.1`, `@types/d3-scale@4.0.9`, `@types/d3-shape@3.1.8`, `@types/d3-time@3.0.4`, `@types/d3-timer@3.0.2`, `@types/debug@4.1.13`, `@types/estree@1.0.9`, `@types/estree-jsx@1.0.5`, `@types/hast@3.0.5`, `@types/katex@0.16.8`, `@types/mdast@4.0.4`, `@types/ms@2.1.0`, `@types/react@19.3.0`, `@types/unist@2.0.11`, `@types/unist@3.0.3`, `@types/use-sync-external-store@0.0.6`
 
 ```
 MIT License
@@ -1015,7 +1010,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 Copyright (c) Meta Platforms, Inc. and affiliates.
 
-Applies to: `react@19.3.0`, `react-dom@19.3.0`, `react-is@19.2.6`, `react-is@19.2.7`, `scheduler@0.28.0`, `use-sync-external-store@1.6.0`, `use-sync-external-store@1.7.0`
+Applies to: `react@19.3.0`, `react-dom@19.3.0`, `react-is@19.2.6`, `react-is@19.2.7`, `scheduler@0.28.0`, `use-sync-external-store@1.7.0`
 
 ```
 MIT License
@@ -1176,37 +1171,6 @@ TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 ```
 
-### MIT
-
-Copyright (c) Titus Wormer <mailto:tituswormer@gmail.com>
-
-Applies to: `parse-entities@4.0.2`, `property-information@7.1.0`, `property-information@7.2.0`
-
-```
-(The MIT License)
-
-Copyright (c) Titus Wormer <mailto:tituswormer@gmail.com>
-
-Permission is hereby granted, free of charge, to any person obtaining
-a copy of this software and associated documentation files (the
-'Software'), to deal in the Software without restriction, including
-without limitation the rights to use, copy, modify, merge, publish,
-distribute, sublicense, and/or sell copies of the Software, and to
-permit persons to whom the Software is furnished to do so, subject to
-the following conditions:
-
-The above copyright notice and this permission notice shall be
-included in all copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED 'AS IS', WITHOUT WARRANTY OF ANY KIND,
-EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
-MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
-IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY
-CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,
-TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
-SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
-```
-
 ### ISC
 
 Copyright (c) 2016, Contributors
@@ -1294,37 +1258,6 @@ END OF TERMS AND CONDITIONS
 
 ### MIT
 
-Copyright (c) 2011 TJ Holowaychuk <tj@vision-media.ca>
-
-Applies to: `commander@15.0.0`, `commander@8.3.0`
-
-```
-(The MIT License)
-
-Copyright (c) 2011 TJ Holowaychuk <tj@vision-media.ca>
-
-Permission is hereby granted, free of charge, to any person obtaining
-a copy of this software and associated documentation files (the
-'Software'), to deal in the Software without restriction, including
-without limitation the rights to use, copy, modify, merge, publish,
-distribute, sublicense, and/or sell copies of the Software, and to
-permit persons to whom the Software is furnished to do so, subject to
-the following conditions:
-
-The above copyright notice and this permission notice shall be
-included in all copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED 'AS IS', WITHOUT WARRANTY OF ANY KIND,
-EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
-MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
-IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY
-CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,
-TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
-SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
-```
-
-### MIT
-
 Copyright (c) Sindre Sorhus <sindresorhus@gmail.com> (https://sindresorhus.com)
 
 Applies to: `escape-string-regexp@5.0.0`, `is-plain-obj@4.1.0`
@@ -1373,32 +1306,33 @@ SOFTWARE.
 
 ### MIT
 
-Copyright (c) 2013-2020 Khan Academy and other contributors
+Copyright (c) Titus Wormer <mailto:tituswormer@gmail.com>
 
-Applies to: `katex@0.16.47`, `katex@0.19.0`
+Applies to: `parse-entities@4.0.2`, `property-information@7.2.0`
 
 ```
-The MIT License (MIT)
+(The MIT License)
 
-Copyright (c) 2013-2020 Khan Academy and other contributors
+Copyright (c) Titus Wormer <mailto:tituswormer@gmail.com>
 
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
+Permission is hereby granted, free of charge, to any person obtaining
+a copy of this software and associated documentation files (the
+'Software'), to deal in the Software without restriction, including
+without limitation the rights to use, copy, modify, merge, publish,
+distribute, sublicense, and/or sell copies of the Software, and to
+permit persons to whom the Software is furnished to do so, subject to
+the following conditions:
 
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
+The above copyright notice and this permission notice shall be
+included in all copies or substantial portions of the Software.
 
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-SOFTWARE.
+THE SOFTWARE IS PROVIDED 'AS IS', WITHOUT WARRANTY OF ANY KIND,
+EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
+IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY
+CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,
+TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
+SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 ```
 
 ### MIT
@@ -6840,6 +6774,37 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
 
 ### MIT
 
+Copyright (c) 2011 TJ Holowaychuk <tj@vision-media.ca>
+
+Applies to: `commander@15.0.0`
+
+```
+(The MIT License)
+
+Copyright (c) 2011 TJ Holowaychuk <tj@vision-media.ca>
+
+Permission is hereby granted, free of charge, to any person obtaining
+a copy of this software and associated documentation files (the
+'Software'), to deal in the Software without restriction, including
+without limitation the rights to use, copy, modify, merge, publish,
+distribute, sublicense, and/or sell copies of the Software, and to
+permit persons to whom the Software is furnished to do so, subject to
+the following conditions:
+
+The above copyright notice and this permission notice shall be
+included in all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED 'AS IS', WITHOUT WARRANTY OF ANY KIND,
+EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
+IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY
+CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,
+TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
+SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+```
+
+### MIT
+
 Copyright (c) 2012-2014 Roman Shtylman <shtylman@gmail.com>
 
 Applies to: `cookie-es@3.1.1`
@@ -7615,6 +7580,36 @@ INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES WHATSOEVER RESULTING FROM LOSS
 OF USE, DATA OR PROFITS, WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER
 TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF
 THIS SOFTWARE.
+```
+
+### MIT
+
+Copyright (c) 2013-2020 Khan Academy and other contributors
+
+Applies to: `katex@0.19.0`
+
+```
+The MIT License (MIT)
+
+Copyright (c) 2013-2020 Khan Academy and other contributors
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
 ```
 
 ### MIT

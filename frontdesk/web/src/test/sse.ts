@@ -20,12 +20,18 @@ export function sseHandler() {
 
 // sseEmitting mocks GET /api/sse and pushes the given events as SSE frames on
 // connect, then stays open. Use it to exercise live-refetch paths driven by the
-// event stream.
-export function sseEmitting(events: FdEvent[]) {
+// event stream. onOpen fires as the frames are enqueued: a handler that must
+// answer differently once the event is out reads a flag set here, rather than
+// counting calls. Independent requests are not served in issue order (the
+// event-triggered refetch can reach its handler before the mount read does), so
+// a call counter can hand the "after" answer to the stale read and the "before"
+// answer to the one the page keeps.
+export function sseEmitting(events: FdEvent[], onOpen?: () => void) {
 	return http.get("/api/sse", () => {
 		const enc = new TextEncoder();
 		const stream = new ReadableStream({
 			start(controller) {
+				onOpen?.();
 				for (const e of events) {
 					controller.enqueue(enc.encode(`data: ${JSON.stringify(e)}\n\n`));
 				}

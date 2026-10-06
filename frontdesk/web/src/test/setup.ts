@@ -6,7 +6,7 @@ import { server } from "./server";
 
 // MSW lifecycle, shared by every test file. Unhandled requests error so a test
 // that hits an unmocked endpoint fails loudly instead of silently.
-beforeAll(() => server.listen({ onUnhandledRequest: "error" }));
+beforeAll(() => server.listen({ onUnhandledFrame: "error" }));
 afterEach(() => {
 	cleanup();
 	server.resetHandlers();

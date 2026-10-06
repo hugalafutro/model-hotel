@@ -49,3 +49,8 @@ overrides:
   # Remove each line once a direct dependency requires the patched range itself.
   "undici@6": "^6.27.0"
   "undici@7": "^7.29.0"
+  # Force the transitive katex that rehype-katex 7.0.1 still declares as ^0.16
+  # onto the app's own 0.19 line (one copy, renderToString API unchanged). Fixes
+  # the Dependabot advisory for prototype pollution in katex < 0.18.2. Remove
+  # once rehype-katex requires >=0.18.2 on its own.
+  katex: "^0.19.0"

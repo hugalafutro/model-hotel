@@ -582,7 +582,10 @@ describe("MembersPage", () => {
 		// Repointing the primary (or toggling auto-sync) emits only
 		// settings.changed, so the event filter must refresh the auto-sync
 		// status on it or the badge stays stale until the next unrelated event.
-		let autosyncCalls = 0;
+		// The primary is designated as the event goes out: any read answered
+		// before it sees no primary, any read after it (the refetch the event
+		// triggers) sees one.
+		let designated = false;
 		server.use(
 			http.get("/api/members", () =>
 				HttpResponse.json([
@@ -590,24 +593,28 @@ describe("MembersPage", () => {
 					member({ id: "2", name: "hotel-2" }),
 				]),
 			),
-			http.get("/api/fleet/autosync", () => {
-				autosyncCalls += 1;
-				return HttpResponse.json(
-					autosyncCalls === 1
-						? { enabled: false, primary_id: "" }
-						: { enabled: true, primary_id: "1", effective_primary_id: "1" },
-				);
-			}),
-			sseEmitting([
-				{
-					id: "e1",
-					type: "settings.changed",
-					severity: "info",
-					source: "frontdesk",
-					message: "auto-sync settings updated",
-					created_at: "",
+			http.get("/api/fleet/autosync", () =>
+				HttpResponse.json(
+					designated
+						? { enabled: true, primary_id: "1", effective_primary_id: "1" }
+						: { enabled: false, primary_id: "" },
+				),
+			),
+			sseEmitting(
+				[
+					{
+						id: "e1",
+						type: "settings.changed",
+						severity: "info",
+						source: "frontdesk",
+						message: "auto-sync settings updated",
+						created_at: "",
+					},
+				],
+				() => {
+					designated = true;
 				},
-			]),
+			),
 		);
 		renderPage();
 		await screen.findByText("hotel-1");

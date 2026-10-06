@@ -1,11 +1,23 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { render, waitFor } from "@testing-library/react";
 import { HttpResponse, http } from "msw";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, type MockInstance, vi } from "vitest";
 import { createSSEStream } from "../../test/helpers";
 import { server } from "../../test/mocks/server";
 import { EventProvider } from "../EventContext";
 import { ToastProvider } from "../ToastContext";
+
+// The AbortSignal EventProvider passed to its /api/events fetch, once made.
+function eventsSignal(
+	fetchSpy: MockInstance<typeof fetch>,
+): AbortSignal | undefined {
+	const call = fetchSpy.mock.calls.find(([input]) =>
+		String(input instanceof Request ? input.url : input).includes(
+			"/api/events",
+		),
+	);
+	return call?.[1]?.signal ?? undefined;
+}
 
 interface ServerEvent {
 	id: string;
@@ -378,11 +390,13 @@ describe("SSE connection and event handling", () => {
 	});
 
 	it("aborts SSE connection on unmount", async () => {
-		const requestSignals: AbortSignal[] = [];
+		// The abort is read off the fetch call itself: the request a handler
+		// receives is msw's own copy, and its signal does not follow the
+		// caller's AbortController.
+		const fetchSpy = vi.spyOn(globalThis, "fetch");
 
 		server.use(
-			http.get("/api/events", ({ request }) => {
-				requestSignals.push(request.signal);
+			http.get("/api/events", () => {
 				const stream = createSSEStream([], { doneSentinel: null });
 				return new HttpResponse(stream, {
 					status: 200,
@@ -398,10 +412,10 @@ describe("SSE connection and event handling", () => {
 		const { unmount } = renderWithEventProvider(<TestChild />);
 
 		await waitFor(() => {
-			expect(requestSignals.length).toBeGreaterThanOrEqual(1);
+			expect(eventsSignal(fetchSpy)).toBeDefined();
 		});
 
-		const firstSignal = requestSignals[0];
+		const firstSignal = eventsSignal(fetchSpy);
 		expect(firstSignal?.aborted).toBe(false);
 
 		unmount();
@@ -410,6 +424,7 @@ describe("SSE connection and event handling", () => {
 		await waitFor(() => {
 			expect(firstSignal?.aborted).toBe(true);
 		});
+		fetchSpy.mockRestore();
 	});
 
 	it("does not reconnect after unmount", async () => {
@@ -419,14 +434,14 @@ describe("SSE connection and event handling", () => {
 		// scheduling reconnection, so an aborted signal = no reconnect.
 		// We verify the precondition (abort fires) rather than the
 		// reconnection behavior, because MSW/JSDOM don't properly
-		// propagate abort to streaming ReadableStreams.
+		// propagate abort to streaming ReadableStreams. The signal is read
+		// off the fetch call (see the abort test above).
 		let callCount = 0;
-		const requestSignals: AbortSignal[] = [];
+		const fetchSpy = vi.spyOn(globalThis, "fetch");
 
 		server.use(
-			http.get("/api/events", ({ request }) => {
+			http.get("/api/events", () => {
 				callCount++;
-				requestSignals.push(request.signal);
 				const encoder = new TextEncoder();
 				const stream = new ReadableStream({
 					start(controller) {
@@ -451,7 +466,7 @@ describe("SSE connection and event handling", () => {
 			expect(callCount).toBeGreaterThanOrEqual(1);
 		});
 
-		const firstSignal = requestSignals[0];
+		const firstSignal = eventsSignal(fetchSpy);
 
 		unmount();
 
@@ -463,6 +478,7 @@ describe("SSE connection and event handling", () => {
 			},
 			{ timeout: 3000 },
 		);
+		fetchSpy.mockRestore();
 	});
 
 	it("handles non-ok response and reconnects", async () => {

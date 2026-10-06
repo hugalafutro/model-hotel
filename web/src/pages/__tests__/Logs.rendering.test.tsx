@@ -247,8 +247,8 @@ describe("Logs", () => {
 				expect(screen.getAllByText("Requests").length).toBeGreaterThan(0);
 			});
 
-			// Status dropdown should be present
-			expect(screen.getAllByText("Status").length).toBeGreaterThan(0);
+			// The status dropdown is part of the loaded view, not the shell.
+			expect((await screen.findAllByText("Status")).length).toBeGreaterThan(0);
 		});
 
 		it("renders date picker button", async () => {

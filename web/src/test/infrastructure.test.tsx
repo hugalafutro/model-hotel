@@ -60,7 +60,7 @@ describe("Test infrastructure", () => {
 		expect(data).toHaveLength(0);
 	});
 
-	// The suite's onUnhandledRequest policy is "warn", so a path with no handler
+	// The suite's onUnhandledFrame policy is "warn", so a path with no handler
 	// leaves the test process talking to a real socket and only a log line to
 	// show for it. These endpoints are polled by the settings screens, so they
 	// are asserted to be intercepted rather than merely warned about.

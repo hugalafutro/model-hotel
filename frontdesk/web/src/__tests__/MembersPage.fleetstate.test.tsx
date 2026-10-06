@@ -9,7 +9,7 @@ import { sseHandler } from "../test/sse";
 
 // Base handlers every case needs: an idle SSE stream and an empty member list.
 // Each test then layers its own /api/fleet/autosync response on top to drive the
-// fleet-state badge. onUnhandledRequest is "error", so all three must be present.
+// fleet-state badge. onUnhandledFrame is "error", so all three must be present.
 function baseHandlers() {
 	return [sseHandler(), http.get("/api/members", () => HttpResponse.json([]))];
 }

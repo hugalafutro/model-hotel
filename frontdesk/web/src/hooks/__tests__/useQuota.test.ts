@@ -80,7 +80,7 @@ describe("useQuota", () => {
 		const { result } = renderHook(() => useQuota(false));
 		await waitFor(() => expect(result.current.error).toBe(true));
 		// Explicit handler: this test exercises refresh()'s POST, so it must not
-		// rely on MSW's onUnhandledRequest fallback to make the network layer work.
+		// rely on MSW's onUnhandledFrame fallback to make the network layer work.
 		server.use(
 			okQuota(),
 			http.post("/api/quota/refresh", () =>

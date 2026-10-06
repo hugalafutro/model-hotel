@@ -16,18 +16,6 @@ updates:
       npm-deps:
         patterns: ["*"]
     ignore:
-      # jsdom 30.1.x broke multipart `request.text()` (the restore tests in
-      # web/src/pages/Settings/__tests__/DatabaseBackupSettings.test.tsx read the
-      # uploaded body that way), so package.json pins 30.0.1. Lift this once a
-      # release fixes it.
-      - dependency-name: "jsdom"
-        versions: [">=30.1.0 <31"]
-      # msw 3 moved interception to the socket layer; responses now cross
-      # Node stream ticks that vi.useFakeTimers() does not drive, so every
-      # fake-timer test (and the SSE-driven ones) stalls on "Loading…".
-      # package.json pins 2.15.0. Lift once the suites are adapted to 3.x.
-      - dependency-name: "msw"
-        versions: [">=3"]
       # Biome 2.5.15 panics ("path is expected to be under the root") when
       # `biome check . ../web-shared` evaluates .gitignore for a path outside
       # the project root (biomejs/biome#12158, fixed for the next release).
@@ -44,10 +32,6 @@ updates:
     groups:
       frontdesk-npm-deps:
         patterns: ["*"]
-    ignore:
-      # Same msw 3 fake-timer/SSE stall as /web; package.json pins 2.15.0.
-      - dependency-name: "msw"
-        versions: [">=3"]
 
   - package-ecosystem: "docker"
     directory: "/"
