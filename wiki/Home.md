@@ -11,7 +11,8 @@ A single OpenAI-compatible endpoint that sits in front of all your LLM providers
 ```bash
 git clone https://github.com/hugalafutro/model-hotel.git
 cd model-hotel
-cp .env.example .env   # Set MASTER_KEY and POSTGRES_PASSWORD; change HOST_PORT if 8081 is taken
+cp .env.example .env
+nano .env              # set MASTER_KEY and POSTGRES_PASSWORD; change HOST_PORT if 8081 is taken
 docker compose up --build
 ```
 

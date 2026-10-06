@@ -197,9 +197,9 @@ docker compose up -d
 
 `docker compose down` stops the stack and keeps your data. Both services use bind mounts under `./.data` (PostgreSQL in `./.data/pgdata`). There are no named volumes, so `down -v` removes nothing more.
 
-To update a two-file deployment, first compare your `docker-compose.yml` with the block in **Deploy without Git** and, if it changed, copy the new block and redo step 3 on it; then run `docker compose pull && docker compose up -d`. A clone that builds from source runs `git pull && docker compose up --build -d`. A clone that was switched to a prebuilt image runs `git pull` first, keeps its `build:`/`image:` edit, then `docker compose pull && docker compose up -d`.
+To update a two-file deployment, run `docker compose pull && docker compose up -d`. Compose changes do not reach you on their own: when the block in **Deploy without Git** differs from what you copied, merge the new block into your file by hand, keeping your step 3 image switch and any `environment:` entries you added, then run the same two commands. A clone that builds from source runs `git pull && docker compose up --build -d`. A clone switched to a prebuilt image has a local edit in `docker-compose.yml`, so run `git stash && git pull && git stash pop` (resolve any conflict in the `build:`/`image:` lines), then `docker compose pull && docker compose up -d`.
 
-To remove everything, run `docker compose down` and delete `./.data`. The containers write it as their own users (the app as uid 1000, PostgreSQL as uid 70), so this needs `sudo rm -rf .data`.
+To remove everything, run `docker compose down` and delete `./.data`. `./.data/pgdata` belongs to PostgreSQL (uid 70), so this needs `sudo rm -rf .data`; the rest of `.data` belongs to uid 1000, which usually matches your host user.
 
 ## High Availability
 
