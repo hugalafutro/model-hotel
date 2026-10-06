@@ -122,9 +122,11 @@ describe("SettingsPage", () => {
 		renderPage();
 		await screen.findByRole("button", { name: /^Save$/i });
 		await userEvent.click(screen.getByRole("button", { name: /^Save$/i }));
-		expect(await screen.findByRole("alert")).toHaveTextContent(
-			/at least 1 second/i,
-		);
+		// Target the save error itself: the page's other panels can raise their
+		// own role="alert" (their reads are not mocked here), and which alert is
+		// first in the DOM depends on response timing.
+		const alert = await screen.findByText(/at least 1 second/i);
+		expect(alert.closest('[role="alert"]')).not.toBeNull();
 	});
 
 	it("does not revert alert settings when the polling form is saved (B1)", async () => {
