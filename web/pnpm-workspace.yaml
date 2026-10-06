@@ -42,13 +42,6 @@ blockExoticSubdeps: true
 # dependency requires >=7.29.6 on its own.
 overrides:
   "@babel/core": "^7.29.6"
-  # Force transitive undici to patched releases (both lines are test/build-time
-  # only: 6.x via @actions/http-client, 7.x via jsdom). Fixes Dependabot
-  # advisories for Set-Cookie SameSite downgrade, Set-Cookie header injection,
-  # SOCKS5 cross-origin routing, and keep-alive response-queue poisoning.
-  # Remove each line once a direct dependency requires the patched range itself.
-  "undici@6": "^6.27.0"
-  "undici@7": "^7.29.0"
   # Force the transitive katex that rehype-katex 7.0.1 still declares as ^0.16
   # onto the app's own 0.19 line (one copy, renderToString API unchanged). Fixes
   # the Dependabot advisory for prototype pollution in katex < 0.18.2. Remove

@@ -7,6 +7,15 @@ import { server } from "../../test/mocks/server";
 import { EventProvider } from "../EventContext";
 import { ToastProvider } from "../ToastContext";
 
+// The /api/events fetch calls EventProvider has made so far.
+function eventsCalls(fetchSpy: MockInstance<typeof fetch>): number {
+	return fetchSpy.mock.calls.filter(([input]) =>
+		String(input instanceof Request ? input.url : input).includes(
+			"/api/events",
+		),
+	).length;
+}
+
 // The AbortSignal EventProvider passed to its /api/events fetch, once made.
 function eventsSignal(
 	fetchSpy: MockInstance<typeof fetch>,
@@ -432,10 +441,9 @@ describe("SSE connection and event handling", () => {
 		// which prevents the reconnection logic in the finally block.
 		// The EventContext.finally() checks `!ac.signal.aborted` before
 		// scheduling reconnection, so an aborted signal = no reconnect.
-		// We verify the precondition (abort fires) rather than the
-		// reconnection behavior, because MSW/JSDOM don't properly
-		// propagate abort to streaming ReadableStreams. The signal is read
-		// off the fetch call (see the abort test above).
+		// Both the precondition (the abort fires) and the outcome (no further
+		// /api/events fetch through the first backoff) are checked. The signal
+		// is read off the fetch call (see the abort test above).
 		let callCount = 0;
 		const fetchSpy = vi.spyOn(globalThis, "fetch");
 
@@ -478,6 +486,10 @@ describe("SSE connection and event handling", () => {
 			},
 			{ timeout: 3000 },
 		);
+		// And that nothing reconnects: the stream above closes at once, so a
+		// reconnect would be due after the 1s first backoff. Sit past it.
+		await new Promise((r) => setTimeout(r, 1300));
+		expect(eventsCalls(fetchSpy)).toBe(1);
 		fetchSpy.mockRestore();
 	});
 

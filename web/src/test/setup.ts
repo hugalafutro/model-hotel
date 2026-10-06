@@ -197,6 +197,9 @@ if (
 // mock handlers gate on the mh_csrf cookie and the api client relies on it.
 // Installed after server.listen(): msw wraps globalThis.fetch itself and
 // serialises the body before handing it down, so this has to sit above it.
+// A Request passed as `input` is forwarded as is apart from the cookie: its
+// body is already a stream, so a jsdom multipart body on a Request is not
+// rebuilt. Nothing in the app calls fetch that way.
 function installBrowserFetchRules() {
 	const nodeFetch = globalThis.fetch;
 	// async so a bad URL or header rejects the returned promise, as fetch does.
