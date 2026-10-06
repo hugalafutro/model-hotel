@@ -429,9 +429,11 @@ describe("streamModelResponse", () => {
 
 	it("names a response without a body", async () => {
 		server.use(
+			// Only a 204 arrives without a body; a 200 with nothing to say still
+			// carries an empty stream and ends as endedUnexpectedly instead.
 			http.post(
 				"/api/chat/chat",
-				() => new HttpResponse(null, { status: 200 }),
+				() => new HttpResponse(null, { status: 204 }),
 			),
 		);
 		const result = await streamModelResponse(

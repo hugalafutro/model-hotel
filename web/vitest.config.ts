@@ -14,6 +14,20 @@ export default defineConfig({
 	},
 	test: {
 		environment: "jsdom",
+		// Leave setImmediate real. msw 3 intercepts at the socket layer, so a
+		// mocked response travels through Node stream plumbing that hops over
+		// setImmediate; with it faked, nothing short of an advanceTimers tick
+		// drains that queue and fetches issued under vi.useFakeTimers() never
+		// resolve (every fake-timer test stalled on "Loading…").
+		fakeTimers: {
+			toFake: [
+				"setTimeout",
+				"clearTimeout",
+				"setInterval",
+				"clearInterval",
+				"Date",
+			],
+		},
 		env: { TZ: "UTC" },
 		globals: true,
 		setupFiles: ["./src/test/setup.ts"],

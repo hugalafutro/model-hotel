@@ -18,14 +18,20 @@ export function sseHandler() {
 	});
 }
 
-// sseEmitting mocks GET /api/sse and pushes the given events as SSE frames on
-// connect, then stays open. Use it to exercise live-refetch paths driven by the
-// event stream.
-export function sseEmitting(events: FdEvent[]) {
+// sseEmitting mocks GET /api/sse and pushes the given events as SSE frames,
+// then stays open. Use it to exercise live-refetch paths driven by the event
+// stream. With `after`, the frames wait for that promise: a test whose handler
+// answers differently before and after the event resolves it from the first
+// read, so the event cannot race the mount read. Independent requests are not
+// served in issue order, and without the gate the event-triggered refetch can
+// reach its handler before the mount read does, handing the "after" answer to
+// the stale read the page drops and the "before" answer to the one it keeps.
+export function sseEmitting(events: FdEvent[], after?: Promise<unknown>) {
 	return http.get("/api/sse", () => {
 		const enc = new TextEncoder();
 		const stream = new ReadableStream({
-			start(controller) {
+			async start(controller) {
+				await after;
 				for (const e of events) {
 					controller.enqueue(enc.encode(`data: ${JSON.stringify(e)}\n\n`));
 				}

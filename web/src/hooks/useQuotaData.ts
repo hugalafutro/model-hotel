@@ -278,18 +278,19 @@ function useProviderQuota<T>(
 		[providers, type],
 	);
 
-	const { data, dataUpdatedAt, isRefetching, isError, refetch } = useQuery<T>({
-		queryKey: [cacheKey, providerId],
-		queryFn: () => fetchUsage(providerId as string),
-		enabled: Boolean(providerId),
-		refetchInterval,
-		// Reflect the server's stored snapshot on every mount (reload after a
-		// rebuild shows correct quotas within ~1s), while initialData still paints
-		// the cached value instantly.
-		staleTime: 0,
-		refetchOnMount: "always",
-		initialData: () => getCachedData<T>(cacheKey),
-	});
+	const { data, dataUpdatedAt, isRefetching, isError, isSuccess, refetch } =
+		useQuery<T>({
+			queryKey: [cacheKey, providerId],
+			queryFn: () => fetchUsage(providerId as string),
+			enabled: Boolean(providerId),
+			refetchInterval,
+			// Reflect the server's stored snapshot on every mount (reload after a
+			// rebuild shows correct quotas within ~1s), while initialData still paints
+			// the cached value instantly.
+			staleTime: 0,
+			refetchOnMount: "always",
+			initialData: () => getCachedData<T>(cacheKey),
+		});
 
 	// A null payload means the provider has no quota to report (a 204: lapsed or
 	// free tier), so the stale cache is dropped rather than repainted as
@@ -299,16 +300,26 @@ function useProviderQuota<T>(
 		else if (data === null) clearCachedData(cacheKey);
 	}, [cacheKey, data]);
 
-	// One toast per healthy-to-failing transition, not one per refetch.
+	// One toast per healthy-to-failing transition, not one per refetch. The
+	// latch opens again only on a successful read: a refetch of a query that
+	// holds no data passes through pending (isError false) before failing
+	// again, and treating that as recovery re-toasted every manual refresh.
+	// A different provider behind the same slot is a fresh story, so the
+	// latch also opens when the provider id changes (its query is new).
 	const toasted = useRef(false);
+	const toastedFor = useRef(providerId);
 	useEffect(() => {
+		if (toastedFor.current !== providerId) {
+			toastedFor.current = providerId;
+			toasted.current = false;
+		}
 		if (!toastErrors) return;
 		if (isError && !toasted.current) {
 			toastErrors(t(errorKey), "warning");
 			toasted.current = true;
 		}
-		if (!isError) toasted.current = false;
-	}, [isError, toastErrors, t, errorKey]);
+		if (isSuccess) toasted.current = false;
+	}, [providerId, isError, isSuccess, toastErrors, t, errorKey]);
 
 	// Narrowed to Promise<void>: every consumer awaits the refresh for its
 	// spinner and none reads the query result the raw refetch resolves with.

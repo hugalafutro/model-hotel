@@ -1,3 +1,4 @@
+import { Blob as NodeBlob, File as NodeFile } from "node:buffer";
 import "@testing-library/jest-dom";
 import { configure } from "@testing-library/react";
 import { afterAll, afterEach, beforeAll, vi } from "vitest";
@@ -189,9 +190,93 @@ if (
 	Element.prototype.releasePointerCapture = () => {};
 }
 
+// A browser sends the document's cookies on every same-origin request made
+// with credentials other than "omit"; Node's fetch sends none. msw 2 papered
+// over that by appending document.cookie to the intercepted request, msw 3
+// dropped cookie handling in Node, so the browser rule lives here instead. The
+// mock handlers gate on the mh_csrf cookie and the api client relies on it.
+// Installed after server.listen(): msw wraps globalThis.fetch itself and
+// serialises the body before handing it down, so this has to sit above it.
+// A Request passed as `input` is forwarded as is apart from the cookie: its
+// body is already a stream, so a jsdom multipart body on a Request is not
+// rebuilt. Nothing in the app calls fetch that way.
+function installBrowserFetchRules() {
+	const nodeFetch = globalThis.fetch;
+	// async so a bad URL or header rejects the returned promise, as fetch does.
+	globalThis.fetch = async (input, init) => {
+		const target =
+			typeof input === "string"
+				? input
+				: input instanceof URL
+					? input.href
+					: input.url;
+		const credentials =
+			init?.credentials ??
+			(input instanceof Request ? input.credentials : "same-origin");
+		const sameOrigin =
+			new URL(target, window.location.href).origin === window.location.origin;
+		const headers = new Headers(
+			init?.headers ?? (input instanceof Request ? input.headers : undefined),
+		);
+		// document.cookie belongs to this origin; "include" on a cross-origin
+		// request would send that origin's own cookies, which we do not hold.
+		const sendsCookies = sameOrigin && credentials !== "omit";
+		if (sendsCookies && document.cookie && !headers.has("Cookie")) {
+			headers.set("Cookie", document.cookie);
+		}
+		// A jsdom FormData or Blob body has to be rebuilt from Node's classes before
+		// undici serialises it: it sizes the parts from the jsdom Blob but streams
+		// no bytes for them, and the request dies with "Request body length does
+		// not match content-length header". msw 2 never serialised the body, msw 3
+		// puts it on the wire. vitest's own jsdom shim converts only inside the
+		// Request constructor, and drops the file bytes too, so rebuild here.
+		if (init?.body instanceof FormData || init?.body instanceof Blob) {
+			const body = await toNodeBody(init.body);
+			return nodeFetch(input, { ...init, headers, body });
+		}
+		return nodeFetch(input, { ...init, headers });
+	};
+}
+
+async function toNodeBody(body: FormData | Blob): Promise<BodyInit> {
+	if (body instanceof Blob) {
+		// Node's Blob is what undici serialises; the DOM lib type is a formality here.
+		return new NodeBlob([await body.arrayBuffer()], {
+			type: body.type,
+		}) as unknown as Blob;
+	}
+	// Snapshot first: fetch() captures the body as handed over, so a caller
+	// mutating the FormData afterwards must not change what is sent.
+	const entries = [...body.entries()];
+	// Node's FormData class is not reachable from here (jsdom owns the global),
+	// but parsing a one-field multipart body through Request yields one.
+	const seed = new FormData();
+	seed.append("seed", "");
+	const form = await new Request(window.location.href, {
+		method: "POST",
+		body: seed,
+	}).formData();
+	form.delete("seed");
+	for (const [name, value] of entries) {
+		if (value instanceof Blob) {
+			const file = value as File;
+			form.append(
+				name,
+				new NodeFile([await value.arrayBuffer()], file.name ?? "blob", {
+					type: value.type,
+				}) as unknown as Blob,
+			);
+		} else {
+			form.append(name, value);
+		}
+	}
+	return form;
+}
+
 beforeAll(() => {
 	_suppressJsdomNotImplemented();
-	server.listen({ onUnhandledRequest: "warn" });
+	server.listen({ onUnhandledFrame: "warn" });
+	installBrowserFetchRules();
 	// Cookie-session auth: seed the readable CSRF cookie so isAuthenticated()
 	// reports logged-in and same-origin requests carry the session cookie to the
 	// MSW handlers (which gate on mh_csrf). httpOnly cookies can't be set from JS,
