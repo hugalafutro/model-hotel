@@ -582,10 +582,13 @@ describe("MembersPage", () => {
 		// Repointing the primary (or toggling auto-sync) emits only
 		// settings.changed, so the event filter must refresh the auto-sync
 		// status on it or the badge stays stale until the next unrelated event.
-		// The primary is designated as the event goes out: any read answered
-		// before it sees no primary, any read after it (the refetch the event
-		// triggers) sees one.
-		let designated = false;
+		// The first read sees no primary; the event goes out only once that
+		// read has been answered, and the refetch it triggers sees the primary.
+		let autosyncCalls = 0;
+		let firstRead!: () => void;
+		const firstReadDone = new Promise<void>((r) => {
+			firstRead = r;
+		});
 		server.use(
 			http.get("/api/members", () =>
 				HttpResponse.json([
@@ -593,13 +596,18 @@ describe("MembersPage", () => {
 					member({ id: "2", name: "hotel-2" }),
 				]),
 			),
-			http.get("/api/fleet/autosync", () =>
-				HttpResponse.json(
-					designated
-						? { enabled: true, primary_id: "1", effective_primary_id: "1" }
-						: { enabled: false, primary_id: "" },
-				),
-			),
+			http.get("/api/fleet/autosync", () => {
+				autosyncCalls += 1;
+				if (autosyncCalls === 1) {
+					firstRead();
+					return HttpResponse.json({ enabled: false, primary_id: "" });
+				}
+				return HttpResponse.json({
+					enabled: true,
+					primary_id: "1",
+					effective_primary_id: "1",
+				});
+			}),
 			sseEmitting(
 				[
 					{
@@ -611,14 +619,14 @@ describe("MembersPage", () => {
 						created_at: "",
 					},
 				],
-				() => {
-					designated = true;
-				},
+				firstReadDone,
 			),
 		);
 		renderPage();
 		await screen.findByText("hotel-1");
 		expect(await screen.findByTestId("primary-badge")).toBeInTheDocument();
+		// The badge can only have come from the refetch the event triggered.
+		expect(autosyncCalls).toBe(2);
 	});
 
 	it("shows the error state when the list cannot be loaded", async () => {

@@ -191,17 +191,25 @@ describe("EventsPage", () => {
 	});
 
 	it("refetches on the first page when an SSE event arrives", async () => {
-		// The event is logged as it goes out on the stream: a read answered
-		// before that is empty, the refetch the event triggers sees it.
-		let logged = false;
+		// The first read is empty; the event goes out only once that read has
+		// been answered, and the refetch it triggers sees the logged event.
+		let calls = 0;
+		let firstRead!: () => void;
+		const firstReadDone = new Promise<void>((r) => {
+			firstRead = r;
+		});
 		server.use(
-			http.get("/api/events", () =>
-				HttpResponse.json(
-					logged
-						? { events: [ev("1", { message: "fresh event" })], total: 1 }
-						: { events: [], total: 0 },
-				),
-			),
+			http.get("/api/events", () => {
+				calls += 1;
+				if (calls === 1) {
+					firstRead();
+					return HttpResponse.json({ events: [], total: 0 });
+				}
+				return HttpResponse.json({
+					events: [ev("1", { message: "fresh event" })],
+					total: 1,
+				});
+			}),
 			sseEmitting(
 				[
 					{
@@ -213,13 +221,12 @@ describe("EventsPage", () => {
 						created_at: "",
 					},
 				],
-				() => {
-					logged = true;
-				},
+				firstReadDone,
 			),
 		);
 		renderPage();
-		// Only the SSE-triggered refetch can surface it.
+		// Only the refetch the event triggered can surface it.
 		expect(await screen.findByText("fresh event")).toBeInTheDocument();
+		expect(calls).toBe(2);
 	});
 });

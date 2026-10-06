@@ -199,7 +199,8 @@ if (
 // serialises the body before handing it down, so this has to sit above it.
 function installBrowserFetchRules() {
 	const nodeFetch = globalThis.fetch;
-	globalThis.fetch = (input, init) => {
+	// async so a bad URL or header rejects the returned promise, as fetch does.
+	globalThis.fetch = async (input, init) => {
 		const target =
 			typeof input === "string"
 				? input
@@ -214,9 +215,9 @@ function installBrowserFetchRules() {
 		const headers = new Headers(
 			init?.headers ?? (input instanceof Request ? input.headers : undefined),
 		);
-		const sendsCookies =
-			credentials === "include" ||
-			(credentials === "same-origin" && sameOrigin);
+		// document.cookie belongs to this origin; "include" on a cross-origin
+		// request would send that origin's own cookies, which we do not hold.
+		const sendsCookies = sameOrigin && credentials !== "omit";
 		if (sendsCookies && document.cookie && !headers.has("Cookie")) {
 			headers.set("Cookie", document.cookie);
 		}
@@ -227,9 +228,8 @@ function installBrowserFetchRules() {
 		// puts it on the wire. vitest's own jsdom shim converts only inside the
 		// Request constructor, and drops the file bytes too, so rebuild here.
 		if (init?.body instanceof FormData || init?.body instanceof Blob) {
-			return toNodeBody(init.body).then((body) =>
-				nodeFetch(input, { ...init, headers, body }),
-			);
+			const body = await toNodeBody(init.body);
+			return nodeFetch(input, { ...init, headers, body });
 		}
 		return nodeFetch(input, { ...init, headers });
 	};
@@ -242,6 +242,9 @@ async function toNodeBody(body: FormData | Blob): Promise<BodyInit> {
 			type: body.type,
 		}) as unknown as Blob;
 	}
+	// Snapshot first: fetch() captures the body as handed over, so a caller
+	// mutating the FormData afterwards must not change what is sent.
+	const entries = [...body.entries()];
 	// Node's FormData class is not reachable from here (jsdom owns the global),
 	// but parsing a one-field multipart body through Request yields one.
 	const seed = new FormData();
@@ -251,7 +254,7 @@ async function toNodeBody(body: FormData | Blob): Promise<BodyInit> {
 		body: seed,
 	}).formData();
 	form.delete("seed");
-	for (const [name, value] of body.entries()) {
+	for (const [name, value] of entries) {
 		if (value instanceof Blob) {
 			const file = value as File;
 			form.append(

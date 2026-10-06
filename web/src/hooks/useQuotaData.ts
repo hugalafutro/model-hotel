@@ -304,15 +304,22 @@ function useProviderQuota<T>(
 	// latch opens again only on a successful read: a refetch of a query that
 	// holds no data passes through pending (isError false) before failing
 	// again, and treating that as recovery re-toasted every manual refresh.
+	// A different provider behind the same slot is a fresh story, so the
+	// latch also opens when the provider id changes (its query is new).
 	const toasted = useRef(false);
+	const toastedFor = useRef(providerId);
 	useEffect(() => {
+		if (toastedFor.current !== providerId) {
+			toastedFor.current = providerId;
+			toasted.current = false;
+		}
 		if (!toastErrors) return;
 		if (isError && !toasted.current) {
 			toastErrors(t(errorKey), "warning");
 			toasted.current = true;
 		}
 		if (isSuccess) toasted.current = false;
-	}, [isError, isSuccess, toastErrors, t, errorKey]);
+	}, [providerId, isError, isSuccess, toastErrors, t, errorKey]);
 
 	// Narrowed to Promise<void>: every consumer awaits the refresh for its
 	// spinner and none reads the query result the raw refetch resolves with.

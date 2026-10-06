@@ -131,6 +131,36 @@ describe("useQuotaData error toasts", () => {
 		expect(messagesOf(toastErrors)).toHaveLength(expectedMessages.length);
 	});
 
+	it("warns for a replacement provider even when the old one never recovered", async () => {
+		// Only the Kimi slot is populated, and its provider fails from the start.
+		failAllQuotaEndpoints();
+		const toastErrors = vi.fn();
+		const kimiOnly = (id: string) => [
+			provider(id, "Kimi", "https://api.kimi.com/v1"),
+		];
+		const { rerender } = renderHook(
+			({ list }: { list: Provider[] }) => useQuotaData(list, { toastErrors }),
+			{
+				wrapper: createQueryWrapper(),
+				initialProps: { list: kimiOnly("kimi-1") },
+			},
+		);
+		await waitFor(() => {
+			expect(messagesOf(toastErrors)).toEqual([expectedMessages[0]]);
+		});
+
+		// The operator swaps the provider out for another Kimi key. It fails too:
+		// a new provider gets its own warning, the old one's never having cleared
+		// does not suppress it.
+		rerender({ list: kimiOnly("kimi-2") });
+		await waitFor(() => {
+			expect(messagesOf(toastErrors)).toEqual([
+				expectedMessages[0],
+				expectedMessages[0],
+			]);
+		});
+	});
+
 	it("warns again after the provider recovers and then fails once more", async () => {
 		failAllQuotaEndpoints();
 		const toastErrors = vi.fn();
