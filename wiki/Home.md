@@ -15,6 +15,8 @@ cp .env.example .env   # Set MASTER_KEY and POSTGRES_PASSWORD
 docker compose up --build
 ```
 
+To run the published image instead of building, follow [Deploy without Git](https://github.com/hugalafutro/model-hotel#-deploy-without-git) in the README: two files, no clone. If host port `8081` is taken, set `HOST_PORT=<free port>` in `.env`.
+
 On first start the server prints the admin token once, in a boxed `ADMIN TOKEN (save now ...)` panel. Read it with `docker compose logs app`, and save it: it is never shown again.
 
 See [[Development]] for local setup details.

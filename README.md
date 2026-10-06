@@ -45,6 +45,9 @@ A single OpenAI-compatible endpoint in front of all your LLM providers, cloud or
 </p>
 
 ### [<img src="docs/icons/quickstart.svg" width="20" height="20" style="vertical-align:middle;margin-right:6px;" alt=""> Quick Start](#-quick-start)
+
+Two ways in: clone and build from source (below), or skip the clone and run the published image from two files, see [Deploy without Git](#-deploy-without-git).
+
 ```bash
 git clone https://github.com/hugalafutro/model-hotel.git
 cd model-hotel
@@ -73,6 +76,10 @@ docker compose logs app
 If you lose it, delete `.data/admin-token` and restart to generate a new one. The `ADMIN_TOKEN` environment variable seeds the token on first boot only: once `.data/admin-token` exists the file wins and the variable is ignored.
 
 Open `http://localhost:8081`, log in with that token, add your first provider, and start proxying.
+
+Port `8081` already taken? Set `HOST_PORT=8181` (any free port) in `.env`: the compose file maps it to the container and adds it to `CORS_ORIGINS` for you, so the dashboard answers on that port instead.
+
+Stopping, updating and removing the stack: see [Deploy without Git](#-deploy-without-git), step 5.
 
 ### [<img src="docs/icons/providers.svg" width="20" height="20" style="vertical-align:middle;margin-right:6px;" alt=""> One Endpoint, Many Providers](#-one-endpoint-many-providers)
 **Hosted:** [Anthropic](https://www.anthropic.com), [AWS Bedrock](https://aws.amazon.com/bedrock/), [Azure AI Foundry](https://ai.azure.com/), [Cohere](https://cohere.com/), [DeepSeek](https://www.deepseek.com), [Google AI Studio](https://aistudio.google.com/), [Kimi Code](https://www.kimi.com/), [MiniMax](https://www.minimax.io/), [NanoGPT](https://nano-gpt.com), [NeuralWatt](https://neuralwatt.com/), [Ollama Cloud](https://ollama.com), [OpenAI](https://openai.com/), [OpenCode Go](https://opencode.ai), [OpenCode Zen](https://opencode.ai), [OpenRouter](https://openrouter.ai/), [Vertex AI](https://cloud.google.com/vertex-ai) (express keys), [xAI](https://x.ai/), [Z.AI](https://z.ai/). All but Anthropic and AWS Bedrock speak the OpenAI API; those two are native families, and a hand-entered endpoint that speaks Anthropic's native `/v1/messages` has its own type (`anthropic-messages`). Any other OpenAI-compatible API, hosted or local, can be added as a custom endpoint.
@@ -294,7 +301,7 @@ Beyond the shared admin token, you can provision named dashboard accounts that s
 Manage accounts from the Users page (admin only): create a user, assign grants, set an initial password, reset a password or second factor, enable or disable, and read last-login and TOTP status at a glance. The username/password form appears on the login screen only once at least one user exists, so a fresh install keeps the single admin-token flow, and local token login is never removed so you cannot lock yourself out. See the [Multi-User wiki page](https://github.com/hugalafutro/model-hotel/wiki/Multi-User) for roles, grants, and the per-user rate-limit model.
 
 ### [<img src="docs/icons/quickstart.svg" width="20" height="20" style="vertical-align:middle;margin-right:6px;" alt=""> Deploy without Git](#-deploy-without-git)
-No `git clone` needed. Create two files and go:
+No `git clone` needed, and no build: the published image pulls in seconds. Create two files and go:
 
 **1.** Create `.env` with your secrets:
 
@@ -308,6 +315,9 @@ MASTER_KEY=<your-master-key>
 POSTGRES_PASSWORD=<your-postgres-password>
 ADMIN_TOKEN=
 
+# Optional: host port for the dashboard and API (default 8081)
+# HOST_PORT=8081
+
 # Optional: WebAuthn/FIDO2 passkey login (only WEBAUTHN_RP_ID is required)
 # WEBAUTHN_RP_ID=your-domain.com
 # WEBAUTHN_RP_ORIGINS=https://your-domain.com
@@ -320,100 +330,100 @@ ADMIN_TOKEN=
 <summary>docker-compose.yml (click to expand, then copy)</summary>
 
 ```yaml
-    name: model-hotel
-    services:
-        app:
-            # Build from source (default):
-            build:
-                context: .
-                args:
-                    VERSION: ${VERSION:-dev}
-                    COMMIT: ${COMMIT:-unknown}
-            # Prebuilt images (uncomment 1 image according to registry preference, comment out build above):
-            # image: ghcr.io/hugalafutro/model-hotel:latest
-            # image: hugalafutro/model-hotel:latest
-            labels:
-                app.group: model-hotel
-            ports:
-                - "${HOST_PORT:-8081}:8080"
-            environment:
-                - MASTER_KEY=${MASTER_KEY:?MASTER_KEY must be set in .env}
-                - POSTGRES_USER=${POSTGRES_USER:-modelhotel}
-                - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set in .env}
-                - POSTGRES_HOST=db
-                - POSTGRES_DB=${POSTGRES_DB:-modelhotel}
-                - ADMIN_TOKEN=${ADMIN_TOKEN:-}
-                - ALLOW_HTTP_PROVIDERS=false
-                - ALLOW_EMBED=false
-                - DATA_DIR=/data
-                - RATE_LIMIT_ENABLED=true
-                - DEBUG_LOG=false
-                - CORS_ORIGINS=http://localhost:5173,http://localhost:${HOST_PORT:-8081}
-                - WEBAUTHN_RP_ID=${WEBAUTHN_RP_ID:-}
-                - WEBAUTHN_RP_ORIGINS=${WEBAUTHN_RP_ORIGINS:-}
-                - ALLOWED_PROVIDER_HOSTS=
-                - TRUSTED_PROXIES=
-                - KNOWN_PROXIES=
-            volumes:
-                - ./.data:/data
-                # Docker socket (disabled by default for security).
-                # Enable to show container-level stats in the sidebar (CPU, memory per container).
-                # ⚠️  Granting Docker socket access allows the container to control the Docker daemon.
-                #     Only enable if you trust the deployment environment.
-                # - /var/run/docker.sock:/var/run/docker.sock:ro
-            restart: unless-stopped
-            # Model Hotel winds down in stages on SIGTERM. Worst case, in order:
-            # 10s HTTP drain (open SSE tabs and proxied streams are ended first, so
-            # this is usually quick) + 35s background join (the 30s ceiling of the
-            # scheduled-disable sweep, which deliberately finishes the statement it
-            # has already started, plus a 5s margin; the retention and stale-log
-            # sweeps have no ceiling and the join cancels them instead of waiting)
-            # + 10s audit drain (one record's 5s insert plus the 5s retention prune
-            # it piggybacks) + 5s app-log writer stop + 5s OTLP flush = 65s. The
-            # closes around them (the event bus, the proxy handler, discovery, the
-            # docker client, the rate limiters and the database pool) carry no budget
-            # of their own, so this is a ceiling with headroom over the 65s, not the
-            # sum. Docker's default grace is 10s, which would SIGKILL partway through
-            # the drain and take the audit rows and the last log lines with it.
-            stop_grace_period: 75s
-            depends_on:
-                db:
-                    condition: service_healthy
-    
-        db:
-            image: postgres:16-alpine
-            labels:
-                app.group: model-hotel
-            command: ["postgres", "-c", "log_min_error_statement=panic", "-c", "log_min_messages=error", "-c", "log_checkpoints=off"]
-            environment:
-                - POSTGRES_USER=${POSTGRES_USER:-modelhotel}
-                - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set in .env}
-                - POSTGRES_DB=${POSTGRES_DB:-modelhotel}
-            volumes:
-                - ./.data/pgdata:/var/lib/postgresql/data
-            restart: unless-stopped
-            healthcheck:
-                test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-modelhotel}"]
-                interval: 5s
-                timeout: 5s
-                retries: 5
-    
-        # Optional: outbound alerting via Apprise. Uncomment to run a stateless
-        # apprise-api container, then in Settings → Alerts switch alerting on and press
-        # "Set up alerts": the wizard checks http://apprise:8000, builds the destination
-        # URL for you (ntfy, Telegram, Discord, email, or a raw Apprise URL), tests it,
-        # and saves only at Finish. The same fields sit under "Manual configuration (advanced)" if you
-        # would rather paste tgram://<bot_token>/<chat_id> yourself. Model Hotel POSTs
-        # event summaries here and Apprise fans them out to your service. No request
-        # content is ever sent.
-        # apprise:
-        #     image: caronc/apprise:latest
-        #     labels:
-        #         app.group: model-hotel
-        #     restart: unless-stopped
-        #     # Not exposed to the host: only Model Hotel needs to reach it.
-        #     expose:
-        #         - "8000"
+name: model-hotel
+services:
+    app:
+        # Build from source (default):
+        build:
+            context: .
+            args:
+                VERSION: ${VERSION:-dev}
+                COMMIT: ${COMMIT:-unknown}
+        # Prebuilt images (uncomment 1 image according to registry preference, comment out build above):
+        # image: ghcr.io/hugalafutro/model-hotel:latest
+        # image: hugalafutro/model-hotel:latest
+        labels:
+            app.group: model-hotel
+        ports:
+            - "${HOST_PORT:-8081}:8080"
+        environment:
+            - MASTER_KEY=${MASTER_KEY:?MASTER_KEY must be set in .env}
+            - POSTGRES_USER=${POSTGRES_USER:-modelhotel}
+            - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set in .env}
+            - POSTGRES_HOST=db
+            - POSTGRES_DB=${POSTGRES_DB:-modelhotel}
+            - ADMIN_TOKEN=${ADMIN_TOKEN:-}
+            - ALLOW_HTTP_PROVIDERS=false
+            - ALLOW_EMBED=false
+            - DATA_DIR=/data
+            - RATE_LIMIT_ENABLED=true
+            - DEBUG_LOG=false
+            - CORS_ORIGINS=http://localhost:5173,http://localhost:${HOST_PORT:-8081}
+            - WEBAUTHN_RP_ID=${WEBAUTHN_RP_ID:-}
+            - WEBAUTHN_RP_ORIGINS=${WEBAUTHN_RP_ORIGINS:-}
+            - ALLOWED_PROVIDER_HOSTS=
+            - TRUSTED_PROXIES=
+            - KNOWN_PROXIES=
+        volumes:
+            - ./.data:/data
+            # Docker socket (disabled by default for security).
+            # Enable to show container-level stats in the sidebar (CPU, memory per container).
+            # ⚠️  Granting Docker socket access allows the container to control the Docker daemon.
+            #     Only enable if you trust the deployment environment.
+            # - /var/run/docker.sock:/var/run/docker.sock:ro
+        restart: unless-stopped
+        # Model Hotel winds down in stages on SIGTERM. Worst case, in order:
+        # 10s HTTP drain (open SSE tabs and proxied streams are ended first, so
+        # this is usually quick) + 35s background join (the 30s ceiling of the
+        # scheduled-disable sweep, which deliberately finishes the statement it
+        # has already started, plus a 5s margin; the retention and stale-log
+        # sweeps have no ceiling and the join cancels them instead of waiting)
+        # + 10s audit drain (one record's 5s insert plus the 5s retention prune
+        # it piggybacks) + 5s app-log writer stop + 5s OTLP flush = 65s. The
+        # closes around them (the event bus, the proxy handler, discovery, the
+        # docker client, the rate limiters and the database pool) carry no budget
+        # of their own, so this is a ceiling with headroom over the 65s, not the
+        # sum. Docker's default grace is 10s, which would SIGKILL partway through
+        # the drain and take the audit rows and the last log lines with it.
+        stop_grace_period: 75s
+        depends_on:
+            db:
+                condition: service_healthy
+
+    db:
+        image: postgres:16-alpine
+        labels:
+            app.group: model-hotel
+        command: ["postgres", "-c", "log_min_error_statement=panic", "-c", "log_min_messages=error", "-c", "log_checkpoints=off"]
+        environment:
+            - POSTGRES_USER=${POSTGRES_USER:-modelhotel}
+            - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set in .env}
+            - POSTGRES_DB=${POSTGRES_DB:-modelhotel}
+        volumes:
+            - ./.data/pgdata:/var/lib/postgresql/data
+        restart: unless-stopped
+        healthcheck:
+            test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-modelhotel}"]
+            interval: 5s
+            timeout: 5s
+            retries: 5
+
+    # Optional: outbound alerting via Apprise. Uncomment to run a stateless
+    # apprise-api container, then in Settings → Alerts switch alerting on and press
+    # "Set up alerts": the wizard checks http://apprise:8000, builds the destination
+    # URL for you (ntfy, Telegram, Discord, email, or a raw Apprise URL), tests it,
+    # and saves only at Finish. The same fields sit under "Manual configuration (advanced)" if you
+    # would rather paste tgram://<bot_token>/<chat_id> yourself. Model Hotel POSTs
+    # event summaries here and Apprise fans them out to your service. No request
+    # content is ever sent.
+    # apprise:
+    #     image: caronc/apprise:latest
+    #     labels:
+    #         app.group: model-hotel
+    #     restart: unless-stopped
+    #     # Not exposed to the host: only Model Hotel needs to reach it.
+    #     expose:
+    #         - "8000"
 ```
 
 </details>
@@ -426,6 +436,8 @@ ADMIN_TOKEN=
 ```bash
 docker compose up -d
 ```
+
+**5.** Stop, update, remove. `docker compose down` stops the stack and keeps your data: both services use bind mounts under `./.data` (PostgreSQL in `./.data/pgdata`), there are no named volumes, so `down -v` removes nothing more. To update, run `docker compose pull && docker compose up -d` (prebuilt image) or `git pull && docker compose up --build -d` (built from source). To remove everything, run `docker compose down` and delete `./.data`; PostgreSQL writes `pgdata` as its own user (uid 70), so that last step needs `sudo rm -rf .data`.
 
 > [!NOTE]
 > The `docker-compose.yml` content above is the production compose (auto-synced by a GitHub Action). See [Quick Start](#-quick-start) for the development override.

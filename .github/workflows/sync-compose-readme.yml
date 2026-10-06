@@ -17,8 +17,8 @@ jobs:
 
       - name: Sync docker-compose.yml into README and DOCKERHUB
         run: |
-          # Read the compose file and indent each line by 4 spaces for the yaml code block
-          COMPOSE_CONTENT=$(sed 's/^/    /' docker-compose.yml)
+          # The compose file goes into the fenced block verbatim, so a copy needs no re-indenting
+          COMPOSE_CONTENT=$(cat docker-compose.yml)
 
           # Build the replacement block
           REPLACEMENT=$(cat <<'BLOCK_END'
