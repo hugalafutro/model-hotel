@@ -23,6 +23,23 @@ const (
 	ipLogLabel  = "ip"
 )
 
+// maxIPBuckets bounds the per-IP bucket map. Its keys are client addresses,
+// and behind a trusted proxy the address is read from X-Forwarded-For, which
+// anything reaching the listener through that proxy's address can set to a
+// fresh value per request: one new bucket each, kept until the idle sweep.
+// Past the cap every address without a bucket shares overflowBucketKey, so a
+// flood of invented addresses is limited as one client and the map stops
+// growing, while every address already holding a bucket keeps it. Evicting
+// one instead would let the flood reset any client's budget on demand.
+//
+// ponytail: fixed cap; make it a setting if a real deployment ever sees this
+// many distinct clients inside the 10-minute idle window.
+const maxIPBuckets = 10000
+
+// overflowBucketKey is the shared bucket for addresses past maxIPBuckets. It
+// cannot collide with a real key, which is always a client address.
+const overflowBucketKey = "overflow"
+
 // settings keys for IP rate limiter (stored in DB)
 const (
 	settingsKeyIPEnabled = "rate_limit_ip_enabled"
@@ -125,8 +142,10 @@ func (l *IPLimiter) Middleware(next http.Handler) http.Handler {
 		}
 		r = r.WithContext(context.WithValue(r.Context(), chargedMarker{l}, struct{}{}))
 
-		ip := clientip.Resolve(r, l.trustedProxies)
-		entry := l.getLimiter(r.Context(), ip)
+		// ip is the bucket's key from here on: past maxIPBuckets that is the
+		// shared overflow bucket, and its throttle episode is logged under
+		// that one name rather than whichever caller happened to hit it.
+		ip, entry := l.getLimiter(r.Context(), clientip.Resolve(r, l.trustedProxies))
 
 		// Read before taking the admission lock, which guards in-memory bucket
 		// work only (see bucketEntry.admit).
@@ -164,7 +183,9 @@ func (l *IPLimiter) Middleware(next http.Handler) http.Handler {
 	})
 }
 
-func (l *IPLimiter) getLimiter(ctx context.Context, ip string) *bucketEntry {
+// getLimiter returns the bucket for ip and the key it is held under: ip
+// itself, or overflowBucketKey once the map is full.
+func (l *IPLimiter) getLimiter(ctx context.Context, ip string) (string, *bucketEntry) {
 	l.mu.Lock()
 	defer l.mu.Unlock()
 
@@ -178,7 +199,10 @@ func (l *IPLimiter) getLimiter(ctx context.Context, ip string) *bucketEntry {
 
 	rps, burst = bucketRate(rps, burst)
 
-	return upsertEntry(l.limiters, ip, rps, burst, ipLogPrefix, ipLogLabel, l.budget)
+	if _, ok := l.limiters[ip]; !ok && len(l.limiters) >= maxIPBuckets {
+		ip = overflowBucketKey
+	}
+	return ip, upsertEntry(l.limiters, ip, rps, burst, ipLogPrefix, ipLogLabel, l.budget)
 }
 
 func (l *IPLimiter) cleanup() {

@@ -546,6 +546,17 @@ other attempt still in flight, stamps the winner's provider and model onto the
 request log, and streams the winner to the client. Nothing a loser produced ever
 reaches the client.
 
+The losers are still paid for. Every attempt whose provider answered with a 2xx
+and that did not serve, whether it lost or was cut in flight, has had its prompt
+read and billed, so the request is charged for it: an estimate of the prompt from
+the request text (an abandoned stream never reports usage) goes to the key's
+token limits and counter, and the row's cost and dollar budget price it at the
+loser's own model. The estimate never appears in the row's token columns. An
+attempt refused before any 2xx, or ended by the provider's own error frame, is
+not charged. An attempt still running when the race ends is judged by what it
+had answered at that moment. A sequential streaming attempt whose [TTFT probe](#ttft-probe-time-to-first-token)
+fails behind a 2xx is charged the same way.
+
 It applies to **streaming chat completions with more than one candidate only**, so
 in practice to `hotel/` group traffic. A single-provider request, a non-streaming
 request and the multimodal endpoints all keep the ordinary sequential loop. The

@@ -483,8 +483,9 @@ const minPassthroughTokens = 1
 // Each side is estimated independently and only when it is missing: a native
 // Anthropic stream reports input_tokens up front and output_tokens at the end,
 // so a truncated one keeps its reported prompt and estimates only the output.
-// Nothing is estimated when no output was delivered (an error before the first
-// token costs nothing), and the request log keeps the provider's figures:
+// Nothing is estimated when no output was delivered (a stream that failed
+// before its first token is charged by rejectStreamPrompt, never here), and
+// the request log keeps the provider's figures:
 // estimates charge the quota, they are not reported as measured usage, and
 // the row's price carries them as an increment (see estimatedPrompt).
 func estimateMissingUsage(promptTokens, completionTokens, reasoningTokens int, logData *requestLogData, deliveredBytes int) (prompt, completion, reasoning int) {

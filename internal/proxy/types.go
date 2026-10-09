@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/google/uuid"
@@ -144,7 +145,8 @@ type requestLogData struct {
 	streaming      bool
 	virtualKeyName string
 	virtualKeyID   string
-	// servedModel is the model row the request was last dispatched to, held so
+	// servedModel is the model row the request was last dispatched to (or, on
+	// a hedged race with no winner, the priced loser a charge stamped), held so
 	// the terminal write can price the row at the figures the model carried
 	// then. Nil until a candidate is chosen, and kept through exhaustion: a
 	// walked group may have charged a rejected candidate's prompt onto this
@@ -258,11 +260,27 @@ type modelCandidate struct {
 // what that costs at its own model's prices. priced is false when that model
 // carries no usable prices; that prompt is then priced with the serving
 // share instead (rejectedTotals).
+//
+// estimated marks a prompt the provider never reported: an abandoned stream's,
+// sized from the request text (rejectStreamPrompt). It is charged and priced
+// like the rest but was never folded into the token columns, which carry only
+// measured figures, so the column arithmetic below leaves it out.
 type rejectedAttempt struct {
 	providerName                string
 	prompt, cacheHit, cacheMiss int
 	costUSD                     float64
 	priced                      bool
+	estimated                   bool
+}
+
+// measuredPrompt is the prompt the provider reported for this attempt: the
+// figure token counters book. An estimate books only its cost, as a served
+// stream's estimate does.
+func (a rejectedAttempt) measuredPrompt() int {
+	if a.estimated {
+		return 0
+	}
+	return a.prompt
 }
 
 // rejectedTotals sums the PRICED rejected candidates' prompt figures and
@@ -271,9 +289,20 @@ type rejectedAttempt struct {
 // the serving share and is priced at the serving model, the rate every walked
 // prompt took before per-candidate pricing; dropping the row's whole cost for
 // one unpriced hop would let a walked group spend against a budget for free.
+//
+// An estimated prompt never entered the columns, so a priced one adds only its
+// cost, and an unpriced one is handed to the serving share by a negative
+// prompt figure (the caller subtracts it from the columns).
 func (d *requestLogData) rejectedTotals() (prompt, cacheHit, cacheMiss int, costUSD float64) {
 	for _, a := range d.rejected {
-		if !a.priced {
+		switch {
+		case a.estimated && a.priced:
+			costUSD += a.costUSD
+			continue
+		case a.estimated:
+			prompt -= a.prompt
+			continue
+		case !a.priced:
 			continue
 		}
 		prompt += a.prompt
@@ -287,9 +316,10 @@ func (d *requestLogData) rejectedTotals() (prompt, cacheHit, cacheMiss int, cost
 // rejectedTokens sums EVERY rejected candidate's prompt figures, priced or
 // not: the metrics seam books each of them under its own provider, so the
 // serving observation must carry none of them, whichever model priced them.
+// An estimated prompt was never in the columns, so it adds nothing.
 func (d *requestLogData) rejectedTokens() (prompt, cacheHit int) {
 	for _, a := range d.rejected {
-		prompt += a.prompt
+		prompt += a.measuredPrompt()
 		cacheHit += a.cacheHit
 	}
 	return prompt, cacheHit
@@ -419,6 +449,12 @@ type requestState struct {
 	// silent, keeping whichever returns its first token first.
 	hedgingEnabled bool
 	hedgeDelay     time.Duration
+	// hedgeBilled is set by a hedged probe once its provider answers 2xx,
+	// and cleared again if the stream then ends on the provider's own error
+	// frame. Only the per-attempt snapshot carries one: the orchestrator
+	// reads it to charge an attempt it abandoned while that probe was still
+	// running, before the probe could hand back a result.
+	hedgeBilled *atomic.Bool
 
 	// Accumulated across failover attempts (phase D / E). lastReqErr is the
 	// structured cause of the most recent attempt's failure; lastErr is its

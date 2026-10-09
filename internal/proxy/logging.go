@@ -38,8 +38,8 @@ func (logEntry *requestLogData) terminalCost() (float64, bool) {
 // candidate's own share of the token columns (the columns minus what priced
 // rejected candidates billed) at the model that served it, and what each
 // priced rejected earlier candidate's prompt cost at its own model. Not ok
-// when the request never reached a provider, the serving model is unpriced,
-// or the row is not terminal yet (the interim streaming write runs before
+// when the request never reached a provider, the serving model is unpriced
+// and its share is not empty, or the row is not terminal yet (the interim streaming write runs before
 // usage arrives, and a zero stamped there would outlive a crash). servedModel
 // is kept through exhaustion, so a group that rejected every candidate still
 // prices here: the serving share is then zero tokens and the row costs what
@@ -63,16 +63,29 @@ func (logEntry *requestLogData) terminalCostParts() (serving, rejected float64, 
 			return cost, rCost, true
 		}
 	}
-	serving, ok = logEntry.servedModel.CostUSD(model.Usage{
+	usage := model.Usage{
 		Prompt:          logEntry.tokensPrompt - rPrompt + logEntry.estimatedPrompt,
 		PromptCacheHit:  logEntry.tokensPromptCacheHit - rHit,
 		PromptCacheMiss: logEntry.tokensPromptCacheMiss - rMiss,
 		Completion:      logEntry.tokensCompletion + logEntry.estimatedCompletion,
-	})
+	}
+	serving, ok = logEntry.priceServingShare(usage)
 	if !ok {
 		return 0, 0, false
 	}
 	return serving, rCost, true
+}
+
+// priceServingShare prices the serving candidate's share at its model. When
+// every candidate failed, only the rejected reads cost anything: an empty
+// share costs nothing at any price, so a last candidate whose model carries
+// none must not drop those reads from the budget. An unpriced rejected read is
+// never in that case, since its tokens sit in the serving share.
+func (logEntry *requestLogData) priceServingShare(u model.Usage) (float64, bool) {
+	if u == (model.Usage{}) && len(logEntry.rejected) > 0 {
+		return 0, true
+	}
+	return logEntry.servedModel.CostUSD(u)
 }
 
 // updateLogOption configures updateRequestLog behavior.
@@ -546,7 +559,7 @@ func (h *Handler) updateRequestLog(logEntry *requestLogData, opts ...updateLogOp
 			for _, a := range logEntry.rejected {
 				metrics.RecordRejectedAttempt(metrics.RejectedAttempt{
 					Provider: a.providerName, Model: metricModelLabel(logEntry.modelID, logEntry.errorKind),
-					PromptTokens: a.prompt, PromptCachedTokens: a.cacheHit,
+					PromptTokens: a.measuredPrompt(), PromptCachedTokens: a.cacheHit,
 					CostUSD: a.costUSD, Priced: a.priced && priced && chargedNow,
 				})
 			}
