@@ -1330,28 +1330,45 @@ func TestConfigSync_ExportFailoverGroupsReadFailures(t *testing.T) {
 
 // The echo commits with the rows it certifies: when its write fails, the group
 // rows from the same import are rolled back too, so rows and echo can never come
-// from different imports.
+// from different imports. Only the echo row is held, by another transaction's
+// row lock, so the fence read and the group upsert go through and the apply
+// fails at the echo write itself, after the group rows were written.
 func TestConfigSync_AutoGroupEchoCommitsWithTheGroups(t *testing.T) {
 	cleanConfigTables(t)
 	openai := seedProvider(t, "openai", "sk-secret", configSyncMasterKey)
 	azure := seedProvider(t, "azure", "sk-secret", configSyncMasterKey)
 	seedSharedModel(t, "gpt-4o", openai, azure)
 	h := NewConfigSyncHandler(apiTestDB, settings.NewRepository(apiTestDB.Pool()), configSyncMasterKey, "v-test", nil, nil)
-	_, lockSettings := lockedReadDB(t, "settings")
 
-	ctx, cancel := context.WithTimeout(context.Background(), 1500*time.Millisecond)
+	bg := context.Background()
+	if _, err := apiTestDB.Pool().Exec(bg,
+		`INSERT INTO settings (key, value, updated_at) VALUES ($1, '[]', now())`, keyFleetAutoFailoverGroups); err != nil {
+		t.Fatalf("seed echo row: %v", err)
+	}
+	holder, err := apiTestDB.Pool().Begin(bg)
+	if err != nil {
+		t.Fatalf("begin holder: %v", err)
+	}
+	defer func() { _ = holder.Rollback(bg) }()
+	if _, err := holder.Exec(bg, `SELECT 1 FROM settings WHERE key = $1 FOR UPDATE`, keyFleetAutoFailoverGroups); err != nil {
+		t.Fatalf("hold echo row: %v", err)
+	}
+
+	ctx, cancel := context.WithTimeout(bg, 1500*time.Millisecond)
 	defer cancel()
-	unlock := lockSettings()
-	_, err := h.applyFailoverGroups(ctx, []ExportFailoverGroup{{
+	_, err = h.applyFailoverGroups(ctx, []ExportFailoverGroup{{
 		DisplayModel: "mine", GroupEnabled: true,
 		Entries: []ExportFailoverEntry{{ProviderName: "openai", ModelID: "gpt-4o", Enabled: true}, {ProviderName: "azure", ModelID: "gpt-4o", Enabled: true}},
 	}}, true, 0)
-	unlock()
 	if err == nil {
-		t.Fatal("apply with the settings table locked: want an error, got none")
+		t.Fatal("apply with the echo row held: want an error, got none")
 	}
+	if ctx.Err() == nil {
+		t.Fatalf("apply failed before reaching the held echo row: %v", err)
+	}
+	_ = holder.Rollback(bg)
 	var n int
-	_ = apiTestDB.Pool().QueryRow(context.Background(),
+	_ = apiTestDB.Pool().QueryRow(bg,
 		`SELECT count(*) FROM model_failover_groups WHERE display_model = 'mine'`).Scan(&n)
 	if n != 0 {
 		t.Error("group row committed although the echo write failed")
