@@ -38,8 +38,8 @@ func (logEntry *requestLogData) terminalCost() (float64, bool) {
 // candidate's own share of the token columns (the columns minus what priced
 // rejected candidates billed) at the model that served it, and what each
 // priced rejected earlier candidate's prompt cost at its own model. Not ok
-// when the request never reached a provider, the serving model is unpriced,
-// or the row is not terminal yet (the interim streaming write runs before
+// when the request never reached a provider, the serving model is unpriced
+// and its share is not empty, or the row is not terminal yet (the interim streaming write runs before
 // usage arrives, and a zero stamped there would outlive a crash). servedModel
 // is kept through exhaustion, so a group that rejected every candidate still
 // prices here: the serving share is then zero tokens and the row costs what

@@ -553,7 +553,8 @@ the request text (an abandoned stream never reports usage) goes to the key's
 token limits and counter, and the row's cost and dollar budget price it at the
 loser's own model. The estimate never appears in the row's token columns. An
 attempt refused before any 2xx, or ended by the provider's own error frame, is
-not charged. A sequential streaming attempt whose [TTFT probe](#ttft-probe-time-to-first-token)
+not charged. An attempt still running when the race ends is judged by what it
+had answered at that moment. A sequential streaming attempt whose [TTFT probe](#ttft-probe-time-to-first-token)
 fails behind a 2xx is charged the same way.
 
 It applies to **streaming chat completions with more than one candidate only**, so

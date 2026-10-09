@@ -145,7 +145,8 @@ type requestLogData struct {
 	streaming      bool
 	virtualKeyName string
 	virtualKeyID   string
-	// servedModel is the model row the request was last dispatched to, held so
+	// servedModel is the model row the request was last dispatched to (or, on
+	// a hedged race with no winner, the priced loser a charge stamped), held so
 	// the terminal write can price the row at the figures the model carried
 	// then. Nil until a candidate is chosen, and kept through exhaustion: a
 	// walked group may have charged a rejected candidate's prompt onto this

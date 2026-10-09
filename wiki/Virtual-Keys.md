@@ -568,7 +568,8 @@ model's price (or the serving model's, when its own has none): an empty
 non-streaming answer that failed over at the prompt it reported, a stream whose
 first-token probe failed or that lost a
 [hedged race](Failover-and-Hotel-Routing#request-hedging) at an estimate from
-the request text.
+the request text. A stream the provider ended with its own error frame is not
+charged.
 
 **Editing.** A key or account update that does not mention the budget keeps
 it: an integration written before budgets existed cannot drop a spending
