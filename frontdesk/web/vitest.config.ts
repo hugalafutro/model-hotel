@@ -30,6 +30,10 @@ export default defineConfig({
 			],
 		},
 		setupFiles: ["./src/test/setup.ts"],
+		// Above the setup's 5s asyncUtilTimeout, so a query that never matches
+		// fails with testing-library's own "Unable to find" message rather than a
+		// bare test timeout. Matches the main dashboard's config.
+		testTimeout: 15000,
 		css: false,
 		coverage: {
 			provider: "v8",
