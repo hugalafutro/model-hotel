@@ -365,10 +365,22 @@ func (h *Handler) serveBufferedJSONPassthrough(w http.ResponseWriter, r *http.Re
 		w.WriteHeader(resp.StatusCode)
 		written := int64(len(body))
 		ew := newExactMaskWriter(w, logData.masker)
-		if _, writeErr := ew.Write(body); writeErr == nil {
-			n, _ := io.Copy(ew, resp.Body)
+		_, copyErr := ew.Write(body)
+		if copyErr == nil {
+			var n int64
+			n, copyErr = io.Copy(ew, resp.Body)
 			written += n
-			_ = ew.Flush()
+			if err := ew.Flush(); err != nil && copyErr == nil {
+				copyErr = err
+			}
+		}
+		// A remainder cut short delivered truncated JSON: failed, as in the
+		// streamed pass-through, and still charged as below.
+		if copyErr != nil {
+			status, errMsg, fenced := markPassthroughCopyFailed(r, logData, copyErr)
+			debuglog.Warn("proxy: passthrough copy interrupted (oversized json)", "endpoint", logData.endpointType, "model", logData.modelID, "provider", logData.providerName, "bytes", written, "error", fenced)
+			h.completePassthrough(st, status, attempt, responseHeaderMs, 0, 0, answered, "failed", errMsg)
+			return outcomeServed
 		}
 		// Skipping usage EXTRACTION must not mean skipping metering: the
 		// provider billed for this request and the client got the whole
@@ -579,6 +591,10 @@ func (h *Handler) serveStreamedPassthrough(w http.ResponseWriter, r *http.Reques
 		written += int64(nw)
 		copyErr = err
 	}
+	// A first read returning its byte with a failure ends there, failed.
+	if copyErr == nil && readErr != nil && !errors.Is(readErr, io.EOF) {
+		copyErr = readErr
+	}
 	if copyErr == nil && readErr == nil {
 		var nc int64
 		nc, copyErr = io.Copy(dst, resp.Body)
@@ -603,28 +619,37 @@ func (h *Handler) serveStreamedPassthrough(w http.ResponseWriter, r *http.Reques
 	}
 
 	if copyErr != nil {
-		// io.Copy reports the upstream body's read error, the class the
-		// first-byte path above fences, so the stored message and the warn line
-		// below take the same string. requestAbandoned still reads copyErr.
-		fencedCopyErr := logData.fencedErr(copyErr)
-		errMsg := "response copy error: " + fencedCopyErr
-		// r carries the attempt's context, so a bare cancel check would call
-		// this gateway's own per-attempt deadline a client leaving.
-		if requestAbandoned(r.Context(), copyErr) {
-			errMsg = "client disconnected during response"
-		}
+		status, errMsg, fencedCopyErr := markPassthroughCopyFailed(r, logData, copyErr)
 		debuglog.Warn("proxy: passthrough copy interrupted", "endpoint", logData.endpointType, "model", logData.modelID, "provider", logData.providerName, "bytes", written, "error", fencedCopyErr)
 		// The provider billed whatever it produced, whether or not the client
 		// stayed to receive it. Bytes reached the client, so an absent usage
 		// report is estimated rather than treated as free. This is the path
 		// audio/mpeg takes, where the SSE tail that would carry usage is never
 		// allocated, so the report is structurally always absent.
-		h.completePassthrough(st, resp.StatusCode, attempt, responseHeaderMs, promptTokens, completionTokens, written > 0, "failed", errMsg)
+		h.completePassthrough(st, status, attempt, responseHeaderMs, promptTokens, completionTokens, written > 0, "failed", errMsg)
 		return outcomeServed
 	}
 	charged, estimatedPrompt := h.completePassthrough(st, resp.StatusCode, attempt, responseHeaderMs, promptTokens, completionTokens, written > 0, "completed", "")
 	debuglog.Info("proxy: passthrough completed", "endpoint", logData.endpointType, "model", logData.modelID, "provider", logData.providerName, "attempt", attempt, "status", resp.StatusCode, "bytes", written, "sse", isSSE, "prompt_tokens", promptTokens, "completion_tokens", completionTokens, "charged_tokens", charged, "prompt_estimated", estimatedPrompt)
 	return outcomeServed
+}
+
+// markPassthroughCopyFailed classifies a body copy cut short after the status
+// line went out, with the kind failPassthroughRead records before the first byte
+// (abortKind's, else provider_error), and returns the row's status (499 for a
+// caller that left, else 0 as a failed chat stream: the stats count either as an
+// error, not as the upstream's 200), its message, and the fenced error.
+func markPassthroughCopyFailed(r *http.Request, logData *requestLogData, copyErr error) (status int, errMsg, fenced string) {
+	fenced = logData.fencedErr(copyErr)
+	kind, aborted, _ := abortKind(r.Context(), copyErr)
+	if !aborted {
+		kind = KindProviderError
+	}
+	logData.errorKind = kind
+	if kind == KindClientDisconnect {
+		return statusClientClosedRequest, "client disconnected during response", fenced
+	}
+	return 0, "response copy error: " + fenced, fenced
 }
 
 // copyPassthroughHeaders sets the upstream Content-Type and (when present)
@@ -637,9 +662,6 @@ func copyPassthroughHeaders(w http.ResponseWriter, resp *http.Response, contentT
 	}
 }
 
-// finalizePassthroughLog writes the terminal request-log update for a
-// multimodal request (the pass-through counterpart of the chat handlers'
-// inline logData population).
 // failPassthroughRead closes a pass-through attempt whose upstream body read
 // failed, for both twins. The row carries abortKind's kind whenever there is
 // one. A caller that hung up is recorded and answered as the 499 disconnect the
@@ -658,6 +680,9 @@ func (h *Handler) failPassthroughRead(w http.ResponseWriter, st *requestState, k
 	return outcomeFatal
 }
 
+// finalizePassthroughLog writes the terminal request-log update for a
+// multimodal request (the pass-through counterpart of the chat handlers'
+// inline logData population).
 func (h *Handler) finalizePassthroughLog(st *requestState, statusCode, attempt int, responseHeaderMs float64, promptTokens, completionTokens int, state, errMsg string) {
 	logData := st.logData
 	logData.statusCode = statusCode

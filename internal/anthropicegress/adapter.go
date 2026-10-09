@@ -15,7 +15,8 @@ import (
 // Anthropic ends its stream with message_stop and carries no [DONE] sentinel,
 // so the translator emits the terminal chunk + [DONE] on message_stop. An
 // upstream that reaches EOF without message_stop gets that terminal pair from
-// Finish() instead.
+// Finish() instead when a message_delta already carried its stop_reason, and
+// fails as truncated when nothing said the response ended.
 //
 // StreamAdapter is the shared egress adapter driving this dialect's
 // StreamTranslator. It is an alias, not a defined type: gemini,

@@ -4,8 +4,10 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"net/http/httptest"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -325,7 +327,7 @@ func TestConfigSync_ModelReconcileWaitsBehindTheImportFence(t *testing.T) {
 	start := time.Now()
 	done := make(chan error, 1)
 	go func() {
-		_, err := h.applyDisabledModels(ctx, refs)
+		_, err := h.applyDisabledModels(ctx, refs, 0)
 		done <- err
 	}()
 
@@ -385,7 +387,7 @@ func TestConfigSync_ModelReconcileWaitsBehindTheImportFence(t *testing.T) {
 	if err := holder.Rollback(ctx); err != nil {
 		t.Fatalf("release fence: %v", err)
 	}
-	if _, err := h.applyDisabledModels(ctx, refs); err != nil {
+	if _, err := h.applyDisabledModels(ctx, refs, 0); err != nil {
 		t.Fatalf("reconcile after the fence was released: %v", err)
 	}
 	if err := apiTestDB.Pool().QueryRow(ctx, `SELECT enabled FROM models WHERE model_id = 'm1'`).Scan(&enabled); err != nil {
@@ -393,5 +395,157 @@ func TestConfigSync_ModelReconcileWaitsBehindTheImportFence(t *testing.T) {
 	}
 	if enabled {
 		t.Error("the reconcile went through but the model is still enabled")
+	}
+}
+
+// TestConfigSync_PostCommitSectionsYieldToALaterImport pins the post-commit
+// fence check. An import's per-model reconciles and group build run after its
+// commit, behind a discovery pass that can take minutes, so a later import can
+// commit in between. Once one has, the earlier import's sections must write
+// nothing: its disable list would otherwise switch back on a model the later
+// import disabled, and its groups would replace the later import's. The import
+// that holds the current sequence number still writes.
+func TestConfigSync_PostCommitSectionsYieldToALaterImport(t *testing.T) {
+	cleanConfigTables(t)
+	pid := seedProvider(t, "openai", "sk-secret-value", configSyncMasterKey)
+	seedModel(t, pid, "m1")
+	h := &ConfigSyncHandler{db: apiTestDB}
+	refs := []ExportModelRef{{ProviderName: "openai", ModelID: "m1"}}
+	ctx := context.Background()
+
+	var seqs []int64
+	for range 2 {
+		tx, err := apiTestDB.Pool().Begin(ctx)
+		if err != nil {
+			t.Fatalf("begin: %v", err)
+		}
+		seq, err := nextImportSeq(ctx, tx)
+		if err != nil {
+			t.Fatalf("next import seq: %v", err)
+		}
+		if err := tx.Commit(ctx); err != nil {
+			t.Fatalf("commit: %v", err)
+		}
+		seqs = append(seqs, seq)
+	}
+	earlier, latest := seqs[0], seqs[1]
+	if latest != earlier+1 {
+		t.Fatalf("import sequence went %d then %d, want consecutive", earlier, latest)
+	}
+	modelEnabled := func() bool {
+		t.Helper()
+		var enabled bool
+		if err := apiTestDB.Pool().QueryRow(ctx, `SELECT enabled FROM models WHERE model_id = 'm1'`).Scan(&enabled); err != nil {
+			t.Fatalf("read model: %v", err)
+		}
+		return enabled
+	}
+
+	if _, err := h.applyDisabledModels(ctx, refs, earlier); !errors.Is(err, errImportSuperseded) {
+		t.Errorf("earlier import disables: err = %v, want errImportSuperseded", err)
+	}
+	if _, err := h.applyEnabledModels(ctx, []ExportModelRef{}, earlier); !errors.Is(err, errImportSuperseded) {
+		t.Errorf("earlier import pins: err = %v, want errImportSuperseded", err)
+	}
+	if _, err := h.applyFailoverGroups(ctx, []ExportFailoverGroup{}, true, earlier); !errors.Is(err, errImportSuperseded) {
+		t.Errorf("earlier import groups: err = %v, want errImportSuperseded", err)
+	}
+	if !modelEnabled() {
+		t.Fatal("a superseded import's disable list was written")
+	}
+	if err := skipSuperseded(errImportSuperseded, "test"); err != nil {
+		t.Errorf("skipSuperseded(errImportSuperseded) = %v, want nil: a yielded section is not a failure", err)
+	}
+
+	if _, err := h.applyDisabledModels(ctx, refs, latest); err != nil {
+		t.Fatalf("latest import disables: %v", err)
+	}
+	if modelEnabled() {
+		t.Error("the import holding the current sequence did not write its disable list")
+	}
+}
+
+// TestConfigSync_SameGenerationImportsKeepTheLaterOnesModelState drives the race
+// end to end. Front Desk's source generation moves only on a fleet rearm, so two
+// pushes of one config edit apart carry the same one. Import A stalls in
+// discovery; import B, same generation, disables a model and finishes; A then
+// resumes with its older, empty disable list. B's disable must stand.
+func TestConfigSync_SameGenerationImportsKeepTheLaterOnesModelState(t *testing.T) {
+	cleanConfigTables(t)
+	pid := seedProvider(t, "openai", "sk-secret-value", configSyncMasterKey)
+	seedModel(t, pid, "m1")
+	ctx := context.Background()
+
+	reached, release := make(chan struct{}), make(chan struct{})
+	var stalled atomic.Bool
+	discoverAll := func(context.Context) error {
+		if stalled.CompareAndSwap(false, true) {
+			close(reached)
+			<-release
+		}
+		return nil
+	}
+	r := newConfigSyncRouterWithDiscovery(t, configSyncMasterKey, discoverAll)
+
+	base := doExport(t, newConfigSyncRouter(t, configSyncMasterKey))
+	envA, envB := base, base
+	envA.Config.DisabledModels = []ExportModelRef{}
+	envB.Config.DisabledModels = []ExportModelRef{{ProviderName: "openai", ModelID: "m1"}}
+	gen := int64(7)
+
+	doneA := make(chan int, 1)
+	go func() {
+		_, rec := doImportGen(t, r, envA, &gen)
+		doneA <- rec.Code
+	}()
+	select {
+	case <-reached:
+	case <-time.After(30 * time.Second):
+		t.Fatal("import A never reached discovery")
+	}
+	if _, rec := doImportGen(t, r, envB, &gen); rec.Code != http.StatusOK {
+		close(release)
+		t.Fatalf("import B: %d %s", rec.Code, rec.Body.String())
+	}
+	close(release)
+	if code := <-doneA; code != http.StatusOK {
+		t.Fatalf("import A: %d", code)
+	}
+
+	var enabled bool
+	if err := apiTestDB.Pool().QueryRow(ctx, `SELECT enabled FROM models WHERE model_id = 'm1'`).Scan(&enabled); err != nil {
+		t.Fatalf("read model: %v", err)
+	}
+	if enabled {
+		t.Error("import A's stale disable list re-enabled the model import B disabled")
+	}
+}
+
+// An unreadable import sequence matches no running import's number but the
+// "outside an import" 0, and the next import restarts it at 1 rather than
+// failing on it. A cancelled section takes no lock and writes nothing.
+func TestConfigSync_ImportSeqEdges(t *testing.T) {
+	cleanConfigTables(t)
+	ctx := context.Background()
+	if _, err := apiTestDB.Pool().Exec(ctx,
+		`INSERT INTO settings (key, value, updated_at) VALUES ($1, 'not-a-number', now())`, keyFleetImportSeq); err != nil {
+		t.Fatalf("seed: %v", err)
+	}
+	tx, err := apiTestDB.Pool().Begin(ctx)
+	if err != nil {
+		t.Fatalf("begin: %v", err)
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+	if seq, err := readImportSeq(ctx, tx); err != nil || seq != 0 {
+		t.Errorf("readImportSeq over an unreadable value = %d, %v; want 0, nil", seq, err)
+	}
+	if seq, err := nextImportSeq(ctx, tx); err != nil || seq != 1 {
+		t.Errorf("nextImportSeq over an unreadable value = %d, %v; want 1, nil", seq, err)
+	}
+
+	cctx, cancel := context.WithCancel(ctx)
+	cancel()
+	if err := lockFenceForPostCommit(cctx, tx, 1); err == nil || errors.Is(err, errImportSuperseded) {
+		t.Errorf("lockFenceForPostCommit on a cancelled context = %v, want the cancellation", err)
 	}
 }

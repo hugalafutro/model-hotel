@@ -235,10 +235,12 @@ func TestStreamAdapter_UpstreamDiesMidStream(t *testing.T) {
 func TestStreamAdapter_WrappedEOFStillFinishes(t *testing.T) {
 	// EOF can arrive wrapped by any reader sitting between the transport and
 	// this adapter; a wrapped EOF must still produce the terminal chunk rather
-	// than leaving the client with no [DONE].
+	// than leaving the client with no [DONE]. The message_delta's stop_reason
+	// is what makes the EOF a clean end rather than a cut-off.
 	body := &dyingBody{
-		data: "data: {\"type\":\"content_block_delta\",\"index\":0,\"delta\":{\"type\":\"text_delta\",\"text\":\"x\"}}\n\n",
-		err:  fmt.Errorf("transport read: %w", io.EOF),
+		data: "data: {\"type\":\"content_block_delta\",\"index\":0,\"delta\":{\"type\":\"text_delta\",\"text\":\"x\"}}\n\n" +
+			"data: {\"type\":\"message_delta\",\"delta\":{\"stop_reason\":\"end_turn\"}}\n\n",
+		err: fmt.Errorf("transport read: %w", io.EOF),
 	}
 	out, err := io.ReadAll(NewStreamAdapter(body, "m"))
 	if err != nil {

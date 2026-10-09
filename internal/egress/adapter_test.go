@@ -290,6 +290,31 @@ func TestStreamAdapter_UpstreamErrorAfterDrain(t *testing.T) {
 	}
 }
 
+// usageFakeTranslator is a fakeTranslator that also reports usage mid-stream.
+type usageFakeTranslator struct{ fakeTranslator }
+
+func (*usageFakeTranslator) UsageChunk() []byte { return []byte("<usage>") }
+
+// A dropped connection still delivers the usage the upstream already reported
+// (UsageReporter), ahead of the read error itself, which stays the stream's
+// error; Finish is not called, so nothing closes the stream.
+func TestStreamAdapter_UpstreamErrorKeepsTheReportedUsage(t *testing.T) {
+	boom := errors.New("connection reset by peer")
+	tr := &usageFakeTranslator{}
+	body := &scriptedBody{script: []string{"data: x\n\n"}, err: boom}
+
+	out, err := io.ReadAll(NewStreamAdapter("test", body, tr))
+	if !errors.Is(err, boom) {
+		t.Fatalf("err = %v, want the read error", err)
+	}
+	if got := string(out); got != "<x><usage>" {
+		t.Errorf("output = %q, want the drained bytes then the usage", got)
+	}
+	if tr.finished != 0 {
+		t.Error("Finish must not be called on a non-EOF upstream error")
+	}
+}
+
 // lastReadEOFBody hands back its whole payload and io.EOF from a single Read,
 // the shape io.Reader permits and a transport produces when the final packet
 // closes the connection.
@@ -325,13 +350,17 @@ func TestStreamAdapter_PoisonedByLastReadSkipsFinish(t *testing.T) {
 	}
 }
 
-func TestStreamAdapter_FinishErrorIsLoggedNotFatal(t *testing.T) {
-	tr := &fakeTranslator{finishErr: errors.New("finish blew up")}
+// A Finish error (a translator reporting the upstream never signalled its end)
+// replaces the clean EOF: the bytes already translated still drain, then the
+// stream fails, so the pipeline records a truncation instead of a completion.
+func TestStreamAdapter_FinishErrorFailsTheStream(t *testing.T) {
+	finishErr := errors.New("finish blew up")
+	tr := &fakeTranslator{finishErr: finishErr}
 	body := &scriptedBody{script: []string{"data: x\n\n"}}
 
 	out, err := io.ReadAll(NewStreamAdapter("test", body, tr))
-	if err != nil {
-		t.Fatalf("ReadAll: %v", err)
+	if !errors.Is(err, finishErr) {
+		t.Fatalf("ReadAll err = %v, want the Finish error", err)
 	}
 	if got := string(out); got != "<x>" {
 		t.Errorf("output = %q, want the translated bytes with no terminal appended", got)

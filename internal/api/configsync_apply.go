@@ -213,12 +213,19 @@ func (h *ConfigSyncHandler) apply(ctx context.Context, env ConfigEnvelope, sourc
 			return applyOutcome{}, err
 		}
 	}
+	// Numbered in the same transaction, after the settings writes so this path
+	// stays models-then-settings: the post-commit sections write only while this
+	// import is still the latest one committed.
+	importSeq, err := nextImportSeq(ctx, tx)
+	if err != nil {
+		return applyOutcome{}, err
+	}
 
 	if err := tx.Commit(ctx); err != nil {
 		return applyOutcome{}, err
 	}
 
-	out := h.postImportRefresh(ctx, env, wantSettings, removedSettings)
+	out := h.postImportRefresh(ctx, env, importSeq, wantSettings, removedSettings)
 	return out, nil
 }
 
@@ -527,8 +534,10 @@ func validateSyncedRateLimits(subject string, rps *float64, burst, tpm *int) err
 
 // postImportRefresh runs the best-effort post-commit steps of an import: the
 // core config is already durable, so nothing here can fail the sync. The
-// returned outcome records what these steps could not do.
-func (h *ConfigSyncHandler) postImportRefresh(ctx context.Context, env ConfigEnvelope, wantSettings map[string]string, removedSettings []string) applyOutcome {
+// returned outcome records what these steps could not do. The per-model and
+// group sections write only while no import after importSeq has committed; one
+// that has owns that state, so a skipped section is not reported as a failure.
+func (h *ConfigSyncHandler) postImportRefresh(ctx context.Context, env ConfigEnvelope, importSeq int64, wantSettings map[string]string, removedSettings []string) applyOutcome {
 	var out applyOutcome
 	// The core config is committed, so the remaining work is not bound to the
 	// caller's request. Front Desk's import client gives up after 240s
@@ -607,9 +616,9 @@ func (h *ConfigSyncHandler) postImportRefresh(ctx context.Context, env ConfigEnv
 	// runs before the group build so the model state is settled by the time anything
 	// downstream reads it; upsertFailoverGroups resolves entries by model presence
 	// alone and is indifferent to the order.
-	unapplied, err := h.applyDisabledModels(ctx, env.Config.DisabledModels)
+	unapplied, err := h.applyDisabledModels(ctx, env.Config.DisabledModels, importSeq)
 	out.UnappliedModels = unapplied
-	if err != nil {
+	if err = skipSuperseded(err, "per-model disables"); err != nil {
 		debuglog.Warn("configsync: failed to apply per-model disables", "error", err)
 		out.ModelStateErr = err
 	}
@@ -617,9 +626,9 @@ func (h *ConfigSyncHandler) postImportRefresh(ctx context.Context, env ConfigEnv
 	// Manual-enable pins, immediately after the disables so a member ends up in the
 	// same state whichever order a malformed envelope names a model in. Joined
 	// rather than assigned, so a pin failure cannot erase a disable failure.
-	pinned, err := h.applyEnabledModels(ctx, env.Config.EnabledModels)
+	pinned, err := h.applyEnabledModels(ctx, env.Config.EnabledModels, importSeq)
 	out.UnappliedModels = append(out.UnappliedModels, pinned...)
-	if err != nil {
+	if err = skipSuperseded(err, "per-model manual-enable pins"); err != nil {
 		debuglog.Warn("configsync: failed to apply per-model manual-enable pins", "error", err)
 		out.ModelStateErr = errors.Join(out.ModelStateErr, err)
 	}
@@ -628,11 +637,11 @@ func (h *ConfigSyncHandler) postImportRefresh(ctx context.Context, env ConfigEnv
 	// chance to create the models their entries reference. Best-effort for the
 	// same reason: a group that cannot resolve yet reconciles on the next sync.
 	groupCtx, groupCancel := context.WithTimeout(ctx, failoverApplyTimeout)
-	groupRes, err := h.applyFailoverGroups(groupCtx, env.Config.FailoverGroups, out.DiscoveryErr == nil)
+	groupRes, err := h.applyFailoverGroups(groupCtx, env.Config.FailoverGroups, out.DiscoveryErr == nil, importSeq)
 	groupCancel()
 	out.SkippedGroups = groupRes.Skipped
 	out.PartialGroups = groupRes.Partial
-	if err != nil {
+	if err = skipSuperseded(err, "failover groups"); err != nil {
 		debuglog.Warn("configsync: failed to apply failover groups", "error", err)
 		out.GroupApplyErr = err
 	}

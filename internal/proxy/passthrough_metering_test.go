@@ -180,6 +180,60 @@ func TestPassthrough_OversizedJSONChargesTheEstimate(t *testing.T) {
 	}
 }
 
+// TestPassthrough_OversizedJSONCutShortIsFailed: an oversized answer whose
+// remainder stops with a read error (the upstream reset mid-body) reached the
+// client as truncated JSON. The row must say failed with the copy error, not
+// completed, and the quota is still charged for what the provider produced.
+func TestPassthrough_OversizedJSONCutShortIsFailed(t *testing.T) {
+	h := newIntegrationHandler()
+	t.Cleanup(func() { stopUnitHandler(h) })
+	vkRepo := &mockVirtualKeyRepo{}
+	h.virtualKeyRepo = vkRepo
+
+	reqBody := `{"model":"text-embedding-3","input":"` + strings.Repeat("d", 400) + `"}`
+	logData := &requestLogData{
+		id:              uuid.New().String(),
+		modelID:         "text-embedding-x",
+		endpointType:    endpointTypeEmbeddings,
+		virtualKeyName:  "test-key",
+		virtualKeyID:    "00000000-0000-0000-0000-000000000001",
+		state:           "streaming",
+		promptTextBytes: passthroughPromptTextBytes([]byte(reqBody), endpointTypeEmbeddings),
+	}
+	st := &requestState{startTime: time.Now(), logData: logData, vkHash: "test-hash"}
+	h.insertRequestLogAsync(logData)
+	time.Sleep(20 * time.Millisecond)
+
+	resp := &http.Response{
+		StatusCode: http.StatusOK,
+		Header:     http.Header{"Content-Type": []string{"application/json"}},
+		Body: io.NopCloser(io.MultiReader(
+			strings.NewReader(`{"data":"`+strings.Repeat("a", passthroughJSONBufferCap+64)),
+			iotest{}, // the upstream's read fails partway through the remainder
+		)),
+	}
+	rec := httptest.NewRecorder()
+	h.serveBufferedJSONPassthrough(rec, httptest.NewRequest("POST", "/v1/embeddings", http.NoBody), st, modelCandidate{
+		model:    &model.Model{ID: uuid.New(), ModelID: "text-embedding-x"},
+		provider: &provider.Provider{ID: uuid.New(), Name: "test-provider"},
+	}, resp, "application/json", 1, 10.0, false)
+
+	if logData.state != "failed" {
+		t.Errorf("state = %q, want failed for a body cut short", logData.state)
+	}
+	if !strings.Contains(logData.errorMessage, "response copy error") {
+		t.Errorf("error message = %q, want the copy error recorded", logData.errorMessage)
+	}
+	// Status 0 and a kind, as a failed chat stream is recorded: the stats count
+	// a row as an error by its status, and the upstream's 200 would hide it.
+	if logData.statusCode != 0 || logData.errorKind != KindProviderError {
+		t.Errorf("status = %d kind = %q, want 0 and %q", logData.statusCode, logData.errorKind, KindProviderError)
+	}
+	if got := singleAddTokens(t, vkRepo); got != 100 {
+		t.Errorf("charged %d tokens against the key, want 100: the provider still billed it", got)
+	}
+}
+
 // TestPassthrough_NoUsageBlockStillMeters is the sibling of the oversized case,
 // and the half the first fix left behind. A normal-sized pass-through response
 // that carries no "usage" block extracts (0,0), and the guard below it only
@@ -271,6 +325,84 @@ func TestPassthrough_ReportedUsageWinsOverEstimate(t *testing.T) {
 	}
 	if logData.tokensPrompt != 7 {
 		t.Errorf("request log prompt = %d, want the measured 7", logData.tokensPrompt)
+	}
+}
+
+// TestPassthrough_OversizedJSONClientLeftMidCopyIs499: the same cut-short
+// remainder, but the caller hung up: the row is the 499 client_disconnect a
+// caller leaving before the first byte is stored as, not a provider failure.
+func TestPassthrough_OversizedJSONClientLeftMidCopyIs499(t *testing.T) {
+	h := newIntegrationHandler()
+	t.Cleanup(func() { stopUnitHandler(h) })
+	st := passthroughState(uuid.New())
+	resp := &http.Response{
+		StatusCode: http.StatusOK,
+		Header:     http.Header{"Content-Type": []string{"application/json"}},
+		Body: io.NopCloser(io.MultiReader(
+			strings.NewReader(`{"data":"`+strings.Repeat("a", passthroughJSONBufferCap+64)),
+			&errorReader{err: context.Canceled},
+		)),
+	}
+	req := httptest.NewRequest("POST", "/v1/embeddings", http.NoBody).WithContext(cancelledContext())
+	h.serveBufferedJSONPassthrough(httptest.NewRecorder(), req, st, modelCandidate{
+		model:    &model.Model{ID: uuid.New(), ModelID: "text-embedding-3-small"},
+		provider: &provider.Provider{ID: st.logData.providerID, Name: "p"},
+	}, resp, "application/json", 1, 5, false)
+	if st.logData.state != "failed" || st.logData.statusCode != statusClientClosedRequest || st.logData.errorKind != KindClientDisconnect {
+		t.Errorf("row = %s %d %q, want failed 499 client_disconnect", st.logData.state, st.logData.statusCode, st.logData.errorKind)
+	}
+}
+
+// firstReadBody hands its whole payload back from the first Read together with
+// err, the shape a body cut right after its first bytes produces.
+type firstReadBody struct {
+	data string
+	err  error
+	done bool
+}
+
+func (b *firstReadBody) Read(p []byte) (int, error) {
+	if b.done {
+		return 0, b.err
+	}
+	b.done = true
+	return copy(p, b.data), b.err
+}
+
+// TestStreamedPassthrough_FirstReadWithAFailureIsFailed: a streamed pass-through
+// whose first Read returns its bytes together with a read failure was copied out
+// and recorded as completed with the upstream's 200. It is failed now, with the
+// row status and kind the stats count as an error; the same bytes with io.EOF
+// are a complete answer.
+func TestStreamedPassthrough_FirstReadWithAFailureIsFailed(t *testing.T) {
+	for _, tc := range []struct {
+		name      string
+		err       error
+		wantState string
+		wantCode  int
+		wantKind  ErrorKind
+	}{
+		{"cut after the first bytes", io.ErrUnexpectedEOF, "failed", 0, KindProviderError},
+		{"whole body in one read", io.EOF, "completed", http.StatusOK, ""},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			h := newIntegrationHandler()
+			t.Cleanup(func() { stopUnitHandler(h) })
+			st := passthroughState(uuid.New())
+			st.logData.endpointType = endpointTypeTTS
+			resp := &http.Response{
+				StatusCode: http.StatusOK,
+				Header:     http.Header{"Content-Type": []string{"audio/mpeg"}},
+				Body:       io.NopCloser(&firstReadBody{data: "ID3\x04 partial mp3", err: tc.err}),
+			}
+			h.serveStreamedPassthrough(httptest.NewRecorder(), httptest.NewRequest("POST", "/v1/audio/speech", http.NoBody), st,
+				modelCandidate{model: &model.Model{ID: uuid.New(), ModelID: "tts-1"}, provider: &provider.Provider{ID: st.logData.providerID, Name: "p"}},
+				resp, "audio/mpeg", false, 1, 5, false)
+			if st.logData.state != tc.wantState || st.logData.statusCode != tc.wantCode || st.logData.errorKind != tc.wantKind {
+				t.Errorf("row = %s %d %q, want %s %d %q", st.logData.state, st.logData.statusCode, st.logData.errorKind,
+					tc.wantState, tc.wantCode, tc.wantKind)
+			}
+		})
 	}
 }
 

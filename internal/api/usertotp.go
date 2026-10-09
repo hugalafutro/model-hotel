@@ -2,9 +2,11 @@ package api
 
 import (
 	"net/http"
+	"sync"
 	"time"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/google/uuid"
 
 	"github.com/hugalafutro/model-hotel/internal/debuglog"
 	"github.com/hugalafutro/model-hotel/internal/totp"
@@ -56,6 +58,21 @@ func (h *Handler) callerTotpRepo(w http.ResponseWriter, r *http.Request) (*totp.
 	return h.userTotp(*id.UserID), id, true
 }
 
+// lockUserTotp serializes one user's enrollment, disable and admin reset, the
+// per-user counterpart of the admin flow's enrollMu. Each handler checks IsEnabled and
+// then writes, and the store's enrollment upsert resets enabled to false: an
+// EnrollStart landing between a concurrent EnrollVerify's check and its Enable
+// would silently switch a just-enabled factor back off, or leave Enable turning
+// on a secret replaced after the code was verified. The user_totp tables are
+// instance-local, so an in-process lock covers every writer. One mutex per user
+// that has ever touched these endpoints, bounded by the users table.
+func (h *Handler) lockUserTotp(userID uuid.UUID) func() {
+	mu, _ := h.userTotpMu.LoadOrStore(userID, &sync.Mutex{})
+	m := mu.(*sync.Mutex)
+	m.Lock()
+	return m.Unlock
+}
+
 // UserTotpStatus reports the caller's own TOTP state for the Security UI.
 func (h *Handler) UserTotpStatus(w http.ResponseWriter, r *http.Request) {
 	repo, _, ok := h.callerTotpRepo(w, r)
@@ -89,6 +106,7 @@ func (h *Handler) UserTotpEnrollStart(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
+	defer h.lockUserTotp(*id.UserID)()
 	enabled, err := repo.IsEnabled(r.Context())
 	if err != nil {
 		respondError(w, "failed to read TOTP status", err, http.StatusInternalServerError)
@@ -125,6 +143,9 @@ func (h *Handler) UserTotpEnrollVerify(w http.ResponseWriter, r *http.Request) {
 	if !decodeJSON(w, r, &req) {
 		return
 	}
+	// Taken after the body is decoded: a slow upload must not hold this
+	// user's other TOTP requests for its read deadline.
+	defer h.lockUserTotp(*id.UserID)()
 	enabled, err := repo.IsEnabled(r.Context())
 	if err != nil {
 		respondError(w, "failed to read TOTP status", err, http.StatusInternalServerError)
@@ -179,6 +200,7 @@ func (h *Handler) UserTotpDisable(w http.ResponseWriter, r *http.Request) {
 	if !decodeJSON(w, r, &req) {
 		return
 	}
+	defer h.lockUserTotp(*id.UserID)()
 	key := id.UserID.String()
 	if !h.pwThrottle.Admit(w, key, "usertotp: disable throttled", "username", id.Username) {
 		return
@@ -220,6 +242,10 @@ func (h *Handler) ResetUserTotp(w http.ResponseWriter, r *http.Request) {
 		respondLookupError(w, err, user.ErrNotFound, "user not found", "failed to load user")
 		return
 	}
+	// Under the user's own TOTP lock: a reset interleaving with their enrollment
+	// could otherwise land between its Verify and Enable and leave the factor
+	// on with its recovery codes deleted.
+	defer h.lockUserTotp(id)()
 	if err := h.userTotp(id).Disable(r.Context()); err != nil {
 		respondError(w, "failed to reset TOTP", err, http.StatusInternalServerError)
 		return

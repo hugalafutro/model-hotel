@@ -14,6 +14,7 @@ import (
 	"github.com/hugalafutro/model-hotel/internal/anthropicegress"
 	"github.com/hugalafutro/model-hotel/internal/ctxkeys"
 	"github.com/hugalafutro/model-hotel/internal/debuglog"
+	"github.com/hugalafutro/model-hotel/internal/egress"
 	"github.com/hugalafutro/model-hotel/internal/gemini"
 	"github.com/hugalafutro/model-hotel/internal/openairesponses"
 	"github.com/hugalafutro/model-hotel/internal/paramrewrite"
@@ -253,6 +254,18 @@ func (h *Handler) attemptCandidate(w http.ResponseWriter, r *http.Request, st *r
 	return h.dispatchNonStreaming(w, r.WithContext(dispatchCtx), st, candidate, resp, attempt, responseHeaderMs, hasMoreCandidates)
 }
 
+// probeAnsweredByProvider reports whether a probe failure is the provider's own
+// answer (an error frame, an empty stream, an oversized frame, or a translated
+// stream that ended before its end signal) rather than a probe cut short. Those
+// classifyProbeError charges whoever cut the probe, so the hedged path must not
+// file them as a superseded loss.
+func probeAnsweredByProvider(probeErr error) bool {
+	var frameErr *upstreamFrameError
+	var emptyErr *emptyStreamError
+	return errors.As(probeErr, &frameErr) || errors.As(probeErr, &emptyErr) || isLineCapErr(probeErr) ||
+		errors.Is(probeErr, egress.ErrStreamTruncated)
+}
+
 // classifyProbeError maps any TTFT probe failure to the error recorded for the
 // attempt and whether the provider is charged for it. It is the single entry
 // point both the sequential and the hedged path use, so the two cannot drift.
@@ -296,6 +309,12 @@ func classifyProbeError(probeErr error, providerName string, masker credentialMa
 		// The first frame exceeded sseLineCap: named and charged the way the
 		// stream path treats it (deriveStreamError), not as a probe timeout.
 		return answered(lineCapErrMsg)
+	}
+	if errors.Is(probeErr, egress.ErrStreamTruncated) {
+		// A translated upstream that closed before its end signal and before any
+		// token: the provider ended the answer, no timer fired, so it is charged
+		// as a provider error rather than filed as a probe timeout.
+		return answered(fencedFrameMessage(fence, masker, errString(probeErr)))
 	}
 	// Fenced like the frame branch above: this text reaches the app log as the
 	// attempt's "error" attribute on both the failover and the hedged path, and

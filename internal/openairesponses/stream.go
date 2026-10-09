@@ -240,12 +240,16 @@ func (t *StreamTranslator) Translate(payload []byte) ([]byte, error) {
 	return out, nil
 }
 
-// Finish satisfies egress.Translator. It adds nothing: the Responses stream
-// carries its own terminal chunk and [DONE], both emitted by TranslateEvent on
-// response.completed. A truncated upstream (EOF before response.completed)
-// therefore surfaces as a stream without [DONE], which the pipeline already
-// classifies as a truncation.
-func (t *StreamTranslator) Finish() ([]byte, error) { return nil, nil }
+// Finish satisfies egress.Translator. It adds nothing to a finished stream: the
+// terminal chunk and [DONE] were emitted by TranslateEvent on the terminal
+// response.* event (or an error event). An upstream that reached EOF before
+// any of those was cut off mid-response, and fails with ErrStreamTruncated.
+func (t *StreamTranslator) Finish() ([]byte, error) {
+	if !t.finished {
+		return nil, fmt.Errorf("openairesponses: %w", egress.ErrStreamTruncated)
+	}
+	return nil, nil
+}
 
 // StreamAdapter re-frames the upstream /v1/responses SSE body as
 // chat.completion.chunk SSE bytes. Wrapping the UPSTREAM body (not the client

@@ -665,7 +665,7 @@ func TestConfigSync_FailoverGroupsSurviveCancelledRequestContext(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel() // Front Desk hung up before the build began
 
-	out := h.postImportRefresh(ctx, ConfigEnvelope{Config: ConfigPayload{FailoverGroups: groups}}, nil, nil)
+	out := h.postImportRefresh(ctx, ConfigEnvelope{Config: ConfigPayload{FailoverGroups: groups}}, 0, nil, nil)
 
 	if out.GroupApplyErr != nil {
 		t.Fatalf("group apply must not inherit the request cancellation: %v", out.GroupApplyErr)
@@ -720,7 +720,7 @@ func TestConfigSync_FailoverGroupsSurviveExpiredRequestDeadline(t *testing.T) {
 		t.Fatal("test setup: the context was expected to be already expired")
 	}
 
-	out := h.postImportRefresh(ctx, ConfigEnvelope{Config: ConfigPayload{FailoverGroups: groups}}, nil, nil)
+	out := h.postImportRefresh(ctx, ConfigEnvelope{Config: ConfigPayload{FailoverGroups: groups}}, 0, nil, nil)
 
 	if out.GroupApplyErr != nil {
 		t.Fatalf("group apply inherited the expired deadline: %v", out.GroupApplyErr)
@@ -1330,28 +1330,45 @@ func TestConfigSync_ExportFailoverGroupsReadFailures(t *testing.T) {
 
 // The echo commits with the rows it certifies: when its write fails, the group
 // rows from the same import are rolled back too, so rows and echo can never come
-// from different imports.
+// from different imports. Only the echo row is held, by another transaction's
+// row lock, so the fence read and the group upsert go through and the apply
+// fails at the echo write itself, after the group rows were written.
 func TestConfigSync_AutoGroupEchoCommitsWithTheGroups(t *testing.T) {
 	cleanConfigTables(t)
 	openai := seedProvider(t, "openai", "sk-secret", configSyncMasterKey)
 	azure := seedProvider(t, "azure", "sk-secret", configSyncMasterKey)
 	seedSharedModel(t, "gpt-4o", openai, azure)
 	h := NewConfigSyncHandler(apiTestDB, settings.NewRepository(apiTestDB.Pool()), configSyncMasterKey, "v-test", nil, nil)
-	_, lockSettings := lockedReadDB(t, "settings")
 
-	ctx, cancel := context.WithTimeout(context.Background(), 1500*time.Millisecond)
+	bg := context.Background()
+	if _, err := apiTestDB.Pool().Exec(bg,
+		`INSERT INTO settings (key, value, updated_at) VALUES ($1, '[]', now())`, keyFleetAutoFailoverGroups); err != nil {
+		t.Fatalf("seed echo row: %v", err)
+	}
+	holder, err := apiTestDB.Pool().Begin(bg)
+	if err != nil {
+		t.Fatalf("begin holder: %v", err)
+	}
+	defer func() { _ = holder.Rollback(bg) }()
+	if _, err := holder.Exec(bg, `SELECT 1 FROM settings WHERE key = $1 FOR UPDATE`, keyFleetAutoFailoverGroups); err != nil {
+		t.Fatalf("hold echo row: %v", err)
+	}
+
+	ctx, cancel := context.WithTimeout(bg, 1500*time.Millisecond)
 	defer cancel()
-	unlock := lockSettings()
-	_, err := h.applyFailoverGroups(ctx, []ExportFailoverGroup{{
+	_, err = h.applyFailoverGroups(ctx, []ExportFailoverGroup{{
 		DisplayModel: "mine", GroupEnabled: true,
 		Entries: []ExportFailoverEntry{{ProviderName: "openai", ModelID: "gpt-4o", Enabled: true}, {ProviderName: "azure", ModelID: "gpt-4o", Enabled: true}},
-	}}, true)
-	unlock()
+	}}, true, 0)
 	if err == nil {
-		t.Fatal("apply with the settings table locked: want an error, got none")
+		t.Fatal("apply with the echo row held: want an error, got none")
 	}
+	if ctx.Err() == nil {
+		t.Fatalf("apply failed before reaching the held echo row: %v", err)
+	}
+	_ = holder.Rollback(bg)
 	var n int
-	_ = apiTestDB.Pool().QueryRow(context.Background(),
+	_ = apiTestDB.Pool().QueryRow(bg,
 		`SELECT count(*) FROM model_failover_groups WHERE display_model = 'mine'`).Scan(&n)
 	if n != 0 {
 		t.Error("group row committed although the echo write failed")

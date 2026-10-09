@@ -172,7 +172,7 @@ func TestStreamTranslator_ThoughtAndEmptyChunks(t *testing.T) {
 	tr := NewStreamTranslator("id", "m", 0)
 
 	// Thought parts and empty text produce no client-visible frames.
-	out, err := tr.Translate([]byte(`{"candidates":[{"content":{"role":"model","parts":[{"text":"internal","thought":true},{"text":""}]}}]}`))
+	out, err := tr.Translate([]byte(`{"candidates":[{"content":{"role":"model","parts":[{"text":"internal","thought":true},{"text":""}]},"finishReason":"STOP"}]}`))
 	if err != nil {
 		t.Fatalf("Translate: %v", err)
 	}

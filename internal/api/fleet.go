@@ -58,6 +58,13 @@ const (
 	// never overwrite a newer config that already landed. Stored as a decimal
 	// int64; absent on a member that has never taken a fenced import.
 	keyFleetLastSourceGen = "_fleet_last_source_gen"
+	// keyFleetImportSeq numbers this member's committed imports, advanced inside
+	// each import transaction. The source generation above cannot order two
+	// imports that share one (it moves only on a fleet rearm, not on a config
+	// edit); this can, so an import's post-commit sections write only while it
+	// is still the latest one committed (lockFenceForPostCommit). Stored as a
+	// decimal int64; absent until the first import.
+	keyFleetImportSeq = "_fleet_import_seq"
 	// keyFleetUnappliedModelDisables holds the per-model disables the primary sent
 	// that this member has no model to apply, as a JSON array of {provider_name,
 	// model_id}. It is what keeps such a member converging instead of diverging

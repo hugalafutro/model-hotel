@@ -187,7 +187,7 @@ func (t *StreamTranslator) Translate(payload []byte) ([]byte, error) {
 			t.usage.OutputTokens = u.OutputTokens
 		}
 	case "message_stop":
-		return t.Finish()
+		return t.finish()
 	case "error":
 		// The stream is dead: the caller must surface a failure, never a
 		// terminal chunk that reads as a clean completion. Only the error type
@@ -323,12 +323,44 @@ func (t *StreamTranslator) blockDelta(buf *bytes.Buffer, ev antEvent) error {
 	return t.writeChunk(buf, delta, nil, nil)
 }
 
-// Finish emits the terminal chunk (empty delta, mapped finish_reason, usage
+// Finish is the EOF entry to finish. A stream that ended on message_stop has
+// already finished and gets nothing further. One that reached EOF without it
+// still ended cleanly when a message_delta carried a stop_reason (a relay that
+// drops the final event); with neither, the upstream was cut off mid-response
+// and the stream fails with ErrStreamTruncated rather than closing off a partial
+// answer as complete. The usage message_start already reported (the exact
+// prompt and cache counts) still goes out on a chunk of its own, with no
+// finish_reason and no [DONE], so a stream the proxy already committed to the
+// client is billed at the provider's figures rather than a byte estimate. A
+// truncation before the first token fails the TTFT probe, which does not meter
+// what it buffered.
+func (t *StreamTranslator) Finish() ([]byte, error) {
+	if !t.finished && !t.failed && t.stopReason == "" {
+		return t.UsageChunk(), fmt.Errorf("anthropicegress: %w", egress.ErrStreamTruncated)
+	}
+	return t.finish()
+}
+
+// UsageChunk satisfies egress.UsageReporter: a usage-only chunk carrying the
+// counts message_start and message_delta reported so far, or nil when there are
+// none or the stream already finished or failed.
+func (t *StreamTranslator) UsageChunk() []byte {
+	if t.finished || t.failed || t.usage == (anthropic.UsageBlock{}) {
+		return nil
+	}
+	var buf bytes.Buffer
+	if err := t.writeChunk(&buf, chunkDelta{}, nil, buildUsage(t.usage)); err != nil {
+		return nil
+	}
+	return buf.Bytes()
+}
+
+// finish emits the terminal chunk (empty delta, mapped finish_reason, usage
 // when the upstream reported any) followed by "data: [DONE]". It is idempotent,
 // so a stream that ended on message_stop receives nothing further on EOF, and
 // it stays silent after an error event so a failed stream is never closed off
 // as a clean one.
-func (t *StreamTranslator) Finish() ([]byte, error) {
+func (t *StreamTranslator) finish() ([]byte, error) {
 	if t.finished || t.failed {
 		return nil, nil
 	}

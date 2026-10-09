@@ -14,7 +14,8 @@ import (
 //
 // Vertex streams carry no [DONE] sentinel: EOF is the natural end, so the
 // terminal chunk + [DONE] come from the translator's Finish() when upstream EOF
-// arrives.
+// arrives after a finishReason (or a prompt block); EOF before either fails the
+// stream as truncated.
 //
 // It is an alias, not a defined type: the other egress dialects alias the same
 // type, so a type switch cannot tell them apart.

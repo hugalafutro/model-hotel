@@ -2,6 +2,7 @@ package api
 
 import (
 	"context"
+	"errors"
 	"testing"
 
 	"github.com/jackc/pgx/v5"
@@ -77,26 +78,32 @@ func TestConfigSyncApply_FailedStatementAbortsTheApply(t *testing.T) {
 	// leaves the transaction aborted, and the read-back that follows must
 	// surface that even when the writer itself reported success.
 	t.Run("applyModelIntent/poisoned transaction", func(t *testing.T) {
+		// No import sequence left behind by another test: with one, the section
+		// would yield at the fence and never run the writer this case is about.
+		cleanConfigTables(t)
+		ran := false
 		poison := func(ctx context.Context, tx pgx.Tx, _ string, _, _ []string) error {
+			ran = true
 			_, _ = tx.Exec(ctx, `SELECT 1/0`)
 			return nil
 		}
-		if _, err := h.applyModelIntent(context.Background(), refs, keyFleetUnappliedModelDisables, poison); err == nil {
-			t.Fatal("expected the aborted transaction to fail the apply")
+		_, err := h.applyModelIntent(context.Background(), refs, 0, keyFleetUnappliedModelDisables, poison)
+		if err == nil || !ran || errors.Is(err, errImportSuperseded) {
+			t.Fatalf("err = %v ran = %v, want the aborted transaction to fail the apply after the writer ran", err, ran)
 		}
 	})
 	t.Run("applyDisabledModels", func(t *testing.T) {
-		if _, err := h.applyDisabledModels(cctx, refs); err == nil {
+		if _, err := h.applyDisabledModels(cctx, refs, 0); err == nil {
 			t.Fatal("expected an error from the cancelled context")
 		}
 	})
 	t.Run("applyEnabledModels", func(t *testing.T) {
-		if _, err := h.applyEnabledModels(cctx, refs); err == nil {
+		if _, err := h.applyEnabledModels(cctx, refs, 0); err == nil {
 			t.Fatal("expected an error from the cancelled context")
 		}
 	})
 	t.Run("applyFailoverGroups", func(t *testing.T) {
-		if _, err := h.applyFailoverGroups(cctx, []ExportFailoverGroup{}, true); err == nil {
+		if _, err := h.applyFailoverGroups(cctx, []ExportFailoverGroup{}, true, 0); err == nil {
 			t.Fatal("expected an error from the cancelled context")
 		}
 	})

@@ -23,6 +23,21 @@ const MaxSSEEventBytes = 32 << 20
 // outgrew MaxSSEEventBytes, so the proxy classifies it with its own line cap.
 var ErrEventTooLarge = errors.New("upstream SSE event exceeds the cap")
 
+// UsageReporter is implemented by a Translator that can hand back, mid-stream,
+// the usage its upstream has reported so far as a usage-only chunk (no
+// finish_reason, no [DONE]), or nil when there is none. The adapter delivers it
+// when the upstream connection fails, so the request is still billed at the
+// provider's figures.
+type UsageReporter interface {
+	UsageChunk() []byte
+}
+
+// ErrStreamTruncated is returned (wrapped with the dialect) by a translator's
+// Finish when the upstream reached EOF before its own end-of-response signal,
+// so the dropped connection surfaces as a stream error instead of a terminal
+// chunk and [DONE] that would bill a partial answer as complete.
+var ErrStreamTruncated = errors.New("upstream stream ended before its terminal event")
+
 // Translator converts one upstream SSE data payload into the client-facing
 // bytes for that event, and produces the stream's terminal bytes on Finish.
 // Implemented by each dialect's StreamTranslator.
@@ -36,7 +51,10 @@ type Translator interface {
 	// package has no content fence.
 	Translate(payload []byte) ([]byte, error)
 	// Finish returns the terminal chunk plus the [DONE] sentinel, or nothing
-	// when the translator already emitted them.
+	// when the translator already emitted them. An error (ErrStreamTruncated
+	// when the upstream never signalled its end) replaces the EOF the adapter
+	// would otherwise surface; the bytes returned with it (at most a usage
+	// chunk, never a finish_reason or [DONE]) are still delivered first.
 	Finish() ([]byte, error)
 }
 
@@ -47,9 +65,10 @@ type Translator interface {
 // dialect adapter is this type and supplies only its translator and log prefix.
 //
 // Vendor streams carry no [DONE] sentinel of their own, so the translator's
-// Finish() supplies the terminal chunk + [DONE] when upstream EOF arrives. Any
-// other upstream error surfaces as a stream without [DONE], which the pipeline
-// already classifies as a truncation.
+// Finish() supplies the terminal chunk + [DONE] when upstream EOF arrives after
+// the vendor's own end signal, and fails the stream when EOF arrives without
+// it. Any other upstream error surfaces as a stream without [DONE], which the
+// pipeline already classifies as a truncation.
 type StreamAdapter struct {
 	component string // log prefix: the dialect that built this adapter
 	upstream  io.ReadCloser
@@ -84,7 +103,7 @@ func NewStreamAdapter(component string, upstream io.ReadCloser, tr Translator) *
 // Read refills the pending buffer from upstream (translating as it goes) and
 // copies out. On EOF any unterminated tail is flushed through the translator
 // and the terminal Finish() bytes are appended before the EOF is
-// surfaced; other upstream errors surface only after all translated bytes have
+// surfaced, or before Finish's error when it reports the stream truncated; other upstream errors surface only after all translated bytes have
 // been drained. A translation failure poisons the stream: already translated
 // bytes drain, then the error surfaces. Finish() is never fabricated over a
 // corrupt upstream, so the proxy sees a failed stream instead of a clean
@@ -116,10 +135,20 @@ func (a *StreamAdapter) Read(p []byte) (int, error) {
 				if a.transErr == nil {
 					fin, finErr := a.tr.Finish()
 					if finErr != nil {
+						// Not a clean end: the stream fails once the translated
+						// bytes drain, so the pipeline records a truncation and
+						// writes no [DONE] for it.
 						debuglog.Warn(a.component+": stream finish failed", "error", finErr)
+						a.srcErr = finErr
 					}
 					a.pending = append(a.pending, fin...)
 				}
+			} else if u, ok := a.tr.(UsageReporter); ok && a.transErr == nil {
+				// A dropped connection, before or after the upstream's end
+				// signal: the usage it already reported still goes out ahead of
+				// the read error, so the failed request is billed at the
+				// provider's figures. Nothing closes the stream: the read failed.
+				a.pending = append(a.pending, u.UsageChunk()...)
 			}
 		}
 	}

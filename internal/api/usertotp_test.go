@@ -23,6 +23,14 @@ const userTotpTestMasterKey = "usertotp-test-master-key"
 // mirroring main.go.
 func setupUserTotpTest(t *testing.T) (chi.Router, *webauthn.SessionManager) {
 	t.Helper()
+	_, r, sm := setupUserTotpTestHandler(t)
+	return r, sm
+}
+
+// setupUserTotpTestHandler is setupUserTotpTest that also hands back the
+// Handler, for tests that reach its per-user TOTP lock directly.
+func setupUserTotpTestHandler(t *testing.T) (*Handler, chi.Router, *webauthn.SessionManager) {
+	t.Helper()
 	h, r := newTestHandlerWithRouter(t)
 
 	pool := h.Pool().Pool()
@@ -38,7 +46,7 @@ func setupUserTotpTest(t *testing.T) (chi.Router, *webauthn.SessionManager) {
 	h.SetUserTotp(func(id uuid.UUID) *totpsvc.Repository {
 		return totpsvc.NewRepositoryWithStore(totpsvc.NewUserPostgresStore(pool, id), userTotpTestMasterKey)
 	})
-	return r, sessionMgr
+	return h, r, sessionMgr
 }
 
 // userSession creates a user via the admin API and returns its id + session token.
@@ -156,6 +164,48 @@ func TestUserTotp_DisableThrottlesGuessing(t *testing.T) {
 	}
 	if !got429 {
 		t.Fatal("disable throttle never engaged after repeated wrong codes")
+	}
+}
+
+// Every TOTP mutation of one user waits while another is in flight for that
+// same user: EnrollStart's upsert resets enabled to false, so letting it (or an
+// admin reset) run between a concurrent EnrollVerify's enabled check and its
+// Enable would switch a just-enabled factor back off, or leave it on with its
+// recovery codes deleted. Another user's enrollment is not held up.
+func TestUserTotp_MutationsSerializedPerUser(t *testing.T) {
+	h, r, sm := setupUserTotpTestHandler(t)
+	aliceID, aliceToken := userSession(t, r, sm, "alice")
+	_, bobToken := userSession(t, r, sm, "bob")
+	uid := uuid.MustParse(aliceID)
+
+	for _, tc := range []struct{ name, path, token, body string }{
+		{"enroll start", "/auth/totp/enroll/start", aliceToken, "{}"},
+		{"enroll verify", "/auth/totp/enroll/verify", aliceToken, `{"code":"000000"}`},
+		{"disable", "/auth/totp/disable", aliceToken, `{"code":"000000"}`},
+		{"admin reset", "/users/" + aliceID + "/totp/reset", envAdminToken, ""},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			unlock := h.lockUserTotp(uid)
+			done := make(chan int, 1)
+			go func() { done <- doJSON(t, r, http.MethodPost, tc.path, tc.token, tc.body).Code }()
+
+			if w := doJSON(t, r, http.MethodPost, "/auth/totp/enroll/start", bobToken, "{}"); w.Code != http.StatusOK {
+				unlock()
+				t.Fatalf("bob enroll/start while alice is locked: %d %s", w.Code, w.Body.String())
+			}
+			select {
+			case code := <-done:
+				unlock()
+				t.Fatalf("alice %s finished (%d) while her TOTP lock was held", tc.name, code)
+			case <-time.After(200 * time.Millisecond):
+			}
+			unlock()
+			select {
+			case <-done:
+			case <-time.After(5 * time.Second):
+				t.Fatalf("alice %s still blocked after the lock was released", tc.name)
+			}
+		})
 	}
 }
 

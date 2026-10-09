@@ -121,20 +121,53 @@ func (t *StreamTranslator) Translate(chunkJSON []byte) ([]byte, error) {
 	return buf.Bytes(), nil
 }
 
+// UsageChunk satisfies egress.UsageReporter: a usage-only chunk carrying the
+// usageMetadata the stream reported so far, or nil when there is none or the
+// stream already finished.
+func (t *StreamTranslator) UsageChunk() []byte {
+	usage := translateUsage(t.usage)
+	if t.finished || usage == nil {
+		return nil
+	}
+	var buf bytes.Buffer
+	if err := t.writeChunk(&buf, oaiChunkDelta{}, nil, usage); err != nil {
+		return nil
+	}
+	return buf.Bytes()
+}
+
 // Finish emits the terminal chunk (empty delta, mapped finish_reason, usage
 // when the upstream reported it) followed by "data: [DONE]". It is idempotent
 // and emits a well-formed terminal chunk even when no content chunk ever
-// arrived (the role rides on the terminal delta then).
+// arrived (the role rides on the terminal delta then). Gemini's end signal is a
+// candidate's finishReason (or, for a blocked prompt, its promptFeedback): a
+// stream that reached EOF with neither was cut off mid-response, and fails with
+// ErrStreamTruncated rather than closing off a partial answer as a clean stop.
+// The usage the stream already reported still goes out on a chunk of its own,
+// with no finish_reason and no [DONE], so a stream the proxy already committed
+// to the client is billed at the provider's figures rather than a byte
+// estimate. A truncation before the first token fails the TTFT probe, which does
+// not meter what it buffered.
 func (t *StreamTranslator) Finish() ([]byte, error) {
 	if t.finished {
 		return nil, nil
+	}
+	if t.finishReason == "" && !t.blocked {
+		return t.UsageChunk(), fmt.Errorf("gemini: %w", egress.ErrStreamTruncated)
 	}
 	t.finished = true
 
 	var buf bytes.Buffer
 	if t.finishReason == malformedFunctionCall {
 		// Not a stop: the stream ends with the error the caller can act on,
-		// which the gateway's observers also read as the provider failing.
+		// which the gateway's observers also read as the provider failing. The
+		// usage reported so far goes out first, so the failure is billed at the
+		// provider's figures as a cut-off stream is.
+		if usage := translateUsage(t.usage); usage != nil {
+			if err := t.writeChunk(&buf, oaiChunkDelta{}, nil, usage); err != nil {
+				return nil, err
+			}
+		}
 		buf.WriteString(`data: {"error":{"message":` + strconv.Quote(ErrMalformedFunctionCall.Error()) + `,"type":"server_error"}}` + "\n\n")
 		buf.WriteString(egress.Done)
 		return buf.Bytes(), nil
