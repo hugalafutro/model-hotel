@@ -158,6 +158,7 @@ type Handler struct {
 	userRepo               UserStore                                          // nil until SetUserAuth (multi-user identities)
 	sessionRevoker         SessionRevoker                                     // nil until SetUserAuth (revoke on disable/delete)
 	userTotp               UserTotpFactory                                    // nil until SetUserTotp (per-user 2FA endpoints)
+	userTotpMu             sync.Map                                           // uuid.UUID -> *sync.Mutex: serializes one user's TOTP mutations (lockUserTotp)
 	pwThrottle             *totp.Throttle                                     // per-user backoff on failed current-password checks
 	testModelTransport     *http.Transport                                    // SSRF-protected transport for TestModel
 	testModelCheckRedirect func(req *http.Request, via []*http.Request) error // SSRF-protected redirect check for TestModel
