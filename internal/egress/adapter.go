@@ -134,6 +134,15 @@ func (a *StreamAdapter) Read(p []byte) (int, error) {
 					}
 					a.pending = append(a.pending, fin...)
 				}
+			} else if a.transErr == nil {
+				// A dropped connection is a cut-off stream too: the usage the
+				// upstream already reported still goes out (Finish returns it
+				// with ErrStreamTruncated) ahead of the read error, so the failed
+				// request is billed at the provider's figures. A Finish that
+				// would close the stream cleanly is discarded: the read failed.
+				if fin, finErr := a.tr.Finish(); errors.Is(finErr, ErrStreamTruncated) {
+					a.pending = append(a.pending, fin...)
+				}
 			}
 		}
 	}

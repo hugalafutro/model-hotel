@@ -129,8 +129,10 @@ func (t *StreamTranslator) Translate(chunkJSON []byte) ([]byte, error) {
 // stream that reached EOF with neither was cut off mid-response, and fails with
 // ErrStreamTruncated rather than closing off a partial answer as a clean stop.
 // The usage the stream already reported still goes out on a chunk of its own,
-// with no finish_reason and no [DONE], so the failed request is billed at the
-// provider's figures rather than a byte estimate.
+// with no finish_reason and no [DONE], so a stream the proxy already committed
+// to the client is billed at the provider's figures rather than a byte
+// estimate. A truncation before the first token fails the TTFT probe, which does
+// not meter what it buffered.
 func (t *StreamTranslator) Finish() ([]byte, error) {
 	if t.finished {
 		return nil, nil

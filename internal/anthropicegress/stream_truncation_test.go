@@ -63,3 +63,26 @@ func TestStreamAdapter_TruncatedStreamKeepsTheReportedUsage(t *testing.T) {
 		t.Errorf("usage chunk carries finish_reason %q on a truncated stream", *last.Choices[0].FinishReason)
 	}
 }
+
+// The same on a dropped connection rather than a clean EOF: the usage
+// message_start reported still reaches the pipeline before the read error.
+func TestStreamAdapter_ConnectionResetKeepsTheReportedUsage(t *testing.T) {
+	t.Parallel()
+	reset := errors.New("connection reset by peer")
+	body := &dyingBody{
+		data: `data: {"type":"message_start","message":{"usage":{"input_tokens":7,"cache_read_input_tokens":100}}}` + "\n\n" +
+			`data: {"type":"content_block_delta","index":0,"delta":{"type":"text_delta","text":"hel"}}` + "\n\n",
+		err: reset,
+	}
+	out, err := io.ReadAll(NewStreamAdapter(body, "m"))
+	if !errors.Is(err, reset) {
+		t.Fatalf("err = %v, want the reset", err)
+	}
+	chunks, done := parseChunks(t, string(out))
+	if done {
+		t.Fatalf("[DONE] on a reset stream:\n%s", out)
+	}
+	if u := chunks[len(chunks)-1].Usage; u == nil || u.PromptTokens != 107 {
+		t.Fatalf("last chunk usage = %+v, want 107 prompt tokens", u)
+	}
+}

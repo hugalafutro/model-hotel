@@ -17,6 +17,7 @@ type fakeTranslator struct {
 	failOn    string   // payload that makes Translate fail
 	seen      []string // one entry per Translate call, so folding is measurable
 	finishErr error
+	finishOut []byte // returned with finishErr
 	finished  int
 }
 
@@ -31,7 +32,7 @@ func (f *fakeTranslator) Translate(payload []byte) ([]byte, error) {
 func (f *fakeTranslator) Finish() ([]byte, error) {
 	f.finished++
 	if f.finishErr != nil {
-		return nil, f.finishErr
+		return f.finishOut, f.finishErr
 	}
 	return []byte("[DONE]"), nil
 }
@@ -285,8 +286,22 @@ func TestStreamAdapter_UpstreamErrorAfterDrain(t *testing.T) {
 	if got := string(out); got != "<x>" {
 		t.Errorf("output = %q, want the drained bytes without a fabricated terminal", got)
 	}
-	if tr.finished != 0 {
-		t.Error("Finish must not be called on a non-EOF upstream error")
+}
+
+// A dropped connection still delivers what Finish hands back with
+// ErrStreamTruncated (the usage the upstream already reported), ahead of the
+// read error itself, which stays the stream's error.
+func TestStreamAdapter_UpstreamErrorKeepsTheTruncationUsage(t *testing.T) {
+	boom := errors.New("connection reset by peer")
+	tr := &fakeTranslator{finishErr: ErrStreamTruncated, finishOut: []byte("<usage>")}
+	body := &scriptedBody{script: []string{"data: x\n\n"}, err: boom}
+
+	out, err := io.ReadAll(NewStreamAdapter("test", body, tr))
+	if !errors.Is(err, boom) {
+		t.Fatalf("err = %v, want the read error", err)
+	}
+	if got := string(out); got != "<x><usage>" {
+		t.Errorf("output = %q, want the drained bytes then the usage", got)
 	}
 }
 

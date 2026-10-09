@@ -330,8 +330,10 @@ func (t *StreamTranslator) blockDelta(buf *bytes.Buffer, ev antEvent) error {
 // and the stream fails with ErrStreamTruncated rather than closing off a partial
 // answer as complete. The usage message_start already reported (the exact
 // prompt and cache counts) still goes out on a chunk of its own, with no
-// finish_reason and no [DONE], so the failed request is billed at the provider's
-// figures rather than a byte estimate.
+// finish_reason and no [DONE], so a stream the proxy already committed to the
+// client is billed at the provider's figures rather than a byte estimate. A
+// truncation before the first token fails the TTFT probe, which does not meter
+// what it buffered.
 func (t *StreamTranslator) Finish() ([]byte, error) {
 	if !t.finished && !t.failed && t.stopReason == "" {
 		truncated := fmt.Errorf("anthropicegress: %w", egress.ErrStreamTruncated)
