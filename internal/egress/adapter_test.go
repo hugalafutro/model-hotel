@@ -325,13 +325,17 @@ func TestStreamAdapter_PoisonedByLastReadSkipsFinish(t *testing.T) {
 	}
 }
 
-func TestStreamAdapter_FinishErrorIsLoggedNotFatal(t *testing.T) {
-	tr := &fakeTranslator{finishErr: errors.New("finish blew up")}
+// A Finish error (a translator reporting the upstream never signalled its end)
+// replaces the clean EOF: the bytes already translated still drain, then the
+// stream fails, so the pipeline records a truncation instead of a completion.
+func TestStreamAdapter_FinishErrorFailsTheStream(t *testing.T) {
+	finishErr := errors.New("finish blew up")
+	tr := &fakeTranslator{finishErr: finishErr}
 	body := &scriptedBody{script: []string{"data: x\n\n"}}
 
 	out, err := io.ReadAll(NewStreamAdapter("test", body, tr))
-	if err != nil {
-		t.Fatalf("ReadAll: %v", err)
+	if !errors.Is(err, finishErr) {
+		t.Fatalf("ReadAll err = %v, want the Finish error", err)
 	}
 	if got := string(out); got != "<x>" {
 		t.Errorf("output = %q, want the translated bytes with no terminal appended", got)

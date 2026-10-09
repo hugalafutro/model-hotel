@@ -75,7 +75,7 @@ func TestBuildChatCompletion_UnreadableUsageKeepsTheAnswer(t *testing.T) {
 func TestStreamTranslator_ANullUsageDoesNotWipeTheCountsAlreadyReported(t *testing.T) {
 	t.Parallel()
 	tr := NewStreamTranslator("id", "m", 0)
-	if _, err := tr.Translate([]byte(`{"candidates":[{"content":{"parts":[{"text":"hi"}],"role":"model"}}],"usageMetadata":{"promptTokenCount":12,"candidatesTokenCount":3,"totalTokenCount":15}}`)); err != nil {
+	if _, err := tr.Translate([]byte(`{"candidates":[{"content":{"parts":[{"text":"hi"}],"role":"model"},"finishReason":"STOP"}],"usageMetadata":{"promptTokenCount":12,"candidatesTokenCount":3,"totalTokenCount":15}}`)); err != nil {
 		t.Fatalf("first chunk: %v", err)
 	}
 	if _, err := tr.Translate([]byte(`{"candidates":[],"usageMetadata":null}`)); err != nil {
@@ -153,7 +153,7 @@ func TestStreamTranslator_CountSpellings(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 			tr := NewStreamTranslator("id", "m", 0)
-			if _, err := tr.Translate([]byte(`{"candidates":[{"content":{"parts":[{"text":"hi"}],"role":"model"}}],"usageMetadata":` + tc.usage + `}`)); err != nil {
+			if _, err := tr.Translate([]byte(`{"candidates":[{"content":{"parts":[{"text":"hi"}],"role":"model"},"finishReason":"STOP"}],"usageMetadata":` + tc.usage + `}`)); err != nil {
 				t.Fatalf("a usage member cost the stream its chunk: %v", err)
 			}
 			out, err := tr.Finish()

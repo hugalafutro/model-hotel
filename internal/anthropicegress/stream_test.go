@@ -546,6 +546,9 @@ func TestStreamTranslator_FinishWithoutMessageStop(t *testing.T) {
 
 func TestStreamTranslator_NoUsageReportedOmitsUsage(t *testing.T) {
 	tr := NewStreamTranslator("chatcmpl-8", "m", 1)
+	if _, err := tr.Translate([]byte(`{"type":"message_delta","delta":{"stop_reason":"end_turn"}}`)); err != nil {
+		t.Fatalf("message_delta: %v", err)
+	}
 	fin, err := tr.Finish()
 	if err != nil {
 		t.Fatalf("Finish: %v", err)

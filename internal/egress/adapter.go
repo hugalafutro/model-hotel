@@ -23,6 +23,12 @@ const MaxSSEEventBytes = 32 << 20
 // outgrew MaxSSEEventBytes, so the proxy classifies it with its own line cap.
 var ErrEventTooLarge = errors.New("upstream SSE event exceeds the cap")
 
+// ErrStreamTruncated is returned (wrapped with the dialect) by a translator's
+// Finish when the upstream reached EOF before its own end-of-response signal,
+// so the dropped connection surfaces as a stream error instead of a terminal
+// chunk and [DONE] that would bill a partial answer as complete.
+var ErrStreamTruncated = errors.New("upstream stream ended before its terminal event")
+
 // Translator converts one upstream SSE data payload into the client-facing
 // bytes for that event, and produces the stream's terminal bytes on Finish.
 // Implemented by each dialect's StreamTranslator.
@@ -36,7 +42,9 @@ type Translator interface {
 	// package has no content fence.
 	Translate(payload []byte) ([]byte, error)
 	// Finish returns the terminal chunk plus the [DONE] sentinel, or nothing
-	// when the translator already emitted them.
+	// when the translator already emitted them. An error (ErrStreamTruncated
+	// when the upstream never signalled its end) replaces the EOF the adapter
+	// would otherwise surface, and nothing is emitted.
 	Finish() ([]byte, error)
 }
 
@@ -47,9 +55,10 @@ type Translator interface {
 // dialect adapter is this type and supplies only its translator and log prefix.
 //
 // Vendor streams carry no [DONE] sentinel of their own, so the translator's
-// Finish() supplies the terminal chunk + [DONE] when upstream EOF arrives. Any
-// other upstream error surfaces as a stream without [DONE], which the pipeline
-// already classifies as a truncation.
+// Finish() supplies the terminal chunk + [DONE] when upstream EOF arrives after
+// the vendor's own end signal, and fails the stream when EOF arrives without
+// it. Any other upstream error surfaces as a stream without [DONE], which the
+// pipeline already classifies as a truncation.
 type StreamAdapter struct {
 	component string // log prefix: the dialect that built this adapter
 	upstream  io.ReadCloser
@@ -116,7 +125,11 @@ func (a *StreamAdapter) Read(p []byte) (int, error) {
 				if a.transErr == nil {
 					fin, finErr := a.tr.Finish()
 					if finErr != nil {
+						// Not a clean end: the stream fails once the translated
+						// bytes drain, so the pipeline records a truncation and
+						// writes no [DONE] for it.
 						debuglog.Warn(a.component+": stream finish failed", "error", finErr)
+						a.srcErr = finErr
 					}
 					a.pending = append(a.pending, fin...)
 				}
