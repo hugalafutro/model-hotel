@@ -159,6 +159,13 @@ func (s *SafeDialer) CheckRedirect(req *http.Request, via []*http.Request) error
 	if len(via) > 0 && !strings.EqualFold(host, via[0].URL.Hostname()) {
 		util.StripProviderAuthHeaders(req)
 	}
+	// A same-host hop keeps those headers, so an https->http redirect would
+	// replay the key over plaintext, and a 307/308 on any host re-sends the
+	// request body (the prompt) the same way. Refused outright, ahead of the
+	// allowlist, matching Front Desk's member-probe policy (checkProbeRedirect).
+	if len(via) > 0 && via[0].URL.Scheme == "https" && req.URL.Scheme != "https" {
+		return fmt.Errorf("proxy: refusing https->%s redirect to host %s (credentials must not transit plaintext)", req.URL.Scheme, host)
+	}
 	// Allowlisted hosts bypass all checks.
 	if s.hosts[strings.ToLower(host)] {
 		return nil

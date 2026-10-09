@@ -650,6 +650,30 @@ func TestSafeDialer_CheckRedirect_AllowedHost(t *testing.T) {
 	}
 }
 
+// A same-host https->http hop keeps the provider's auth headers (only a
+// cross-host hop strips them), so it must be refused, allowlisted host or not.
+// An http->http hop and an https->https hop on the same host still pass.
+func TestSafeDialer_CheckRedirect_RefusesHTTPSDowngrade(t *testing.T) {
+	t.Parallel()
+	sd := NewSafeDialer([]string{"internal.example"}, nil)
+
+	req := httptest.NewRequest("POST", "http://internal.example/v1/chat/completions", http.NoBody)
+	req.Header.Set("x-api-key", "sk-secret")
+	via := []*http.Request{httptest.NewRequest("POST", "https://internal.example/v1/chat/completions", http.NoBody)}
+	err := sd.CheckRedirect(req, via)
+	if err == nil || !strings.Contains(err.Error(), "refusing https->http redirect") {
+		t.Fatalf("expected https->http redirect to be refused, got: %v", err)
+	}
+
+	for _, scheme := range []string{"http", "https"} {
+		req := httptest.NewRequest("POST", scheme+"://internal.example/next", http.NoBody)
+		via := []*http.Request{httptest.NewRequest("POST", scheme+"://internal.example/v1/chat/completions", http.NoBody)}
+		if err := sd.CheckRedirect(req, via); err != nil {
+			t.Errorf("%s->%s same-host redirect: expected pass, got: %v", scheme, scheme, err)
+		}
+	}
+}
+
 func TestSafeDialer_CheckRedirect_MaxRedirects(t *testing.T) {
 	t.Parallel()
 	sd := NewSafeDialer(nil, nil)
@@ -802,7 +826,7 @@ func TestCheckRedirect_StripsCustomAuthHeadersCrossHost(t *testing.T) {
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			req := redirectReq(t, tc.providerType, "http://attacker.example/exfil", "super-secret-key")
+			req := redirectReq(t, tc.providerType, "https://attacker.example/exfil", "super-secret-key")
 			if got := req.Header.Get(tc.header); got == "" {
 				t.Fatalf("precondition: %s should be set before redirect", tc.header)
 			}
