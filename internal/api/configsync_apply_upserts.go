@@ -34,8 +34,8 @@ import (
 // in its hash, so Front Desk keeps it amber and its re-push reruns discovery.
 //
 // Like the per-model reconciles it runs under the fence lock and writes nothing
-// once an import newer than sourceGen has committed (lockFenceForPostCommit).
-func (h *ConfigSyncHandler) applyFailoverGroups(ctx context.Context, groups []ExportFailoverGroup, storeEcho bool, sourceGen *int64) (groupApplyResult, error) {
+// once an import after importSeq has committed (lockFenceForPostCommit).
+func (h *ConfigSyncHandler) applyFailoverGroups(ctx context.Context, groups []ExportFailoverGroup, storeEcho bool, importSeq int64) (groupApplyResult, error) {
 	// Distinguish "field absent" from "explicitly empty". A nil slice means the
 	// envelope carried no failover_groups key, so leave the member's own custom
 	// groups untouched rather than wiping them on the first sync of a rolling
@@ -51,7 +51,7 @@ func (h *ConfigSyncHandler) applyFailoverGroups(ctx context.Context, groups []Ex
 	}
 	defer func() { _ = tx.Rollback(ctx) }()
 
-	if err := lockFenceForPostCommit(ctx, tx, sourceGen); err != nil {
+	if err := lockFenceForPostCommit(ctx, tx, importSeq); err != nil {
 		return groupApplyResult{}, err
 	}
 	res, err := upsertFailoverGroups(ctx, tx, groups)
