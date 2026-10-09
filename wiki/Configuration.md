@@ -652,7 +652,7 @@ The `Dockerfile` is a three-stage build.
 
 ### Stage 2: Backend build
 
-- **Base:** `golang:1.27-alpine`, working directory `/app`.
+- **Base:** `golang:1.27.2-alpine`, working directory `/app`.
 - Copies the frontend `dist/` from stage 1 into `cmd/server/static/`, the directory the Go binary embeds.
 - **Build command:** `go build -o server ./cmd/server/`, with `-ldflags` stamping the `VERSION` and `COMMIT` build args into the binary. `COMMIT` is passed in because `.git` is excluded from the build context.
 
