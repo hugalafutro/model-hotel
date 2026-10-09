@@ -328,6 +328,31 @@ func TestPassthrough_ReportedUsageWinsOverEstimate(t *testing.T) {
 	}
 }
 
+// TestPassthrough_OversizedJSONClientLeftMidCopyIs499: the same cut-short
+// remainder, but the caller hung up: the row is the 499 client_disconnect a
+// caller leaving before the first byte is stored as, not a provider failure.
+func TestPassthrough_OversizedJSONClientLeftMidCopyIs499(t *testing.T) {
+	h := newIntegrationHandler()
+	t.Cleanup(func() { stopUnitHandler(h) })
+	st := passthroughState(uuid.New())
+	resp := &http.Response{
+		StatusCode: http.StatusOK,
+		Header:     http.Header{"Content-Type": []string{"application/json"}},
+		Body: io.NopCloser(io.MultiReader(
+			strings.NewReader(`{"data":"`+strings.Repeat("a", passthroughJSONBufferCap+64)),
+			&errorReader{err: context.Canceled},
+		)),
+	}
+	req := httptest.NewRequest("POST", "/v1/embeddings", http.NoBody).WithContext(cancelledContext())
+	h.serveBufferedJSONPassthrough(httptest.NewRecorder(), req, st, modelCandidate{
+		model:    &model.Model{ID: uuid.New(), ModelID: "text-embedding-3-small"},
+		provider: &provider.Provider{ID: st.logData.providerID, Name: "p"},
+	}, resp, "application/json", 1, 5, false)
+	if st.logData.state != "failed" || st.logData.statusCode != statusClientClosedRequest || st.logData.errorKind != KindClientDisconnect {
+		t.Errorf("row = %s %d %q, want failed 499 client_disconnect", st.logData.state, st.logData.statusCode, st.logData.errorKind)
+	}
+}
+
 // firstReadBody hands its whole payload back from the first Read together with
 // err, the shape a body cut right after its first bytes produces.
 type firstReadBody struct {

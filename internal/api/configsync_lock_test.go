@@ -520,3 +520,32 @@ func TestConfigSync_SameGenerationImportsKeepTheLaterOnesModelState(t *testing.T
 		t.Error("import A's stale disable list re-enabled the model import B disabled")
 	}
 }
+
+// An unreadable import sequence matches no running import's number but the
+// "outside an import" 0, and the next import restarts it at 1 rather than
+// failing on it. A cancelled section takes no lock and writes nothing.
+func TestConfigSync_ImportSeqEdges(t *testing.T) {
+	cleanConfigTables(t)
+	ctx := context.Background()
+	if _, err := apiTestDB.Pool().Exec(ctx,
+		`INSERT INTO settings (key, value, updated_at) VALUES ($1, 'not-a-number', now())`, keyFleetImportSeq); err != nil {
+		t.Fatalf("seed: %v", err)
+	}
+	tx, err := apiTestDB.Pool().Begin(ctx)
+	if err != nil {
+		t.Fatalf("begin: %v", err)
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+	if seq, err := readImportSeq(ctx, tx); err != nil || seq != 0 {
+		t.Errorf("readImportSeq over an unreadable value = %d, %v; want 0, nil", seq, err)
+	}
+	if seq, err := nextImportSeq(ctx, tx); err != nil || seq != 1 {
+		t.Errorf("nextImportSeq over an unreadable value = %d, %v; want 1, nil", seq, err)
+	}
+
+	cctx, cancel := context.WithCancel(ctx)
+	cancel()
+	if err := lockFenceForPostCommit(cctx, tx, 1); err == nil || errors.Is(err, errImportSuperseded) {
+		t.Errorf("lockFenceForPostCommit on a cancelled context = %v, want the cancellation", err)
+	}
+}
