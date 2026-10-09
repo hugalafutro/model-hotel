@@ -328,6 +328,59 @@ func TestPassthrough_ReportedUsageWinsOverEstimate(t *testing.T) {
 	}
 }
 
+// firstReadBody hands its whole payload back from the first Read together with
+// err, the shape a body cut right after its first bytes produces.
+type firstReadBody struct {
+	data string
+	err  error
+	done bool
+}
+
+func (b *firstReadBody) Read(p []byte) (int, error) {
+	if b.done {
+		return 0, b.err
+	}
+	b.done = true
+	return copy(p, b.data), b.err
+}
+
+// TestStreamedPassthrough_FirstReadWithAFailureIsFailed: a streamed pass-through
+// whose first Read returns its bytes together with a read failure was copied out
+// and recorded as completed with the upstream's 200. It is failed now, with the
+// row status and kind the stats count as an error; the same bytes with io.EOF
+// are a complete answer.
+func TestStreamedPassthrough_FirstReadWithAFailureIsFailed(t *testing.T) {
+	for _, tc := range []struct {
+		name      string
+		err       error
+		wantState string
+		wantCode  int
+		wantKind  ErrorKind
+	}{
+		{"cut after the first bytes", io.ErrUnexpectedEOF, "failed", 0, KindProviderError},
+		{"whole body in one read", io.EOF, "completed", http.StatusOK, ""},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			h := newIntegrationHandler()
+			t.Cleanup(func() { stopUnitHandler(h) })
+			st := passthroughState(uuid.New())
+			st.logData.endpointType = endpointTypeTTS
+			resp := &http.Response{
+				StatusCode: http.StatusOK,
+				Header:     http.Header{"Content-Type": []string{"audio/mpeg"}},
+				Body:       io.NopCloser(&firstReadBody{data: "ID3\x04 partial mp3", err: tc.err}),
+			}
+			h.serveStreamedPassthrough(httptest.NewRecorder(), httptest.NewRequest("POST", "/v1/audio/speech", http.NoBody), st,
+				modelCandidate{model: &model.Model{ID: uuid.New(), ModelID: "tts-1"}, provider: &provider.Provider{ID: st.logData.providerID, Name: "p"}},
+				resp, "audio/mpeg", false, 1, 5, false)
+			if st.logData.state != tc.wantState || st.logData.statusCode != tc.wantCode || st.logData.errorKind != tc.wantKind {
+				t.Errorf("row = %s %d %q, want %s %d %q", st.logData.state, st.logData.statusCode, st.logData.errorKind,
+					tc.wantState, tc.wantCode, tc.wantKind)
+			}
+		})
+	}
+}
+
 // TestStreamedPassthrough_BinaryResponseIsMetered covers where text-to-speech
 // actually lands. /v1/audio/speech answers audio/mpeg, which is neither JSON nor
 // SSE, so it routes to serveStreamedPassthrough — and there the SSE tail that

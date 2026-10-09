@@ -374,9 +374,8 @@ func (h *Handler) serveBufferedJSONPassthrough(w http.ResponseWriter, r *http.Re
 				copyErr = err
 			}
 		}
-		// A remainder cut short (the upstream reset mid-body, or the client
-		// left) delivered truncated JSON: it is recorded as failed, as the
-		// streamed pass-through records it, and still charged as below.
+		// A remainder cut short delivered truncated JSON: failed, as in the
+		// streamed pass-through, and still charged as below.
 		if copyErr != nil {
 			status, errMsg, fenced := markPassthroughCopyFailed(r, logData, copyErr)
 			debuglog.Warn("proxy: passthrough copy interrupted (oversized json)", "endpoint", logData.endpointType, "model", logData.modelID, "provider", logData.providerName, "bytes", written, "error", fenced)
@@ -592,6 +591,10 @@ func (h *Handler) serveStreamedPassthrough(w http.ResponseWriter, r *http.Reques
 		written += int64(nw)
 		copyErr = err
 	}
+	// A first read returning its byte with a failure ends there, failed.
+	if copyErr == nil && readErr != nil && !errors.Is(readErr, io.EOF) {
+		copyErr = readErr
+	}
 	if copyErr == nil && readErr == nil {
 		var nc int64
 		nc, copyErr = io.Copy(dst, resp.Body)
@@ -631,23 +634,21 @@ func (h *Handler) serveStreamedPassthrough(w http.ResponseWriter, r *http.Reques
 	return outcomeServed
 }
 
-// markPassthroughCopyFailed classifies a pass-through body copy that stopped
-// short after the status line went out: it sets the row's error kind and returns
-// the row's status and message and the fenced error for the warn line. The
-// status is the 499 a caller hanging up is stored as (failPassthroughRead), and
-// otherwise 0, as a failed chat stream is recorded, so the stats count the row
-// as an error rather than as the upstream's 200. io.Copy reports the
-// upstream body's read error, the class the first-byte path fences, so both take
-// the same string. r carries the attempt's context, so a bare cancel check would
-// call this gateway's own per-attempt deadline a client leaving;
-// requestAbandoned reads the raw error.
+// markPassthroughCopyFailed classifies a body copy cut short after the status
+// line went out, with the kind failPassthroughRead records before the first byte
+// (abortKind's, else provider_error), and returns the row's status (499 for a
+// caller that left, else 0 as a failed chat stream: the stats count either as an
+// error, not as the upstream's 200), its message, and the fenced error.
 func markPassthroughCopyFailed(r *http.Request, logData *requestLogData, copyErr error) (status int, errMsg, fenced string) {
 	fenced = logData.fencedErr(copyErr)
-	if requestAbandoned(r.Context(), copyErr) {
-		logData.errorKind = KindClientDisconnect
+	kind, aborted, _ := abortKind(r.Context(), copyErr)
+	if !aborted {
+		kind = KindProviderError
+	}
+	logData.errorKind = kind
+	if kind == KindClientDisconnect {
 		return statusClientClosedRequest, "client disconnected during response", fenced
 	}
-	logData.errorKind = KindProviderError
 	return 0, "response copy error: " + fenced, fenced
 }
 
@@ -661,9 +662,6 @@ func copyPassthroughHeaders(w http.ResponseWriter, resp *http.Response, contentT
 	}
 }
 
-// finalizePassthroughLog writes the terminal request-log update for a
-// multimodal request (the pass-through counterpart of the chat handlers'
-// inline logData population).
 // failPassthroughRead closes a pass-through attempt whose upstream body read
 // failed, for both twins. The row carries abortKind's kind whenever there is
 // one. A caller that hung up is recorded and answered as the 499 disconnect the
@@ -682,6 +680,9 @@ func (h *Handler) failPassthroughRead(w http.ResponseWriter, st *requestState, k
 	return outcomeFatal
 }
 
+// finalizePassthroughLog writes the terminal request-log update for a
+// multimodal request (the pass-through counterpart of the chat handlers'
+// inline logData population).
 func (h *Handler) finalizePassthroughLog(st *requestState, statusCode, attempt int, responseHeaderMs float64, promptTokens, completionTokens int, state, errMsg string) {
 	logData := st.logData
 	logData.statusCode = statusCode
