@@ -36,3 +36,21 @@ func TestStreamAdapter_EOFBeforeFinishReasonIsTruncated(t *testing.T) {
 		})
 	}
 }
+
+// A cut-off stream still reports the usage Gemini already sent: it goes out on a
+// usage-only chunk (no finish_reason, no [DONE]) ahead of the error, so the
+// failed request is billed at the provider's figures and not a byte estimate.
+func TestStreamAdapter_TruncatedStreamKeepsTheReportedUsage(t *testing.T) {
+	t.Parallel()
+	body := `data: {"candidates":[{"content":{"parts":[{"text":"hel"}],"role":"model"}}],"usageMetadata":{"promptTokenCount":12,"candidatesTokenCount":3,"totalTokenCount":15}}` + "\n\n"
+	out, err := io.ReadAll(NewStreamAdapter(io.NopCloser(strings.NewReader(body)), "m"))
+	if !errors.Is(err, egress.ErrStreamTruncated) {
+		t.Fatalf("err = %v, want ErrStreamTruncated", err)
+	}
+	if strings.Contains(string(out), "[DONE]") || strings.Contains(string(out), `"finish_reason":"`) {
+		t.Fatalf("a truncated stream was closed off as finished:\n%s", out)
+	}
+	if got := streamUsage(t, out); got.PromptTokens != 12 || got.CompletionTokens != 3 {
+		t.Errorf("reported usage = %d/%d, want 12/3", got.PromptTokens, got.CompletionTokens)
+	}
+}

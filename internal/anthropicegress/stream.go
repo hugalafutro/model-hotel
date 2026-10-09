@@ -328,10 +328,21 @@ func (t *StreamTranslator) blockDelta(buf *bytes.Buffer, ev antEvent) error {
 // still ended cleanly when a message_delta carried a stop_reason (a relay that
 // drops the final event); with neither, the upstream was cut off mid-response
 // and the stream fails with ErrStreamTruncated rather than closing off a partial
-// answer as complete.
+// answer as complete. The usage message_start already reported (the exact
+// prompt and cache counts) still goes out on a chunk of its own, with no
+// finish_reason and no [DONE], so the failed request is billed at the provider's
+// figures rather than a byte estimate.
 func (t *StreamTranslator) Finish() ([]byte, error) {
 	if !t.finished && !t.failed && t.stopReason == "" {
-		return nil, fmt.Errorf("anthropicegress: %w", egress.ErrStreamTruncated)
+		truncated := fmt.Errorf("anthropicegress: %w", egress.ErrStreamTruncated)
+		if t.usage == (anthropic.UsageBlock{}) {
+			return nil, truncated
+		}
+		var buf bytes.Buffer
+		if err := t.writeChunk(&buf, chunkDelta{}, nil, buildUsage(t.usage)); err != nil {
+			return nil, err
+		}
+		return buf.Bytes(), truncated
 	}
 	return t.finish()
 }

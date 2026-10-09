@@ -14,8 +14,10 @@ import (
 
 	"github.com/google/uuid"
 
+	"github.com/hugalafutro/model-hotel/internal/egress"
 	"github.com/hugalafutro/model-hotel/internal/failover"
 	"github.com/hugalafutro/model-hotel/internal/model"
+	"github.com/hugalafutro/model-hotel/internal/openairesponses"
 	"github.com/hugalafutro/model-hotel/internal/provider"
 )
 
@@ -514,6 +516,23 @@ func TestClassifyProbeError_ChargesEvenWhenTheClientIsGone(t *testing.T) {
 	// with a fast client close is NOT charged.
 	if _, chargedStall := classifyProbeError(errors.New("TTFT timeout"), "prov-A", newCredentialMasker("sk-x"), nil, true, time.Millisecond, 30*time.Second, 60*time.Second, 1); chargedStall {
 		t.Error("a fast client cancel with zero tokens must still not be charged")
+	}
+}
+
+// A translated upstream that closes before its end signal and before any token
+// ended the answer itself: the probe read error is egress.ErrStreamTruncated, and
+// it is the provider's error, charged, not a TTFT timeout the gateway's timer
+// never reached. Driven through the real Responses adapter so the error the
+// classifier sees is the one production produces.
+func TestClassifyProbeError_TruncatedTranslatedStreamIsAProviderError(t *testing.T) {
+	body := io.NopCloser(strings.NewReader(`data: {"type":"response.created","response":{}}` + "\n\n"))
+	_, probeErr := io.ReadAll(openairesponses.NewStreamAdapter(body, "m"))
+	if !errors.Is(probeErr, egress.ErrStreamTruncated) {
+		t.Fatalf("adapter read error = %v, want ErrStreamTruncated", probeErr)
+	}
+	re, charged := classifyProbeError(probeErr, "prov-A", newCredentialMasker("sk-x"), nil, false, time.Millisecond, 30*time.Second, 60*time.Second, 1)
+	if re.Kind != KindProviderError || !charged {
+		t.Errorf("kind = %q charged = %v, want %q charged", re.Kind, charged, KindProviderError)
 	}
 }
 

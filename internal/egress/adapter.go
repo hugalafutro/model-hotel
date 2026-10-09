@@ -44,7 +44,8 @@ type Translator interface {
 	// Finish returns the terminal chunk plus the [DONE] sentinel, or nothing
 	// when the translator already emitted them. An error (ErrStreamTruncated
 	// when the upstream never signalled its end) replaces the EOF the adapter
-	// would otherwise surface, and nothing is emitted.
+	// would otherwise surface; the bytes returned with it (at most a usage
+	// chunk, never a finish_reason or [DONE]) are still delivered first.
 	Finish() ([]byte, error)
 }
 
@@ -93,7 +94,7 @@ func NewStreamAdapter(component string, upstream io.ReadCloser, tr Translator) *
 // Read refills the pending buffer from upstream (translating as it goes) and
 // copies out. On EOF any unterminated tail is flushed through the translator
 // and the terminal Finish() bytes are appended before the EOF is
-// surfaced; other upstream errors surface only after all translated bytes have
+// surfaced, or before Finish's error when it reports the stream truncated; other upstream errors surface only after all translated bytes have
 // been drained. A translation failure poisons the stream: already translated
 // bytes drain, then the error surfaces. Finish() is never fabricated over a
 // corrupt upstream, so the proxy sees a failed stream instead of a clean

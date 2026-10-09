@@ -38,3 +38,28 @@ func TestStreamAdapter_EOFBeforeAnEndSignalIsTruncated(t *testing.T) {
 		})
 	}
 }
+
+// A cut-off stream still reports the usage message_start carried: the exact
+// prompt and cache-read counts go out on a usage-only chunk (no finish_reason,
+// no [DONE]) ahead of the error, so the failed request is billed at the
+// provider's figures and not a byte estimate that ignores the cache split.
+func TestStreamAdapter_TruncatedStreamKeepsTheReportedUsage(t *testing.T) {
+	t.Parallel()
+	body := `data: {"type":"message_start","message":{"usage":{"input_tokens":7,"cache_read_input_tokens":100}}}` + "\n\n" +
+		`data: {"type":"content_block_delta","index":0,"delta":{"type":"text_delta","text":"hel"}}` + "\n\n"
+	out, err := io.ReadAll(NewStreamAdapter(io.NopCloser(strings.NewReader(body)), "m"))
+	if !errors.Is(err, egress.ErrStreamTruncated) {
+		t.Fatalf("err = %v, want ErrStreamTruncated", err)
+	}
+	chunks, done := parseChunks(t, string(out))
+	if done {
+		t.Fatalf("[DONE] on a truncated stream:\n%s", out)
+	}
+	last := chunks[len(chunks)-1]
+	if last.Usage == nil || last.Usage.PromptTokens != 107 {
+		t.Fatalf("last chunk usage = %+v, want the reported 7 input + 100 cache-read prompt tokens", last.Usage)
+	}
+	if len(last.Choices) > 0 && last.Choices[0].FinishReason != nil {
+		t.Errorf("usage chunk carries finish_reason %q on a truncated stream", *last.Choices[0].FinishReason)
+	}
+}

@@ -128,12 +128,24 @@ func (t *StreamTranslator) Translate(chunkJSON []byte) ([]byte, error) {
 // candidate's finishReason (or, for a blocked prompt, its promptFeedback): a
 // stream that reached EOF with neither was cut off mid-response, and fails with
 // ErrStreamTruncated rather than closing off a partial answer as a clean stop.
+// The usage the stream already reported still goes out on a chunk of its own,
+// with no finish_reason and no [DONE], so the failed request is billed at the
+// provider's figures rather than a byte estimate.
 func (t *StreamTranslator) Finish() ([]byte, error) {
 	if t.finished {
 		return nil, nil
 	}
 	if t.finishReason == "" && !t.blocked {
-		return nil, fmt.Errorf("gemini: %w", egress.ErrStreamTruncated)
+		truncated := fmt.Errorf("gemini: %w", egress.ErrStreamTruncated)
+		usage := translateUsage(t.usage)
+		if usage == nil {
+			return nil, truncated
+		}
+		var buf bytes.Buffer
+		if err := t.writeChunk(&buf, oaiChunkDelta{}, nil, usage); err != nil {
+			return nil, err
+		}
+		return buf.Bytes(), truncated
 	}
 	t.finished = true
 
