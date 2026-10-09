@@ -14,7 +14,7 @@ the Go binary inside the image. The rest matter when you build or lint outside t
 | **Node.js** | 24+ | Frontend build tooling (CI uses Node 24; the Dockerfile uses `node:26-alpine`) |
 | **pnpm** | 10.33.0 | Frontend package manager (pinned by `web/package.json`) |
 | **PostgreSQL** | 16 | Database (Compose uses `postgres:16-alpine`) |
-| **golangci-lint** | v2.13+ | Go linting (CI pins v2.13) |
+| **golangci-lint** | v2.14+ | Go linting (CI pins v2.14) |
 | **Python 3** | 3.x | The i18n gate, the coverage scripts, and the pre-push gate |
 
 ## Project Structure
@@ -291,7 +291,7 @@ make size-check       # file-size ratchet
 `make fmt` runs `gci` (import grouping: standard, default, then this module) over `internal/`
 and `cmd/`, then `go fmt ./...`.
 
-CI pins `golangci-lint` v2.13. `.golangci.yml` enables `errcheck`, `govet`, `ineffassign`,
+CI pins `golangci-lint` v2.14. `.golangci.yml` enables `errcheck`, `govet`, `ineffassign`,
 `staticcheck`, `unused`, `gosec`, `gocritic`, `revive`, `gocyclo`, `funlen`, `errorlint`,
 `nilerr`, `bodyclose`, `forbidigo` (the `t.Skip` ban) and `nolintlint`. Because `govet` runs as
 part of it, there is no separate `go vet` pass in the pre-push hook.
@@ -528,7 +528,7 @@ targeting it:
 | `Changed Surfaces` | Classifies what the push or PR touched; every job below is gated on its output |
 | `Go Test` | `go test -timeout 10m ./...` against PostgreSQL 16, then a 90% coverage threshold (`cmd/` and `tools/` excluded) |
 | `Go Race (N)` | `scripts/ci/go-race-shard.sh N 3`: `go test -race` over a third of every large package's tests plus a share of the small packages |
-| `Go Lint` | `golangci-lint` v2.13 |
+| `Go Lint` | `golangci-lint` v2.14 |
 | `Go Vet` | `go vet ./...` |
 | `Go Vulncheck` | `govulncheck`, which fails only on vulnerable functions the code actually calls |
 | `i18n Check` | `make i18n-check`: locale parity, `{{placeholder}}` parity, plural forms, no non-allowlisted English |
