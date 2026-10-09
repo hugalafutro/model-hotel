@@ -180,6 +180,55 @@ func TestPassthrough_OversizedJSONChargesTheEstimate(t *testing.T) {
 	}
 }
 
+// TestPassthrough_OversizedJSONCutShortIsFailed: an oversized answer whose
+// remainder stops with a read error (the upstream reset mid-body) reached the
+// client as truncated JSON. The row must say failed with the copy error, not
+// completed, and the quota is still charged for what the provider produced.
+func TestPassthrough_OversizedJSONCutShortIsFailed(t *testing.T) {
+	h := newIntegrationHandler()
+	t.Cleanup(func() { stopUnitHandler(h) })
+	vkRepo := &mockVirtualKeyRepo{}
+	h.virtualKeyRepo = vkRepo
+
+	reqBody := `{"model":"text-embedding-3","input":"` + strings.Repeat("d", 400) + `"}`
+	logData := &requestLogData{
+		id:              uuid.New().String(),
+		modelID:         "text-embedding-x",
+		endpointType:    endpointTypeEmbeddings,
+		virtualKeyName:  "test-key",
+		virtualKeyID:    "00000000-0000-0000-0000-000000000001",
+		state:           "streaming",
+		promptTextBytes: passthroughPromptTextBytes([]byte(reqBody), endpointTypeEmbeddings),
+	}
+	st := &requestState{startTime: time.Now(), logData: logData, vkHash: "test-hash"}
+	h.insertRequestLogAsync(logData)
+	time.Sleep(20 * time.Millisecond)
+
+	resp := &http.Response{
+		StatusCode: http.StatusOK,
+		Header:     http.Header{"Content-Type": []string{"application/json"}},
+		Body: io.NopCloser(io.MultiReader(
+			strings.NewReader(`{"data":"`+strings.Repeat("a", passthroughJSONBufferCap+64)),
+			iotest{}, // the upstream's read fails partway through the remainder
+		)),
+	}
+	rec := httptest.NewRecorder()
+	h.serveBufferedJSONPassthrough(rec, httptest.NewRequest("POST", "/v1/embeddings", http.NoBody), st, modelCandidate{
+		model:    &model.Model{ID: uuid.New(), ModelID: "text-embedding-x"},
+		provider: &provider.Provider{ID: uuid.New(), Name: "test-provider"},
+	}, resp, "application/json", 1, 10.0, false)
+
+	if logData.state != "failed" {
+		t.Errorf("state = %q, want failed for a body cut short", logData.state)
+	}
+	if !strings.Contains(logData.errorMessage, "response copy error") {
+		t.Errorf("error message = %q, want the copy error recorded", logData.errorMessage)
+	}
+	if got := singleAddTokens(t, vkRepo); got != 100 {
+		t.Errorf("charged %d tokens against the key, want 100: the provider still billed it", got)
+	}
+}
+
 // TestPassthrough_NoUsageBlockStillMeters is the sibling of the oversized case,
 // and the half the first fix left behind. A normal-sized pass-through response
 // that carries no "usage" block extracts (0,0), and the guard below it only
