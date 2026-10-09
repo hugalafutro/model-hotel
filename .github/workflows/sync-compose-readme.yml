@@ -20,11 +20,15 @@ jobs:
           # The compose file goes into the fenced block verbatim, so a copy needs no re-indenting
           COMPOSE_CONTENT=$(cat docker-compose.yml)
 
-          # Refuse to embed content that would escape the fenced yaml block: a fence
-          # closer indented 0-3 spaces closes the outer ```yaml fence in CommonMark,
-          # and everything after it renders as page markdown/HTML instead of yaml.
-          if printf '%s\n' "$COMPOSE_CONTENT" | grep -Eq '^ {0,3}```+[[:blank:]]*$'; then
-            echo "::error::docker-compose.yml contains a fenced block that would escape the yaml block in README/DOCKERHUB; refusing to sync" >&2
+          # Refuse to embed content that would escape the fenced yaml block or the markers:
+          # - a fence closer indented 0-3 spaces closes the outer ```yaml fence in CommonMark,
+          #   and everything after it renders as page markdown/HTML instead of yaml
+          #   (LC_ALL=C keeps [[:blank:]] to the ASCII space and tab CommonMark allows there);
+          # - a CR ends a line for CommonMark but not for grep, so it could hide such a closer;
+          # - a copy of an AUTO-SYNC marker would cut the next sync's replacement short.
+          if printf '%s\n' "$COMPOSE_CONTENT" | LC_ALL=C grep -Eq \
+              -e '^ {0,3}```+[[:blank:]]*$' -e $'\r' -e 'AUTO-SYNC: docker-compose\.yml'; then
+            echo "::error::docker-compose.yml contains a code fence, a CR, or an AUTO-SYNC marker that would break the block in README/DOCKERHUB; refusing to sync" >&2
             exit 1
           fi
 
