@@ -167,41 +167,45 @@ func TestUserTotp_DisableThrottlesGuessing(t *testing.T) {
 	}
 }
 
-// A user's enrollment waits while another TOTP mutation for that same user is
-// in flight: EnrollStart's upsert resets enabled to false, so letting it run
-// between a concurrent EnrollVerify's enabled check and its Enable would switch
-// a just-enabled factor back off. Another user's enrollment is not held up.
-func TestUserTotp_EnrollSerializedPerUser(t *testing.T) {
+// Every TOTP mutation of one user waits while another is in flight for that
+// same user: EnrollStart's upsert resets enabled to false, so letting it (or an
+// admin reset) run between a concurrent EnrollVerify's enabled check and its
+// Enable would switch a just-enabled factor back off, or leave it on with its
+// recovery codes deleted. Another user's enrollment is not held up.
+func TestUserTotp_MutationsSerializedPerUser(t *testing.T) {
 	h, r, sm := setupUserTotpTestHandler(t)
 	aliceID, aliceToken := userSession(t, r, sm, "alice")
 	_, bobToken := userSession(t, r, sm, "bob")
-
 	uid := uuid.MustParse(aliceID)
-	unlock := h.lockUserTotp(&user.Identity{UserID: &uid})
 
-	done := make(chan int, 1)
-	go func() {
-		done <- doJSON(t, r, http.MethodPost, "/auth/totp/enroll/start", aliceToken, "{}").Code
-	}()
+	for _, tc := range []struct{ name, path, token, body string }{
+		{"enroll start", "/auth/totp/enroll/start", aliceToken, "{}"},
+		{"enroll verify", "/auth/totp/enroll/verify", aliceToken, `{"code":"000000"}`},
+		{"disable", "/auth/totp/disable", aliceToken, `{"code":"000000"}`},
+		{"admin reset", "/users/" + aliceID + "/totp/reset", envAdminToken, ""},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			unlock := h.lockUserTotp(uid)
+			done := make(chan int, 1)
+			go func() { done <- doJSON(t, r, http.MethodPost, tc.path, tc.token, tc.body).Code }()
 
-	if w := doJSON(t, r, http.MethodPost, "/auth/totp/enroll/start", bobToken, "{}"); w.Code != http.StatusOK {
-		t.Fatalf("bob enroll/start while alice is locked: %d %s", w.Code, w.Body.String())
-	}
-	select {
-	case code := <-done:
-		unlock()
-		t.Fatalf("alice enroll/start finished (%d) while her TOTP lock was held", code)
-	case <-time.After(200 * time.Millisecond):
-	}
-
-	unlock()
-	select {
-	case code := <-done:
-		if code != http.StatusOK {
-			t.Fatalf("alice enroll/start after unlock: %d, want 200", code)
-		}
-	case <-time.After(5 * time.Second):
-		t.Fatal("alice enroll/start still blocked after the lock was released")
+			if w := doJSON(t, r, http.MethodPost, "/auth/totp/enroll/start", bobToken, "{}"); w.Code != http.StatusOK {
+				unlock()
+				t.Fatalf("bob enroll/start while alice is locked: %d %s", w.Code, w.Body.String())
+			}
+			select {
+			case code := <-done:
+				unlock()
+				t.Fatalf("alice %s finished (%d) while her TOTP lock was held", tc.name, code)
+			case <-time.After(200 * time.Millisecond):
+			}
+			unlock()
+			select {
+			case <-done:
+			case <-time.After(5 * time.Second):
+				t.Fatalf("alice %s still blocked after the lock was released", tc.name)
+			}
+		})
 	}
 }
 
