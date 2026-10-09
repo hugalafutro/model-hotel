@@ -418,6 +418,11 @@ func (h *Handler) dispatchStreaming(w http.ResponseWriter, r *http.Request, st *
 			if recordFailure {
 				h.chargeBreaker(st, candidate, resp.StatusCode, probeBreakerReason("TTFT probe", re))
 			}
+			if streamPromptBilled(probeErr) {
+				if prompt := rejectStreamPrompt(logData, candidate); prompt > 0 {
+					h.recordTokenUsage(st.vkHash, logData, prompt, 0, 0)
+				}
+			}
 			st.setReqErr(re)
 			logData.failoverAttempt = attempt
 			logData.responseHeaderMs = responseHeaderMs

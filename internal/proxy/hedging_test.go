@@ -35,6 +35,7 @@ type fakeProbeSpec struct {
 	rateLimit rateLimitVerdict // the loser's 429 verdict, when it drew one
 	busy      bool             // skipped at the provider's in-flight window, no request made
 	ignoreCtx bool             // when true, the probe does not return early on ctx cancel
+	billed    bool             // the provider answered 2xx: raise the attempt's billed flag at launch
 	body      string           // SSE body the winner streams; empty = newStreamableResp
 }
 
@@ -51,12 +52,15 @@ func newHedgeHarness(specs []fakeProbeSpec) *hedgeHarness {
 	return &hedgeHarness{specs: specs, ctxs: map[int]context.Context{}}
 }
 
-func (hh *hedgeHarness) probe(ctx context.Context, _ *requestState, candidate modelCandidate, attempt int, _, _ time.Duration) hedgeResult {
+func (hh *hedgeHarness) probe(ctx context.Context, st *requestState, candidate modelCandidate, attempt int, _, _ time.Duration) hedgeResult {
 	hh.mu.Lock()
 	hh.probed = append(hh.probed, attempt)
 	hh.ctxs[attempt] = ctx
 	spec := hh.specs[attempt]
 	hh.mu.Unlock()
+	if spec.billed {
+		st.hedgeBilled.Store(true)
+	}
 
 	if spec.ignoreCtx {
 		time.Sleep(spec.delay)

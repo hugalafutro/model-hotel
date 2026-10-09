@@ -104,6 +104,35 @@ func (h *Handler) runHedgedStreaming(w http.ResponseWriter, r *http.Request, st 
 	settled := make([]bool, len(candidates))
 	launched := 0
 	inFlight := 0
+	// Each launch's probe raises its billed flag once its provider answers 2xx
+	// (see requestState.hedgeBilled). Every launch that ends without serving is
+	// charged its estimated prompt from it, once: a loser as its result
+	// arrives, a launch the race leaves behind when the race ends, whether its
+	// result is queued or its probe is still running. The tokens are debited
+	// from the key and TPM bucket after the race has returned, so the database
+	// write never delays the winner's first byte; the row prices them from
+	// logData.rejected at its terminal write either way.
+	billed := make([]*atomic.Bool, len(candidates))
+	charged := make([]bool, len(candidates))
+	owed := 0
+	chargeLaunch := func(idx int) {
+		if !charged[idx] && billed[idx] != nil && billed[idx].Load() {
+			charged[idx] = true
+			owed += rejectStreamPrompt(st.logData, candidates[idx])
+		}
+	}
+	chargeLeftBehind := func(except int) {
+		for i := range candidates {
+			if i != except {
+				chargeLaunch(i)
+			}
+		}
+	}
+	defer func() {
+		if owed > 0 {
+			h.recordTokenUsage(st.vkHash, st.logData, owed, 0, 0)
+		}
+	}()
 
 	launch := func(idx int) {
 		// failover_timeout origin so doUpstream classifies a deadline the same way
@@ -147,6 +176,8 @@ func (h *Handler) runHedgedStreaming(w http.ResponseWriter, r *http.Request, st 
 		// never fills in (upstreamKind, the content flag). serveHedgeWinner
 		// re-binds logData to the real st.logData before judging the model.
 		snap.logData = hedgeProbeLog(st.logData, candidates[idx])
+		billed[idx] = &atomic.Bool{}
+		snap.hedgeBilled = billed[idx]
 		go func() {
 			results <- probeOne(ctx, &snap, candidates[idx], idx, ttftTimeout, stallTimeout)
 		}()
@@ -205,6 +236,7 @@ func (h *Handler) runHedgedStreaming(w http.ResponseWriter, r *http.Request, st 
 				// a cancelled probe answers at once, and a result provoked by our
 				// own cancel must not be mistaken for one the provider gave.
 				inFlight = settleHedgeLaunches(st.logData, results, candidates, launchedAt, settled, inFlight, res.idx, KindHedgeSuperseded, "superseded by the winner while in flight")
+				chargeLeftBehind(res.idx)
 				cancelExcept(res.idx, true)
 				// A runner-up that also produced a first token sent a live
 				// *http.Response we will never stream; drain the still-outstanding
@@ -224,6 +256,7 @@ func (h *Handler) runHedgedStreaming(w http.ResponseWriter, r *http.Request, st 
 			}
 			st.setReqErr(res.reqErr)
 			st.logData.appendAttemptRecord(hedgeLoserRecord(res, candidates[res.idx], launchedAt[res.idx], st.logData.fence()))
+			chargeLaunch(res.idx)
 			// Carry the loser's 429 verdict onto the shared state beside its
 			// reqError, so a terminal all-busy exhaustion answers with the
 			// provider's own Retry-After rather than the class default.
@@ -267,6 +300,7 @@ func (h *Handler) runHedgedStreaming(w http.ResponseWriter, r *http.Request, st 
 			// The launches still running at the deadline are the most expensive
 			// part of a hedge that timed out: the trail names them.
 			inFlight = settleHedgeLaunches(st.logData, results, candidates, launchedAt, settled, inFlight, -1, KindFailoverTimeout, "still in flight at the failover deadline")
+			chargeLeftBehind(-1)
 			if inFlight > 0 {
 				go drainHedgeResults(results, inFlight)
 			}
@@ -274,6 +308,7 @@ func (h *Handler) runHedgedStreaming(w http.ResponseWriter, r *http.Request, st 
 			return
 		case <-r.Context().Done():
 			inFlight = settleHedgeLaunches(st.logData, results, candidates, launchedAt, settled, inFlight, -1, KindClientDisconnect, "client disconnected while in flight")
+			chargeLeftBehind(-1)
 			if inFlight > 0 {
 				go drainHedgeResults(results, inFlight)
 			}
@@ -390,6 +425,12 @@ func (h *Handler) probeStreamingCandidate(ctx context.Context, st *requestState,
 		return res
 	}
 
+	// The provider took the request on: from here an attempt that does not
+	// serve has cost its prompt, and the orchestrator charges it.
+	if st.hedgeBilled != nil {
+		st.hedgeBilled.Store(true)
+	}
+
 	if st.responsesAttempt {
 		// Preemptive /v1/responses attempt (learned earlier on the sequential
 		// path): translate the upstream stream back to chat chunks before the
@@ -425,6 +466,9 @@ func (h *Handler) probeStreamingCandidate(ctx context.Context, st *requestState,
 	probeBuf, trueTtftMs, probeErr := h.probeFirstToken(ctx, resp.Body, ttftTimeout, st.startTime)
 	if probeErr != nil {
 		_ = resp.Body.Close()
+		if !streamPromptBilled(probeErr) && st.hedgeBilled != nil {
+			st.hedgeBilled.Store(false)
+		}
 		if !probeAnsweredByProvider(probeErr) && ctx.Err() != nil && hedgeAbandonKind(ctx) == KindHedgeSuperseded {
 			// The orchestrator cancelled this attempt because another
 			// candidate won. Its probe was still valid when it was cut, so

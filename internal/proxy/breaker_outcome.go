@@ -428,6 +428,51 @@ func (h *Handler) meterRejectedPrompt(st *requestState, logData *requestLogData,
 	h.recordTokenUsage(st.vkHash, logData, prompt, 0, 0)
 }
 
+// rejectStreamPrompt records the prompt of a streaming attempt that answered
+// 2xx and was then left behind: its first-token probe failed, or a hedged race
+// cut it or never streamed it. The provider read that prompt and billed the
+// operator for it, the rule meterRejectedPrompt applies to a rejected
+// non-streaming answer, but a stream reports usage only in its last chunk,
+// which an abandoned stream never reaches. So the prompt is estimated from the
+// request text, as a served stream's missing usage is (estimateMissingUsage).
+//
+// Like that estimate it stays out of the token columns, which carry only what
+// providers measured: it reaches the row's price as an estimated rejected
+// attempt priced at this candidate's own model, and returns the tokens the
+// caller debits through recordTokenUsage. The debit is the caller's because
+// it writes the key's counter to the database, which a hedged race must not
+// do ahead of its winner's first byte.
+func rejectStreamPrompt(logData *requestLogData, candidate modelCandidate) int {
+	prompt := util.ClampTokenCount(estimateTokens(logData.promptTextBytes))
+	if prompt == 0 {
+		return 0
+	}
+	cost, priced := candidate.model.CostUSD(model.Usage{Prompt: prompt})
+	// A hedged race stamps servedModel only on its winner, and the terminal
+	// write prices nothing on a row without one: a race that exhausts would
+	// drop every charge recorded here from the budget.
+	if logData.servedModel == nil {
+		logData.servedModel = candidate.model
+	}
+	logData.rejected = append(logData.rejected, rejectedAttempt{
+		providerName: candidate.provider.Name,
+		prompt:       prompt, costUSD: cost, priced: priced, estimated: true,
+	})
+	debuglog.Info("proxy: charging the estimated prompt of an abandoned streaming attempt", "model", logData.modelID, "provider", candidate.provider.Name, "prompt_text_bytes", logData.promptTextBytes, "prompt_tokens", prompt)
+	return prompt
+}
+
+// streamPromptBilled reports whether a 2xx stream whose first-token probe
+// failed with err cost its prompt. Everything does except the provider's own
+// error frame: there the provider declared the request failed, and providers
+// do not bill a request they report as failed (an overload, an in-stream rate
+// limit). A stall, a cut, an empty or truncated stream all came after the
+// provider took the request on.
+func streamPromptBilled(err error) bool {
+	var frame *upstreamFrameError
+	return !errors.As(err, &frame)
+}
+
 // translationIsProviderFault separates "these bytes are not the object this
 // adapter expects" from "the provider answered, and its answer was a refusal".
 //

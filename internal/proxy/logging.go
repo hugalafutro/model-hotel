@@ -546,7 +546,7 @@ func (h *Handler) updateRequestLog(logEntry *requestLogData, opts ...updateLogOp
 			for _, a := range logEntry.rejected {
 				metrics.RecordRejectedAttempt(metrics.RejectedAttempt{
 					Provider: a.providerName, Model: metricModelLabel(logEntry.modelID, logEntry.errorKind),
-					PromptTokens: a.prompt, PromptCachedTokens: a.cacheHit,
+					PromptTokens: a.measuredPrompt(), PromptCachedTokens: a.cacheHit,
 					CostUSD: a.costUSD, Priced: a.priced && priced && chargedNow,
 				})
 			}
