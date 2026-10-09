@@ -665,7 +665,7 @@ func TestConfigSync_FailoverGroupsSurviveCancelledRequestContext(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel() // Front Desk hung up before the build began
 
-	out := h.postImportRefresh(ctx, ConfigEnvelope{Config: ConfigPayload{FailoverGroups: groups}}, nil, nil)
+	out := h.postImportRefresh(ctx, ConfigEnvelope{Config: ConfigPayload{FailoverGroups: groups}}, nil, nil, nil)
 
 	if out.GroupApplyErr != nil {
 		t.Fatalf("group apply must not inherit the request cancellation: %v", out.GroupApplyErr)
@@ -720,7 +720,7 @@ func TestConfigSync_FailoverGroupsSurviveExpiredRequestDeadline(t *testing.T) {
 		t.Fatal("test setup: the context was expected to be already expired")
 	}
 
-	out := h.postImportRefresh(ctx, ConfigEnvelope{Config: ConfigPayload{FailoverGroups: groups}}, nil, nil)
+	out := h.postImportRefresh(ctx, ConfigEnvelope{Config: ConfigPayload{FailoverGroups: groups}}, nil, nil, nil)
 
 	if out.GroupApplyErr != nil {
 		t.Fatalf("group apply inherited the expired deadline: %v", out.GroupApplyErr)
@@ -1345,7 +1345,7 @@ func TestConfigSync_AutoGroupEchoCommitsWithTheGroups(t *testing.T) {
 	_, err := h.applyFailoverGroups(ctx, []ExportFailoverGroup{{
 		DisplayModel: "mine", GroupEnabled: true,
 		Entries: []ExportFailoverEntry{{ProviderName: "openai", ModelID: "gpt-4o", Enabled: true}, {ProviderName: "azure", ModelID: "gpt-4o", Enabled: true}},
-	}}, true)
+	}}, true, nil)
 	unlock()
 	if err == nil {
 		t.Fatal("apply with the settings table locked: want an error, got none")

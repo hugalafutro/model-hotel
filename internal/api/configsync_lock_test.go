@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -325,7 +326,7 @@ func TestConfigSync_ModelReconcileWaitsBehindTheImportFence(t *testing.T) {
 	start := time.Now()
 	done := make(chan error, 1)
 	go func() {
-		_, err := h.applyDisabledModels(ctx, refs)
+		_, err := h.applyDisabledModels(ctx, refs, nil)
 		done <- err
 	}()
 
@@ -385,7 +386,7 @@ func TestConfigSync_ModelReconcileWaitsBehindTheImportFence(t *testing.T) {
 	if err := holder.Rollback(ctx); err != nil {
 		t.Fatalf("release fence: %v", err)
 	}
-	if _, err := h.applyDisabledModels(ctx, refs); err != nil {
+	if _, err := h.applyDisabledModels(ctx, refs, nil); err != nil {
 		t.Fatalf("reconcile after the fence was released: %v", err)
 	}
 	if err := apiTestDB.Pool().QueryRow(ctx, `SELECT enabled FROM models WHERE model_id = 'm1'`).Scan(&enabled); err != nil {
@@ -393,5 +394,67 @@ func TestConfigSync_ModelReconcileWaitsBehindTheImportFence(t *testing.T) {
 	}
 	if enabled {
 		t.Error("the reconcile went through but the model is still enabled")
+	}
+}
+
+// TestConfigSync_PostCommitSectionsYieldToANewerImport pins the post-commit
+// fence check. An import's per-model reconciles and group build run after its
+// commit, behind a discovery pass that can take minutes, so a newer import can
+// commit in between. Once it has, the older import's sections must write
+// nothing: its disable list would otherwise switch back on a model the newer
+// import disabled, and its groups would replace the newer import's. The
+// import that owns the current marker still writes.
+func TestConfigSync_PostCommitSectionsYieldToANewerImport(t *testing.T) {
+	cleanConfigTables(t)
+	pid := seedProvider(t, "openai", "sk-secret-value", configSyncMasterKey)
+	seedModel(t, pid, "m1")
+	h := &ConfigSyncHandler{db: apiTestDB}
+	refs := []ExportModelRef{{ProviderName: "openai", ModelID: "m1"}}
+	ctx := context.Background()
+
+	tx, err := apiTestDB.Pool().Begin(ctx)
+	if err != nil {
+		t.Fatalf("begin: %v", err)
+	}
+	if err := writeAppliedSourceGen(ctx, tx, 6); err != nil {
+		t.Fatalf("write marker: %v", err)
+	}
+	if err := tx.Commit(ctx); err != nil {
+		t.Fatalf("commit marker: %v", err)
+	}
+	modelEnabled := func() bool {
+		t.Helper()
+		var enabled bool
+		if err := apiTestDB.Pool().QueryRow(ctx, `SELECT enabled FROM models WHERE model_id = 'm1'`).Scan(&enabled); err != nil {
+			t.Fatalf("read model: %v", err)
+		}
+		return enabled
+	}
+
+	older := int64(5)
+	for name, gen := range map[string]*int64{"older generation": &older, "headerless": nil} {
+		if _, err := h.applyDisabledModels(ctx, refs, gen); !errors.Is(err, errImportSuperseded) {
+			t.Errorf("%s disables: err = %v, want errImportSuperseded", name, err)
+		}
+		if _, err := h.applyEnabledModels(ctx, []ExportModelRef{}, gen); !errors.Is(err, errImportSuperseded) {
+			t.Errorf("%s pins: err = %v, want errImportSuperseded", name, err)
+		}
+		if _, err := h.applyFailoverGroups(ctx, []ExportFailoverGroup{}, true, gen); !errors.Is(err, errImportSuperseded) {
+			t.Errorf("%s groups: err = %v, want errImportSuperseded", name, err)
+		}
+	}
+	if !modelEnabled() {
+		t.Fatal("a superseded import's disable list was written")
+	}
+	if err := skipSuperseded(errImportSuperseded, "test"); err != nil {
+		t.Errorf("skipSuperseded(errImportSuperseded) = %v, want nil: a yielded section is not a failure", err)
+	}
+
+	current := int64(6)
+	if _, err := h.applyDisabledModels(ctx, refs, &current); err != nil {
+		t.Fatalf("current generation disables: %v", err)
+	}
+	if modelEnabled() {
+		t.Error("the import that owns the marker did not write its disable list")
 	}
 }

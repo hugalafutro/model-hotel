@@ -81,22 +81,22 @@ func TestConfigSyncApply_FailedStatementAbortsTheApply(t *testing.T) {
 			_, _ = tx.Exec(ctx, `SELECT 1/0`)
 			return nil
 		}
-		if _, err := h.applyModelIntent(context.Background(), refs, keyFleetUnappliedModelDisables, poison); err == nil {
+		if _, err := h.applyModelIntent(context.Background(), refs, nil, keyFleetUnappliedModelDisables, poison); err == nil {
 			t.Fatal("expected the aborted transaction to fail the apply")
 		}
 	})
 	t.Run("applyDisabledModels", func(t *testing.T) {
-		if _, err := h.applyDisabledModels(cctx, refs); err == nil {
+		if _, err := h.applyDisabledModels(cctx, refs, nil); err == nil {
 			t.Fatal("expected an error from the cancelled context")
 		}
 	})
 	t.Run("applyEnabledModels", func(t *testing.T) {
-		if _, err := h.applyEnabledModels(cctx, refs); err == nil {
+		if _, err := h.applyEnabledModels(cctx, refs, nil); err == nil {
 			t.Fatal("expected an error from the cancelled context")
 		}
 	})
 	t.Run("applyFailoverGroups", func(t *testing.T) {
-		if _, err := h.applyFailoverGroups(cctx, []ExportFailoverGroup{}, true); err == nil {
+		if _, err := h.applyFailoverGroups(cctx, []ExportFailoverGroup{}, true, nil); err == nil {
 			t.Fatal("expected an error from the cancelled context")
 		}
 	})

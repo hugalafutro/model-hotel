@@ -3,10 +3,12 @@ package api
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"time"
 
 	"github.com/jackc/pgx/v5"
 
+	"github.com/hugalafutro/model-hotel/internal/debuglog"
 	"github.com/hugalafutro/model-hotel/internal/model"
 )
 
@@ -37,7 +39,11 @@ type modelIntentWriter func(ctx context.Context, tx pgx.Tx, wanted string, provi
 // acknowledgement without applying what it could, or the reverse, would export a
 // list describing neither state. Afterwards the model cache is dropped, because
 // both sections move models.enabled and the proxy reads routability from it.
-func (h *ConfigSyncHandler) applyModelIntent(ctx context.Context, refs []ExportModelRef,
+//
+// sourceGen is the generation of the import this section belongs to: the
+// section runs after that import committed, and writes nothing once a newer one
+// has (errImportSuperseded, see lockFenceForPostCommit).
+func (h *ConfigSyncHandler) applyModelIntent(ctx context.Context, refs []ExportModelRef, sourceGen *int64,
 	ackKey string, write modelIntentWriter) ([]string, error) {
 	if refs == nil {
 		return nil, nil
@@ -65,11 +71,7 @@ func (h *ConfigSyncHandler) applyModelIntent(ctx context.Context, refs []ExportM
 	// same way, under the same timeout. Past it the section fails and the
 	// import answers Incomplete, which Front Desk re-pushes once its
 	// incomplete retry interval has passed, the same as any other Incomplete.
-	_, err = tx.Exec(ctx, `SET LOCAL lock_timeout = '`+reconcileLockTimeout+`'`)
-	if err == nil {
-		_, err = tx.Exec(ctx, `SELECT pg_advisory_xact_lock($1)`, fleetSourceGenLock)
-	}
-	if err != nil {
+	if err := lockFenceForPostCommit(ctx, tx, sourceGen); err != nil {
 		return nil, err
 	}
 
@@ -118,8 +120,8 @@ func (h *ConfigSyncHandler) applyModelIntent(ctx context.Context, refs []ExportM
 // about what this member's provider served it, and the primary's list says
 // nothing about that; re-enabling those would revive models the provider is
 // refusing here and churn the failover groups built on them every pass.
-func (h *ConfigSyncHandler) applyDisabledModels(ctx context.Context, refs []ExportModelRef) ([]string, error) {
-	return h.applyModelIntent(ctx, refs, keyFleetUnappliedModelDisables,
+func (h *ConfigSyncHandler) applyDisabledModels(ctx context.Context, refs []ExportModelRef, sourceGen *int64) ([]string, error) {
+	return h.applyModelIntent(ctx, refs, sourceGen, keyFleetUnappliedModelDisables,
 		func(ctx context.Context, tx pgx.Tx, wanted string, providers, modelIDs []string) error {
 			// The disable direction deliberately leaves auto_retired_at and
 			// discovery_dismissed_at alone, where Repository.SetEnabled(false) clears both.
@@ -187,8 +189,8 @@ func (h *ConfigSyncHandler) applyDisabledModels(ctx context.Context, refs []Expo
 // member has accumulated since the last one. Pin visibility is a primary-side
 // surface by design; a member shows the pin only if it misses a scan between two
 // syncs.
-func (h *ConfigSyncHandler) applyEnabledModels(ctx context.Context, refs []ExportModelRef) ([]string, error) {
-	return h.applyModelIntent(ctx, refs, keyFleetUnappliedModelEnables,
+func (h *ConfigSyncHandler) applyEnabledModels(ctx context.Context, refs []ExportModelRef, sourceGen *int64) ([]string, error) {
+	return h.applyModelIntent(ctx, refs, sourceGen, keyFleetUnappliedModelEnables,
 		func(ctx context.Context, tx pgx.Tx, wanted string, providers, modelIDs []string) error {
 			// COALESCE keeps an existing pin's own timestamp: the stamp is when THIS
 			// member first honoured the pin, and re-stamping it on every sync would
@@ -215,6 +217,51 @@ func (h *ConfigSyncHandler) applyEnabledModels(ctx context.Context, refs []Expor
 				providers, modelIDs)
 			return err
 		})
+}
+
+// errImportSuperseded is returned by a post-commit section (the per-model
+// reconciles and the failover-group build) of an import that a newer import has
+// overtaken. Not a failure: the newer import's own sections write the state.
+var errImportSuperseded = errors.New("configsync: a newer import has committed; post-commit section skipped")
+
+// lockFenceForPostCommit takes the fence lock inside a post-commit section's
+// own transaction and refuses with errImportSuperseded once an import newer than
+// sourceGen has committed. Those sections run detached after their import's
+// commit, behind a discovery pass that can take minutes, so without the check
+// an older import still in discovery would write its stale disables, pins and
+// groups over the ones a newer import already applied. Under the lock no import
+// can commit, so the check and the section's writes see one generation.
+//
+// A headed import's own commit recorded sourceGen, so only a strictly greater
+// marker supersedes it. A headerless import committed only while no marker
+// existed (enforceSourceGenFence), so any marker now means a fenced import came
+// after it.
+func lockFenceForPostCommit(ctx context.Context, tx pgx.Tx, sourceGen *int64) error {
+	if _, err := tx.Exec(ctx, `SET LOCAL lock_timeout = '`+reconcileLockTimeout+`'`); err != nil {
+		return err
+	}
+	if _, err := tx.Exec(ctx, `SELECT pg_advisory_xact_lock($1)`, fleetSourceGenLock); err != nil {
+		return err
+	}
+	last, fenced, err := readAppliedSourceGen(ctx, tx)
+	if err != nil {
+		return err
+	}
+	if fenced && (sourceGen == nil || last > *sourceGen) {
+		return errImportSuperseded
+	}
+	return nil
+}
+
+// skipSuperseded clears errImportSuperseded (logging which section yielded) and
+// returns any other error unchanged, so postImportRefresh reports only real
+// failures.
+func skipSuperseded(err error, section string) error {
+	if errors.Is(err, errImportSuperseded) {
+		debuglog.Info("configsync: newer import has committed; skipping this import's post-commit section", "section", section)
+		return nil
+	}
+	return err
 }
 
 // writeUnappliedModelRefs records the refs this member could not apply for one
