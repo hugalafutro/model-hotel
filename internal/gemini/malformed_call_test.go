@@ -24,12 +24,17 @@ func TestMalformedFunctionCall_IsNotAStop(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Finish: %v", err)
 	}
+	// The reported usage first (no finish_reason), so the failure is billed at
+	// the provider's figures; then the error frame and [DONE].
 	frames := parseFrames(t, fin)
-	if len(frames) != 2 || frames[1] != "[DONE]" {
-		t.Fatalf("finish frames = %v, want an error frame then [DONE]", frames)
+	if len(frames) != 3 || frames[2] != "[DONE]" {
+		t.Fatalf("finish frames = %v, want usage, an error frame, then [DONE]", frames)
 	}
-	if !strings.Contains(frames[0], `"error"`) || !strings.Contains(frames[0], "malformed function call") {
-		t.Errorf("terminal frame = %s, want the malformed-call error", frames[0])
+	if !strings.Contains(frames[0], `"prompt_tokens":8`) || strings.Contains(frames[0], `"finish_reason":"`) {
+		t.Errorf("first frame = %s, want the reported usage and no finish_reason", frames[0])
+	}
+	if !strings.Contains(frames[1], `"error"`) || !strings.Contains(frames[1], "malformed function call") {
+		t.Errorf("terminal frame = %s, want the malformed-call error", frames[1])
 	}
 }
 

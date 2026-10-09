@@ -160,7 +160,14 @@ func (t *StreamTranslator) Finish() ([]byte, error) {
 	var buf bytes.Buffer
 	if t.finishReason == malformedFunctionCall {
 		// Not a stop: the stream ends with the error the caller can act on,
-		// which the gateway's observers also read as the provider failing.
+		// which the gateway's observers also read as the provider failing. The
+		// usage reported so far goes out first, so the failure is billed at the
+		// provider's figures as a cut-off stream is.
+		if usage := translateUsage(t.usage); usage != nil {
+			if err := t.writeChunk(&buf, oaiChunkDelta{}, nil, usage); err != nil {
+				return nil, err
+			}
+		}
 		buf.WriteString(`data: {"error":{"message":` + strconv.Quote(ErrMalformedFunctionCall.Error()) + `,"type":"server_error"}}` + "\n\n")
 		buf.WriteString(egress.Done)
 		return buf.Bytes(), nil

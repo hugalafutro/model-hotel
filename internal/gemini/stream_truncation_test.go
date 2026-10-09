@@ -55,4 +55,30 @@ func TestStreamAdapter_TruncatedStreamKeepsTheReportedUsage(t *testing.T) {
 	}
 }
 
+// A connection reset, before or after the finishReason, still delivers the
+// usage Gemini reported, ahead of the read error, and closes nothing.
+func TestStreamAdapter_ConnectionResetKeepsTheReportedUsage(t *testing.T) {
+	t.Parallel()
+	const usage = `"usageMetadata":{"promptTokenCount":12,"candidatesTokenCount":3,"totalTokenCount":15}`
+	for name, chunk := range map[string]string{
+		"before the finishReason": `data: {"candidates":[{"content":{"parts":[{"text":"hel"}],"role":"model"}}],` + usage + `}` + "\n\n",
+		"after the finishReason":  `data: {"candidates":[{"content":{"parts":[{"text":"hello"}],"role":"model"},"finishReason":"STOP"}],` + usage + `}` + "\n\n",
+	} {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+			reset := errors.New("connection reset by peer")
+			out, err := io.ReadAll(NewStreamAdapter(&errReader{data: chunk, err: reset}, "m"))
+			if !errors.Is(err, reset) {
+				t.Fatalf("err = %v, want the reset", err)
+			}
+			if strings.Contains(string(out), "[DONE]") || strings.Contains(string(out), `"finish_reason":"`) {
+				t.Fatalf("a reset stream was closed off as finished:\n%s", out)
+			}
+			if got := streamUsage(t, out); got.PromptTokens != 12 || got.CompletionTokens != 3 {
+				t.Errorf("reported usage = %d/%d, want 12/3", got.PromptTokens, got.CompletionTokens)
+			}
+		})
+	}
+}
+
 var _ egress.UsageReporter = (*StreamTranslator)(nil)
