@@ -142,8 +142,10 @@ func (l *IPLimiter) Middleware(next http.Handler) http.Handler {
 		}
 		r = r.WithContext(context.WithValue(r.Context(), chargedMarker{l}, struct{}{}))
 
-		ip := clientip.Resolve(r, l.trustedProxies)
-		entry := l.getLimiter(r.Context(), ip)
+		// ip is the bucket's key from here on: past maxIPBuckets that is the
+		// shared overflow bucket, and its throttle episode is logged under
+		// that one name rather than whichever caller happened to hit it.
+		ip, entry := l.getLimiter(r.Context(), clientip.Resolve(r, l.trustedProxies))
 
 		// Read before taking the admission lock, which guards in-memory bucket
 		// work only (see bucketEntry.admit).
@@ -181,7 +183,9 @@ func (l *IPLimiter) Middleware(next http.Handler) http.Handler {
 	})
 }
 
-func (l *IPLimiter) getLimiter(ctx context.Context, ip string) *bucketEntry {
+// getLimiter returns the bucket for ip and the key it is held under: ip
+// itself, or overflowBucketKey once the map is full.
+func (l *IPLimiter) getLimiter(ctx context.Context, ip string) (string, *bucketEntry) {
 	l.mu.Lock()
 	defer l.mu.Unlock()
 
@@ -198,7 +202,7 @@ func (l *IPLimiter) getLimiter(ctx context.Context, ip string) *bucketEntry {
 	if _, ok := l.limiters[ip]; !ok && len(l.limiters) >= maxIPBuckets {
 		ip = overflowBucketKey
 	}
-	return upsertEntry(l.limiters, ip, rps, burst, ipLogPrefix, ipLogLabel, l.budget)
+	return ip, upsertEntry(l.limiters, ip, rps, burst, ipLogPrefix, ipLogLabel, l.budget)
 }
 
 func (l *IPLimiter) cleanup() {

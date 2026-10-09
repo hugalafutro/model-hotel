@@ -104,35 +104,8 @@ func (h *Handler) runHedgedStreaming(w http.ResponseWriter, r *http.Request, st 
 	settled := make([]bool, len(candidates))
 	launched := 0
 	inFlight := 0
-	// Each launch's probe raises its billed flag once its provider answers 2xx
-	// (see requestState.hedgeBilled). Every launch that ends without serving is
-	// charged its estimated prompt from it, once: a loser as its result
-	// arrives, a launch the race leaves behind when the race ends, whether its
-	// result is queued or its probe is still running. The tokens are debited
-	// from the key and TPM bucket after the race has returned, so the database
-	// write never delays the winner's first byte; the row prices them from
-	// logData.rejected at its terminal write either way.
-	billed := make([]*atomic.Bool, len(candidates))
-	charged := make([]bool, len(candidates))
-	owed := 0
-	chargeLaunch := func(idx int) {
-		if !charged[idx] && billed[idx] != nil && billed[idx].Load() {
-			charged[idx] = true
-			owed += rejectStreamPrompt(st.logData, candidates[idx])
-		}
-	}
-	chargeLeftBehind := func(except int) {
-		for i := range candidates {
-			if i != except {
-				chargeLaunch(i)
-			}
-		}
-	}
-	defer func() {
-		if owed > 0 {
-			h.recordTokenUsage(st.vkHash, st.logData, owed, 0, 0)
-		}
-	}()
+	charges := newHedgeCharges(len(candidates))
+	defer charges.debit(h, st)
 
 	launch := func(idx int) {
 		// failover_timeout origin so doUpstream classifies a deadline the same way
@@ -176,8 +149,7 @@ func (h *Handler) runHedgedStreaming(w http.ResponseWriter, r *http.Request, st 
 		// never fills in (upstreamKind, the content flag). serveHedgeWinner
 		// re-binds logData to the real st.logData before judging the model.
 		snap.logData = hedgeProbeLog(st.logData, candidates[idx])
-		billed[idx] = &atomic.Bool{}
-		snap.hedgeBilled = billed[idx]
+		snap.hedgeBilled = charges.flag(idx)
 		go func() {
 			results <- probeOne(ctx, &snap, candidates[idx], idx, ttftTimeout, stallTimeout)
 		}()
@@ -236,7 +208,7 @@ func (h *Handler) runHedgedStreaming(w http.ResponseWriter, r *http.Request, st 
 				// a cancelled probe answers at once, and a result provoked by our
 				// own cancel must not be mistaken for one the provider gave.
 				inFlight = settleHedgeLaunches(st.logData, results, candidates, launchedAt, settled, inFlight, res.idx, KindHedgeSuperseded, "superseded by the winner while in flight")
-				chargeLeftBehind(res.idx)
+				charges.chargeAllBut(st.logData, candidates, res.idx)
 				cancelExcept(res.idx, true)
 				// A runner-up that also produced a first token sent a live
 				// *http.Response we will never stream; drain the still-outstanding
@@ -256,7 +228,7 @@ func (h *Handler) runHedgedStreaming(w http.ResponseWriter, r *http.Request, st 
 			}
 			st.setReqErr(res.reqErr)
 			st.logData.appendAttemptRecord(hedgeLoserRecord(res, candidates[res.idx], launchedAt[res.idx], st.logData.fence()))
-			chargeLaunch(res.idx)
+			charges.charge(st.logData, candidates, res.idx)
 			// Carry the loser's 429 verdict onto the shared state beside its
 			// reqError, so a terminal all-busy exhaustion answers with the
 			// provider's own Retry-After rather than the class default.
@@ -300,7 +272,7 @@ func (h *Handler) runHedgedStreaming(w http.ResponseWriter, r *http.Request, st 
 			// The launches still running at the deadline are the most expensive
 			// part of a hedge that timed out: the trail names them.
 			inFlight = settleHedgeLaunches(st.logData, results, candidates, launchedAt, settled, inFlight, -1, KindFailoverTimeout, "still in flight at the failover deadline")
-			chargeLeftBehind(-1)
+			charges.chargeAllBut(st.logData, candidates, -1)
 			if inFlight > 0 {
 				go drainHedgeResults(results, inFlight)
 			}
@@ -308,13 +280,74 @@ func (h *Handler) runHedgedStreaming(w http.ResponseWriter, r *http.Request, st 
 			return
 		case <-r.Context().Done():
 			inFlight = settleHedgeLaunches(st.logData, results, candidates, launchedAt, settled, inFlight, -1, KindClientDisconnect, "client disconnected while in flight")
-			chargeLeftBehind(-1)
+			charges.chargeAllBut(st.logData, candidates, -1)
 			if inFlight > 0 {
 				go drainHedgeResults(results, inFlight)
 			}
 			h.failHedgeDisconnect(w, st, launched, providerStall)
 			return
 		}
+	}
+}
+
+// hedgeCharges charges the estimated prompt of every hedged launch that ends
+// without serving. Each launch's probe raises its billed flag once its
+// provider answers 2xx (see requestState.hedgeBilled), and each such launch is
+// charged once: a loser as its result arrives, a launch the race leaves behind
+// when the race ends, whether its result is queued or its probe is still
+// running. Only the orchestrator goroutine calls charge and chargeAllBut.
+//
+// The tokens are debited from the key and TPM bucket after the race has
+// returned, so the database write never delays the winner's first byte; the
+// row prices them from logData.rejected at its terminal write either way. Each
+// is debited on its own, so no sum of them meets recordTokenUsage's per-call
+// ceiling.
+//
+// ponytail: a probe still running is judged by its flag at the moment the race
+// ends. One whose 2xx lands between that read and its flag write goes
+// uncharged, and one whose error frame lands there stays charged; settling
+// that exactly means holding the winner until every probe has answered.
+type hedgeCharges struct {
+	billed  []*atomic.Bool
+	charged []bool
+	owed    []int
+}
+
+func newHedgeCharges(n int) *hedgeCharges {
+	return &hedgeCharges{billed: make([]*atomic.Bool, n), charged: make([]bool, n)}
+}
+
+// flag creates launch idx's billed flag, for its probe's snapshot.
+func (c *hedgeCharges) flag(idx int) *atomic.Bool {
+	c.billed[idx] = &atomic.Bool{}
+	return c.billed[idx]
+}
+
+// charge records launch idx's prompt if its provider billed it and it has not
+// been charged yet.
+func (c *hedgeCharges) charge(logData *requestLogData, candidates []modelCandidate, idx int) {
+	if c.charged[idx] || c.billed[idx] == nil || !c.billed[idx].Load() {
+		return
+	}
+	c.charged[idx] = true
+	if prompt := rejectStreamPrompt(logData, candidates[idx]); prompt > 0 {
+		c.owed = append(c.owed, prompt)
+	}
+}
+
+// chargeAllBut charges every launch except the winner (-1 for none).
+func (c *hedgeCharges) chargeAllBut(logData *requestLogData, candidates []modelCandidate, except int) {
+	for i := range candidates {
+		if i != except {
+			c.charge(logData, candidates, i)
+		}
+	}
+}
+
+// debit takes the recorded prompts off the key's counter and TPM bucket.
+func (c *hedgeCharges) debit(h *Handler, st *requestState) {
+	for _, prompt := range c.owed {
+		h.recordTokenUsage(st.vkHash, st.logData, prompt, 0, 0)
 	}
 }
 

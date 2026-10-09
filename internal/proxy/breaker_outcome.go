@@ -449,9 +449,10 @@ func rejectStreamPrompt(logData *requestLogData, candidate modelCandidate) int {
 	}
 	cost, priced := candidate.model.CostUSD(model.Usage{Prompt: prompt})
 	// A hedged race stamps servedModel only on its winner, and the terminal
-	// write prices nothing on a row without one: a race that exhausts would
-	// drop every charge recorded here from the budget.
-	if logData.servedModel == nil {
+	// write prices nothing on a row without one, or with an unpriced one: a
+	// race that exhausts would drop every charge recorded here from the
+	// budget. So a charge stamps it while it is missing or unpriced.
+	if _, servedPriced := logData.servedModel.CostUSD(model.Usage{}); !servedPriced {
 		logData.servedModel = candidate.model
 	}
 	logData.rejected = append(logData.rejected, rejectedAttempt{

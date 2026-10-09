@@ -78,6 +78,26 @@ func TestRejectStreamPrompt_PricedButKeptOutOfTheColumns(t *testing.T) {
 		}
 	})
 
+	t.Run("a priced loser replaces an unpriced stamp", func(t *testing.T) {
+		logData := &requestLogData{state: "failed", promptTextBytes: 400}
+		rejectStreamPrompt(logData, modelCandidate{model: &model.Model{ModelID: "free"}, provider: &provider.Provider{Name: "free"}})
+		rejectStreamPrompt(logData, loser)
+		if logData.servedModel != loser.model {
+			t.Fatal("the unpriced first loser kept servedModel, so the priced loser's charge prices to nothing")
+		}
+	})
+
+	t.Run("an unpriced last candidate does not drop a priced charge", func(t *testing.T) {
+		// The sequential walk stamps every candidate it dispatches: the priced
+		// candidate's probe failed, then an unpriced one refused with a 503.
+		logData := &requestLogData{state: "failed", promptTextBytes: 400}
+		rejectStreamPrompt(logData, loser)
+		logData.servedModel = &model.Model{ModelID: "free"}
+		if serving, rejected, ok := logData.terminalCostParts(); !ok || serving != 0 || !nearly(rejected, 100e-6) {
+			t.Errorf("cost parts = %v/%v/%v, want 0 serving and 100e-6 rejected", serving, rejected, ok)
+		}
+	})
+
 	t.Run("no prompt text charges nothing", func(t *testing.T) {
 		logData := &requestLogData{}
 		if got := rejectStreamPrompt(logData, loser); got != 0 || len(logData.rejected) != 0 {

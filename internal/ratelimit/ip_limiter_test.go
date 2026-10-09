@@ -1156,16 +1156,19 @@ func TestIPLimiter_BucketMapIsBounded(t *testing.T) {
 	defer lim.Stop()
 	ctx := context.Background()
 
-	victim := lim.getLimiter(ctx, "192.0.2.1")
+	_, victim := lim.getLimiter(ctx, "192.0.2.1")
 	for i := range maxIPBuckets - 1 {
 		lim.getLimiter(ctx, fmt.Sprintf("10.%d.%d.%d", i>>16&0xff, i>>8&0xff, i&0xff))
 	}
-	first := lim.getLimiter(ctx, "203.0.113.1")
-	second := lim.getLimiter(ctx, "203.0.113.2")
+	key, first := lim.getLimiter(ctx, "203.0.113.1")
+	_, second := lim.getLimiter(ctx, "203.0.113.2")
 	if first != second {
 		t.Error("two addresses past the cap got separate buckets; a flood of invented addresses is not limited as one")
 	}
-	if got := lim.getLimiter(ctx, "192.0.2.1"); got != victim {
+	if key != overflowBucketKey {
+		t.Errorf("key = %q, want %q: the shared bucket's throttle episode must be logged under one name", key, overflowBucketKey)
+	}
+	if key, got := lim.getLimiter(ctx, "192.0.2.1"); got != victim || key != "192.0.2.1" {
 		t.Error("an address holding a bucket lost it to the flood")
 	}
 	if n := len(lim.limiters); n != maxIPBuckets+1 {

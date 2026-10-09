@@ -562,11 +562,12 @@ the last known figure.
 **What a request costs.** The row is priced by what the provider billed: its
 reported usage, or, when it reported none (some streams end without a usage
 chunk), the same estimate from the delivered bytes that charges the token
-limits. The row's token columns keep the provider's figures either way. A
-failover attempt that answered 2xx and was left behind is charged too, at its
-own model's price: an empty non-streaming answer at the prompt it reported, a
-stream abandoned before serving (its first-token probe failed, or it lost a
-[hedged race](Failover-and-Hotel-Routing#request-hedging)) at an estimate from
+limits. The row's token columns keep the provider's figures either way. An
+attempt that answered 2xx and then did not serve is charged too, at its own
+model's price (or the serving model's, when its own has none): an empty
+non-streaming answer that failed over at the prompt it reported, a stream whose
+first-token probe failed or that lost a
+[hedged race](Failover-and-Hotel-Routing#request-hedging) at an estimate from
 the request text.
 
 **Editing.** A key or account update that does not mention the budget keeps
