@@ -254,6 +254,18 @@ func (h *Handler) attemptCandidate(w http.ResponseWriter, r *http.Request, st *r
 	return h.dispatchNonStreaming(w, r.WithContext(dispatchCtx), st, candidate, resp, attempt, responseHeaderMs, hasMoreCandidates)
 }
 
+// probeAnsweredByProvider reports whether a probe failure is the provider's own
+// answer (an error frame, an empty stream, an oversized frame, or a translated
+// stream that ended before its end signal) rather than a probe cut short. Those
+// classifyProbeError charges whoever cut the probe, so the hedged path must not
+// file them as a superseded loss.
+func probeAnsweredByProvider(probeErr error) bool {
+	var frameErr *upstreamFrameError
+	var emptyErr *emptyStreamError
+	return errors.As(probeErr, &frameErr) || errors.As(probeErr, &emptyErr) || isLineCapErr(probeErr) ||
+		errors.Is(probeErr, egress.ErrStreamTruncated)
+}
+
 // classifyProbeError maps any TTFT probe failure to the error recorded for the
 // attempt and whether the provider is charged for it. It is the single entry
 // point both the sequential and the hedged path use, so the two cannot drift.
