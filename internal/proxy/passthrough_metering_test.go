@@ -224,6 +224,11 @@ func TestPassthrough_OversizedJSONCutShortIsFailed(t *testing.T) {
 	if !strings.Contains(logData.errorMessage, "response copy error") {
 		t.Errorf("error message = %q, want the copy error recorded", logData.errorMessage)
 	}
+	// Status 0 and a kind, as a failed chat stream is recorded: the stats count
+	// a row as an error by its status, and the upstream's 200 would hide it.
+	if logData.statusCode != 0 || logData.errorKind != KindProviderError {
+		t.Errorf("status = %d kind = %q, want 0 and %q", logData.statusCode, logData.errorKind, KindProviderError)
+	}
 	if got := singleAddTokens(t, vkRepo); got != 100 {
 		t.Errorf("charged %d tokens against the key, want 100: the provider still billed it", got)
 	}

@@ -378,9 +378,9 @@ func (h *Handler) serveBufferedJSONPassthrough(w http.ResponseWriter, r *http.Re
 		// left) delivered truncated JSON: it is recorded as failed, as the
 		// streamed pass-through records it, and still charged as below.
 		if copyErr != nil {
-			errMsg, fenced := passthroughCopyErrMsg(r, logData, copyErr)
+			status, errMsg, fenced := markPassthroughCopyFailed(r, logData, copyErr)
 			debuglog.Warn("proxy: passthrough copy interrupted (oversized json)", "endpoint", logData.endpointType, "model", logData.modelID, "provider", logData.providerName, "bytes", written, "error", fenced)
-			h.completePassthrough(st, resp.StatusCode, attempt, responseHeaderMs, 0, 0, answered, "failed", errMsg)
+			h.completePassthrough(st, status, attempt, responseHeaderMs, 0, 0, answered, "failed", errMsg)
 			return outcomeServed
 		}
 		// Skipping usage EXTRACTION must not mean skipping metering: the
@@ -616,14 +616,14 @@ func (h *Handler) serveStreamedPassthrough(w http.ResponseWriter, r *http.Reques
 	}
 
 	if copyErr != nil {
-		errMsg, fencedCopyErr := passthroughCopyErrMsg(r, logData, copyErr)
+		status, errMsg, fencedCopyErr := markPassthroughCopyFailed(r, logData, copyErr)
 		debuglog.Warn("proxy: passthrough copy interrupted", "endpoint", logData.endpointType, "model", logData.modelID, "provider", logData.providerName, "bytes", written, "error", fencedCopyErr)
 		// The provider billed whatever it produced, whether or not the client
 		// stayed to receive it. Bytes reached the client, so an absent usage
 		// report is estimated rather than treated as free. This is the path
 		// audio/mpeg takes, where the SSE tail that would carry usage is never
 		// allocated, so the report is structurally always absent.
-		h.completePassthrough(st, resp.StatusCode, attempt, responseHeaderMs, promptTokens, completionTokens, written > 0, "failed", errMsg)
+		h.completePassthrough(st, status, attempt, responseHeaderMs, promptTokens, completionTokens, written > 0, "failed", errMsg)
 		return outcomeServed
 	}
 	charged, estimatedPrompt := h.completePassthrough(st, resp.StatusCode, attempt, responseHeaderMs, promptTokens, completionTokens, written > 0, "completed", "")
@@ -631,18 +631,24 @@ func (h *Handler) serveStreamedPassthrough(w http.ResponseWriter, r *http.Reques
 	return outcomeServed
 }
 
-// passthroughCopyErrMsg names a pass-through body copy that stopped short, for
-// the request log, and returns the fenced error for the warn line. io.Copy
-// reports the upstream body's read error, the class the first-byte path fences,
-// so both take the same string. r carries the attempt's context, so a bare
-// cancel check would call this gateway's own per-attempt deadline a client
-// leaving; requestAbandoned reads the raw error.
-func passthroughCopyErrMsg(r *http.Request, logData *requestLogData, copyErr error) (errMsg, fenced string) {
+// markPassthroughCopyFailed classifies a pass-through body copy that stopped
+// short after the status line went out: it sets the row's error kind and returns
+// the row's status and message and the fenced error for the warn line. The
+// status is the 499 a caller hanging up is stored as (failPassthroughRead), and
+// otherwise 0, as a failed chat stream is recorded, so the stats count the row
+// as an error rather than as the upstream's 200. io.Copy reports the
+// upstream body's read error, the class the first-byte path fences, so both take
+// the same string. r carries the attempt's context, so a bare cancel check would
+// call this gateway's own per-attempt deadline a client leaving;
+// requestAbandoned reads the raw error.
+func markPassthroughCopyFailed(r *http.Request, logData *requestLogData, copyErr error) (status int, errMsg, fenced string) {
 	fenced = logData.fencedErr(copyErr)
 	if requestAbandoned(r.Context(), copyErr) {
-		return "client disconnected during response", fenced
+		logData.errorKind = KindClientDisconnect
+		return statusClientClosedRequest, "client disconnected during response", fenced
 	}
-	return "response copy error: " + fenced, fenced
+	logData.errorKind = KindProviderError
+	return 0, "response copy error: " + fenced, fenced
 }
 
 // copyPassthroughHeaders sets the upstream Content-Type and (when present)
