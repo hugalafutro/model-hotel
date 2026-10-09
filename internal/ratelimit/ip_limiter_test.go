@@ -1145,3 +1145,30 @@ func TestIPLimiter_RefusedFloodLeavesTheBucketAtEmpty(t *testing.T) {
 		t.Errorf("bucket = %.2f tokens after %d requests on a burst of 5, want about 0 or more: a refusal left debt behind", got, flood)
 	}
 }
+
+// A caller that can choose its own address (any X-Forwarded-For behind a
+// trusted proxy) mints one bucket per request. Past the cap those new
+// addresses share one overflow bucket, so the map stops growing and the flood
+// is limited as one client, while an address that already held a bucket keeps
+// its own: evicting it would let the flood reset its budget.
+func TestIPLimiter_BucketMapIsBounded(t *testing.T) {
+	lim := NewIPLimiter(10, 5, nil, nil)
+	defer lim.Stop()
+	ctx := context.Background()
+
+	victim := lim.getLimiter(ctx, "192.0.2.1")
+	for i := range maxIPBuckets - 1 {
+		lim.getLimiter(ctx, fmt.Sprintf("10.%d.%d.%d", i>>16&0xff, i>>8&0xff, i&0xff))
+	}
+	first := lim.getLimiter(ctx, "203.0.113.1")
+	second := lim.getLimiter(ctx, "203.0.113.2")
+	if first != second {
+		t.Error("two addresses past the cap got separate buckets; a flood of invented addresses is not limited as one")
+	}
+	if got := lim.getLimiter(ctx, "192.0.2.1"); got != victim {
+		t.Error("an address holding a bucket lost it to the flood")
+	}
+	if n := len(lim.limiters); n != maxIPBuckets+1 {
+		t.Errorf("bucket map holds %d entries, want %d (the cap plus the shared overflow bucket)", n, maxIPBuckets+1)
+	}
+}

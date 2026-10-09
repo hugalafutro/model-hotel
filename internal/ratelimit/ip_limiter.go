@@ -23,6 +23,23 @@ const (
 	ipLogLabel  = "ip"
 )
 
+// maxIPBuckets bounds the per-IP bucket map. Its keys are client addresses,
+// and behind a trusted proxy the address is read from X-Forwarded-For, which
+// anything reaching the listener through that proxy's address can set to a
+// fresh value per request: one new bucket each, kept until the idle sweep.
+// Past the cap every address without a bucket shares overflowBucketKey, so a
+// flood of invented addresses is limited as one client and the map stops
+// growing, while every address already holding a bucket keeps it. Evicting
+// one instead would let the flood reset any client's budget on demand.
+//
+// ponytail: fixed cap; make it a setting if a real deployment ever sees this
+// many distinct clients inside the 10-minute idle window.
+const maxIPBuckets = 10000
+
+// overflowBucketKey is the shared bucket for addresses past maxIPBuckets. It
+// cannot collide with a real key, which is always a client address.
+const overflowBucketKey = "overflow"
+
 // settings keys for IP rate limiter (stored in DB)
 const (
 	settingsKeyIPEnabled = "rate_limit_ip_enabled"
@@ -178,6 +195,9 @@ func (l *IPLimiter) getLimiter(ctx context.Context, ip string) *bucketEntry {
 
 	rps, burst = bucketRate(rps, burst)
 
+	if _, ok := l.limiters[ip]; !ok && len(l.limiters) >= maxIPBuckets {
+		ip = overflowBucketKey
+	}
 	return upsertEntry(l.limiters, ip, rps, burst, ipLogPrefix, ipLogLabel, l.budget)
 }
 

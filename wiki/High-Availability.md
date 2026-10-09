@@ -637,10 +637,19 @@ userland proxy is the bridge gateway rather than this nginx. Know what that buys
 and costs. Trusting the bridge means anything reaching the published port chooses
 its own `X-Forwarded-For`, and therefore its own rate-limit bucket, so it can key
 a flood into the bucket Traefik polls on or the one the container healthcheck
-uses. Leaving it unset is safe but coarse: every client behind this proxy shares
-one budget, so a single noisy prober can exhaust it for everyone else. Either
-way, gate the endpoint with the token and do not publish the port beyond where it
-is needed.
+uses. The same goes for the per-address budget on the pairing exchange
+(`/api/pair`) and the login ceremonies: a caller that sends a fresh address with
+every request is not slowed by it until Front Desk has 10,000 addresses on
+record, after which every address it has not seen shares one bucket. Those
+surfaces do not rely on the rate limit alone (a pairing code is 80 random bits
+and expires in 3 minutes, and failed TOTP codes back off per account), but the
+budget is only a real bound when the port is confined. Leaving the variable
+unset is safe but coarse: every client behind this proxy shares one budget, so a
+single noisy prober can exhaust it for everyone else. Either way, gate the
+endpoint with the token and do not publish the port beyond where it is needed:
+with nginx on the same host, publish it on loopback only
+(`FRONTDESK_PORT=127.0.0.1:8090`); otherwise firewall it to the proxy's
+address.
 
 If the member URLs you register in Front Desk also sit behind reverse proxies
 (each member's own dashboard hostname), give those proxies a read timeout of at
