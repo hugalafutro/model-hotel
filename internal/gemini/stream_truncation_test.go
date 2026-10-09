@@ -54,3 +54,5 @@ func TestStreamAdapter_TruncatedStreamKeepsTheReportedUsage(t *testing.T) {
 		t.Errorf("reported usage = %d/%d, want 12/3", got.PromptTokens, got.CompletionTokens)
 	}
 }
+
+var _ egress.UsageReporter = (*StreamTranslator)(nil)

@@ -23,6 +23,15 @@ const MaxSSEEventBytes = 32 << 20
 // outgrew MaxSSEEventBytes, so the proxy classifies it with its own line cap.
 var ErrEventTooLarge = errors.New("upstream SSE event exceeds the cap")
 
+// UsageReporter is implemented by a Translator that can hand back, mid-stream,
+// the usage its upstream has reported so far as a usage-only chunk (no
+// finish_reason, no [DONE]), or nil when there is none. The adapter delivers it
+// when the upstream connection fails, so the request is still billed at the
+// provider's figures.
+type UsageReporter interface {
+	UsageChunk() []byte
+}
+
 // ErrStreamTruncated is returned (wrapped with the dialect) by a translator's
 // Finish when the upstream reached EOF before its own end-of-response signal,
 // so the dropped connection surfaces as a stream error instead of a terminal
@@ -134,15 +143,12 @@ func (a *StreamAdapter) Read(p []byte) (int, error) {
 					}
 					a.pending = append(a.pending, fin...)
 				}
-			} else if a.transErr == nil {
-				// A dropped connection is a cut-off stream too: the usage the
-				// upstream already reported still goes out (Finish returns it
-				// with ErrStreamTruncated) ahead of the read error, so the failed
-				// request is billed at the provider's figures. A Finish that
-				// would close the stream cleanly is discarded: the read failed.
-				if fin, finErr := a.tr.Finish(); errors.Is(finErr, ErrStreamTruncated) {
-					a.pending = append(a.pending, fin...)
-				}
+			} else if u, ok := a.tr.(UsageReporter); ok && a.transErr == nil {
+				// A dropped connection, before or after the upstream's end
+				// signal: the usage it already reported still goes out ahead of
+				// the read error, so the failed request is billed at the
+				// provider's figures. Nothing closes the stream: the read failed.
+				a.pending = append(a.pending, u.UsageChunk()...)
 			}
 		}
 	}

@@ -336,17 +336,23 @@ func (t *StreamTranslator) blockDelta(buf *bytes.Buffer, ev antEvent) error {
 // what it buffered.
 func (t *StreamTranslator) Finish() ([]byte, error) {
 	if !t.finished && !t.failed && t.stopReason == "" {
-		truncated := fmt.Errorf("anthropicegress: %w", egress.ErrStreamTruncated)
-		if t.usage == (anthropic.UsageBlock{}) {
-			return nil, truncated
-		}
-		var buf bytes.Buffer
-		if err := t.writeChunk(&buf, chunkDelta{}, nil, buildUsage(t.usage)); err != nil {
-			return nil, err
-		}
-		return buf.Bytes(), truncated
+		return t.UsageChunk(), fmt.Errorf("anthropicegress: %w", egress.ErrStreamTruncated)
 	}
 	return t.finish()
+}
+
+// UsageChunk satisfies egress.UsageReporter: a usage-only chunk carrying the
+// counts message_start and message_delta reported so far, or nil when there are
+// none or the stream already finished or failed.
+func (t *StreamTranslator) UsageChunk() []byte {
+	if t.finished || t.failed || t.usage == (anthropic.UsageBlock{}) {
+		return nil
+	}
+	var buf bytes.Buffer
+	if err := t.writeChunk(&buf, chunkDelta{}, nil, buildUsage(t.usage)); err != nil {
+		return nil
+	}
+	return buf.Bytes()
 }
 
 // finish emits the terminal chunk (empty delta, mapped finish_reason, usage

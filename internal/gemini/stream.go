@@ -121,6 +121,21 @@ func (t *StreamTranslator) Translate(chunkJSON []byte) ([]byte, error) {
 	return buf.Bytes(), nil
 }
 
+// UsageChunk satisfies egress.UsageReporter: a usage-only chunk carrying the
+// usageMetadata the stream reported so far, or nil when there is none or the
+// stream already finished.
+func (t *StreamTranslator) UsageChunk() []byte {
+	usage := translateUsage(t.usage)
+	if t.finished || usage == nil {
+		return nil
+	}
+	var buf bytes.Buffer
+	if err := t.writeChunk(&buf, oaiChunkDelta{}, nil, usage); err != nil {
+		return nil
+	}
+	return buf.Bytes()
+}
+
 // Finish emits the terminal chunk (empty delta, mapped finish_reason, usage
 // when the upstream reported it) followed by "data: [DONE]". It is idempotent
 // and emits a well-formed terminal chunk even when no content chunk ever
@@ -138,16 +153,7 @@ func (t *StreamTranslator) Finish() ([]byte, error) {
 		return nil, nil
 	}
 	if t.finishReason == "" && !t.blocked {
-		truncated := fmt.Errorf("gemini: %w", egress.ErrStreamTruncated)
-		usage := translateUsage(t.usage)
-		if usage == nil {
-			return nil, truncated
-		}
-		var buf bytes.Buffer
-		if err := t.writeChunk(&buf, oaiChunkDelta{}, nil, usage); err != nil {
-			return nil, err
-		}
-		return buf.Bytes(), truncated
+		return t.UsageChunk(), fmt.Errorf("gemini: %w", egress.ErrStreamTruncated)
 	}
 	t.finished = true
 

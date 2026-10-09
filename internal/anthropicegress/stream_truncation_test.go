@@ -86,3 +86,31 @@ func TestStreamAdapter_ConnectionResetKeepsTheReportedUsage(t *testing.T) {
 		t.Fatalf("last chunk usage = %+v, want 107 prompt tokens", u)
 	}
 }
+
+// A reset after message_delta carried the stop_reason and the final usage, but
+// before message_stop: the response had ended, yet the read failed, so the
+// stream is not closed off, and the reported usage (output included) still goes
+// out ahead of the error.
+func TestStreamAdapter_ResetAfterTheStopReasonKeepsTheReportedUsage(t *testing.T) {
+	t.Parallel()
+	reset := errors.New("connection reset by peer")
+	body := &dyingBody{
+		data: `data: {"type":"message_start","message":{"usage":{"input_tokens":7,"cache_read_input_tokens":100}}}` + "\n\n" +
+			`data: {"type":"content_block_delta","index":0,"delta":{"type":"text_delta","text":"hello"}}` + "\n\n" +
+			`data: {"type":"message_delta","delta":{"stop_reason":"end_turn"},"usage":{"output_tokens":23}}` + "\n\n",
+		err: reset,
+	}
+	out, err := io.ReadAll(NewStreamAdapter(body, "m"))
+	if !errors.Is(err, reset) {
+		t.Fatalf("err = %v, want the reset", err)
+	}
+	chunks, done := parseChunks(t, string(out))
+	if done {
+		t.Fatalf("[DONE] on a reset stream:\n%s", out)
+	}
+	if u := chunks[len(chunks)-1].Usage; u == nil || u.PromptTokens != 107 || u.CompletionTokens != 23 {
+		t.Fatalf("last chunk usage = %+v, want 107 prompt and 23 completion tokens", u)
+	}
+}
+
+var _ egress.UsageReporter = (*StreamTranslator)(nil)
