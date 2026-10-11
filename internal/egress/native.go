@@ -14,6 +14,9 @@ type NativeUsage struct {
 	CacheHitTokens   int
 	CacheMissTokens  int
 	CacheWriteTokens int
+	// CacheWrite1hTokens is the share of CacheWriteTokens written with a 1-hour
+	// TTL, billed at 2x the input price rather than the 5-minute 1.25x.
+	CacheWrite1hTokens int
 }
 
 // NativeStreamEvent is the decoded summary of one native stream event. A
@@ -29,8 +32,10 @@ type NativeStreamEvent struct {
 	CacheHitTokens  int // the cache-served share of InputTokens; 0 when uncached
 	CacheMissTokens int // the rest of InputTokens; 0 when uncached, not the whole prompt
 	// CacheWriteTokens is the share of InputTokens written into the cache
-	// (cache_creation_input_tokens), reported with or without a read.
-	CacheWriteTokens int
+	// (cache_creation_input_tokens), reported with or without a read;
+	// CacheWrite1hTokens the part of it written with a 1-hour TTL.
+	CacheWriteTokens   int
+	CacheWrite1hTokens int
 	// ErrorMessage is the message of an event that reports a failure.
 	ErrorMessage string
 	// CarriesError reports error text on the event, whatever its type, for

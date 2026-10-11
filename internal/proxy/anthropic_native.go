@@ -150,7 +150,7 @@ func (h *Handler) handleNativeNonStreaming(w http.ResponseWriter, r *http.Reques
 	if canFailOver && !answered {
 		// Charged before the candidate is left behind: the provider read this
 		// prompt and billed it, whoever ends up serving the request.
-		h.meterRejectedPrompt(st, logData, candidate, inputTokens, usage.CacheHitTokens, usage.CacheMissTokens, usage.CacheWriteTokens)
+		h.meterRejectedPrompt(st, logData, candidate, inputTokens, usage.CacheHitTokens, usage.CacheMissTokens, usage.CacheWriteTokens, usage.CacheWrite1hTokens)
 		return h.rejectUntranslatableBody(st, candidate, logData, native.label(), resp.StatusCode, errEmptyCompletion, attempt, r)
 	}
 
@@ -175,6 +175,7 @@ func (h *Handler) handleNativeNonStreaming(w http.ResponseWriter, r *http.Reques
 	logData.tokensPromptCacheHit += util.ClampTokenCount(usage.CacheHitTokens)
 	logData.tokensPromptCacheMiss += util.ClampTokenCount(usage.CacheMissTokens)
 	logData.tokensPromptCacheWrite += util.ClampTokenCount(usage.CacheWriteTokens)
+	logData.tokensPromptCacheWrite1h += util.ClampTokenCount(usage.CacheWrite1hTokens)
 	logData.failoverAttempt = attempt
 	logData.state = "completed"
 	logData.deliveredContent = carriesContent
@@ -219,11 +220,13 @@ func (h *Handler) emitRawData(sink *streamSink, st *streamState, native nativeDi
 	if info.HasInput && isTokenReading(info.InputTokens) {
 		st.promptTokens = info.InputTokens
 		// Guarded like the translated path's observer: a later usage event
-		// without cache fields must not zero a split an earlier one reported.
-		// The split is clamped rather than refused, matching extractCacheTokens:
-		// these two are log columns, not a charge.
+		// without cache fields must not zero a split or a write an earlier one
+		// reported. All three are clamped rather than refused, matching
+		// extractCacheTokens: the split is two log columns and the write only
+		// raises the priced cost by its premium, none of them a token charge.
 		if info.CacheWriteTokens > 0 {
 			st.promptCacheWriteTokens = util.ClampTokenCount(info.CacheWriteTokens)
+			st.promptCacheWrite1hTokens = util.ClampTokenCount(info.CacheWrite1hTokens)
 		}
 		if info.CacheHitTokens > 0 || info.CacheMissTokens > 0 {
 			st.promptCacheHitTokens = util.ClampTokenCount(info.CacheHitTokens)

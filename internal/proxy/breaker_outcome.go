@@ -403,7 +403,7 @@ func (h *Handler) rejectAndClose(st *requestState, candidate modelCandidate, log
 // candidate's own model, and remembered on the row: a walked group can cross
 // models with different prices, and the serving candidate's rates are not
 // what this provider billed.
-func (h *Handler) meterRejectedPrompt(st *requestState, logData *requestLogData, candidate modelCandidate, promptTokens, cacheHit, cacheMiss, cacheWrite int) {
+func (h *Handler) meterRejectedPrompt(st *requestState, logData *requestLogData, candidate modelCandidate, promptTokens, cacheHit, cacheMiss, cacheWrite, cacheWrite1h int) {
 	prompt, _, _ := h.clampReportedUsage(promptTokens, 0, 0, logData)
 	if prompt == 0 {
 		return
@@ -412,11 +412,12 @@ func (h *Handler) meterRejectedPrompt(st *requestState, logData *requestLogData,
 	// cached tokens than prompt tokens cannot price more input than was metered.
 	hit := min(util.ClampTokenCount(cacheHit), prompt)
 	miss := min(util.ClampTokenCount(cacheMiss), prompt-hit)
-	write := min(util.ClampTokenCount(cacheWrite), prompt)
-	cost, priced := candidate.model.CostUSD(model.Usage{Prompt: prompt, PromptCacheHit: hit, PromptCacheMiss: miss, PromptCacheWrite: write})
+	write := min(util.ClampTokenCount(cacheWrite), prompt-hit)
+	write1h := min(util.ClampTokenCount(cacheWrite1h), write)
+	cost, priced := candidate.model.CostUSD(model.Usage{Prompt: prompt, PromptCacheHit: hit, PromptCacheMiss: miss, PromptCacheWrite: write, PromptCacheWrite1h: write1h})
 	logData.rejected = append(logData.rejected, rejectedAttempt{
 		providerName: candidate.provider.Name,
-		prompt:       prompt, cacheHit: hit, cacheMiss: miss, cacheWrite: write, costUSD: cost, priced: priced,
+		prompt:       prompt, cacheHit: hit, cacheMiss: miss, cacheWrite: write, cacheWrite1h: write1h, costUSD: cost, priced: priced,
 	})
 	// Added, so a later candidate's own stamp does not erase it. Only the two
 	// non-streaming chat paths add rather than assign, and only they need to:
@@ -427,6 +428,7 @@ func (h *Handler) meterRejectedPrompt(st *requestState, logData *requestLogData,
 	logData.tokensPromptCacheHit += hit
 	logData.tokensPromptCacheMiss += miss
 	logData.tokensPromptCacheWrite += write
+	logData.tokensPromptCacheWrite1h += write1h
 	h.recordTokenUsage(st.vkHash, logData, prompt, 0, 0)
 }
 

@@ -13,11 +13,17 @@ type Usage struct {
 	Prompt          int
 	PromptCacheHit  int
 	PromptCacheMiss int
-	// PromptCacheWrite is the part of PromptCacheMiss a provider wrote into its
-	// prompt cache (Anthropic's cache_creation_input_tokens). Those tokens take
-	// the input price plus the write premium; 0 when the provider reports none.
+	// PromptCacheWrite is the part of Prompt a provider wrote into its prompt
+	// cache (Anthropic's cache_creation_input_tokens): a subset of the misses
+	// when a split was reported, of the plain prompt otherwise (a write without
+	// a read reports no split). Those tokens take the input price plus the
+	// write premium; 0 when the provider reports none.
 	PromptCacheWrite int
-	Completion       int
+	// PromptCacheWrite1h is the part of PromptCacheWrite written with a 1-hour
+	// TTL (Anthropic's cache_creation.ephemeral_1h_input_tokens), which takes
+	// the larger 1-hour premium instead.
+	PromptCacheWrite1h int
+	Completion         int
 }
 
 // Priceable reports whether a stored price can price anything: present,
@@ -44,17 +50,22 @@ func PriceOrNil(p *float64) *float64 {
 
 // CacheWritePremium is the surcharge on a prompt token written into the
 // provider's cache, as a fraction of the input price: Anthropic's 5-minute
-// cache write costs 1.25x the input price.
-const CacheWritePremium = 0.25
+// cache write costs 1.25x the input price. CacheWrite1hPremium is the same for
+// a 1-hour write (2x), which only an Anthropic-in client can request with
+// cache_control.ttl; the translated routes never place one.
+const (
+	CacheWritePremium   = 0.25
+	CacheWrite1hPremium = 1.0
+)
 
 // CostUSD prices usage at the model's stored per-million prices. ok is false
 // when the model holds no priceable input or output price (absent, or a figure
 // Priceable refuses), in which case the cost is unknown rather than zero.
 // Cache-hit tokens take the cache-hit price when the model has a priceable
-// one and the input price otherwise; cache-write tokens, a subset of the
-// misses, add CacheWritePremium of the input price on top (Anthropic bills a
-// 5-minute cache write at 1.25x and is the only provider reporting writes);
-// completion tokens, reasoning included, take the output price.
+// one and the input price otherwise; cache-write tokens, never hits, add
+// CacheWritePremium of the input price on top (Anthropic bills a 5-minute
+// cache write at 1.25x and is the only provider reporting writes); completion
+// tokens, reasoning included, take the output price.
 //
 // The prompt can exceed the cache split (a provider that reports a total but
 // no split, or only part of one). The excess takes the input price, so every
@@ -71,8 +82,12 @@ func (m *Model) CostUSD(u Usage) (cost float64, ok bool) {
 	}
 	// The premium only: the written tokens are already priced once as misses
 	// (or as plain prompt when the provider reported no split). Capped by the
-	// prompt so a provider cannot report more writes than it read.
-	prompt += float64(min(max(0, u.PromptCacheWrite), max(0, u.Prompt))) * *m.InputPricePerMillion * CacheWritePremium
+	// prompt that is not a hit, so a provider reporting more writes than it
+	// read cannot put the premium on tokens priced at the cache-hit rate; the
+	// 1-hour share is capped by the write it is a part of.
+	write := min(max(0, u.PromptCacheWrite), max(0, u.Prompt-max(0, u.PromptCacheHit)))
+	write1h := min(max(0, u.PromptCacheWrite1h), write)
+	prompt += (float64(write-write1h)*CacheWritePremium + float64(write1h)*CacheWrite1hPremium) * *m.InputPricePerMillion
 	output := float64(u.Completion) * *m.OutputPricePerMillion
 	cost = (prompt + output) / 1e6
 	// A finite price a listing stated as 1e308 still overflows the product; an

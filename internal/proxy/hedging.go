@@ -443,13 +443,11 @@ func (h *Handler) probeStreamingCandidate(ctx context.Context, st *requestState,
 			// recover the current one.
 			// Same order as learnAndRebuildMessages400, so the two learners can
 			// never read one body two ways.
-			switch {
-			case func() bool { _, ok := anthropicegress.DialectFromError(errBody); return ok }():
-				dialect, _ := anthropicegress.DialectFromError(errBody)
+			if dialect, ok := anthropicegress.DialectFromError(errBody); ok {
 				h.learnThinkingDialect(candidate, dialect)
-			case anthropicegress.CacheControlRefused(errBody):
+			} else if anthropicegress.CacheControlRefused(errBody) {
 				h.learnCacheRefusal(candidate)
-			case learnsMessagesParams(providerType, candidate.model.ModelID):
+			} else if learnsMessagesParams(providerType, candidate.model.ModelID) {
 				h.learnRejectedParams(st, candidate, errBody)
 			}
 		}

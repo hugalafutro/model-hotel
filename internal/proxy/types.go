@@ -137,10 +137,12 @@ type requestLogData struct {
 	tokensCompletionReasoning int
 	tokensPromptCacheHit      int
 	tokensPromptCacheMiss     int
-	// tokensPromptCacheWrite is the part of the misses the provider wrote into
-	// its prompt cache (Anthropic's cache_creation_input_tokens). Not persisted;
-	// it only raises the priced cost by the write premium (model.CostUSD).
-	tokensPromptCacheWrite int
+	// tokensPromptCacheWrite is the part of the prompt the provider wrote into
+	// its prompt cache (Anthropic's cache_creation_input_tokens), never a hit.
+	// Not persisted; it only raises the priced cost by the write premium
+	// (model.CostUSD). tokensPromptCacheWrite1h is its 1-hour TTL share.
+	tokensPromptCacheWrite   int
+	tokensPromptCacheWrite1h int
 	// searchUnits is what a rerank provider billed the request for, read off
 	// the answer's meta.billed_units.search_units (Cohere). Persisted to
 	// request_logs.search_units; the terminal write prices a rerank row from
@@ -270,11 +272,11 @@ type modelCandidate struct {
 // like the rest but was never folded into the token columns, which carry only
 // measured figures, so the column arithmetic below leaves it out.
 type rejectedAttempt struct {
-	providerName                            string
-	prompt, cacheHit, cacheMiss, cacheWrite int
-	costUSD                                 float64
-	priced                                  bool
-	estimated                               bool
+	providerName                                          string
+	prompt, cacheHit, cacheMiss, cacheWrite, cacheWrite1h int
+	costUSD                                               float64
+	priced                                                bool
+	estimated                                             bool
 }
 
 // measuredPrompt is the prompt the provider reported for this attempt: the
@@ -297,25 +299,26 @@ func (a rejectedAttempt) measuredPrompt() int {
 // An estimated prompt never entered the columns, so a priced one adds only its
 // cost, and an unpriced one is handed to the serving share by a negative
 // prompt figure (the caller subtracts it from the columns).
-func (d *requestLogData) rejectedTotals() (prompt, cacheHit, cacheMiss, cacheWrite int, costUSD float64) {
+func (d *requestLogData) rejectedTotals() (sum rejectedAttempt) {
 	for _, a := range d.rejected {
 		switch {
 		case a.estimated && a.priced:
-			costUSD += a.costUSD
+			sum.costUSD += a.costUSD
 			continue
 		case a.estimated:
-			prompt -= a.prompt
+			sum.prompt -= a.prompt
 			continue
 		case !a.priced:
 			continue
 		}
-		prompt += a.prompt
-		cacheHit += a.cacheHit
-		cacheMiss += a.cacheMiss
-		cacheWrite += a.cacheWrite
-		costUSD += a.costUSD
+		sum.prompt += a.prompt
+		sum.cacheHit += a.cacheHit
+		sum.cacheMiss += a.cacheMiss
+		sum.cacheWrite += a.cacheWrite
+		sum.cacheWrite1h += a.cacheWrite1h
+		sum.costUSD += a.costUSD
 	}
-	return prompt, cacheHit, cacheMiss, cacheWrite, costUSD
+	return sum
 }
 
 // rejectedTokens sums EVERY rejected candidate's prompt figures, priced or

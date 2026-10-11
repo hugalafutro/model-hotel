@@ -85,12 +85,23 @@ func lastCacheableBlock(blocks []antBlock) int {
 // excluded by their wording: "cache_control cannot be set for empty text
 // blocks", "A maximum of 4 blocks with cache_control", and a thinking block
 // carrying one. None of those is a reason to stop caching.
+//
+// The message is read from the {"error":{"message"}} envelope when there is
+// one, and from the body itself otherwise (a FastAPI validation list, a bare
+// "message", plain text), bounded, so an endpoint whose 400 has another shape
+// is still learned rather than refused on every request.
 func CacheControlRefused(body []byte) bool {
-	msg := strings.ToLower(util.ErrorEnvelopeMessage(body))
+	msg := util.ErrorEnvelopeMessage(body)
+	if msg == "" {
+		msg = string(body[:min(len(body), 4096)])
+	}
+	msg = strings.ToLower(msg)
 	if !strings.Contains(msg, "cache_control") && !strings.Contains(msg, "cache control") {
 		return false
 	}
-	for _, bodySpecific := range []string{"empty", "maximum", "thinking", "ttl"} {
+	// Full phrasings, not bare words, so a refusal that happens to mention a
+	// maximum or a ttl is still learned.
+	for _, bodySpecific := range []string{"empty text", "maximum of", "thinking block", "cache_control.ttl"} {
 		if strings.Contains(msg, bodySpecific) {
 			return false
 		}

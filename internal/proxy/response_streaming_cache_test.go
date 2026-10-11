@@ -96,6 +96,9 @@ data: [DONE]
 	if logData.tokensPromptCacheMiss != 40 {
 		t.Errorf("expected prompt_cache_miss=40, got %d", logData.tokensPromptCacheMiss)
 	}
+	if logData.tokensPromptCacheWrite != 10 {
+		t.Errorf("expected prompt cache write=10 (cache_creation_input_tokens), got %d", logData.tokensPromptCacheWrite)
+	}
 }
 
 func TestHandleStreamingResponse_AnthropicCacheOpenAITakesPrecedence(t *testing.T) {

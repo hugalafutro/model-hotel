@@ -88,8 +88,9 @@ func TestTranslateRequest_CacheBreakpoints(t *testing.T) {
 }
 
 // TestTranslateRequest_NoCachingByDefault: TranslateRequest and the dialect
-// variant place no breakpoints (the probe and the Test button use them), and
-// the system prompt keeps its plain-string shape there.
+// variant place no breakpoints (the dashboard Test button uses TranslateRequest;
+// the proxy, probe included, goes through Options), and the system prompt keeps
+// its plain-string shape there.
 func TestTranslateRequest_NoCachingByDefault(t *testing.T) {
 	for name, translate := range map[string]func([]byte) ([]byte, string, bool, error){
 		"TranslateRequest":            TranslateRequest,
@@ -211,6 +212,12 @@ func TestCacheControlRefused(t *testing.T) {
 		`{"error":{"message":"Unknown field: cache control"}}`:                                                                                        true,
 		`{"error":{"message":"unrecognized parameter 'cache_control' in system[0]"}}`:                                                                 true,
 		`{"error":{"message":"cache_control is not supported by this endpoint"}}`:                                                                     true,
+		`{"error":{"message":"cache_control: unknown field (maximum properties exceeded)"}}`:                                                          true,
+		`{"detail":[{"loc":["body","system",0,"cache_control"],"msg":"Extra inputs are not permitted","type":"extra_forbidden"}]}`:                    true,
+		`unknown field "cache_control" in request body`:                                                                                               true,
+		`{"message":"request contains the unsupported field cache_control"}`:                                                                          true,
+		`{"detail":"model not found"}`:                                                                                                                false,
+		`{"error":{"message":"unrecognized field cache_control; ttl-based options are not permitted here"}}`:                                          true,
 		`{"type":"error","error":{"type":"invalid_request_error","message":"cache_control cannot be set for empty text blocks"}}`:                     false,
 		`{"type":"error","error":{"type":"invalid_request_error","message":"A maximum of 4 blocks with cache_control may be provided"}}`:              false,
 		`{"type":"error","error":{"type":"invalid_request_error","message":"messages.1.content.0: cache_control is not allowed on thinking blocks"}}`: false,

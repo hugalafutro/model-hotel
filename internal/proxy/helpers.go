@@ -128,8 +128,9 @@ func extractCacheTokens(u Usage) (hitTokens, missTokens int) {
 // extractCacheWriteTokens returns the prompt tokens a provider wrote into its
 // cache on this answer, Anthropic's cache_creation_input_tokens (the only such
 // field any provider reports), clamped like every other token figure; 0 when
-// absent. They are a subset of the misses extractCacheTokens returns and carry
-// the write premium in model.CostUSD.
+// absent. They are a subset of the prompt (of the misses when a read was
+// reported; a write without a read reports no split) and carry the write
+// premium in model.CostUSD.
 func extractCacheWriteTokens(u Usage) int {
 	return util.ClampTokenCount(max(0, u.CacheCreationInputTokens))
 }

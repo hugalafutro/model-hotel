@@ -42,6 +42,13 @@ type UsageBlock struct {
 	OutputTokens             int `json:"output_tokens"`
 	CacheCreationInputTokens int `json:"cache_creation_input_tokens"`
 	CacheReadInputTokens     int `json:"cache_read_input_tokens"`
+	// CacheCreation splits the creation total by TTL. Only the 1-hour share
+	// matters to the gateway: it is billed at 2x the input price where the
+	// 5-minute share is billed at 1.25x. Absent on responses without a cache
+	// write, and on relays that report the total alone.
+	CacheCreation struct {
+		Ephemeral1hInputTokens int `json:"ephemeral_1h_input_tokens"`
+	} `json:"cache_creation"`
 }
 
 // summary splits the block into the counts the proxy meters. The whole prompt
@@ -62,6 +69,9 @@ func (u UsageBlock) summary() egress.NativeUsage {
 		PromptTokens:     u.InputTokens + u.CacheReadInputTokens + u.CacheCreationInputTokens,
 		CompletionTokens: u.OutputTokens,
 		CacheWriteTokens: u.CacheCreationInputTokens,
+		// Never more than the total: a relay could report the split without the
+		// sum, and the 1-hour share is priced as a part of the write.
+		CacheWrite1hTokens: min(max(0, u.CacheCreation.Ephemeral1hInputTokens), u.CacheCreationInputTokens),
 	}
 	if u.CacheReadInputTokens > 0 {
 		out.CacheHitTokens = u.CacheReadInputTokens
@@ -200,7 +210,7 @@ func InspectStreamEvent(payload []byte) egress.NativeStreamEvent {
 			// have the caller overwrite a good count with nothing.
 			info.InputTokens, info.HasInput = u.PromptTokens, u.PromptTokens > 0
 			info.CacheHitTokens, info.CacheMissTokens = u.CacheHitTokens, u.CacheMissTokens
-			info.CacheWriteTokens = u.CacheWriteTokens
+			info.CacheWriteTokens, info.CacheWrite1hTokens = u.CacheWriteTokens, u.CacheWrite1hTokens
 			if usage.OutputTokens > 0 {
 				info.OutputTokens, info.HasOutput = usage.OutputTokens, true
 			}
