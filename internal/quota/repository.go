@@ -129,7 +129,10 @@ func (r *Repository) Get(ctx context.Context, providerID uuid.UUID, kind string)
 }
 
 // RecordFailure marks a failed refresh without discarding the last good
-// payload (or creates a placeholder row if none exists yet).
+// payload (or creates a placeholder row if none exists yet). It never changes
+// http_status, which is what lets it skip the provider+kind lock Replace and
+// ReplaceIfNewer take: every status they can read was written under that lock.
+// A failure path that ever recorded a status would have to take it too.
 func (r *Repository) RecordFailure(ctx context.Context, providerID uuid.UUID, kind, errMsg string) error {
 	now := time.Now()
 	_, err := r.pool.Exec(ctx, `

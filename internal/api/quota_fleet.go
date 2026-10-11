@@ -208,37 +208,51 @@ func (h *QuotaFleetHandler) storeSnapshots(ctx context.Context, snaps []QuotaSna
 			skipped++ // provider not present on this member
 			continue
 		}
-		// The replaced row comes back with the write so a flip the primary
-		// observed is announced on this member too. Dashboard only when the push
-		// replaces an earlier push (see EventTypeQuotaStatusSynced); when it
-		// replaces a reading this member fetched itself, the member had alerted
-		// the opposite flip on its own (the primary was not feeding it then) and
-		// the primary sees no flip now, so this node alerts the recovery too.
-		unlock := h.lockWrites()
-		wrote, prior, err := h.quotaRepo.ReplaceIfNewer(ctx, quota.Snapshot{
-			ProviderID: prov.ID,
-			Kind:       s.Kind,
-			Payload:    s.Payload,
-			HTTPStatus: s.HTTPStatus,
-			Source:     "fleet",
-			FetchedAt:  s.FetchedAt,
-			// Carried through verbatim: a member must reach the same verdict on
-			// this row as the node that sent it. An older primary sends no field
-			// at all, which lands here as empty and behaves exactly as it did
-			// before the field existed.
-			LastError: s.LastError,
-		})
+		wrote, err := h.storeOne(ctx, prov, s)
 		if err != nil {
-			unlock()
 			return applied, skipped, err
 		}
 		if wrote {
 			applied++
-			publishQuotaStatusChange(prov, s.Kind, prior, s.HTTPStatus, prior.Source == "fleet")
 		} else {
 			skipped++
 		}
-		unlock()
 	}
 	return applied, skipped, nil
+}
+
+// storeOne writes one pushed snapshot onto prov's row and announces a status
+// flip, holding writeMu for both so the event follows the order the write
+// committed in. The unlock is deferred: a panic in the write or the publish is
+// recovered by the router, and a mutex left held would wedge every snapshot
+// write on this node.
+//
+// The replaced row comes back with the write so a flip the primary observed is
+// announced on this member too. Dashboard only when the push replaces an
+// earlier push (see EventTypeQuotaStatusSynced); when it replaces a reading
+// this member fetched itself, the member had alerted the opposite flip on its
+// own (the primary was not feeding it then) and the primary sees no flip now,
+// so this node alerts the recovery too.
+func (h *QuotaFleetHandler) storeOne(ctx context.Context, prov *provider.Provider, s QuotaSnapshotWire) (bool, error) {
+	defer h.lockWrites()()
+	wrote, prior, err := h.quotaRepo.ReplaceIfNewer(ctx, quota.Snapshot{
+		ProviderID: prov.ID,
+		Kind:       s.Kind,
+		Payload:    s.Payload,
+		HTTPStatus: s.HTTPStatus,
+		Source:     "fleet",
+		FetchedAt:  s.FetchedAt,
+		// Carried through verbatim: a member must reach the same verdict on
+		// this row as the node that sent it. An older primary sends no field
+		// at all, which lands here as empty and behaves exactly as it did
+		// before the field existed.
+		LastError: s.LastError,
+	})
+	if err != nil {
+		return false, err
+	}
+	if wrote {
+		publishQuotaStatusChange(prov, s.Kind, prior, s.HTTPStatus, prior.Source == "fleet")
+	}
+	return wrote, nil
 }
