@@ -34,12 +34,11 @@ type Repository struct {
 // NewRepository builds a Repository backed by pool.
 func NewRepository(pool *pgxpool.Pool) *Repository { return &Repository{pool: pool} }
 
-// Prior describes the row a write replaced: the HTTP status it held and the
-// source that wrote it. A zero HTTPStatus is no reading: either no row existed
-// or only the placeholder RecordFailure leaves before any fetch has succeeded.
+// Prior describes the row a write replaced. A zero HTTPStatus is no reading:
+// either no row existed or only the placeholder RecordFailure leaves before any
+// fetch has succeeded.
 type Prior struct {
 	HTTPStatus int
-	Source     string
 }
 
 // Replace writes a fresh snapshot (poll, manual refresh, cold fill), replacing
@@ -90,8 +89,8 @@ func lockPrior(ctx context.Context, tx pgx.Tx, providerID uuid.UUID, kind string
 	}
 	var p Prior
 	err := tx.QueryRow(ctx,
-		`SELECT http_status, source FROM provider_quota_snapshots WHERE provider_id = $1 AND kind = $2`,
-		providerID, kind).Scan(&p.HTTPStatus, &p.Source)
+		`SELECT http_status FROM provider_quota_snapshots WHERE provider_id = $1 AND kind = $2`,
+		providerID, kind).Scan(&p.HTTPStatus)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return Prior{}, nil
 	}
@@ -200,12 +199,15 @@ func sanitizeFetchedAt(t time.Time) time.Time {
 	return t
 }
 
-// ReplaceIfNewer writes only when there is no existing row or the incoming
-// fetched_at is strictly newer, so an older fleet write never clobbers a
-// member's fresher manual refresh. Returns whether the write applied.
+// ReplaceIfNewer writes a fleet-distributed snapshot only when there is no
+// existing row or the incoming fetched_at is strictly newer, so an older fleet
+// write never clobbers a member's fresher manual refresh. It reports whether the
+// write applied and the row found under the same lock as Replace; the prior is
+// reported whether or not the write landed, so the caller compares only when
+// wrote is true.
 //
 // It persists the incoming failure marker rather than forcing it to NULL, which
-// Upsert still does. The two differ because they mean different things: Upsert
+// Replace still does. The two differ because they mean different things: Replace
 // is a successful local fetch, and clearing on one is what stops the marker
 // wedging a quota pin permanently. ReplaceIfNewer is an import of somebody
 // else's reading, and dropping the marker there would make a snapshot whose
@@ -219,10 +221,6 @@ func sanitizeFetchedAt(t time.Time) time.Time {
 // add a marker the row does not have — so it can only ever hold a pin longer,
 // never release one, and it is idempotent once applied. Clearing a marker still
 // requires a strictly newer row, i.e. an actual successful refresh.
-// ReplaceIfNewer writes a fleet-distributed snapshot only if it is newer than
-// the stored row, and reports the row found under the same lock as Replace.
-// The prior is reported whether or not the write landed, so the caller
-// compares only when wrote is true.
 func (r *Repository) ReplaceIfNewer(ctx context.Context, s Snapshot) (wrote bool, prior Prior, err error) {
 	s.FetchedAt = sanitizeFetchedAt(s.FetchedAt)
 	tx, err := r.pool.Begin(ctx)

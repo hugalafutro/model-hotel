@@ -12,10 +12,9 @@ import (
 	"github.com/hugalafutro/model-hotel/internal/quota"
 )
 
-// TestReplaceReportsThePrior: Replace hands back the status and source of the
-// row it overwrote, a zero Prior for no row and for RecordFailure's
-// placeholder, so the caller can tell a flip from a first answer and a
-// fleet-fed node from one that fetches for itself.
+// TestReplaceReportsThePrior: Replace hands back the status of the row it
+// overwrote, a zero Prior for no row and for RecordFailure's placeholder, so
+// the caller can tell a flip from a first answer.
 func TestReplaceReportsThePrior(t *testing.T) {
 	ctx := context.Background()
 	repo := quota.NewRepository(testPool)
@@ -28,11 +27,11 @@ func TestReplaceReportsThePrior(t *testing.T) {
 	if prior, err := repo.Replace(ctx, snap(204, "fleet")); err != nil || prior != (quota.Prior{}) {
 		t.Fatalf("first write: want zero prior, got %+v (err %v)", prior, err)
 	}
-	if prior, err := repo.Replace(ctx, snap(200, "poll")); err != nil || prior != (quota.Prior{HTTPStatus: 204, Source: "fleet"}) {
-		t.Fatalf("second write: want prior 204/fleet, got %+v (err %v)", prior, err)
+	if prior, err := repo.Replace(ctx, snap(200, "poll")); err != nil || prior != (quota.Prior{HTTPStatus: 204}) {
+		t.Fatalf("second write: want prior 204, got %+v (err %v)", prior, err)
 	}
-	if prior, err := repo.Replace(ctx, snap(200, "poll")); err != nil || prior != (quota.Prior{HTTPStatus: 200, Source: "poll"}) {
-		t.Fatalf("same status: want prior 200/poll, got %+v (err %v)", prior, err)
+	if prior, err := repo.Replace(ctx, snap(200, "poll")); err != nil || prior != (quota.Prior{HTTPStatus: 200}) {
+		t.Fatalf("same status: want prior 200, got %+v (err %v)", prior, err)
 	}
 
 	other := insertTestProvider(ctx, t, "test-quota-replace-placeholder")
@@ -73,61 +72,93 @@ func TestReplaceIfNewerReportsThePrior(t *testing.T) {
 	}
 }
 
-// TestReplaceSerialisesConcurrentWriters pins the lock. A holder transaction
-// takes the provider+kind advisory lock and changes the row to 204 without
-// committing; a concurrent Replace(200) must wait for it and report 204, the
-// row as the holder left it. Without the lock it would read the committed 200
-// and the flip to 204 would never be announced. The same lock also covers the
-// first write, where FOR UPDATE on the (absent) row would lock nothing.
+// TestReplaceSerialisesConcurrentWriters pins the lock, for an existing row and
+// for the first write. A holder transaction takes the provider+kind advisory
+// lock and leaves a 204 row uncommitted (an UPDATE over a committed 200, or an
+// INSERT where no row exists yet); a concurrent Replace(200) must wait for it
+// and report 204, the row as the holder left it. Without the lock the existing
+// row case would read the committed 200 and the flip to 204 would never be
+// announced; with FOR UPDATE on the row instead, the first-write case would
+// lock nothing, read no row and report 0.
 func TestReplaceSerialisesConcurrentWriters(t *testing.T) {
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancel()
-	repo := quota.NewRepository(testPool)
-	provID := insertTestProvider(ctx, t, "test-quota-replace-race")
-	t.Cleanup(func() { cleanupProvider(context.Background(), t, provID) })
-	snap := func(status int) quota.Snapshot {
-		return quota.Snapshot{ProviderID: provID, Kind: "usage", Payload: json.RawMessage(`{}`), HTTPStatus: status, Source: "poll"}
-	}
-	if _, err := repo.Replace(ctx, snap(200)); err != nil {
-		t.Fatalf("seed: %v", err)
-	}
+	for _, tc := range []struct {
+		name   string
+		seeded bool
+	}{
+		{name: "existing row", seeded: true},
+		{name: "first write", seeded: false},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+			defer cancel()
+			repo := quota.NewRepository(testPool)
+			provID := insertTestProvider(ctx, t, "test-quota-replace-race-"+tc.name)
+			t.Cleanup(func() { cleanupProvider(context.Background(), t, provID) })
+			snap := func(status int) quota.Snapshot {
+				return quota.Snapshot{ProviderID: provID, Kind: "usage", Payload: json.RawMessage(`{}`), HTTPStatus: status, Source: "poll"}
+			}
+			if tc.seeded {
+				if _, err := repo.Replace(ctx, snap(200)); err != nil {
+					t.Fatalf("seed: %v", err)
+				}
+			}
 
-	holder, err := testPool.Begin(ctx)
-	if err != nil {
-		t.Fatalf("begin holder: %v", err)
-	}
-	t.Cleanup(func() { _ = holder.Rollback(context.Background()) })
-	if _, err := holder.Exec(ctx, `SELECT pg_advisory_xact_lock(hashtext($1::text || '/' || $2))`, provID, "usage"); err != nil {
-		t.Fatalf("holder lock: %v", err)
-	}
-	if _, err := holder.Exec(ctx, `UPDATE provider_quota_snapshots SET http_status = 204 WHERE provider_id = $1 AND kind = 'usage'`, provID); err != nil {
-		t.Fatalf("holder update: %v", err)
-	}
+			holder, err := testPool.Begin(ctx)
+			if err != nil {
+				t.Fatalf("begin holder: %v", err)
+			}
+			t.Cleanup(func() { _ = holder.Rollback(context.Background()) })
+			if _, err := holder.Exec(ctx, `SELECT pg_advisory_xact_lock(hashtext($1::text || '/' || $2))`, provID, "usage"); err != nil {
+				t.Fatalf("holder lock: %v", err)
+			}
+			if tc.seeded {
+				_, err = holder.Exec(ctx, `UPDATE provider_quota_snapshots SET http_status = 204 WHERE provider_id = $1 AND kind = 'usage'`, provID)
+			} else {
+				_, err = holder.Exec(ctx, `INSERT INTO provider_quota_snapshots (provider_id, kind, payload, http_status, fetched_at, source, last_attempt_at)
+					VALUES ($1, 'usage', 'null'::jsonb, 204, now(), 'poll', now())`, provID)
+			}
+			if err != nil {
+				t.Fatalf("holder write: %v", err)
+			}
 
-	type result struct {
-		prior quota.Prior
-		err   error
-	}
-	done := make(chan result, 1)
-	go func() {
-		p, err := repo.Replace(ctx, snap(200))
-		done <- result{p, err}
-	}()
-	select {
-	case r := <-done:
-		t.Fatalf("Replace returned while the holder still had the lock: %+v (err %v)", r.prior, r.err)
-	case <-time.After(300 * time.Millisecond):
-	}
-	if err := holder.Commit(ctx); err != nil {
-		t.Fatalf("holder commit: %v", err)
-	}
-	select {
-	case r := <-done:
-		if r.err != nil || r.prior.HTTPStatus != 204 {
-			t.Fatalf("want prior 204 (the holder's write), got %+v (err %v)", r.prior, r.err)
-		}
-	case <-ctx.Done():
-		t.Fatal("Replace never returned after the holder committed")
+			type result struct {
+				prior quota.Prior
+				err   error
+			}
+			done := make(chan result, 1)
+			go func() {
+				p, err := repo.Replace(ctx, snap(200))
+				done <- result{p, err}
+			}()
+			// Proof that the writer is waiting on the advisory lock, not merely
+			// unscheduled: pg_locks shows its ungranted request. A lockless
+			// implementation never requests one and this wait times out.
+			waiting := false
+			for !waiting {
+				select {
+				case r := <-done:
+					t.Fatalf("Replace returned while the holder still had the lock: %+v (err %v)", r.prior, r.err)
+				case <-ctx.Done():
+					t.Fatal("the writer never queued on the advisory lock")
+				case <-time.After(20 * time.Millisecond):
+				}
+				if err := testPool.QueryRow(ctx,
+					`SELECT EXISTS (SELECT 1 FROM pg_locks WHERE locktype = 'advisory' AND NOT granted)`).Scan(&waiting); err != nil {
+					t.Fatalf("pg_locks: %v", err)
+				}
+			}
+			if err := holder.Commit(ctx); err != nil {
+				t.Fatalf("holder commit: %v", err)
+			}
+			select {
+			case r := <-done:
+				if r.err != nil || r.prior.HTTPStatus != 204 {
+					t.Fatalf("want prior 204 (the holder's write), got %+v (err %v)", r.prior, r.err)
+				}
+			case <-ctx.Done():
+				t.Fatal("Replace never returned after the holder committed")
+			}
+		})
 	}
 }
 

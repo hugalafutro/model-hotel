@@ -19,14 +19,13 @@ const (
 	EventTypeQuotaStatusLost = "quota.status_lost"
 	// EventTypeQuotaStatusRestored: a reading that was gone is back (200).
 	EventTypeQuotaStatusRestored = "quota.status_restored"
-	// EventTypeQuotaStatusSynced is the same flip on a node whose reading comes
-	// from the fleet: the primary's pushed snapshot, or this node's own fetch
-	// replacing a row the fleet had pushed (a breaker nudge polls on every
-	// member at once when a plan lapses). The node that fetched for itself
-	// already alerted, so this type is deliberately not in the alert catalog;
-	// a fleet of N members would otherwise send N+1 notifications for one
-	// flip. It still carries the lost/restored message and severity for the
-	// member's toast.
+	// EventTypeQuotaStatusSynced is the same flip on a managed fleet member,
+	// whether it arrived in the primary's pushed snapshot or in the member's
+	// own fetch (a breaker nudge polls on every member at once when a plan
+	// lapses). The primary alerts for the fleet, so this type is deliberately
+	// not in the alert catalog; N members would otherwise send N more
+	// notifications for one flip. It still carries the lost/restored message
+	// and severity for the member's toast.
 	EventTypeQuotaStatusSynced = "quota.status_synced"
 )
 
@@ -39,7 +38,7 @@ func (h *Handler) storeQuotaSnapshot(ctx context.Context, prov *provider.Provide
 	if err != nil {
 		return err
 	}
-	publishQuotaStatusChange(prov, snap.Kind, prior, snap.HTTPStatus, false)
+	publishQuotaStatusChange(prov, snap.Kind, prior, snap.HTTPStatus, isManagedMember(ctx, h.settingsRepo))
 	return nil
 }
 
@@ -50,10 +49,11 @@ func (h *Handler) storeQuotaSnapshot(ctx context.Context, prov *provider.Provide
 // non-200 answers (204 to 424) changes nothing the badge shows and stays
 // quiet. A failed refresh never reaches here: it keeps the stored status, so
 // a provider that merely stopped answering stays quiet until it answers
-// differently. fleet marks a write from the primary's push; a prior row the
-// fleet wrote marks this node as one the primary feeds. Either way the flip
-// goes out under the synced type, which the alert catalog omits.
-func publishQuotaStatusChange(prov *provider.Provider, kind string, prior quota.Prior, status int, fleet bool) {
+// differently. member says this node is a managed fleet member (the import
+// path always is, a local fetch asks isManagedMember), whose flip goes out
+// under the synced type the alert catalog omits; the primary and a standalone
+// install alert.
+func publishQuotaStatusChange(prov *provider.Provider, kind string, prior quota.Prior, status int, member bool) {
 	if prior.HTTPStatus == 0 || (prior.HTTPStatus == 200) == (status == 200) {
 		return
 	}
@@ -63,7 +63,7 @@ func publishQuotaStatusChange(prov *provider.Provider, kind string, prior quota.
 		typ, severity = EventTypeQuotaStatusRestored, "success"
 		message = fmt.Sprintf("%s quota reading is back (HTTP 200, was %d)", prov.Name, prior.HTTPStatus)
 	}
-	if fleet || prior.Source == "fleet" {
+	if member {
 		typ = EventTypeQuotaStatusSynced
 	}
 	events.Publish(events.Event{

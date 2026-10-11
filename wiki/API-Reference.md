@@ -1895,7 +1895,7 @@ data: {"type":"discovery.complete","severity":"success","message":"Discovery com
 | `quota.schema_drift` | `warning` | A provider changed the shape of its quota response |
 | `quota.status_lost` | `warning` | A provider's quota reading stopped: the stored snapshot went from `200` to anything else (`204` no plan, `424` key rejected). A move between two non-`200` answers is not announced. Metadata: `provider_id`, `provider`, `provider_type`, `kind`, `http_status`, `previous_http_status` |
 | `quota.status_restored` | `success` | The reading is back (`200` again); same metadata |
-| `quota.status_synced` | `success` / `warning` | The same flip on a node whose stored reading came from the fleet: the primary's pushed snapshot landing, or the node's own fetch replacing a fleet-pushed row. Dashboard only (badges refetch on every `quota.status_*` type); not alertable, so one flip alerts once, from the node that fetched it |
+| `quota.status_synced` | `success` / `warning` | The same flip on a managed fleet member, whether it arrived in the primary's pushed snapshot or in the member's own fetch (a breaker nudge polls on every member at once). Dashboard only (badges refetch on every `quota.status_*` type); not alertable, so one flip alerts once, from the primary. A standalone install always alerts |
 | `budget.warning` | `warning` | A virtual key or user reached 80% of its dollar budget for the period |
 | `budget.exceeded` | `error` | A virtual key or user reached its dollar budget; its requests are refused until the period ends |
 | `tokens.error` | `error` | Error counting tokens |

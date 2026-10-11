@@ -164,12 +164,15 @@ describe("SSE connection and event handling", () => {
 		// for its own tick.
 		const queryClient = new QueryClient();
 		const invalidate = vi.spyOn(queryClient, "invalidateQueries");
+		const lost = type === "quota.status_lost";
 		sseOnce({
 			id: "evt-q",
 			type,
-			severity: "success",
-			message: "OpenCode Go quota reading is back (HTTP 200, was 204)",
-			metadata: { provider_type: "opencode-go", http_status: 200 },
+			severity: lost ? "warning" : "success",
+			message: lost
+				? "OpenCode Go quota reading stopped: HTTP 204 (was 200)"
+				: "OpenCode Go quota reading is back (HTTP 200, was 204)",
+			metadata: { provider_type: "opencode-go", http_status: lost ? 204 : 200 },
 			timestamp: new Date().toISOString(),
 		});
 		renderWithEventProvider(<div />, queryClient);
