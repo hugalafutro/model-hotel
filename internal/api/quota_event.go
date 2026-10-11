@@ -77,8 +77,9 @@ func (h *Handler) quotaFedByFleet(ctx context.Context, prior quota.Prior) bool {
 // quiet. A failed refresh never reaches here: it keeps the stored status, so
 // a provider that merely stopped answering stays quiet until it answers
 // differently. fed says this node leaves alerting to the primary (the import
-// path always does, a local fetch asks quotaFedByFleet), so its flip goes out
-// under the synced type the alert catalog omits.
+// path when the push replaces an earlier push, a local fetch when
+// quotaFedByFleet says so), so its flip goes out under the synced type the
+// alert catalog omits.
 func publishQuotaStatusChange(prov *provider.Provider, kind string, prior quota.Prior, status int, fed bool) {
 	if prior.HTTPStatus == 0 || (prior.HTTPStatus == 200) == (status == 200) {
 		return

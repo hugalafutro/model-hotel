@@ -220,10 +220,39 @@ func TestPollQuotasOnce_MemberPollAlwaysAlerts(t *testing.T) {
 	}
 }
 
+// TestQuotaFleetReceiveSnapshots_PushOverLocalRowAlerts: while the primary was
+// not feeding this provider, the member fetched the lapse itself and alerted
+// it. The primary's first push after the renewal then flips the member's own
+// 204 to 200; the primary saw no flip (its row stayed 200), so the member
+// alerts the recovery rather than leaving "lost" as the last word.
+func TestQuotaFleetReceiveSnapshots_PushOverLocalRowAlerts(t *testing.T) {
+	ctx := context.Background()
+	h := newTestHandler(t)
+	fleet := NewQuotaFleetHandler(h.quotaRepo, h.providerRepo)
+	prov, err := h.providerRepo.Create(ctx, provider.CreateProviderRequest{Name: "nano-local", BaseURL: "https://api.nano-gpt.com"}, nil, nil, nil)
+	if err != nil {
+		t.Fatalf("create provider: %v", err)
+	}
+	if _, err := h.quotaRepo.Replace(ctx, quota.Snapshot{ProviderID: prov.ID, Kind: "usage", Payload: json.RawMessage("null"), HTTPStatus: http.StatusNoContent, Source: "poll", FetchedAt: time.Now().Add(-time.Hour).UTC()}); err != nil {
+		t.Fatalf("seed snapshot: %v", err)
+	}
+	drain := drainQuotaStatusEvents(t)
+	body := `{"snapshots":[{"provider_name":"nano-local","kind":"usage","payload":{"used":8},"http_status":200,"fetched_at":"` + time.Now().UTC().Format(time.RFC3339Nano) + `"}]}`
+	rr := httptest.NewRecorder()
+	fleet.ReceiveSnapshots(rr, httptest.NewRequest(http.MethodPost, "/config/quota-snapshots", strings.NewReader(body)))
+	if rr.Code != http.StatusOK {
+		t.Fatalf("want 200, got %d: %s", rr.Code, rr.Body.String())
+	}
+	got := drain()
+	if len(got) != 1 || got[0].Type != EventTypeQuotaStatusRestored {
+		t.Fatalf("want one restored event over the member's own row, got %+v", got)
+	}
+}
+
 // TestQuotaFleetReceiveSnapshots_PublishesStatusFlip: a member learns of the
 // flip from the row the primary pushes and announces it under the synced type,
-// which the dashboard reads and the alert catalog does not (a push arriving is
-// itself the proof the primary feeds this node, so the import path never asks). A newer push with
+// which the dashboard reads and the alert catalog does not (a push replacing an
+// earlier push is itself the proof the primary feeds this provider). A newer push with
 // the same status, the equal-timestamp failure-marker write, and a push that is
 // not written (older than the stored row) all stay silent.
 func TestQuotaFleetReceiveSnapshots_PublishesStatusFlip(t *testing.T) {

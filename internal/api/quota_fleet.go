@@ -208,9 +208,12 @@ func (h *QuotaFleetHandler) storeSnapshots(ctx context.Context, snaps []QuotaSna
 			skipped++ // provider not present on this member
 			continue
 		}
-		// The replaced status comes back with the write so a flip the primary
-		// observed is announced on this member too (dashboard only, see
-		// EventTypeQuotaStatusSynced).
+		// The replaced row comes back with the write so a flip the primary
+		// observed is announced on this member too. Dashboard only when the push
+		// replaces an earlier push (see EventTypeQuotaStatusSynced); when it
+		// replaces a reading this member fetched itself, the member had alerted
+		// the opposite flip on its own (the primary was not feeding it then) and
+		// the primary sees no flip now, so this node alerts the recovery too.
 		unlock := h.lockWrites()
 		wrote, prior, err := h.quotaRepo.ReplaceIfNewer(ctx, quota.Snapshot{
 			ProviderID: prov.ID,
@@ -231,7 +234,7 @@ func (h *QuotaFleetHandler) storeSnapshots(ctx context.Context, snaps []QuotaSna
 		}
 		if wrote {
 			applied++
-			publishQuotaStatusChange(prov, s.Kind, prior, s.HTTPStatus, true)
+			publishQuotaStatusChange(prov, s.Kind, prior, s.HTTPStatus, prior.Source == "fleet")
 		} else {
 			skipped++
 		}
