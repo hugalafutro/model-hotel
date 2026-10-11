@@ -81,9 +81,11 @@ var catalog = []EventDef{
 	// cooldown still collapses the second loss, the residual the breaker pair
 	// accepts too). Default-on because a lapse is otherwise learned from the
 	// requests it starts refusing. Migration 096 appends both to a saved picker
-	// selection. The copy of the same flip on a managed fleet member
-	// (quota.status_synced) is deliberately absent: the primary, or a
-	// standalone install, alerts; members only repaint their dashboards.
+	// selection. The copy of the same flip on a member the primary feeds
+	// (quota.status_synced) is deliberately absent: the primary alerts and
+	// fed members only repaint their dashboards. A member no fleet push has
+	// reached in three refresh intervals (primary or Front Desk away) alerts
+	// for itself, so an outage can duplicate an alert but never lose one.
 	{Type: "quota.status_lost", Category: "Quota", Severity: "warning", DefaultOn: true},
 	{Type: "quota.status_restored", Category: "Quota", Severity: "success", DefaultOn: true},
 }

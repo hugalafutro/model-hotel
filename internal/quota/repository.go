@@ -97,6 +97,18 @@ func lockPrior(ctx context.Context, tx pgx.Tx, providerID uuid.UUID, kind string
 	return p, err
 }
 
+// LastFleetWrite reports the fetched_at of the newest fleet-distributed
+// snapshot stored here, zero when none ever landed. A node that received one
+// recently is being fed by the primary and can leave quota alerts to it.
+func (r *Repository) LastFleetWrite(ctx context.Context) (time.Time, error) {
+	var t *time.Time
+	err := r.pool.QueryRow(ctx, `SELECT max(fetched_at) FROM provider_quota_snapshots WHERE source = 'fleet'`).Scan(&t)
+	if err != nil || t == nil {
+		return time.Time{}, err
+	}
+	return *t, nil
+}
+
 // snapshotColumns is the projection every snapshot read shares, in the order
 // scanSnapshot expects. last_error is COALESCEd so it lands straight in the
 // plain string field.

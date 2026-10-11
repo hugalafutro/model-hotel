@@ -108,6 +108,10 @@ func TestReplaceSerialisesConcurrentWriters(t *testing.T) {
 				t.Fatalf("begin holder: %v", err)
 			}
 			t.Cleanup(func() { _ = holder.Rollback(context.Background()) })
+			var holderPID int
+			if err := holder.QueryRow(ctx, `SELECT pg_backend_pid()`).Scan(&holderPID); err != nil {
+				t.Fatalf("holder pid: %v", err)
+			}
 			if _, err := holder.Exec(ctx, `SELECT pg_advisory_xact_lock(hashtext($1::text || '/' || $2))`, provID, "usage"); err != nil {
 				t.Fatalf("holder lock: %v", err)
 			}
@@ -131,8 +135,10 @@ func TestReplaceSerialisesConcurrentWriters(t *testing.T) {
 				done <- result{p, err}
 			}()
 			// Proof that the writer is waiting on the advisory lock, not merely
-			// unscheduled: pg_locks shows its ungranted request. A lockless
-			// implementation never requests one and this wait times out.
+			// unscheduled: pg_locks shows an ungranted request for the very lock
+			// the holder's backend holds (other packages share this server, so
+			// any ungranted advisory lock would not do). A lockless implementation
+			// never requests one and this wait times out.
 			waiting := false
 			for !waiting {
 				select {
@@ -142,8 +148,12 @@ func TestReplaceSerialisesConcurrentWriters(t *testing.T) {
 					t.Fatal("the writer never queued on the advisory lock")
 				case <-time.After(20 * time.Millisecond):
 				}
-				if err := testPool.QueryRow(ctx,
-					`SELECT EXISTS (SELECT 1 FROM pg_locks WHERE locktype = 'advisory' AND NOT granted)`).Scan(&waiting); err != nil {
+				if err := testPool.QueryRow(ctx, `
+					SELECT EXISTS (
+						SELECT 1 FROM pg_locks w
+						JOIN pg_locks g ON (g.database, g.classid, g.objid, g.objsubid) = (w.database, w.classid, w.objid, w.objsubid)
+						WHERE w.locktype = 'advisory' AND NOT w.granted
+						  AND g.locktype = 'advisory' AND g.granted AND g.pid = $1)`, holderPID).Scan(&waiting); err != nil {
 					t.Fatalf("pg_locks: %v", err)
 				}
 			}
@@ -227,5 +237,33 @@ func TestReplaceErrorPaths(t *testing.T) {
 	_ = holder.Rollback(ctx)
 	if snap, err := repo.Get(ctx, provID, "usage"); err != nil || snap != nil {
 		t.Fatalf("nothing may be written when the read fails, got %+v (err %v)", snap, err)
+	}
+}
+
+// TestLastFleetWrite: zero until a fleet-distributed row lands, then the newest
+// fleet fetched_at; locally fetched rows do not count as being fed.
+func TestLastFleetWrite(t *testing.T) {
+	ctx := context.Background()
+	repo := quota.NewRepository(testPool)
+	if _, err := testPool.Exec(ctx, `DELETE FROM provider_quota_snapshots WHERE source = 'fleet'`); err != nil {
+		t.Fatalf("clear fleet rows: %v", err)
+	}
+	if last, err := repo.LastFleetWrite(ctx); err != nil || !last.IsZero() {
+		t.Fatalf("no fleet rows: want zero, got %v (err %v)", last, err)
+	}
+	provID := insertTestProvider(ctx, t, "test-quota-last-fleet")
+	t.Cleanup(func() { cleanupProvider(ctx, t, provID) })
+	at := time.Now().Add(-10 * time.Minute).UTC().Truncate(time.Microsecond)
+	if _, err := repo.Replace(ctx, quota.Snapshot{ProviderID: provID, Kind: "usage", Payload: json.RawMessage(`{}`), HTTPStatus: 200, Source: "poll", FetchedAt: at.Add(5 * time.Minute)}); err != nil {
+		t.Fatalf("local write: %v", err)
+	}
+	if last, err := repo.LastFleetWrite(ctx); err != nil || !last.IsZero() {
+		t.Fatalf("a local row is not a fleet write, got %v (err %v)", last, err)
+	}
+	if _, err := repo.Replace(ctx, quota.Snapshot{ProviderID: provID, Kind: "balance", Payload: json.RawMessage(`{}`), HTTPStatus: 200, Source: "fleet", FetchedAt: at}); err != nil {
+		t.Fatalf("fleet write: %v", err)
+	}
+	if last, err := repo.LastFleetWrite(ctx); err != nil || !last.Equal(at) {
+		t.Fatalf("want %v, got %v (err %v)", at, last, err)
 	}
 }
