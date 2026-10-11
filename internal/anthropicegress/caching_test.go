@@ -209,14 +209,21 @@ func TestTranslateRequest_CacheBreakpointsSkipWhitespace(t *testing.T) {
 func TestCacheControlRefused(t *testing.T) {
 	cases := map[string]bool{
 		`{"type":"error","error":{"type":"invalid_request_error","message":"messages.2.content.1.cache_control: Extra inputs are not permitted"}}`: true,
-		`{"error":{"message":"Unknown field: cache control"}}`:                                                                                        true,
-		`{"error":{"message":"unrecognized parameter 'cache_control' in system[0]"}}`:                                                                 true,
-		`{"error":{"message":"cache_control is not supported by this endpoint"}}`:                                                                     true,
-		`{"error":{"message":"cache_control: unknown field (maximum properties exceeded)"}}`:                                                          true,
-		`{"detail":[{"loc":["body","system",0,"cache_control"],"msg":"Extra inputs are not permitted","type":"extra_forbidden"}]}`:                    true,
-		`unknown field "cache_control" in request body`:                                                                                               true,
-		`{"message":"request contains the unsupported field cache_control"}`:                                                                          true,
-		`{"detail":"model not found"}`:                                                                                                                false,
+		`{"error":{"message":"Unknown field: cache control"}}`:                                                                     true,
+		`{"error":{"message":"unrecognized parameter 'cache_control' in system[0]"}}`:                                              true,
+		`{"error":{"message":"cache_control is not supported by this endpoint"}}`:                                                  true,
+		`{"error":{"message":"cache_control: unknown field (maximum properties exceeded)"}}`:                                       true,
+		`{"detail":[{"loc":["body","system",0,"cache_control"],"msg":"Extra inputs are not permitted","type":"extra_forbidden"}]}`: true,
+		`unknown field "cache_control" in request body`:                                                                            true,
+		`{"message":"request contains the unsupported field cache_control"}`:                                                       true,
+		`{"detail":"model not found"}`:                                                                                             false,
+		// A pydantic item echoes the request under "input": the gateway's own
+		// cache_control block and the user's words sit there, and a sibling
+		// refusal of another field supplies "not permitted". Not a refusal of
+		// the field, so not learned.
+		`{"detail":[{"type":"missing","loc":["body","max_tokens"],"msg":"Field required","input":{"system":[{"type":"text","text":"this field is not permitted","cache_control":{"type":"ephemeral"}}]}},{"type":"extra_forbidden","loc":["body","top_k"],"msg":"Extra inputs are not permitted"}]}`: false,
+		// JSON of another shape is not read at all, whatever it says.
+		`{"err":"unknown field cache_control"}`: false,
 		`{"error":{"message":"unrecognized field cache_control; ttl-based options are not permitted here"}}`:                                          true,
 		`{"type":"error","error":{"type":"invalid_request_error","message":"cache_control cannot be set for empty text blocks"}}`:                     false,
 		`{"type":"error","error":{"type":"invalid_request_error","message":"A maximum of 4 blocks with cache_control may be provided"}}`:              false,

@@ -226,6 +226,10 @@ func (h *Handler) emitRawData(sink *streamSink, st *streamState, native nativeDi
 		// raises the priced cost by its premium, none of them a token charge.
 		if info.CacheWriteTokens > 0 {
 			st.promptCacheWriteTokens = util.ClampTokenCount(info.CacheWriteTokens)
+		}
+		// Guarded on its own: a later event may repeat the write total without
+		// the TTL split, and must not zero the 1-hour share the first one gave.
+		if info.CacheWrite1hTokens > 0 {
 			st.promptCacheWrite1hTokens = util.ClampTokenCount(info.CacheWrite1hTokens)
 		}
 		if info.CacheHitTokens > 0 || info.CacheMissTokens > 0 {

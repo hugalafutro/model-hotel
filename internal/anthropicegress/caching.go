@@ -1,6 +1,8 @@
 package anthropicegress
 
 import (
+	"encoding/json"
+	"fmt"
 	"strings"
 
 	"github.com/hugalafutro/model-hotel/internal/util"
@@ -87,15 +89,13 @@ func lastCacheableBlock(blocks []antBlock) int {
 // carrying one. None of those is a reason to stop caching.
 //
 // The message is read from the {"error":{"message"}} envelope when there is
-// one, and from the body itself otherwise (a FastAPI validation list, a bare
-// "message", plain text), bounded, so an endpoint whose 400 has another shape
-// is still learned rather than refused on every request.
+// one; otherwise from the other shapes a validator answers in (a top-level
+// "message", a FastAPI "detail" string or list of {loc, msg} items), and from
+// the body itself only when it is not JSON at all. Never from a JSON body's
+// other members: a pydantic item echoes the request under "input", and a
+// refusal word in the user's own text must not switch caching off.
 func CacheControlRefused(body []byte) bool {
-	msg := util.ErrorEnvelopeMessage(body)
-	if msg == "" {
-		msg = string(body[:min(len(body), 4096)])
-	}
-	msg = strings.ToLower(msg)
+	msg := strings.ToLower(refusalText(body))
 	if !strings.Contains(msg, "cache_control") && !strings.Contains(msg, "cache control") {
 		return false
 	}
@@ -112,4 +112,42 @@ func CacheControlRefused(body []byte) bool {
 		}
 	}
 	return false
+}
+
+// refusalText is the part of a 400 body a refusal can be read from: the error
+// envelope's message, else the validator shapes named on CacheControlRefused,
+// else the raw text of a body that is not JSON (bounded). A JSON body of any
+// other shape yields nothing, so nothing is learned from it.
+func refusalText(body []byte) string {
+	if msg := util.ErrorEnvelopeMessage(body); msg != "" {
+		return msg
+	}
+	var validator struct {
+		Message string          `json:"message"`
+		Detail  json.RawMessage `json:"detail"`
+	}
+	if json.Unmarshal(body, &validator) != nil {
+		if json.Valid(body) {
+			return ""
+		}
+		return string(body[:min(len(body), 4096)])
+	}
+	parts := []string{validator.Message}
+	var detail string
+	if json.Unmarshal(validator.Detail, &detail) == nil {
+		parts = append(parts, detail)
+	}
+	var items []struct {
+		Loc []any  `json:"loc"`
+		Msg string `json:"msg"`
+	}
+	if json.Unmarshal(validator.Detail, &items) == nil {
+		for _, item := range items {
+			for _, loc := range item.Loc {
+				parts = append(parts, fmt.Sprint(loc))
+			}
+			parts = append(parts, item.Msg)
+		}
+	}
+	return strings.Join(parts, " ")
 }

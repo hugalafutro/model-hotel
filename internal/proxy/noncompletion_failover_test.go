@@ -520,7 +520,7 @@ func TestNativeEmptyMessage_FailsOverToTheSibling(t *testing.T) {
 
 	st, candidate := nonCompletionState(t)
 	st.anthropicNativeAttempt = true
-	body := `{"id":"msg_empty","type":"message","role":"assistant","content":[],"usage":{"input_tokens":3,"output_tokens":0}}`
+	body := `{"id":"msg_empty","type":"message","role":"assistant","content":[],"usage":{"input_tokens":3,"output_tokens":0,"cache_creation_input_tokens":2,"cache_creation":{"ephemeral_1h_input_tokens":1}}}`
 	resp := &http.Response{StatusCode: http.StatusOK, Body: io.NopCloser(strings.NewReader(body)), Header: make(http.Header)}
 	rec := httptest.NewRecorder()
 	native := true
@@ -533,6 +533,11 @@ func TestNativeEmptyMessage_FailsOverToTheSibling(t *testing.T) {
 	if outcome != outcomeFailover {
 		t.Fatalf("outcome = %v, want outcomeFailover", outcome)
 	}
+	// The hop's prompt is booked with its cache write and 1-hour share, in
+	// that order: the figures the call site hands meterRejectedPrompt.
+	if r := st.logData.rejected; len(r) != 1 || r[0].prompt != 5 || r[0].cacheWrite != 2 || r[0].cacheWrite1h != 1 {
+		t.Errorf("rejected = %+v, want one hop with prompt 5, cacheWrite 2, cacheWrite1h 1", r)
+	}
 	if rec.Body.Len() != 0 {
 		t.Errorf("the empty message was written to the client: %s", rec.Body.String())
 	}
@@ -541,6 +546,27 @@ func TestNativeEmptyMessage_FailsOverToTheSibling(t *testing.T) {
 	}
 	if st.logData.attemptBreaker != breakerCharge {
 		t.Errorf("breaker note = %q, want %q", st.logData.attemptBreaker, breakerCharge)
+	}
+}
+
+// The chat-shaped twin of the rejected hop: a 2xx with no choices books its
+// prompt with the cache write the usage block reported (no 1-hour share: a
+// chat usage block has no TTL split).
+func TestEmptyCompletion_RejectedHopBooksItsCacheWrite(t *testing.T) {
+	h := newIntegrationHandler()
+	t.Cleanup(func() { stopUnitHandler(h) })
+
+	st, candidate := nonCompletionState(t)
+	body := `{"id":"chatcmpl-empty","object":"chat.completion","created":1,"model":"m","choices":[],"usage":{"prompt_tokens":10,"completion_tokens":0,"total_tokens":10,"cache_read_input_tokens":6,"cache_creation_input_tokens":3}}`
+	resp := &http.Response{StatusCode: http.StatusOK, Body: io.NopCloser(strings.NewReader(body)), Header: make(http.Header)}
+	rec := httptest.NewRecorder()
+
+	outcome := h.dispatchNonStreaming(rec, httptest.NewRequest("POST", "/v1/chat/completions", http.NoBody), st, candidate, resp, 0, 1.0, true)
+	if outcome != outcomeFailover {
+		t.Fatalf("outcome = %v, want outcomeFailover", outcome)
+	}
+	if r := st.logData.rejected; len(r) != 1 || r[0].prompt != 10 || r[0].cacheHit != 6 || r[0].cacheWrite != 3 || r[0].cacheWrite1h != 0 {
+		t.Errorf("rejected = %+v, want one hop with prompt 10, cacheHit 6, cacheWrite 3, no 1-hour share", r)
 	}
 }
 
