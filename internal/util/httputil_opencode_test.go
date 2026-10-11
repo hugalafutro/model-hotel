@@ -103,3 +103,54 @@ func TestSetOpenCodeGoSession_OnlyOpenCodeGo(t *testing.T) {
 		})
 	}
 }
+
+// IsOpenCodeClaude names the models OpenCode serves over Messages alone: a
+// claude-* id on either OpenCode type, and nothing else.
+func TestIsOpenCodeClaude(t *testing.T) {
+	t.Parallel()
+	tests := []struct {
+		providerType, modelID string
+		want                  bool
+	}{
+		{"opencode-go", "claude-haiku-5-5", true},
+		{"opencode-zen", "claude-sonnet-5", true},
+		{"opencode-go", "gpt-6-luna", false},
+		{"opencode-go", "glm-5.3", false},
+		{"anthropic", "claude-haiku-5-5", false},
+		{"openai", "claude-haiku-5-5", false},
+	}
+	for _, tc := range tests {
+		if got := IsOpenCodeClaude(tc.providerType, tc.modelID); got != tc.want {
+			t.Errorf("IsOpenCodeClaude(%q, %q) = %v, want %v", tc.providerType, tc.modelID, got, tc.want)
+		}
+	}
+	if !IsOpenCodeType("opencode-go") || !IsOpenCodeType("opencode-zen") || IsOpenCodeType("openai") {
+		t.Error("IsOpenCodeType must name exactly the two OpenCode types")
+	}
+}
+
+// SetMessagesAuthHeaders adds what a /messages route reads on top of the type's
+// own headers: for an OpenCode type the Anthropic pair joins the Bearer, for an
+// Anthropic type nothing changes, and every other type keeps only its own.
+func TestSetMessagesAuthHeaders(t *testing.T) {
+	t.Parallel()
+	tests := []struct {
+		providerType           string
+		wantBearer, wantAPIKey bool
+	}{
+		{"opencode-go", true, true},
+		{"opencode-zen", true, true},
+		{"anthropic-messages", false, true},
+		{"anthropic", false, true},
+		{"openai", true, false},
+	}
+	for _, tc := range tests {
+		req := httptest.NewRequest(http.MethodPost, "https://example.invalid/v1/messages", http.NoBody)
+		SetMessagesAuthHeaders(req, tc.providerType, "k-1")
+		gotBearer := req.Header.Get("Authorization") == "Bearer k-1"
+		gotAPIKey := req.Header.Get("x-api-key") == "k-1" && req.Header.Get("anthropic-version") != ""
+		if gotBearer != tc.wantBearer || gotAPIKey != tc.wantAPIKey {
+			t.Errorf("%s: bearer=%v apikey=%v, want bearer=%v apikey=%v", tc.providerType, gotBearer, gotAPIKey, tc.wantBearer, tc.wantAPIKey)
+		}
+	}
+}

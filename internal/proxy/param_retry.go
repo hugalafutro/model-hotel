@@ -268,8 +268,9 @@ func (h *Handler) issueRetry(r *http.Request, st *requestState, candidate modelC
 	}
 	// A Messages retry carries what the Messages route reads (x-api-key for an
 	// OpenCode Claude model, where the type's own header is a Bearer), the same
-	// as the request it re-issues.
-	if st.anthropicEgressAttempt {
+	// as the request it re-issues; the native passthrough is named too so a
+	// retry added to it later inherits the rule.
+	if st.anthropicEgressAttempt || st.anthropicNativeAttempt {
 		util.SetMessagesAuthHeaders(req, providerType, candidate.apiKey)
 	} else {
 		util.SetProviderAuthHeaders(req, providerType, candidate.apiKey)

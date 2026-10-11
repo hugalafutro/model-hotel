@@ -138,7 +138,7 @@ func (h *Handler) learnedStrip(scope, modelID, param string) bool {
 // isOpenCodeType reports the two OpenCode provider types, whose GPT models are
 // served over /v1/responses alone.
 func isOpenCodeType(providerType string) bool {
-	return providerType == "opencode-go" || providerType == "opencode-zen"
+	return util.IsOpenCodeType(providerType)
 }
 
 // isOpenCodeResponsesRefusal reports an OpenCode protocol refusal that means
