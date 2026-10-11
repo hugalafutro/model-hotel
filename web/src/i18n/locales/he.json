@@ -2203,7 +2203,8 @@
 				"circuit_breaker_unstable": "המודל נכשל שוב ושוב (מפסק הזרם נפתח פעמים רבות)",
 				"budget_warning": "אזהרת תקציב (נוצלו 80%)",
 				"budget_exceeded": "חריגה מהתקציב (בקשות נדחו)",
-				"quota_status_changed": "קריאת המכסה של הספק נעצרה או חזרה"
+				"quota_status_lost": "קריאת המכסה של הספק אבדה (אין תוכנית או מפתח נדחה)",
+				"quota_status_restored": "קריאת המכסה של הספק שוחזרה"
 			},
 			"events": {
 				"all": "בחר הכל",

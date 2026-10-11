@@ -2139,7 +2139,8 @@
 				"circuit_breaker_unstable": "Mô hình liên tục lỗi (cầu dao ngắt mạch mở nhiều lần)",
 				"budget_warning": "Cảnh báo ngân sách (đã dùng 80%)",
 				"budget_exceeded": "Vượt ngân sách (yêu cầu bị từ chối)",
-				"quota_status_changed": "Việc đọc hạn mức của nhà cung cấp đã dừng hoặc đã trở lại"
+				"quota_status_lost": "Mất kết quả đọc hạn mức của nhà cung cấp (không có gói hoặc khóa bị từ chối)",
+				"quota_status_restored": "Đã khôi phục kết quả đọc hạn mức của nhà cung cấp"
 			},
 			"events": {
 				"all": "Chọn tất cả",

@@ -2139,7 +2139,8 @@
 				"circuit_breaker_unstable": "モデルが繰り返し停止（サーキットブレーカーが何度も作動）",
 				"budget_warning": "予算警告（80% 消費）",
 				"budget_exceeded": "予算超過（リクエスト拒否）",
-				"quota_status_changed": "プロバイダーのクォータ読み取りが停止または復帰しました"
+				"quota_status_lost": "プロバイダーのクォータ読み取りが失われました（プランなしまたはキー拒否）",
+				"quota_status_restored": "プロバイダーのクォータ読み取りが復帰しました"
 			},
 			"events": {
 				"all": "すべて選択",

@@ -2139,7 +2139,8 @@
 				"circuit_breaker_unstable": "Modellen feiler gjentatte ganger (kretsbryter åpnet flere ganger)",
 				"budget_warning": "Budsjettvarsel (80 % brukt)",
 				"budget_exceeded": "Budsjett overskredet (forespørsler avvist)",
-				"quota_status_changed": "Leverandørens kvoteavlesning stoppet eller kom tilbake"
+				"quota_status_lost": "Leverandørens kvoteavlesning mistet (ingen plan eller nøkkel avvist)",
+				"quota_status_restored": "Leverandørens kvoteavlesning gjenopprettet"
 			},
 			"events": {
 				"all": "Velg alt",

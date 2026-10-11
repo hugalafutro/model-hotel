@@ -2203,7 +2203,8 @@
 				"circuit_breaker_unstable": "Modelul eșuează repetat (disjunctor deschis de mai multe ori)",
 				"budget_warning": "Avertisment buget (80% cheltuit)",
 				"budget_exceeded": "Buget depășit (cereri refuzate)",
-				"quota_status_changed": "Citirea cotei furnizorului s-a oprit sau a revenit"
+				"quota_status_lost": "Citirea cotei furnizorului pierdută (fără plan sau cheie respinsă)",
+				"quota_status_restored": "Citirea cotei furnizorului restabilită"
 			},
 			"events": {
 				"all": "Selectați tot",

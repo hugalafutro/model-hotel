@@ -2267,7 +2267,8 @@
 				"circuit_breaker_unstable": "Model opakovane zlyháva (istič sa opakovane otvoril)",
 				"budget_warning": "Varovanie rozpočtu (minutých 80 %)",
 				"budget_exceeded": "Rozpočet prekročený (požiadavky odmietnuté)",
-				"quota_status_changed": "Čítanie kvóty poskytovateľa prestalo alebo sa obnovilo"
+				"quota_status_lost": "Čítanie kvóty poskytovateľa stratené (bez plánu alebo odmietnutý kľúč)",
+				"quota_status_restored": "Čítanie kvóty poskytovateľa obnovené"
 			},
 			"events": {
 				"all": "Vybrať všetko",

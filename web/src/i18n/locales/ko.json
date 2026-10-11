@@ -2139,7 +2139,8 @@
 				"circuit_breaker_unstable": "모델이 반복적으로 실패함 (서킷 브레이커가 여러 번 개방됨)",
 				"budget_warning": "예산 경고 (80% 사용)",
 				"budget_exceeded": "예산 초과 (요청 거부됨)",
-				"quota_status_changed": "제공업체 할당량 읽기가 중단되었거나 복구되었습니다"
+				"quota_status_lost": "제공업체 할당량 읽기 중단 (요금제 없음 또는 키 거부)",
+				"quota_status_restored": "제공업체 할당량 읽기 복구됨"
 			},
 			"events": {
 				"all": "모두 선택",

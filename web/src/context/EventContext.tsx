@@ -113,10 +113,11 @@ export function EventProvider({ children }: { children: ReactNode }) {
 									exact: true,
 								});
 							}
-							// A quota reading appeared or vanished (a subscription lapsed
-							// or came back). The badges otherwise wait for their own
-							// refresh tick, up to quota_refresh_interval_min away.
-							if (event.type === "quota.status_changed") {
+							// A quota reading vanished or came back (quota.status_lost,
+							// quota.status_restored, or the fleet-synced copy of either).
+							// The badges otherwise wait for their own refresh tick, up to
+							// quota_refresh_interval_min away.
+							if (event.type.startsWith("quota.status_")) {
 								invalidateQuotaQueries(queryClient);
 							}
 						},

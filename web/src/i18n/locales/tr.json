@@ -2139,7 +2139,8 @@
 				"circuit_breaker_unstable": "Model tekrar tekrar başarısız oluyor (devre kesici defalarca açıldı)",
 				"budget_warning": "Bütçe uyarısı (%80 harcandı)",
 				"budget_exceeded": "Bütçe aşıldı (istekler reddedildi)",
-				"quota_status_changed": "Sağlayıcının kota okuması durdu veya geri geldi"
+				"quota_status_lost": "Sağlayıcının kota okuması kesildi (plan yok veya anahtar reddedildi)",
+				"quota_status_restored": "Sağlayıcının kota okuması geri geldi"
 			},
 			"events": {
 				"all": "Tümünü seç",

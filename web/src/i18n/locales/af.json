@@ -2139,7 +2139,8 @@
 				"circuit_breaker_unstable": "Model bly breek (kringbreker herhaaldelik oopgemaak)",
 				"budget_warning": "Begrotingswaarskuwing (80% bestee)",
 				"budget_exceeded": "Begroting oorskry (versoeke geweier)",
-				"quota_status_changed": "Verskaffer se kwotalesing het gestop of teruggekeer"
+				"quota_status_lost": "Verskaffer se kwotalesing verlore (geen plan of sleutel verwerp)",
+				"quota_status_restored": "Verskaffer se kwotalesing herstel"
 			},
 			"events": {
 				"all": "Kies alles",

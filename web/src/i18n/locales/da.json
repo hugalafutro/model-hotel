@@ -2139,7 +2139,8 @@
 				"circuit_breaker_unstable": "Modellen fejler gentagne gange (afbryder udløst flere gange)",
 				"budget_warning": "Budgetadvarsel (80 % brugt)",
 				"budget_exceeded": "Budget overskredet (forespørgsler afvist)",
-				"quota_status_changed": "Udbyderens kvotaaflæsning stoppede eller kom tilbage"
+				"quota_status_lost": "Udbyderens kvotaaflæsning mistet (ingen plan eller nøgle afvist)",
+				"quota_status_restored": "Udbyderens kvotaaflæsning gendannet"
 			},
 			"events": {
 				"all": "Vælg alt",

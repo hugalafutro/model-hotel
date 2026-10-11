@@ -153,15 +153,20 @@ describe("SSE connection and event handling", () => {
 		});
 	});
 
-	it("re-reads every quota badge when a provider's reading changes status", async () => {
+	it.each([
+		"quota.status_lost",
+		"quota.status_restored",
+		"quota.status_synced",
+	])("re-reads every quota badge on %s", async (type) => {
 		// A subscription lapsing or returning flips the stored snapshot between
-		// 204 and 200 on the server's poll; the badge must follow that event, not
-		// wait up to quota_refresh_interval_min for its own tick.
+		// 204 and 200 on the server's poll (or a fleet push on a member); the
+		// badge must follow that event, not wait up to quota_refresh_interval_min
+		// for its own tick.
 		const queryClient = new QueryClient();
 		const invalidate = vi.spyOn(queryClient, "invalidateQueries");
 		sseOnce({
 			id: "evt-q",
-			type: "quota.status_changed",
+			type,
 			severity: "success",
 			message: "OpenCode Go quota reading is back (HTTP 200, was 204)",
 			metadata: { provider_type: "opencode-go", http_status: 200 },

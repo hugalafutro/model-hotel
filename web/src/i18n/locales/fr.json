@@ -2203,7 +2203,8 @@
 				"circuit_breaker_unstable": "Le modèle échoue à répétition (disjoncteur ouvert plusieurs fois)",
 				"budget_warning": "Alerte budget (80 % dépensés)",
 				"budget_exceeded": "Budget dépassé (requêtes refusées)",
-				"quota_status_changed": "La lecture du quota du fournisseur s'est arrêtée ou est revenue"
+				"quota_status_lost": "Lecture du quota du fournisseur perdue (aucun forfait ou clé refusée)",
+				"quota_status_restored": "Lecture du quota du fournisseur rétablie"
 			},
 			"events": {
 				"all": "Tout sélectionner",

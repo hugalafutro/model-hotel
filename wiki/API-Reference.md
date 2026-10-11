@@ -1893,7 +1893,9 @@ data: {"type":"discovery.complete","severity":"success","message":"Discovery com
 | `circuit_breaker.closed` | `success` | A circuit closed (recovered) |
 | `circuit_breaker.unstable` | `warning` | One model opened its circuit 3 times in 24h, so it keeps returning to service still broken |
 | `quota.schema_drift` | `warning` | A provider changed the shape of its quota response |
-| `quota.status_changed` | `success` / `warning` | A provider's quota reading came back (`200`, success) or stopped (`204` no plan, `424` key rejected; warning). Metadata: `provider_id`, `provider`, `provider_type`, `kind`, `http_status`, `previous_http_status`. The dashboard refetches its quota badges on it |
+| `quota.status_lost` | `warning` | A provider's quota reading stopped: the stored snapshot went from `200` to `204` (no plan) or `424` (key rejected). Metadata: `provider_id`, `provider`, `provider_type`, `kind`, `http_status`, `previous_http_status` |
+| `quota.status_restored` | `success` | The reading is back (`200` again); same metadata |
+| `quota.status_synced` | `success` / `warning` | The same flip arriving on a fleet member through the primary's pushed snapshot. Dashboard only (the member's badges refetch on every `quota.status_*` type); not alertable, so a fleet alerts once, from the primary |
 | `budget.warning` | `warning` | A virtual key or user reached 80% of its dollar budget for the period |
 | `budget.exceeded` | `error` | A virtual key or user reached its dollar budget; its requests are refused until the period ends |
 | `tokens.error` | `error` | Error counting tokens |

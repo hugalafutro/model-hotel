@@ -194,10 +194,10 @@ func (h *QuotaFleetHandler) storeSnapshots(ctx context.Context, snaps []QuotaSna
 			skipped++ // provider not present on this member
 			continue
 		}
-		// Read before the write so a status flip the primary observed is
-		// announced on this member too; a Get error only costs the comparison.
-		prev, _ := h.quotaRepo.Get(ctx, prov.ID, s.Kind)
-		wrote, err := h.quotaRepo.UpsertIfNewer(ctx, quota.Snapshot{
+		// The replaced status comes back with the write so a flip the primary
+		// observed is announced on this member too (dashboard only, see
+		// EventTypeQuotaStatusSynced).
+		wrote, prev, err := h.quotaRepo.ReplaceIfNewer(ctx, quota.Snapshot{
 			ProviderID: prov.ID,
 			Kind:       s.Kind,
 			Payload:    s.Payload,
@@ -215,7 +215,7 @@ func (h *QuotaFleetHandler) storeSnapshots(ctx context.Context, snaps []QuotaSna
 		}
 		if wrote {
 			applied++
-			publishQuotaStatusChange(prov, s.Kind, prev, s.HTTPStatus)
+			publishQuotaStatusChange(prov, s.Kind, prev, s.HTTPStatus, true)
 		} else {
 			skipped++
 		}

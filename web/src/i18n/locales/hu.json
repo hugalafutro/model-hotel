@@ -2139,7 +2139,8 @@
 				"circuit_breaker_unstable": "A modell ismételten hibázik (áramkör-megszakító többször nyitva)",
 				"budget_warning": "Keretfigyelmeztetés (80% elköltve)",
 				"budget_exceeded": "Keret túllépve (kérések elutasítva)",
-				"quota_status_changed": "A szolgáltató kvótaolvasása leállt vagy visszatért"
+				"quota_status_lost": "A szolgáltató kvótaolvasása megszűnt (nincs előfizetés vagy elutasított kulcs)",
+				"quota_status_restored": "A szolgáltató kvótaolvasása helyreállt"
 			},
 			"events": {
 				"all": "Összes kijelölése",

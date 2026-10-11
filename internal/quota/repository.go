@@ -37,8 +37,27 @@ func NewRepository(pool *pgxpool.Pool) *Repository { return &Repository{pool: po
 // Upsert writes a fresh snapshot (used by poll and manual refresh), replacing
 // any prior row for the provider+kind and clearing any recorded failure.
 func (r *Repository) Upsert(ctx context.Context, s Snapshot) error {
+	_, err := r.Replace(ctx, s)
+	return err
+}
+
+// Replace is Upsert that also reports the HTTP status of the row it replaced:
+// 0 when there was none, or only the failure placeholder RecordFailure leaves
+// before any fetch has succeeded. The read locks the row inside the same
+// transaction as the write, so two writers straddling a status flip each see
+// the other's result instead of the same stale row, and the flip is announced
+// exactly once.
+func (r *Repository) Replace(ctx context.Context, s Snapshot) (prevStatus int, err error) {
 	s.FetchedAt = sanitizeFetchedAt(s.FetchedAt)
-	_, err := r.pool.Exec(ctx, `
+	tx, err := r.pool.Begin(ctx)
+	if err != nil {
+		return 0, err
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+	if prevStatus, err = lockedStatus(ctx, tx, s.ProviderID, s.Kind); err != nil {
+		return 0, err
+	}
+	if _, err = tx.Exec(ctx, `
 		INSERT INTO provider_quota_snapshots
 			(provider_id, kind, payload, http_status, fetched_at, source, last_error, last_attempt_at)
 		VALUES ($1, $2, $3, $4, $5, $6, NULL, $5)
@@ -49,8 +68,24 @@ func (r *Repository) Upsert(ctx context.Context, s Snapshot) error {
 			source          = EXCLUDED.source,
 			last_error      = NULL,
 			last_attempt_at = EXCLUDED.fetched_at`,
-		s.ProviderID, s.Kind, s.Payload, s.HTTPStatus, s.FetchedAt, s.Source)
-	return err
+		s.ProviderID, s.Kind, s.Payload, s.HTTPStatus, s.FetchedAt, s.Source); err != nil {
+		return 0, err
+	}
+	return prevStatus, tx.Commit(ctx)
+}
+
+// lockedStatus reads and row-locks the stored HTTP status for provider+kind
+// inside tx, 0 when no row exists. A concurrent writer blocks here until this
+// transaction commits and then reads the row this one wrote.
+func lockedStatus(ctx context.Context, tx pgx.Tx, providerID uuid.UUID, kind string) (int, error) {
+	var status int
+	err := tx.QueryRow(ctx,
+		`SELECT http_status FROM provider_quota_snapshots WHERE provider_id = $1 AND kind = $2 FOR UPDATE`,
+		providerID, kind).Scan(&status)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return 0, nil
+	}
+	return status, err
 }
 
 // snapshotColumns is the projection every snapshot read shares, in the order
@@ -175,8 +210,25 @@ func sanitizeFetchedAt(t time.Time) time.Time {
 // never release one, and it is idempotent once applied. Clearing a marker still
 // requires a strictly newer row, i.e. an actual successful refresh.
 func (r *Repository) UpsertIfNewer(ctx context.Context, s Snapshot) (bool, error) {
+	wrote, _, err := r.ReplaceIfNewer(ctx, s)
+	return wrote, err
+}
+
+// ReplaceIfNewer is UpsertIfNewer that also reports the HTTP status of the row
+// found (0 when none, or only a failure placeholder), read under the same row
+// lock as Replace. The status is reported whether or not the write landed, so
+// the caller compares only when wrote is true.
+func (r *Repository) ReplaceIfNewer(ctx context.Context, s Snapshot) (wrote bool, prevStatus int, err error) {
 	s.FetchedAt = sanitizeFetchedAt(s.FetchedAt)
-	tag, err := r.pool.Exec(ctx, `
+	tx, err := r.pool.Begin(ctx)
+	if err != nil {
+		return false, 0, err
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+	if prevStatus, err = lockedStatus(ctx, tx, s.ProviderID, s.Kind); err != nil {
+		return false, 0, err
+	}
+	tag, err := tx.Exec(ctx, `
 		INSERT INTO provider_quota_snapshots
 			(provider_id, kind, payload, http_status, fetched_at, source, last_error, last_attempt_at)
 		VALUES ($1, $2, $3, $4, $5, $6, NULLIF($7::text, ''), $5)
@@ -193,7 +245,7 @@ func (r *Repository) UpsertIfNewer(ctx context.Context, s Snapshot) (bool, error
 		       AND EXCLUDED.last_error IS NOT NULL)`,
 		s.ProviderID, s.Kind, s.Payload, s.HTTPStatus, s.FetchedAt, s.Source, s.LastError)
 	if err != nil {
-		return false, err
+		return false, 0, err
 	}
-	return tag.RowsAffected() > 0, nil
+	return tag.RowsAffected() > 0, prevStatus, tx.Commit(ctx)
 }
