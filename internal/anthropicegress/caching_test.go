@@ -234,9 +234,16 @@ func TestCacheControlRefused(t *testing.T) {
 		// One item's location naming the field and another's message refusing
 		// something else do not add up to a refusal of the field.
 		`{"detail":[{"loc":["body","system",0,"cache_control","type"],"msg":"Input should be 'ephemeral'"},{"loc":["body","top_k"],"msg":"Extra inputs are not permitted"}]}`: false,
-		// A non-object body cannot carry an echoed request, so it is read whole.
+		// A top-level array is read as items or strings, never whole: a bare
+		// pydantic list echoes the request under "input" too.
 		`["cache_control: Extra inputs are not permitted"]`: true,
 		`"unknown field cache_control"`:                     true,
+		`[{"loc":["body","top_k"],"msg":"Extra inputs are not permitted","input":{"system":[{"type":"text","text":"x","cache_control":{"type":"ephemeral"}}]}}]`: false,
+		`[{"loc":["body","system",0,"cache_control"],"msg":"Extra inputs are not permitted","input":{"text":"nothing here matters"}}]`:                           true,
+		`[{"loc":["body","system",0,"cache_control"],"msg":"Extra inputs are not permitted"}]`:                                                                   true,
+		// An array of error envelopes is one message per envelope, judged apart.
+		`[{"error":{"message":"cache_control: field required"}},{"error":{"message":"top_p is not permitted"}}]`: false,
+		`[{"error":{"message":"top_p: field required"}},{"error":{"message":"unknown field cache_control"}}]`:    true,
 		// A "message" of another type is skipped, the items still read.
 		`{"message":["x"],"detail":[{"loc":["body","cache_control"],"msg":"Extra inputs are not permitted"}]}`:                                        true,
 		`{"error":{"message":"unrecognized field cache_control; ttl-based options are not permitted here"}}`:                                          true,

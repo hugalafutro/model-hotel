@@ -4,8 +4,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"strings"
-
-	"github.com/hugalafutro/model-hotel/internal/util"
 )
 
 // MaxCacheBreakpoints is Anthropic's limit on cache_control markers per request.
@@ -89,11 +87,10 @@ func lastCacheableBlock(blocks []antBlock) int {
 // carrying one. None of those is a reason to stop caching.
 //
 // The message is read from the {"error":{"message"}} envelope when there is
-// one; otherwise from the other shapes a validator answers in (a top-level
-// "message", a FastAPI "detail" string or list of {loc, msg} items), and from
-// the body itself only when it is not JSON at all. Never from a JSON body's
-// other members: a pydantic item echoes the request under "input", and a
-// refusal word in the user's own text must not switch caching off. Each
+// one; otherwise from the shapes a validator answers in (refusalTexts), and
+// from the body itself only when it is not JSON at all. Never from a JSON
+// body's other members: a pydantic item echoes the request under "input", and
+// a refusal word in the user's own text must not switch caching off. Each
 // validation item is judged on its own, so "cache_control: field required"
 // beside "top_p: Extra inputs are not permitted" is not a refusal of the
 // field either.
@@ -127,41 +124,80 @@ func refusesCacheControl(msg string) bool {
 }
 
 // refusalTexts are the parts of a 400 body a refusal can be read from, each
-// judged on its own: the error envelope's message, else the validator members
-// of a JSON object ("message" when it is a string; "detail" as a string, or
-// one text per validation item, its location joined to its message), else the
-// raw text of a body that is not a JSON object (bounded; plain text, an array,
-// a bare string cannot carry the echoed request this guards against). A JSON
-// object of any other shape yields nothing, so nothing is learned from it.
+// judged on its own: the error envelope's message (one per envelope when a
+// relay answers with an array of them), else the validator members of a JSON
+// object ("message" when it is a string; "detail" as a string, or one text per
+// validation item, its location joined to its message), a top-level array of
+// such items or of strings, a bare JSON string, and the raw text of a body that
+// is not JSON (bounded). A pydantic item's "input" echoes the request and is
+// never read; JSON of any other shape yields nothing, so nothing is learned
+// from it.
 func refusalTexts(body []byte) []string {
-	if msg := util.ErrorEnvelopeMessage(body); msg != "" {
-		return []string{msg}
+	type envelope struct {
+		Error struct {
+			Message string `json:"message"`
+		} `json:"error"`
+	}
+	var one envelope
+	if json.Unmarshal(body, &one) == nil && one.Error.Message != "" {
+		return []string{one.Error.Message}
+	}
+	var many []envelope
+	if json.Unmarshal(body, &many) == nil {
+		var texts []string
+		for _, e := range many {
+			if e.Error.Message != "" {
+				texts = append(texts, e.Error.Message)
+			}
+		}
+		if len(texts) > 0 {
+			return texts
+		}
 	}
 	var members map[string]json.RawMessage
-	if json.Unmarshal(body, &members) != nil {
+	switch {
+	case json.Unmarshal(body, &members) == nil:
+		var texts []string
+		var message, detail string
+		if json.Unmarshal(members["message"], &message) == nil {
+			texts = append(texts, message)
+		}
+		if json.Unmarshal(members["detail"], &detail) == nil {
+			texts = append(texts, detail)
+		}
+		return append(texts, itemTexts(members["detail"])...)
+	case json.Valid(body):
+		var text string
+		if json.Unmarshal(body, &text) == nil {
+			return []string{text}
+		}
+		var strs []string
+		if json.Unmarshal(body, &strs) == nil {
+			return strs
+		}
+		return itemTexts(body)
+	default:
 		return []string{string(body[:min(len(body), 4096)])}
 	}
-	var texts []string
-	var message string
-	if json.Unmarshal(members["message"], &message) == nil {
-		texts = append(texts, message)
-	}
-	var detail string
-	if json.Unmarshal(members["detail"], &detail) == nil {
-		texts = append(texts, detail)
-	}
+}
+
+// itemTexts reads a validator's list of {loc, msg} items, one text per item.
+// Anything that is not such a list yields nothing.
+func itemTexts(raw json.RawMessage) []string {
 	var items []struct {
 		Loc []any  `json:"loc"`
 		Msg string `json:"msg"`
 	}
-	if json.Unmarshal(members["detail"], &items) == nil {
-		for _, item := range items {
-			parts := make([]string, 0, len(item.Loc)+1)
-			for _, loc := range item.Loc {
-				parts = append(parts, fmt.Sprint(loc))
-			}
-			texts = append(texts, strings.Join(append(parts, item.Msg), " "))
+	if json.Unmarshal(raw, &items) != nil {
+		return nil
+	}
+	texts := make([]string, 0, len(items))
+	for _, item := range items {
+		parts := make([]string, 0, len(item.Loc)+1)
+		for _, loc := range item.Loc {
+			parts = append(parts, fmt.Sprint(loc))
 		}
+		texts = append(texts, strings.Join(append(parts, item.Msg), " "))
 	}
 	return texts
 }

@@ -232,9 +232,13 @@ func (h *Handler) emitRawData(sink *streamSink, st *streamState, native nativeDi
 		if info.CacheWrite1hTokens > 0 {
 			st.promptCacheWrite1hTokens = util.ClampTokenCount(info.CacheWrite1hTokens)
 		}
-		// The share never exceeds the total it is part of, whichever event
-		// reported which.
-		st.promptCacheWrite1hTokens = min(st.promptCacheWrite1hTokens, st.promptCacheWriteTokens)
+		// The share never exceeds the total it is part of. An event carries the
+		// share only beside its total (the decoder caps it there), so by now the
+		// total is known whenever the share is; the guard keeps a share an
+		// earlier event reported if a later one somehow carries neither.
+		if st.promptCacheWriteTokens > 0 {
+			st.promptCacheWrite1hTokens = min(st.promptCacheWrite1hTokens, st.promptCacheWriteTokens)
+		}
 		if info.CacheHitTokens > 0 || info.CacheMissTokens > 0 {
 			st.promptCacheHitTokens = util.ClampTokenCount(info.CacheHitTokens)
 			st.promptCacheMissTokens = util.ClampTokenCount(info.CacheMissTokens)
