@@ -488,7 +488,7 @@ func TestDeleteProvider_RemovesQuotaSchemaBaseline_Integration(t *testing.T) {
 
 	id := insertQuotaPollProvider(t, h.dbPool.Pool(), "ollama-orphan", "https://ollama.com", true)
 
-	if err := h.quotaRepo.Upsert(ctx, quota.Snapshot{
+	if _, err := h.quotaRepo.Replace(ctx, quota.Snapshot{
 		ProviderID: id, Kind: "account", Payload: json.RawMessage(`{"plan":"pro"}`),
 		HTTPStatus: 200, Source: "poll", FetchedAt: time.Now(),
 	}); err != nil {
@@ -539,7 +539,7 @@ func TestQuotaDriftWatchAlertsOnlyAfterTheChangeRepeats(t *testing.T) {
 	seed := func(payload string) {
 		t.Helper()
 		fetch++
-		if err := h.quotaRepo.Upsert(ctx, quota.Snapshot{
+		if _, err := h.quotaRepo.Replace(ctx, quota.Snapshot{
 			ProviderID: id, Kind: "account", Payload: json.RawMessage(payload),
 			HTTPStatus: 200, Source: "poll",
 			FetchedAt: time.Now().Add(-time.Duration(10-fetch) * time.Minute),
@@ -626,7 +626,7 @@ func TestQuotaDriftWatchIgnoresNon200Snapshot(t *testing.T) {
 
 	id := insertQuotaPollProvider(t, h.dbPool.Pool(), "ollama-dead-key", "https://ollama.com", true)
 
-	if err := h.quotaRepo.Upsert(ctx, quota.Snapshot{
+	if _, err := h.quotaRepo.Replace(ctx, quota.Snapshot{
 		ProviderID: id, Kind: "account", Payload: json.RawMessage(`{"plan":"pro"}`),
 		HTTPStatus: 200, Source: "poll", FetchedAt: time.Now(),
 	}); err != nil {
@@ -640,7 +640,7 @@ func TestQuotaDriftWatchIgnoresNon200Snapshot(t *testing.T) {
 	// The credential dies: the endpoint now answers 424 with an error body of a
 	// completely different shape. Twice, so the debounce is not what saves us.
 	for range 2 {
-		if err := h.quotaRepo.Upsert(ctx, quota.Snapshot{
+		if _, err := h.quotaRepo.Replace(ctx, quota.Snapshot{
 			ProviderID: id, Kind: "account", Payload: json.RawMessage(`{"error":{"code":"invalid_key"}}`),
 			HTTPStatus: 424, Source: "poll", FetchedAt: time.Now(),
 		}); err != nil {
@@ -672,7 +672,7 @@ func TestQuotaDriftWatchDoesNotConfirmOnARefetchedRow(t *testing.T) {
 
 	upsert := func(payload string, fetchedAt time.Time) {
 		t.Helper()
-		if err := h.quotaRepo.Upsert(ctx, quota.Snapshot{
+		if _, err := h.quotaRepo.Replace(ctx, quota.Snapshot{
 			ProviderID: id, Kind: "account", Payload: json.RawMessage(payload),
 			HTTPStatus: 200, Source: "fleet", FetchedAt: fetchedAt,
 		}); err != nil {

@@ -259,7 +259,7 @@ func TestPollQuotasOnce_SuppressesWhenRecentFleetSnapshot(t *testing.T) {
 	id := insertQuotaPollProvider(t, h.dbPool.Pool(), "nanogpt-fleet-recent", "https://api.nano-gpt.com/v1", true)
 
 	// A recent fleet-distributed snapshot already exists.
-	if err := h.quotaRepo.Upsert(context.Background(), quota.Snapshot{
+	if _, err := h.quotaRepo.Replace(context.Background(), quota.Snapshot{
 		ProviderID: id, Kind: "usage", Payload: json.RawMessage(`{"used":1}`), HTTPStatus: 200, Source: "fleet", FetchedAt: time.Now(),
 	}); err != nil {
 		t.Fatalf("seed fleet snapshot: %v", err)
@@ -293,7 +293,7 @@ func TestPollQuotasOnce_PollsWhenFleetSnapshotStale(t *testing.T) {
 	id := insertQuotaPollProvider(t, h.dbPool.Pool(), "nanogpt-fleet-stale", "https://api.nano-gpt.com/v1", true)
 
 	// A stale fleet snapshot (older than the poll interval) must not suppress.
-	if err := h.quotaRepo.Upsert(context.Background(), quota.Snapshot{
+	if _, err := h.quotaRepo.Replace(context.Background(), quota.Snapshot{
 		ProviderID: id, Kind: "usage", Payload: json.RawMessage(`{"used":1}`), HTTPStatus: 200, Source: "fleet", FetchedAt: time.Now().Add(-2 * time.Hour),
 	}); err != nil {
 		t.Fatalf("seed stale fleet snapshot: %v", err)
@@ -406,13 +406,13 @@ func TestRefreshQuotaAdvice_ThreeIntervalWindowBoundary(t *testing.T) {
 	resetsAt := time.Now().Add(4 * time.Hour)
 	payload := exhaustedZaiCodingPayload(t, resetsAt)
 
-	if err := h.quotaRepo.Upsert(ctx, quota.Snapshot{
+	if _, err := h.quotaRepo.Replace(ctx, quota.Snapshot{
 		ProviderID: freshID, Kind: "usage", Payload: payload, HTTPStatus: 200, Source: "poll",
 		FetchedAt: time.Now().Add(-14 * time.Minute),
 	}); err != nil {
 		t.Fatalf("seed fresh snapshot: %v", err)
 	}
-	if err := h.quotaRepo.Upsert(ctx, quota.Snapshot{
+	if _, err := h.quotaRepo.Replace(ctx, quota.Snapshot{
 		ProviderID: oldID, Kind: "usage", Payload: payload, HTTPStatus: 200, Source: "poll",
 		FetchedAt: time.Now().Add(-16 * time.Minute),
 	}); err != nil {
@@ -506,7 +506,7 @@ func TestRefreshQuotaAdvice_LogsAdvisedProvidersAtInfoOnlyWhenAdvising(t *testin
 	capt := captureLogs(t)
 
 	// A healthy provider: nothing advised, so the line stays at Debug.
-	if err := h.quotaRepo.Upsert(ctx, quota.Snapshot{
+	if _, err := h.quotaRepo.Replace(ctx, quota.Snapshot{
 		ProviderID: id, Kind: "usage", HTTPStatus: 200, Source: "poll", FetchedAt: time.Now(),
 		Payload: json.RawMessage(`{"data":{"limits":[{"type":"TOKENS_LIMIT","unit":3,"remaining":5000,"nextResetTime":0}]}}`),
 	}); err != nil {
@@ -526,7 +526,7 @@ func TestRefreshQuotaAdvice_LogsAdvisedProvidersAtInfoOnlyWhenAdvising(t *testin
 	}
 
 	// The window is now spent: an operator needs to see this in a normal log.
-	if err := h.quotaRepo.Upsert(ctx, quota.Snapshot{
+	if _, err := h.quotaRepo.Replace(ctx, quota.Snapshot{
 		ProviderID: id, Kind: "usage", HTTPStatus: 200, Source: "poll", FetchedAt: time.Now(),
 		Payload: exhaustedZaiCodingPayload(t, time.Now().Add(4*time.Hour)),
 	}); err != nil {
@@ -624,13 +624,13 @@ func TestRefreshQuotaAdvice_ReleasesPinsForRecoveredProviders(t *testing.T) {
 	spentID := insertQuotaPollProvider(t, h.dbPool.Pool(), "zai-still-spent", "https://api.z.ai", true)
 	recoveredID := insertQuotaPollProvider(t, h.dbPool.Pool(), "zai-recovered", "https://api.z.ai", true)
 
-	if err := h.quotaRepo.Upsert(ctx, quota.Snapshot{
+	if _, err := h.quotaRepo.Replace(ctx, quota.Snapshot{
 		ProviderID: spentID, Kind: "usage", HTTPStatus: 200, Source: "poll", FetchedAt: time.Now(),
 		Payload: exhaustedZaiCodingPayload(t, time.Now().Add(4*time.Hour)),
 	}); err != nil {
 		t.Fatalf("seed exhausted snapshot: %v", err)
 	}
-	if err := h.quotaRepo.Upsert(ctx, quota.Snapshot{
+	if _, err := h.quotaRepo.Replace(ctx, quota.Snapshot{
 		ProviderID: recoveredID, Kind: "usage", HTTPStatus: 200, Source: "poll", FetchedAt: time.Now(),
 		Payload: json.RawMessage(`{"data":{"limits":[{"type":"TOKENS_LIMIT","unit":3,"remaining":5000,"nextResetTime":0}]}}`),
 	}); err != nil {
@@ -733,7 +733,7 @@ func TestRefreshQuotaAdvice_ReleasesPinsOnlyOnFreshRecoveryEvidence(t *testing.T
 	for i, c := range cases {
 		ids[i] = insertQuotaPollProvider(t, h.dbPool.Pool(), c.name, "https://api.z.ai", true)
 		if c.seed {
-			if err := h.quotaRepo.Upsert(ctx, quota.Snapshot{
+			if _, err := h.quotaRepo.Replace(ctx, quota.Snapshot{
 				ProviderID: ids[i], Kind: "usage", HTTPStatus: 200, Source: "poll",
 				FetchedAt: c.fetchedAt, Payload: c.payload,
 			}); err != nil {
@@ -881,7 +881,7 @@ func TestDisableQuotaAdvice_ReleasesPinsThatARefreshWouldKeep(t *testing.T) {
 	h.SetCircuitBreaker(cb)
 
 	spentID := insertQuotaPollProvider(t, h.dbPool.Pool(), "zai-still-spent", "https://api.z.ai", true)
-	if err := h.quotaRepo.Upsert(ctx, quota.Snapshot{
+	if _, err := h.quotaRepo.Replace(ctx, quota.Snapshot{
 		ProviderID: spentID, Kind: "usage", HTTPStatus: 200, Source: "poll", FetchedAt: time.Now(),
 		Payload: exhaustedZaiCodingPayload(t, time.Now().Add(4*time.Hour)),
 	}); err != nil {
@@ -929,7 +929,7 @@ func TestRefreshQuotaAdvice_NeverTakesTheReleaseAllPath(t *testing.T) {
 	h.SetCircuitBreaker(rec)
 
 	id := insertQuotaPollProvider(t, h.dbPool.Pool(), "zai-spent-releaseall", "https://api.z.ai", true)
-	if err := h.quotaRepo.Upsert(ctx, quota.Snapshot{
+	if _, err := h.quotaRepo.Replace(ctx, quota.Snapshot{
 		ProviderID: id, Kind: "usage", HTTPStatus: 200, Source: "poll", FetchedAt: time.Now(),
 		Payload: exhaustedZaiCodingPayload(t, time.Now().Add(4*time.Hour)),
 	}); err != nil {
@@ -1297,7 +1297,7 @@ func TestNudgeQuotaPoll_SpentPollBudgetDoesNotWipeAdvice(t *testing.T) {
 
 	resetsAt := time.Now().Add(4 * time.Hour)
 	for _, id := range []uuid.UUID{nudged, bystander} {
-		if err := h.quotaRepo.Upsert(ctx, quota.Snapshot{
+		if _, err := h.quotaRepo.Replace(ctx, quota.Snapshot{
 			ProviderID: id, Kind: "usage", Payload: exhaustedZaiCodingPayload(t, resetsAt),
 			HTTPStatus: 200, Source: "poll", FetchedAt: time.Now(),
 		}); err != nil {

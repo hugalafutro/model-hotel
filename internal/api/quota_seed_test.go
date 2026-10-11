@@ -28,7 +28,7 @@ func TestRefreshQuotaAdvice_SeedsAPinOnAClosedCircuit(t *testing.T) {
 	ctx := context.Background()
 
 	id := insertQuotaPollProvider(t, h.dbPool.Pool(), "zai-spent", "https://api.z.ai", true)
-	if err := h.quotaRepo.Upsert(ctx, quota.Snapshot{
+	if _, err := h.quotaRepo.Replace(ctx, quota.Snapshot{
 		ProviderID: id, Kind: "usage", HTTPStatus: 200, Source: "poll",
 		Payload:   exhaustedZaiCodingPayload(t, time.Now().Add(4*time.Hour)),
 		FetchedAt: time.Now().Add(-time.Minute),
@@ -84,7 +84,7 @@ func TestRefreshQuotaAdvice_UnusableSnapshotSeedsNothing(t *testing.T) {
 			ctx := context.Background()
 
 			id := insertQuotaPollProvider(t, h.dbPool.Pool(), "ocgo-"+tc.name, "https://opencode.ai/zen/v1", true)
-			if err := h.quotaRepo.Upsert(ctx, quota.Snapshot{
+			if _, err := h.quotaRepo.Replace(ctx, quota.Snapshot{
 				ProviderID: id, Kind: "usage", HTTPStatus: 200, Source: "poll",
 				Payload:   json.RawMessage(tc.payload),
 				FetchedAt: time.Now().Add(-time.Minute),
@@ -118,7 +118,7 @@ func TestRefreshQuotaAdvice_SeededPinReleasedWhenTheSnapshotReadsHealthy(t *test
 	id := insertQuotaPollProvider(t, h.dbPool.Pool(), "zai-recovers", "https://api.z.ai", true)
 	store := func(payload json.RawMessage) {
 		t.Helper()
-		if err := h.quotaRepo.Upsert(ctx, quota.Snapshot{
+		if _, err := h.quotaRepo.Replace(ctx, quota.Snapshot{
 			ProviderID: id, Kind: "usage", HTTPStatus: 200, Source: "poll",
 			Payload: payload, FetchedAt: time.Now().Add(-time.Minute),
 		}); err != nil {
