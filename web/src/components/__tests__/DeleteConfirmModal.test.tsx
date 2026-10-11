@@ -77,6 +77,11 @@ describe("DeleteConfirmModal", () => {
 		);
 	});
 
+	it("focuses the text field on open so typing can start at once", () => {
+		render(<DeleteConfirmModal {...baseProps} />);
+		expect(document.activeElement).toBe(input());
+	});
+
 	it("keeps the delete button disabled until the exact text is typed", async () => {
 		const user = userEvent.setup();
 		render(<DeleteConfirmModal {...baseProps} />);

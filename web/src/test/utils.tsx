@@ -115,5 +115,7 @@ export async function armDeleteConfirm(
 	await user.type(input, text);
 	const form = input.closest("form");
 	if (!form) throw new Error("delete-confirm-input is not inside its form");
-	return within(form).getByRole("button", { name: "Delete" });
+	const button = form.querySelector<HTMLButtonElement>('button[type="submit"]');
+	if (!button) throw new Error("delete-confirm form has no submit button");
+	return button;
 }

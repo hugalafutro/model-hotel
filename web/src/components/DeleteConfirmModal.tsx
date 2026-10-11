@@ -99,6 +99,8 @@ export function DeleteConfirmModal({
 					onChange={(e) => setTyped(e.target.value)}
 					autoComplete="off"
 					spellCheck={false}
+					// biome-ignore lint/a11y/noAutofocus: the field is the dialog's only control and the whole point of it
+					autoFocus
 					className="ui-input mb-4"
 					data-testid="delete-confirm-input"
 				/>

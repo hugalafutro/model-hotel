@@ -27,11 +27,20 @@ import type {
  */
 const NEURALWATT_CREDITS_SPENT_FLOOR_USD = 0.01;
 
+// The weekly and the daily input-token counters, as assessNanoGPT walks them:
+// either one at its cap stops the account.
 export function isNanoGptQuotaSpent(u: NanoGptUsageLike): boolean {
 	if (u.allowOverage === true) return false;
-	const limit = u.limits?.weeklyInputTokens;
-	const used = u.weeklyInputTokens?.used;
-	return limit != null && limit > 0 && used != null && used >= limit;
+	const counters: Array<
+		[number | null | undefined, number | null | undefined]
+	> = [
+		[u.limits?.weeklyInputTokens, u.weeklyInputTokens?.used],
+		[u.limits?.dailyInputTokens, u.dailyInputTokens?.used],
+	];
+	return counters.some(
+		([limit, used]) =>
+			limit != null && limit > 0 && used != null && used >= limit,
+	);
 }
 
 // A sane percentage decides; Z.ai sends an explicit remaining: 0 on windows

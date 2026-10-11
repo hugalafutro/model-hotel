@@ -156,9 +156,15 @@ export const Modal = forwardRef<ModalHandle, ModalProps>(function Modal(
 	// hand focus back to whatever opened it when it unmounts: aria-modal says
 	// the rest of the page is inert, so a keyboard user must not be dropped on
 	// <body> and made to start over from the top.
+	// A child that mounts with autoFocus (the typed delete confirmation) has
+	// already placed focus inside the dialog by the time this runs, so the
+	// opener is captured during render and the container focus steps aside.
+	const openerRef = useRef<Element | null>(null);
+	if (openerRef.current === null) openerRef.current = document.activeElement;
 	useEffect(() => {
-		const opener = document.activeElement;
-		dialogRef.current?.focus();
+		const opener = openerRef.current;
+		if (!dialogRef.current?.contains(document.activeElement))
+			dialogRef.current?.focus();
 		return () => {
 			if (opener instanceof HTMLElement && opener.isConnected) opener.focus();
 		};

@@ -960,6 +960,18 @@ describe("EditProviderModal", () => {
 			).not.toBeNull();
 		});
 
+		it("keeps the slider for a type the reserve does not govern while a leftover reserve is set, so it can be cleared", () => {
+			renderWithProviders(
+				<EditProviderModal
+					{...defaultProps}
+					provider={{ ...mockProvider, quota_reserve_percent: 15 }}
+				/>,
+			);
+			expect(
+				document.getElementById("edit-provider-quota-reserve"),
+			).not.toBeNull();
+		});
+
 		it("sends a moved quota reserve slider and nothing when it stays put", async () => {
 			const captured = capturePut();
 			const { user } = renderWithProviders(
