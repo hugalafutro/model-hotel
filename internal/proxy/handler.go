@@ -90,6 +90,14 @@ type Handler struct {
 	// model, while a persisted fact would go stale the next time Anthropic moves
 	// a model between dialects.
 	thinkingDialectCache sync.Map
+	// cacheRefusedCache records the Messages endpoints that rejected the
+	// cache_control field, keyed like thinkingDialectCache. Value: true. The
+	// translator then builds that model's requests without prompt-cache
+	// breakpoints. Anthropic itself never refuses them; this is for an
+	// operator-entered Messages endpoint that is not Anthropic's. In-memory like
+	// the other learned facts: a restart costs one 400 there, and a persisted
+	// refusal would outlive an endpoint upgrade that started accepting the field.
+	cacheRefusedCache sync.Map
 	// goneStrikes counts consecutive KindProviderModelGone responses per model
 	// UUID, so a model the provider has retired is probed and then disabled
 	// after goneStrikeThreshold refusals. Deliberately in-memory and

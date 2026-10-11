@@ -164,10 +164,12 @@ type oaiTool struct {
 // --- Outgoing Anthropic Messages request shape ---
 
 type antRequest struct {
-	Model         string           `json:"model"`
-	MaxTokens     int              `json:"max_tokens"`
-	Messages      []antMessage     `json:"messages"`
-	System        string           `json:"system,omitempty"`
+	Model     string       `json:"model"`
+	MaxTokens int          `json:"max_tokens"`
+	Messages  []antMessage `json:"messages"`
+	// System is a plain string, or []antSystemBlock when a cache breakpoint has
+	// to sit on it (Anthropic accepts both; only a block can carry cache_control).
+	System        any              `json:"system,omitempty"`
 	Stream        bool             `json:"stream,omitempty"`
 	Temperature   *float64         `json:"temperature,omitempty"`
 	TopP          *float64         `json:"top_p,omitempty"`
@@ -194,8 +196,24 @@ type antMessage struct {
 	Content any    `json:"content"`
 }
 
+// antCacheControl marks a prompt-cache breakpoint on a tool, system block or
+// content block: Anthropic caches the prefix ending there.
+type antCacheControl struct {
+	Type string `json:"type"` // "ephemeral"
+}
+
+// antSystemBlock is one block of a system prompt in array form, the shape a
+// cache breakpoint needs.
+type antSystemBlock struct {
+	Type         string           `json:"type"` // "text"
+	Text         string           `json:"text"`
+	CacheControl *antCacheControl `json:"cache_control,omitempty"`
+}
+
 type antBlock struct {
 	Type string `json:"type"` // "text" | "image" | "document" | "tool_use" | "tool_result"
+	// cache_control is accepted on every block type this translator emits.
+	CacheControl *antCacheControl `json:"cache_control,omitempty"`
 	// text
 	Text string `json:"text,omitempty"`
 	// image / document
@@ -217,9 +235,10 @@ type antSource struct {
 }
 
 type antTool struct {
-	Name        string          `json:"name"`
-	Description string          `json:"description,omitempty"`
-	InputSchema json.RawMessage `json:"input_schema"`
+	Name         string           `json:"name"`
+	Description  string           `json:"description,omitempty"`
+	InputSchema  json.RawMessage  `json:"input_schema"`
+	CacheControl *antCacheControl `json:"cache_control,omitempty"`
 }
 
 type antToolChoice struct {
@@ -245,8 +264,26 @@ func TranslateRequest(chatBody []byte) (body []byte, model string, stream bool, 
 }
 
 // TranslateRequestWithDialect is TranslateRequest with the thinking dialect
-// chosen by the caller.
+// chosen by the caller, and no cache breakpoints.
 func TranslateRequestWithDialect(chatBody []byte, dialect ThinkingDialect) (body []byte, model string, stream bool, err error) {
+	return TranslateRequestWithOptions(chatBody, Options{Dialect: dialect})
+}
+
+// Options tunes a translation for one candidate.
+type Options struct {
+	// Dialect is the extended-thinking shape to ask for.
+	Dialect ThinkingDialect
+	// Caching places prompt-cache breakpoints (see applyCacheBreakpoints). On for
+	// served traffic, off for the retirement probe and the Test button, whose
+	// bodies are below every model's minimum cacheable length anyway, and off
+	// again for a model whose endpoint refused the field (CacheControlRefused).
+	Caching bool
+}
+
+// TranslateRequestWithOptions is TranslateRequest with every per-candidate
+// choice made by the caller.
+func TranslateRequestWithOptions(chatBody []byte, opts Options) (body []byte, model string, stream bool, err error) {
+	dialect := opts.Dialect
 	var req oaiRequest
 	if err := json.Unmarshal(chatBody, &req); err != nil {
 		return nil, "", false, fmt.Errorf("anthropicegress: invalid request body: %s", jsonfault.Describe(err, len(chatBody)))
@@ -271,7 +308,11 @@ func TranslateRequestWithDialect(chatBody []byte, dialect ThinkingDialect) (body
 	if len(messages) == 0 {
 		return nil, "", false, errors.New("anthropicegress: at least one user or assistant message with content is required")
 	}
-	out.System = foldResponseFormat(system, req.ResponseFormat)
+	// Assigned only when non-empty: an interface holding "" is not "empty" to
+	// encoding/json's omitempty, and Anthropic rejects an empty system string.
+	if system := foldResponseFormat(system, req.ResponseFormat); system != "" {
+		out.System = system
+	}
 	out.Messages = messages
 
 	// tool_choice "none" has no Anthropic equivalent; the tools array goes with
@@ -295,6 +336,9 @@ func TranslateRequestWithDialect(chatBody []byte, dialect ThinkingDialect) (body
 	}
 
 	applyThinking(&out, req.ReasoningEffort, dialect)
+	if opts.Caching {
+		applyCacheBreakpoints(&out)
+	}
 
 	body, err = json.Marshal(out)
 	if err != nil {
@@ -323,6 +367,51 @@ func foldResponseFormat(system string, raw json.RawMessage) string {
 		return instruction
 	}
 	return system + "\n\n" + instruction
+}
+
+// MaxCacheBreakpoints is Anthropic's limit on cache_control markers per request.
+// applyCacheBreakpoints never places more than this many.
+const MaxCacheBreakpoints = 4
+
+var ephemeral = &antCacheControl{Type: "ephemeral"}
+
+// applyCacheBreakpoints places Anthropic prompt-cache breakpoints on the built
+// request. Without one Anthropic caches nothing, so every turn of an agent
+// loop re-reads its whole context at full price; with them a prefix that
+// repeats is read back at the cache-read price. Breakpoints go where the
+// cache hierarchy (tools, then system, then messages) makes a reusable prefix:
+//
+//   - the last tool, so the tool set is one prefix shared by every request
+//     that carries it;
+//   - the system prompt, lifted into array form because only a block carries
+//     cache_control, shared by every conversation under the same instructions;
+//   - the last block of the final turn, which moves forward as a conversation
+//     grows (Anthropic looks back up to twenty block positions from a
+//     breakpoint for an earlier cache entry, so the previous request's prefix is
+//     found again);
+//   - the last block of the turn before it, the standing entry a growing
+//     conversation hits while the final one is being written.
+//
+// That is exactly MaxCacheBreakpoints when every part is present and fewer
+// otherwise, and a chat-completions client has no way of adding its own, so the
+// limit cannot be exceeded. A turn marked here is promoted from string content
+// to one text block; unmarked turns keep whatever shape they had. Prompts below
+// a model's minimum cacheable length are accepted and simply not cached.
+func applyCacheBreakpoints(out *antRequest) {
+	if n := len(out.Tools); n > 0 {
+		out.Tools[n-1].CacheControl = ephemeral
+	}
+	if system, ok := out.System.(string); ok && system != "" {
+		out.System = []antSystemBlock{{Type: "text", Text: system, CacheControl: ephemeral}}
+	}
+	for i := len(out.Messages) - 1; i >= 0 && i >= len(out.Messages)-2; i-- {
+		blocks := contentBlocks(out.Messages[i].Content)
+		if len(blocks) == 0 {
+			continue
+		}
+		blocks[len(blocks)-1].CacheControl = ephemeral
+		out.Messages[i].Content = blocks
+	}
 }
 
 // applyThinking turns an OpenAI reasoning_effort into the Anthropic thinking
