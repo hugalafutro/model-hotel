@@ -244,6 +244,11 @@ func TestCacheControlRefused(t *testing.T) {
 		// An array of error envelopes is one message per envelope, judged apart.
 		`[{"error":{"message":"cache_control: field required"}},{"error":{"message":"top_p is not permitted"}}]`: false,
 		`[{"error":{"message":"top_p: field required"}},{"error":{"message":"unknown field cache_control"}}]`:    true,
+		// A JSON body cut off by the learn-body cap is not read as text: its
+		// echoed request would be.
+		`{"detail":[{"loc":["body","top_k"],"msg":"Extra inputs are not permitted","input":{"system":[{"cache_control":{"type":"ephemeral"}}`: false,
+		`  [{"loc":["body","cache_control"],"msg":"Extra inputs are not permitted"`:                                                           false,
+		`cache_control: Extra inputs are not permitted (plain text)`:                                                                          true,
 		// A "message" of another type is skipped, the items still read.
 		`{"message":["x"],"detail":[{"loc":["body","cache_control"],"msg":"Extra inputs are not permitted"}]}`:                                        true,
 		`{"error":{"message":"unrecognized field cache_control; ttl-based options are not permitted here"}}`:                                          true,

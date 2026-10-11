@@ -1,6 +1,7 @@
 package anthropicegress
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"strings"
@@ -129,7 +130,7 @@ func refusesCacheControl(msg string) bool {
 // object ("message" when it is a string; "detail" as a string, or one text per
 // validation item, its location joined to its message), a top-level array of
 // such items or of strings, a bare JSON string, and the raw text of a body that
-// is not JSON (bounded). A pydantic item's "input" echoes the request and is
+// is not JSON (bounded; a cut-off JSON body is not read at all). A pydantic item's "input" echoes the request and is
 // never read; JSON of any other shape yields nothing, so nothing is learned
 // from it.
 func refusalTexts(body []byte) []string {
@@ -177,6 +178,12 @@ func refusalTexts(body []byte) []string {
 		}
 		return itemTexts(body)
 	default:
+		// Raw text only for a body that is not JSON at all. One that starts
+		// like JSON and does not parse is a truncated one (the learn-body cap),
+		// and its echoed request would be read whole.
+		if trimmed := bytes.TrimSpace(body); len(trimmed) > 0 && (trimmed[0] == '{' || trimmed[0] == '[') {
+			return nil
+		}
 		return []string{string(body[:min(len(body), 4096)])}
 	}
 }
