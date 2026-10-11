@@ -18,6 +18,10 @@ import (
 
 var testPool *pgxpool.Pool
 
+// testDBURL lets a test open its own pool (one connection, short
+// statement_timeout) to reach the repository's error branches.
+var testDBURL string
+
 func TestMain(m *testing.M) {
 	ctx := context.Background()
 	dbURL, setupErr := db.SetupTestDB("quota")
@@ -33,6 +37,7 @@ func TestMain(m *testing.M) {
 		os.Exit(1)
 	}
 	testPool = testDB.Pool()
+	testDBURL = dbURL
 	defer testDB.Close()
 
 	os.Exit(m.Run())

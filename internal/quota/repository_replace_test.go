@@ -6,6 +6,9 @@ import (
 	"testing"
 	"time"
 
+	"github.com/google/uuid"
+
+	"github.com/hugalafutro/model-hotel/internal/db"
 	"github.com/hugalafutro/model-hotel/internal/quota"
 )
 
@@ -66,5 +69,64 @@ func TestReplaceIfNewerReportsTheFoundStatus(t *testing.T) {
 	wrote, prev, err = repo.ReplaceIfNewer(ctx, snap(204, older))
 	if err != nil || wrote || prev != 200 {
 		t.Fatalf("older write: want wrote=false prev=200, got wrote=%v prev=%d err=%v", wrote, prev, err)
+	}
+}
+
+// TestReplaceErrorPaths reaches the two failure branches the happy path never
+// sees: a write that fails (the provider does not exist, so the FK refuses
+// it) and a locked read that fails (another transaction holds the table in
+// ACCESS EXCLUSIVE mode, so the FOR UPDATE select waits until a short
+// statement_timeout cancels it). Both must come back as errors with nothing
+// written, for Replace and ReplaceIfNewer alike.
+func TestReplaceErrorPaths(t *testing.T) {
+	ctx := context.Background()
+	orphan := quota.Snapshot{ProviderID: uuid.New(), Kind: "usage", Payload: json.RawMessage(`{}`), HTTPStatus: 200, Source: "poll"}
+
+	repo := quota.NewRepository(testPool)
+	cancelled, cancel := context.WithCancel(ctx)
+	cancel()
+	if _, err := repo.Replace(cancelled, orphan); err == nil {
+		t.Fatal("Replace: want an error when the transaction cannot begin")
+	}
+	if _, err := repo.Replace(ctx, orphan); err == nil {
+		t.Fatal("Replace: want an error for a provider that does not exist")
+	}
+	if _, _, err := repo.ReplaceIfNewer(ctx, orphan); err == nil {
+		t.Fatal("ReplaceIfNewer: want an error for a provider that does not exist")
+	}
+
+	// A one-connection pool with a statement timeout, so the locked read is
+	// what fails rather than the test hanging.
+	slow, err := db.New(ctx, testDBURL, 1, 1)
+	if err != nil {
+		t.Fatalf("db.New: %v", err)
+	}
+	t.Cleanup(slow.Close)
+	if _, err := slow.Pool().Exec(ctx, "SET statement_timeout = '250ms'"); err != nil {
+		t.Fatalf("set statement_timeout: %v", err)
+	}
+	provID := insertTestProvider(ctx, t, "test-quota-replace-locked")
+	t.Cleanup(func() { cleanupProvider(ctx, t, provID) })
+	holder, err := testPool.Begin(ctx)
+	if err != nil {
+		t.Fatalf("begin holder tx: %v", err)
+	}
+	t.Cleanup(func() { _ = holder.Rollback(ctx) })
+	if _, err := holder.Exec(ctx, "LOCK TABLE provider_quota_snapshots IN ACCESS EXCLUSIVE MODE"); err != nil {
+		t.Fatalf("lock table: %v", err)
+	}
+
+	locked := quota.NewRepository(slow.Pool())
+	own := orphan
+	own.ProviderID = provID
+	if _, err := locked.Replace(ctx, own); err == nil {
+		t.Fatal("Replace: want the locked read to time out")
+	}
+	if _, _, err := locked.ReplaceIfNewer(ctx, own); err == nil {
+		t.Fatal("ReplaceIfNewer: want the locked read to time out")
+	}
+	_ = holder.Rollback(ctx)
+	if snap, err := repo.Get(ctx, provID, "usage"); err != nil || snap != nil {
+		t.Fatalf("nothing may be written when the read fails, got %+v (err %v)", snap, err)
 	}
 }
