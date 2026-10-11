@@ -584,7 +584,7 @@ describe("ModelDetailModal", () => {
 			screen.getByRole("heading", { name: "Confirm delete" }),
 		).toBeInTheDocument();
 		expect(screen.getByTestId("delete-confirm-expected")).toHaveTextContent(
-			"test-model-v1",
+			"Test-Provider/test-model-v1",
 		);
 		const dialogs = screen.getAllByRole("dialog");
 		expect(
@@ -595,12 +595,15 @@ describe("ModelDetailModal", () => {
 		expect(onDelete).not.toHaveBeenCalled();
 	});
 
-	it("calls onDelete and onClose once the model id is typed and confirmed", async () => {
+	it("calls onDelete and onClose once the provider-qualified id is typed and confirmed", async () => {
 		const user = userEvent.setup();
 		renderWithProviders(<ModelDetailModal {...defaultProps} />);
 
 		await user.click(screen.getByText("Delete"));
-		await user.click(await armDeleteConfirm(user, "test-model-v1"));
+		// The bare model id is not enough: other providers may expose the same one.
+		await user.click(
+			await armDeleteConfirm(user, "Test-Provider/test-model-v1"),
+		);
 
 		expect(onDelete).toHaveBeenCalledWith("model-001");
 		expect(onClose).toHaveBeenCalled();

@@ -313,7 +313,7 @@ export function ModelDetailModal({
 			{confirmDelete && (
 				<DeleteConfirmModal
 					title={t("models.detail.confirmDelete")}
-					confirmText={model.model_id}
+					confirmText={pMid}
 					entityName={pMid}
 					isPending={false}
 					onConfirm={() => {

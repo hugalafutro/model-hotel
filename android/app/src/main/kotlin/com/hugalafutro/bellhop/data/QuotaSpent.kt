@@ -38,11 +38,20 @@ fun isQuotaSpent(pq: ProviderQuota): Boolean {
     }
 }
 
+// The weekly and the daily input-token counters, as the gateway walks them:
+// either one at its cap stops the account.
 private fun isNanoGptSpent(u: QuotaData.NanoGpt): Boolean {
     if (u.allowOverage) return false
-    val limit = u.limits.weeklyInputTokens ?: return false
-    val used = u.weeklyInputTokens?.used ?: return false
-    return limit > 0 && used >= limit
+    return isNanoGptCounterSpent(u.limits.weeklyInputTokens, u.weeklyInputTokens) ||
+        isNanoGptCounterSpent(u.limits.dailyInputTokens, u.dailyInputTokens)
+}
+
+private fun isNanoGptCounterSpent(
+    limit: Long?,
+    counter: NanoGptTokenInfo?,
+): Boolean {
+    if (limit == null || counter == null) return false
+    return limit > 0 && counter.used >= limit
 }
 
 // A sane percentage decides; Z.ai sends an explicit remaining: 0 on windows

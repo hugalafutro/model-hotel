@@ -173,8 +173,10 @@ describe("Models", () => {
 			const modal = screen.getByRole("dialog");
 			await user.click(within(modal).getByRole("button", { name: "Delete" }));
 
-			// Type the model id to arm the confirm
-			await user.click(await armDeleteConfirm(user, "test-model-v1"));
+			// Type the proxy id (provider/model) to arm the confirm
+			await user.click(
+				await armDeleteConfirm(user, "Test-Provider/test-model-v1"),
+			);
 
 			// Should show success toast
 			await waitFor(() => {
@@ -226,8 +228,10 @@ describe("Models", () => {
 			const modal = screen.getByRole("dialog");
 			await user.click(within(modal).getByRole("button", { name: "Delete" }));
 
-			// Type the model id to arm the confirm
-			await user.click(await armDeleteConfirm(user, "test-model-v1"));
+			// Type the proxy id (provider/model) to arm the confirm
+			await user.click(
+				await armDeleteConfirm(user, "Test-Provider/test-model-v1"),
+			);
 
 			// Should show error toast - partial match
 			await waitFor(() => {
@@ -767,7 +771,9 @@ describe("Models", () => {
 
 			const modal = await openDetailModal(user);
 			await user.click(within(modal).getByRole("button", { name: "Delete" }));
-			await user.click(await armDeleteConfirm(user, "test-model-v1"));
+			await user.click(
+				await armDeleteConfirm(user, "Test-Provider/test-model-v1"),
+			);
 			await waitFor(() => expect(deleted).toBe(true));
 
 			// Gone entirely, which the stale poll response would never produce.
@@ -802,7 +808,9 @@ describe("Models", () => {
 
 			const modal = await openDetailModal(user);
 			await user.click(within(modal).getByRole("button", { name: "Delete" }));
-			await user.click(await armDeleteConfirm(user, "test-model-v1"));
+			await user.click(
+				await armDeleteConfirm(user, "Test-Provider/test-model-v1"),
+			);
 			await screen.findByText(/Failed to delete/);
 
 			await waitFor(() => expect(screen.queryByText("Test Model")).toBeNull());
