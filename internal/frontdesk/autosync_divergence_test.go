@@ -287,8 +287,7 @@ func TestAutoSyncRearmCancelledPushIsBenign(t *testing.T) {
 	replica.onStale = func(ctx context.Context) {
 		// The server-level rearm, as the operator's PUT does: it bumps the
 		// generation and broadcasts to the pass's watcher, which cancels the
-		// in-flight push. The store-only bump of the sibling test above never
-		// wakes the watcher and so exercises the answer-first ordering.
+		// in-flight push.
 		srv.rearmAutoSync(context.WithoutCancel(ctx))
 		select {
 		case <-ctx.Done(): // the watcher cancelled the push; answer into the void
@@ -319,6 +318,39 @@ func TestAutoSyncRearmCancelledPushIsBenign(t *testing.T) {
 	}
 	if sawSyncFailed(ch) {
 		t.Error("a push cancelled by a newer generation must not emit a config.sync_failed event")
+	}
+}
+
+// TestApplyMemberConfig_FenceRefusalSupersededIsBenign pins the answer-first
+// ending directly: a fence refusal whose source generation the store has since
+// moved past is filed as superseded, with no failure event. Called on a context
+// no watcher cancels, so which arm runs does not depend on scheduling, which it
+// does in TestAutoSyncStaleImportIsBenign (the watcher's first generation read
+// may land before or after the stub's store-only bump).
+func TestApplyMemberConfig_FenceRefusalSupersededIsBenign(t *testing.T) {
+	srv, store := newTestServer(t)
+	replica := newStubAutoMember(t, "rtoken")
+	replica.dryDiff = driftDiff
+	replica.staleImport = true
+	rm, _ := store.CreateMember(t.Context(), "replica", replica.srv.URL, "rtoken")
+	if err := store.RearmAutoSync(t.Context()); err != nil {
+		t.Fatalf("rearm: %v", err)
+	}
+	gen, _ := store.AutoSyncGen(t.Context())
+
+	ch := srv.bus.Subscribe()
+	defer srv.bus.Unsubscribe(ch)
+
+	res := srv.applyMemberConfig(t.Context(), rm, "rtoken", []byte(`{"export":true}`), autoSyncReason, false, gen-1, "hash-X")
+	if res.OK || res.Error != "superseded by a newer sync" {
+		t.Fatalf("want a benign supersede, got %+v", res)
+	}
+	if sawSyncFailed(ch) {
+		t.Error("a fence refusal superseded by a newer generation must not emit a config.sync_failed event")
+	}
+	got, _ := store.GetMember(t.Context(), rm.ID)
+	if got.LastConfigSyncAt != nil {
+		t.Error("a superseded push must not stamp the last-sync marker")
 	}
 }
 

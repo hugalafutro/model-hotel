@@ -216,15 +216,15 @@ func (s *Server) applyMemberConfig(ctx context.Context, m *Member, token string,
 		// No stamp lands below, but the import may still complete member-side; the
 		// pass that measures the member holding this exact config stamps it then.
 		s.markUnconfirmedPush(m.ID, pushedHash)
-	case err != nil && status == 0 && errors.Is(err, context.Canceled) && s.supersededByNewerPass(context.WithoutCancel(ctx), sourceGen):
-		// The rearm watcher cancelled this push mid-flight because a newer source
-		// generation landed: the same benign supersede the member's commit fence
-		// reports when the answer gets through first, so it is treated the same
-		// way (no stamp, no failure event, left to the newer pass). Without the
-		// generation moving, a cancellation is the pass being torn down (shutdown,
-		// kick timeout) and stays a failure to reach the member below. The read
-		// runs on a context the cancellation does not reach, since ctx is the
-		// cancelled one; a read error still reads as benign, as it does above.
+	case err != nil && errors.Is(context.Cause(ctx), errPassSuperseded):
+		// The rearm watcher cancelled this push mid-flight because the fleet's
+		// sync inputs moved (a rearm, repoint or disband): the same benign
+		// supersede the member's commit fence reports when its answer gets through
+		// first, treated the same way (no stamp, no failure event, left to the
+		// newer pass). The cause, not the generation, is the test: a disband wakes
+		// the watcher without moving the generation, and a cancellation from
+		// anywhere else (shutdown) carries no cause and stays a failure below. No
+		// status gate either, since the cancel can land after the headers arrived.
 		res.Error = "superseded by a newer sync"
 		debuglog.Debug("frontdesk: config sync cancelled by a newer generation", "member", m.Name, "source_gen", sourceGen)
 		recordConfigSync("superseded")

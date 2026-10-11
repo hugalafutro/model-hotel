@@ -258,7 +258,7 @@ func (s *Server) runConfigSync(ctx context.Context, primaryID string) configSync
 		return err == nil && (cur.Gen != gen || cur.PrimaryID != primaryID)
 	}
 	rearmCh := s.rearmChan()
-	passCtx, cancel := context.WithCancel(ctx)
+	passCtx, cancel := context.WithCancelCause(ctx)
 	stopWatch := s.startRearmWatch(passCtx, rearmCh, gen, cancel)
 	defer stopWatch()
 

@@ -491,7 +491,7 @@ func (s *Server) applyAutoSync(ctx context.Context, primary *Member, primaryBuil
 	// landing in that gap still wakes the watcher: the channel is closed, not
 	// missed.
 	rearmCh := s.rearmChan()
-	passCtx, cancel := context.WithCancel(ctx)
+	passCtx, cancel := context.WithCancelCause(ctx)
 	stopWatch := s.startRearmWatch(passCtx, rearmCh, gen, cancel)
 	defer stopWatch()
 
