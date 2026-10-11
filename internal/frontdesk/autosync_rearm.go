@@ -7,8 +7,9 @@ import (
 
 // errPassSuperseded is the cause a convergence pass is cancelled with when the
 // fleet's sync inputs moved under it (a rearm, repoint or disband). A member
-// push cut off by it is a benign supersede, not an unreachable member, and
-// applyMemberConfig reads the cause to tell the two apart; a cancellation from
+// call cut off by it is a benign supersede, not an unreachable member: the HTTP
+// client reports the cause as the request's error, so applyMemberConfig and
+// measureMember recognise it with errors.Is on that error. A cancellation from
 // anywhere else (shutdown) carries no cause and stays a failure.
 var errPassSuperseded = errors.New("frontdesk: pass superseded by a rearm")
 

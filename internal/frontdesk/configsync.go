@@ -199,6 +199,13 @@ func (s *Server) applyMemberConfig(ctx context.Context, m *Member, token string,
 	// answerer had at hand (see lostAnswer5xx).
 	pushStart := time.Now()
 	out, status, err := s.pushMemberImport(ctx, m, token, export, false, sourceGen)
+	// The member has answered; everything below records what it did. A rearm
+	// watcher cancelling the pass from here on must not turn a committed import
+	// into a missing stamp (database/sql refuses a cancelled context) and the
+	// "applied but could not record the sync stamp" failure that follows it, so
+	// the bookkeeping runs on a context the cancellation does not reach. The
+	// push's own error still carries the cause when the cancel came first.
+	ctx = context.WithoutCancel(ctx)
 	// Carried on the success path too: neither a group built short nor a disable
 	// the member has no model for is a failure to apply, and the auto-sync loop
 	// needs the names for its divergence alert.

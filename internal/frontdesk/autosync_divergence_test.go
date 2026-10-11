@@ -354,6 +354,33 @@ func TestApplyMemberConfig_FenceRefusalSupersededIsBenign(t *testing.T) {
 	}
 }
 
+// TestMeasureMember_SupersededReadStartsNoClock: a hash read the rearm watcher
+// cut off teaches nothing about the member, so it must not start the
+// unreadable-hash clock (which would later alert "could not be reached" for a
+// member nobody failed to reach). A read cancelled for any other reason still
+// does, as before.
+func TestMeasureMember_SupersededReadStartsNoClock(t *testing.T) {
+	srv, store := newTestServer(t)
+	replica := newStubAutoMember(t, "rtoken")
+	rm, _ := store.CreateMember(t.Context(), "replica", replica.srv.URL, "rtoken")
+
+	superseded, cancelSuperseded := context.WithCancelCause(t.Context())
+	cancelSuperseded(errPassSuperseded)
+	if converged, measured, _ := srv.measureMember(t.Context(), superseded, rm, "rtoken", "hash-B", nil); converged || measured {
+		t.Fatalf("a superseded read must be neither converged nor measured, got %v/%v", converged, measured)
+	}
+	if !unreadableSince(srv, rm.ID).IsZero() {
+		t.Error("a read the watcher cut off started the unreadable clock")
+	}
+
+	plain, cancelPlain := context.WithCancelCause(t.Context())
+	cancelPlain(nil)
+	srv.measureMember(t.Context(), plain, rm, "rtoken", "hash-B", nil)
+	if unreadableSince(srv, rm.ID).IsZero() {
+		t.Error("a read cancelled for another reason must still start the unreadable clock")
+	}
+}
+
 // A stale refusal with no newer generation behind it is not a race: the
 // member's fence holds a generation this Front Desk never issued (a Front Desk
 // rebuilt on a fresh volume, restored from an older backup, or a member

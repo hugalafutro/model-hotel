@@ -502,7 +502,12 @@ func (s *Server) applyAutoSync(ctx context.Context, primary *Member, primaryBuil
 	// pass rather than being retried per member.
 	primaryExport := sync.OnceValues(func() ([]byte, error) {
 		export, err := s.fetchMemberExport(passCtx, primary, primaryToken)
-		if err != nil {
+		switch {
+		case errors.Is(err, errPassSuperseded):
+			// The watcher cut the read off; the primary did not fail. The
+			// superseding pass reads it again.
+			debuglog.Debug("frontdesk: auto-sync: primary export read superseded", "member", primary.Name)
+		case err != nil:
 			debuglog.Warn("frontdesk: auto-sync: read primary export", "member", primary.Name, "error", err)
 		}
 		return export, err
