@@ -202,6 +202,17 @@ func TestTranslateRequest_CacheBreakpointsSkipWhitespace(t *testing.T) {
 	}
 }
 
+// TestRefusalTexts_OtherShapesYieldNothing pins the "yields nothing" claim: an
+// array of unrelated objects and an object of unrelated members produce no
+// text at all, not an empty one.
+func TestRefusalTexts_OtherShapesYieldNothing(t *testing.T) {
+	for _, body := range []string{`[{"foo":"bar"}]`, `{"err":"x"}`, `[]`, `{}`, `null`, `{"detail":[]}`} {
+		if texts := refusalTexts([]byte(body)); len(texts) != 0 {
+			t.Errorf("refusalTexts(%s) = %q, want none", body, texts)
+		}
+	}
+}
+
 // TestCacheControlRefused: only a 400 that names the field AND refuses it as
 // unknown counts. Anthropic's own body-specific cache_control complaints
 // (empty block, too many breakpoints, a thinking block) must not switch caching

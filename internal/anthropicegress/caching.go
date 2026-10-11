@@ -198,8 +198,11 @@ func itemTexts(raw json.RawMessage) []string {
 	if json.Unmarshal(raw, &items) != nil {
 		return nil
 	}
-	texts := make([]string, 0, len(items))
+	var texts []string
 	for _, item := range items {
+		if len(item.Loc) == 0 && item.Msg == "" {
+			continue // an array of some other objects, not a validation item
+		}
 		parts := make([]string, 0, len(item.Loc)+1)
 		for _, loc := range item.Loc {
 			parts = append(parts, fmt.Sprint(loc))
