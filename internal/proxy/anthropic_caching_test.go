@@ -205,3 +205,43 @@ func TestProbeStreamingCandidate_LearnsCacheRefusal(t *testing.T) {
 		t.Errorf("the next build still carries breakpoints: %s", rebuilt)
 	}
 }
+
+// TestLearnAndRebuildMessages400_CacheRefusalExits pins the refusal arm's two
+// "do not retry" exits: a refusal arriving after the model was already learned
+// (the rebuild carries no breakpoints either, so re-sending would earn the same
+// 400) and a body the rebuild cannot translate at all. Both still record the
+// refusal, so the next request is built without breakpoints.
+func TestLearnAndRebuildMessages400_CacheRefusalExits(t *testing.T) {
+	h := newIntegrationHandler()
+	defer stopUnitHandler(h)
+	refusal := []byte(`{"type":"error","error":{"type":"invalid_request_error","message":"system.0.cache_control: Extra inputs are not permitted"}}`)
+
+	st, cand := probeStateForServer("http://127.0.0.1:9")
+	cand.provider.ProviderType = "anthropic-messages"
+	st.bodyBytes = []byte(`{"model":"m","messages":[{"role":"user","content":"hi"}]}`)
+
+	// Already learned: the refused body carried no breakpoints, so the rebuild is
+	// byte-identical and must not be re-sent.
+	h.learnCacheRefusal(cand)
+	plain, _, _, err := h.anthropicEgressBody(st, cand, "anthropic-messages", h.thinkingDialectFor(cand))
+	if err != nil {
+		t.Fatalf("build: %v", err)
+	}
+	st.lastMessagesBody = plain
+	if _, _, _, ok := h.learnAndRebuildMessages400(st, cand, "anthropic-messages", refusal); ok {
+		t.Error("a refusal of a body without breakpoints must not be retried")
+	}
+
+	// Untranslatable body: the refusal is learned, but nothing can be rebuilt.
+	fresh := probeStateForServer
+	st2, cand2 := fresh("http://127.0.0.1:9")
+	cand2.provider.ProviderType = "anthropic-messages"
+	cand2.model.ModelID = "claude-other"
+	st2.bodyBytes = []byte(`{not json`)
+	if _, _, _, ok := h.learnAndRebuildMessages400(st2, cand2, "anthropic-messages", refusal); ok {
+		t.Error("an untranslatable body must not be retried")
+	}
+	if h.cachingFor(cand2) {
+		t.Error("the refusal must be learned even when the rebuild fails")
+	}
+}
