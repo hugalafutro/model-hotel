@@ -224,6 +224,21 @@ func TestCacheControlRefused(t *testing.T) {
 		`{"detail":[{"type":"missing","loc":["body","max_tokens"],"msg":"Field required","input":{"system":[{"type":"text","text":"this field is not permitted","cache_control":{"type":"ephemeral"}}]}},{"type":"extra_forbidden","loc":["body","top_k"],"msg":"Extra inputs are not permitted"}]}`: false,
 		// JSON of another shape is not read at all, whatever it says.
 		`{"err":"unknown field cache_control"}`: false,
+		// Items are judged one by one: a required-field complaint about
+		// cache_control beside a refusal of top_p is not a refusal of cache_control.
+		`{"detail":[{"loc":["body","system",0,"cache_control"],"msg":"Field required"},{"loc":["body","top_p"],"msg":"Extra inputs are not permitted"}]}`: false,
+		`{"detail":[{"loc":["body","top_p"],"msg":"Field required"},{"loc":["body","system",0,"cache_control"],"msg":"Extra inputs are not permitted"}]}`: true,
+		`{"detail":null}`:    false,
+		`{"detail":{"x":1}}`: false,
+		`{"detail":[{"loc":[1,null,true],"msg":"cache_control: unknown field"}]}`: true,
+		// One item's location naming the field and another's message refusing
+		// something else do not add up to a refusal of the field.
+		`{"detail":[{"loc":["body","system",0,"cache_control","type"],"msg":"Input should be 'ephemeral'"},{"loc":["body","top_k"],"msg":"Extra inputs are not permitted"}]}`: false,
+		// A non-object body cannot carry an echoed request, so it is read whole.
+		`["cache_control: Extra inputs are not permitted"]`: true,
+		`"unknown field cache_control"`:                     true,
+		// A "message" of another type is skipped, the items still read.
+		`{"message":["x"],"detail":[{"loc":["body","cache_control"],"msg":"Extra inputs are not permitted"}]}`:                                        true,
 		`{"error":{"message":"unrecognized field cache_control; ttl-based options are not permitted here"}}`:                                          true,
 		`{"type":"error","error":{"type":"invalid_request_error","message":"cache_control cannot be set for empty text blocks"}}`:                     false,
 		`{"type":"error","error":{"type":"invalid_request_error","message":"A maximum of 4 blocks with cache_control may be provided"}}`:              false,

@@ -497,6 +497,30 @@ data: {"type":"message_stop"}
 	}
 }
 
+// A later event that lowers the write total without the split keeps the share
+// but caps it at the new total: the share is a part of the write.
+func TestNativeStream_LowerWriteTotalCapsTheWrite1hShare(t *testing.T) {
+	_, logData := runNativeStream(t, `event: message_start
+data: {"type":"message_start","message":{"id":"msg_up","type":"message","role":"assistant","model":"claude","content":[],"usage":{"input_tokens":4,"output_tokens":0,"cache_creation_input_tokens":30,"cache_creation":{"ephemeral_1h_input_tokens":20}}}}
+
+event: message_start
+data: {"type":"message_start","message":{"id":"msg_up","type":"message","role":"assistant","model":"claude","content":[],"usage":{"input_tokens":4,"output_tokens":0,"cache_creation_input_tokens":10}}}
+
+event: content_block_delta
+data: {"type":"content_block_delta","index":0,"delta":{"type":"text_delta","text":"Hello"}}
+
+event: message_delta
+data: {"type":"message_delta","delta":{"stop_reason":"end_turn"},"usage":{"output_tokens":5}}
+
+event: message_stop
+data: {"type":"message_stop"}
+
+`)
+	if logData.tokensPromptCacheWrite != 10 || logData.tokensPromptCacheWrite1h != 10 {
+		t.Errorf("cache write/1h = %d/%d, want 10/10 (the share capped at the lowered total)", logData.tokensPromptCacheWrite, logData.tokensPromptCacheWrite1h)
+	}
+}
+
 // creationOnlyStream is a native stream whose message_start reports a cache
 // WRITE and no read.
 const creationOnlyStream = `event: message_start

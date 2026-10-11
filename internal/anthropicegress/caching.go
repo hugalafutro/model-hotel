@@ -93,9 +93,21 @@ func lastCacheableBlock(blocks []antBlock) int {
 // "message", a FastAPI "detail" string or list of {loc, msg} items), and from
 // the body itself only when it is not JSON at all. Never from a JSON body's
 // other members: a pydantic item echoes the request under "input", and a
-// refusal word in the user's own text must not switch caching off.
+// refusal word in the user's own text must not switch caching off. Each
+// validation item is judged on its own, so "cache_control: field required"
+// beside "top_p: Extra inputs are not permitted" is not a refusal of the
+// field either.
 func CacheControlRefused(body []byte) bool {
-	msg := strings.ToLower(refusalText(body))
+	for _, text := range refusalTexts(body) {
+		if refusesCacheControl(strings.ToLower(text)) {
+			return true
+		}
+	}
+	return false
+}
+
+// refusesCacheControl is the per-text rule CacheControlRefused describes.
+func refusesCacheControl(msg string) bool {
 	if !strings.Contains(msg, "cache_control") && !strings.Contains(msg, "cache control") {
 		return false
 	}
@@ -114,40 +126,42 @@ func CacheControlRefused(body []byte) bool {
 	return false
 }
 
-// refusalText is the part of a 400 body a refusal can be read from: the error
-// envelope's message, else the validator shapes named on CacheControlRefused,
-// else the raw text of a body that is not JSON (bounded). A JSON body of any
-// other shape yields nothing, so nothing is learned from it.
-func refusalText(body []byte) string {
+// refusalTexts are the parts of a 400 body a refusal can be read from, each
+// judged on its own: the error envelope's message, else the validator members
+// of a JSON object ("message" when it is a string; "detail" as a string, or
+// one text per validation item, its location joined to its message), else the
+// raw text of a body that is not a JSON object (bounded; plain text, an array,
+// a bare string cannot carry the echoed request this guards against). A JSON
+// object of any other shape yields nothing, so nothing is learned from it.
+func refusalTexts(body []byte) []string {
 	if msg := util.ErrorEnvelopeMessage(body); msg != "" {
-		return msg
+		return []string{msg}
 	}
-	var validator struct {
-		Message string          `json:"message"`
-		Detail  json.RawMessage `json:"detail"`
+	var members map[string]json.RawMessage
+	if json.Unmarshal(body, &members) != nil {
+		return []string{string(body[:min(len(body), 4096)])}
 	}
-	if json.Unmarshal(body, &validator) != nil {
-		if json.Valid(body) {
-			return ""
-		}
-		return string(body[:min(len(body), 4096)])
+	var texts []string
+	var message string
+	if json.Unmarshal(members["message"], &message) == nil {
+		texts = append(texts, message)
 	}
-	parts := []string{validator.Message}
 	var detail string
-	if json.Unmarshal(validator.Detail, &detail) == nil {
-		parts = append(parts, detail)
+	if json.Unmarshal(members["detail"], &detail) == nil {
+		texts = append(texts, detail)
 	}
 	var items []struct {
 		Loc []any  `json:"loc"`
 		Msg string `json:"msg"`
 	}
-	if json.Unmarshal(validator.Detail, &items) == nil {
+	if json.Unmarshal(members["detail"], &items) == nil {
 		for _, item := range items {
+			parts := make([]string, 0, len(item.Loc)+1)
 			for _, loc := range item.Loc {
 				parts = append(parts, fmt.Sprint(loc))
 			}
-			parts = append(parts, item.Msg)
+			texts = append(texts, strings.Join(append(parts, item.Msg), " "))
 		}
 	}
-	return strings.Join(parts, " ")
+	return texts
 }
