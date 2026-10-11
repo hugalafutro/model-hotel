@@ -269,6 +269,59 @@ func TestAutoSyncStaleImportIsBenign(t *testing.T) {
 	}
 }
 
+// TestAutoSyncRearmCancelledPushIsBenign: the other way the same race can end.
+// The rearm the member reports mid-flight wakes the pass's rearm watcher, which
+// cancels the in-flight push; when that cancellation beats the member's answer,
+// the client sees a cancelled request rather than a stale refusal. It is the
+// same benign supersede and must be treated the same way: no stamp, not
+// recorded converged, and no config.sync_failed event. The stub holds its
+// answer until the request context is cancelled, so the cancelled shape is the
+// one the pass sees every time, not only on a slow runner.
+func TestAutoSyncRearmCancelledPushIsBenign(t *testing.T) {
+	srv, store := newTestServer(t)
+	primary := newStubAutoMember(t, "ptoken")
+	primary.versionHash = "hash-B"
+	replica := newStubAutoMember(t, "rtoken")
+	replica.dryDiff = driftDiff
+	replica.staleImport = true
+	replica.onStale = func(ctx context.Context) {
+		// The server-level rearm, as the operator's PUT does: it bumps the
+		// generation and broadcasts to the pass's watcher, which cancels the
+		// in-flight push. The store-only bump of the sibling test above never
+		// wakes the watcher and so exercises the answer-first ordering.
+		srv.rearmAutoSync(context.WithoutCancel(ctx))
+		select {
+		case <-ctx.Done(): // the watcher cancelled the push; answer into the void
+		case <-time.After(10 * time.Second):
+			t.Error("the rearm watcher did not cancel the in-flight push")
+		}
+	}
+
+	pm, _ := store.CreateMember(t.Context(), "primary", primary.srv.URL, "ptoken")
+	rm, _ := store.CreateMember(t.Context(), "replica", replica.srv.URL, "rtoken")
+	enableAutoSync(t, store, pm.ID)
+	alignFleetVersions(t, srv, store, "dev")
+
+	ch := srv.bus.Subscribe()
+	defer srv.bus.Unsubscribe(ch)
+
+	srv.forceAutoSyncNow(t.Context())
+
+	got, err := store.GetMember(t.Context(), rm.ID)
+	if err != nil {
+		t.Fatalf("GetMember: %v", err)
+	}
+	if got.LastConfigSyncAt != nil {
+		t.Error("a push cancelled by a rearm must not have its last-sync marker stamped")
+	}
+	if memberVerified(srv, rm.ID) {
+		t.Error("a member whose push was cancelled by a rearm was recorded verified in sync")
+	}
+	if sawSyncFailed(ch) {
+		t.Error("a push cancelled by a newer generation must not emit a config.sync_failed event")
+	}
+}
+
 // A stale refusal with no newer generation behind it is not a race: the
 // member's fence holds a generation this Front Desk never issued (a Front Desk
 // rebuilt on a fresh volume, restored from an older backup, or a member
