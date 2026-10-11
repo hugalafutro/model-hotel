@@ -223,10 +223,15 @@ func (s *Server) applyMemberConfig(ctx context.Context, m *Member, token string,
 		// first, treated the same way (no stamp, no failure event, left to the
 		// newer pass). The cause, not the generation, is the test: a disband wakes
 		// the watcher without moving the generation, and a cancellation from
-		// anywhere else (shutdown) carries no cause and stays a failure below. No
-		// status gate either, since the cancel can land after the headers arrived.
+		// anywhere else (shutdown) carries no cause and stays a failure below. The
+		// error itself is not inspected: a cancel landing after the request was
+		// written comes back from the transport as its own "request canceled"
+		// error, not one wrapping context.Canceled. A push that failed on its own
+		// in the same instant the watcher fired is filed here too; the next pass
+		// measures that member again and reports it then. No status gate, since
+		// the cancel can land after the headers arrived.
 		res.Error = "superseded by a newer sync"
-		debuglog.Debug("frontdesk: config sync cancelled by a newer generation", "member", m.Name, "source_gen", sourceGen)
+		debuglog.Debug("frontdesk: config sync cancelled by a fleet rearm, repoint or disband", "member", m.Name, "source_gen", sourceGen)
 		recordConfigSync("superseded")
 		return res
 	case err != nil && status == 0:

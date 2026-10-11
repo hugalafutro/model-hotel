@@ -5,6 +5,13 @@ import (
 	"errors"
 )
 
+// errPassSuperseded is the cause a convergence pass is cancelled with when the
+// fleet's sync inputs moved under it (a rearm, repoint or disband). A member
+// push cut off by it is a benign supersede, not an unreachable member, and
+// applyMemberConfig reads the cause to tell the two apart; a cancellation from
+// anywhere else (shutdown) carries no cause and stays a failure.
+var errPassSuperseded = errors.New("frontdesk: pass superseded by a rearm")
+
 // startRearmWatch spawns a pass's rearm watcher and returns the stop func that
 // cancels it and blocks until it has returned.
 //
@@ -20,13 +27,6 @@ import (
 //
 // cancel is the pass's own context cancel and is idempotent, so the ordinary case
 // where the watcher cancels on a rearm and stop then cancels again is harmless.
-// errPassSuperseded is the cause a convergence pass is cancelled with when the
-// fleet's sync inputs moved under it (a rearm, repoint or disband). A member
-// push cut off by it is a benign supersede, not an unreachable member, and
-// applyMemberConfig reads the cause to tell the two apart; a cancellation from
-// anywhere else (shutdown) carries no cause and stays a failure.
-var errPassSuperseded = errors.New("frontdesk: pass superseded by a rearm")
-
 func (s *Server) startRearmWatch(ctx context.Context, rearmCh <-chan struct{}, gen int64, cancel context.CancelCauseFunc) (stop func()) {
 	done := make(chan struct{})
 	go func() {
