@@ -184,18 +184,21 @@ func (h *QuotaFleetHandler) storeSnapshots(ctx context.Context, snaps []QuotaSna
 	if err != nil {
 		return 0, 0, fmt.Errorf("list providers: %w", err)
 	}
-	nameToID := make(map[string]uuid.UUID, len(provs))
+	byName := make(map[string]*provider.Provider, len(provs))
 	for _, p := range provs {
-		nameToID[p.Name] = p.ID
+		byName[p.Name] = p
 	}
 	for _, s := range snaps {
-		pid, ok := nameToID[s.ProviderName]
+		prov, ok := byName[s.ProviderName]
 		if !ok {
 			skipped++ // provider not present on this member
 			continue
 		}
+		// Read before the write so a status flip the primary observed is
+		// announced on this member too; a Get error only costs the comparison.
+		prev, _ := h.quotaRepo.Get(ctx, prov.ID, s.Kind)
 		wrote, err := h.quotaRepo.UpsertIfNewer(ctx, quota.Snapshot{
-			ProviderID: pid,
+			ProviderID: prov.ID,
 			Kind:       s.Kind,
 			Payload:    s.Payload,
 			HTTPStatus: s.HTTPStatus,
@@ -212,6 +215,7 @@ func (h *QuotaFleetHandler) storeSnapshots(ctx context.Context, snaps []QuotaSna
 		}
 		if wrote {
 			applied++
+			publishQuotaStatusChange(prov, s.Kind, prev, s.HTTPStatus)
 		} else {
 			skipped++
 		}

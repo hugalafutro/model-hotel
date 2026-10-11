@@ -2138,7 +2138,8 @@
 				"provider_scheduled_disable": "Anbieter planmäßig deaktiviert",
 				"circuit_breaker_unstable": "Modell fällt wiederholt aus (Circuit Breaker mehrfach ausgelöst)",
 				"budget_warning": "Budgetwarnung (80 % ausgegeben)",
-				"budget_exceeded": "Budget überschritten (Anfragen abgelehnt)"
+				"budget_exceeded": "Budget überschritten (Anfragen abgelehnt)",
+				"quota_status_changed": "Kontingentabfrage des Anbieters ausgefallen oder wieder da"
 			},
 			"events": {
 				"all": "Alles auswählen",

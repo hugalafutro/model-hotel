@@ -60,7 +60,7 @@ func (h *Handler) serveQuota(w http.ResponseWriter, r *http.Request, prov *provi
 			respondQuotaError(w, prov.Name, kind, ferr)
 			return
 		}
-		if uerr := h.quotaRepo.Upsert(ctx, quota.Snapshot{ProviderID: prov.ID, Kind: k, Payload: payload, HTTPStatus: status, Source: "manual"}); uerr != nil {
+		if uerr := h.storeQuotaSnapshot(ctx, prov, quota.Snapshot{ProviderID: prov.ID, Kind: k, Payload: payload, HTTPStatus: status, Source: "manual"}); uerr != nil {
 			respondError(w, "failed to persist quota snapshot", uerr, http.StatusInternalServerError)
 			return
 		}
@@ -152,7 +152,7 @@ func (h *Handler) RefreshAllQuotas(w http.ResponseWriter, r *http.Request) {
 			result.Error = ferr.Error()
 			failed++
 			_ = h.quotaRepo.RecordFailure(provCtx, prov.ID, kind, ferr.Error())
-		} else if uerr := h.quotaRepo.Upsert(provCtx, quota.Snapshot{ProviderID: prov.ID, Kind: kind, Payload: payload, HTTPStatus: status, Source: "manual"}); uerr != nil {
+		} else if uerr := h.storeQuotaSnapshot(provCtx, prov, quota.Snapshot{ProviderID: prov.ID, Kind: kind, Payload: payload, HTTPStatus: status, Source: "manual"}); uerr != nil {
 			// A failed persist must not report success: the stored snapshot is
 			// still stale, so surface it as a failure rather than "refreshed".
 			debuglog.Warn("quota: manual refresh upsert failed", "provider", prov.Name, "error", uerr)

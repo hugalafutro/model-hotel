@@ -2138,7 +2138,8 @@
 				"provider_scheduled_disable": "Provider uitgeschakeld volgens planning",
 				"circuit_breaker_unstable": "Model blijft uitvallen (circuitbreaker meermaals geopend)",
 				"budget_warning": "Budgetwaarschuwing (80% besteed)",
-				"budget_exceeded": "Budget overschreden (verzoeken geweigerd)"
+				"budget_exceeded": "Budget overschreden (verzoeken geweigerd)",
+				"quota_status_changed": "Quotameting van provider gestopt of hersteld"
 			},
 			"events": {
 				"all": "Alles selecteren",

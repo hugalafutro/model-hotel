@@ -2202,7 +2202,8 @@
 				"provider_scheduled_disable": "Proveïdor desactivat segons la programació",
 				"circuit_breaker_unstable": "El model falla repetidament (disjuntor obert diverses vegades)",
 				"budget_warning": "Avís de pressupost (80% gastat)",
-				"budget_exceeded": "Pressupost superat (peticions rebutjades)"
+				"budget_exceeded": "Pressupost superat (peticions rebutjades)",
+				"quota_status_changed": "La lectura de quota del proveïdor s'ha aturat o ha tornat"
 			},
 			"events": {
 				"all": "Selecciona-ho tot",

@@ -2138,7 +2138,8 @@
 				"provider_scheduled_disable": "Sağlayıcı zamanlandığı gibi devre dışı bırakıldı",
 				"circuit_breaker_unstable": "Model tekrar tekrar başarısız oluyor (devre kesici defalarca açıldı)",
 				"budget_warning": "Bütçe uyarısı (%80 harcandı)",
-				"budget_exceeded": "Bütçe aşıldı (istekler reddedildi)"
+				"budget_exceeded": "Bütçe aşıldı (istekler reddedildi)",
+				"quota_status_changed": "Sağlayıcının kota okuması durdu veya geri geldi"
 			},
 			"events": {
 				"all": "Tümünü seç",

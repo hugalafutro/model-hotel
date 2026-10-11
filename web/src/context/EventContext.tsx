@@ -1,6 +1,7 @@
 import { useQueryClient } from "@tanstack/react-query";
 import { type ReactNode, useEffect, useRef } from "react";
 import { API_BASE, isAuthenticated, resetToLogin } from "../api/client";
+import { invalidateQuotaQueries } from "../hooks/useQuotaData";
 import { readSSEStream } from "../utils/sse";
 import { useToast } from "./ToastContext";
 
@@ -111,6 +112,12 @@ export function EventProvider({ children }: { children: ReactNode }) {
 									queryKey: ["discovery-status"],
 									exact: true,
 								});
+							}
+							// A quota reading appeared or vanished (a subscription lapsed
+							// or came back). The badges otherwise wait for their own
+							// refresh tick, up to quota_refresh_interval_min away.
+							if (event.type === "quota.status_changed") {
+								invalidateQuotaQueries(queryClient);
 							}
 						},
 					}).catch(() => {

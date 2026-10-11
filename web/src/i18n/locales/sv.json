@@ -2138,7 +2138,8 @@
 				"provider_scheduled_disable": "Leverantören inaktiverad enligt schema",
 				"circuit_breaker_unstable": "Modellen fallerar upprepade gånger (strömavbrytaren har löst ut flera gånger)",
 				"budget_warning": "Budgetvarning (80 % förbrukat)",
-				"budget_exceeded": "Budget överskriden (förfrågningar avvisade)"
+				"budget_exceeded": "Budget överskriden (förfrågningar avvisade)",
+				"quota_status_changed": "Leverantörens kvotavläsning avbröts eller kom tillbaka"
 			},
 			"events": {
 				"all": "Markera allt",

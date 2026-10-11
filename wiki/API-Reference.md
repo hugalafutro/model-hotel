@@ -1893,6 +1893,7 @@ data: {"type":"discovery.complete","severity":"success","message":"Discovery com
 | `circuit_breaker.closed` | `success` | A circuit closed (recovered) |
 | `circuit_breaker.unstable` | `warning` | One model opened its circuit 3 times in 24h, so it keeps returning to service still broken |
 | `quota.schema_drift` | `warning` | A provider changed the shape of its quota response |
+| `quota.status_changed` | `success` / `warning` | A provider's quota reading came back (`200`, success) or stopped (`204` no plan, `424` key rejected; warning). Metadata: `provider_id`, `provider`, `provider_type`, `kind`, `http_status`, `previous_http_status`. The dashboard refetches its quota badges on it |
 | `budget.warning` | `warning` | A virtual key or user reached 80% of its dollar budget for the period |
 | `budget.exceeded` | `error` | A virtual key or user reached its dollar budget; its requests are refused until the period ends |
 | `tokens.error` | `error` | Error counting tokens |

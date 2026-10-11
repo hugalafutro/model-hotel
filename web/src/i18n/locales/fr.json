@@ -2202,7 +2202,8 @@
 				"provider_scheduled_disable": "Fournisseur désactivé comme planifié",
 				"circuit_breaker_unstable": "Le modèle échoue à répétition (disjoncteur ouvert plusieurs fois)",
 				"budget_warning": "Alerte budget (80 % dépensés)",
-				"budget_exceeded": "Budget dépassé (requêtes refusées)"
+				"budget_exceeded": "Budget dépassé (requêtes refusées)",
+				"quota_status_changed": "La lecture du quota du fournisseur s'est arrêtée ou est revenue"
 			},
 			"events": {
 				"all": "Tout sélectionner",

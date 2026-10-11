@@ -2202,7 +2202,8 @@
 				"provider_scheduled_disable": "Proveedor desactivado según lo programado",
 				"circuit_breaker_unstable": "El modelo falla repetidamente (disyuntor abierto varias veces)",
 				"budget_warning": "Aviso de presupuesto (80 % gastado)",
-				"budget_exceeded": "Presupuesto superado (solicitudes rechazadas)"
+				"budget_exceeded": "Presupuesto superado (solicitudes rechazadas)",
+				"quota_status_changed": "La lectura de cuota del proveedor se detuvo o volvió"
 			},
 			"events": {
 				"all": "Seleccionar todo",

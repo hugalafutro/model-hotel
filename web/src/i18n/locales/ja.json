@@ -2138,7 +2138,8 @@
 				"provider_scheduled_disable": "プロバイダーをスケジュールどおり無効化",
 				"circuit_breaker_unstable": "モデルが繰り返し停止（サーキットブレーカーが何度も作動）",
 				"budget_warning": "予算警告（80% 消費）",
-				"budget_exceeded": "予算超過（リクエスト拒否）"
+				"budget_exceeded": "予算超過（リクエスト拒否）",
+				"quota_status_changed": "プロバイダーのクォータ読み取りが停止または復帰しました"
 			},
 			"events": {
 				"all": "すべて選択",

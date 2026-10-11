@@ -2138,7 +2138,8 @@
 				"provider_scheduled_disable": "Palveluntarjoaja poistettu käytöstä ajastuksen mukaisesti",
 				"circuit_breaker_unstable": "Malli vikaantuu toistuvasti (katkaisija auennut useita kertoja)",
 				"budget_warning": "Budjettivaroitus (80 % käytetty)",
-				"budget_exceeded": "Budjetti ylitetty (pyynnöt hylätty)"
+				"budget_exceeded": "Budjetti ylitetty (pyynnöt hylätty)",
+				"quota_status_changed": "Palveluntarjoajan kiintiölukema katkesi tai palasi"
 			},
 			"events": {
 				"all": "Valitse kaikki",

@@ -2138,7 +2138,8 @@
 				"provider_scheduled_disable": "Szolgáltató letiltva az ütemezés szerint",
 				"circuit_breaker_unstable": "A modell ismételten hibázik (áramkör-megszakító többször nyitva)",
 				"budget_warning": "Keretfigyelmeztetés (80% elköltve)",
-				"budget_exceeded": "Keret túllépve (kérések elutasítva)"
+				"budget_exceeded": "Keret túllépve (kérések elutasítva)",
+				"quota_status_changed": "A szolgáltató kvótaolvasása leállt vagy visszatért"
 			},
 			"events": {
 				"all": "Összes kijelölése",

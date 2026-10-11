@@ -1758,7 +1758,8 @@
 				"provider_scheduled_disable": "Provider disabled as scheduled",
 				"circuit_breaker_unstable": "Model keeps breaking (circuit reopened repeatedly)",
 				"budget_warning": "Budget warning (80% spent)",
-				"budget_exceeded": "Budget exceeded (requests refused)"
+				"budget_exceeded": "Budget exceeded (requests refused)",
+				"quota_status_changed": "Provider quota reading stopped or came back"
 			},
 			"events": {
 				"title": "Events to notify on",

@@ -74,6 +74,11 @@ var catalog = []EventDef{
 	// otherwise learns about from them.
 	{Type: "budget.warning", Category: "Budgets", Severity: "warning", DefaultOn: true},
 	{Type: "budget.exceeded", Category: "Budgets", Severity: "error", DefaultOn: true},
+	// A provider's quota reading changed HTTP status: it stopped (a lapsed
+	// subscription answers 204, a dead key 424) or came back (200). Default-on
+	// because a lapse is otherwise learned from the requests it starts
+	// refusing, and the 429s that follow look like any busy hour.
+	{Type: "quota.status_changed", Category: "Quota", Severity: "warning", DefaultOn: true},
 }
 
 // Catalog returns a copy of the event registry, safe for the caller to mutate.

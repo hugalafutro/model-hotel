@@ -2138,7 +2138,8 @@
 				"provider_scheduled_disable": "Leverandør deaktivert som planlagt",
 				"circuit_breaker_unstable": "Modellen feiler gjentatte ganger (kretsbryter åpnet flere ganger)",
 				"budget_warning": "Budsjettvarsel (80 % brukt)",
-				"budget_exceeded": "Budsjett overskredet (forespørsler avvist)"
+				"budget_exceeded": "Budsjett overskredet (forespørsler avvist)",
+				"quota_status_changed": "Leverandørens kvoteavlesning stoppet eller kom tilbake"
 			},
 			"events": {
 				"all": "Velg alt",
