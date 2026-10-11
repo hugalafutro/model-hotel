@@ -3161,7 +3161,6 @@
 			"deleteNaHelp": "Elimina los miembros no disponibles de este grupo.",
 			"deleteNaConfirmTitle": "¿Eliminar este grupo?",
 			"deleteNaConfirmMessage": "Quitar los miembros no disponibles dejaría menos de 2 miembros enrutables, por lo que se eliminará todo el grupo.",
-			"deleteNaConfirmLabel": "Eliminar grupo",
 			"circuitBreakerProviderOpen": "Proveedor omitido por completo - disyuntor abierto para: {{models}}",
 			"chip": {
 				"live": "activo",

@@ -839,7 +839,8 @@ Between them, these give you three ways out of a long pin, from least to most bl
 By default a provider is routed to until its window is spent and the provider says so. A
 **quota reserve** on the provider (edit modal, a slider in 10% steps from 0 to 90, where 0
 drains fully; the slider appears only for the provider types listed below, since nothing else
-reads it; the providers list shows a yellow piggy-bank icon while one is set) keeps that share of every
+reads it, and stays while a reserve saved earlier on another type waits to be cleared; the
+providers list shows a yellow piggy-bank icon while one is set on a type that reads it) keeps that share of every
 window back for use outside the gateway: an IDE plugin or a chat client on the same
 subscription. Once any dated window has consumed `100 - reserve` percent of itself, the quota
 refresh advises the provider as exhausted exactly as a spent window would, so the same pin holds

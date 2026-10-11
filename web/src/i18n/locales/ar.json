@@ -3383,7 +3383,6 @@
 			"deleteNaHelp": "أزل الأعضاء غير المتاحين من هذه المجموعة.",
 			"deleteNaConfirmTitle": "حذف هذه المجموعة؟",
 			"deleteNaConfirmMessage": "إزالة الأعضاء غير المتاحين ستترك أقل من عضوين قابلين للتوجيه، لذلك سيتم حذف المجموعة بأكملها.",
-			"deleteNaConfirmLabel": "حذف المجموعة",
 			"circuitBreakerProviderOpen": "تم تخطي المزود بالكامل - قاطع الدائرة مفتوح لـ: {{models}}",
 			"chip": {
 				"live": "نشط",

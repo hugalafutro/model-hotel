@@ -4,7 +4,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { CandidateModel, FailoverGroup } from "../../../api/types";
 import { Layout } from "../../../components/Layout";
 import { server } from "../../../test/mocks/server";
-import { renderWithProviders } from "../../../test/utils";
+import { armDeleteConfirm, renderWithProviders } from "../../../test/utils";
 import { CreateGroupModal } from "../CreateGroupModal";
 
 const mockCandidates: CandidateModel[] = [
@@ -1515,11 +1515,15 @@ describe("CreateGroupModal", () => {
 
 			await user.click(screen.getByRole("button", { name: "Delete N/A" }));
 
-			// A confirm dialog warns the whole group will be deleted.
+			// A confirm dialog warns the whole group will be deleted and asks for
+			// the hotel id, like the groups page.
 			await waitFor(() => {
 				expect(screen.getByText("Delete this group?")).toBeInTheDocument();
 			});
-			await user.click(screen.getByRole("button", { name: "Delete group" }));
+			expect(screen.getByTestId("delete-confirm-expected")).toHaveTextContent(
+				"hotel/test-model",
+			);
+			await user.click(await armDeleteConfirm(user, "hotel/test-model"));
 
 			await waitFor(() => {
 				expect(deletedId).toBe("fg-001");

@@ -4,7 +4,7 @@ import { useTranslation } from "react-i18next";
 import { api } from "../../api/client";
 import { isConflict } from "../../api/http";
 import type { CandidateModel, FailoverGroup } from "../../api/types";
-import { ConfirmDialog } from "../../components/ConfirmDialog";
+import { DeleteConfirmModal } from "../../components/DeleteConfirmModal";
 import { Modal } from "../../components/Modal";
 import type { ModelItem } from "../../components/ModelPicker";
 import { ModelPicker } from "../../components/ModelPicker";
@@ -467,11 +467,11 @@ export function CreateGroupModal({
 				/>
 			)}
 			{confirmDeleteGroup && group && (
-				<ConfirmDialog
+				<DeleteConfirmModal
 					title={t("failoverGroups.entry.deleteNaConfirmTitle")}
 					message={t("failoverGroups.entry.deleteNaConfirmMessage")}
-					fields={[group.display_model]}
-					confirmLabel={t("failoverGroups.entry.deleteNaConfirmLabel")}
+					confirmText={`hotel/${group.display_model}`}
+					isPending={deleteGroupMutation.isPending}
 					onConfirm={() => {
 						setConfirmDeleteGroup(false);
 						deleteGroupMutation.mutate(group.id);

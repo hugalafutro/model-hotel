@@ -3085,7 +3085,6 @@
 			"deleteNaHelp": "Poistaa ei-saatavilla olevat jäsenet tästä ryhmästä.",
 			"deleteNaConfirmTitle": "Poistetaanko tämä ryhmä?",
 			"deleteNaConfirmMessage": "Ei-saatavilla olevien jäsenten poistaminen jättäisi alle 2 reititettävää jäsentä, joten koko ryhmä poistetaan.",
-			"deleteNaConfirmLabel": "Poista ryhmä",
 			"circuitBreakerProviderOpen": "Koko palveluntarjoaja ohitetaan - katkaisija auki malleille: {{models}}",
 			"chip": {
 				"live": "aktiivinen",

@@ -3085,7 +3085,6 @@
 			"deleteNaHelp": "从该组中移除不可用的成员。",
 			"deleteNaConfirmTitle": "删除该组？",
 			"deleteNaConfirmMessage": "移除不可用的成员后可路由成员将少于 2 个，因此整个组将被删除。",
-			"deleteNaConfirmLabel": "删除组",
 			"circuitBreakerProviderOpen": "已跳过整个提供商 - 断路器对以下模型断开：{{models}}",
 			"chip": {
 				"live": "正常",

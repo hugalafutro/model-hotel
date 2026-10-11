@@ -3161,7 +3161,6 @@
 			"deleteNaHelp": "מסיר את החברים הלא זמינים מהקבוצה הזו.",
 			"deleteNaConfirmTitle": "למחוק את הקבוצה הזו?",
 			"deleteNaConfirmMessage": "הסרת החברים הלא זמינים תשאיר פחות מ-2 חברים הניתנים לניתוב, ולכן הקבוצה כולה תימחק.",
-			"deleteNaConfirmLabel": "מחק קבוצה",
 			"circuitBreakerProviderOpen": "הספק כולו מדולג - מפסק פתוח עבור: {{models}}",
 			"chip": {
 				"live": "פעיל",

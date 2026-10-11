@@ -1,4 +1,4 @@
-import { useId, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Modal } from "./Modal";
 
@@ -49,6 +49,14 @@ export function DeleteConfirmModal({
 	const { t } = useTranslation();
 	const inputId = useId();
 	const [typed, setTyped] = useState("");
+	const inputRef = useRef<HTMLInputElement>(null);
+	// Focus from an effect rather than autoFocus: Modal's own focus effect runs
+	// after this one (children first) and steps aside when focus is already
+	// inside the dialog, and StrictMode's effect replay repeats this one too,
+	// where a DOM autoFocus fires only on insertion.
+	useEffect(() => {
+		inputRef.current?.focus();
+	}, []);
 	const armed = typed === confirmText;
 	const modalTitle =
 		title ??
@@ -97,10 +105,9 @@ export function DeleteConfirmModal({
 					type="text"
 					value={typed}
 					onChange={(e) => setTyped(e.target.value)}
+					ref={inputRef}
 					autoComplete="off"
 					spellCheck={false}
-					// biome-ignore lint/a11y/noAutofocus: the field is the dialog's only control and the whole point of it
-					autoFocus
 					className="ui-input mb-4"
 					data-testid="delete-confirm-input"
 				/>

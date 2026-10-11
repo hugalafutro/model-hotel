@@ -3085,7 +3085,6 @@
 			"deleteNaHelp": "Xóa các thành viên không khả dụng khỏi nhóm này.",
 			"deleteNaConfirmTitle": "Xóa nhóm này?",
 			"deleteNaConfirmMessage": "Việc xóa các thành viên không khả dụng sẽ còn lại ít hơn 2 thành viên có thể định tuyến, vì vậy toàn bộ nhóm sẽ bị xóa.",
-			"deleteNaConfirmLabel": "Xóa nhóm",
 			"circuitBreakerProviderOpen": "Bỏ qua toàn bộ nhà cung cấp - mạch ngắt đang mở cho: {{models}}",
 			"chip": {
 				"live": "hoạt động",

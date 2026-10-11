@@ -3085,7 +3085,6 @@
 			"deleteNaHelp": "Verwyder die onbeskikbare lede uit hierdie groep.",
 			"deleteNaConfirmTitle": "Skrap hierdie groep?",
 			"deleteNaConfirmMessage": "Om die onbeskikbare lede te verwyder, sal minder as 2 roeteerbare lede oorlaat, dus die hele groep sal geskrap word.",
-			"deleteNaConfirmLabel": "Skrap groep",
 			"circuitBreakerProviderOpen": "Hele verskaffer oorgeslaan - kringbreker oop vir: {{models}}",
 			"chip": {
 				"live": "aktief",

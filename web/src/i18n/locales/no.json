@@ -3085,7 +3085,6 @@
 			"deleteNaHelp": "Fjerner de utilgjengelige medlemmene fra denne gruppen.",
 			"deleteNaConfirmTitle": "Slette denne gruppen?",
 			"deleteNaConfirmMessage": "Hvis du fjerner de utilgjengelige medlemmene, blir det færre enn 2 rutbare medlemmer igjen, så hele gruppen slettes.",
-			"deleteNaConfirmLabel": "Slett gruppe",
 			"circuitBreakerProviderOpen": "Hele leverandøren hoppes over - kretsbryter åpen for: {{models}}",
 			"chip": {
 				"live": "aktiv",

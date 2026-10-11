@@ -3085,7 +3085,6 @@
 			"deleteNaHelp": "Verwijdert de niet-beschikbare leden uit deze groep.",
 			"deleteNaConfirmTitle": "Deze groep verwijderen?",
 			"deleteNaConfirmMessage": "Als u de niet-beschikbare leden verwijdert, blijven er minder dan 2 routeerbare leden over, dus de hele groep wordt verwijderd.",
-			"deleteNaConfirmLabel": "Groep verwijderen",
 			"circuitBreakerProviderOpen": "Hele provider overgeslagen - circuitonderbreker open voor: {{models}}",
 			"chip": {
 				"live": "actief",

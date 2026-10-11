@@ -3085,7 +3085,6 @@
 			"deleteNaHelp": "Entfernt die nicht verfügbaren Mitglieder aus dieser Gruppe.",
 			"deleteNaConfirmTitle": "Diese Gruppe löschen?",
 			"deleteNaConfirmMessage": "Durch das Entfernen der nicht verfügbaren Mitglieder blieben weniger als 2 routingfähige Mitglieder übrig, daher wird die gesamte Gruppe gelöscht.",
-			"deleteNaConfirmLabel": "Gruppe löschen",
 			"circuitBreakerProviderOpen": "Gesamter Anbieter übersprungen - Schutzschalter offen für: {{models}}",
 			"chip": {
 				"live": "aktiv",

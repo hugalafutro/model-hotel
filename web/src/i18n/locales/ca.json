@@ -3161,7 +3161,6 @@
 			"deleteNaHelp": "Treu els membres no disponibles d'aquest grup.",
 			"deleteNaConfirmTitle": "Voleu eliminar aquest grup?",
 			"deleteNaConfirmMessage": "Si traieu els membres no disponibles, quedaran menys de 2 membres encaminables, de manera que s'eliminarà tot el grup.",
-			"deleteNaConfirmLabel": "Elimina el grup",
 			"circuitBreakerProviderOpen": "Proveïdor omès completament - interruptor obert per a: {{models}}",
 			"chip": {
 				"live": "actiu",

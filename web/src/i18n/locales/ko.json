@@ -3085,7 +3085,6 @@
 			"deleteNaHelp": "이 그룹에서 사용할 수 없는 구성원을 제거합니다.",
 			"deleteNaConfirmTitle": "이 그룹을 삭제하시겠습니까?",
 			"deleteNaConfirmMessage": "사용할 수 없는 구성원을 제거하면 라우팅 가능한 구성원이 2명 미만이 되므로 전체 그룹이 삭제됩니다.",
-			"deleteNaConfirmLabel": "그룹 삭제",
 			"circuitBreakerProviderOpen": "프로바이더 전체 건너뜀 - 서킷 브레이커 개방 대상: {{models}}",
 			"chip": {
 				"live": "정상",

@@ -3237,7 +3237,6 @@
 			"deleteNaHelp": "Odebere nedostupné členy z této skupiny.",
 			"deleteNaConfirmTitle": "Smazat tuto skupinu?",
 			"deleteNaConfirmMessage": "Odebráním nedostupných členů by zůstali méně než 2 směrovatelní členové, takže se smaže celá skupina.",
-			"deleteNaConfirmLabel": "Smazat skupinu",
 			"circuitBreakerProviderOpen": "Celý poskytovatel vynechán - jistič otevřený pro: {{models}}",
 			"chip": {
 				"live": "živý",

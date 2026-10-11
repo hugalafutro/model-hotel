@@ -3237,7 +3237,6 @@
 			"deleteNaHelp": "Usuwa niedostępnych członków z tej grupy.",
 			"deleteNaConfirmTitle": "Usunąć tę grupę?",
 			"deleteNaConfirmMessage": "Usunięcie niedostępnych członków pozostawiłoby mniej niż 2 członków możliwych do routowania, więc cała grupa zostanie usunięta.",
-			"deleteNaConfirmLabel": "Usuń grupę",
 			"circuitBreakerProviderOpen": "Cały dostawca pominięty - wyłącznik otwarty dla: {{models}}",
 			"chip": {
 				"live": "aktywny",

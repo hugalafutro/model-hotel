@@ -3161,7 +3161,6 @@
 			"deleteNaHelp": "Rimuove i membri non disponibili da questo gruppo.",
 			"deleteNaConfirmTitle": "Eliminare questo gruppo?",
 			"deleteNaConfirmMessage": "La rimozione dei membri non disponibili lascerebbe meno di 2 membri instradabili, quindi l'intero gruppo verrà eliminato.",
-			"deleteNaConfirmLabel": "Elimina gruppo",
 			"circuitBreakerProviderOpen": "Intero provider ignorato - interruttore aperto per: {{models}}",
 			"chip": {
 				"live": "attivo",

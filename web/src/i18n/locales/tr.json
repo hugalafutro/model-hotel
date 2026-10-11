@@ -3085,7 +3085,6 @@
 			"deleteNaHelp": "Kullanılamayan üyeleri bu gruptan kaldırır.",
 			"deleteNaConfirmTitle": "Bu grup silinsin mi?",
 			"deleteNaConfirmMessage": "Kullanılamayan üyeleri kaldırmak, 2'den az yönlendirilebilir üye bırakacağından grubun tamamı silinecek.",
-			"deleteNaConfirmLabel": "Grubu sil",
 			"circuitBreakerProviderOpen": "Sağlayıcının tamamı atlanıyor - devre kesici şunlar için açık: {{models}}",
 			"chip": {
 				"live": "etkin",

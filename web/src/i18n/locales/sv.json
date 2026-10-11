@@ -3085,7 +3085,6 @@
 			"deleteNaHelp": "Tar bort de otillgängliga medlemmarna från den här gruppen.",
 			"deleteNaConfirmTitle": "Ta bort den här gruppen?",
 			"deleteNaConfirmMessage": "Om du tar bort de otillgängliga medlemmarna blir det färre än 2 dirigerbara medlemmar kvar, så hela gruppen tas bort.",
-			"deleteNaConfirmLabel": "Ta bort grupp",
 			"circuitBreakerProviderOpen": "Hela leverantören hoppas över - brytare öppen för: {{models}}",
 			"chip": {
 				"live": "aktiv",

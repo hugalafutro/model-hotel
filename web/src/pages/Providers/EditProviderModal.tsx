@@ -416,7 +416,7 @@ export function EditProviderModal({
 					</div>
 
 					{(QUOTA_RESERVE_TYPES.has(formData.provider_type) ||
-						formData.quota_reserve_percent > 0) && (
+						provider.quota_reserve_percent > 0) && (
 						<div>
 							<label
 								htmlFor="edit-provider-quota-reserve"

@@ -3085,7 +3085,6 @@
 			"deleteNaHelp": "Eltávolítja a nem elérhető tagokat ebből a csoportból.",
 			"deleteNaConfirmTitle": "Törli ezt a csoportot?",
 			"deleteNaConfirmMessage": "A nem elérhető tagok eltávolításával 2-nél kevesebb irányítható tag maradna, ezért a teljes csoport törlődik.",
-			"deleteNaConfirmLabel": "Csoport törlése",
 			"circuitBreakerProviderOpen": "A teljes szolgáltató kihagyva - a megszakító nyitva ezekre: {{models}}",
 			"chip": {
 				"live": "élő",

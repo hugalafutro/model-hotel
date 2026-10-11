@@ -3086,7 +3086,6 @@
 			"deleteNaHelp": "Remove the unavailable members from this group.",
 			"deleteNaConfirmTitle": "Delete this group?",
 			"deleteNaConfirmMessage": "Removing the unavailable members would leave fewer than 2 routable members, so the whole group will be deleted.",
-			"deleteNaConfirmLabel": "Delete group",
 			"chip": {
 				"live": "live",
 				"busy": "busy",

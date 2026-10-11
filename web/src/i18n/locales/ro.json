@@ -3161,7 +3161,6 @@
 			"deleteNaHelp": "Elimină membrii indisponibili din acest grup.",
 			"deleteNaConfirmTitle": "Ștergeți acest grup?",
 			"deleteNaConfirmMessage": "Eliminarea membrilor indisponibili ar lăsa mai puțin de 2 membri rutabili, așa că întregul grup va fi șters.",
-			"deleteNaConfirmLabel": "Șterge grupul",
 			"circuitBreakerProviderOpen": "Întregul furnizor este ocolit - întrerupător deschis pentru: {{models}}",
 			"chip": {
 				"live": "activ",
