@@ -379,7 +379,7 @@ func TestHandleNativeNonStreaming_MasksExactProviderKey(t *testing.T) {
 // warmCacheStream is a native stream whose message_start reports a warm cache:
 // a tiny uncached remainder beside a large cache read and a cache write.
 const warmCacheStream = `event: message_start
-data: {"type":"message_start","message":{"id":"msg_up","type":"message","role":"assistant","model":"claude","content":[],"usage":{"input_tokens":4,"output_tokens":0,"cache_creation_input_tokens":30,"cache_read_input_tokens":20000}}}
+data: {"type":"message_start","message":{"id":"msg_up","type":"message","role":"assistant","model":"claude","content":[],"usage":{"input_tokens":4,"output_tokens":0,"cache_creation_input_tokens":30,"cache_read_input_tokens":20000,"cache_creation":{"ephemeral_1h_input_tokens":20}}}}
 
 event: content_block_delta
 data: {"type":"content_block_delta","index":0,"delta":{"type":"text_delta","text":"Hello"}}
@@ -410,6 +410,9 @@ func TestNativeStream_RecordsCacheSplit(t *testing.T) {
 	}
 	if logData.tokensPromptCacheMiss != 34 {
 		t.Errorf("tokensPromptCacheMiss = %d, want 34 (4 + 30)", logData.tokensPromptCacheMiss)
+	}
+	if logData.tokensPromptCacheWrite != 30 || logData.tokensPromptCacheWrite1h != 20 {
+		t.Errorf("stream cache write/1h = %d/%d, want 30/20", logData.tokensPromptCacheWrite, logData.tokensPromptCacheWrite1h)
 	}
 }
 
@@ -454,13 +457,67 @@ func runNativeNonStreamingWith(t *testing.T, anthropicBody string, masker creden
 
 // Same split on the non-streaming native path, so the two agree.
 func TestHandleNativeNonStreaming_RecordsCacheSplit(t *testing.T) {
-	logData := runNativeNonStreaming(t, `{"id":"msg_up","type":"message","role":"assistant","content":[{"type":"text","text":"hi"}],"stop_reason":"end_turn","usage":{"input_tokens":4,"output_tokens":50,"cache_creation_input_tokens":30,"cache_read_input_tokens":20000}}`)
+	logData := runNativeNonStreaming(t, `{"id":"msg_up","type":"message","role":"assistant","content":[{"type":"text","text":"hi"}],"stop_reason":"end_turn","usage":{"input_tokens":4,"output_tokens":50,"cache_creation_input_tokens":30,"cache_read_input_tokens":20000,"cache_creation":{"ephemeral_5m_input_tokens":10,"ephemeral_1h_input_tokens":20}}}`)
 
 	if logData.tokensPrompt != 20034 || logData.tokensCompletion != 50 {
 		t.Errorf("usage = (%d,%d), want (20034,50)", logData.tokensPrompt, logData.tokensCompletion)
 	}
 	if logData.tokensPromptCacheHit != 20000 || logData.tokensPromptCacheMiss != 34 {
 		t.Errorf("cache split = (%d,%d), want (20000,34)", logData.tokensPromptCacheHit, logData.tokensPromptCacheMiss)
+	}
+	if logData.tokensPromptCacheWrite != 30 || logData.tokensPromptCacheWrite1h != 20 {
+		t.Errorf("cache write/1h = %d/%d, want 30/20 (the 1-hour share priced at its own premium)", logData.tokensPromptCacheWrite, logData.tokensPromptCacheWrite1h)
+	}
+}
+
+// A later input-bearing event that repeats the write total without the TTL
+// split keeps the 1-hour share the first one reported, the way the hit/miss
+// split survives such an event. Anthropic's message_delta carries no input, so
+// only a relay repeating message_start can produce this; the guard is the same
+// one the split has.
+func TestNativeStream_LaterUsageKeepsTheWrite1hShare(t *testing.T) {
+	_, logData := runNativeStream(t, `event: message_start
+data: {"type":"message_start","message":{"id":"msg_up","type":"message","role":"assistant","model":"claude","content":[],"usage":{"input_tokens":4,"output_tokens":0,"cache_creation_input_tokens":30,"cache_creation":{"ephemeral_1h_input_tokens":20}}}}
+
+event: message_start
+data: {"type":"message_start","message":{"id":"msg_up","type":"message","role":"assistant","model":"claude","content":[],"usage":{"input_tokens":4,"output_tokens":0,"cache_creation_input_tokens":30}}}
+
+event: content_block_delta
+data: {"type":"content_block_delta","index":0,"delta":{"type":"text_delta","text":"Hello"}}
+
+event: message_delta
+data: {"type":"message_delta","delta":{"stop_reason":"end_turn"},"usage":{"output_tokens":5}}
+
+event: message_stop
+data: {"type":"message_stop"}
+
+`)
+	if logData.tokensPromptCacheWrite != 30 || logData.tokensPromptCacheWrite1h != 20 {
+		t.Errorf("cache write/1h = %d/%d, want 30/20 (the later event without the split must not zero the share)", logData.tokensPromptCacheWrite, logData.tokensPromptCacheWrite1h)
+	}
+}
+
+// A later event that lowers the write total without the split keeps the share
+// but caps it at the new total: the share is a part of the write.
+func TestNativeStream_LowerWriteTotalCapsTheWrite1hShare(t *testing.T) {
+	_, logData := runNativeStream(t, `event: message_start
+data: {"type":"message_start","message":{"id":"msg_up","type":"message","role":"assistant","model":"claude","content":[],"usage":{"input_tokens":4,"output_tokens":0,"cache_creation_input_tokens":30,"cache_creation":{"ephemeral_1h_input_tokens":20}}}}
+
+event: message_start
+data: {"type":"message_start","message":{"id":"msg_up","type":"message","role":"assistant","model":"claude","content":[],"usage":{"input_tokens":4,"output_tokens":0,"cache_creation_input_tokens":10}}}
+
+event: content_block_delta
+data: {"type":"content_block_delta","index":0,"delta":{"type":"text_delta","text":"Hello"}}
+
+event: message_delta
+data: {"type":"message_delta","delta":{"stop_reason":"end_turn"},"usage":{"output_tokens":5}}
+
+event: message_stop
+data: {"type":"message_stop"}
+
+`)
+	if logData.tokensPromptCacheWrite != 10 || logData.tokensPromptCacheWrite1h != 10 {
+		t.Errorf("cache write/1h = %d/%d, want 10/10 (the share capped at the lowered total)", logData.tokensPromptCacheWrite, logData.tokensPromptCacheWrite1h)
 	}
 }
 
@@ -496,6 +553,11 @@ func TestNative_CacheCreationOnlyRecordsNoCacheSplit(t *testing.T) {
 		if logData.tokensPromptCacheHit != 0 || logData.tokensPromptCacheMiss != 0 {
 			t.Errorf("cache split = (%d,%d), want (0,0)", logData.tokensPromptCacheHit, logData.tokensPromptCacheMiss)
 		}
+		// No split, but the write is still booked: the first request of a cached
+		// conversation pays the write premium.
+		if logData.tokensPromptCacheWrite != 30 {
+			t.Errorf("cache write = %d, want 30", logData.tokensPromptCacheWrite)
+		}
 	})
 
 	t.Run("streaming", func(t *testing.T) {
@@ -506,6 +568,9 @@ func TestNative_CacheCreationOnlyRecordsNoCacheSplit(t *testing.T) {
 		}
 		if logData.tokensPromptCacheHit != 0 || logData.tokensPromptCacheMiss != 0 {
 			t.Errorf("cache split = (%d,%d), want (0,0)", logData.tokensPromptCacheHit, logData.tokensPromptCacheMiss)
+		}
+		if logData.tokensPromptCacheWrite != 30 {
+			t.Errorf("cache write = %d, want 30", logData.tokensPromptCacheWrite)
 		}
 	})
 }

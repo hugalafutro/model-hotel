@@ -30,6 +30,24 @@ func TestCostUSD(t *testing.T) {
 		// A split with no cache-hit price falls back to the whole prompt at the
 		// input price rather than pricing the hit tokens at nothing.
 		{"cache hit without a cache price", noCache, Usage{Prompt: 1_000_000, PromptCacheHit: 800_000, PromptCacheMiss: 200_000}, 1, true},
+		// Cache writes are a subset of the misses: priced once as misses, plus
+		// the write premium (Anthropic's 1.25x) on the written share only.
+		{"cache write adds the premium", priced, Usage{Prompt: 1_000_000, PromptCacheHit: 800_000, PromptCacheMiss: 200_000, PromptCacheWrite: 200_000}, 0.08 + 0.2 + 0.05, true},
+		// A first request writes without reading: no split, the whole prompt at
+		// the input price, plus the premium on the written part.
+		{"cache write without a read", priced, Usage{Prompt: 1_000_000, PromptCacheWrite: 400_000}, 1 + 0.1, true},
+		// The premium is capped by the prompt: a write figure beyond it (a
+		// provider bug) cannot bill more than the prompt was.
+		{"cache write beyond the prompt", priced, Usage{Prompt: 1_000_000, PromptCacheWrite: 5_000_000}, 1 + 0.25, true},
+		// And by the non-hit prompt: a write beyond the misses never puts the
+		// premium on tokens priced at the cache-hit rate.
+		{"cache write beyond the misses", priced, Usage{Prompt: 1_000_000, PromptCacheHit: 800_000, PromptCacheMiss: 200_000, PromptCacheWrite: 900_000}, 0.08 + 0.2 + 0.05, true},
+		{"negative cache write is ignored", priced, Usage{Prompt: 1_000_000, PromptCacheWrite: -7}, 1, true},
+		// A 1-hour write takes 2x: the 1-hour share at the full premium, the
+		// rest at 1.25x. 300k at +100% and 100k at +25% of $1.
+		{"1-hour cache write takes its own premium", priced, Usage{Prompt: 1_000_000, PromptCacheWrite: 400_000, PromptCacheWrite1h: 300_000}, 1 + 0.3 + 0.025, true},
+		// The 1-hour share is capped by the write it is part of.
+		{"1-hour share beyond the write", priced, Usage{Prompt: 1_000_000, PromptCacheWrite: 400_000, PromptCacheWrite1h: 900_000}, 1 + 0.4, true},
 		{"nothing charged", priced, Usage{}, 0, true},
 	} {
 		t.Run(tc.name, func(t *testing.T) {

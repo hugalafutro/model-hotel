@@ -126,7 +126,28 @@ func newMessagesRequest(ctx context.Context, st *requestState, candidate modelCa
 // through here so a change to either half cannot apply to only one of them.
 func (h *Handler) anthropicEgressBody(st *requestState, candidate modelCandidate, providerType string, dialect anthropicegress.ThinkingDialect) (body []byte, model string, stream bool, err error) {
 	cleaned := paramrewrite.BuildNativeUpstreamBody(st.bodyBytes, messagesRewriteType(providerType, candidate.model.ModelID), candidate.model.ModelID, st.reqModel, &h.deprecationCache, &h.paramRenameCache, nil, learnedScopeFor(candidate))
-	return anthropicegress.TranslateRequestWithDialect(cleaned, dialect)
+	return anthropicegress.TranslateRequestWithOptions(cleaned, anthropicegress.Options{Dialect: dialect, Caching: h.cachingFor(candidate)})
+}
+
+// cachingFor reports whether this candidate's Messages requests carry
+// prompt-cache breakpoints: yes unless a 400 from this provider+model taught
+// that its endpoint refuses the cache_control field (see
+// anthropicegress.CacheControlRefused and learnCacheRefusal).
+func (h *Handler) cachingFor(candidate modelCandidate) bool {
+	key := paramrewrite.LearnedCacheKey(learnedScopeFor(candidate), candidate.model.ModelID)
+	_, refused := h.cacheRefusedCache.Load(key)
+	return !refused
+}
+
+// learnCacheRefusal records that this provider+model's Messages endpoint rejects
+// cache_control, so later requests to it are built without breakpoints from the
+// start. Logged at warn: every request to that model now pays full price for
+// its prompt, which the operator may want to know about the endpoint.
+func (h *Handler) learnCacheRefusal(candidate modelCandidate) {
+	key := paramrewrite.LearnedCacheKey(learnedScopeFor(candidate), candidate.model.ModelID)
+	if _, already := h.cacheRefusedCache.LoadOrStore(key, true); !already {
+		debuglog.Warn("proxy: anthropic messages endpoint refused cache_control; prompt caching off for this model", "provider", candidate.provider.Name, "model", candidate.model.ModelID)
+	}
 }
 
 // messagesRewriteType is the provider type whose parameter rules a Messages body

@@ -3,12 +3,20 @@ package egress
 // NativeUsage is the metering summary of one body or stream a native
 // passthrough forwards verbatim. PromptTokens is the whole prompt. The cache
 // split is reported only when the upstream reported a cache read, and then
-// sums back to the prompt; an uncached reply leaves both zero.
+// sums back to the prompt; an uncached reply leaves both zero. CacheWriteTokens
+// is the part of the prompt written into the cache (Anthropic's
+// cache_creation_input_tokens), reported whenever the upstream reports it,
+// read or no read, since the first request of a cached conversation writes
+// without reading and still pays the write premium.
 type NativeUsage struct {
 	PromptTokens     int
 	CompletionTokens int
 	CacheHitTokens   int
 	CacheMissTokens  int
+	CacheWriteTokens int
+	// CacheWrite1hTokens is the share of CacheWriteTokens written with a 1-hour
+	// TTL, billed at 2x the input price rather than the 5-minute 1.25x.
+	CacheWrite1hTokens int
 }
 
 // NativeStreamEvent is the decoded summary of one native stream event. A
@@ -23,6 +31,11 @@ type NativeStreamEvent struct {
 	HasOutput       bool
 	CacheHitTokens  int // the cache-served share of InputTokens; 0 when uncached
 	CacheMissTokens int // the rest of InputTokens; 0 when uncached, not the whole prompt
+	// CacheWriteTokens is the share of InputTokens written into the cache
+	// (cache_creation_input_tokens), reported with or without a read;
+	// CacheWrite1hTokens the part of it written with a 1-hour TTL.
+	CacheWriteTokens   int
+	CacheWrite1hTokens int
 	// ErrorMessage is the message of an event that reports a failure.
 	ErrorMessage string
 	// CarriesError reports error text on the event, whatever its type, for

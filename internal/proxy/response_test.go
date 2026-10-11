@@ -933,6 +933,7 @@ func TestHandleNonStreamingResponse_AnthropicCacheTokens(t *testing.T) {
 	assert.Len(t, decodedResp.Choices, 1)
 	assert.Equal(t, "assistant", decodedResp.Choices[0].Message.Role)
 	assert.Equal(t, "Hello from Claude!", decodedResp.Choices[0].Message.Content)
+	assert.Equal(t, 20, logData.tokensPromptCacheWrite, "cache_creation_input_tokens booked as the write")
 	assert.Equal(t, 200, decodedResp.Usage.PromptTokens)
 	assert.Equal(t, 10, decodedResp.Usage.CompletionTokens)
 	assert.Equal(t, 150, decodedResp.Usage.CacheReadInputTokens)

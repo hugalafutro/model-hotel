@@ -150,7 +150,7 @@ func (h *Handler) handleNativeNonStreaming(w http.ResponseWriter, r *http.Reques
 	if canFailOver && !answered {
 		// Charged before the candidate is left behind: the provider read this
 		// prompt and billed it, whoever ends up serving the request.
-		h.meterRejectedPrompt(st, logData, candidate, inputTokens, usage.CacheHitTokens, usage.CacheMissTokens)
+		h.meterRejectedPrompt(st, logData, candidate, inputTokens, usage.CacheHitTokens, usage.CacheMissTokens, usage.CacheWriteTokens, usage.CacheWrite1hTokens)
 		return h.rejectUntranslatableBody(st, candidate, logData, native.label(), resp.StatusCode, errEmptyCompletion, attempt, r)
 	}
 
@@ -174,6 +174,8 @@ func (h *Handler) handleNativeNonStreaming(w http.ResponseWriter, r *http.Reques
 	// the prompt total, so a rejected earlier candidate's split survives.
 	logData.tokensPromptCacheHit += util.ClampTokenCount(usage.CacheHitTokens)
 	logData.tokensPromptCacheMiss += util.ClampTokenCount(usage.CacheMissTokens)
+	logData.tokensPromptCacheWrite += util.ClampTokenCount(usage.CacheWriteTokens)
+	logData.tokensPromptCacheWrite1h += util.ClampTokenCount(usage.CacheWrite1hTokens)
 	logData.failoverAttempt = attempt
 	logData.state = "completed"
 	logData.deliveredContent = carriesContent
@@ -218,9 +220,23 @@ func (h *Handler) emitRawData(sink *streamSink, st *streamState, native nativeDi
 	if info.HasInput && isTokenReading(info.InputTokens) {
 		st.promptTokens = info.InputTokens
 		// Guarded like the translated path's observer: a later usage event
-		// without cache fields must not zero a split an earlier one reported.
-		// The split is clamped rather than refused, matching extractCacheTokens:
-		// these two are log columns, not a charge.
+		// without cache fields must not zero a split or a write an earlier one
+		// reported. All three are clamped rather than refused, matching
+		// extractCacheTokens: the split is two log columns and the write only
+		// raises the priced cost by its premium, none of them a token charge.
+		if info.CacheWriteTokens > 0 {
+			st.promptCacheWriteTokens = util.ClampTokenCount(info.CacheWriteTokens)
+		}
+		// Guarded on its own: a later event may repeat the write total without
+		// the TTL split, and must not zero the 1-hour share the first one gave.
+		if info.CacheWrite1hTokens > 0 {
+			st.promptCacheWrite1hTokens = util.ClampTokenCount(info.CacheWrite1hTokens)
+		}
+		// The share never exceeds the total it is part of. The decoder caps the
+		// share at its total within one event, so a set share always has a set
+		// total beside it; the cap here only bites when a later event lowers
+		// the total without repeating the split.
+		st.promptCacheWrite1hTokens = min(st.promptCacheWrite1hTokens, st.promptCacheWriteTokens)
 		if info.CacheHitTokens > 0 || info.CacheMissTokens > 0 {
 			st.promptCacheHitTokens = util.ClampTokenCount(info.CacheHitTokens)
 			st.promptCacheMissTokens = util.ClampTokenCount(info.CacheMissTokens)

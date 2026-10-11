@@ -50,6 +50,26 @@ func TestParseResponseUsage_SplitsCachedInput(t *testing.T) {
 	if u.CacheHitTokens+u.CacheMissTokens != u.PromptTokens {
 		t.Errorf("split %d+%d does not sum back to the prompt %d", u.CacheHitTokens, u.CacheMissTokens, u.PromptTokens)
 	}
+	if u.CacheWriteTokens != 30 {
+		t.Errorf("cache write tokens = %d, want 30 (the written share, priced at the write premium)", u.CacheWriteTokens)
+	}
+}
+
+// The TTL split: the 1-hour share is read from cache_creation and never
+// exceeds the creation total it is part of.
+func TestParseResponseUsage_CacheWrite1h(t *testing.T) {
+	u := ParseResponseUsage([]byte(`{"usage":{"input_tokens":4,"output_tokens":1,"cache_creation_input_tokens":30,"cache_creation":{"ephemeral_5m_input_tokens":10,"ephemeral_1h_input_tokens":20}}}`))
+	if u.CacheWriteTokens != 30 || u.CacheWrite1hTokens != 20 {
+		t.Errorf("write/1h = %d/%d, want 30/20", u.CacheWriteTokens, u.CacheWrite1hTokens)
+	}
+	u = ParseResponseUsage([]byte(`{"usage":{"input_tokens":4,"output_tokens":1,"cache_creation_input_tokens":30,"cache_creation":{"ephemeral_1h_input_tokens":50}}}`))
+	if u.CacheWrite1hTokens != 30 {
+		t.Errorf("1h share beyond the total = %d, want 30 (capped)", u.CacheWrite1hTokens)
+	}
+	ev := InspectStreamEvent([]byte(`{"type":"message_start","message":{"usage":{"input_tokens":4,"output_tokens":1,"cache_creation_input_tokens":30,"cache_creation":{"ephemeral_1h_input_tokens":20}}}}`))
+	if ev.CacheWriteTokens != 30 || ev.CacheWrite1hTokens != 20 {
+		t.Errorf("stream write/1h = %d/%d, want 30/20", ev.CacheWriteTokens, ev.CacheWrite1hTokens)
+	}
 }
 
 // Writing a cache entry without reading one reports no cache counts: the
@@ -66,6 +86,11 @@ func TestParseResponseUsage_CacheCreationOnly(t *testing.T) {
 	if u.CacheHitTokens != 0 || u.CacheMissTokens != 0 {
 		t.Errorf("cache split = (%d,%d), want (0,0)", u.CacheHitTokens, u.CacheMissTokens)
 	}
+	// The write is still reported on its own: the first request of a cached
+	// conversation pays the write premium without any read.
+	if u.CacheWriteTokens != 30 {
+		t.Errorf("cache write tokens = %d, want 30", u.CacheWriteTokens)
+	}
 }
 
 // The streaming path reads its usage through the same summary(), so
@@ -74,6 +99,9 @@ func TestInspectStreamEvent_CacheCreationOnly(t *testing.T) {
 	ev := InspectStreamEvent([]byte(`{"type":"message_start","message":{"usage":{"input_tokens":4,"output_tokens":1,"cache_creation_input_tokens":30}}}`))
 	if !ev.HasInput || ev.InputTokens != 34 {
 		t.Errorf("input tokens = %d (has=%v), want 34 (4 + 30)", ev.InputTokens, ev.HasInput)
+	}
+	if ev.CacheWriteTokens != 30 {
+		t.Errorf("cache write tokens = %d, want 30", ev.CacheWriteTokens)
 	}
 	if ev.CacheHitTokens != 0 || ev.CacheMissTokens != 0 {
 		t.Errorf("cache split = (%d,%d), want (0,0)", ev.CacheHitTokens, ev.CacheMissTokens)

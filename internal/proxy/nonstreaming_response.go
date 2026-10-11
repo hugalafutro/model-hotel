@@ -192,6 +192,7 @@ func (h *Handler) handleNonStreamingResponse(w http.ResponseWriter, r *http.Requ
 		hit, miss := extractCacheTokens(chatResp.Usage)
 		logData.tokensPromptCacheHit += hit
 		logData.tokensPromptCacheMiss += miss
+		logData.tokensPromptCacheWrite += extractCacheWriteTokens(chatResp.Usage)
 		logData.failoverAttempt = attempt
 		logData.state = "completed"
 		// Whether the model actually answered, judged where the decoded body is

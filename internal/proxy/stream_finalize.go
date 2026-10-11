@@ -31,14 +31,16 @@ type streamState struct {
 	// masker scrubs the provider's credential from every frame bound for the
 	// client and from the log's error message; copied from streamOptions so
 	// the chunk handlers can reach it.
-	masker                credentialMasker
-	promptTokens          int
-	completionTokens      int
-	reasoningTokens       int
-	promptCacheHitTokens  int
-	promptCacheMissTokens int
-	chunkCount            int
-	errorChunkCount       int
+	masker                   credentialMasker
+	promptTokens             int
+	completionTokens         int
+	reasoningTokens          int
+	promptCacheHitTokens     int
+	promptCacheMissTokens    int
+	promptCacheWriteTokens   int
+	promptCacheWrite1hTokens int
+	chunkCount               int
+	errorChunkCount          int
 	// heldErrorCount is the part of errorChunkCount the client never received:
 	// a split {"error":…} the gateway reassembled from fragments it dropped.
 	heldErrorCount int
@@ -316,6 +318,8 @@ func (h *Handler) finalizeStream(st *streamState, sink *streamSink, scanErr erro
 	logData.tokensCompletionReasoning = st.reasoningTokens
 	logData.tokensPromptCacheHit = st.promptCacheHitTokens
 	logData.tokensPromptCacheMiss = st.promptCacheMissTokens
+	logData.tokensPromptCacheWrite = st.promptCacheWriteTokens
+	logData.tokensPromptCacheWrite1h = st.promptCacheWrite1hTokens
 	// Carried for the retirement verdict, which has to decide whether the model
 	// answered. On the native Anthropic passthrough the chunks are never parsed
 	// into deltas, so its terminal message_stop stands in for the same fact.

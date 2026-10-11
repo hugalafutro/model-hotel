@@ -3,6 +3,7 @@ package proxy
 import (
 	"context"
 	"fmt"
+	"math"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -667,6 +668,38 @@ func TestUpdateRequestLog_StampsCost(t *testing.T) {
 	if got := readCost(walked.id); got == nil || *got < 2.18-1e-9 || *got > 2.18+1e-9 {
 		t.Errorf("walked cost_usd = %v, want 2.18 (rejected hop 1.00 at its own price + serving share 1.18)", got)
 	}
+
+	// The same walk with a cache write on both hops: the rejected hop's write is
+	// its own (priced in its 1.00 already), and the serving hop's 0.1M write
+	// adds the premium on its share: 1.18 + 0.1M * $1 * 0.25 = 1.205.
+	walkedWrite := newRow()
+	walkedWrite.servedModel = priced.servedModel
+	walkedWrite.tokensPromptCacheWrite = 150_000
+	walkedWrite.rejected = []rejectedAttempt{{providerName: "walked-away", prompt: 100_000, cacheMiss: 100_000, cacheWrite: 50_000, costUSD: 1.0, priced: true}}
+	walkedWrite.state = "completed"
+	h.updateRequestLog(walkedWrite)
+	if got := readCost(walkedWrite.id); got == nil || *got < 2.205-1e-9 || *got > 2.205+1e-9 {
+		t.Errorf("walked-with-write cost_usd = %v, want 2.205 (rejected hop 1.00 + serving share 1.18 + write premium 0.025)", got)
+	}
+
+	// meterRejectedPrompt books the hop's write itself, clamped to the prompt
+	// that is not a hit, and adds it to the row's running total.
+	t.Run("meterRejectedPrompt books the write", func(t *testing.T) {
+		row := newRow()
+		row.tokensPrompt, row.tokensPromptCacheHit, row.tokensPromptCacheMiss, row.tokensPromptCacheWrite = 0, 0, 0, 0
+		cand := modelCandidate{model: priced.servedModel, provider: &provider.Provider{Name: "walked-away"}}
+		h.meterRejectedPrompt(&requestState{}, row, cand, 100, 60, 40, 70, 20)
+		if len(row.rejected) != 1 || row.rejected[0].cacheWrite != 40 || row.rejected[0].cacheWrite1h != 20 {
+			t.Fatalf("rejected = %+v, want one hop with cacheWrite 40 (70 clamped to the 40 non-hit tokens) and 20 of it 1-hour", row.rejected)
+		}
+		if row.tokensPromptCacheWrite != 40 || row.tokensPromptCacheWrite1h != 20 {
+			t.Errorf("tokensPromptCacheWrite/1h = %d/%d, want 40/20", row.tokensPromptCacheWrite, row.tokensPromptCacheWrite1h)
+		}
+		// 100 prompt: 60 hits at $0.1 + 40 misses at $1 + 20 written at 25% + 20 written at 100% of $1.
+		if want := (6 + 40 + 5 + 20) / 1e6; math.Abs(row.rejected[0].costUSD-want) > 1e-15 {
+			t.Errorf("hop cost = %v, want %v", row.rejected[0].costUSD, want)
+		}
+	})
 
 	// A rejected hop whose model carries no prices stays in the serving share
 	// and is priced at the serving model, so the row is still charged: the

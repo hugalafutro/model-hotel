@@ -48,7 +48,7 @@ func (logEntry *requestLogData) terminalCostParts() (serving, rejected float64, 
 	if !isTerminalLogState(logEntry.state) {
 		return 0, 0, false
 	}
-	rPrompt, rHit, rMiss, rCost := logEntry.rejectedTotals()
+	walked := logEntry.rejectedTotals()
 	// A rerank served by a model that bills per search unit is priced from the
 	// units the provider reported, not from the token columns (which hold the
 	// prompt estimate that charges the token limits). Only when it reported
@@ -60,20 +60,22 @@ func (logEntry *requestLogData) terminalCostParts() (serving, rejected float64, 
 	// nothing here; record units per hop if a walked rerank group ever matters.
 	if logEntry.endpointType == endpointTypeRerank && logEntry.searchUnits > 0 {
 		if cost, ok := logEntry.servedModel.SearchCostUSD(logEntry.searchUnits); ok {
-			return cost, rCost, true
+			return cost, walked.costUSD, true
 		}
 	}
 	usage := model.Usage{
-		Prompt:          logEntry.tokensPrompt - rPrompt + logEntry.estimatedPrompt,
-		PromptCacheHit:  logEntry.tokensPromptCacheHit - rHit,
-		PromptCacheMiss: logEntry.tokensPromptCacheMiss - rMiss,
-		Completion:      logEntry.tokensCompletion + logEntry.estimatedCompletion,
+		Prompt:             logEntry.tokensPrompt - walked.prompt + logEntry.estimatedPrompt,
+		PromptCacheHit:     logEntry.tokensPromptCacheHit - walked.cacheHit,
+		PromptCacheMiss:    logEntry.tokensPromptCacheMiss - walked.cacheMiss,
+		PromptCacheWrite:   logEntry.tokensPromptCacheWrite - walked.cacheWrite,
+		PromptCacheWrite1h: logEntry.tokensPromptCacheWrite1h - walked.cacheWrite1h,
+		Completion:         logEntry.tokensCompletion + logEntry.estimatedCompletion,
 	}
 	serving, ok = logEntry.priceServingShare(usage)
 	if !ok {
 		return 0, 0, false
 	}
-	return serving, rCost, true
+	return serving, walked.costUSD, true
 }
 
 // priceServingShare prices the serving candidate's share at its model. When
