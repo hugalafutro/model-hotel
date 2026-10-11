@@ -181,7 +181,7 @@ func TestCollectQuotaWindows_ReadsStoredSnapshots(t *testing.T) {
 	ctx := context.Background()
 	reset := time.Now().Add(4 * time.Hour).Truncate(time.Millisecond)
 	id := insertQuotaPollProvider(t, h.dbPool.Pool(), "zai-main", "https://api.z.ai", true)
-	if err := h.quotaRepo.Upsert(ctx, quota.Snapshot{
+	if _, err := h.quotaRepo.Replace(ctx, quota.Snapshot{
 		ProviderID: id, Kind: "usage", HTTPStatus: 200, Source: "poll",
 		Payload:   json.RawMessage(fmt.Sprintf(`{"data":{"limits":[{"type":"TOKENS_LIMIT","unit":3,"percentage":100,"nextResetTime":%d}]}}`, reset.UnixMilli())),
 		FetchedAt: time.Now(),
@@ -232,7 +232,7 @@ func TestCollectQuotaWindows_SkipsUnconfirmedAndForeignKinds(t *testing.T) {
 		{ProviderID: foreign, Kind: "balance", HTTPStatus: 200, Source: "poll", Payload: payload, FetchedAt: time.Now()},
 		{ProviderID: disabled, Kind: "usage", HTTPStatus: 200, Source: "poll", Payload: payload, FetchedAt: time.Now()},
 	} {
-		if err := h.quotaRepo.Upsert(ctx, s); err != nil {
+		if _, err := h.quotaRepo.Replace(ctx, s); err != nil {
 			t.Fatalf("seed snapshot: %v", err)
 		}
 	}

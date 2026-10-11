@@ -136,7 +136,7 @@ func (h *QuotaFleetHandler) ExportSnapshots(w http.ResponseWriter, r *http.Reque
 const maxQuotaSnapshotsBody = 4 << 20
 
 // ReceiveSnapshots stores fleet-distributed snapshots, mapping each by provider
-// name onto this member's own provider IDs and writing with UpsertIfNewer so an
+// name onto this member's own provider IDs and writing with ReplaceIfNewer so an
 // older fleet write never clobbers a fresher local (e.g. manual) snapshot. A
 // name with no local provider is skipped. Written with source='fleet'.
 func (h *QuotaFleetHandler) ReceiveSnapshots(w http.ResponseWriter, r *http.Request) {
@@ -177,7 +177,7 @@ func (h *QuotaFleetHandler) ReceiveSnapshots(w http.ResponseWriter, r *http.Requ
 }
 
 // storeSnapshots maps each snapshot by provider name onto this member's own
-// provider IDs and writes it with UpsertIfNewer. It reports how many rows
+// provider IDs and writes it with ReplaceIfNewer. It reports how many rows
 // landed and how many were skipped (unknown provider, or an older write).
 func (h *QuotaFleetHandler) storeSnapshots(ctx context.Context, snaps []QuotaSnapshotWire) (applied, skipped int, err error) {
 	provs, err := h.providerRepo.List(ctx)
@@ -197,7 +197,7 @@ func (h *QuotaFleetHandler) storeSnapshots(ctx context.Context, snaps []QuotaSna
 		// The replaced status comes back with the write so a flip the primary
 		// observed is announced on this member too (dashboard only, see
 		// EventTypeQuotaStatusSynced).
-		wrote, prev, err := h.quotaRepo.ReplaceIfNewer(ctx, quota.Snapshot{
+		wrote, prior, err := h.quotaRepo.ReplaceIfNewer(ctx, quota.Snapshot{
 			ProviderID: prov.ID,
 			Kind:       s.Kind,
 			Payload:    s.Payload,
@@ -215,7 +215,7 @@ func (h *QuotaFleetHandler) storeSnapshots(ctx context.Context, snaps []QuotaSna
 		}
 		if wrote {
 			applied++
-			publishQuotaStatusChange(prov, s.Kind, prev, s.HTTPStatus, true)
+			publishQuotaStatusChange(prov, s.Kind, prior, s.HTTPStatus, true)
 		} else {
 			skipped++
 		}

@@ -77,10 +77,13 @@ var catalog = []EventDef{
 	// A provider's quota reading stopped (a lapsed subscription answers 204, a
 	// dead key 424) or came back (200). Two types, like the breaker pair, so
 	// the dispatcher's per-type debounce never swallows a recovery that follows
-	// its loss within the cooldown. Default-on because a lapse is otherwise
-	// learned from the requests it starts refusing. Migration 096 appends both
-	// to a saved picker selection. The fleet-synced copy of the same flip
-	// (quota.status_synced) is deliberately absent: the primary alerts once.
+	// its loss within the cooldown (a loss, recovery and second loss inside one
+	// cooldown still collapses the second loss, the residual the breaker pair
+	// accepts too). Default-on because a lapse is otherwise learned from the
+	// requests it starts refusing. Migration 096 appends both to a saved picker
+	// selection. The copy of the same flip on a node whose reading comes from
+	// the fleet (quota.status_synced) is deliberately absent: the node that
+	// fetched for itself alerts, the fed ones only repaint their dashboards.
 	{Type: "quota.status_lost", Category: "Quota", Severity: "warning", DefaultOn: true},
 	{Type: "quota.status_restored", Category: "Quota", Severity: "success", DefaultOn: true},
 }

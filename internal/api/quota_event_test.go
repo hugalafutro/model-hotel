@@ -41,35 +41,42 @@ func drainQuotaStatusEvents(t *testing.T) func() []events.Event {
 }
 
 // TestPublishQuotaStatusChange covers the announce rule on its own: no prior
-// reading (no row, or RecordFailure's 0 placeholder) and an unchanged status
-// are silent; a reading coming back is a restored/success, a reading going
-// away is a lost/warning; the fleet copy keeps message and severity under its
-// own uncatalogued type; every event carries the pair of statuses.
+// reading (no row, or RecordFailure's 0 placeholder), an unchanged status and
+// a move between two non-200 answers are silent; a reading coming back is a
+// restored/success, a reading going away is a lost/warning; a flip on a node
+// whose reading comes from the fleet (the primary's push, or a prior row the
+// fleet wrote) keeps message and severity under the uncatalogued synced type;
+// every event carries the pair of statuses.
 func TestPublishQuotaStatusChange(t *testing.T) {
 	prov := &provider.Provider{ID: uuid.New(), Name: "Go", BaseURL: "https://opencode.ai/zen/go/v1"}
+	own := func(status int) quota.Prior { return quota.Prior{HTTPStatus: status, Source: "poll"} }
+	fed := func(status int) quota.Prior { return quota.Prior{HTTPStatus: status, Source: "fleet"} }
 	cases := []struct {
 		name     string
-		prev     int
+		prior    quota.Prior
 		status   int
 		fleet    bool
 		wantType string
 		severity string
 		phrase   string
 	}{
-		{name: "no previous row", prev: 0, status: 200},
-		{name: "failure placeholder", prev: 0, status: 204},
-		{name: "same status", prev: 200, status: 200},
-		{name: "same status via fleet", prev: 204, status: 204, fleet: true},
-		{name: "reading back", prev: 204, status: 200, wantType: EventTypeQuotaStatusRestored, severity: "success", phrase: "is back"},
-		{name: "reading gone", prev: 200, status: 204, wantType: EventTypeQuotaStatusLost, severity: "warning", phrase: "stopped"},
-		{name: "key rejected", prev: 200, status: 424, wantType: EventTypeQuotaStatusLost, severity: "warning", phrase: "stopped"},
-		{name: "reading back via fleet", prev: 204, status: 200, fleet: true, wantType: EventTypeQuotaStatusSynced, severity: "success", phrase: "is back"},
-		{name: "reading gone via fleet", prev: 200, status: 204, fleet: true, wantType: EventTypeQuotaStatusSynced, severity: "warning", phrase: "stopped"},
+		{name: "no previous row", status: 200},
+		{name: "failure placeholder", prior: own(0), status: 204},
+		{name: "same status", prior: own(200), status: 200},
+		{name: "same status via fleet", prior: fed(204), status: 204, fleet: true},
+		{name: "no plan to dead key changes no badge", prior: own(204), status: 424},
+		{name: "dead key to no plan changes no badge", prior: own(424), status: 204},
+		{name: "reading back", prior: own(204), status: 200, wantType: EventTypeQuotaStatusRestored, severity: "success", phrase: "is back"},
+		{name: "reading gone", prior: own(200), status: 204, wantType: EventTypeQuotaStatusLost, severity: "warning", phrase: "stopped"},
+		{name: "key rejected", prior: own(200), status: 424, wantType: EventTypeQuotaStatusLost, severity: "warning", phrase: "stopped"},
+		{name: "reading back via fleet push", prior: own(204), status: 200, fleet: true, wantType: EventTypeQuotaStatusSynced, severity: "success", phrase: "is back"},
+		{name: "reading gone via fleet push", prior: own(200), status: 204, fleet: true, wantType: EventTypeQuotaStatusSynced, severity: "warning", phrase: "stopped"},
+		{name: "own fetch on a fleet-fed node", prior: fed(200), status: 204, wantType: EventTypeQuotaStatusSynced, severity: "warning", phrase: "stopped"},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
 			drain := drainQuotaStatusEvents(t)
-			publishQuotaStatusChange(prov, "usage", tc.prev, tc.status, tc.fleet)
+			publishQuotaStatusChange(prov, "usage", tc.prior, tc.status, tc.fleet)
 			got := drain()
 			if tc.wantType == "" {
 				if len(got) != 0 {
@@ -85,7 +92,7 @@ func TestPublishQuotaStatusChange(t *testing.T) {
 				t.Fatalf("want %s/%s mentioning %q and the provider, got %s/%s %q", tc.wantType, tc.severity, tc.phrase, ev.Type, ev.Severity, ev.Message)
 			}
 			if ev.Source != "quota" || ev.Metadata["provider_id"] != prov.ID.String() || ev.Metadata["provider_type"] != "opencode-go" ||
-				ev.Metadata["kind"] != "usage" || ev.Metadata["http_status"] != tc.status || ev.Metadata["previous_http_status"] != tc.prev {
+				ev.Metadata["kind"] != "usage" || ev.Metadata["http_status"] != tc.status || ev.Metadata["previous_http_status"] != tc.prior.HTTPStatus {
 				t.Fatalf("unexpected source/metadata: %s %+v", ev.Source, ev.Metadata)
 			}
 		})
@@ -99,7 +106,7 @@ func TestPollQuotasOnce_PublishesStatusFlip(t *testing.T) {
 	ctx := context.Background()
 	h := newTestHandler(t)
 	id := insertQuotaPollProvider(t, h.dbPool.Pool(), "nanogpt-flip", "https://api.nano-gpt.com/v1", true)
-	if err := h.quotaRepo.Upsert(ctx, quota.Snapshot{ProviderID: id, Kind: "usage", Payload: json.RawMessage("null"), HTTPStatus: http.StatusNoContent, Source: "poll"}); err != nil {
+	if _, err := h.quotaRepo.Replace(ctx, quota.Snapshot{ProviderID: id, Kind: "usage", Payload: json.RawMessage("null"), HTTPStatus: http.StatusNoContent, Source: "poll"}); err != nil {
 		t.Fatalf("seed snapshot: %v", err)
 	}
 	h.newDiscovery = func() *provider.DiscoveryService { return nanoGPTPollDiscovery(9) }
@@ -143,6 +150,28 @@ func TestPollQuotasOnce_FirstAnswerAfterFailureIsSilent(t *testing.T) {
 	}
 }
 
+// TestPollQuotasOnce_OwnFetchOnFleetFedNodeIsDashboardOnly: a member whose
+// stored row came from the primary's push polls for itself when a breaker
+// nudge fires (every member's breaker opens when a plan lapses). Its flip goes
+// out under the synced type so only the node that fetched first alerts.
+func TestPollQuotasOnce_OwnFetchOnFleetFedNodeIsDashboardOnly(t *testing.T) {
+	ctx := context.Background()
+	h := newTestHandler(t)
+	id := insertQuotaPollProvider(t, h.dbPool.Pool(), "nanogpt-fed", "https://api.nano-gpt.com/v1", true)
+	stale := time.Now().Add(-2 * time.Hour).UTC()
+	if _, err := h.quotaRepo.Replace(ctx, quota.Snapshot{ProviderID: id, Kind: "usage", Payload: json.RawMessage("null"), HTTPStatus: http.StatusNoContent, Source: "fleet", FetchedAt: stale}); err != nil {
+		t.Fatalf("seed snapshot: %v", err)
+	}
+	h.newDiscovery = func() *provider.DiscoveryService { return nanoGPTPollDiscovery(9) }
+	drain := drainQuotaStatusEvents(t)
+
+	h.PollQuotasOnce(ctx)
+	got := drain()
+	if len(got) != 1 || got[0].Type != EventTypeQuotaStatusSynced || got[0].Severity != "success" {
+		t.Fatalf("want one synced/success event, got %+v", got)
+	}
+}
+
 // TestQuotaFleetReceiveSnapshots_PublishesStatusFlip: a member learns of the
 // flip from the row the primary pushes and announces it under the synced type,
 // which the dashboard reads and the alert catalog does not. A newer push with
@@ -157,7 +186,7 @@ func TestQuotaFleetReceiveSnapshots_PublishesStatusFlip(t *testing.T) {
 		t.Fatalf("create provider: %v", err)
 	}
 	stored := time.Now().Add(-time.Hour).UTC()
-	if err := h.quotaRepo.Upsert(ctx, quota.Snapshot{ProviderID: prov.ID, Kind: "usage", Payload: json.RawMessage("null"), HTTPStatus: http.StatusNoContent, Source: "fleet", FetchedAt: stored}); err != nil {
+	if _, err := h.quotaRepo.Replace(ctx, quota.Snapshot{ProviderID: prov.ID, Kind: "usage", Payload: json.RawMessage("null"), HTTPStatus: http.StatusNoContent, Source: "fleet", FetchedAt: stored}); err != nil {
 		t.Fatalf("seed snapshot: %v", err)
 	}
 	drain := drainQuotaStatusEvents(t)

@@ -96,15 +96,15 @@ func TestListPopulatesLastError(t *testing.T) {
 	}
 }
 
-// TestUpsertIfNewerDefaultsFetchedAt: an incoming snapshot with a zero FetchedAt
+// TestReplaceIfNewerDefaultsFetchedAt: an incoming snapshot with a zero FetchedAt
 // is stamped now and applied against an empty row.
-func TestUpsertIfNewerDefaultsFetchedAt(t *testing.T) {
+func TestReplaceIfNewerDefaultsFetchedAt(t *testing.T) {
 	ctx := context.Background()
 	repo := quota.NewRepository(testPool)
 	id := insertTestProvider(ctx, t, "upsertnewer-default")
 	defer cleanupProvider(ctx, t, id)
 
-	wrote, err := repo.UpsertIfNewer(ctx, quota.Snapshot{
+	wrote, _, err := repo.ReplaceIfNewer(ctx, quota.Snapshot{
 		ProviderID: id,
 		Kind:       "usage",
 		Payload:    json.RawMessage(`{"used":1}`),
@@ -140,13 +140,13 @@ func TestRepositoryContextCancelledErrors(t *testing.T) {
 	if _, err := repo.List(ctx); err == nil {
 		t.Error("List: want error on cancelled context")
 	}
-	if _, err := repo.UpsertIfNewer(ctx, quota.Snapshot{
+	if _, _, err := repo.ReplaceIfNewer(ctx, quota.Snapshot{
 		ProviderID: uuid.New(),
 		Kind:       "usage",
 		Payload:    json.RawMessage(`{}`),
 		FetchedAt:  time.Now(),
 	}); err == nil {
-		t.Error("UpsertIfNewer: want error on cancelled context")
+		t.Error("ReplaceIfNewer: want error on cancelled context")
 	}
 }
 
@@ -173,7 +173,7 @@ func TestUpsertAndGet(t *testing.T) {
 	provID := insertTestProvider(ctx, t, "test-quota-upsert-get")
 	t.Cleanup(func() { cleanupProvider(ctx, t, provID) })
 
-	err := repo.Upsert(ctx, quota.Snapshot{
+	_, err := repo.Replace(ctx, quota.Snapshot{
 		ProviderID: provID,
 		Kind:       "usage",
 		Payload:    json.RawMessage(`{"used":10}`),
@@ -211,7 +211,7 @@ func TestRecordFailureKeepsPayload(t *testing.T) {
 	provID := insertTestProvider(ctx, t, "test-quota-record-failure")
 	t.Cleanup(func() { cleanupProvider(ctx, t, provID) })
 
-	_ = repo.Upsert(ctx, quota.Snapshot{ProviderID: provID, Kind: "usage", Payload: json.RawMessage(`{"used":5}`), HTTPStatus: 200, Source: "poll"})
+	_, _ = repo.Replace(ctx, quota.Snapshot{ProviderID: provID, Kind: "usage", Payload: json.RawMessage(`{"used":5}`), HTTPStatus: 200, Source: "poll"})
 	if err := repo.RecordFailure(ctx, provID, "usage", "boom"); err != nil {
 		t.Fatalf("record failure: %v", err)
 	}
@@ -221,7 +221,7 @@ func TestRecordFailureKeepsPayload(t *testing.T) {
 	}
 }
 
-func TestUpsertIfNewer(t *testing.T) {
+func TestReplaceIfNewer(t *testing.T) {
 	ctx := context.Background()
 	repo := quota.NewRepository(testPool)
 
@@ -232,13 +232,13 @@ func TestUpsertIfNewer(t *testing.T) {
 	newer := time.Now()
 
 	// First write always applies.
-	applied, err := repo.UpsertIfNewer(ctx, quota.Snapshot{ProviderID: provID, Kind: "usage", Payload: json.RawMessage(`{"v":1}`), HTTPStatus: 200, Source: "fleet", FetchedAt: newer})
+	applied, _, err := repo.ReplaceIfNewer(ctx, quota.Snapshot{ProviderID: provID, Kind: "usage", Payload: json.RawMessage(`{"v":1}`), HTTPStatus: 200, Source: "fleet", FetchedAt: newer})
 	if err != nil || !applied {
 		t.Fatalf("first write should apply: applied=%v err=%v", applied, err)
 	}
 
 	// An older incoming write is skipped so it cannot clobber a fresher local one.
-	applied, err = repo.UpsertIfNewer(ctx, quota.Snapshot{ProviderID: provID, Kind: "usage", Payload: json.RawMessage(`{"v":2}`), HTTPStatus: 200, Source: "fleet", FetchedAt: older})
+	applied, _, err = repo.ReplaceIfNewer(ctx, quota.Snapshot{ProviderID: provID, Kind: "usage", Payload: json.RawMessage(`{"v":2}`), HTTPStatus: 200, Source: "fleet", FetchedAt: older})
 	if err != nil || applied {
 		t.Fatalf("older write should be skipped: applied=%v err=%v", applied, err)
 	}
@@ -249,18 +249,18 @@ func TestUpsertIfNewer(t *testing.T) {
 	}
 }
 
-// TestUpsertIfNewerPersistsFailureMarker: the fleet import path must store the
+// TestReplaceIfNewerPersistsFailureMarker: the fleet import path must store the
 // failure marker it was handed rather than forcing it to NULL. A member that
 // drops the marker classifies a row whose latest refresh failed as affirmative
 // recovery evidence and releases a still-exhausted provider's quota pin.
-func TestUpsertIfNewerPersistsFailureMarker(t *testing.T) {
+func TestReplaceIfNewerPersistsFailureMarker(t *testing.T) {
 	ctx := context.Background()
 	repo := quota.NewRepository(testPool)
 
 	provID := insertTestProvider(ctx, t, "test-quota-upsertnewer-marker")
 	t.Cleanup(func() { cleanupProvider(ctx, t, provID) })
 
-	if _, err := repo.UpsertIfNewer(ctx, quota.Snapshot{
+	if _, _, err := repo.ReplaceIfNewer(ctx, quota.Snapshot{
 		ProviderID: provID, Kind: "usage", Payload: json.RawMessage(`{"v":1}`),
 		HTTPStatus: 200, Source: "fleet", FetchedAt: time.Now(), LastError: "upstream 500",
 	}); err != nil {
@@ -276,7 +276,7 @@ func TestUpsertIfNewerPersistsFailureMarker(t *testing.T) {
 	}
 }
 
-// TestUpsertIfNewerAddsFailureMarkerAtEqualFetchedAt covers the gap the
+// TestReplaceIfNewerAddsFailureMarkerAtEqualFetchedAt covers the gap the
 // strictly-newer WHERE clause leaves open. RecordFailure preserves fetched_at,
 // so a failed refresh does not make the primary's row newer: a member that
 // already holds that exact snapshot would otherwise never learn the refresh
@@ -284,7 +284,7 @@ func TestUpsertIfNewerPersistsFailureMarker(t *testing.T) {
 // evidence for as long as it stays inside the staleness bound. Taking the
 // marker at an equal timestamp can only ever hold a pin longer, never release
 // one, which is the cheap direction to be wrong in.
-func TestUpsertIfNewerAddsFailureMarkerAtEqualFetchedAt(t *testing.T) {
+func TestReplaceIfNewerAddsFailureMarkerAtEqualFetchedAt(t *testing.T) {
 	ctx := context.Background()
 	repo := quota.NewRepository(testPool)
 
@@ -292,14 +292,14 @@ func TestUpsertIfNewerAddsFailureMarkerAtEqualFetchedAt(t *testing.T) {
 	t.Cleanup(func() { cleanupProvider(ctx, t, provID) })
 
 	at := time.Now()
-	if _, err := repo.UpsertIfNewer(ctx, quota.Snapshot{
+	if _, _, err := repo.ReplaceIfNewer(ctx, quota.Snapshot{
 		ProviderID: provID, Kind: "usage", Payload: json.RawMessage(`{"v":1}`),
 		HTTPStatus: 200, Source: "fleet", FetchedAt: at,
 	}); err != nil {
 		t.Fatalf("seed: %v", err)
 	}
 
-	wrote, err := repo.UpsertIfNewer(ctx, quota.Snapshot{
+	wrote, _, err := repo.ReplaceIfNewer(ctx, quota.Snapshot{
 		ProviderID: provID, Kind: "usage", Payload: json.RawMessage(`{"v":1}`),
 		HTTPStatus: 200, Source: "fleet", FetchedAt: at, LastError: "upstream 500",
 	})
@@ -318,12 +318,12 @@ func TestUpsertIfNewerAddsFailureMarkerAtEqualFetchedAt(t *testing.T) {
 	}
 }
 
-// TestUpsertIfNewerKeepsMarkerWhenNoNewerEvidence: the equal-timestamp path is
+// TestReplaceIfNewerKeepsMarkerWhenNoNewerEvidence: the equal-timestamp path is
 // one-way. A marker-free snapshot at the same fetched_at is not proof the
 // provider recovered (it is the same reading, from a node that has not seen the
 // failure), so it must not clear a marker already held. Only a strictly newer
 // snapshot, i.e. an actual successful refresh, does that.
-func TestUpsertIfNewerKeepsMarkerWhenNoNewerEvidence(t *testing.T) {
+func TestReplaceIfNewerKeepsMarkerWhenNoNewerEvidence(t *testing.T) {
 	ctx := context.Background()
 	repo := quota.NewRepository(testPool)
 
@@ -331,14 +331,14 @@ func TestUpsertIfNewerKeepsMarkerWhenNoNewerEvidence(t *testing.T) {
 	t.Cleanup(func() { cleanupProvider(ctx, t, provID) })
 
 	at := time.Now()
-	if _, err := repo.UpsertIfNewer(ctx, quota.Snapshot{
+	if _, _, err := repo.ReplaceIfNewer(ctx, quota.Snapshot{
 		ProviderID: provID, Kind: "usage", Payload: json.RawMessage(`{"v":1}`),
 		HTTPStatus: 200, Source: "fleet", FetchedAt: at, LastError: "upstream 500",
 	}); err != nil {
 		t.Fatalf("seed: %v", err)
 	}
 
-	wrote, err := repo.UpsertIfNewer(ctx, quota.Snapshot{
+	wrote, _, err := repo.ReplaceIfNewer(ctx, quota.Snapshot{
 		ProviderID: provID, Kind: "usage", Payload: json.RawMessage(`{"v":1}`),
 		HTTPStatus: 200, Source: "fleet", FetchedAt: at,
 	})
@@ -357,10 +357,10 @@ func TestUpsertIfNewerKeepsMarkerWhenNoNewerEvidence(t *testing.T) {
 	}
 }
 
-// TestUpsertIfNewerNewerSuccessClearsMarker is what stops the marker wedging a
+// TestReplaceIfNewerNewerSuccessClearsMarker is what stops the marker wedging a
 // pin permanently: once the primary polls successfully again its row is
 // strictly newer, and that write clears the marker on the member too.
-func TestUpsertIfNewerNewerSuccessClearsMarker(t *testing.T) {
+func TestReplaceIfNewerNewerSuccessClearsMarker(t *testing.T) {
 	ctx := context.Background()
 	repo := quota.NewRepository(testPool)
 
@@ -368,13 +368,13 @@ func TestUpsertIfNewerNewerSuccessClearsMarker(t *testing.T) {
 	t.Cleanup(func() { cleanupProvider(ctx, t, provID) })
 
 	at := time.Now()
-	if _, err := repo.UpsertIfNewer(ctx, quota.Snapshot{
+	if _, _, err := repo.ReplaceIfNewer(ctx, quota.Snapshot{
 		ProviderID: provID, Kind: "usage", Payload: json.RawMessage(`{"v":1}`),
 		HTTPStatus: 200, Source: "fleet", FetchedAt: at, LastError: "upstream 500",
 	}); err != nil {
 		t.Fatalf("seed: %v", err)
 	}
-	if _, err := repo.UpsertIfNewer(ctx, quota.Snapshot{
+	if _, _, err := repo.ReplaceIfNewer(ctx, quota.Snapshot{
 		ProviderID: provID, Kind: "usage", Payload: json.RawMessage(`{"v":2}`),
 		HTTPStatus: 200, Source: "fleet", FetchedAt: at.Add(time.Minute),
 	}); err != nil {
@@ -390,7 +390,7 @@ func TestUpsertIfNewerNewerSuccessClearsMarker(t *testing.T) {
 	}
 }
 
-// TestUpsertClearsFailureMarker pins the other half of the asymmetry: Upsert is
+// TestUpsertClearsFailureMarker pins the other half of the asymmetry: Replace is
 // the local successful-fetch path, so it clears any marker. Without this the
 // guard could wedge a pin forever on a node that recovers on its own.
 func TestUpsertClearsFailureMarker(t *testing.T) {
@@ -400,7 +400,7 @@ func TestUpsertClearsFailureMarker(t *testing.T) {
 	provID := insertTestProvider(ctx, t, "test-quota-upsert-clears-marker")
 	t.Cleanup(func() { cleanupProvider(ctx, t, provID) })
 
-	if err := repo.Upsert(ctx, quota.Snapshot{
+	if _, err := repo.Replace(ctx, quota.Snapshot{
 		ProviderID: provID, Kind: "usage", Payload: json.RawMessage(`{"v":1}`),
 		HTTPStatus: 200, Source: "poll",
 	}); err != nil {
@@ -409,7 +409,7 @@ func TestUpsertClearsFailureMarker(t *testing.T) {
 	if err := repo.RecordFailure(ctx, provID, "usage", "boom"); err != nil {
 		t.Fatalf("record failure: %v", err)
 	}
-	if err := repo.Upsert(ctx, quota.Snapshot{
+	if _, err := repo.Replace(ctx, quota.Snapshot{
 		ProviderID: provID, Kind: "usage", Payload: json.RawMessage(`{"v":2}`),
 		HTTPStatus: 200, Source: "poll",
 	}); err != nil {
@@ -432,7 +432,7 @@ func TestList(t *testing.T) {
 	provID := insertTestProvider(ctx, t, "test-quota-list")
 	t.Cleanup(func() { cleanupProvider(ctx, t, provID) })
 
-	if err := repo.Upsert(ctx, quota.Snapshot{ProviderID: provID, Kind: "usage", Payload: json.RawMessage(`{}`), HTTPStatus: 200, Source: "poll"}); err != nil {
+	if _, err := repo.Replace(ctx, quota.Snapshot{ProviderID: provID, Kind: "usage", Payload: json.RawMessage(`{}`), HTTPStatus: 200, Source: "poll"}); err != nil {
 		t.Fatalf("upsert: %v", err)
 	}
 
@@ -454,7 +454,7 @@ func TestList(t *testing.T) {
 	}
 }
 
-// TestUpsertIfNewer_ClampsFutureFetchedAt covers a wedge, not a cosmetic oddity.
+// TestReplaceIfNewer_ClampsFutureFetchedAt covers a wedge, not a cosmetic oddity.
 // FetchedAt arrives from the wire on the fleet distribution path (internal/api
 // ReceiveSnapshots) and was stored unvalidated, which broke two things at once:
 // every "is this still fresh" check uses time.Since, which goes negative for a
@@ -465,7 +465,7 @@ func TestList(t *testing.T) {
 // A fetch cannot have happened in the future, so the honest repair is to clamp
 // rather than reject: the row is still recorded, just not with a timestamp that
 // wins forever.
-func TestUpsertIfNewer_ClampsFutureFetchedAt(t *testing.T) {
+func TestReplaceIfNewer_ClampsFutureFetchedAt(t *testing.T) {
 	ctx := context.Background()
 	repo := quota.NewRepository(testPool)
 
@@ -473,11 +473,11 @@ func TestUpsertIfNewer_ClampsFutureFetchedAt(t *testing.T) {
 	t.Cleanup(func() { cleanupProvider(ctx, t, provID) })
 
 	future := time.Now().Add(48 * time.Hour)
-	if _, err := repo.UpsertIfNewer(ctx, quota.Snapshot{
+	if _, _, err := repo.ReplaceIfNewer(ctx, quota.Snapshot{
 		ProviderID: provID, Kind: "usage", Payload: json.RawMessage(`{"poisoned":true}`),
 		HTTPStatus: 200, Source: "fleet", FetchedAt: future,
 	}); err != nil {
-		t.Fatalf("UpsertIfNewer(future): %v", err)
+		t.Fatalf("ReplaceIfNewer(future): %v", err)
 	}
 
 	stored, err := repo.Get(ctx, provID, "usage")
@@ -489,12 +489,12 @@ func TestUpsertIfNewer_ClampsFutureFetchedAt(t *testing.T) {
 	}
 
 	// The point of the clamp: an ordinary poll landing afterwards must still win.
-	applied, err := repo.UpsertIfNewer(ctx, quota.Snapshot{
+	applied, _, err := repo.ReplaceIfNewer(ctx, quota.Snapshot{
 		ProviderID: provID, Kind: "usage", Payload: json.RawMessage(`{"real":true}`),
 		HTTPStatus: 200, Source: "poll", FetchedAt: time.Now(),
 	})
 	if err != nil {
-		t.Fatalf("UpsertIfNewer(real): %v", err)
+		t.Fatalf("ReplaceIfNewer(real): %v", err)
 	}
 	if !applied {
 		t.Fatal("a real poll after a future-dated row was rejected; the poisoned row still outranks it")
@@ -505,14 +505,14 @@ func TestUpsertIfNewer_ClampsFutureFetchedAt(t *testing.T) {
 	}
 }
 
-// TestUpsertIfNewer_SmallSkewStillDedupes is the other half of the clamp, and
+// TestReplaceIfNewer_SmallSkewStillDedupes is the other half of the clamp, and
 // the reason it has a tolerance. Front Desk redistributes the same snapshot
 // every 60s while the primary polls every ~5 minutes, and relies on "skip if not
 // newer" to make the repeats free. If the clamp rewrote every future-looking
 // stamp to now, a member whose clock trails the primary by a second would apply
 // each repeat instead of skipping it, re-stamping the row as freshly fetched and
 // suppressing its own polling of a provider nobody is refreshing any more.
-func TestUpsertIfNewer_SmallSkewStillDedupes(t *testing.T) {
+func TestReplaceIfNewer_SmallSkewStillDedupes(t *testing.T) {
 	ctx := context.Background()
 	repo := quota.NewRepository(testPool)
 
@@ -526,12 +526,12 @@ func TestUpsertIfNewer_SmallSkewStillDedupes(t *testing.T) {
 		HTTPStatus: 200, Source: "fleet", FetchedAt: skewed,
 	}
 
-	applied, err := repo.UpsertIfNewer(ctx, snap)
+	applied, _, err := repo.ReplaceIfNewer(ctx, snap)
 	if err != nil || !applied {
 		t.Fatalf("first distribution should apply: applied=%v err=%v", applied, err)
 	}
 	// The same snapshot redistributed a minute later must be a no-op write.
-	applied, err = repo.UpsertIfNewer(ctx, snap)
+	applied, _, err = repo.ReplaceIfNewer(ctx, snap)
 	if err != nil {
 		t.Fatalf("second distribution: %v", err)
 	}
