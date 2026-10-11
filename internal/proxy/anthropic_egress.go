@@ -3,7 +3,6 @@ package proxy
 import (
 	"context"
 	"net/http"
-	"strings"
 
 	"github.com/hugalafutro/model-hotel/internal/anthropicegress"
 	"github.com/hugalafutro/model-hotel/internal/debuglog"
@@ -34,14 +33,10 @@ func isAnthropicFamily(providerType string) bool {
 	return providerType == "anthropic" || providerType == "anthropic-messages"
 }
 
-// isOpenCodeClaude reports a Claude model behind one of the OpenCode types.
-// OpenCode serves its Claude models over Anthropic Messages alone, the way it
-// serves its GPT models over Responses alone: a chat-completions request is
-// refused with 400 "Model does not support this protocol". The name rule is
-// safe because OpenCode curates its listing and every claude-* entry there is
-// Anthropic's; a relay re-exposing one is some other provider type.
+// isOpenCodeClaude is util.IsOpenCodeClaude: a Claude model behind one of the
+// OpenCode types, which OpenCode serves over Anthropic Messages alone.
 func isOpenCodeClaude(providerType, modelID string) bool {
-	return isOpenCodeType(providerType) && strings.HasPrefix(modelID, "claude-")
+	return util.IsOpenCodeClaude(providerType, modelID)
 }
 
 // speaksMessages reports a candidate reachable at the provider's /messages
@@ -52,8 +47,9 @@ func speaksMessages(providerType, modelID string) bool {
 
 // isAnthropicEgressAttempt reports whether this candidate is served through the
 // Anthropic egress adapter: a plain chat-completions request (no explicit
-// endpoint override, no multipart body) bound for an Anthropic-family provider
-// that has to be spoken to in Messages.
+// endpoint override, no multipart body) bound for a Messages-speaking candidate
+// (an Anthropic-family provider, or a Claude model on OpenCode) that has to be
+// spoken to in Messages.
 //
 // The types reach that conclusion differently. For "anthropic-messages", and
 // for a Claude model on OpenCode, every chat request qualifies: the compat
@@ -108,24 +104,19 @@ func (h *Handler) buildAnthropicEgressRequest(ctx context.Context, st *requestSt
 }
 
 // newMessagesRequest builds the POST every Messages route makes: the
-// provider's /messages target URL, the body, and the auth headers.
-// SetProviderAuthHeaders already sends x-api-key + anthropic-version for the
-// Anthropic-family types, which is exactly what the native route requires.
-// OpenCode's Messages route reads x-api-key too (its chat and Responses routes
-// take the Bearer header SetProviderAuthHeaders sends it), and its Go plan
-// wants the session header on every call. The target URL comes back even on
-// failure, since the callers log it either way.
+// provider's /messages target URL, the body, and the headers the route reads
+// (SetMessagesAuthHeaders: x-api-key + anthropic-version for every Messages
+// speaker, and for OpenCode also the Go session header its plan wants on every
+// call). The target URL comes back even on failure, since the callers log it
+// either way.
 func newMessagesRequest(ctx context.Context, st *requestState, candidate modelCandidate, providerType string, body []byte) (*http.Request, string, error) {
 	targetURL := messagesTargetURL(candidate, providerType)
 	req, err := newJSONUpstreamRequest(ctx, targetURL, body)
 	if err != nil {
 		return nil, targetURL, err
 	}
-	util.SetProviderAuthHeaders(req, providerType, candidate.apiKey)
-	if isOpenCodeType(providerType) {
-		util.SetProviderAuthHeaders(req, "anthropic", candidate.apiKey)
-		util.SetOpenCodeGoSession(req, providerType, st.opencodeSession)
-	}
+	util.SetMessagesAuthHeaders(req, providerType, candidate.apiKey)
+	util.SetOpenCodeGoSession(req, providerType, st.opencodeSession)
 	return req, targetURL, nil
 }
 
@@ -134,8 +125,21 @@ func newMessagesRequest(ctx context.Context, st *requestState, candidate modelCa
 // the given thinking dialect. The initial attempt and the dialect retry both go
 // through here so a change to either half cannot apply to only one of them.
 func (h *Handler) anthropicEgressBody(st *requestState, candidate modelCandidate, providerType string, dialect anthropicegress.ThinkingDialect) (body []byte, model string, stream bool, err error) {
-	cleaned := paramrewrite.BuildNativeUpstreamBody(st.bodyBytes, providerType, candidate.model.ModelID, st.reqModel, &h.deprecationCache, &h.paramRenameCache, nil, learnedScopeFor(candidate))
+	cleaned := paramrewrite.BuildNativeUpstreamBody(st.bodyBytes, messagesRewriteType(providerType, candidate.model.ModelID), candidate.model.ModelID, st.reqModel, &h.deprecationCache, &h.paramRenameCache, nil, learnedScopeFor(candidate))
 	return anthropicegress.TranslateRequestWithDialect(cleaned, dialect)
+}
+
+// messagesRewriteType is the provider type whose parameter rules a Messages body
+// is built with. A Claude model on OpenCode is spoken to in Messages, so it takes
+// the anthropic-messages rules: top_p is dropped as Anthropic now rejects it,
+// and reasoning_effort is kept for the translator to turn into thinking. The
+// OpenCode types' own rule strips reasoning_effort because their chat route
+// rejects it, which is a route this body never reaches.
+func messagesRewriteType(providerType, modelID string) string {
+	if isOpenCodeClaude(providerType, modelID) {
+		return "anthropic-messages"
+	}
+	return providerType
 }
 
 // thinkingDialectFor returns the extended-thinking shape to ask this candidate's

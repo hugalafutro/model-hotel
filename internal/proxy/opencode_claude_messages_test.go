@@ -99,7 +99,11 @@ func TestChatCompletions_OpenCodeGoClaudeTakesMessages(t *testing.T) {
 	env := newOpenCodeGoClaudeEnv(t, upstream)
 
 	send := func(stream bool) *httptest.ResponseRecorder {
-		body := fmt.Sprintf(`{"model":"%s/%s","stream":%v,"messages":[{"role":"user","content":"what is the code?"}]}`,
+		// reasoning_effort must survive into thinking (the OpenCode chat rule
+		// would strip it; this body never reaches that route) and top_p must
+		// not go upstream (Anthropic rejects it), both the anthropic-messages
+		// rules.
+		body := fmt.Sprintf(`{"model":"%s/%s","stream":%v,"reasoning_effort":"high","top_p":0.9,"messages":[{"role":"user","content":"what is the code?"}]}`,
 			env.ProviderName, env.ModelName, stream)
 		req := httptest.NewRequest("POST", "/v1/chat/completions", strings.NewReader(body))
 		ctx := context.WithValue(req.Context(), virtualKeyNameKey, "test-key")
@@ -124,6 +128,12 @@ func TestChatCompletions_OpenCodeGoClaudeTakesMessages(t *testing.T) {
 	}
 	if _, hasMessages := call.body["messages"]; !hasMessages {
 		t.Errorf("translated body has no messages: %v", call.body)
+	}
+	if _, thinking := call.body["thinking"]; !thinking {
+		t.Errorf("reasoning_effort was not turned into thinking: %v", call.body)
+	}
+	if _, topP := call.body["top_p"]; topP {
+		t.Errorf("top_p went upstream: %v", call.body)
 	}
 	if !strings.Contains(w.Body.String(), `"object":"chat.completion"`) || !strings.Contains(w.Body.String(), "PLUM-7431") {
 		t.Errorf("answer not translated back to a chat completion: %s", w.Body.String())
@@ -173,5 +183,66 @@ func TestMessages_OpenCodeGoClaudeStaysNative(t *testing.T) {
 	}
 	if !strings.Contains(w.Body.String(), `"type":"message"`) {
 		t.Errorf("native answer not passed through: %s", w.Body.String())
+	}
+}
+
+// TestChatCompletions_OpenCodeGoClaudeLearnsRejectedParam: a Messages 400
+// naming a parameter is learned for a Claude model on OpenCode exactly as for
+// an anthropic-messages provider, since Messages is its only chat route too.
+// The retry carries the Messages headers (x-api-key) like the first attempt,
+// and the next request omits the parameter without a refusal.
+func TestChatCompletions_OpenCodeGoClaudeLearnsRejectedParam(t *testing.T) {
+	var log upstreamCallLog
+	var keys []string
+	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var body map[string]any
+		_ = json.NewDecoder(r.Body).Decode(&body)
+		log.record(anthropicUpstreamCall{path: r.URL.Path, body: body})
+		keys = append(keys, r.Header.Get("x-api-key"))
+		if _, sent := body["temperature"]; sent {
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusBadRequest)
+			_, _ = w.Write([]byte("{\"type\":\"error\",\"error\":{\"type\":\"invalid_request_error\",\"message\":\"`temperature` is deprecated for this model.\"}}"))
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"id":"msg_1","type":"message","role":"assistant","model":"claude-haiku-5-5","content":[{"type":"text","text":"TEMP-4417"}],"stop_reason":"end_turn","usage":{"input_tokens":5,"output_tokens":4}}`))
+	}))
+	defer upstream.Close()
+	env := newOpenCodeGoClaudeEnv(t, upstream)
+
+	send := func() *httptest.ResponseRecorder {
+		body := fmt.Sprintf(`{"model":"%s/%s","temperature":0.7,"max_tokens":100,"messages":[{"role":"user","content":"hi"}]}`, env.ProviderName, env.ModelName)
+		req := httptest.NewRequest("POST", "/v1/chat/completions", strings.NewReader(body))
+		ctx := context.WithValue(req.Context(), virtualKeyNameKey, "test-key")
+		ctx = context.WithValue(ctx, virtualKeyIDKey, uuid.New().String())
+		ctx = context.WithValue(ctx, VirtualKeyHashKey, env.KeyHash)
+		w := httptest.NewRecorder()
+		env.Handler.ChatCompletions(w, req.WithContext(ctx))
+		return w
+	}
+
+	if w := send(); w.Code != http.StatusOK || !strings.Contains(w.Body.String(), "TEMP-4417") {
+		t.Fatalf("first request: %d\n%s", w.Code, w.Body.String())
+	}
+	calls := log.takeAll()
+	if len(calls) != 2 || calls[0].path != "/zen/go/v1/messages" || calls[1].path != "/zen/go/v1/messages" {
+		t.Fatalf("want the refusal and the retry on /zen/go/v1/messages, got %+v", calls)
+	}
+	if _, sent := calls[1].body["temperature"]; sent {
+		t.Errorf("retry still carries temperature: %v", calls[1].body)
+	}
+	if len(keys) != 2 || keys[0] != "test-api-key" || keys[1] != "test-api-key" {
+		t.Errorf("x-api-key on first attempt and retry: want the provider key on both, got %q", keys)
+	}
+
+	if w := send(); w.Code != http.StatusOK {
+		t.Fatalf("second request: %d\n%s", w.Code, w.Body.String())
+	}
+	if calls = log.takeAll(); len(calls) != 1 {
+		t.Fatalf("second request made %d upstream calls, want 1: the strip was learned", len(calls))
+	}
+	if _, sent := calls[0].body["temperature"]; sent {
+		t.Errorf("second request still carries temperature: %v", calls[0].body)
 	}
 }

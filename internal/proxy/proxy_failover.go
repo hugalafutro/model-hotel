@@ -560,8 +560,9 @@ func (h *Handler) buildCandidateRequest(ctx context.Context, st *requestState, c
 	providerType := provider.TypeOf(candidate.provider)
 	debuglog.Debug("proxy: provider type", "provider_type", providerType, "base_url", util.SanitizeBaseURL(candidate.provider.BaseURL))
 
-	// Native Anthropic passthrough: an Anthropic-in request resolved to an
-	// Anthropic-family provider forwards the original Messages body to the
+	// Native Anthropic passthrough: an Anthropic-in request resolved to a
+	// Messages-speaking candidate (an Anthropic-family provider, or a Claude
+	// model on OpenCode) forwards the original Messages body to the
 	// provider's native /v1/messages, so thinking blocks, cache_control and
 	// fine-grained tool streaming survive. Every non-Anthropic candidate in the
 	// same failover group still goes through translation, so a single

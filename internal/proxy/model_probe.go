@@ -464,8 +464,8 @@ func judgeProbeSuccess(resp *http.Response, st *requestState, candidate modelCan
 //
 // Only the non-streaming translators are reachable: the probe never asks for a
 // stream. The Anthropic egress case fires for every probe of an
-// anthropic-messages model, since that provider type routes all of its chat
-// traffic through the adapter, and for no probe of an "anthropic" one, whose
+// anthropic-messages model or of a Claude model on OpenCode, since those route
+// all of their chat traffic through the adapter, and for no probe of an "anthropic" one, whose
 // re-route requires a document part the probe body has no reason to carry. The
 // Responses case fires for a pro-tier model on OpenAI's own host, which lives
 // behind /v1/responses for every request including this text-only probe; a model

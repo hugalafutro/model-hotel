@@ -129,12 +129,13 @@ func (h *Handler) learnAndRebuildMessages400(st *requestState, candidate modelCa
 		return rebuilt, model, stream, true
 	}
 
-	// Param learning is scoped to anthropic-messages, whose ONLY route is
-	// Messages. The learned strip is keyed by provider and model and consulted
-	// by every build for that key, so learning one on an `anthropic` provider,
-	// whose default route is the OpenAI-compat endpoint, would let a name read
-	// out of a Messages 400 strip a param from compat traffic that accepts it.
-	if providerType != "anthropic-messages" {
+	// Param learning is scoped to the candidates whose ONLY chat route is
+	// Messages: anthropic-messages, and a Claude model on OpenCode. The learned
+	// strip is keyed by provider and model and consulted by every build for
+	// that key, so learning one on an `anthropic` provider, whose default route
+	// is the OpenAI-compat endpoint, would let a name read out of a Messages
+	// 400 strip a param from compat traffic that accepts it.
+	if providerType != "anthropic-messages" && !isOpenCodeClaude(providerType, candidate.model.ModelID) {
 		return nil, "", false, false
 	}
 	rejected := learnableRejections(st, body)

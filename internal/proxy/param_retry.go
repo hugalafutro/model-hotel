@@ -266,7 +266,14 @@ func (h *Handler) issueRetry(r *http.Request, st *requestState, candidate modelC
 		rc()
 		return nil, nil, reqError{Kind: KindInternal, Attempt: attempt, Provider: candidate.provider.Name, Underlying: errString(err)}, false
 	}
-	util.SetProviderAuthHeaders(req, providerType, candidate.apiKey)
+	// A Messages retry carries what the Messages route reads (x-api-key for an
+	// OpenCode Claude model, where the type's own header is a Bearer), the same
+	// as the request it re-issues.
+	if st.anthropicEgressAttempt {
+		util.SetMessagesAuthHeaders(req, providerType, candidate.apiKey)
+	} else {
+		util.SetProviderAuthHeaders(req, providerType, candidate.apiKey)
+	}
 	util.SetOpenCodeGoSession(req, providerType, st.opencodeSession)
 	// #nosec G704 -- provider URL is admin-configured, not arbitrary user input
 	resp, doErr := h.upstreamClient(req.Context()).Do(req)

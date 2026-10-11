@@ -19,6 +19,7 @@ import (
 	"github.com/hugalafutro/model-hotel/internal/anthropicegress"
 	"github.com/hugalafutro/model-hotel/internal/db"
 	"github.com/hugalafutro/model-hotel/internal/gemini"
+	"github.com/hugalafutro/model-hotel/internal/util"
 )
 
 func TestListModels(t *testing.T) {
@@ -417,6 +418,88 @@ func TestTestModel_AnthropicMessages(t *testing.T) {
 	}
 	if testResp.Response != "Hi" {
 		t.Errorf("response = %q, want Hi (translated content)", testResp.Response)
+	}
+}
+
+// TestTestModel_OpenCodeGoClaude: the Test button probes a Claude model on
+// OpenCode Go at its Messages route, the only chat route OpenCode serves those
+// models on, with the headers that route reads (x-api-key, the Go session) and
+// a translated body, and reads the Messages answer back as a chat completion.
+func TestTestModel_OpenCodeGoClaude(t *testing.T) {
+	h, r := newTestHandlerWithRouter(t)
+
+	mockServer := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+		if req.URL.Path != "/zen/go/v1/messages" {
+			t.Errorf("probe went to %s, want /zen/go/v1/messages", req.URL.Path)
+			http.NotFound(w, req)
+			return
+		}
+		if req.Header.Get("x-api-key") != "sk-go-test" {
+			t.Errorf("x-api-key = %q, want the provider key", req.Header.Get("x-api-key"))
+		}
+		if req.Header.Get("anthropic-version") == "" {
+			t.Error("missing anthropic-version header")
+		}
+		if req.Header.Get(util.OpenCodeGoSessionHeader) == "" {
+			t.Error("missing Go session header")
+		}
+		body, _ := io.ReadAll(req.Body)
+		if !strings.Contains(string(body), `"max_tokens"`) {
+			t.Errorf("upstream got untranslated body: %s", body)
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"id":"msg_1","type":"message","role":"assistant","model":"claude-haiku-5-5","content":[{"type":"text","text":"Hi"}],"stop_reason":"end_turn","usage":{"input_tokens":6,"output_tokens":1}}`))
+	}))
+	defer mockServer.Close()
+
+	target := mockServer.Listener.Addr().String()
+	origTransport := h.testModelTransport
+	h.testModelTransport = &http.Transport{
+		DialContext: func(ctx context.Context, network, addr string) (net.Conn, error) {
+			return (&net.Dialer{}).DialContext(ctx, network, target)
+		},
+		TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
+	}
+	defer func() { h.testModelTransport = origTransport }()
+
+	// OpenCode Go's real base URL (the type is read from the stored
+	// provider_type); nothing leaves the process, the dialer is pinned above.
+	providerData := fmt.Sprintf(`{"name": "go-claude-test-%s", "base_url": "https://opencode.ai/zen/go/v1", "provider_type": "opencode-go", "api_key": "sk-go-test"}`, uuid.New().String()[:8])
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest("POST", "/providers", strings.NewReader(providerData))
+	req.Header.Set("Authorization", "Bearer test-admin-token")
+	req.Header.Set("Content-Type", "application/json")
+	r.ServeHTTP(rec, req)
+	if rec.Code != http.StatusCreated {
+		t.Fatalf("Failed to create provider: %d: %s", rec.Code, rec.Body.String())
+	}
+	var providerResp struct {
+		ID string `json:"id"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &providerResp); err != nil {
+		t.Fatalf("Failed to parse provider response: %v", err)
+	}
+
+	modelID := uuid.New().String()
+	if _, err := h.Pool().Pool().Exec(context.Background(),
+		`INSERT INTO models (id, provider_id, model_id, name, enabled) VALUES ($1, $2, $3, $4, $5)`,
+		modelID, providerResp.ID, "claude-haiku-5-5", "Claude Haiku 5.5", true); err != nil {
+		t.Fatalf("Failed to insert model: %v", err)
+	}
+
+	rec = httptest.NewRecorder()
+	req = httptest.NewRequest("POST", "/models/"+modelID+"/test", http.NoBody)
+	req.Header.Set("Authorization", "Bearer test-admin-token")
+	r.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("Expected 200, got %d: %s", rec.Code, rec.Body.String())
+	}
+	var testResp TestModelResponse
+	if err := json.Unmarshal(rec.Body.Bytes(), &testResp); err != nil {
+		t.Fatalf("Failed to parse test response: %v", err)
+	}
+	if !testResp.Success || testResp.Response != "Hi" {
+		t.Fatalf("want a successful translated Hi, got %+v", testResp)
 	}
 }
 
