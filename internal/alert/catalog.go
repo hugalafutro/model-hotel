@@ -88,9 +88,11 @@ var catalog = []EventDef{
 	// is a provider the primary is feeding and will alert on itself within the
 	// interval; any other flip (the primary down, or failing on that one
 	// upstream) the member alerts itself. So a lapse usually alerts once, from
-	// the primary; a member whose tick lands just after a push went stale may
-	// duplicate it, and a flip deferred in the last interval before the primary
-	// is lost is not re-alerted.
+	// the primary. Three residuals: a member whose tick lands just after a push
+	// went stale may duplicate it; a flip deferred in the last interval before
+	// the primary is lost is not re-alerted; and a deferred local write that a
+	// later push flips back (the push being newer than the member's own fetch)
+	// alerts the recovery on that member as well as on the primary.
 	{Type: "quota.status_lost", Category: "Quota", Severity: "warning", DefaultOn: true},
 	{Type: "quota.status_restored", Category: "Quota", Severity: "success", DefaultOn: true},
 }

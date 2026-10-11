@@ -232,7 +232,10 @@ func (h *QuotaFleetHandler) storeSnapshots(ctx context.Context, snaps []QuotaSna
 // earlier push (see EventTypeQuotaStatusSynced); when it replaces a reading
 // this member fetched itself, the member had alerted the opposite flip on its
 // own (the primary was not feeding it then) and the primary sees no flip now,
-// so this node alerts the recovery too.
+// so this node alerts the recovery too. The row a nudge wrote while deferring
+// (a fresh pushed row stood there) is local too, so a later push flipping it
+// alerts here as well as on the primary; that duplicate is the price of not
+// recording a local fetch as a push.
 func (h *QuotaFleetHandler) storeOne(ctx context.Context, prov *provider.Provider, s QuotaSnapshotWire) (bool, error) {
 	defer h.lockWrites()()
 	wrote, prior, err := h.quotaRepo.ReplaceIfNewer(ctx, quota.Snapshot{

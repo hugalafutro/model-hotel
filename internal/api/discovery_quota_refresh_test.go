@@ -128,7 +128,7 @@ func TestRefreshAllQuotas_UnsupportedType(t *testing.T) {
 func TestRefreshAllQuotas_UpsertErrorReportsFailure(t *testing.T) {
 	h, r := newTestHandlerWithRouter(t)
 
-	// Mock a successful DeepSeek balance fetch so the flow reaches the Upsert.
+	// Mock a successful DeepSeek balance fetch so the flow reaches the snapshot write.
 	h.newDiscovery = func() *provider.DiscoveryService {
 		ds := provider.NewDiscoveryServiceWithHTTPClient(&http.Client{
 			Transport: &mockTransport{
@@ -151,7 +151,7 @@ func TestRefreshAllQuotas_UpsertErrorReportsFailure(t *testing.T) {
 
 	createQuotaProvider(t, r, "https://api.deepseek.com/v1")
 
-	// Point the quota repo at a closed pool so the Upsert fails, while the
+	// Point the quota repo at a closed pool so the snapshot write fails, while the
 	// provider list (its own healthy repo) still returns the provider.
 	brokenPool, err := pgxpool.New(context.Background(), apiTestDBURL)
 	if err != nil {
