@@ -82,7 +82,9 @@
 		"collapseNamed": "Vou in: {{name}}",
 		"rowStepLabel": "{{subject}}, {{time}}",
 		"rowStepFirst": "{{row}}, eerste ry",
-		"rowStepLast": "{{row}}, laaste ry"
+		"rowStepLast": "{{row}}, laaste ry",
+		"discard": "Verwerp",
+		"overwrite": "Oorskryf"
 	},
 	"layout": {
 		"title": "Model Hotel",
@@ -2428,16 +2430,13 @@
 		"deleteConfirmModal": {
 			"confirmDelete": "Bevestig verwydering",
 			"deleteType": "Verwyder {{entityType}}",
-			"areYouSure": "Is jy seker dat jy {{entityName}} wil verwyder? Hierdie aksie kan nie ongedaan gemaak word nie."
+			"areYouSure": "Is jy seker dat jy {{entityName}} wil verwyder? Hierdie aksie kan nie ongedaan gemaak word nie.",
+			"typeToConfirm": "Tik om te bevestig:",
+			"confirmWord": "bevestig"
 		},
 		"confirmDialog": {
 			"discardChangesTo": "Gooi veranderinge weg na:",
 			"close": "Sluit"
-		},
-		"confirmDeleteButton": {
-			"deleteKey": "Verwyder sleutel",
-			"yesDelete": "Ja, verwyder",
-			"areYouSure": "Is jy seker?"
 		},
 		"restoreConfirmModal": {
 			"title": "Herstel databasis-rugsteun",
@@ -3122,7 +3121,8 @@
 		"detail": {
 			"rps": "RPS",
 			"burst": "Sarsie",
-			"tpm": "TPM"
+			"tpm": "TPM",
+			"deleteKey": "Verwyder sleutel"
 		}
 	},
 	"hooks": {
@@ -3328,7 +3328,8 @@
 			"totpResetButton": "Stel tweefaktor-verifikasie terug",
 			"totpResetHint": "Verwyder die gebruiker se verifikasie-app en herstelkodes sodat hulle met net hul wagwoord kan aanmeld.",
 			"totpResetConfirmTitle": "Stel tweefaktor-verifikasie terug",
-			"totpResetConfirmMessage": "Dit verwyder die verifikasie-app-koppeling en alle herstelkodes vir hierdie gebruiker. Die wagwoord bly onveranderd."
+			"totpResetConfirmMessage": "Dit verwyder die verifikasie-app-koppeling en alle herstelkodes vir hierdie gebruiker. Die wagwoord bly onveranderd.",
+			"totpResetConfirmLabel": "Herstel"
 		},
 		"toast": {
 			"created": "Gebruiker geskep",
@@ -3386,7 +3387,8 @@
 		"toast": {
 			"purged": "Ouditspoor uitgevee",
 			"purgeFailed": "Kon nie die ouditspoor uitvee nie"
-		}
+		},
+		"purgeConfirmLabel": "Opruim"
 	},
 	"budget": {
 		"label": "Begroting",

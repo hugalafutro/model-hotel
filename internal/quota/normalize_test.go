@@ -576,7 +576,7 @@ func TestAssess_ZaiCoding_UnwatchedTypeOrUnitIsIgnored(t *testing.T) {
 // parser that dropped the check would be caught rather than inheriting the
 // coverage of its neighbours.
 func TestAssess_MalformedBodyFailsOpenForEveryParser(t *testing.T) {
-	for _, providerType := range []string{"zai-coding", "kimi-code", "minimax"} {
+	for _, providerType := range []string{"zai-coding", "kimi-code", "minimax", "nanogpt", "neuralwatt", "opencode-go"} {
 		t.Run(providerType, func(t *testing.T) {
 			got := Assess(providerType, Snapshot{Kind: "usage", Payload: []byte(`{"limits":`)})
 

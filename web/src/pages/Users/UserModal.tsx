@@ -3,6 +3,7 @@ import type { DashboardUser, UserRole } from "../../api/types";
 import { BudgetField } from "../../components/BudgetField";
 import { budgetText } from "../../components/budget";
 import { ConfirmDialog } from "../../components/ConfirmDialog";
+import { DeleteConfirmModal } from "../../components/DeleteConfirmModal";
 import { ErrorCallout } from "../../components/ErrorCallout";
 import { Modal } from "../../components/Modal";
 import { Toggle } from "../../components/Toggle";
@@ -448,11 +449,12 @@ export function UserModal({
 				)}
 			</div>
 
-			{confirmDelete && (
-				<ConfirmDialog
+			{confirmDelete && user && (
+				<DeleteConfirmModal
 					title={t("users.modal.deleteConfirmTitle")}
 					message={`${t("users.modal.deleteConfirmMessage")} ${t("users.modal.deleteKeysNote")}`}
-					fields={[user?.username ?? ""]}
+					confirmText={user.username}
+					isPending={deleteMutation.isPending}
 					onConfirm={() => deleteMutation.mutate()}
 					onCancel={() => setConfirmDelete(false)}
 					confirmTestId="user-delete-confirm"
@@ -463,6 +465,7 @@ export function UserModal({
 					title={t("users.modal.totpResetConfirmTitle")}
 					message={t("users.modal.totpResetConfirmMessage")}
 					fields={[user?.username ?? ""]}
+					confirmLabel={t("users.modal.totpResetConfirmLabel")}
 					onConfirm={() => totpResetMutation.mutate()}
 					onCancel={() => setConfirmTotpReset(false)}
 					confirmTestId="user-totp-reset-confirm"

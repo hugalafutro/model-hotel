@@ -16,6 +16,7 @@ describe("ConfirmDialog", () => {
 			<ConfirmDialog
 				title="Delete Item"
 				fields={["field1"]}
+				confirmLabel="Delete"
 				onConfirm={onConfirm}
 				onCancel={onCancel}
 			/>,
@@ -29,6 +30,7 @@ describe("ConfirmDialog", () => {
 				title="Delete Item"
 				message="Are you sure?"
 				fields={["field1"]}
+				confirmLabel="Delete"
 				onConfirm={onConfirm}
 				onCancel={onCancel}
 			/>,
@@ -41,6 +43,7 @@ describe("ConfirmDialog", () => {
 			<ConfirmDialog
 				title="Delete Item"
 				fields={["field1"]}
+				confirmLabel="Delete"
 				onConfirm={onConfirm}
 				onCancel={onCancel}
 			/>,
@@ -53,6 +56,7 @@ describe("ConfirmDialog", () => {
 			<ConfirmDialog
 				title="Delete Item"
 				fields={["field1", "field2", "field3"]}
+				confirmLabel="Delete"
 				onConfirm={onConfirm}
 				onCancel={onCancel}
 			/>,
@@ -67,6 +71,7 @@ describe("ConfirmDialog", () => {
 			<ConfirmDialog
 				title="Delete Item"
 				fields={["field1"]}
+				confirmLabel="Delete"
 				onConfirm={onConfirm}
 				onCancel={onCancel}
 			/>,
@@ -81,6 +86,7 @@ describe("ConfirmDialog", () => {
 			<ConfirmDialog
 				title="Delete Item"
 				fields={["field1"]}
+				confirmLabel="Delete"
 				onConfirm={onConfirm}
 				onCancel={onCancel}
 			/>,
@@ -97,6 +103,7 @@ describe("ConfirmDialog", () => {
 			<ConfirmDialog
 				title="Delete Item"
 				fields={["field1"]}
+				confirmLabel="Delete"
 				onConfirm={onConfirm}
 				onCancel={onCancel}
 			/>,
@@ -113,6 +120,7 @@ describe("ConfirmDialog", () => {
 			<ConfirmDialog
 				title="Delete Item"
 				fields={["field1"]}
+				confirmLabel="Delete"
 				onConfirm={onConfirm}
 				onCancel={onCancel}
 			/>,
@@ -143,6 +151,7 @@ describe("ConfirmDialog", () => {
 				title="Warning"
 				message="This action cannot be undone"
 				fields={["data"]}
+				confirmLabel="Delete"
 				onConfirm={onConfirm}
 				onCancel={onCancel}
 			/>,

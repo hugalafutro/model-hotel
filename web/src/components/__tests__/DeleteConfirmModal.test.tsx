@@ -1,4 +1,5 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { DeleteConfirmModal } from "../DeleteConfirmModal";
 
 // Stub Lucide icons
@@ -9,188 +10,146 @@ vi.mock("@/lib/icons", () => ({
 }));
 
 describe("DeleteConfirmModal", () => {
-	it("renders entity name", () => {
-		const onConfirm = vi.fn();
-		const onCancel = vi.fn();
-		render(
-			<DeleteConfirmModal
-				entityName="Test Provider"
-				isPending={false}
-				onConfirm={onConfirm}
-				onCancel={onCancel}
-			/>,
-		);
+	const onConfirm = vi.fn();
+	const onCancel = vi.fn();
+	const baseProps = {
+		confirmText: "Test Provider",
+		entityName: "Test Provider",
+		isPending: false,
+		onConfirm,
+		onCancel,
+	};
+	const deleteButton = () => screen.getByRole("button", { name: "Delete" });
+	const input = () => screen.getByTestId("delete-confirm-input");
 
-		expect(screen.getByText(/Test Provider/)).toBeInTheDocument();
+	beforeEach(() => {
+		onConfirm.mockClear();
+		onCancel.mockClear();
+	});
+
+	it("renders the entity name in the sentence and as the text to type", () => {
+		render(<DeleteConfirmModal {...baseProps} />);
+
+		expect(
+			screen.getByText(
+				"Are you sure you want to delete Test Provider? This action cannot be undone.",
+			),
+		).toBeInTheDocument();
+		expect(screen.getByText("To confirm, type:")).toBeInTheDocument();
+		expect(screen.getByTestId("delete-confirm-expected")).toHaveTextContent(
+			"Test Provider",
+		);
 	});
 
 	it("renders with default title when entityType not provided", () => {
-		const onConfirm = vi.fn();
-		const onCancel = vi.fn();
-		render(
-			<DeleteConfirmModal
-				entityName="Test"
-				isPending={false}
-				onConfirm={onConfirm}
-				onCancel={onCancel}
-			/>,
-		);
-
+		render(<DeleteConfirmModal {...baseProps} />);
 		expect(screen.getByText("Confirm Delete")).toBeInTheDocument();
 	});
 
 	it("renders with custom title when entityType provided", () => {
-		const onConfirm = vi.fn();
-		const onCancel = vi.fn();
-		render(
-			<DeleteConfirmModal
-				entityName="Test"
-				entityType="provider"
-				isPending={false}
-				onConfirm={onConfirm}
-				onCancel={onCancel}
-			/>,
-		);
-
+		render(<DeleteConfirmModal {...baseProps} entityType="provider" />);
 		expect(screen.getByText("Delete provider")).toBeInTheDocument();
 	});
 
 	it("renders with custom title when title prop provided", () => {
-		const onConfirm = vi.fn();
-		const onCancel = vi.fn();
-		render(
-			<DeleteConfirmModal
-				entityName="Test"
-				title="Remove Item"
-				isPending={false}
-				onConfirm={onConfirm}
-				onCancel={onCancel}
-			/>,
-		);
-
+		render(<DeleteConfirmModal {...baseProps} title="Remove Item" />);
 		expect(screen.getByText("Remove Item")).toBeInTheDocument();
 	});
 
-	it("shows confirm and cancel buttons", () => {
-		const onConfirm = vi.fn();
-		const onCancel = vi.fn();
+	it("replaces the sentence with message and lists fields", () => {
 		render(
 			<DeleteConfirmModal
-				entityName="Test"
-				isPending={false}
-				onConfirm={onConfirm}
-				onCancel={onCancel}
+				{...baseProps}
+				confirmText="confirm"
+				message="This will permanently delete 2 disabled models."
+				fields={["p/a", "p/b"]}
 			/>,
 		);
 
-		expect(screen.getByText("Cancel")).toBeInTheDocument();
-		expect(screen.getByText("Delete")).toBeInTheDocument();
+		expect(
+			screen.getByText("This will permanently delete 2 disabled models."),
+		).toBeInTheDocument();
+		expect(screen.queryByText(/Are you sure/)).toBeNull();
+		expect(screen.getByText("p/a")).toBeInTheDocument();
+		expect(screen.getByText("p/b")).toBeInTheDocument();
+		expect(screen.getByTestId("delete-confirm-expected")).toHaveTextContent(
+			"confirm",
+		);
 	});
 
-	it("calls onConfirm when delete button is clicked", () => {
-		const onConfirm = vi.fn();
-		const onCancel = vi.fn();
-		render(
-			<DeleteConfirmModal
-				entityName="Test"
-				isPending={false}
-				onConfirm={onConfirm}
-				onCancel={onCancel}
-			/>,
-		);
+	it("keeps the delete button disabled until the exact text is typed", async () => {
+		const user = userEvent.setup();
+		render(<DeleteConfirmModal {...baseProps} />);
 
-		fireEvent.click(screen.getByText("Delete"));
+		expect(deleteButton()).toBeDisabled();
+		await user.type(input(), "Test Provide");
+		expect(deleteButton()).toBeDisabled();
+		await user.type(input(), "r");
+		expect(deleteButton()).toBeEnabled();
+		// Nothing else: a trailing character disarms it again.
+		await user.type(input(), " ");
+		expect(deleteButton()).toBeDisabled();
+	});
 
+	it("is case-sensitive", async () => {
+		const user = userEvent.setup();
+		render(<DeleteConfirmModal {...baseProps} />);
+
+		await user.type(input(), "test provider");
+		expect(deleteButton()).toBeDisabled();
+		await user.click(deleteButton());
+		expect(onConfirm).not.toHaveBeenCalled();
+	});
+
+	it("calls onConfirm when the armed delete button is clicked", async () => {
+		const user = userEvent.setup();
+		render(<DeleteConfirmModal {...baseProps} />);
+
+		await user.type(input(), "Test Provider");
+		await user.click(deleteButton());
+		expect(onConfirm).toHaveBeenCalledTimes(1);
+	});
+
+	it("submits on Enter only once armed", async () => {
+		const user = userEvent.setup();
+		render(<DeleteConfirmModal {...baseProps} />);
+
+		await user.type(input(), "Test{Enter}");
+		expect(onConfirm).not.toHaveBeenCalled();
+		await user.type(input(), " Provider{Enter}");
 		expect(onConfirm).toHaveBeenCalledTimes(1);
 	});
 
 	it("calls onCancel when cancel button is clicked", () => {
-		const onConfirm = vi.fn();
-		const onCancel = vi.fn();
-		render(
-			<DeleteConfirmModal
-				entityName="Test"
-				isPending={false}
-				onConfirm={onConfirm}
-				onCancel={onCancel}
-			/>,
-		);
-
+		render(<DeleteConfirmModal {...baseProps} />);
 		fireEvent.click(screen.getByText("Cancel"));
-
 		expect(onCancel).toHaveBeenCalledTimes(1);
 	});
 
 	it("calls onCancel when backdrop is clicked", async () => {
-		const onConfirm = vi.fn();
-		const onCancel = vi.fn();
-		render(
-			<DeleteConfirmModal
-				entityName="Test"
-				isPending={false}
-				onConfirm={onConfirm}
-				onCancel={onCancel}
-			/>,
-		);
-
-		// Click the backdrop (the button with aria-label "Close dialog")
+		render(<DeleteConfirmModal {...baseProps} />);
 		fireEvent.click(screen.getByLabelText("Close dialog"));
-
 		await waitFor(() => {
 			expect(onCancel).toHaveBeenCalledTimes(1);
 		});
 	});
 
 	it("calls onCancel when close button is clicked", async () => {
-		const onConfirm = vi.fn();
-		const onCancel = vi.fn();
-		render(
-			<DeleteConfirmModal
-				entityName="Test"
-				isPending={false}
-				onConfirm={onConfirm}
-				onCancel={onCancel}
-			/>,
-		);
-
+		render(<DeleteConfirmModal {...baseProps} />);
 		fireEvent.click(screen.getByTestId("close-icon"));
-
 		await waitFor(() => {
 			expect(onCancel).toHaveBeenCalledTimes(1);
 		});
 	});
 
-	it("shows deleting state when isPending is true", () => {
-		const onConfirm = vi.fn();
-		const onCancel = vi.fn();
-		render(
-			<DeleteConfirmModal
-				entityName="Test"
-				isPending={true}
-				onConfirm={onConfirm}
-				onCancel={onCancel}
-			/>,
-		);
+	it("shows deleting state and stays disabled while pending", async () => {
+		const user = userEvent.setup();
+		render(<DeleteConfirmModal {...baseProps} isPending={true} />);
 
-		expect(screen.getByText("Deleting…")).toBeInTheDocument();
-		const deleteButton = screen.getByRole("button", { name: "Deleting…" });
-		expect(deleteButton).toBeDisabled();
-	});
-
-	it("disables cancel button when isPending is true", () => {
-		const onConfirm = vi.fn();
-		const onCancel = vi.fn();
-		render(
-			<DeleteConfirmModal
-				entityName="Test"
-				isPending={true}
-				onConfirm={onConfirm}
-				onCancel={onCancel}
-			/>,
-		);
-
-		// Cancel should still work during pending state
-		fireEvent.click(screen.getByText("Cancel"));
-		expect(onCancel).toHaveBeenCalledTimes(1);
+		await user.type(input(), "Test Provider");
+		const pending = screen.getByRole("button", { name: "Deleting…" });
+		expect(pending).toBeDisabled();
+		await user.type(input(), "{Enter}");
+		expect(onConfirm).not.toHaveBeenCalled();
 	});
 });

@@ -1,10 +1,10 @@
-import { screen, waitFor, within } from "@testing-library/react";
+import { screen, waitFor } from "@testing-library/react";
 import { HttpResponse, http } from "msw";
 import { beforeEach, describe, expect, it } from "vitest";
 import { Layout } from "../../components/Layout";
 import { mockModel, mockProvider } from "../../test/mocks/data";
 import { server } from "../../test/mocks/server";
-import { renderWithProviders } from "../../test/utils";
+import { armDeleteConfirm, renderWithProviders } from "../../test/utils";
 import { Providers } from "../Providers";
 
 describe("Providers", () => {
@@ -731,10 +731,7 @@ describe("Providers", () => {
 
 			// Click confirm button in modal
 			const modal = screen.getByRole("dialog");
-			const modalDeleteButton = within(modal).getByRole("button", {
-				name: "Delete",
-			});
-			await user.click(modalDeleteButton);
+			await user.click(await armDeleteConfirm(user, "Test Provider", modal));
 
 			await waitFor(() => {
 				expect(deleteCalled).toBe(true);
@@ -771,10 +768,7 @@ describe("Providers", () => {
 
 			// Click confirm button in modal
 			const modal = screen.getByRole("dialog");
-			const modalDeleteButton = within(modal).getByRole("button", {
-				name: "Delete",
-			});
-			await user.click(modalDeleteButton);
+			await user.click(await armDeleteConfirm(user, "Test Provider", modal));
 
 			// Modal should close after deletion
 			await waitFor(() => {
@@ -1313,10 +1307,7 @@ describe("Providers", () => {
 			if (!confirmDialog) {
 				throw new Error("ConfirmDialog not found");
 			}
-			const confirmBtn = within(confirmDialog).getByRole("button", {
-				name: "Delete",
-			});
-			await user.click(confirmBtn);
+			await user.click(await armDeleteConfirm(user, "confirm", confirmDialog));
 
 			// Verify all disabled models were deleted in a single bulk request
 			await waitFor(() => {
@@ -1407,10 +1398,7 @@ describe("Providers", () => {
 			if (!confirmDialog) {
 				throw new Error("ConfirmDialog not found");
 			}
-			const confirmBtn = within(confirmDialog).getByRole("button", {
-				name: "Delete",
-			});
-			await user.click(confirmBtn);
+			await user.click(await armDeleteConfirm(user, "confirm", confirmDialog));
 
 			// Verify error toast (the whole request failed atomically)
 			await waitFor(() => {
@@ -1532,9 +1520,11 @@ describe("Providers", () => {
 
 			await user.click(await screen.findByRole("button", { name: "Delete" }));
 			await user.click(
-				within(await screen.findByRole("dialog")).getByRole("button", {
-					name: "Delete",
-				}),
+				await armDeleteConfirm(
+					user,
+					"Test Provider",
+					await screen.findByRole("dialog"),
+				),
 			);
 			await waitFor(() => expect(deleted).toBe(true));
 
@@ -1569,9 +1559,11 @@ describe("Providers", () => {
 
 			await user.click(await screen.findByRole("button", { name: "Delete" }));
 			await user.click(
-				within(await screen.findByRole("dialog")).getByRole("button", {
-					name: "Delete",
-				}),
+				await armDeleteConfirm(
+					user,
+					"Test Provider",
+					await screen.findByRole("dialog"),
+				),
 			);
 			await waitFor(() => expect(deleted).toBe(true));
 

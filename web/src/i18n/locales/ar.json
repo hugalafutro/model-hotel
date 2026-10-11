@@ -82,7 +82,9 @@
 		"collapseNamed": "تصغير: {{name}}",
 		"rowStepLabel": "{{subject}}، {{time}}",
 		"rowStepFirst": "{{row}}، الصف الأول",
-		"rowStepLast": "{{row}}، الصف الأخير"
+		"rowStepLast": "{{row}}، الصف الأخير",
+		"discard": "تجاهل",
+		"overwrite": "استبدال"
 	},
 	"layout": {
 		"title": "Model Hotel",
@@ -2692,16 +2694,13 @@
 		"deleteConfirmModal": {
 			"confirmDelete": "تأكيد الحذف",
 			"deleteType": "حذف {{entityType}}",
-			"areYouSure": "هل أنت متأكد من أنك تريد حذف {{entityName}}؟ لا يمكن التراجع عن هذا الإجراء."
+			"areYouSure": "هل أنت متأكد من أنك تريد حذف {{entityName}}؟ لا يمكن التراجع عن هذا الإجراء.",
+			"typeToConfirm": "للتأكيد، اكتب:",
+			"confirmWord": "تأكيد"
 		},
 		"confirmDialog": {
 			"discardChangesTo": "تجاهل التغييرات إلى:",
 			"close": "أغلق"
-		},
-		"confirmDeleteButton": {
-			"deleteKey": "حذف المفتاح",
-			"yesDelete": "نعم، حذف",
-			"areYouSure": "هل أنت متأكد؟"
 		},
 		"restoreConfirmModal": {
 			"title": "استعادة النسخ الاحتياطي لقاعدة البيانات",
@@ -3426,7 +3425,8 @@
 		"detail": {
 			"rps": "RPS",
 			"burst": "الدفعة",
-			"tpm": "TPM"
+			"tpm": "TPM",
+			"deleteKey": "حذف المفتاح"
 		}
 	},
 	"hooks": {
@@ -3632,7 +3632,8 @@
 			"totpResetButton": "إعادة تعيين المصادقة الثنائية",
 			"totpResetHint": "يزيل تطبيق المصادقة ورموز الاسترداد الخاصة بالمستخدم ليتمكن من تسجيل الدخول بكلمة المرور وحدها.",
 			"totpResetConfirmTitle": "إعادة تعيين المصادقة الثنائية",
-			"totpResetConfirmMessage": "سيؤدي هذا إلى إزالة ربط تطبيق المصادقة وجميع رموز الاسترداد لهذا المستخدم. تبقى كلمة المرور دون تغيير."
+			"totpResetConfirmMessage": "سيؤدي هذا إلى إزالة ربط تطبيق المصادقة وجميع رموز الاسترداد لهذا المستخدم. تبقى كلمة المرور دون تغيير.",
+			"totpResetConfirmLabel": "إعادة تعيين"
 		},
 		"toast": {
 			"created": "تم إنشاء المستخدم",
@@ -3690,7 +3691,8 @@
 		"toast": {
 			"purged": "تم حذف سجل التدقيق",
 			"purgeFailed": "تعذّر حذف سجل التدقيق"
-		}
+		},
+		"purgeConfirmLabel": "تطهير"
 	},
 	"budget": {
 		"label": "الميزانية",

@@ -82,7 +82,9 @@
 		"collapseNamed": "Згорнути: {{name}}",
 		"rowStepLabel": "{{subject}}, {{time}}",
 		"rowStepFirst": "{{row}}, перший рядок",
-		"rowStepLast": "{{row}}, останній рядок"
+		"rowStepLast": "{{row}}, останній рядок",
+		"discard": "Відхилити",
+		"overwrite": "Перезаписати"
 	},
 	"layout": {
 		"title": "Model Hotel",
@@ -2560,16 +2562,13 @@
 		"deleteConfirmModal": {
 			"confirmDelete": "Підтвердження видалення",
 			"deleteType": "Видалити {{entityType}}",
-			"areYouSure": "Ви впевнені, що бажаєте видалити {{entityName}}? Цю дію неможливо скасувати."
+			"areYouSure": "Ви впевнені, що бажаєте видалити {{entityName}}? Цю дію неможливо скасувати.",
+			"typeToConfirm": "Для підтвердження введіть:",
+			"confirmWord": "підтвердити"
 		},
 		"confirmDialog": {
 			"discardChangesTo": "Скасувати зміни до:",
 			"close": "Закрити"
-		},
-		"confirmDeleteButton": {
-			"deleteKey": "Видалити ключ",
-			"yesDelete": "Так, видалити",
-			"areYouSure": "Ви впевнені?"
 		},
 		"restoreConfirmModal": {
 			"title": "Відновлення резервної копії бази даних",
@@ -3274,7 +3273,8 @@
 		"detail": {
 			"rps": "RPS",
 			"burst": "Пік",
-			"tpm": "TPM"
+			"tpm": "TPM",
+			"deleteKey": "Видалити ключ"
 		}
 	},
 	"hooks": {
@@ -3480,7 +3480,8 @@
 			"totpResetButton": "Скинути двофакторну автентифікацію",
 			"totpResetHint": "Видаляє застосунок-автентифікатор і коди відновлення користувача, щоб він міг входити лише за паролем.",
 			"totpResetConfirmTitle": "Скинути двофакторну автентифікацію",
-			"totpResetConfirmMessage": "Буде видалено прив'язку застосунку-автентифікатора та всі коди відновлення цього користувача. Пароль залишиться незмінним."
+			"totpResetConfirmMessage": "Буде видалено прив'язку застосунку-автентифікатора та всі коди відновлення цього користувача. Пароль залишиться незмінним.",
+			"totpResetConfirmLabel": "Скинути"
 		},
 		"toast": {
 			"created": "Користувача створено",
@@ -3538,7 +3539,8 @@
 		"toast": {
 			"purged": "Журнал аудиту очищено",
 			"purgeFailed": "Не вдалося очистити журнал аудиту"
-		}
+		},
+		"purgeConfirmLabel": "Очистити"
 	},
 	"budget": {
 		"label": "Бюджет",

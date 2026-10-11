@@ -399,6 +399,7 @@ export function FailoverGroups() {
 
 			{deleteGroup && (
 				<DeleteConfirmModal
+					confirmText={`hotel/${deleteGroup.display_model}`}
 					entityName={`hotel/${deleteGroup.display_model}`}
 					entityType={t("failover.delete_confirm_type")}
 					isPending={deleteMutation.isPending}
@@ -409,6 +410,7 @@ export function FailoverGroups() {
 
 			{bulkDeleteIds && (
 				<DeleteConfirmModal
+					confirmText={t("components.deleteConfirmModal.confirmWord")}
 					entityName={t("failover.delete_confirm_bulk_title", {
 						count: bulkDeleteIds.size,
 					})}

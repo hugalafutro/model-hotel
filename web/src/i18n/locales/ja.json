@@ -82,7 +82,9 @@
 		"collapseNamed": "折りたたむ：{{name}}",
 		"rowStepLabel": "{{subject}}、{{time}}",
 		"rowStepFirst": "{{row}}、最初の行",
-		"rowStepLast": "{{row}}、最後の行"
+		"rowStepLast": "{{row}}、最後の行",
+		"discard": "破棄",
+		"overwrite": "上書き"
 	},
 	"layout": {
 		"title": "Model Hotel",
@@ -2428,16 +2430,13 @@
 		"deleteConfirmModal": {
 			"confirmDelete": "削除の確認",
 			"deleteType": "{{entityType}} を削除",
-			"areYouSure": "{{entityName}}を削除してもよろしいですか？この操作は元に戻せません。"
+			"areYouSure": "{{entityName}}を削除してもよろしいですか？この操作は元に戻せません。",
+			"typeToConfirm": "確認のため入力してください:",
+			"confirmWord": "確認"
 		},
 		"confirmDialog": {
 			"discardChangesTo": "変更を破棄:",
 			"close": "閉じる"
-		},
-		"confirmDeleteButton": {
-			"deleteKey": "キーを削除",
-			"yesDelete": "はい、削除します",
-			"areYouSure": "よろしいですか？"
 		},
 		"restoreConfirmModal": {
 			"title": "データベースバックアップを復元",
@@ -3122,7 +3121,8 @@
 		"detail": {
 			"rps": "RPS",
 			"burst": "Burst",
-			"tpm": "TPM"
+			"tpm": "TPM",
+			"deleteKey": "キーを削除"
 		}
 	},
 	"hooks": {
@@ -3328,7 +3328,8 @@
 			"totpResetButton": "2要素認証をリセット",
 			"totpResetHint": "このユーザーの認証アプリとリカバリーコードを削除し、パスワードのみでログインできるようにします。",
 			"totpResetConfirmTitle": "2要素認証をリセット",
-			"totpResetConfirmMessage": "このユーザーの認証アプリの紐付けとすべてのリカバリーコードを削除します。パスワードは変更されません。"
+			"totpResetConfirmMessage": "このユーザーの認証アプリの紐付けとすべてのリカバリーコードを削除します。パスワードは変更されません。",
+			"totpResetConfirmLabel": "リセット"
 		},
 		"toast": {
 			"created": "ユーザーを作成しました",
@@ -3386,7 +3387,8 @@
 		"toast": {
 			"purged": "監査ログを削除しました",
 			"purgeFailed": "監査ログを削除できませんでした"
-		}
+		},
+		"purgeConfirmLabel": "消去"
 	},
 	"budget": {
 		"label": "予算",

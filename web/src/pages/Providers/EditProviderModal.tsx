@@ -14,7 +14,11 @@ import { RevealableInput } from "../../components/RevealableInput";
 import { Toggle } from "../../components/Toggle";
 import { useRefreshDiscoveryBadge } from "../../hooks/useRefreshDiscoveryBadge";
 import { formatDateOnly, intOrNull } from "../../utils/format";
-import { isKnownProviderUrl, providerTypeOptions } from "./constants";
+import {
+	isKnownProviderUrl,
+	providerTypeOptions,
+	QUOTA_RESERVE_TYPES,
+} from "./constants";
 import { findProviderAtAddress } from "./duplicateAddress";
 import { providerTypeGateMessage } from "./typeGateError";
 
@@ -411,45 +415,47 @@ export function EditProviderModal({
 						</p>
 					</div>
 
-					<div>
-						<label
-							htmlFor="edit-provider-quota-reserve"
-							className="block ui-label mb-1"
-						>
-							{t("providers.edit.quotaReserveLabel")}
-							<span
-								className="ml-2 text-yellow-400"
-								data-testid="quota-reserve-value"
+					{QUOTA_RESERVE_TYPES.has(formData.provider_type) && (
+						<div>
+							<label
+								htmlFor="edit-provider-quota-reserve"
+								className="block ui-label mb-1"
 							>
-								{reserveText}
-							</span>
-						</label>
-						<input
-							id="edit-provider-quota-reserve"
-							type="range"
-							min={0}
-							max={90}
-							step={10}
-							value={formData.quota_reserve_percent}
-							aria-valuetext={reserveText}
-							onChange={(e) =>
-								setFormData({
-									...formData,
-									quota_reserve_percent: Number(e.target.value),
-								})
-							}
-							className="w-full accent-yellow-400"
-						/>
-						<p className="ui-hint mt-1">
-							{t("providers.edit.quotaReserveHelper")}
-						</p>
-						<p
-							className="text-yellow-400 text-xs mt-1"
-							data-testid="quota-reserve-scope"
-						>
-							{t("providers.edit.quotaReserveHelperScope")}
-						</p>
-					</div>
+								{t("providers.edit.quotaReserveLabel")}
+								<span
+									className="ml-2 text-yellow-400"
+									data-testid="quota-reserve-value"
+								>
+									{reserveText}
+								</span>
+							</label>
+							<input
+								id="edit-provider-quota-reserve"
+								type="range"
+								min={0}
+								max={90}
+								step={10}
+								value={formData.quota_reserve_percent}
+								aria-valuetext={reserveText}
+								onChange={(e) =>
+									setFormData({
+										...formData,
+										quota_reserve_percent: Number(e.target.value),
+									})
+								}
+								className="w-full accent-yellow-400"
+							/>
+							<p className="ui-hint mt-1">
+								{t("providers.edit.quotaReserveHelper")}
+							</p>
+							<p
+								className="text-yellow-400 text-xs mt-1"
+								data-testid="quota-reserve-scope"
+							>
+								{t("providers.edit.quotaReserveHelperScope")}
+							</p>
+						</div>
+					)}
 
 					<div className="flex space-x-3 justify-end pt-4">
 						<button
@@ -475,6 +481,7 @@ export function EditProviderModal({
 				<ConfirmDialog
 					title={t("delete_confirm.unsaved_changes")}
 					fields={confirmFields}
+					confirmLabel={t("common.discard")}
 					onConfirm={onClose}
 					onCancel={() => setConfirmFields(null)}
 				/>

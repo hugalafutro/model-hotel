@@ -1,7 +1,7 @@
 /* eslint-disable react-refresh/only-export-components -- test render helpers exported beside the providers wrapper */
 
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { type RenderOptions, render } from "@testing-library/react";
+import { type RenderOptions, render, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import type { ReactElement, ReactNode } from "react";
 import { I18nextProvider } from "react-i18next";
@@ -99,4 +99,21 @@ export function renderWithProviders(
 		}),
 		user,
 	};
+}
+
+/**
+ * Types the exact text a DeleteConfirmModal demands and returns its danger
+ * button, armed. Every irreversible delete in the dashboard goes through that
+ * dialog, so a test that deletes anything calls this before clicking.
+ */
+export async function armDeleteConfirm(
+	user: ReturnType<typeof userEvent.setup>,
+	text: string,
+	container: HTMLElement = document.body,
+) {
+	const input = await within(container).findByTestId("delete-confirm-input");
+	await user.type(input, text);
+	const form = input.closest("form");
+	if (!form) throw new Error("delete-confirm-input is not inside its form");
+	return within(form).getByRole("button", { name: "Delete" });
 }

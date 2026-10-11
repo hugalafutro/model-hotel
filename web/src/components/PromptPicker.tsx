@@ -54,6 +54,7 @@ export function PromptPicker({
 			onActiveChange={onActivePromptIdChange}
 			onTextChange={onPromptChange}
 			confirmCopy={(isCustom) => ({
+				confirmLabel: isCustom ? t("common.confirm") : t("common.overwrite"),
 				title: isCustom
 					? t("components.promptPicker.switchToCustom")
 					: t("components.promptPicker.overwritePrompt"),

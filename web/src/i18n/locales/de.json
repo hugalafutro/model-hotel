@@ -82,7 +82,9 @@
 		"collapseNamed": "Einklappen: {{name}}",
 		"rowStepLabel": "{{subject}}, {{time}}",
 		"rowStepFirst": "{{row}}, erste Zeile",
-		"rowStepLast": "{{row}}, letzte Zeile"
+		"rowStepLast": "{{row}}, letzte Zeile",
+		"discard": "Verwerfen",
+		"overwrite": "Überschreiben"
 	},
 	"layout": {
 		"title": "Model Hotel",
@@ -2428,16 +2430,13 @@
 		"deleteConfirmModal": {
 			"confirmDelete": "Löschen bestätigen",
 			"deleteType": "{{entityType}} löschen",
-			"areYouSure": "Sind Sie sicher, dass Sie {{entityName}} löschen möchten? Diese Aktion kann nicht rückgängig gemacht werden."
+			"areYouSure": "Sind Sie sicher, dass Sie {{entityName}} löschen möchten? Diese Aktion kann nicht rückgängig gemacht werden.",
+			"typeToConfirm": "Zur Bestätigung eingeben:",
+			"confirmWord": "bestätigen"
 		},
 		"confirmDialog": {
 			"discardChangesTo": "Änderungen verwerfen zu:",
 			"close": "Schließen"
-		},
-		"confirmDeleteButton": {
-			"deleteKey": "Schlüssel löschen",
-			"yesDelete": "Ja, löschen",
-			"areYouSure": "Bist du sicher?"
 		},
 		"restoreConfirmModal": {
 			"title": "Datenbanksicherung wiederherstellen",
@@ -3122,7 +3121,8 @@
 		"detail": {
 			"rps": "RPS",
 			"burst": "Burst",
-			"tpm": "TPM"
+			"tpm": "TPM",
+			"deleteKey": "Schlüssel löschen"
 		}
 	},
 	"hooks": {
@@ -3328,7 +3328,8 @@
 			"totpResetButton": "Zwei-Faktor-Authentifizierung zurücksetzen",
 			"totpResetHint": "Entfernt die Authenticator-App und die Wiederherstellungscodes des Benutzers, sodass die Anmeldung nur mit dem Passwort möglich ist.",
 			"totpResetConfirmTitle": "Zwei-Faktor-Authentifizierung zurücksetzen",
-			"totpResetConfirmMessage": "Dies entfernt die Authenticator-App-Bindung und alle Wiederherstellungscodes dieses Benutzers. Das Passwort bleibt unverändert."
+			"totpResetConfirmMessage": "Dies entfernt die Authenticator-App-Bindung und alle Wiederherstellungscodes dieses Benutzers. Das Passwort bleibt unverändert.",
+			"totpResetConfirmLabel": "Zurücksetzen"
 		},
 		"toast": {
 			"created": "Benutzer angelegt",
@@ -3386,7 +3387,8 @@
 		"toast": {
 			"purged": "Audit-Protokoll gelöscht",
 			"purgeFailed": "Audit-Protokoll konnte nicht gelöscht werden"
-		}
+		},
+		"purgeConfirmLabel": "Bereinigen"
 	},
 	"budget": {
 		"label": "Budget",

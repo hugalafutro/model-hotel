@@ -7,7 +7,6 @@ import { formatDate, formatRelativeTime, formatTokens } from "../utils/format";
 import { outputKinds, parseCapabilities, proxyModelID } from "../utils/model";
 import { sortByName } from "../utils/sort";
 import { CapBadge } from "./CapBadge";
-import { ConfirmDialog } from "./ConfirmDialog";
 import { CopyablePill } from "./CopyablePill";
 import {
 	CAP_DISABLED,
@@ -25,6 +24,7 @@ import {
 	StaticHeaderNoArrow,
 	toggleSort,
 } from "./DataTable";
+import { DeleteConfirmModal } from "./DeleteConfirmModal";
 import { FilterDropdown } from "./FilterDropdown";
 import { FilterInput } from "./FilterInput";
 import { OutputFilterIcons, PillStrip } from "./modelTable/CapFilterRow";
@@ -539,7 +539,7 @@ export function ModelTable({
 				</table>
 			</div>
 			{confirmDeleteDisabled && onDeleteDisabled && (
-				<ConfirmDialog
+				<DeleteConfirmModal
 					title={t("components.modelTable.deleteDisabledModels")}
 					message={t("components.modelTable.deleteDisabledMessage", {
 						count: disabledCount,
@@ -547,7 +547,8 @@ export function ModelTable({
 					fields={disabledModels.map((m) =>
 						proxyModelID(m.provider_name, m.model_id),
 					)}
-					confirmLabel={t("common.delete")}
+					confirmText={t("components.deleteConfirmModal.confirmWord")}
+					isPending={false}
 					onConfirm={() => {
 						onDeleteDisabled?.(disabledModelIds);
 						setConfirmDeleteDisabled(false);

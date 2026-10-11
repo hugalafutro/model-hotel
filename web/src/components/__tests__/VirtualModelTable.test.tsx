@@ -1255,7 +1255,10 @@ describe("VirtualModelTable", () => {
 				}),
 			);
 
-			fireEvent.click(screen.getByText("Delete"));
+			fireEvent.change(screen.getByTestId("delete-confirm-input"), {
+				target: { value: "confirm" },
+			});
+			fireEvent.click(screen.getByRole("button", { name: "Delete" }));
 
 			await waitFor(() => {
 				expect(onDeleteDisabled).toHaveBeenCalledWith([

@@ -82,7 +82,9 @@
 		"collapseNamed": "Sammenfold: {{name}}",
 		"rowStepLabel": "{{subject}}, {{time}}",
 		"rowStepFirst": "{{row}}, første række",
-		"rowStepLast": "{{row}}, sidste række"
+		"rowStepLast": "{{row}}, sidste række",
+		"discard": "Kassér",
+		"overwrite": "Overskriv"
 	},
 	"layout": {
 		"title": "Model Hotel",
@@ -2428,16 +2430,13 @@
 		"deleteConfirmModal": {
 			"confirmDelete": "Bekræft Sletning",
 			"deleteType": "Slet {{entityType}}",
-			"areYouSure": "Er du sikker på, at du vil slette {{entityName}}? Denne handling kan ikke fortrydes."
+			"areYouSure": "Er du sikker på, at du vil slette {{entityName}}? Denne handling kan ikke fortrydes.",
+			"typeToConfirm": "Skriv for at bekræfte:",
+			"confirmWord": "bekræft"
 		},
 		"confirmDialog": {
 			"discardChangesTo": "Kassér ændringer til:",
 			"close": "Luk"
-		},
-		"confirmDeleteButton": {
-			"deleteKey": "Slet Nøgle",
-			"yesDelete": "Ja, slet",
-			"areYouSure": "Er du sikker?"
 		},
 		"restoreConfirmModal": {
 			"title": "Gendan Database Backup",
@@ -3122,7 +3121,8 @@
 		"detail": {
 			"rps": "RPS",
 			"burst": "Burst",
-			"tpm": "TPM"
+			"tpm": "TPM",
+			"deleteKey": "Slet Nøgle"
 		}
 	},
 	"hooks": {
@@ -3328,7 +3328,8 @@
 			"totpResetButton": "Nulstil tofaktorgodkendelse",
 			"totpResetHint": "Fjerner brugerens godkendelsesapp og gendannelseskoder, så de kan logge ind med adgangskoden alene.",
 			"totpResetConfirmTitle": "Nulstil tofaktorgodkendelse",
-			"totpResetConfirmMessage": "Dette fjerner tilknytningen til godkendelsesappen og alle gendannelseskoder for denne bruger. Adgangskoden forbliver uændret."
+			"totpResetConfirmMessage": "Dette fjerner tilknytningen til godkendelsesappen og alle gendannelseskoder for denne bruger. Adgangskoden forbliver uændret.",
+			"totpResetConfirmLabel": "Nulstil"
 		},
 		"toast": {
 			"created": "Bruger oprettet",
@@ -3386,7 +3387,8 @@
 		"toast": {
 			"purged": "Revisionsspor ryddet",
 			"purgeFailed": "Kunne ikke rydde revisionssporet"
-		}
+		},
+		"purgeConfirmLabel": "Ryd"
 	},
 	"budget": {
 		"label": "Budget",

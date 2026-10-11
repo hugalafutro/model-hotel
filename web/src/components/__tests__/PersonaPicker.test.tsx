@@ -266,7 +266,7 @@ describe("PersonaPicker", () => {
 				/>,
 			);
 			await user.click(screen.getByText("🧙Merlin"));
-			await user.click(screen.getByText("Delete"));
+			await user.click(screen.getByText("Overwrite"));
 			await waitFor(() => {
 				expect(mockOnSystemPromptChange).toHaveBeenCalledWith(
 					"You are a wise wizard",
@@ -329,7 +329,7 @@ describe("PersonaPicker", () => {
 				/>,
 			);
 			await user.click(screen.getByText("✏️Custom"));
-			await user.click(screen.getByText("Delete"));
+			await user.click(screen.getByText("Confirm"));
 			await waitFor(() => {
 				expect(mockOnSystemPromptChange).toHaveBeenCalledWith("");
 				expect(mockOnActivePersonaChange).toHaveBeenCalledWith(null);

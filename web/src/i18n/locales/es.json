@@ -82,7 +82,9 @@
 		"collapseNamed": "Contraer: {{name}}",
 		"rowStepLabel": "{{subject}}, {{time}}",
 		"rowStepFirst": "{{row}}, primera fila",
-		"rowStepLast": "{{row}}, última fila"
+		"rowStepLast": "{{row}}, última fila",
+		"discard": "Descartar",
+		"overwrite": "Sobrescribir"
 	},
 	"layout": {
 		"title": "Model Hotel",
@@ -2494,16 +2496,13 @@
 		"deleteConfirmModal": {
 			"confirmDelete": "Confirmar eliminación",
 			"deleteType": "Eliminar {{entityType}}",
-			"areYouSure": "¿Está seguro que desea eliminar {{entityName}}? Esta acción no se puede deshacer."
+			"areYouSure": "¿Está seguro que desea eliminar {{entityName}}? Esta acción no se puede deshacer.",
+			"typeToConfirm": "Para confirmar, escribe:",
+			"confirmWord": "confirmar"
 		},
 		"confirmDialog": {
 			"discardChangesTo": "Descartar cambios a:",
 			"close": "Cerrar"
-		},
-		"confirmDeleteButton": {
-			"deleteKey": "Borrar Clave",
-			"yesDelete": "Sí, eliminar",
-			"areYouSure": "¿Estás seguro?"
 		},
 		"restoreConfirmModal": {
 			"title": "Restaurar respaldo de base de datos",
@@ -3198,7 +3197,8 @@
 		"detail": {
 			"rps": "RPS",
 			"burst": "Ráfaga",
-			"tpm": "TPM"
+			"tpm": "TPM",
+			"deleteKey": "Borrar Clave"
 		}
 	},
 	"hooks": {
@@ -3404,7 +3404,8 @@
 			"totpResetButton": "Restablecer la autenticación en dos pasos",
 			"totpResetHint": "Elimina la aplicación de autenticación y los códigos de recuperación del usuario para que pueda iniciar sesión solo con su contraseña.",
 			"totpResetConfirmTitle": "Restablecer la autenticación en dos pasos",
-			"totpResetConfirmMessage": "Esto elimina la vinculación con la aplicación de autenticación y todos los códigos de recuperación de este usuario. La contraseña no cambia."
+			"totpResetConfirmMessage": "Esto elimina la vinculación con la aplicación de autenticación y todos los códigos de recuperación de este usuario. La contraseña no cambia.",
+			"totpResetConfirmLabel": "Restablecer"
 		},
 		"toast": {
 			"created": "Usuario creado",
@@ -3462,7 +3463,8 @@
 		"toast": {
 			"purged": "Registro de auditoría vaciado",
 			"purgeFailed": "No se pudo vaciar el registro de auditoría"
-		}
+		},
+		"purgeConfirmLabel": "Purgar"
 	},
 	"budget": {
 		"label": "Presupuesto",

@@ -320,6 +320,7 @@ export function Audit() {
 					title={t("audit.purgeConfirmTitle")}
 					message={t("audit.purgeConfirmMessage")}
 					fields={[]}
+					confirmLabel={t("audit.purgeConfirmLabel")}
 					onConfirm={handlePurge}
 					onCancel={() => setConfirmPurge(false)}
 					confirmTestId="audit-purge-confirm"

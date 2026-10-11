@@ -3,7 +3,7 @@ import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { mockModel } from "../../../test/mocks/data";
 import { server } from "../../../test/mocks/server";
-import { renderWithProviders } from "../../../test/utils";
+import { armDeleteConfirm, renderWithProviders } from "../../../test/utils";
 import { ModelDetailModal } from "../ModelDetailModal";
 
 describe("ModelDetailModal", () => {
@@ -574,24 +574,55 @@ describe("ModelDetailModal", () => {
 		expect(screen.getByText("Delete")).toBeInTheDocument();
 	});
 
-	it("shows Confirm delete button after clicking Delete", async () => {
+	it("opens the typed confirm dialog after clicking Delete", async () => {
 		const user = userEvent.setup();
 		renderWithProviders(<ModelDetailModal {...defaultProps} />);
 
 		await user.click(screen.getByText("Delete"));
 
-		expect(screen.getByText("Confirm delete")).toBeInTheDocument();
+		expect(
+			screen.getByRole("heading", { name: "Confirm delete" }),
+		).toBeInTheDocument();
+		expect(screen.getByTestId("delete-confirm-expected")).toHaveTextContent(
+			"test-model-v1",
+		);
+		const dialogs = screen.getAllByRole("dialog");
+		expect(
+			within(dialogs[dialogs.length - 1]).getByRole("button", {
+				name: "Delete",
+			}),
+		).toBeDisabled();
+		expect(onDelete).not.toHaveBeenCalled();
 	});
 
-	it("calls onDelete and onClose when Confirm delete is clicked", async () => {
+	it("calls onDelete and onClose once the model id is typed and confirmed", async () => {
 		const user = userEvent.setup();
 		renderWithProviders(<ModelDetailModal {...defaultProps} />);
 
 		await user.click(screen.getByText("Delete"));
-		await user.click(screen.getByText("Confirm delete"));
+		await user.click(await armDeleteConfirm(user, "test-model-v1"));
 
 		expect(onDelete).toHaveBeenCalledWith("model-001");
 		expect(onClose).toHaveBeenCalled();
+	});
+
+	it("keeps the model when the confirm dialog is cancelled", async () => {
+		const user = userEvent.setup();
+		renderWithProviders(<ModelDetailModal {...defaultProps} />);
+
+		await user.click(screen.getByText("Delete"));
+		const dialogs = screen.getAllByRole("dialog");
+		await user.click(
+			within(dialogs[dialogs.length - 1]).getByRole("button", {
+				name: "Cancel",
+			}),
+		);
+
+		await waitFor(() => {
+			expect(screen.queryByTestId("delete-confirm-input")).toBeNull();
+		});
+		expect(onDelete).not.toHaveBeenCalled();
+		expect(onClose).not.toHaveBeenCalled();
 	});
 
 	it("shows cURL snippet tab by default", () => {
@@ -1292,9 +1323,8 @@ describe("ModelDetailModal", () => {
 		expect(
 			within(confirmDialog).getByRole("heading", { level: 2 }),
 		).toHaveTextContent("Unsaved Changes");
-		// ConfirmDialog uses common.delete which is "Delete" - scope to dialog
 		expect(
-			within(confirmDialog).getByRole("button", { name: "Delete" }),
+			within(confirmDialog).getByRole("button", { name: "Discard" }),
 		).toBeInTheDocument();
 	});
 
@@ -1317,13 +1347,12 @@ describe("ModelDetailModal", () => {
 			expect(screen.getAllByRole("dialog").length).toBeGreaterThan(1);
 		});
 
-		// Click Delete button in ConfirmDialog - use getAllBy and find closest to dialog
+		// Click Discard in the ConfirmDialog, the last dialog rendered
 		const dialogs = screen.getAllByRole("dialog");
-		const confirmDialog = dialogs[dialogs.length - 1]; // last dialog is the ConfirmDialog
-		const deleteButton = within(confirmDialog).getByRole("button", {
-			name: "Delete",
-		});
-		await user.click(deleteButton);
+		const confirmDialog = dialogs[dialogs.length - 1];
+		await user.click(
+			within(confirmDialog).getByRole("button", { name: "Discard" }),
+		);
 
 		// Wait for both dialogs to fade out (ModelDetailModal + ConfirmDialog)
 		// 200ms fade per dialog + React render time + buffer

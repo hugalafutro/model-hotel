@@ -82,7 +82,9 @@
 		"collapseNamed": "Összecsukás: {{name}}",
 		"rowStepLabel": "{{subject}}, {{time}}",
 		"rowStepFirst": "{{row}}, első sor",
-		"rowStepLast": "{{row}}, utolsó sor"
+		"rowStepLast": "{{row}}, utolsó sor",
+		"discard": "Elvetés",
+		"overwrite": "Felülírás"
 	},
 	"layout": {
 		"title": "Model Hotel",
@@ -2428,16 +2430,13 @@
 		"deleteConfirmModal": {
 			"confirmDelete": "Törlés megerősítése",
 			"deleteType": "{{entityType}} törlése",
-			"areYouSure": "Biztosan törli a következőt: „{{entityName}}”? Ez a művelet visszafordíthatatlan."
+			"areYouSure": "Biztosan törli a következőt: „{{entityName}}”? Ez a művelet visszafordíthatatlan.",
+			"typeToConfirm": "A megerősítéshez írja be:",
+			"confirmWord": "megerősítem"
 		},
 		"confirmDialog": {
 			"discardChangesTo": "A következő elem módosításainak elvetése:",
 			"close": "Bezárás"
-		},
-		"confirmDeleteButton": {
-			"deleteKey": "Kulcs törlése",
-			"yesDelete": "Igen, törlés",
-			"areYouSure": "Biztos vagy benne?"
 		},
 		"restoreConfirmModal": {
 			"title": "Adatbázis-biztonsági másolat visszaállítása",
@@ -3122,7 +3121,8 @@
 		"detail": {
 			"rps": "RPS",
 			"burst": "Burst-keret",
-			"tpm": "TPM"
+			"tpm": "TPM",
+			"deleteKey": "Kulcs törlése"
 		}
 	},
 	"hooks": {
@@ -3328,7 +3328,8 @@
 			"totpResetButton": "Kétlépcsős azonosítás visszaállítása",
 			"totpResetHint": "Eltávolítja a felhasználó hitelesítő alkalmazását és helyreállítási kódjait, így csak jelszóval jelentkezhet be.",
 			"totpResetConfirmTitle": "Kétlépcsős azonosítás visszaállítása",
-			"totpResetConfirmMessage": "Ez eltávolítja a hitelesítő alkalmazás hozzárendelését és a felhasználó összes helyreállítási kódját. A jelszó változatlan marad."
+			"totpResetConfirmMessage": "Ez eltávolítja a hitelesítő alkalmazás hozzárendelését és a felhasználó összes helyreállítási kódját. A jelszó változatlan marad.",
+			"totpResetConfirmLabel": "Visszaállítás"
 		},
 		"toast": {
 			"created": "Felhasználó létrehozva",
@@ -3386,7 +3387,8 @@
 		"toast": {
 			"purged": "Auditnapló törölve",
 			"purgeFailed": "Az auditnapló törlése nem sikerült"
-		}
+		},
+		"purgeConfirmLabel": "Törlés"
 	},
 	"budget": {
 		"label": "Keret",

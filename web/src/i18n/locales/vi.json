@@ -82,7 +82,9 @@
 		"collapseNamed": "Thu gọn: {{name}}",
 		"rowStepLabel": "{{subject}}, {{time}}",
 		"rowStepFirst": "{{row}}, hàng đầu tiên",
-		"rowStepLast": "{{row}}, hàng cuối cùng"
+		"rowStepLast": "{{row}}, hàng cuối cùng",
+		"discard": "Loại bỏ",
+		"overwrite": "Ghi đè"
 	},
 	"layout": {
 		"title": "Model Hotel",
@@ -2428,16 +2430,13 @@
 		"deleteConfirmModal": {
 			"confirmDelete": "Xác nhận xóa",
 			"deleteType": "Xóa {{entityType}}",
-			"areYouSure": "Bạn có chắc chắn muốn xóa {{entityName}} không? Hành động này không thể hoàn tác."
+			"areYouSure": "Bạn có chắc chắn muốn xóa {{entityName}} không? Hành động này không thể hoàn tác.",
+			"typeToConfirm": "Để xác nhận, hãy nhập:",
+			"confirmWord": "xác nhận"
 		},
 		"confirmDialog": {
 			"discardChangesTo": "Hủy bỏ các thay đổi đối với:",
 			"close": "Đóng"
-		},
-		"confirmDeleteButton": {
-			"deleteKey": "Xóa khóa",
-			"yesDelete": "Có, xóa",
-			"areYouSure": "Bạn có chắc không?"
 		},
 		"restoreConfirmModal": {
 			"title": "Khôi phục bản sao lưu cơ sở dữ liệu",
@@ -3122,7 +3121,8 @@
 		"detail": {
 			"rps": "RPS",
 			"burst": "Burst",
-			"tpm": "TPM"
+			"tpm": "TPM",
+			"deleteKey": "Xóa khóa"
 		}
 	},
 	"hooks": {
@@ -3328,7 +3328,8 @@
 			"totpResetButton": "Đặt lại xác thực hai yếu tố",
 			"totpResetHint": "Xóa ứng dụng xác thực và mã khôi phục của người dùng để họ đăng nhập chỉ bằng mật khẩu.",
 			"totpResetConfirmTitle": "Đặt lại xác thực hai yếu tố",
-			"totpResetConfirmMessage": "Thao tác này xóa liên kết ứng dụng xác thực và tất cả mã khôi phục của người dùng này. Mật khẩu không thay đổi."
+			"totpResetConfirmMessage": "Thao tác này xóa liên kết ứng dụng xác thực và tất cả mã khôi phục của người dùng này. Mật khẩu không thay đổi.",
+			"totpResetConfirmLabel": "Đặt lại"
 		},
 		"toast": {
 			"created": "Đã tạo người dùng",
@@ -3386,7 +3387,8 @@
 		"toast": {
 			"purged": "Đã xóa nhật ký kiểm tra",
 			"purgeFailed": "Không thể xóa nhật ký kiểm tra"
-		}
+		},
+		"purgeConfirmLabel": "Xóa sạch"
 	},
 	"budget": {
 		"label": "Ngân sách",

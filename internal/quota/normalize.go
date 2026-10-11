@@ -116,6 +116,7 @@ var quotaReaders = map[string]struct {
 	"zai-coding":  {assessZaiCoding, zaiCodingWindows},
 	"kimi-code":   {assessKimiCode, kimiCodeWindows},
 	"minimax":     {assessMiniMax, miniMaxWindows},
+	"nanogpt":     {assessNanoGPT, nanoGPTWindows},
 	"neuralwatt":  {assessNeuralwatt, neuralwattWindows},
 	"opencode-go": {assessOpenCodeGo, openCodeGoWindows},
 }

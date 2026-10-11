@@ -82,7 +82,9 @@
 		"collapseNamed": "收起：{{name}}",
 		"rowStepLabel": "{{subject}}，{{time}}",
 		"rowStepFirst": "{{row}}，第一行",
-		"rowStepLast": "{{row}}，最后一行"
+		"rowStepLast": "{{row}}，最后一行",
+		"discard": "放弃",
+		"overwrite": "覆盖"
 	},
 	"layout": {
 		"title": "Model Hotel",
@@ -2428,16 +2430,13 @@
 		"deleteConfirmModal": {
 			"confirmDelete": "确认删除",
 			"deleteType": "删除 {{entityType}}",
-			"areYouSure": "您确定要删除 {{entityName}}吗？此操作无法撤销。"
+			"areYouSure": "您确定要删除 {{entityName}}吗？此操作无法撤销。",
+			"typeToConfirm": "请输入以确认：",
+			"confirmWord": "确认"
 		},
 		"confirmDialog": {
 			"discardChangesTo": "放弃更改到：",
 			"close": "关闭"
-		},
-		"confirmDeleteButton": {
-			"deleteKey": "删除密钥",
-			"yesDelete": "是，删除",
-			"areYouSure": "您确定吗？"
 		},
 		"restoreConfirmModal": {
 			"title": "还原数据库备份",
@@ -3122,7 +3121,8 @@
 		"detail": {
 			"rps": "RPS",
 			"burst": "突发",
-			"tpm": "TPM"
+			"tpm": "TPM",
+			"deleteKey": "删除密钥"
 		}
 	},
 	"hooks": {
@@ -3328,7 +3328,8 @@
 			"totpResetButton": "重置两步验证",
 			"totpResetHint": "移除该用户的验证器应用和恢复代码，之后仅凭密码即可登录。",
 			"totpResetConfirmTitle": "重置两步验证",
-			"totpResetConfirmMessage": "这将移除该用户的验证器应用绑定和所有恢复代码。密码保持不变。"
+			"totpResetConfirmMessage": "这将移除该用户的验证器应用绑定和所有恢复代码。密码保持不变。",
+			"totpResetConfirmLabel": "重置"
 		},
 		"toast": {
 			"created": "用户已创建",
@@ -3386,7 +3387,8 @@
 		"toast": {
 			"purged": "审计记录已清除",
 			"purgeFailed": "无法清除审计记录"
-		}
+		},
+		"purgeConfirmLabel": "清除"
 	},
 	"budget": {
 		"label": "预算",

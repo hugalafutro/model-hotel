@@ -82,7 +82,9 @@
 		"collapseNamed": "Свернуть: {{name}}",
 		"rowStepLabel": "{{subject}}, {{time}}",
 		"rowStepFirst": "{{row}}, первая строка",
-		"rowStepLast": "{{row}}, последняя строка"
+		"rowStepLast": "{{row}}, последняя строка",
+		"discard": "Отменить изменения",
+		"overwrite": "Перезаписать"
 	},
 	"layout": {
 		"title": "Model Hotel",
@@ -2560,16 +2562,13 @@
 		"deleteConfirmModal": {
 			"confirmDelete": "Подтвердить удаление",
 			"deleteType": "Удалить {{entityType}}",
-			"areYouSure": "Вы уверены, что хотите удалить {{entityName}}? Это действие нельзя отменить."
+			"areYouSure": "Вы уверены, что хотите удалить {{entityName}}? Это действие нельзя отменить.",
+			"typeToConfirm": "Для подтверждения введите:",
+			"confirmWord": "подтвердить"
 		},
 		"confirmDialog": {
 			"discardChangesTo": "Отменить изменения:",
 			"close": "Закрыть"
-		},
-		"confirmDeleteButton": {
-			"deleteKey": "Удалить ключ",
-			"yesDelete": "Да, удалить",
-			"areYouSure": "Вы уверены?"
 		},
 		"restoreConfirmModal": {
 			"title": "Восстановить резервную копию базы данных",
@@ -3274,7 +3273,8 @@
 		"detail": {
 			"rps": "RPS",
 			"burst": "Пик",
-			"tpm": "TPM"
+			"tpm": "TPM",
+			"deleteKey": "Удалить ключ"
 		}
 	},
 	"hooks": {
@@ -3480,7 +3480,8 @@
 			"totpResetButton": "Сбросить двухфакторную аутентификацию",
 			"totpResetHint": "Удаляет приложение-аутентификатор и коды восстановления пользователя, чтобы он мог входить только по паролю.",
 			"totpResetConfirmTitle": "Сбросить двухфакторную аутентификацию",
-			"totpResetConfirmMessage": "Будет удалена привязка приложения-аутентификатора и все коды восстановления этого пользователя. Пароль останется прежним."
+			"totpResetConfirmMessage": "Будет удалена привязка приложения-аутентификатора и все коды восстановления этого пользователя. Пароль останется прежним.",
+			"totpResetConfirmLabel": "Сбросить"
 		},
 		"toast": {
 			"created": "Пользователь создан",
@@ -3538,7 +3539,8 @@
 		"toast": {
 			"purged": "Журнал аудита очищен",
 			"purgeFailed": "Не удалось очистить журнал аудита"
-		}
+		},
+		"purgeConfirmLabel": "Очистить"
 	},
 	"budget": {
 		"label": "Бюджет",

@@ -6,7 +6,12 @@ interface ConfirmDialogProps {
 	title: string;
 	message?: string;
 	fields: string[];
-	confirmLabel?: string;
+	/**
+	 * The danger button's label, named by the caller: "Discard", "Purge",
+	 * "Overwrite". A default here once read "Delete" under every dialog,
+	 * including the unsaved-changes one.
+	 */
+	confirmLabel: string;
 	onConfirm: () => void;
 	onCancel: () => void;
 	// Optional test id for the confirm (danger) button. Lets callers drive the
@@ -80,7 +85,7 @@ export function ConfirmDialog({
 					disabled={closing}
 					data-testid={confirmTestId}
 				>
-					{confirmLabel ?? t("common.delete")}
+					{confirmLabel}
 				</button>
 			</div>
 		</Modal>

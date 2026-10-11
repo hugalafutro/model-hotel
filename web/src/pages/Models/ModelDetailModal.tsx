@@ -11,6 +11,7 @@ import {
 	hasCap,
 	PILL_BADGE,
 } from "../../components/capMeta";
+import { DeleteConfirmModal } from "../../components/DeleteConfirmModal";
 import { DetailSectionHeader } from "../../components/DetailSectionHeader";
 import type { LangIconKey } from "../../components/langIcons";
 import { Modal } from "../../components/Modal";
@@ -290,14 +291,9 @@ export function ModelDetailModal({
 					testError={testError}
 					cooldown={cooldown}
 					discovering={discovering}
-					confirmDelete={confirmDelete}
 					onToggle={() => onToggle?.(model.id, !model.enabled)}
 					onTest={handleTest}
-					onArmDelete={() => setConfirmDelete(true)}
-					onDelete={() => {
-						onDelete?.(model.id);
-						onClose();
-					}}
+					onDelete={() => setConfirmDelete(true)}
 					onEdit={() => setEditing(true)}
 					onCancelEdit={handleCancelEdit}
 					onSave={handleSave}
@@ -309,8 +305,22 @@ export function ModelDetailModal({
 				<ConfirmDialog
 					title={t("delete_confirm.unsaved_changes")}
 					fields={confirmFields}
+					confirmLabel={t("common.discard")}
 					onConfirm={discardEdit}
 					onCancel={() => setConfirmFields(null)}
+				/>
+			)}
+			{confirmDelete && (
+				<DeleteConfirmModal
+					title={t("models.detail.confirmDelete")}
+					confirmText={model.model_id}
+					entityName={pMid}
+					isPending={false}
+					onConfirm={() => {
+						onDelete?.(model.id);
+						onClose();
+					}}
+					onCancel={() => setConfirmDelete(false)}
 				/>
 			)}
 		</Modal>

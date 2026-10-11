@@ -128,6 +128,11 @@ export function MatchupCard({
 							: t("arena.persona.overwrite")
 					}
 					fields={[t("arena.persona.fieldLabel")]}
+					confirmLabel={
+						persona.isCustomPending
+							? t("common.confirm")
+							: t("common.overwrite")
+					}
 					onConfirm={persona.confirm}
 					onCancel={persona.cancel}
 				/>

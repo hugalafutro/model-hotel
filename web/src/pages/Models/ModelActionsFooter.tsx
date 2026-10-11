@@ -3,7 +3,8 @@ import type { Model } from "../../api/types";
 import { Spinner } from "../../components/Spinner";
 
 /**
- * The management footer: enable/disable, test, delete (two-step) on the left;
+ * The management footer: enable/disable, test, delete (confirmed by the
+ * modal's typed dialog) on the left;
  * edit / save-cancel and re-discover with its cooldown on the right.
  */
 export function ModelActionsFooter({
@@ -13,10 +14,8 @@ export function ModelActionsFooter({
 	testError,
 	cooldown,
 	discovering,
-	confirmDelete,
 	onToggle,
 	onTest,
-	onArmDelete,
 	onDelete,
 	onEdit,
 	onCancelEdit,
@@ -29,10 +28,8 @@ export function ModelActionsFooter({
 	testError: boolean;
 	cooldown: number;
 	discovering: boolean;
-	confirmDelete: boolean;
 	onToggle: () => void;
 	onTest: () => void;
-	onArmDelete: () => void;
 	onDelete: () => void;
 	onEdit: () => void;
 	onCancelEdit: () => void;
@@ -59,23 +56,13 @@ export function ModelActionsFooter({
 					{testing && <Spinner />}
 					{testing ? t("models.detail.testing") : t("models.detail.test")}
 				</button>
-				{!confirmDelete ? (
-					<button
-						type="button"
-						onClick={onArmDelete}
-						className="ui-btn ui-btn-danger-muted"
-					>
-						{t("common.delete")}
-					</button>
-				) : (
-					<button
-						type="button"
-						onClick={onDelete}
-						className="ui-btn ui-btn-danger"
-					>
-						{t("models.detail.confirmDelete")}
-					</button>
-				)}
+				<button
+					type="button"
+					onClick={onDelete}
+					className="ui-btn ui-btn-danger-muted"
+				>
+					{t("common.delete")}
+				</button>
 			</div>
 			<div className="flex items-center gap-2">
 				{editing ? (

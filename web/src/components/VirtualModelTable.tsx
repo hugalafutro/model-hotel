@@ -6,9 +6,9 @@ import { useVirtualRows } from "../hooks/useVirtualRows";
 import { toggleInSet } from "../utils/collections";
 import { proxyModelID } from "../utils/model";
 import { sortByName } from "../utils/sort";
-import { ConfirmDialog } from "./ConfirmDialog";
 import type { CapKey } from "./capMeta";
 import { toggleSort } from "./DataTable";
+import { DeleteConfirmModal } from "./DeleteConfirmModal";
 import { FilterDropdown } from "./FilterDropdown";
 import { FilterInput } from "./FilterInput";
 import { CapFilterRow } from "./modelTable/CapFilterRow";
@@ -385,7 +385,7 @@ export function VirtualModelTable({
 				)}
 			</TableFooter>
 			{pendingDisabled && onDeleteDisabled && (
-				<ConfirmDialog
+				<DeleteConfirmModal
 					title={t("components.virtualModelTable.deleteDisabledModels")}
 					message={t("components.virtualModelTable.deleteDisabledMessage", {
 						count: pendingDisabled.length,
@@ -393,7 +393,8 @@ export function VirtualModelTable({
 					fields={pendingDisabled.map((m) =>
 						proxyModelID(m.provider_name, m.model_id),
 					)}
-					confirmLabel={t("common.delete")}
+					confirmText={t("components.deleteConfirmModal.confirmWord")}
+					isPending={false}
 					onConfirm={() => {
 						onDeleteDisabled?.(pendingDisabled.map((m) => m.id));
 						clearPendingDisabled();

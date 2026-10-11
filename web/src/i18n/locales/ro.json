@@ -82,7 +82,9 @@
 		"collapseNamed": "Restrânge: {{name}}",
 		"rowStepLabel": "{{subject}}, {{time}}",
 		"rowStepFirst": "{{row}}, primul rând",
-		"rowStepLast": "{{row}}, ultimul rând"
+		"rowStepLast": "{{row}}, ultimul rând",
+		"discard": "Renunță",
+		"overwrite": "Suprascrie"
 	},
 	"layout": {
 		"title": "Model Hotel",
@@ -2494,16 +2496,13 @@
 		"deleteConfirmModal": {
 			"confirmDelete": "Confirmă ștergerea",
 			"deleteType": "Șterge {{entityType}}",
-			"areYouSure": "Sigur doriți să ștergeți {{entityName}}? Această acțiune nu poate fi anulată."
+			"areYouSure": "Sigur doriți să ștergeți {{entityName}}? Această acțiune nu poate fi anulată.",
+			"typeToConfirm": "Pentru a confirma, tastați:",
+			"confirmWord": "confirmă"
 		},
 		"confirmDialog": {
 			"discardChangesTo": "Renunțați la modificări în:",
 			"close": "Inchide"
-		},
-		"confirmDeleteButton": {
-			"deleteKey": "Ștergere cheie",
-			"yesDelete": "Da, șterge",
-			"areYouSure": "Ești sigur?"
 		},
 		"restoreConfirmModal": {
 			"title": "Restabilire copie de rezervă bază de date",
@@ -3198,7 +3197,8 @@
 		"detail": {
 			"rps": "RPS",
 			"burst": "Rafală",
-			"tpm": "TPM"
+			"tpm": "TPM",
+			"deleteKey": "Ștergere cheie"
 		}
 	},
 	"hooks": {
@@ -3404,7 +3404,8 @@
 			"totpResetButton": "Resetați autentificarea în doi pași",
 			"totpResetHint": "Elimină aplicația de autentificare și codurile de recuperare ale utilizatorului, astfel încât să se poată conecta doar cu parola.",
 			"totpResetConfirmTitle": "Resetați autentificarea în doi pași",
-			"totpResetConfirmMessage": "Aceasta elimină asocierea cu aplicația de autentificare și toate codurile de recuperare ale acestui utilizator. Parola rămâne neschimbată."
+			"totpResetConfirmMessage": "Aceasta elimină asocierea cu aplicația de autentificare și toate codurile de recuperare ale acestui utilizator. Parola rămâne neschimbată.",
+			"totpResetConfirmLabel": "Resetează"
 		},
 		"toast": {
 			"created": "Utilizator creat",
@@ -3462,7 +3463,8 @@
 		"toast": {
 			"purged": "Istoric de audit șters",
 			"purgeFailed": "Istoricul de audit nu a putut fi șters"
-		}
+		},
+		"purgeConfirmLabel": "Golește"
 	},
 	"budget": {
 		"label": "Buget",

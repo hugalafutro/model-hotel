@@ -82,7 +82,9 @@
 		"collapseNamed": "접기: {{name}}",
 		"rowStepLabel": "{{subject}}, {{time}}",
 		"rowStepFirst": "{{row}}, 첫 번째 행",
-		"rowStepLast": "{{row}}, 마지막 행"
+		"rowStepLast": "{{row}}, 마지막 행",
+		"discard": "버리기",
+		"overwrite": "덮어쓰기"
 	},
 	"layout": {
 		"title": "Model Hotel",
@@ -2428,16 +2430,13 @@
 		"deleteConfirmModal": {
 			"confirmDelete": "삭제 확인",
 			"deleteType": "삭제 {{entityType}}",
-			"areYouSure": "{{entityName}}를 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다."
+			"areYouSure": "{{entityName}}를 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다.",
+			"typeToConfirm": "확인하려면 입력하세요:",
+			"confirmWord": "확인"
 		},
 		"confirmDialog": {
 			"discardChangesTo": "다음 항목에 대한 변경 내용을 취소합니다:",
 			"close": "닫기"
-		},
-		"confirmDeleteButton": {
-			"deleteKey": "키 삭제",
-			"yesDelete": "네, 삭제하세요",
-			"areYouSure": "정말 삭제하시겠습니까?"
 		},
 		"restoreConfirmModal": {
 			"title": "데이터베이스 백업 복원",
@@ -3122,7 +3121,8 @@
 		"detail": {
 			"rps": "RPS",
 			"burst": "버스트",
-			"tpm": "TPM"
+			"tpm": "TPM",
+			"deleteKey": "키 삭제"
 		}
 	},
 	"hooks": {
@@ -3328,7 +3328,8 @@
 			"totpResetButton": "2단계 인증 재설정",
 			"totpResetHint": "사용자의 인증 앱과 복구 코드를 제거하여 비밀번호만으로 로그인할 수 있게 합니다.",
 			"totpResetConfirmTitle": "2단계 인증 재설정",
-			"totpResetConfirmMessage": "이 사용자의 인증 앱 연결과 모든 복구 코드가 제거됩니다. 비밀번호는 변경되지 않습니다."
+			"totpResetConfirmMessage": "이 사용자의 인증 앱 연결과 모든 복구 코드가 제거됩니다. 비밀번호는 변경되지 않습니다.",
+			"totpResetConfirmLabel": "재설정"
 		},
 		"toast": {
 			"created": "사용자가 생성되었습니다",
@@ -3386,7 +3387,8 @@
 		"toast": {
 			"purged": "감사 기록이 삭제되었습니다",
 			"purgeFailed": "감사 기록을 삭제하지 못했습니다"
-		}
+		},
+		"purgeConfirmLabel": "비우기"
 	},
 	"budget": {
 		"label": "예산",
