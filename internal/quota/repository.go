@@ -34,11 +34,38 @@ type Repository struct {
 // NewRepository builds a Repository backed by pool.
 func NewRepository(pool *pgxpool.Pool) *Repository { return &Repository{pool: pool} }
 
-// Upsert writes a fresh snapshot (used by poll and manual refresh), replacing
-// any prior row for the provider+kind and clearing any recorded failure.
-func (r *Repository) Upsert(ctx context.Context, s Snapshot) error {
+// Prior describes the row a write replaced: the HTTP status it held, the source
+// that wrote it and when it was fetched. A zero HTTPStatus is no reading: either
+// no row existed or only the placeholder RecordFailure leaves before any fetch
+// has succeeded.
+type Prior struct {
+	HTTPStatus int
+	Source     string
+	FetchedAt  time.Time
+}
+
+// Replace writes a fresh snapshot (poll, manual refresh, cold fill), replacing
+// any prior row for the provider+kind and clearing any recorded failure, and
+// reports the row it replaced.
+//
+// The read and the write share one transaction under an advisory lock on the
+// provider+kind, so two writers straddling a status flip each see the other's
+// result instead of the same stale row and the flip is announced exactly once.
+// The advisory lock, rather than FOR UPDATE on the row, is what covers the
+// first write too: with no row yet there is nothing to row-lock, and two first
+// writers would otherwise both read "no reading" while one overwrote the other.
+func (r *Repository) Replace(ctx context.Context, s Snapshot) (Prior, error) {
 	s.FetchedAt = sanitizeFetchedAt(s.FetchedAt)
-	_, err := r.pool.Exec(ctx, `
+	tx, err := r.pool.Begin(ctx)
+	if err != nil {
+		return Prior{}, err
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+	prior, err := lockPrior(ctx, tx, s.ProviderID, s.Kind)
+	if err != nil {
+		return Prior{}, err
+	}
+	if _, err = tx.Exec(ctx, `
 		INSERT INTO provider_quota_snapshots
 			(provider_id, kind, payload, http_status, fetched_at, source, last_error, last_attempt_at)
 		VALUES ($1, $2, $3, $4, $5, $6, NULL, $5)
@@ -49,8 +76,28 @@ func (r *Repository) Upsert(ctx context.Context, s Snapshot) error {
 			source          = EXCLUDED.source,
 			last_error      = NULL,
 			last_attempt_at = EXCLUDED.fetched_at`,
-		s.ProviderID, s.Kind, s.Payload, s.HTTPStatus, s.FetchedAt, s.Source)
-	return err
+		s.ProviderID, s.Kind, s.Payload, s.HTTPStatus, s.FetchedAt, s.Source); err != nil {
+		return Prior{}, err
+	}
+	return prior, tx.Commit(ctx)
+}
+
+// lockPrior takes the transaction-scoped advisory lock for provider+kind and
+// then reads the stored row, zero when none exists. A concurrent writer blocks
+// on the lock until this transaction commits and then reads the row it wrote.
+// hashtext collisions only serialise two unrelated writers for a moment.
+func lockPrior(ctx context.Context, tx pgx.Tx, providerID uuid.UUID, kind string) (Prior, error) {
+	if _, err := tx.Exec(ctx, `SELECT pg_advisory_xact_lock(hashtext($1::text || '/' || $2))`, providerID, kind); err != nil {
+		return Prior{}, err
+	}
+	var p Prior
+	err := tx.QueryRow(ctx,
+		`SELECT http_status, source, fetched_at FROM provider_quota_snapshots WHERE provider_id = $1 AND kind = $2`,
+		providerID, kind).Scan(&p.HTTPStatus, &p.Source, &p.FetchedAt)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return Prior{}, nil
+	}
+	return p, err
 }
 
 // snapshotColumns is the projection every snapshot read shares, in the order
@@ -82,7 +129,10 @@ func (r *Repository) Get(ctx context.Context, providerID uuid.UUID, kind string)
 }
 
 // RecordFailure marks a failed refresh without discarding the last good
-// payload (or creates a placeholder row if none exists yet).
+// payload (or creates a placeholder row if none exists yet). It never changes
+// http_status, which is what lets it skip the provider+kind lock Replace and
+// ReplaceIfNewer take: every status they can read was written under that lock.
+// A failure path that ever recorded a status would have to take it too.
 func (r *Repository) RecordFailure(ctx context.Context, providerID uuid.UUID, kind, errMsg string) error {
 	now := time.Now()
 	_, err := r.pool.Exec(ctx, `
@@ -155,14 +205,17 @@ func sanitizeFetchedAt(t time.Time) time.Time {
 	return t
 }
 
-// UpsertIfNewer writes only when there is no existing row or the incoming
-// fetched_at is strictly newer, so an older fleet write never clobbers a
-// member's fresher manual refresh. Returns whether the write applied.
+// ReplaceIfNewer writes a fleet-distributed snapshot only when there is no
+// existing row or the incoming fetched_at is strictly newer, so an older fleet
+// write never clobbers a member's fresher manual refresh. It reports whether the
+// write applied and the row found under the same lock as Replace; the prior is
+// reported whether or not the write landed, so the caller compares only when
+// wrote is true.
 //
 // It persists the incoming failure marker rather than forcing it to NULL, which
-// Upsert still does. The two differ because they mean different things: Upsert
+// Replace still does. The two differ because they mean different things: Replace
 // is a successful local fetch, and clearing on one is what stops the marker
-// wedging a quota pin permanently. UpsertIfNewer is an import of somebody
+// wedging a quota pin permanently. ReplaceIfNewer is an import of somebody
 // else's reading, and dropping the marker there would make a snapshot whose
 // latest refresh failed look, to the receiving node, like affirmative proof the
 // provider recovered.
@@ -174,9 +227,17 @@ func sanitizeFetchedAt(t time.Time) time.Time {
 // add a marker the row does not have — so it can only ever hold a pin longer,
 // never release one, and it is idempotent once applied. Clearing a marker still
 // requires a strictly newer row, i.e. an actual successful refresh.
-func (r *Repository) UpsertIfNewer(ctx context.Context, s Snapshot) (bool, error) {
+func (r *Repository) ReplaceIfNewer(ctx context.Context, s Snapshot) (wrote bool, prior Prior, err error) {
 	s.FetchedAt = sanitizeFetchedAt(s.FetchedAt)
-	tag, err := r.pool.Exec(ctx, `
+	tx, err := r.pool.Begin(ctx)
+	if err != nil {
+		return false, Prior{}, err
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+	if prior, err = lockPrior(ctx, tx, s.ProviderID, s.Kind); err != nil {
+		return false, Prior{}, err
+	}
+	tag, err := tx.Exec(ctx, `
 		INSERT INTO provider_quota_snapshots
 			(provider_id, kind, payload, http_status, fetched_at, source, last_error, last_attempt_at)
 		VALUES ($1, $2, $3, $4, $5, $6, NULLIF($7::text, ''), $5)
@@ -193,7 +254,7 @@ func (r *Repository) UpsertIfNewer(ctx context.Context, s Snapshot) (bool, error
 		       AND EXCLUDED.last_error IS NOT NULL)`,
 		s.ProviderID, s.Kind, s.Payload, s.HTTPStatus, s.FetchedAt, s.Source, s.LastError)
 	if err != nil {
-		return false, err
+		return false, Prior{}, err
 	}
-	return tag.RowsAffected() > 0, nil
+	return tag.RowsAffected() > 0, prior, tx.Commit(ctx)
 }

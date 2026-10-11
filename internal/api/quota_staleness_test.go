@@ -23,7 +23,7 @@ func TestPollQuotasOnce_FutureFleetStampDoesNotSuppress(t *testing.T) {
 	h := newTestHandler(t)
 	id := insertQuotaPollProvider(t, h.dbPool.Pool(), "nanogpt-fleet-future", "https://api.nano-gpt.com/v1", true)
 
-	if err := h.quotaRepo.Upsert(context.Background(), quota.Snapshot{
+	if _, err := h.quotaRepo.Replace(context.Background(), quota.Snapshot{
 		ProviderID: id, Kind: "usage", Payload: json.RawMessage(`{"used":1}`), HTTPStatus: 200, Source: "fleet",
 	}); err != nil {
 		t.Fatalf("seed fleet snapshot: %v", err)

@@ -2202,7 +2202,9 @@
 				"provider_scheduled_disable": "Provider disabilitato come programmato",
 				"circuit_breaker_unstable": "Il modello continua a fallire (interruttore di sicurezza riaperto più volte)",
 				"budget_warning": "Avviso budget (80% speso)",
-				"budget_exceeded": "Budget superato (richieste rifiutate)"
+				"budget_exceeded": "Budget superato (richieste rifiutate)",
+				"quota_status_lost": "Lettura della quota del provider persa (nessun piano o chiave rifiutata)",
+				"quota_status_restored": "Lettura della quota del provider ripristinata"
 			},
 			"events": {
 				"all": "Seleziona tutto",

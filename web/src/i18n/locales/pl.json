@@ -2266,7 +2266,9 @@
 				"provider_scheduled_disable": "Dostawca wyłączony zgodnie z harmonogramem",
 				"circuit_breaker_unstable": "Model wielokrotnie zawodzi (wyłącznik obwodu otwierany wielokrotnie)",
 				"budget_warning": "Ostrzeżenie o budżecie (wydano 80%)",
-				"budget_exceeded": "Budżet przekroczony (żądania odrzucone)"
+				"budget_exceeded": "Budżet przekroczony (żądania odrzucone)",
+				"quota_status_lost": "Odczyt limitu dostawcy utracony (brak planu lub klucz odrzucony)",
+				"quota_status_restored": "Odczyt limitu dostawcy przywrócony"
 			},
 			"events": {
 				"all": "Zaznacz wszystko",

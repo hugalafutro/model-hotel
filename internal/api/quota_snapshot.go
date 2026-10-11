@@ -174,7 +174,7 @@ func (h *Handler) pollQuotaForProvider(ctx context.Context, disc *provider.Disco
 		}
 		return
 	}
-	if uerr := h.quotaRepo.Upsert(provCtx, quota.Snapshot{
+	if uerr := h.storeQuotaSnapshot(provCtx, prov, quota.Snapshot{
 		ProviderID: prov.ID,
 		Kind:       kind,
 		Payload:    payload,

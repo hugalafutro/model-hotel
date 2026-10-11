@@ -2202,7 +2202,9 @@
 				"provider_scheduled_disable": "Provedor desativado conforme agendado",
 				"circuit_breaker_unstable": "O modelo falha repetidamente (disjuntor aberto várias vezes)",
 				"budget_warning": "Aviso de orçamento (80% gasto)",
-				"budget_exceeded": "Orçamento excedido (solicitações recusadas)"
+				"budget_exceeded": "Orçamento excedido (solicitações recusadas)",
+				"quota_status_lost": "Leitura de cota do provedor perdida (sem plano ou chave rejeitada)",
+				"quota_status_restored": "Leitura de cota do provedor restaurada"
 			},
 			"events": {
 				"all": "Selecionar tudo",

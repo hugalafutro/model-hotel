@@ -99,8 +99,9 @@ const (
 	// imports on this member, so the read-current-generation / reject-or-advance
 	// step is atomic against a concurrent import. It is transaction-scoped,
 	// released when the import's transaction ends. The value is an arbitrary
-	// constant that only has to be unique within this app's advisory-lock use, and
-	// config sync is the only advisory lock taken.
+	// constant that only has to be unique within this app's advisory-lock use.
+	// The other advisory lock, quota.Repository's per provider+kind lock, is a
+	// hashtext value and so an int4: it can never equal this int8 constant.
 	fleetSourceGenLock int64 = 0x4D48_5F46_454E_4331 // "MH_FENC1"
 )
 

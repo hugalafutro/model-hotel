@@ -1152,7 +1152,7 @@ func TestQuotaUsage_ServesStoredSnapshot(t *testing.T) {
 	h, r := newTestHandlerWithRouter(t)
 	provID, idStr := createQuotaProvider(t, r, "https://nano-gpt.com")
 
-	if err := h.quotaRepo.Upsert(context.Background(), quota.Snapshot{
+	if _, err := h.quotaRepo.Replace(context.Background(), quota.Snapshot{
 		ProviderID: provID, Kind: "usage",
 		Payload: json.RawMessage(`{"used":42}`), HTTPStatus: 200, Source: "poll",
 	}); err != nil {
@@ -1191,7 +1191,7 @@ func TestQuotaUsage_Reproduces424(t *testing.T) {
 	h, r := newTestHandlerWithRouter(t)
 	provID, idStr := createQuotaProvider(t, r, "https://nano-gpt.com")
 
-	if err := h.quotaRepo.Upsert(context.Background(), quota.Snapshot{
+	if _, err := h.quotaRepo.Replace(context.Background(), quota.Snapshot{
 		ProviderID: provID, Kind: "usage", HTTPStatus: 424, Source: "poll",
 	}); err != nil {
 		t.Fatalf("seed snapshot: %v", err)

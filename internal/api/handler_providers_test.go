@@ -1820,7 +1820,7 @@ func TestUpdateProvider_EnableRefreshesQuota(t *testing.T) {
 
 	id := insertQuotaPollProvider(t, h.dbPool.Pool(), "nanogpt-reenable", "https://api.nano-gpt.com/v1", false)
 	stale := []byte(`{"dailyInputTokens":{"used":1,"limit":1000}}`)
-	if err := h.quotaRepo.Upsert(context.Background(), quota.Snapshot{ProviderID: id, Kind: "usage", Payload: stale, HTTPStatus: http.StatusOK, Source: "poll"}); err != nil {
+	if _, err := h.quotaRepo.Replace(context.Background(), quota.Snapshot{ProviderID: id, Kind: "usage", Payload: stale, HTTPStatus: http.StatusOK, Source: "poll"}); err != nil {
 		t.Fatalf("seed stale snapshot: %v", err)
 	}
 	h.newDiscovery = func() *provider.DiscoveryService { return nanoGPTPollDiscovery(9) }

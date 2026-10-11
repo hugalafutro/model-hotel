@@ -2266,7 +2266,9 @@
 				"provider_scheduled_disable": "Poskytovatel deaktivován podle plánu",
 				"circuit_breaker_unstable": "Model opakovaně selhává (jistič se opakovaně otevřel)",
 				"budget_warning": "Varování rozpočtu (utraceno 80 %)",
-				"budget_exceeded": "Rozpočet překročen (požadavky odmítnuty)"
+				"budget_exceeded": "Rozpočet překročen (požadavky odmítnuty)",
+				"quota_status_lost": "Čtení kvóty poskytovatele ztraceno (bez plánu nebo odmítnutý klíč)",
+				"quota_status_restored": "Čtení kvóty poskytovatele obnoveno"
 			},
 			"events": {
 				"all": "Vybrat vše",

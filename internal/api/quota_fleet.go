@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"sync"
 	"time"
 
 	"github.com/go-chi/chi/v5"
@@ -52,6 +53,19 @@ type QuotaFleetHandler struct {
 	// most of every interval. The pass reads the database and the breaker, never
 	// an upstream.
 	onApplied func(ctx context.Context)
+	// writeMu is Handler.quotaWriteMu, so a pushed row and the event it
+	// publishes are ordered against this node's own writes. Nil in tests that
+	// only exercise the wire format.
+	writeMu *sync.Mutex
+}
+
+// lockWrites takes writeMu when one is wired and returns the matching unlock.
+func (h *QuotaFleetHandler) lockWrites() func() {
+	if h.writeMu == nil {
+		return func() {}
+	}
+	h.writeMu.Lock()
+	return h.writeMu.Unlock
 }
 
 // NewQuotaFleetHandler builds a QuotaFleetHandler.
@@ -136,7 +150,7 @@ func (h *QuotaFleetHandler) ExportSnapshots(w http.ResponseWriter, r *http.Reque
 const maxQuotaSnapshotsBody = 4 << 20
 
 // ReceiveSnapshots stores fleet-distributed snapshots, mapping each by provider
-// name onto this member's own provider IDs and writing with UpsertIfNewer so an
+// name onto this member's own provider IDs and writing with ReplaceIfNewer so an
 // older fleet write never clobbers a fresher local (e.g. manual) snapshot. A
 // name with no local provider is skipped. Written with source='fleet'.
 func (h *QuotaFleetHandler) ReceiveSnapshots(w http.ResponseWriter, r *http.Request) {
@@ -177,36 +191,24 @@ func (h *QuotaFleetHandler) ReceiveSnapshots(w http.ResponseWriter, r *http.Requ
 }
 
 // storeSnapshots maps each snapshot by provider name onto this member's own
-// provider IDs and writes it with UpsertIfNewer. It reports how many rows
+// provider IDs and writes it with ReplaceIfNewer. It reports how many rows
 // landed and how many were skipped (unknown provider, or an older write).
 func (h *QuotaFleetHandler) storeSnapshots(ctx context.Context, snaps []QuotaSnapshotWire) (applied, skipped int, err error) {
 	provs, err := h.providerRepo.List(ctx)
 	if err != nil {
 		return 0, 0, fmt.Errorf("list providers: %w", err)
 	}
-	nameToID := make(map[string]uuid.UUID, len(provs))
+	byName := make(map[string]*provider.Provider, len(provs))
 	for _, p := range provs {
-		nameToID[p.Name] = p.ID
+		byName[p.Name] = p
 	}
 	for _, s := range snaps {
-		pid, ok := nameToID[s.ProviderName]
+		prov, ok := byName[s.ProviderName]
 		if !ok {
 			skipped++ // provider not present on this member
 			continue
 		}
-		wrote, err := h.quotaRepo.UpsertIfNewer(ctx, quota.Snapshot{
-			ProviderID: pid,
-			Kind:       s.Kind,
-			Payload:    s.Payload,
-			HTTPStatus: s.HTTPStatus,
-			Source:     "fleet",
-			FetchedAt:  s.FetchedAt,
-			// Carried through verbatim: a member must reach the same verdict on
-			// this row as the node that sent it. An older primary sends no field
-			// at all, which lands here as empty and behaves exactly as it did
-			// before the field existed.
-			LastError: s.LastError,
-		})
+		wrote, err := h.storeOne(ctx, prov, s)
 		if err != nil {
 			return applied, skipped, err
 		}
@@ -217,4 +219,43 @@ func (h *QuotaFleetHandler) storeSnapshots(ctx context.Context, snaps []QuotaSna
 		}
 	}
 	return applied, skipped, nil
+}
+
+// storeOne writes one pushed snapshot onto prov's row and announces a status
+// flip, holding writeMu for both so the event follows the order the write
+// committed in. The unlock is deferred: a panic in the write or the publish is
+// recovered by the router, and a mutex left held would wedge every snapshot
+// write on this node.
+//
+// The replaced row comes back with the write so a flip the primary observed is
+// announced on this member too. Dashboard only when the push replaces an
+// earlier push (see EventTypeQuotaStatusSynced); when it replaces a reading
+// this member fetched itself, the member had alerted the opposite flip on its
+// own (the primary was not feeding it then) and the primary sees no flip now,
+// so this node alerts the recovery too. The row a nudge wrote while deferring
+// (a fresh pushed row stood there) is local too, so a later push flipping it
+// alerts here as well as on the primary; that duplicate is the price of not
+// recording a local fetch as a push.
+func (h *QuotaFleetHandler) storeOne(ctx context.Context, prov *provider.Provider, s QuotaSnapshotWire) (bool, error) {
+	defer h.lockWrites()()
+	wrote, prior, err := h.quotaRepo.ReplaceIfNewer(ctx, quota.Snapshot{
+		ProviderID: prov.ID,
+		Kind:       s.Kind,
+		Payload:    s.Payload,
+		HTTPStatus: s.HTTPStatus,
+		Source:     "fleet",
+		FetchedAt:  s.FetchedAt,
+		// Carried through verbatim: a member must reach the same verdict on
+		// this row as the node that sent it. An older primary sends no field
+		// at all, which lands here as empty and behaves exactly as it did
+		// before the field existed.
+		LastError: s.LastError,
+	})
+	if err != nil {
+		return false, err
+	}
+	if wrote {
+		publishQuotaStatusChange(prov, s.Kind, prior, s.HTTPStatus, prior.Source == "fleet")
+	}
+	return wrote, nil
 }

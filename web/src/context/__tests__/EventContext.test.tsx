@@ -154,6 +154,37 @@ describe("SSE connection and event handling", () => {
 	});
 
 	it.each([
+		"quota.status_lost",
+		"quota.status_restored",
+		"quota.status_synced",
+	])("re-reads every quota badge on %s", async (type) => {
+		// A subscription lapsing or returning flips the stored snapshot between
+		// 204 and 200 on the server's poll (or a fleet push on a member); the
+		// badge must follow that event, not wait up to quota_refresh_interval_min
+		// for its own tick.
+		const queryClient = new QueryClient();
+		const invalidate = vi.spyOn(queryClient, "invalidateQueries");
+		const lost = type === "quota.status_lost";
+		sseOnce({
+			id: "evt-q",
+			type,
+			severity: lost ? "warning" : "success",
+			message: lost
+				? "OpenCode Go quota reading stopped: HTTP 204 (was 200)"
+				: "OpenCode Go quota reading is back (HTTP 200, was 204)",
+			metadata: { provider_type: "opencode-go", http_status: lost ? 204 : 200 },
+			timestamp: new Date().toISOString(),
+		});
+		renderWithEventProvider(<div />, queryClient);
+		await waitFor(() => {
+			expect(invalidate).toHaveBeenCalledWith({
+				queryKey: ["opencode-go-usage"],
+			});
+			expect(invalidate).toHaveBeenCalledWith({ queryKey: ["nanogpt-usage"] });
+		});
+	});
+
+	it.each([
 		"backup.created",
 		"request.discovery.provider_starting",
 		"discovery.provider_fetched",

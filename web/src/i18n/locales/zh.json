@@ -2138,7 +2138,9 @@
 				"provider_scheduled_disable": "提供商已按计划禁用",
 				"circuit_breaker_unstable": "模型反复故障（断路器多次打开）",
 				"budget_warning": "预算警告（已用 80%）",
-				"budget_exceeded": "预算超支（请求被拒绝）"
+				"budget_exceeded": "预算超支（请求被拒绝）",
+				"quota_status_lost": "提供商配额读取丢失（无套餐或密钥被拒绝）",
+				"quota_status_restored": "提供商配额读取已恢复"
 			},
 			"events": {
 				"all": "全选",

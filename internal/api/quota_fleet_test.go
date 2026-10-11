@@ -38,7 +38,7 @@ func TestExportSnapshots_IncludesProviderType(t *testing.T) {
 	if err != nil {
 		t.Fatalf("create provider: %v", err)
 	}
-	if err := h.quotaRepo.Upsert(context.Background(), quota.Snapshot{
+	if _, err := h.quotaRepo.Replace(context.Background(), quota.Snapshot{
 		ProviderID: prov.ID,
 		Kind:       "usage",
 		Payload:    json.RawMessage(`{"used":4}`),
@@ -80,7 +80,7 @@ func TestQuotaFleetExportSnapshots(t *testing.T) {
 	if err != nil {
 		t.Fatalf("create provider: %v", err)
 	}
-	if err := h.quotaRepo.Upsert(context.Background(), quota.Snapshot{
+	if _, err := h.quotaRepo.Replace(context.Background(), quota.Snapshot{
 		ProviderID: prov.ID,
 		Kind:       "usage",
 		Payload:    json.RawMessage(`{"used":4}`),
@@ -128,7 +128,7 @@ func TestQuotaFleetExportSkipsDisabledProviders(t *testing.T) {
 	if err != nil {
 		t.Fatalf("create provider: %v", err)
 	}
-	if err := h.quotaRepo.Upsert(ctx, quota.Snapshot{
+	if _, err := h.quotaRepo.Replace(ctx, quota.Snapshot{
 		ProviderID: prov.ID,
 		Kind:       "usage",
 		Payload:    json.RawMessage(`{"used":4}`),
@@ -208,7 +208,7 @@ func TestQuotaFleetExportSkipsFailurePlaceholders(t *testing.T) {
 	if err != nil {
 		t.Fatalf("create ok provider: %v", err)
 	}
-	if err := h.quotaRepo.Upsert(context.Background(), quota.Snapshot{
+	if _, err := h.quotaRepo.Replace(context.Background(), quota.Snapshot{
 		ProviderID: okProv.ID,
 		Kind:       "usage",
 		Payload:    json.RawMessage(`{"used":4}`),
@@ -267,7 +267,7 @@ func TestQuotaFleetSnapshotRoundTripCarriesFailureMarker(t *testing.T) {
 
 	// A good fetch, then a failed refresh: the row keeps payload/status/
 	// fetched_at and gains only last_error.
-	if err := h.quotaRepo.Upsert(ctx, quota.Snapshot{
+	if _, err := h.quotaRepo.Replace(ctx, quota.Snapshot{
 		ProviderID: src.ID, Kind: "usage", Payload: json.RawMessage(`{"used":4}`),
 		HTTPStatus: 200, Source: "poll", FetchedAt: time.Now(),
 	}); err != nil {
@@ -430,7 +430,7 @@ func TestQuotaFleetReceiveSnapshots_SkipsOlder(t *testing.T) {
 	}
 
 	// A newer local manual snapshot must survive an older incoming fleet write.
-	if err := h.quotaRepo.Upsert(context.Background(), quota.Snapshot{
+	if _, err := h.quotaRepo.Replace(context.Background(), quota.Snapshot{
 		ProviderID: prov.ID,
 		Kind:       "usage",
 		Payload:    json.RawMessage(`{"used":99}`),
