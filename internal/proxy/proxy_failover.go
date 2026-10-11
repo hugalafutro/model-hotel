@@ -567,7 +567,7 @@ func (h *Handler) buildCandidateRequest(ctx context.Context, st *requestState, c
 	// same failover group still goes through translation, so a single
 	// hotel/claude-* request can fail over from native to translated. The flag
 	// is read by the response dispatch and writer.
-	st.anthropicNativeAttempt = st.anthropicIn && isAnthropicFamily(providerType)
+	st.anthropicNativeAttempt = st.anthropicIn && speaksMessages(providerType, candidate.model.ModelID)
 	// The Responses twin: a Responses-in request resolved to OpenAI itself
 	// forwards the original body to OpenAI's own /v1/responses, so hosted
 	// tools, encrypted reasoning and every knob this gateway does not
@@ -624,10 +624,11 @@ func (h *Handler) buildCandidateRequest(ctx context.Context, st *requestState, c
 
 	// Anthropic egress adapter: a chat request is translated to Anthropic's
 	// native Messages shape on the way out and back on the response side. Every
-	// chat request to an anthropic-messages provider takes this route; for
-	// anthropic, only one carrying a document does, and text and image requests
-	// stay on the cheaper compat endpoint below.
-	if isAnthropicEgressAttempt(st, providerType) {
+	// chat request to an anthropic-messages provider or to a Claude model on
+	// OpenCode takes this route; for anthropic, only one carrying a document
+	// does, and text and image requests stay on the cheaper compat endpoint
+	// below.
+	if isAnthropicEgressAttempt(st, providerType, candidate.model.ModelID) {
 		st.anthropicEgressAttempt = true
 		return h.buildAnthropicEgressRequest(ctx, st, candidate, providerType)
 	}

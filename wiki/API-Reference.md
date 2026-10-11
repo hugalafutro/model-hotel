@@ -143,6 +143,8 @@ curl -X POST http://localhost:8081/v1/chat/completions \
 
 **OpenAI Responses API re-route:** OpenAI's newest models refuse function tools combined with reasoning on `/v1/chat/completions`, and the pro tier (`o1-pro`, `o3-pro`, `gpt-5.x-pro`) is not served there at all. OpenCode Zen and OpenCode Go serve their GPT models the same way and refuse Chat Completions with a 400 "Model does not support this protocol". When a direct OpenAI or OpenCode candidate refuses for any of these reasons, the proxy retries the same request against that provider's `/v1/responses`, translated in both directions, and remembers the requirement per model so later requests go straight there.
 
+**Anthropic Messages re-route:** OpenCode Zen and OpenCode Go serve their Claude models (`claude-*`) over Anthropic Messages alone and refuse Chat Completions with the same 400. A chat request to one of them goes straight to the provider's `/messages`, translated in both directions by the same adapter that serves `anthropic-messages` providers, with the Go session header carried along; an Anthropic-in request (`/v1/messages`) to one of them is forwarded verbatim, as it is to Anthropic itself.
+
 This is invisible to the client: ordinary Chat Completions in and out, streaming included, with the model's reasoning summary surfaced as `reasoning_content` and token usage metered as usual. Every `/v1/responses` call sends `store: false`, so OpenAI retains no conversation state. See [Failover & Hotel Routing](Failover-and-Hotel-Routing).
 
 **Model Routing:**
