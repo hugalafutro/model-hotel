@@ -82,7 +82,9 @@
 		"collapseNamed": "Réduire : {{name}}",
 		"rowStepLabel": "{{subject}}, {{time}}",
 		"rowStepFirst": "{{row}}, première ligne",
-		"rowStepLast": "{{row}}, dernière ligne"
+		"rowStepLast": "{{row}}, dernière ligne",
+		"discard": "Abandonner",
+		"overwrite": "Remplacer"
 	},
 	"layout": {
 		"title": "Model Hotel",
@@ -2494,16 +2496,13 @@
 		"deleteConfirmModal": {
 			"confirmDelete": "Confirmer la suppression",
 			"deleteType": "Supprimer {{entityType}}",
-			"areYouSure": "Êtes-vous sûr de vouloir supprimer {{entityName}}? Cette action ne peut pas être annulée."
+			"areYouSure": "Êtes-vous sûr de vouloir supprimer {{entityName}}? Cette action ne peut pas être annulée.",
+			"typeToConfirm": "Pour confirmer, saisissez :",
+			"confirmWord": "confirmer"
 		},
 		"confirmDialog": {
 			"discardChangesTo": "Ignorer les modifications apportées à :",
 			"close": "Fermer"
-		},
-		"confirmDeleteButton": {
-			"deleteKey": "Supprimer la clé",
-			"yesDelete": "Oui, supprimer",
-			"areYouSure": "Êtes-vous sûr(e) ?"
 		},
 		"restoreConfirmModal": {
 			"title": "Restaurer la sauvegarde de la base de données",
@@ -3162,7 +3161,6 @@
 			"deleteNaHelp": "Retire les membres indisponibles de ce groupe.",
 			"deleteNaConfirmTitle": "Supprimer ce groupe ?",
 			"deleteNaConfirmMessage": "Retirer les membres indisponibles laisserait moins de 2 membres routables, donc tout le groupe sera supprimé.",
-			"deleteNaConfirmLabel": "Supprimer le groupe",
 			"circuitBreakerProviderOpen": "Fournisseur entièrement ignoré - disjoncteur ouvert pour : {{models}}",
 			"chip": {
 				"live": "actif",
@@ -3198,7 +3196,8 @@
 		"detail": {
 			"rps": "RPS",
 			"burst": "Rafale",
-			"tpm": "TPM"
+			"tpm": "TPM",
+			"deleteKey": "Supprimer la clé"
 		}
 	},
 	"hooks": {
@@ -3404,7 +3403,8 @@
 			"totpResetButton": "Réinitialiser l'authentification à deux facteurs",
 			"totpResetHint": "Supprime l'application d'authentification et les codes de récupération de l'utilisateur, qui pourra se connecter avec son seul mot de passe.",
 			"totpResetConfirmTitle": "Réinitialiser l'authentification à deux facteurs",
-			"totpResetConfirmMessage": "Ceci supprime la liaison avec l'application d'authentification et tous les codes de récupération de cet utilisateur. Le mot de passe reste inchangé."
+			"totpResetConfirmMessage": "Ceci supprime la liaison avec l'application d'authentification et tous les codes de récupération de cet utilisateur. Le mot de passe reste inchangé.",
+			"totpResetConfirmLabel": "Réinitialiser"
 		},
 		"toast": {
 			"created": "Utilisateur créé",
@@ -3462,7 +3462,8 @@
 		"toast": {
 			"purged": "Journal d'audit purgé",
 			"purgeFailed": "Impossible de purger le journal d'audit"
-		}
+		},
+		"purgeConfirmLabel": "Purger"
 	},
 	"budget": {
 		"label": "Budget",

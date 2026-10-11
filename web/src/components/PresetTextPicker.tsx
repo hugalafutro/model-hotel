@@ -15,6 +15,8 @@ export interface PresetConfirmCopy {
 	title: string;
 	message?: string;
 	fields: string[];
+	/** The danger button's label: "Overwrite" or "Confirm", never "Delete". */
+	confirmLabel: string;
 }
 
 interface PresetTextPickerProps<
@@ -153,6 +155,7 @@ export function PresetTextPicker<
 					title={copy.title}
 					message={copy.message}
 					fields={copy.fields}
+					confirmLabel={copy.confirmLabel}
 					onConfirm={preset.confirm}
 					onCancel={preset.cancel}
 				/>

@@ -1092,7 +1092,25 @@ describe("ProviderCard", () => {
 });
 
 describe("ProviderCard quota reserve icon", () => {
-	it("shows the reserve icon with the percentage when a reserve is set", () => {
+	it("shows the reserve icon with the percentage when a reserve is set on a type the reserve governs", () => {
+		render(
+			<ProviderCard
+				{...defaultProps}
+				provider={{
+					...mockProvider,
+					provider_type: "nanogpt",
+					quota_reserve_percent: 20,
+				}}
+			/>,
+			{ wrapper: AllProviders },
+		);
+		expect(
+			screen.getByTestId("quota-reserve-icon").getAttribute("title"),
+		).toContain("20%");
+	});
+
+	it("shows no reserve icon for a leftover reserve on a type the gateway ignores it for", () => {
+		// mockProvider is "custom": the stored value does nothing there.
 		render(
 			<ProviderCard
 				{...defaultProps}
@@ -1100,9 +1118,7 @@ describe("ProviderCard quota reserve icon", () => {
 			/>,
 			{ wrapper: AllProviders },
 		);
-		expect(
-			screen.getByTestId("quota-reserve-icon").getAttribute("title"),
-		).toContain("20%");
+		expect(screen.queryByTestId("quota-reserve-icon")).toBeNull();
 	});
 
 	it("shows no reserve icon when draining fully or when disabled", () => {

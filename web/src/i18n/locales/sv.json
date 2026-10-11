@@ -82,7 +82,9 @@
 		"collapseNamed": "Komprimera: {{name}}",
 		"rowStepLabel": "{{subject}}, {{time}}",
 		"rowStepFirst": "{{row}}, första raden",
-		"rowStepLast": "{{row}}, sista raden"
+		"rowStepLast": "{{row}}, sista raden",
+		"discard": "Kasta",
+		"overwrite": "Skriv över"
 	},
 	"layout": {
 		"title": "Model Hotel",
@@ -2428,16 +2430,13 @@
 		"deleteConfirmModal": {
 			"confirmDelete": "Bekräfta borttagning",
 			"deleteType": "Ta bort {{entityType}}",
-			"areYouSure": "Är du säker på att du vill ta bort {{entityName}}? Denna åtgärd kan inte ångras."
+			"areYouSure": "Är du säker på att du vill ta bort {{entityName}}? Denna åtgärd kan inte ångras.",
+			"typeToConfirm": "Skriv för att bekräfta:",
+			"confirmWord": "bekräfta"
 		},
 		"confirmDialog": {
 			"discardChangesTo": "Ignorera ändringar till:",
 			"close": "Stäng"
-		},
-		"confirmDeleteButton": {
-			"deleteKey": "Ta bort nyckel",
-			"yesDelete": "Ja, ta bort",
-			"areYouSure": "Är du säker?"
 		},
 		"restoreConfirmModal": {
 			"title": "Återställ säkerhetskopia av databas",
@@ -3086,7 +3085,6 @@
 			"deleteNaHelp": "Tar bort de otillgängliga medlemmarna från den här gruppen.",
 			"deleteNaConfirmTitle": "Ta bort den här gruppen?",
 			"deleteNaConfirmMessage": "Om du tar bort de otillgängliga medlemmarna blir det färre än 2 dirigerbara medlemmar kvar, så hela gruppen tas bort.",
-			"deleteNaConfirmLabel": "Ta bort grupp",
 			"circuitBreakerProviderOpen": "Hela leverantören hoppas över - brytare öppen för: {{models}}",
 			"chip": {
 				"live": "aktiv",
@@ -3122,7 +3120,8 @@
 		"detail": {
 			"rps": "RPS",
 			"burst": "Burst",
-			"tpm": "TPM"
+			"tpm": "TPM",
+			"deleteKey": "Ta bort nyckel"
 		}
 	},
 	"hooks": {
@@ -3328,7 +3327,8 @@
 			"totpResetButton": "Återställ tvåfaktorsautentisering",
 			"totpResetHint": "Tar bort användarens autentiseringsapp och återställningskoder så att inloggning sker med enbart lösenordet.",
 			"totpResetConfirmTitle": "Återställ tvåfaktorsautentisering",
-			"totpResetConfirmMessage": "Detta tar bort kopplingen till autentiseringsappen och alla återställningskoder för den här användaren. Lösenordet förblir oförändrat."
+			"totpResetConfirmMessage": "Detta tar bort kopplingen till autentiseringsappen och alla återställningskoder för den här användaren. Lösenordet förblir oförändrat.",
+			"totpResetConfirmLabel": "Återställ"
 		},
 		"toast": {
 			"created": "Användare skapad",
@@ -3386,7 +3386,8 @@
 		"toast": {
 			"purged": "Granskningsspår rensat",
 			"purgeFailed": "Kunde inte rensa granskningsspåret"
-		}
+		},
+		"purgeConfirmLabel": "Rensa"
 	},
 	"budget": {
 		"label": "Budget",

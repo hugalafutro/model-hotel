@@ -438,6 +438,7 @@ export function Providers() {
 
 			{deleteProvider && (
 				<DeleteConfirmModal
+					confirmText={deleteProvider.name}
 					entityName={deleteProvider.name}
 					entityType="provider"
 					isPending={deleteMutation.isPending}

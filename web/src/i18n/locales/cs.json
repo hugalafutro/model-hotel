@@ -82,7 +82,9 @@
 		"collapseNamed": "Sbalit: {{name}}",
 		"rowStepLabel": "{{subject}}, {{time}}",
 		"rowStepFirst": "{{row}}, první řádek",
-		"rowStepLast": "{{row}}, poslední řádek"
+		"rowStepLast": "{{row}}, poslední řádek",
+		"discard": "Zahodit",
+		"overwrite": "Přepsat"
 	},
 	"layout": {
 		"title": "Model Hotel",
@@ -2560,16 +2562,13 @@
 		"deleteConfirmModal": {
 			"confirmDelete": "Potvrdit smazání",
 			"deleteType": "Odstranit {{entityType}}",
-			"areYouSure": "Opravdu chcete odstranit {{entityName}}? Tuto akci nelze vrátit zpět."
+			"areYouSure": "Opravdu chcete odstranit {{entityName}}? Tuto akci nelze vrátit zpět.",
+			"typeToConfirm": "Pro potvrzení napište:",
+			"confirmWord": "potvrdit"
 		},
 		"confirmDialog": {
 			"discardChangesTo": "Zrušit změny v:",
 			"close": "Zavřít"
-		},
-		"confirmDeleteButton": {
-			"deleteKey": "Odstranit klíč",
-			"yesDelete": "Ano, smazat",
-			"areYouSure": "Jste si jistí?"
 		},
 		"restoreConfirmModal": {
 			"title": "Obnovit zálohu databáze",
@@ -3238,7 +3237,6 @@
 			"deleteNaHelp": "Odebere nedostupné členy z této skupiny.",
 			"deleteNaConfirmTitle": "Smazat tuto skupinu?",
 			"deleteNaConfirmMessage": "Odebráním nedostupných členů by zůstali méně než 2 směrovatelní členové, takže se smaže celá skupina.",
-			"deleteNaConfirmLabel": "Smazat skupinu",
 			"circuitBreakerProviderOpen": "Celý poskytovatel vynechán - jistič otevřený pro: {{models}}",
 			"chip": {
 				"live": "živý",
@@ -3274,7 +3272,8 @@
 		"detail": {
 			"rps": "RPS",
 			"burst": "Burst",
-			"tpm": "TPM"
+			"tpm": "TPM",
+			"deleteKey": "Odstranit klíč"
 		}
 	},
 	"hooks": {
@@ -3480,7 +3479,8 @@
 			"totpResetButton": "Obnovit dvoufaktorové ověření",
 			"totpResetHint": "Odebere uživateli ověřovací aplikaci a záložní kódy, takže se přihlásí jen heslem.",
 			"totpResetConfirmTitle": "Obnovit dvoufaktorové ověření",
-			"totpResetConfirmMessage": "Tímto se odebere vazba na ověřovací aplikaci a všechny záložní kódy tohoto uživatele. Heslo zůstává beze změny."
+			"totpResetConfirmMessage": "Tímto se odebere vazba na ověřovací aplikaci a všechny záložní kódy tohoto uživatele. Heslo zůstává beze změny.",
+			"totpResetConfirmLabel": "Resetovat"
 		},
 		"toast": {
 			"created": "Uživatel vytvořen",
@@ -3538,7 +3538,8 @@
 		"toast": {
 			"purged": "Auditní záznam smazán",
 			"purgeFailed": "Auditní záznam se nepodařilo smazat"
-		}
+		},
+		"purgeConfirmLabel": "Vymazat"
 	},
 	"budget": {
 		"label": "Rozpočet",

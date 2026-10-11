@@ -5,7 +5,7 @@ import { QuotaModalsHost } from "../../../components/QuotaModalsHost";
 import { mockAllDefaults } from "../../../test/helpers";
 import { mockProvider } from "../../../test/mocks/data";
 import { server } from "../../../test/mocks/server";
-import { renderWithProviders } from "../../../test/utils";
+import { armDeleteConfirm, renderWithProviders } from "../../../test/utils";
 import { Providers } from "../../Providers";
 
 /**
@@ -316,10 +316,7 @@ describe("Providers", () => {
 				expect(screen.getByRole("dialog")).toBeInTheDocument();
 			});
 			const dialog = screen.getByRole("dialog");
-			const confirmButton = within(dialog).getByRole("button", {
-				name: "Delete",
-			});
-			await user.click(confirmButton);
+			await user.click(await armDeleteConfirm(user, "Test Provider", dialog));
 
 			// api.providers.delete reads the failure body, so the toast carries the
 			// status and the server's own wording, not just a client-side label.
@@ -362,10 +359,7 @@ describe("Providers", () => {
 				expect(screen.getByRole("dialog")).toBeInTheDocument();
 			});
 			const dialog = screen.getByRole("dialog");
-			const confirmButton = within(dialog).getByRole("button", {
-				name: "Delete",
-			});
-			await user.click(confirmButton);
+			await user.click(await armDeleteConfirm(user, "Test Provider", dialog));
 
 			await waitFor(() => {
 				expect(screen.getByText("Provider deleted")).toBeInTheDocument();
@@ -893,7 +887,9 @@ describe("Providers", () => {
 			// Provider name appears in modal - query within dialog
 			const dialog = screen.getByRole("dialog");
 			expect(
-				within(dialog).getByText(/Test Provider/, { exact: false }),
+				within(dialog).getByText(
+					/Are you sure you want to delete Test Provider/,
+				),
 			).toBeInTheDocument();
 		});
 
@@ -951,7 +947,9 @@ describe("Providers", () => {
 			await waitFor(() => {
 				const dialog = screen.getByRole("dialog");
 				expect(
-					within(dialog).getByText(/My Custom Provider/),
+					within(dialog).getByText(
+						/Are you sure you want to delete My Custom Provider/,
+					),
 				).toBeInTheDocument();
 			});
 		});

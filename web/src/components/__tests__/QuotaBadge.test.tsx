@@ -719,6 +719,25 @@ describe("QuotaBadge", () => {
 			expect(screen.getByRole("button")).toHaveClass("quota-badge-spent");
 		});
 
+		it("nanogpt: turns the text yellow once the daily allowance is used up, like the router's pin", () => {
+			const usage = {
+				limits: { weeklyInputTokens: 1000, dailyInputTokens: 100 },
+				weeklyInputTokens: { used: 200 },
+				dailyInputTokens: { used: 100 },
+				allowOverage: false,
+			} as unknown as NanoGPTUsage;
+			render(
+				<QuotaBadge
+					type="nanogpt"
+					variant="card"
+					weeklyUsed={200}
+					weeklyLimit={1000}
+					nanogptUsage={usage}
+				/>,
+			);
+			expect(screen.getByRole("button")).toHaveClass("quota-badge-spent");
+		});
+
 		it("nanogpt: an overage-enabled plan at its allowance keeps the provider colour", () => {
 			const usage = {
 				limits: { weeklyInputTokens: 1000 },

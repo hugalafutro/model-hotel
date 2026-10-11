@@ -582,8 +582,7 @@ export function ModelDiscrepancyModal({
 						provider: confirmDismiss.providerName,
 					})}
 					fields={[]}
-					// ConfirmDialog defaults its confirm label to "Delete", which this is
-					// not: nothing is deleted and the action is reversible.
+					// Not a delete: nothing is removed and the action is reversible.
 					confirmLabel={t("providers.discrepancies.dismissAll")}
 					confirmTestId="discrepancy-dismiss-all-confirm"
 					onConfirm={() => {

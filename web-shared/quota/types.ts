@@ -137,8 +137,12 @@ export interface MiniMaxQuotaWindow {
 
 export interface NanoGptUsageLike {
 	providerStatus?: string;
-	limits?: { weeklyInputTokens?: number | null } | null;
+	limits?: {
+		weeklyInputTokens?: number | null;
+		dailyInputTokens?: number | null;
+	} | null;
 	weeklyInputTokens?: { used?: number | null } | null;
+	dailyInputTokens?: { used?: number | null } | null;
 	/** An overage-enabled plan keeps serving past its allowance. */
 	allowOverage?: boolean;
 }

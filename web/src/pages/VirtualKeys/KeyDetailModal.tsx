@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
 	BrainSlashIcon,
@@ -16,9 +17,9 @@ import {
 import type { VirtualKey } from "../../api/types";
 import { BudgetField } from "../../components/BudgetField";
 import { budgetText } from "../../components/budget";
-import { ConfirmDeleteButton } from "../../components/ConfirmDeleteButton";
 import { ConfirmDialog } from "../../components/ConfirmDialog";
 import { CopyablePill } from "../../components/CopyablePill";
+import { DeleteConfirmModal } from "../../components/DeleteConfirmModal";
 import { InfoHint } from "../../components/InfoHint";
 import { DetailItem } from "../../components/LogDetailItem";
 import { Modal } from "../../components/Modal";
@@ -46,6 +47,7 @@ export function KeyDetailModal({
 	/** A per-key limit, or "Global" when the key inherits the setting. */
 	const limitText = (n: number | null | undefined) =>
 		n != null ? String(n) : t("common.global");
+	const [confirmDelete, setConfirmDelete] = useState(false);
 	const {
 		editing,
 		editName,
@@ -380,10 +382,13 @@ export function KeyDetailModal({
 
 				{!managed && (
 					<div className="flex justify-between items-center">
-						<ConfirmDeleteButton
-							onConfirm={() => deleteMutation.mutate()}
-							loading={deleteMutation.isPending}
-						/>
+						<button
+							type="button"
+							onClick={() => setConfirmDelete(true)}
+							className="ui-btn ui-btn-danger"
+						>
+							{t("virtualKeys.detail.deleteKey")}
+						</button>
 						{editing ? (
 							<div className="flex space-x-3">
 								<button
@@ -439,11 +444,22 @@ export function KeyDetailModal({
 				<ConfirmDialog
 					title={t("delete_confirm.unsaved_changes")}
 					fields={confirmFields}
+					confirmLabel={t("common.discard")}
 					onConfirm={() => {
 						setConfirmFields(null);
 						onClose();
 					}}
 					onCancel={() => setConfirmFields(null)}
+				/>
+			)}
+			{confirmDelete && (
+				<DeleteConfirmModal
+					title={t("virtualKeys.detail.deleteKey")}
+					confirmText={vk.name}
+					entityName={vk.name}
+					isPending={deleteMutation.isPending}
+					onConfirm={() => deleteMutation.mutate()}
+					onCancel={() => setConfirmDelete(false)}
 				/>
 			)}
 		</>

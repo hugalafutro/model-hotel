@@ -82,7 +82,9 @@
 		"collapseNamed": "Einklappen: {{name}}",
 		"rowStepLabel": "{{subject}}, {{time}}",
 		"rowStepFirst": "{{row}}, erste Zeile",
-		"rowStepLast": "{{row}}, letzte Zeile"
+		"rowStepLast": "{{row}}, letzte Zeile",
+		"discard": "Verwerfen",
+		"overwrite": "Überschreiben"
 	},
 	"layout": {
 		"title": "Model Hotel",
@@ -2428,16 +2430,13 @@
 		"deleteConfirmModal": {
 			"confirmDelete": "Löschen bestätigen",
 			"deleteType": "{{entityType}} löschen",
-			"areYouSure": "Sind Sie sicher, dass Sie {{entityName}} löschen möchten? Diese Aktion kann nicht rückgängig gemacht werden."
+			"areYouSure": "Sind Sie sicher, dass Sie {{entityName}} löschen möchten? Diese Aktion kann nicht rückgängig gemacht werden.",
+			"typeToConfirm": "Zur Bestätigung eingeben:",
+			"confirmWord": "bestätigen"
 		},
 		"confirmDialog": {
 			"discardChangesTo": "Änderungen verwerfen zu:",
 			"close": "Schließen"
-		},
-		"confirmDeleteButton": {
-			"deleteKey": "Schlüssel löschen",
-			"yesDelete": "Ja, löschen",
-			"areYouSure": "Bist du sicher?"
 		},
 		"restoreConfirmModal": {
 			"title": "Datenbanksicherung wiederherstellen",
@@ -3086,7 +3085,6 @@
 			"deleteNaHelp": "Entfernt die nicht verfügbaren Mitglieder aus dieser Gruppe.",
 			"deleteNaConfirmTitle": "Diese Gruppe löschen?",
 			"deleteNaConfirmMessage": "Durch das Entfernen der nicht verfügbaren Mitglieder blieben weniger als 2 routingfähige Mitglieder übrig, daher wird die gesamte Gruppe gelöscht.",
-			"deleteNaConfirmLabel": "Gruppe löschen",
 			"circuitBreakerProviderOpen": "Gesamter Anbieter übersprungen - Schutzschalter offen für: {{models}}",
 			"chip": {
 				"live": "aktiv",
@@ -3122,7 +3120,8 @@
 		"detail": {
 			"rps": "RPS",
 			"burst": "Burst",
-			"tpm": "TPM"
+			"tpm": "TPM",
+			"deleteKey": "Schlüssel löschen"
 		}
 	},
 	"hooks": {
@@ -3328,7 +3327,8 @@
 			"totpResetButton": "Zwei-Faktor-Authentifizierung zurücksetzen",
 			"totpResetHint": "Entfernt die Authenticator-App und die Wiederherstellungscodes des Benutzers, sodass die Anmeldung nur mit dem Passwort möglich ist.",
 			"totpResetConfirmTitle": "Zwei-Faktor-Authentifizierung zurücksetzen",
-			"totpResetConfirmMessage": "Dies entfernt die Authenticator-App-Bindung und alle Wiederherstellungscodes dieses Benutzers. Das Passwort bleibt unverändert."
+			"totpResetConfirmMessage": "Dies entfernt die Authenticator-App-Bindung und alle Wiederherstellungscodes dieses Benutzers. Das Passwort bleibt unverändert.",
+			"totpResetConfirmLabel": "Zurücksetzen"
 		},
 		"toast": {
 			"created": "Benutzer angelegt",
@@ -3386,7 +3386,8 @@
 		"toast": {
 			"purged": "Audit-Protokoll gelöscht",
 			"purgeFailed": "Audit-Protokoll konnte nicht gelöscht werden"
-		}
+		},
+		"purgeConfirmLabel": "Bereinigen"
 	},
 	"budget": {
 		"label": "Budget",

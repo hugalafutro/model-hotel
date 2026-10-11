@@ -82,7 +82,9 @@
 		"collapseNamed": "לכווץ: {{name}}",
 		"rowStepLabel": "{{subject}}, {{time}}",
 		"rowStepFirst": "{{row}}, שורה ראשונה",
-		"rowStepLast": "{{row}}, שורה אחרונה"
+		"rowStepLast": "{{row}}, שורה אחרונה",
+		"discard": "השלך",
+		"overwrite": "החלף"
 	},
 	"layout": {
 		"title": "Model Hotel",
@@ -2494,16 +2496,13 @@
 		"deleteConfirmModal": {
 			"confirmDelete": "אשר מחיקה",
 			"deleteType": "מחק {{entityType}}",
-			"areYouSure": "האם אתה בטוח שברצונך למחוק את {{entityName}}? לא ניתן לבטל פעולה זו."
+			"areYouSure": "האם אתה בטוח שברצונך למחוק את {{entityName}}? לא ניתן לבטל פעולה זו.",
+			"typeToConfirm": "לאישור, הקלידו:",
+			"confirmWord": "אישור"
 		},
 		"confirmDialog": {
 			"discardChangesTo": "בטל את השינויים ב:",
 			"close": "סגור"
-		},
-		"confirmDeleteButton": {
-			"deleteKey": "מחק מפתח",
-			"yesDelete": "כן, מחק",
-			"areYouSure": "אתה בטוח?"
 		},
 		"restoreConfirmModal": {
 			"title": "שחזור גיבוי מסד נתונים",
@@ -3162,7 +3161,6 @@
 			"deleteNaHelp": "מסיר את החברים הלא זמינים מהקבוצה הזו.",
 			"deleteNaConfirmTitle": "למחוק את הקבוצה הזו?",
 			"deleteNaConfirmMessage": "הסרת החברים הלא זמינים תשאיר פחות מ-2 חברים הניתנים לניתוב, ולכן הקבוצה כולה תימחק.",
-			"deleteNaConfirmLabel": "מחק קבוצה",
 			"circuitBreakerProviderOpen": "הספק כולו מדולג - מפסק פתוח עבור: {{models}}",
 			"chip": {
 				"live": "פעיל",
@@ -3198,7 +3196,8 @@
 		"detail": {
 			"rps": "RPS",
 			"burst": "פרץ",
-			"tpm": "TPM"
+			"tpm": "TPM",
+			"deleteKey": "מחק מפתח"
 		}
 	},
 	"hooks": {
@@ -3404,7 +3403,8 @@
 			"totpResetButton": "איפוס אימות דו-שלבי",
 			"totpResetHint": "מסיר את אפליקציית האימות וקודי השחזור של המשתמש, כך שיוכל להתחבר עם סיסמה בלבד.",
 			"totpResetConfirmTitle": "איפוס אימות דו-שלבי",
-			"totpResetConfirmMessage": "פעולה זו מסירה את הקישור לאפליקציית האימות ואת כל קודי השחזור של המשתמש. הסיסמה נשארת ללא שינוי."
+			"totpResetConfirmMessage": "פעולה זו מסירה את הקישור לאפליקציית האימות ואת כל קודי השחזור של המשתמש. הסיסמה נשארת ללא שינוי.",
+			"totpResetConfirmLabel": "איפוס"
 		},
 		"toast": {
 			"created": "המשתמש נוצר",
@@ -3462,7 +3462,8 @@
 		"toast": {
 			"purged": "יומן הביקורת נמחק",
 			"purgeFailed": "לא ניתן היה למחוק את יומן הביקורת"
-		}
+		},
+		"purgeConfirmLabel": "נקה"
 	},
 	"budget": {
 		"label": "תקציב",

@@ -82,7 +82,9 @@
 		"collapseNamed": "Recolher: {{name}}",
 		"rowStepLabel": "{{subject}}, {{time}}",
 		"rowStepFirst": "{{row}}, primeira linha",
-		"rowStepLast": "{{row}}, última linha"
+		"rowStepLast": "{{row}}, última linha",
+		"discard": "Descartar",
+		"overwrite": "Substituir"
 	},
 	"layout": {
 		"title": "Model Hotel",
@@ -2494,16 +2496,13 @@
 		"deleteConfirmModal": {
 			"confirmDelete": "Confirmar Exclusão",
 			"deleteType": "Excluir {{entityType}}",
-			"areYouSure": "Tem certeza que deseja excluir {{entityName}}? Esta ação não pode ser desfeita."
+			"areYouSure": "Tem certeza que deseja excluir {{entityName}}? Esta ação não pode ser desfeita.",
+			"typeToConfirm": "Para confirmar, digite:",
+			"confirmWord": "confirmar"
 		},
 		"confirmDialog": {
 			"discardChangesTo": "Descartar alterações para:",
 			"close": "FECHAR"
-		},
-		"confirmDeleteButton": {
-			"deleteKey": "Apagar chave",
-			"yesDelete": "Sim, excluir",
-			"areYouSure": "Você tem certeza?"
 		},
 		"restoreConfirmModal": {
 			"title": "Restaurar Backup do Banco de Dados",
@@ -3162,7 +3161,6 @@
 			"deleteNaHelp": "Remove os membros indisponíveis deste grupo.",
 			"deleteNaConfirmTitle": "Eliminar este grupo?",
 			"deleteNaConfirmMessage": "Remover os membros indisponíveis deixaria menos de 2 membros encaminháveis, por isso todo o grupo será eliminado.",
-			"deleteNaConfirmLabel": "Eliminar grupo",
 			"circuitBreakerProviderOpen": "Provedor inteiro ignorado - disjuntor aberto para: {{models}}",
 			"chip": {
 				"live": "ativo",
@@ -3198,7 +3196,8 @@
 		"detail": {
 			"rps": "RPS",
 			"burst": "Rajada",
-			"tpm": "TPM"
+			"tpm": "TPM",
+			"deleteKey": "Apagar chave"
 		}
 	},
 	"hooks": {
@@ -3404,7 +3403,8 @@
 			"totpResetButton": "Redefinir autenticação de dois fatores",
 			"totpResetHint": "Remove o aplicativo autenticador e os códigos de recuperação do usuário, permitindo entrar apenas com a senha.",
 			"totpResetConfirmTitle": "Redefinir autenticação de dois fatores",
-			"totpResetConfirmMessage": "Isso remove o vínculo com o aplicativo autenticador e todos os códigos de recuperação deste usuário. A senha permanece inalterada."
+			"totpResetConfirmMessage": "Isso remove o vínculo com o aplicativo autenticador e todos os códigos de recuperação deste usuário. A senha permanece inalterada.",
+			"totpResetConfirmLabel": "Redefinir"
 		},
 		"toast": {
 			"created": "Utilizador criado",
@@ -3462,7 +3462,8 @@
 		"toast": {
 			"purged": "Registro de auditoria limpo",
 			"purgeFailed": "Não foi possível limpar o registro de auditoria"
-		}
+		},
+		"purgeConfirmLabel": "Limpar"
 	},
 	"budget": {
 		"label": "Orçamento",

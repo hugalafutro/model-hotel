@@ -838,13 +838,17 @@ Between them, these give you three ways out of a long pin, from least to most bl
 
 By default a provider is routed to until its window is spent and the provider says so. A
 **quota reserve** on the provider (edit modal, a slider in 10% steps from 0 to 90, where 0
-drains fully; the providers list shows a yellow piggy-bank icon while one is set) keeps that share of every
+drains fully; the slider appears only for the provider types listed below, since nothing else
+reads it, and stays while a reserve saved earlier on another type waits to be cleared; the
+providers list shows a yellow piggy-bank icon while one is set on a type that reads it) keeps that share of every
 window back for use outside the gateway: an IDE plugin or a chat client on the same
 subscription. Once any dated window has consumed `100 - reserve` percent of itself, the quota
 refresh advises the provider as exhausted exactly as a spent window would, so the same pin holds
 it dark until that window resets and the same refresh releases it once the reading drops back
 under the line. Only windows the breaker judges on their own respond: Z.ai Coding Plan's 5-hour
-and weekly token windows (not its MCP call window), Kimi Code, OpenCode Go and MiniMax. NeuralWatt
+and weekly token windows (not its MCP call window), Kimi Code, OpenCode Go, MiniMax and NanoGPT's
+weekly and daily input-token counters (a NanoGPT plan with overage enabled keeps serving past its
+cap, so the reserve is the only line that stops routing to it). NeuralWatt
 is a balance provider that serves into overage, so a reserve leaves it alone, and an undated
 window (a prepaid balance) never places a pin. `0` is the default and drains fully. The value rides config sync
 like every other provider field, and `modelhotel_provider_quota_reserve_ratio` carries it to

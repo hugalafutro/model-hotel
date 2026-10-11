@@ -82,7 +82,9 @@
 		"collapseNamed": "Zbaliť: {{name}}",
 		"rowStepLabel": "{{subject}}, {{time}}",
 		"rowStepFirst": "{{row}}, prvý riadok",
-		"rowStepLast": "{{row}}, posledný riadok"
+		"rowStepLast": "{{row}}, posledný riadok",
+		"discard": "Zahodiť",
+		"overwrite": "Prepísať"
 	},
 	"layout": {
 		"title": "Model Hotel",
@@ -2560,16 +2562,13 @@
 		"deleteConfirmModal": {
 			"confirmDelete": "Potvrdiť vymazanie",
 			"deleteType": "Odstrániť {{entityType}}",
-			"areYouSure": "Naozaj chcete odstrániť stránku {{entityName}}? Túto akciu nie je možné vrátiť späť."
+			"areYouSure": "Naozaj chcete odstrániť stránku {{entityName}}? Túto akciu nie je možné vrátiť späť.",
+			"typeToConfirm": "Na potvrdenie napíšte:",
+			"confirmWord": "potvrdiť"
 		},
 		"confirmDialog": {
 			"discardChangesTo": "Zrušiť zmeny v:",
 			"close": "Zatvoriť"
-		},
-		"confirmDeleteButton": {
-			"deleteKey": "Odstrániť kľúč",
-			"yesDelete": "Áno, odstrániť",
-			"areYouSure": "Naozaj?"
 		},
 		"restoreConfirmModal": {
 			"title": "Obnoviť zálohu databázy",
@@ -3238,7 +3237,6 @@
 			"deleteNaHelp": "Odstráni nedostupných členov z tejto skupiny.",
 			"deleteNaConfirmTitle": "Odstrániť túto skupinu?",
 			"deleteNaConfirmMessage": "Odstránením nedostupných členov by zostali menej ako 2 smerovateľní členovia, takže sa odstráni celá skupina.",
-			"deleteNaConfirmLabel": "Odstrániť skupinu",
 			"circuitBreakerProviderOpen": "Celý poskytovateľ preskočený - istič otvorený pre: {{models}}",
 			"chip": {
 				"live": "živý",
@@ -3274,7 +3272,8 @@
 		"detail": {
 			"rps": "RPS",
 			"burst": "Séria",
-			"tpm": "TPM"
+			"tpm": "TPM",
+			"deleteKey": "Odstrániť kľúč"
 		}
 	},
 	"hooks": {
@@ -3480,7 +3479,8 @@
 			"totpResetButton": "Obnoviť dvojfaktorové overenie",
 			"totpResetHint": "Odstráni používateľovi overovaciu aplikáciu a záložné kódy, takže sa prihlási len heslom.",
 			"totpResetConfirmTitle": "Obnoviť dvojfaktorové overenie",
-			"totpResetConfirmMessage": "Týmto sa odstráni väzba na overovaciu aplikáciu a všetky záložné kódy tohto používateľa. Heslo zostáva bez zmeny."
+			"totpResetConfirmMessage": "Týmto sa odstráni väzba na overovaciu aplikáciu a všetky záložné kódy tohto používateľa. Heslo zostáva bez zmeny.",
+			"totpResetConfirmLabel": "Resetovať"
 		},
 		"toast": {
 			"created": "Používateľ vytvorený",
@@ -3538,7 +3538,8 @@
 		"toast": {
 			"purged": "Auditný záznam vymazaný",
 			"purgeFailed": "Auditný záznam sa nepodarilo vymazať"
-		}
+		},
+		"purgeConfirmLabel": "Vymazať"
 	},
 	"budget": {
 		"label": "Rozpočet",

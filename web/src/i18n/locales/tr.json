@@ -82,7 +82,9 @@
 		"collapseNamed": "Daralt: {{name}}",
 		"rowStepLabel": "{{subject}}, {{time}}",
 		"rowStepFirst": "{{row}}, ilk satır",
-		"rowStepLast": "{{row}}, son satır"
+		"rowStepLast": "{{row}}, son satır",
+		"discard": "Vazgeç",
+		"overwrite": "Üzerine yaz"
 	},
 	"layout": {
 		"title": "Model Hotel",
@@ -2428,16 +2430,13 @@
 		"deleteConfirmModal": {
 			"confirmDelete": "Silmeyi Onayla",
 			"deleteType": "{{entityType}} sil",
-			"areYouSure": "{{entityName}} ögesini silmek istediğinizden emin misiniz? Bu işlem geri alınamaz."
+			"areYouSure": "{{entityName}} ögesini silmek istediğinizden emin misiniz? Bu işlem geri alınamaz.",
+			"typeToConfirm": "Onaylamak için yazın:",
+			"confirmWord": "onayla"
 		},
 		"confirmDialog": {
 			"discardChangesTo": "Şuradaki değişiklikleri sil:",
 			"close": "Kapat"
-		},
-		"confirmDeleteButton": {
-			"deleteKey": "Anahtarı Sil",
-			"yesDelete": "Evet, sil",
-			"areYouSure": "Emin misin?"
 		},
 		"restoreConfirmModal": {
 			"title": "Veritabanı Yedeklemesini Geri Yükle",
@@ -3086,7 +3085,6 @@
 			"deleteNaHelp": "Kullanılamayan üyeleri bu gruptan kaldırır.",
 			"deleteNaConfirmTitle": "Bu grup silinsin mi?",
 			"deleteNaConfirmMessage": "Kullanılamayan üyeleri kaldırmak, 2'den az yönlendirilebilir üye bırakacağından grubun tamamı silinecek.",
-			"deleteNaConfirmLabel": "Grubu sil",
 			"circuitBreakerProviderOpen": "Sağlayıcının tamamı atlanıyor - devre kesici şunlar için açık: {{models}}",
 			"chip": {
 				"live": "etkin",
@@ -3122,7 +3120,8 @@
 		"detail": {
 			"rps": "RPS",
 			"burst": "Burst",
-			"tpm": "TPM"
+			"tpm": "TPM",
+			"deleteKey": "Anahtarı Sil"
 		}
 	},
 	"hooks": {
@@ -3328,7 +3327,8 @@
 			"totpResetButton": "İki adımlı doğrulamayı sıfırla",
 			"totpResetHint": "Kullanıcının doğrulama uygulamasını ve kurtarma kodlarını kaldırır; yalnızca parolayla giriş yapabilir.",
 			"totpResetConfirmTitle": "İki adımlı doğrulamayı sıfırla",
-			"totpResetConfirmMessage": "Bu işlem, bu kullanıcının doğrulama uygulaması bağlantısını ve tüm kurtarma kodlarını kaldırır. Parola değişmez."
+			"totpResetConfirmMessage": "Bu işlem, bu kullanıcının doğrulama uygulaması bağlantısını ve tüm kurtarma kodlarını kaldırır. Parola değişmez.",
+			"totpResetConfirmLabel": "Sıfırla"
 		},
 		"toast": {
 			"created": "Kullanıcı oluşturuldu",
@@ -3386,7 +3386,8 @@
 		"toast": {
 			"purged": "Denetim kaydı temizlendi",
 			"purgeFailed": "Denetim kaydı temizlenemedi"
-		}
+		},
+		"purgeConfirmLabel": "Temizle"
 	},
 	"budget": {
 		"label": "Bütçe",

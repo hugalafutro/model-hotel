@@ -370,7 +370,7 @@ describe("PromptPicker", () => {
 				/>,
 			);
 			await user.click(screen.getByText("⚖️Dilemma"));
-			await user.click(screen.getByText("Delete"));
+			await user.click(screen.getByText("Overwrite"));
 			await waitFor(() => {
 				expect(mockOnPromptChange).toHaveBeenCalledWith(
 					"Present a moral dilemma",
@@ -428,7 +428,7 @@ describe("PromptPicker", () => {
 				/>,
 			);
 			await user.click(screen.getByText("✏️Custom"));
-			await user.click(screen.getByText("Delete"));
+			await user.click(screen.getByText("Confirm"));
 			await waitFor(() => {
 				expect(mockOnPromptChange).toHaveBeenCalledWith("");
 				expect(mockOnActivePromptIdChange).toHaveBeenCalledWith(null);
@@ -505,7 +505,7 @@ describe("PromptPicker", () => {
 				/>,
 			);
 			await user.click(screen.getByTitle("Random"));
-			await user.click(screen.getByText("Delete"));
+			await user.click(screen.getByText("Overwrite"));
 			await waitFor(() => {
 				expect(mockOnPromptChange).toHaveBeenCalledTimes(1);
 				expect(mockOnActivePromptIdChange).toHaveBeenCalledTimes(1);

@@ -82,7 +82,9 @@
 		"collapseNamed": "Скупи: {{name}}",
 		"rowStepLabel": "{{subject}}, {{time}}",
 		"rowStepFirst": "{{row}}, први ред",
-		"rowStepLast": "{{row}}, последњи ред"
+		"rowStepLast": "{{row}}, последњи ред",
+		"discard": "Одбаци",
+		"overwrite": "Препиши"
 	},
 	"layout": {
 		"title": "Model Hotel",
@@ -2494,16 +2496,13 @@
 		"deleteConfirmModal": {
 			"confirmDelete": "Потврди брисање",
 			"deleteType": "Избриши {{entityType}}",
-			"areYouSure": "Да ли сте сигурни да желите да избришете {{entityName}}? Ова акција се не може поништити."
+			"areYouSure": "Да ли сте сигурни да желите да избришете {{entityName}}? Ова акција се не може поништити.",
+			"typeToConfirm": "За потврду откуцајте:",
+			"confirmWord": "потврди"
 		},
 		"confirmDialog": {
 			"discardChangesTo": "Одбаци измене за:",
 			"close": "Затвори"
-		},
-		"confirmDeleteButton": {
-			"deleteKey": "Обриши кључ",
-			"yesDelete": "Да, обриши",
-			"areYouSure": "Јеси ли сигуран?"
 		},
 		"restoreConfirmModal": {
 			"title": "Обнови резервну копију базе података",
@@ -3162,7 +3161,6 @@
 			"deleteNaHelp": "Уклања недоступне чланове из ове групе.",
 			"deleteNaConfirmTitle": "Обрисати ову групу?",
 			"deleteNaConfirmMessage": "Уклањање недоступних чланова оставило би мање од 2 члана који се могу рутирати, па ће цела група бити обрисана.",
-			"deleteNaConfirmLabel": "Обриши групу",
 			"circuitBreakerProviderOpen": "Цео провајдер прескочен - прекидач отворен за: {{models}}",
 			"chip": {
 				"live": "активан",
@@ -3198,7 +3196,8 @@
 		"detail": {
 			"rps": "RPS",
 			"burst": "Налет",
-			"tpm": "TPM"
+			"tpm": "TPM",
+			"deleteKey": "Обриши кључ"
 		}
 	},
 	"hooks": {
@@ -3404,7 +3403,8 @@
 			"totpResetButton": "Ресетуј двофакторску аутентификацију",
 			"totpResetHint": "Уклања корисникову апликацију за аутентификацију и кодове за опоравак, па се пријављује само лозинком.",
 			"totpResetConfirmTitle": "Ресетуј двофакторску аутентификацију",
-			"totpResetConfirmMessage": "Овим се уклања веза са апликацијом за аутентификацију и сви кодови за опоравак овог корисника. Лозинка остаје непромењена."
+			"totpResetConfirmMessage": "Овим се уклања веза са апликацијом за аутентификацију и сви кодови за опоравак овог корисника. Лозинка остаје непромењена.",
+			"totpResetConfirmLabel": "Ресетуј"
 		},
 		"toast": {
 			"created": "Корисник направљен",
@@ -3462,7 +3462,8 @@
 		"toast": {
 			"purged": "Ревизијски траг обрисан",
 			"purgeFailed": "Брисање ревизијског трага није успело"
-		}
+		},
+		"purgeConfirmLabel": "Очисти"
 	},
 	"budget": {
 		"label": "Буџет",

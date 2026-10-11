@@ -6,7 +6,7 @@ import { Layout } from "../../../components/Layout";
 import { mockAllDefaults } from "../../../test/helpers";
 import { mockModel, mockProvider } from "../../../test/mocks/data";
 import { server } from "../../../test/mocks/server";
-import { renderWithProviders } from "../../../test/utils";
+import { armDeleteConfirm, renderWithProviders } from "../../../test/utils";
 import { Models } from "../../Models";
 
 describe("Models", () => {
@@ -173,9 +173,9 @@ describe("Models", () => {
 			const modal = screen.getByRole("dialog");
 			await user.click(within(modal).getByRole("button", { name: "Delete" }));
 
-			// Click confirm delete
+			// Type the proxy id (provider/model) to arm the confirm
 			await user.click(
-				within(modal).getByRole("button", { name: "Confirm delete" }),
+				await armDeleteConfirm(user, "Test-Provider/test-model-v1"),
 			);
 
 			// Should show success toast
@@ -228,9 +228,9 @@ describe("Models", () => {
 			const modal = screen.getByRole("dialog");
 			await user.click(within(modal).getByRole("button", { name: "Delete" }));
 
-			// Click confirm delete
+			// Type the proxy id (provider/model) to arm the confirm
 			await user.click(
-				within(modal).getByRole("button", { name: "Confirm delete" }),
+				await armDeleteConfirm(user, "Test-Provider/test-model-v1"),
 			);
 
 			// Should show error toast - partial match
@@ -639,7 +639,7 @@ describe("Models", () => {
 			);
 
 			// Click "Delete" in the confirm dialog
-			await user.click(screen.getByRole("button", { name: "Delete" }));
+			await user.click(await armDeleteConfirm(user, "confirm"));
 
 			// Should show success toast. Matched on text, not on a button role: a
 			// toast is a message in a live region and is not itself a control.
@@ -692,7 +692,7 @@ describe("Models", () => {
 			);
 
 			// Click "Delete" in the confirm dialog
-			await user.click(screen.getByRole("button", { name: "Delete" }));
+			await user.click(await armDeleteConfirm(user, "confirm"));
 
 			// Should show error toast (the whole request failed atomically).
 			// Text, not button role: see the success case above.
@@ -772,7 +772,7 @@ describe("Models", () => {
 			const modal = await openDetailModal(user);
 			await user.click(within(modal).getByRole("button", { name: "Delete" }));
 			await user.click(
-				within(modal).getByRole("button", { name: "Confirm delete" }),
+				await armDeleteConfirm(user, "Test-Provider/test-model-v1"),
 			);
 			await waitFor(() => expect(deleted).toBe(true));
 
@@ -809,7 +809,7 @@ describe("Models", () => {
 			const modal = await openDetailModal(user);
 			await user.click(within(modal).getByRole("button", { name: "Delete" }));
 			await user.click(
-				within(modal).getByRole("button", { name: "Confirm delete" }),
+				await armDeleteConfirm(user, "Test-Provider/test-model-v1"),
 			);
 			await screen.findByText(/Failed to delete/);
 
@@ -841,7 +841,7 @@ describe("Models", () => {
 			await user.click(await screen.findByText("Delete 1 disabled"));
 			// ConfirmDialog confirms through the modal's fade-out, so the request is
 			// a timer away from the click, not a microtask.
-			await user.click(within(screen.getByRole("dialog")).getByText("Delete"));
+			await user.click(await armDeleteConfirm(user, "confirm"));
 			await waitFor(() => expect(deleted).toBe(true));
 
 			// The enabled model's claim survives, so this pins a re-read rather than
@@ -915,7 +915,7 @@ describe("Models", () => {
 			).toHaveTextContent("2");
 
 			await user.click(await screen.findByText("Delete 1 disabled"));
-			await user.click(within(screen.getByRole("dialog")).getByText("Delete"));
+			await user.click(await armDeleteConfirm(user, "confirm"));
 			await screen.findByText(/Failed to delete/);
 
 			await waitFor(() =>

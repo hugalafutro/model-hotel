@@ -2,7 +2,7 @@ import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { mockModel, mockProvider } from "../../test/mocks/data";
 import { server } from "../../test/mocks/server";
-import { renderWithProviders } from "../../test/utils";
+import { armDeleteConfirm, renderWithProviders } from "../../test/utils";
 import { formatDate } from "../../utils/format";
 import { ModelTable } from "../ModelTable";
 
@@ -1413,7 +1413,7 @@ describe("ModelTable", () => {
 			);
 
 			await user.click(screen.getByText("Delete 1 disabled"));
-			await user.click(screen.getByText("Delete"));
+			await user.click(await armDeleteConfirm(user, "confirm"));
 
 			await waitFor(() => {
 				expect(onDeleteDisabled).toHaveBeenCalledWith(["model-disabled-1"]);
@@ -1485,7 +1485,7 @@ describe("ModelTable", () => {
 			expect(screen.getByText("Delete 1 disabled")).toBeInTheDocument();
 
 			await user.click(screen.getByText("Delete 1 disabled"));
-			await user.click(screen.getByText("Delete"));
+			await user.click(await armDeleteConfirm(user, "confirm"));
 
 			// Should only pass the in-scope disabled model ID
 			await waitFor(() => {

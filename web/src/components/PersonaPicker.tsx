@@ -48,6 +48,7 @@ export function PersonaPicker({
 			onActiveChange={onActivePersonaChange}
 			onTextChange={onSystemPromptChange}
 			confirmCopy={(isCustom) => ({
+				confirmLabel: isCustom ? t("common.confirm") : t("common.overwrite"),
 				title: isCustom
 					? t("components.personaPicker.switchToCustom")
 					: t("components.personaPicker.overwritePrompt"),

@@ -8,7 +8,7 @@ import {
 	mockVirtualKeyWithProviders,
 } from "../../../test/mocks/data";
 import { server } from "../../../test/mocks/server";
-import { renderWithProviders } from "../../../test/utils";
+import { armDeleteConfirm, renderWithProviders } from "../../../test/utils";
 import { VirtualKeys } from "../../VirtualKeys";
 
 describe("VirtualKeys", () => {
@@ -863,14 +863,8 @@ describe("VirtualKeys", () => {
 			});
 			await user.click(deleteButton);
 
-			// Confirm deletion
-			await waitFor(() => {
-				expect(within(dialog).getByText(/Are you sure/i)).toBeInTheDocument();
-			});
-			const confirmButton = within(dialog).getByRole("button", {
-				name: "Yes, delete",
-			});
-			await user.click(confirmButton);
+			// Confirm deletion by typing the key's name
+			await user.click(await armDeleteConfirm(user, "Test API Key"));
 
 			await waitFor(() => {
 				expect(screen.getByText("Virtual key deleted")).toBeInTheDocument();
@@ -918,13 +912,7 @@ describe("VirtualKeys", () => {
 			});
 			await user.click(deleteButton);
 
-			await waitFor(() => {
-				expect(within(dialog).getByText(/Are you sure/i)).toBeInTheDocument();
-			});
-			const confirmButton = within(dialog).getByRole("button", {
-				name: "Yes, delete",
-			});
-			await user.click(confirmButton);
+			await user.click(await armDeleteConfirm(user, "Test API Key"));
 
 			await waitFor(() => {
 				expect(
@@ -966,19 +954,21 @@ describe("VirtualKeys", () => {
 			});
 			await user.click(deleteButton);
 
-			// Should show confirmation
-			expect(within(dialog).getByText("Are you sure?")).toBeInTheDocument();
+			// The typed confirm dialog opens, unarmed
+			const confirm = screen.getByRole("dialog", { name: "Delete Key" });
+			expect(
+				within(confirm).getByRole("button", { name: "Delete" }),
+			).toBeDisabled();
 
 			// Cancel
-			const cancelButton = within(dialog).getByRole("button", {
-				name: "Cancel",
-			});
-			await user.click(cancelButton);
+			await user.click(within(confirm).getByRole("button", { name: "Cancel" }));
 
-			// Confirmation should disappear, Delete Key button should be back
-			expect(
-				within(dialog).queryByText("Are you sure?"),
-			).not.toBeInTheDocument();
+			// The confirm dialog is gone, the detail modal stays with its button
+			await waitFor(() => {
+				expect(
+					screen.queryByRole("dialog", { name: "Delete Key" }),
+				).not.toBeInTheDocument();
+			});
 			expect(
 				within(dialog).getByRole("button", { name: "Delete Key" }),
 			).toBeInTheDocument();
@@ -1201,7 +1191,7 @@ describe("KeyDetailModal unsaved-changes guard", () => {
 	it("closes modal when confirming discard", async () => {
 		const user = await openEditAndRename();
 
-		await user.click(screen.getByRole("button", { name: "Delete" }));
+		await user.click(screen.getByRole("button", { name: "Discard" }));
 
 		await waitFor(() => {
 			expect(

@@ -82,7 +82,9 @@
 		"collapseNamed": "Comprimi: {{name}}",
 		"rowStepLabel": "{{subject}}, {{time}}",
 		"rowStepFirst": "{{row}}, prima riga",
-		"rowStepLast": "{{row}}, ultima riga"
+		"rowStepLast": "{{row}}, ultima riga",
+		"discard": "Scarta",
+		"overwrite": "Sovrascrivi"
 	},
 	"layout": {
 		"title": "Model Hotel",
@@ -2494,16 +2496,13 @@
 		"deleteConfirmModal": {
 			"confirmDelete": "Conferma Eliminazione",
 			"deleteType": "Elimina {{entityType}}",
-			"areYouSure": "Sei sicuro di voler eliminare {{entityName}}? Questa azione non può essere annullata."
+			"areYouSure": "Sei sicuro di voler eliminare {{entityName}}? Questa azione non può essere annullata.",
+			"typeToConfirm": "Per confermare, digita:",
+			"confirmWord": "conferma"
 		},
 		"confirmDialog": {
 			"discardChangesTo": "Scarta le modifiche a:",
 			"close": "Chiudi"
-		},
-		"confirmDeleteButton": {
-			"deleteKey": "Elimina Chiave",
-			"yesDelete": "Sì, elimina",
-			"areYouSure": "Sei sicuro?"
 		},
 		"restoreConfirmModal": {
 			"title": "Ripristina Backup Database",
@@ -3162,7 +3161,6 @@
 			"deleteNaHelp": "Rimuove i membri non disponibili da questo gruppo.",
 			"deleteNaConfirmTitle": "Eliminare questo gruppo?",
 			"deleteNaConfirmMessage": "La rimozione dei membri non disponibili lascerebbe meno di 2 membri instradabili, quindi l'intero gruppo verrà eliminato.",
-			"deleteNaConfirmLabel": "Elimina gruppo",
 			"circuitBreakerProviderOpen": "Intero provider ignorato - interruttore aperto per: {{models}}",
 			"chip": {
 				"live": "attivo",
@@ -3198,7 +3196,8 @@
 		"detail": {
 			"rps": "RPS",
 			"burst": "Burst",
-			"tpm": "TPM"
+			"tpm": "TPM",
+			"deleteKey": "Elimina Chiave"
 		}
 	},
 	"hooks": {
@@ -3404,7 +3403,8 @@
 			"totpResetButton": "Reimposta l'autenticazione a due fattori",
 			"totpResetHint": "Rimuove l'app di autenticazione e i codici di recupero dell'utente, che potrà accedere con la sola password.",
 			"totpResetConfirmTitle": "Reimposta l'autenticazione a due fattori",
-			"totpResetConfirmMessage": "Questo rimuove l'associazione con l'app di autenticazione e tutti i codici di recupero di questo utente. La password resta invariata."
+			"totpResetConfirmMessage": "Questo rimuove l'associazione con l'app di autenticazione e tutti i codici di recupero di questo utente. La password resta invariata.",
+			"totpResetConfirmLabel": "Reimposta"
 		},
 		"toast": {
 			"created": "Utente creato",
@@ -3462,7 +3462,8 @@
 		"toast": {
 			"purged": "Registro di audit svuotato",
 			"purgeFailed": "Impossibile svuotare il registro di audit"
-		}
+		},
+		"purgeConfirmLabel": "Svuota"
 	},
 	"budget": {
 		"label": "Budget",

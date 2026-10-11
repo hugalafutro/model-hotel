@@ -63,12 +63,25 @@ class QuotaSpentTest {
 
     private fun zai(vararg limits: String) = """{"success":true,"data":{"limits":[${limits.joinToString(",")}]}}"""
 
+    // Weekly counter healthy at 200 of 1000; only the daily one moves.
+    private fun nanogptDaily(used: Int) =
+        """{"limits":{"weeklyInputTokens":1000,"dailyInputTokens":100},
+        "weeklyInputTokens":{"used":200},"dailyInputTokens":{"used":$used}}"""
+
     @Test
     fun nanogptWeeklyAllowanceUsedUp() =
         assertPair(
             "nanogpt",
             spent = """{"limits":{"weeklyInputTokens":1000},"weeklyInputTokens":{"used":1000}}""",
             healthy = """{"limits":{"weeklyInputTokens":1000},"weeklyInputTokens":{"used":999}}""",
+        )
+
+    @Test
+    fun nanogptDailyAllowanceUsedUpSpendsLikeTheGatewayPin() =
+        assertPair(
+            "nanogpt",
+            spent = nanogptDaily(used = 100),
+            healthy = nanogptDaily(used = 99),
         )
 
     @Test

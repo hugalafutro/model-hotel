@@ -15,7 +15,7 @@ import {
 	formatTimestamp,
 	formatTokens,
 } from "../../utils/format";
-import { providerHomepages } from "./constants";
+import { providerHomepages, QUOTA_RESERVE_TYPES } from "./constants";
 
 interface ProviderCardProps {
 	provider: Provider;
@@ -91,17 +91,19 @@ export function ProviderCard({
 								<CalendarDays size={16} />
 							</span>
 						)}
-						{provider.enabled && provider.quota_reserve_percent > 0 && (
-							<span
-								data-testid="quota-reserve-icon"
-								className="text-yellow-400 shrink-0 inline-flex"
-								title={t("providers.quota_reserve_card_tooltip", {
-									percent: provider.quota_reserve_percent,
-								})}
-							>
-								<PiggyBank size={16} />
-							</span>
-						)}
+						{provider.enabled &&
+							QUOTA_RESERVE_TYPES.has(provider.provider_type) &&
+							provider.quota_reserve_percent > 0 && (
+								<span
+									data-testid="quota-reserve-icon"
+									className="text-yellow-400 shrink-0 inline-flex"
+									title={t("providers.quota_reserve_card_tooltip", {
+										percent: provider.quota_reserve_percent,
+									})}
+								>
+									<PiggyBank size={16} />
+								</span>
+							)}
 						<span className="text-lg font-semibold text-white truncate">
 							{provider.name}
 						</span>

@@ -82,7 +82,9 @@
 		"collapseNamed": "Collapse: {{name}}",
 		"rowStepLabel": "{{subject}}, {{time}}",
 		"rowStepFirst": "{{row}}, first row",
-		"rowStepLast": "{{row}}, last row"
+		"rowStepLast": "{{row}}, last row",
+		"discard": "Discard",
+		"overwrite": "Overwrite"
 	},
 	"layout": {
 		"title": "Model Hotel",
@@ -2428,16 +2430,13 @@
 		"deleteConfirmModal": {
 			"confirmDelete": "Confirm Delete",
 			"deleteType": "Delete {{entityType}}",
-			"areYouSure": "Are you sure you want to delete {{entityName}}? This action cannot be undone."
+			"areYouSure": "Are you sure you want to delete {{entityName}}? This action cannot be undone.",
+			"typeToConfirm": "To confirm, type:",
+			"confirmWord": "confirm"
 		},
 		"confirmDialog": {
 			"discardChangesTo": "Discard changes to:",
 			"close": "Close"
-		},
-		"confirmDeleteButton": {
-			"deleteKey": "Delete Key",
-			"yesDelete": "Yes, delete",
-			"areYouSure": "Are you sure?"
 		},
 		"restoreConfirmModal": {
 			"title": "Restore Database Backup",
@@ -3087,7 +3086,6 @@
 			"deleteNaHelp": "Remove the unavailable members from this group.",
 			"deleteNaConfirmTitle": "Delete this group?",
 			"deleteNaConfirmMessage": "Removing the unavailable members would leave fewer than 2 routable members, so the whole group will be deleted.",
-			"deleteNaConfirmLabel": "Delete group",
 			"chip": {
 				"live": "live",
 				"busy": "busy",
@@ -3122,7 +3120,8 @@
 		"detail": {
 			"rps": "RPS",
 			"burst": "Burst",
-			"tpm": "TPM"
+			"tpm": "TPM",
+			"deleteKey": "Delete Key"
 		}
 	},
 	"hooks": {
@@ -3328,7 +3327,8 @@
 			"totpResetButton": "Reset two-factor authentication",
 			"totpResetHint": "Removes the user's authenticator app and recovery codes so they can sign in with their password alone.",
 			"totpResetConfirmTitle": "Reset two-factor authentication",
-			"totpResetConfirmMessage": "This removes the authenticator app binding and all recovery codes for this user. Their password stays unchanged."
+			"totpResetConfirmMessage": "This removes the authenticator app binding and all recovery codes for this user. Their password stays unchanged.",
+			"totpResetConfirmLabel": "Reset"
 		},
 		"toast": {
 			"created": "User created",
@@ -3386,7 +3386,8 @@
 		"toast": {
 			"purged": "Audit trail purged",
 			"purgeFailed": "Could not purge the audit trail"
-		}
+		},
+		"purgeConfirmLabel": "Purge"
 	},
 	"budget": {
 		"label": "Budget",

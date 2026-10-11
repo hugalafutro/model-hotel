@@ -82,7 +82,9 @@
 		"collapseNamed": "Skjul: {{name}}",
 		"rowStepLabel": "{{subject}}, {{time}}",
 		"rowStepFirst": "{{row}}, første rad",
-		"rowStepLast": "{{row}}, siste rad"
+		"rowStepLast": "{{row}}, siste rad",
+		"discard": "Forkast",
+		"overwrite": "Overskriv"
 	},
 	"layout": {
 		"title": "Model Hotel",
@@ -2428,16 +2430,13 @@
 		"deleteConfirmModal": {
 			"confirmDelete": "Bekreft sletting",
 			"deleteType": "Slett {{entityType}}",
-			"areYouSure": "Er du sikker på at du vil slette {{entityName}}? Denne handlingen kan ikke angres."
+			"areYouSure": "Er du sikker på at du vil slette {{entityName}}? Denne handlingen kan ikke angres.",
+			"typeToConfirm": "Skriv for å bekrefte:",
+			"confirmWord": "bekreft"
 		},
 		"confirmDialog": {
 			"discardChangesTo": "Forkast endringer til:",
 			"close": "Lukk"
-		},
-		"confirmDeleteButton": {
-			"deleteKey": "Slett nøkkel",
-			"yesDelete": "Ja, slett",
-			"areYouSure": "Er du sikker?"
 		},
 		"restoreConfirmModal": {
 			"title": "Gjenopprett sikkerhetskopi av database",
@@ -3086,7 +3085,6 @@
 			"deleteNaHelp": "Fjerner de utilgjengelige medlemmene fra denne gruppen.",
 			"deleteNaConfirmTitle": "Slette denne gruppen?",
 			"deleteNaConfirmMessage": "Hvis du fjerner de utilgjengelige medlemmene, blir det færre enn 2 rutbare medlemmer igjen, så hele gruppen slettes.",
-			"deleteNaConfirmLabel": "Slett gruppe",
 			"circuitBreakerProviderOpen": "Hele leverandøren hoppes over - kretsbryter åpen for: {{models}}",
 			"chip": {
 				"live": "aktiv",
@@ -3122,7 +3120,8 @@
 		"detail": {
 			"rps": "RPS",
 			"burst": "Burst-grense",
-			"tpm": "TPM"
+			"tpm": "TPM",
+			"deleteKey": "Slett nøkkel"
 		}
 	},
 	"hooks": {
@@ -3328,7 +3327,8 @@
 			"totpResetButton": "Tilbakestill totrinnsverifisering",
 			"totpResetHint": "Fjerner brukerens autentiseringsapp og gjenopprettingskoder, slik at de kan logge inn med bare passordet.",
 			"totpResetConfirmTitle": "Tilbakestill totrinnsverifisering",
-			"totpResetConfirmMessage": "Dette fjerner koblingen til autentiseringsappen og alle gjenopprettingskoder for denne brukeren. Passordet forblir uendret."
+			"totpResetConfirmMessage": "Dette fjerner koblingen til autentiseringsappen og alle gjenopprettingskoder for denne brukeren. Passordet forblir uendret.",
+			"totpResetConfirmLabel": "Nullstill"
 		},
 		"toast": {
 			"created": "Bruker opprettet",
@@ -3386,7 +3386,8 @@
 		"toast": {
 			"purged": "Revisjonsspor tømt",
 			"purgeFailed": "Kunne ikke tømme revisjonssporet"
-		}
+		},
+		"purgeConfirmLabel": "Tøm"
 	},
 	"budget": {
 		"label": "Budsjett",

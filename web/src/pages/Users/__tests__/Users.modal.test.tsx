@@ -234,6 +234,7 @@ describe("UserModal", () => {
 		);
 
 		await user.click(screen.getByTestId("user-modal-delete"));
+		await user.type(screen.getByTestId("delete-confirm-input"), "bob");
 		await user.click(screen.getByTestId("user-delete-confirm"));
 
 		await waitFor(() => {

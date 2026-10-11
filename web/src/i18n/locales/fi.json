@@ -82,7 +82,9 @@
 		"collapseNamed": "Kutista: {{name}}",
 		"rowStepLabel": "{{subject}}, {{time}}",
 		"rowStepFirst": "{{row}}, ensimmäinen rivi",
-		"rowStepLast": "{{row}}, viimeinen rivi"
+		"rowStepLast": "{{row}}, viimeinen rivi",
+		"discard": "Hylkää",
+		"overwrite": "Korvaa"
 	},
 	"layout": {
 		"title": "Model Hotel",
@@ -2428,16 +2430,13 @@
 		"deleteConfirmModal": {
 			"confirmDelete": "Vahvista Poisto",
 			"deleteType": "Poista {{entityType}}",
-			"areYouSure": "Haluatko varmasti poistaa {{entityName}}? Tätä toimintoa ei voi peruuttaa."
+			"areYouSure": "Haluatko varmasti poistaa {{entityName}}? Tätä toimintoa ei voi peruuttaa.",
+			"typeToConfirm": "Vahvista kirjoittamalla:",
+			"confirmWord": "vahvista"
 		},
 		"confirmDialog": {
 			"discardChangesTo": "Hylkää muutokset:",
 			"close": "Sulje"
-		},
-		"confirmDeleteButton": {
-			"deleteKey": "Poista Avain",
-			"yesDelete": "Kyllä, poista",
-			"areYouSure": "Oletko varma?"
 		},
 		"restoreConfirmModal": {
 			"title": "Palauta Tietokannan Varmuuskopiointi",
@@ -3086,7 +3085,6 @@
 			"deleteNaHelp": "Poistaa ei-saatavilla olevat jäsenet tästä ryhmästä.",
 			"deleteNaConfirmTitle": "Poistetaanko tämä ryhmä?",
 			"deleteNaConfirmMessage": "Ei-saatavilla olevien jäsenten poistaminen jättäisi alle 2 reititettävää jäsentä, joten koko ryhmä poistetaan.",
-			"deleteNaConfirmLabel": "Poista ryhmä",
 			"circuitBreakerProviderOpen": "Koko palveluntarjoaja ohitetaan - katkaisija auki malleille: {{models}}",
 			"chip": {
 				"live": "aktiivinen",
@@ -3122,7 +3120,8 @@
 		"detail": {
 			"rps": "RPS",
 			"burst": "Burst",
-			"tpm": "TPM"
+			"tpm": "TPM",
+			"deleteKey": "Poista Avain"
 		}
 	},
 	"hooks": {
@@ -3328,7 +3327,8 @@
 			"totpResetButton": "Nollaa kaksivaiheinen todennus",
 			"totpResetHint": "Poistaa käyttäjän todennussovelluksen ja palautuskoodit, jolloin kirjautuminen onnistuu pelkällä salasanalla.",
 			"totpResetConfirmTitle": "Nollaa kaksivaiheinen todennus",
-			"totpResetConfirmMessage": "Tämä poistaa todennussovelluksen sidonnan ja kaikki tämän käyttäjän palautuskoodit. Salasana pysyy ennallaan."
+			"totpResetConfirmMessage": "Tämä poistaa todennussovelluksen sidonnan ja kaikki tämän käyttäjän palautuskoodit. Salasana pysyy ennallaan.",
+			"totpResetConfirmLabel": "Nollaa"
 		},
 		"toast": {
 			"created": "Käyttäjä luotu",
@@ -3386,7 +3386,8 @@
 		"toast": {
 			"purged": "Auditointijälki tyhjennetty",
 			"purgeFailed": "Auditointijäljen tyhjennys epäonnistui"
-		}
+		},
+		"purgeConfirmLabel": "Tyhjennä"
 	},
 	"budget": {
 		"label": "Budjetti",

@@ -364,6 +364,11 @@ describe("EditProviderModal", () => {
 			await waitFor(() => {
 				expect(saveButton).toHaveTextContent(/Saving/);
 			});
+			// Let the delayed save settle inside this test: left in flight, its
+			// onSuccess would call onClose during whichever test runs 500ms later.
+			await waitFor(() => expect(defaultProps.onClose).toHaveBeenCalled(), {
+				timeout: 2000,
+			});
 		});
 
 		it("disables save button while mutation is pending", async () => {
@@ -383,6 +388,10 @@ describe("EditProviderModal", () => {
 			await user.click(saveButton);
 			await waitFor(() => {
 				expect(saveButton).toBeDisabled();
+			});
+			// Same settle as above, for the same reason.
+			await waitFor(() => expect(defaultProps.onClose).toHaveBeenCalled(), {
+				timeout: 2000,
 			});
 		});
 	});
@@ -558,7 +567,7 @@ describe("EditProviderModal", () => {
 			await user.type(nameInput, "Changed");
 			const closeButton = screen.getByRole("button", { name: "Cancel" });
 			await user.click(closeButton);
-			const discardButton = screen.getByRole("button", { name: "Delete" });
+			const discardButton = screen.getByRole("button", { name: "Discard" });
 			await user.click(discardButton);
 			await waitFor(() => {
 				expect(onClose).toHaveBeenCalled();
@@ -924,10 +933,70 @@ describe("EditProviderModal", () => {
 			expect((inputs[inputs.length - 1] as HTMLInputElement).value).toBe("3");
 		});
 
+		it("shows the quota reserve slider only for a provider type whose windows the reserve governs", () => {
+			// mockProvider is "custom": no quota endpoint, so no line to draw.
+			renderWithProviders(<EditProviderModal {...defaultProps} />);
+			expect(document.getElementById("edit-provider-quota-reserve")).toBeNull();
+			expect(screen.queryByTestId("quota-reserve-scope")).toBeNull();
+			for (const provider_type of ["deepseek", "ollama-cloud", "neuralwatt"]) {
+				renderWithProviders(
+					<EditProviderModal
+						{...defaultProps}
+						provider={{ ...mockProvider, id: provider_type, provider_type }}
+					/>,
+				);
+				expect(
+					document.getElementById("edit-provider-quota-reserve"),
+				).toBeNull();
+			}
+			renderWithProviders(
+				<EditProviderModal
+					{...defaultProps}
+					provider={{ ...mockProvider, id: "p-nano", provider_type: "nanogpt" }}
+				/>,
+			);
+			expect(
+				document.getElementById("edit-provider-quota-reserve"),
+			).not.toBeNull();
+		});
+
+		it("keeps the slider for a type the reserve does not govern while a leftover reserve is set, so it can be cleared", () => {
+			renderWithProviders(
+				<EditProviderModal
+					{...defaultProps}
+					provider={{ ...mockProvider, quota_reserve_percent: 15 }}
+				/>,
+			);
+			expect(
+				document.getElementById("edit-provider-quota-reserve"),
+			).not.toBeNull();
+		});
+
+		it("keeps a moved slider visible after the type is switched to one the reserve does not govern, so the value it would still save stays in view", async () => {
+			const { user } = renderWithProviders(
+				<EditProviderModal
+					{...defaultProps}
+					provider={{ ...mockProvider, provider_type: "zai-coding" }}
+				/>,
+			);
+			const slider = document.getElementById(
+				"edit-provider-quota-reserve",
+			) as HTMLInputElement;
+			fireEvent.change(slider, { target: { value: "30" } });
+			await user.click(screen.getByRole("button", { name: /Z\.ai/ }));
+			await user.click(screen.getByRole("option", { name: "Custom" }));
+			expect(
+				document.getElementById("edit-provider-quota-reserve"),
+			).not.toBeNull();
+		});
+
 		it("sends a moved quota reserve slider and nothing when it stays put", async () => {
 			const captured = capturePut();
 			const { user } = renderWithProviders(
-				<EditProviderModal {...defaultProps} />,
+				<EditProviderModal
+					{...defaultProps}
+					provider={{ ...mockProvider, provider_type: "zai-coding" }}
+				/>,
 			);
 			const slider = document.getElementById(
 				"edit-provider-quota-reserve",

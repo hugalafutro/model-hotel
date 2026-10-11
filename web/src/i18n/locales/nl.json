@@ -82,7 +82,9 @@
 		"collapseNamed": "Samenvouwen: {{name}}",
 		"rowStepLabel": "{{subject}}, {{time}}",
 		"rowStepFirst": "{{row}}, eerste rij",
-		"rowStepLast": "{{row}}, laatste rij"
+		"rowStepLast": "{{row}}, laatste rij",
+		"discard": "Verwerpen",
+		"overwrite": "Overschrijven"
 	},
 	"layout": {
 		"title": "Model Hotel",
@@ -2428,16 +2430,13 @@
 		"deleteConfirmModal": {
 			"confirmDelete": "Verwijderen bevestigen",
 			"deleteType": "{{entityType}} verwijderen",
-			"areYouSure": "Weet u zeker dat u {{entityName}}wilt verwijderen? Dit kan niet ongedaan worden gemaakt."
+			"areYouSure": "Weet u zeker dat u {{entityName}}wilt verwijderen? Dit kan niet ongedaan worden gemaakt.",
+			"typeToConfirm": "Typ ter bevestiging:",
+			"confirmWord": "bevestigen"
 		},
 		"confirmDialog": {
 			"discardChangesTo": "Wijzigingen weggooien naar:",
 			"close": "Afsluiten"
-		},
-		"confirmDeleteButton": {
-			"deleteKey": "Sleutel verwijderen",
-			"yesDelete": "Ja, verwijderen",
-			"areYouSure": "Weet je het zeker?"
 		},
 		"restoreConfirmModal": {
 			"title": "Database backup terugzetten",
@@ -3086,7 +3085,6 @@
 			"deleteNaHelp": "Verwijdert de niet-beschikbare leden uit deze groep.",
 			"deleteNaConfirmTitle": "Deze groep verwijderen?",
 			"deleteNaConfirmMessage": "Als u de niet-beschikbare leden verwijdert, blijven er minder dan 2 routeerbare leden over, dus de hele groep wordt verwijderd.",
-			"deleteNaConfirmLabel": "Groep verwijderen",
 			"circuitBreakerProviderOpen": "Hele provider overgeslagen - circuitonderbreker open voor: {{models}}",
 			"chip": {
 				"live": "actief",
@@ -3122,7 +3120,8 @@
 		"detail": {
 			"rps": "RPS",
 			"burst": "Burst",
-			"tpm": "TPM"
+			"tpm": "TPM",
+			"deleteKey": "Sleutel verwijderen"
 		}
 	},
 	"hooks": {
@@ -3328,7 +3327,8 @@
 			"totpResetButton": "Tweestapsverificatie opnieuw instellen",
 			"totpResetHint": "Verwijdert de authenticator-app en herstelcodes van de gebruiker, zodat inloggen weer met alleen het wachtwoord kan.",
 			"totpResetConfirmTitle": "Tweestapsverificatie opnieuw instellen",
-			"totpResetConfirmMessage": "Dit verwijdert de koppeling met de authenticator-app en alle herstelcodes van deze gebruiker. Het wachtwoord blijft ongewijzigd."
+			"totpResetConfirmMessage": "Dit verwijdert de koppeling met de authenticator-app en alle herstelcodes van deze gebruiker. Het wachtwoord blijft ongewijzigd.",
+			"totpResetConfirmLabel": "Resetten"
 		},
 		"toast": {
 			"created": "Gebruiker aangemaakt",
@@ -3386,7 +3386,8 @@
 		"toast": {
 			"purged": "Auditlogboek gewist",
 			"purgeFailed": "Kon het auditlogboek niet wissen"
-		}
+		},
+		"purgeConfirmLabel": "Opschonen"
 	},
 	"budget": {
 		"label": "Budget",

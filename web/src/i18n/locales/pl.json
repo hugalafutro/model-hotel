@@ -82,7 +82,9 @@
 		"collapseNamed": "Zwiń: {{name}}",
 		"rowStepLabel": "{{subject}}, {{time}}",
 		"rowStepFirst": "{{row}}, pierwszy wiersz",
-		"rowStepLast": "{{row}}, ostatni wiersz"
+		"rowStepLast": "{{row}}, ostatni wiersz",
+		"discard": "Odrzuć",
+		"overwrite": "Zastąp"
 	},
 	"layout": {
 		"title": "Model Hotel",
@@ -2560,16 +2562,13 @@
 		"deleteConfirmModal": {
 			"confirmDelete": "Potwierdź usunięcie",
 			"deleteType": "Usuń {{entityType}}",
-			"areYouSure": "Czy na pewno chcesz usunąć {{entityName}}? Tej akcji nie można cofnąć."
+			"areYouSure": "Czy na pewno chcesz usunąć {{entityName}}? Tej akcji nie można cofnąć.",
+			"typeToConfirm": "Aby potwierdzić, wpisz:",
+			"confirmWord": "potwierdzam"
 		},
 		"confirmDialog": {
 			"discardChangesTo": "Odrzuć zmiany do:",
 			"close": "Zamknij"
-		},
-		"confirmDeleteButton": {
-			"deleteKey": "Usuń klucz",
-			"yesDelete": "Tak, usuń",
-			"areYouSure": "Jesteś pewien?"
 		},
 		"restoreConfirmModal": {
 			"title": "Przywróć kopię zapasową bazy danych",
@@ -3238,7 +3237,6 @@
 			"deleteNaHelp": "Usuwa niedostępnych członków z tej grupy.",
 			"deleteNaConfirmTitle": "Usunąć tę grupę?",
 			"deleteNaConfirmMessage": "Usunięcie niedostępnych członków pozostawiłoby mniej niż 2 członków możliwych do routowania, więc cała grupa zostanie usunięta.",
-			"deleteNaConfirmLabel": "Usuń grupę",
 			"circuitBreakerProviderOpen": "Cały dostawca pominięty - wyłącznik otwarty dla: {{models}}",
 			"chip": {
 				"live": "aktywny",
@@ -3274,7 +3272,8 @@
 		"detail": {
 			"rps": "RPS",
 			"burst": "Burst",
-			"tpm": "TPM"
+			"tpm": "TPM",
+			"deleteKey": "Usuń klucz"
 		}
 	},
 	"hooks": {
@@ -3480,7 +3479,8 @@
 			"totpResetButton": "Zresetuj uwierzytelnianie dwuskładnikowe",
 			"totpResetHint": "Usuwa aplikację uwierzytelniającą i kody odzyskiwania użytkownika, aby mógł logować się samym hasłem.",
 			"totpResetConfirmTitle": "Zresetuj uwierzytelnianie dwuskładnikowe",
-			"totpResetConfirmMessage": "Spowoduje to usunięcie powiązania z aplikacją uwierzytelniającą i wszystkich kodów odzyskiwania tego użytkownika. Hasło pozostaje bez zmian."
+			"totpResetConfirmMessage": "Spowoduje to usunięcie powiązania z aplikacją uwierzytelniającą i wszystkich kodów odzyskiwania tego użytkownika. Hasło pozostaje bez zmian.",
+			"totpResetConfirmLabel": "Zresetuj"
 		},
 		"toast": {
 			"created": "Użytkownik utworzony",
@@ -3538,7 +3538,8 @@
 		"toast": {
 			"purged": "Dziennik audytu wyczyszczony",
 			"purgeFailed": "Nie udało się wyczyścić dziennika audytu"
-		}
+		},
+		"purgeConfirmLabel": "Wyczyść"
 	},
 	"budget": {
 		"label": "Budżet",

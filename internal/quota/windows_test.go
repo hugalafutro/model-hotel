@@ -182,7 +182,7 @@ func TestWindows_MiniMax_ActiveWindowWithNoFigureIsSkipped(t *testing.T) {
 }
 
 func TestWindows_GarbagePayloadReportsNothingForEveryType(t *testing.T) {
-	for _, typ := range []string{"zai-coding", "kimi-code", "minimax", "neuralwatt", "opencode-go"} {
+	for _, typ := range []string{"zai-coding", "kimi-code", "minimax", "nanogpt", "neuralwatt", "opencode-go"} {
 		if got := Windows(typ, Snapshot{Payload: []byte(`[1,2`)}); got != nil {
 			t.Errorf("%s: got %+v from unparseable JSON", typ, got)
 		}

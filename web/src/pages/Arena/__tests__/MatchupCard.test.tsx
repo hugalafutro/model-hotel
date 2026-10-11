@@ -512,7 +512,7 @@ describe("MatchupCard", () => {
 			// Dialog should render
 			expect(screen.getByText("Overwrite Persona")).toBeInTheDocument();
 			expect(
-				screen.getByRole("button", { name: /delete|discard/i }),
+				screen.getByRole("button", { name: /^(overwrite|confirm)$/i }),
 			).toBeInTheDocument();
 			expect(screen.getByText("Cancel")).toBeInTheDocument();
 		});
@@ -544,7 +544,7 @@ describe("MatchupCard", () => {
 
 			// Click discard
 			const discardButton = screen.getByRole("button", {
-				name: /delete|discard/i,
+				name: /^(overwrite|confirm)$/i,
 			});
 			fireEvent.click(discardButton);
 
@@ -684,7 +684,7 @@ describe("MatchupCard", () => {
 
 			// Click the Discard/Confirm button in the dialog
 			const confirmButton = screen.getByRole("button", {
-				name: /delete|discard/i,
+				name: /^(overwrite|confirm)$/i,
 			});
 			fireEvent.click(confirmButton);
 
@@ -718,7 +718,7 @@ describe("MatchupCard", () => {
 
 			// Click the Discard/Confirm button in the dialog
 			const confirmButton = screen.getByRole("button", {
-				name: /delete|discard/i,
+				name: /^(overwrite|confirm)$/i,
 			});
 			fireEvent.click(confirmButton);
 

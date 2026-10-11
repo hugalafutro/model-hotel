@@ -572,11 +572,11 @@ func TestAssess_ZaiCoding_UnwatchedTypeOrUnitIsIgnored(t *testing.T) {
 // parser refuses a body it cannot decode (OK=false) rather than reading it as
 // evidence. A truncated body is what an upstream incident or a proxy actually
 // produces, and OK=false is what makes the caller keep its normal cooldown. The
-// zai case was covered from the start; asserting all three together means a
+// zai case was covered from the start; asserting every parser together means a
 // parser that dropped the check would be caught rather than inheriting the
 // coverage of its neighbours.
 func TestAssess_MalformedBodyFailsOpenForEveryParser(t *testing.T) {
-	for _, providerType := range []string{"zai-coding", "kimi-code", "minimax"} {
+	for _, providerType := range []string{"zai-coding", "kimi-code", "minimax", "nanogpt", "neuralwatt", "opencode-go"} {
 		t.Run(providerType, func(t *testing.T) {
 			got := Assess(providerType, Snapshot{Kind: "usage", Payload: []byte(`{"limits":`)})
 
