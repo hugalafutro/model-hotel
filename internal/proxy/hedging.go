@@ -441,6 +441,11 @@ func (h *Handler) probeStreamingCandidate(ctx context.Context, st *requestState,
 			// race slot cannot re-issue to recover the current one.
 			if dialect, ok := anthropicegress.DialectFromError(errBody); ok {
 				h.learnThinkingDialect(candidate, dialect)
+			} else if learnsMessagesParams(providerType, candidate.model.ModelID) {
+				// A rejected parameter is learned the same way, under the same
+				// gate as the sequential retry: the next request to this model
+				// omits it instead of drawing the identical 400 on every race.
+				h.learnRejectedParams(st, candidate, errBody)
 			}
 		}
 		// A hedged race drops every candidate but the winner here, so without

@@ -9,6 +9,7 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/google/uuid"
 
@@ -244,5 +245,54 @@ func TestChatCompletions_OpenCodeGoClaudeLearnsRejectedParam(t *testing.T) {
 	}
 	if _, sent := calls[0].body["temperature"]; sent {
 		t.Errorf("second request still carries temperature: %v", calls[0].body)
+	}
+}
+
+// TestProbeStreamingCandidate_OpenCodeClaudeLearnsRejectedParam: a hedged slot
+// cannot re-issue, but a Messages 400 naming a parameter is learned there under
+// the same gate as the sequential retry, for a Claude model on OpenCode as for
+// an anthropic-messages provider. The next build for that model omits it.
+func TestProbeStreamingCandidate_OpenCodeClaudeLearnsRejectedParam(t *testing.T) {
+	h := newIntegrationHandler()
+	defer stopUnitHandler(h)
+
+	var log upstreamCallLog
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var body map[string]any
+		_ = json.NewDecoder(r.Body).Decode(&body)
+		log.record(anthropicUpstreamCall{path: r.URL.Path, body: body})
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusBadRequest)
+		_, _ = w.Write([]byte("{\"type\":\"error\",\"error\":{\"type\":\"invalid_request_error\",\"message\":\"`temperature` is deprecated for this model.\"}}"))
+	}))
+	defer srv.Close()
+
+	st, cand := probeStateForServer(srv.URL)
+	st.bodyBytes = []byte(`{"model":"orig-model","stream":true,"temperature":0.7,"max_tokens":200,"messages":[{"role":"user","content":"hi"}]}`)
+	cand.provider.ProviderType = "opencode-go"
+	cand.model.ModelID = "claude-haiku-5-5"
+
+	res := h.probeStreamingCandidate(context.Background(), st, cand, 0, 5*time.Second, 30*time.Second)
+	if res.won {
+		t.Fatal("a 400 must not win the race")
+	}
+	calls := log.takeAll()
+	if len(calls) != 1 || !strings.HasSuffix(calls[0].path, "/messages") {
+		t.Fatalf("want one Messages call, got %+v", calls)
+	}
+	if _, sent := calls[0].body["temperature"]; !sent {
+		t.Fatal("the probe did not carry the caller's temperature")
+	}
+	if !h.learnedStrip(learnedScopeFor(cand), cand.model.ModelID, "temperature") {
+		t.Fatal("temperature was not learned from the hedged 400")
+	}
+	rebuilt, _, _, err := h.anthropicEgressBody(st, cand, "opencode-go", h.thinkingDialectFor(cand))
+	if err != nil {
+		t.Fatalf("rebuild: %v", err)
+	}
+	var next map[string]any
+	_ = json.Unmarshal(rebuilt, &next)
+	if _, sent := next["temperature"]; sent {
+		t.Errorf("the next build still carries temperature: %s", rebuilt)
 	}
 }
