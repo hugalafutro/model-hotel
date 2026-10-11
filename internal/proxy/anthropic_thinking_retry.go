@@ -103,6 +103,18 @@ func (h *Handler) retryLearnableMessages400(
 	return res, true
 }
 
+// learnsMessagesParams reports the candidates a parameter named by a Messages
+// 400 may be learned for: those whose ONLY chat route is Messages, that is an
+// anthropic-messages provider or a Claude model on OpenCode. The learned strip
+// is keyed by provider and model and consulted by every build for that key, so
+// learning one on an `anthropic` provider, whose default route is the
+// OpenAI-compat endpoint, would let a name read out of a Messages 400 strip a
+// param from compat traffic that accepts it. The sequential retry and the
+// hedged learner share this gate so they can never disagree.
+func learnsMessagesParams(providerType, modelID string) bool {
+	return providerType == "anthropic-messages" || isOpenCodeClaude(providerType, modelID)
+}
+
 // learnAndRebuildMessages400 reads what a Messages 400 has to teach, records it,
 // and rebuilds the request accordingly. ok is false when the body teaches
 // nothing, or when what it teaches cannot change this particular request, where
@@ -129,12 +141,7 @@ func (h *Handler) learnAndRebuildMessages400(st *requestState, candidate modelCa
 		return rebuilt, model, stream, true
 	}
 
-	// Param learning is scoped to anthropic-messages, whose ONLY route is
-	// Messages. The learned strip is keyed by provider and model and consulted
-	// by every build for that key, so learning one on an `anthropic` provider,
-	// whose default route is the OpenAI-compat endpoint, would let a name read
-	// out of a Messages 400 strip a param from compat traffic that accepts it.
-	if providerType != "anthropic-messages" {
+	if !learnsMessagesParams(providerType, candidate.model.ModelID) {
 		return nil, "", false, false
 	}
 	rejected := learnableRejections(st, body)

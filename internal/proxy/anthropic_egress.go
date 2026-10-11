@@ -33,23 +33,38 @@ func isAnthropicFamily(providerType string) bool {
 	return providerType == "anthropic" || providerType == "anthropic-messages"
 }
 
+// isOpenCodeClaude is util.IsOpenCodeClaude: a Claude model behind one of the
+// OpenCode types, which OpenCode serves over Anthropic Messages alone.
+func isOpenCodeClaude(providerType, modelID string) bool {
+	return util.IsOpenCodeClaude(providerType, modelID)
+}
+
+// speaksMessages reports a candidate reachable at the provider's /messages
+// route: an Anthropic-family provider, or a Claude model on OpenCode.
+func speaksMessages(providerType, modelID string) bool {
+	return isAnthropicFamily(providerType) || isOpenCodeClaude(providerType, modelID)
+}
+
 // isAnthropicEgressAttempt reports whether this candidate is served through the
 // Anthropic egress adapter: a plain chat-completions request (no explicit
-// endpoint override, no multipart body) bound for an Anthropic-family provider
-// that has to be spoken to in Messages.
+// endpoint override, no multipart body) bound for a Messages-speaking candidate
+// (an Anthropic-family provider, or a Claude model on OpenCode) that has to be
+// spoken to in Messages.
 //
-// The two types reach that conclusion differently. For "anthropic-messages"
-// every chat request qualifies: the compat endpoint the untranslated body would
-// go to does not exist there. For "anthropic" only a request carrying a content
-// part the compat endpoint cannot express does, because that endpoint does exist
-// and forwarding an untranslated body to it is both cheaper and more faithful
-// than a round trip through the translator.
+// The types reach that conclusion differently. For "anthropic-messages", and
+// for a Claude model on OpenCode, every chat request qualifies: the compat
+// endpoint the untranslated body would go to does not exist (or refuses the
+// model) there. For "anthropic" only a request carrying a content part the
+// compat endpoint cannot express does, because that endpoint does exist and
+// forwarding an untranslated body to it is both cheaper and more faithful than
+// a round trip through the translator.
 //
-// An Anthropic-in request is excluded for both: it already has a better path
-// (buildNativeAnthropicRequest forwards its original Messages body verbatim),
-// and translating a body that is already Anthropic-shaped would corrupt it.
-func isAnthropicEgressAttempt(st *requestState, providerType string) bool {
-	if !isAnthropicFamily(providerType) || st.anthropicIn {
+// An Anthropic-in request is excluded for all of them: it already has a better
+// path (buildNativeAnthropicRequest forwards its original Messages body
+// verbatim), and translating a body that is already Anthropic-shaped would
+// corrupt it.
+func isAnthropicEgressAttempt(st *requestState, providerType, modelID string) bool {
+	if !speaksMessages(providerType, modelID) || st.anthropicIn {
 		return false
 	}
 	// A non-chat surface (embeddings, audio, images) and a multipart body both
@@ -59,7 +74,7 @@ func isAnthropicEgressAttempt(st *requestState, providerType string) bool {
 	if st.endpointPath != "" || st.makeUpstreamBody != nil {
 		return false
 	}
-	if providerType == "anthropic-messages" {
+	if providerType == "anthropic-messages" || isOpenCodeClaude(providerType, modelID) {
 		return true
 	}
 	return anthropicegress.NeedsNativeRouting(st.bodyBytes)
@@ -80,7 +95,7 @@ func (h *Handler) buildAnthropicEgressRequest(ctx context.Context, st *requestSt
 	// learnAndRebuildMessages400); overwritten per attempt, like the dialect flags.
 	st.lastMessagesBody = body
 
-	proxyReq, targetURL, err := newMessagesRequest(ctx, candidate, providerType, body)
+	proxyReq, targetURL, err := newMessagesRequest(ctx, st, candidate, providerType, body)
 	debuglog.Info("proxy: routing via anthropic egress adapter", "target_url", targetURL, "model", model, "provider", candidate.provider.Name, "stream", stream)
 	if err != nil {
 		return nil, providerType, targetURL, err
@@ -88,18 +103,20 @@ func (h *Handler) buildAnthropicEgressRequest(ctx context.Context, st *requestSt
 	return proxyReq, providerType, targetURL, nil
 }
 
-// newMessagesRequest builds the POST every Anthropic-family route makes: the
-// provider's /messages target URL, the body, and the auth headers.
-// SetProviderAuthHeaders already sends x-api-key + anthropic-version for this
-// provider type, which is exactly what the native route requires. The target
-// URL comes back even on failure, since the callers log it either way.
-func newMessagesRequest(ctx context.Context, candidate modelCandidate, providerType string, body []byte) (*http.Request, string, error) {
+// newMessagesRequest builds the POST every Messages route makes: the
+// provider's /messages target URL, the body, and the headers the route reads
+// (SetMessagesAuthHeaders: x-api-key + anthropic-version for every Messages
+// speaker, and for OpenCode also the Go session header its plan wants on every
+// call). The target URL comes back even on failure, since the callers log it
+// either way.
+func newMessagesRequest(ctx context.Context, st *requestState, candidate modelCandidate, providerType string, body []byte) (*http.Request, string, error) {
 	targetURL := messagesTargetURL(candidate, providerType)
 	req, err := newJSONUpstreamRequest(ctx, targetURL, body)
 	if err != nil {
 		return nil, targetURL, err
 	}
-	util.SetProviderAuthHeaders(req, providerType, candidate.apiKey)
+	util.SetMessagesAuthHeaders(req, providerType, candidate.apiKey)
+	util.SetOpenCodeGoSession(req, providerType, st.opencodeSession)
 	return req, targetURL, nil
 }
 
@@ -108,8 +125,21 @@ func newMessagesRequest(ctx context.Context, candidate modelCandidate, providerT
 // the given thinking dialect. The initial attempt and the dialect retry both go
 // through here so a change to either half cannot apply to only one of them.
 func (h *Handler) anthropicEgressBody(st *requestState, candidate modelCandidate, providerType string, dialect anthropicegress.ThinkingDialect) (body []byte, model string, stream bool, err error) {
-	cleaned := paramrewrite.BuildNativeUpstreamBody(st.bodyBytes, providerType, candidate.model.ModelID, st.reqModel, &h.deprecationCache, &h.paramRenameCache, nil, learnedScopeFor(candidate))
+	cleaned := paramrewrite.BuildNativeUpstreamBody(st.bodyBytes, messagesRewriteType(providerType, candidate.model.ModelID), candidate.model.ModelID, st.reqModel, &h.deprecationCache, &h.paramRenameCache, nil, learnedScopeFor(candidate))
 	return anthropicegress.TranslateRequestWithDialect(cleaned, dialect)
+}
+
+// messagesRewriteType is the provider type whose parameter rules a Messages body
+// is built with. A Claude model on OpenCode is spoken to in Messages, so it takes
+// the anthropic-messages rules: top_p is dropped as Anthropic now rejects it,
+// and reasoning_effort is kept for the translator to turn into thinking. The
+// OpenCode types' own rule strips reasoning_effort because their chat route
+// rejects it, which is a route this body never reaches.
+func messagesRewriteType(providerType, modelID string) string {
+	if isOpenCodeClaude(providerType, modelID) {
+		return "anthropic-messages"
+	}
+	return providerType
 }
 
 // thinkingDialectFor returns the extended-thinking shape to ask this candidate's

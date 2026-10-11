@@ -448,6 +448,32 @@ func SetOpenCodeGoSession(req *http.Request, providerType, session string) {
 	req.Header.Set(OpenCodeGoSessionHeader, session)
 }
 
+// IsOpenCodeType reports the two OpenCode provider types, Go and Zen.
+func IsOpenCodeType(providerType string) bool {
+	return providerType == "opencode-go" || providerType == "opencode-zen"
+}
+
+// IsOpenCodeClaude reports a Claude model behind one of the OpenCode types.
+// OpenCode serves its Claude models over Anthropic Messages alone, the way it
+// serves its GPT models over Responses alone: a chat-completions request is
+// refused with 400 "Model does not support this protocol". The name rule is
+// safe because OpenCode curates its listing and every claude-* entry there is
+// Anthropic's; a relay re-exposing one is some other provider type.
+func IsOpenCodeClaude(providerType, modelID string) bool {
+	return IsOpenCodeType(providerType) && strings.HasPrefix(modelID, "claude-")
+}
+
+// SetMessagesAuthHeaders sets what a provider's /messages route reads: the
+// type's own headers, plus x-api-key and anthropic-version for an OpenCode
+// type, whose Messages route reads those rather than the Bearer its chat and
+// Responses routes take. Sending both to OpenCode is harmless.
+func SetMessagesAuthHeaders(req *http.Request, providerType, apiKey string) {
+	SetProviderAuthHeaders(req, providerType, apiKey)
+	if IsOpenCodeType(providerType) {
+		SetProviderAuthHeaders(req, "anthropic", apiKey)
+	}
+}
+
 // RewriteJSONModel rewrites the top-level "model" member of a JSON request
 // body to the resolved upstream model id, leaving every other member intact:
 // what a native passthrough (Anthropic Messages, OpenAI Responses) does to the

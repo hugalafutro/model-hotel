@@ -199,6 +199,17 @@ func (s *Server) applyMemberConfig(ctx context.Context, m *Member, token string,
 	// answerer had at hand (see lostAnswer5xx).
 	pushStart := time.Now()
 	out, status, err := s.pushMemberImport(ctx, m, token, export, false, sourceGen)
+	// The push is over, answered or not; everything below records its outcome
+	// locally (stamps, failure state, events). A rearm watcher cancelling the
+	// pass from here on must not turn a committed import into a missing stamp
+	// (database/sql refuses a cancelled context) and the "applied but could not
+	// record the sync stamp" failure that follows it, nor drop the event a
+	// genuine failure earns, so the bookkeeping runs on a context the
+	// cancellation does not reach, under its own short bound so a stuck store
+	// cannot hold the pass open past shutdown. The push's own error still
+	// carries the cause when the cancel came first.
+	ctx, settle := context.WithTimeout(context.WithoutCancel(ctx), 10*time.Second)
+	defer settle()
 	// Carried on the success path too: neither a group built short nor a disable
 	// the member has no model for is a failure to apply, and the auto-sync loop
 	// needs the names for its divergence alert.
@@ -216,6 +227,22 @@ func (s *Server) applyMemberConfig(ctx context.Context, m *Member, token string,
 		// No stamp lands below, but the import may still complete member-side; the
 		// pass that measures the member holding this exact config stamps it then.
 		s.markUnconfirmedPush(m.ID, pushedHash)
+	case errors.Is(err, errPassSuperseded):
+		// The rearm watcher cancelled this push mid-flight because the fleet's
+		// sync inputs moved (a rearm, repoint or disband): the same benign
+		// supersede the member's commit fence reports when its answer gets through
+		// first, treated the same way (no stamp, no failure event, left to the
+		// newer pass). The watcher cancels the pass context with that cause and
+		// the HTTP client reports the cause as the request's error, so the error
+		// itself says why the push ended: a disband is covered although it moves
+		// no generation, a cancellation from anywhere else (shutdown) carries no
+		// cause and stays a failure below, and a push that failed on its own in
+		// the same instant keeps its own error. No status gate, since the cancel
+		// can land after the headers arrived.
+		res.Error = "superseded by a newer sync"
+		debuglog.Debug("frontdesk: config sync cancelled by a fleet rearm, repoint or disband", "member", m.Name, "source_gen", sourceGen)
+		recordConfigSync("superseded")
+		return res
 	case err != nil && status == 0:
 		res.Error = "could not reach this member"
 	case err != nil:

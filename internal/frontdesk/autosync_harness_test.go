@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -138,6 +139,11 @@ func newStubAutoMember(t *testing.T, token string) *stubAutoMember {
 			w.WriteHeader(sm.exportCode)
 			_, _ = w.Write([]byte(sm.exportBody))
 		case r.Method == http.MethodPost && r.URL.Path == "/api/config/import":
+			// Read the body to its end, as a real member does. Until the body hits
+			// EOF the server never starts its background read, and without that it
+			// cannot notice Front Desk cancelling the push mid-flight, so a handler
+			// waiting on r.Context() for exactly that cancellation would wait forever.
+			_, _ = io.Copy(io.Discard, r.Body)
 			if r.URL.Query().Get("dryRun") != "" {
 				sm.dryRuns++
 				if sm.onDryRun != nil {

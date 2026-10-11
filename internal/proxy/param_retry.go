@@ -104,9 +104,11 @@ func candidateModelID(candidate modelCandidate) string {
 // it. responsesRejectedParams keeps the one ambiguous name from being
 // mislearned onto the compat path.
 //
-// Anthropic egress attempts get the one 400 that route can fix by asking
-// differently: a model refusing the extended-thinking shape it was asked in.
-// Every other Messages 400 is left alone.
+// Anthropic egress attempts get the two 400s that route can fix by asking
+// differently: a model refusing the extended-thinking shape it was asked in
+// (every Messages speaker), and a model naming a parameter it has retired
+// (only the candidates whose sole chat route is Messages, see
+// learnsMessagesParams). Every other Messages 400 is left alone.
 func (h *Handler) retryLearnable400(
 	r *http.Request,
 	st *requestState,
@@ -266,7 +268,15 @@ func (h *Handler) issueRetry(r *http.Request, st *requestState, candidate modelC
 		rc()
 		return nil, nil, reqError{Kind: KindInternal, Attempt: attempt, Provider: candidate.provider.Name, Underlying: errString(err)}, false
 	}
-	util.SetProviderAuthHeaders(req, providerType, candidate.apiKey)
+	// A Messages retry carries what the Messages route reads (x-api-key for an
+	// OpenCode Claude model, where the type's own header is a Bearer), the same
+	// as the request it re-issues; the native passthrough is named too so a
+	// retry added to it later inherits the rule.
+	if st.anthropicEgressAttempt || st.anthropicNativeAttempt {
+		util.SetMessagesAuthHeaders(req, providerType, candidate.apiKey)
+	} else {
+		util.SetProviderAuthHeaders(req, providerType, candidate.apiKey)
+	}
 	util.SetOpenCodeGoSession(req, providerType, st.opencodeSession)
 	// #nosec G704 -- provider URL is admin-configured, not arbitrary user input
 	resp, doErr := h.upstreamClient(req.Context()).Do(req)

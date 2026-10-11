@@ -2,7 +2,16 @@ package frontdesk
 
 import (
 	"context"
+	"errors"
 )
+
+// errPassSuperseded is the cause a convergence pass is cancelled with when the
+// fleet's sync inputs moved under it (a rearm, repoint or disband). A member
+// call cut off by it is a benign supersede, not an unreachable member: the HTTP
+// client reports the cause as the request's error, so applyMemberConfig and
+// measureMember recognise it with errors.Is on that error. A cancellation from
+// anywhere else (shutdown) carries no cause and stays a failure.
+var errPassSuperseded = errors.New("frontdesk: pass superseded by a rearm")
 
 // startRearmWatch spawns a pass's rearm watcher and returns the stop func that
 // cancels it and blocks until it has returned.
@@ -19,14 +28,14 @@ import (
 //
 // cancel is the pass's own context cancel and is idempotent, so the ordinary case
 // where the watcher cancels on a rearm and stop then cancels again is harmless.
-func (s *Server) startRearmWatch(ctx context.Context, rearmCh <-chan struct{}, gen int64, cancel context.CancelFunc) (stop func()) {
+func (s *Server) startRearmWatch(ctx context.Context, rearmCh <-chan struct{}, gen int64, cancel context.CancelCauseFunc) (stop func()) {
 	done := make(chan struct{})
 	go func() {
 		defer close(done)
 		s.watchRearm(ctx, rearmCh, gen, cancel)
 	}()
 	return func() {
-		cancel()
+		cancel(nil)
 		<-done
 	}
 }
@@ -42,9 +51,9 @@ func (s *Server) startRearmWatch(ctx context.Context, rearmCh <-chan struct{}, g
 // exits as soon as ctx is done, and startRearmWatch's stop waits for that exit, so
 // it never outlives the pass. A transient read error is ignored; the pass's own
 // stale() gates remain.
-func (s *Server) watchRearm(ctx context.Context, rearmCh <-chan struct{}, gen int64, cancel context.CancelFunc) {
+func (s *Server) watchRearm(ctx context.Context, rearmCh <-chan struct{}, gen int64, cancel context.CancelCauseFunc) {
 	if cur, err := s.store.AutoSyncGen(ctx); err == nil && cur != gen {
-		cancel()
+		cancel(errPassSuperseded)
 		return
 	}
 	select {
@@ -53,7 +62,7 @@ func (s *Server) watchRearm(ctx context.Context, rearmCh <-chan struct{}, gen in
 		// A rearm broadcast woke us: the fleet's sync inputs changed (a gen-bumping
 		// rearm/repoint, or a disband that cleared the designation without touching
 		// the gen), so this pass is stale either way: cancel it.
-		cancel()
+		cancel(errPassSuperseded)
 	}
 }
 

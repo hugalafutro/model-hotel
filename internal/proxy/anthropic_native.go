@@ -22,7 +22,7 @@ func (h *Handler) buildNativeAnthropicRequest(ctx context.Context, st *requestSt
 	// anthropic.StripSignedToolUseIDs) is dropped: this provider has no use for
 	// it, and it is a kilobyte of prompt per call per turn.
 	body := util.RewriteJSONModel(anthropic.StripSignedToolUseIDs(st.anthropicRawBody), candidate.model.ModelID)
-	proxyReq, targetURL, err := newMessagesRequest(ctx, candidate, providerType, body)
+	proxyReq, targetURL, err := newMessagesRequest(ctx, st, candidate, providerType, body)
 	debuglog.Debug("proxy: native anthropic passthrough", "target_url", targetURL, "model", candidate.model.ModelID, "provider", candidate.provider.Name)
 	if err != nil {
 		return nil, providerType, targetURL, err

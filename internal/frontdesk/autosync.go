@@ -491,7 +491,7 @@ func (s *Server) applyAutoSync(ctx context.Context, primary *Member, primaryBuil
 	// landing in that gap still wakes the watcher: the channel is closed, not
 	// missed.
 	rearmCh := s.rearmChan()
-	passCtx, cancel := context.WithCancel(ctx)
+	passCtx, cancel := context.WithCancelCause(ctx)
 	stopWatch := s.startRearmWatch(passCtx, rearmCh, gen, cancel)
 	defer stopWatch()
 
@@ -502,7 +502,12 @@ func (s *Server) applyAutoSync(ctx context.Context, primary *Member, primaryBuil
 	// pass rather than being retried per member.
 	primaryExport := sync.OnceValues(func() ([]byte, error) {
 		export, err := s.fetchMemberExport(passCtx, primary, primaryToken)
-		if err != nil {
+		switch {
+		case errors.Is(err, errPassSuperseded):
+			// The watcher cut the read off; the primary did not fail. The
+			// superseding pass reads it again.
+			debuglog.Debug("frontdesk: auto-sync: primary export read superseded", "member", primary.Name)
+		case err != nil:
 			debuglog.Warn("frontdesk: auto-sync: read primary export", "member", primary.Name, "error", err)
 		}
 		return export, err
@@ -702,6 +707,12 @@ func (s *Server) measureMember(ctx, passCtx context.Context, m *Member, token, h
 		// while it holds unknown config. That is the failure this whole check exists to
 		// end, and it is the more dangerous case, because the member looks healthy.
 		debuglog.Debug("frontdesk: auto-sync: read member config version", "member", m.Name, "error", err)
+		if errors.Is(err, errPassSuperseded) {
+			// The rearm watcher cut this read off, not the member: nothing was
+			// learned about it, so neither the unreadable clock nor a running
+			// alert's cause may move. The superseding pass measures it afresh.
+			return false, false, nil
+		}
 		if s.recordUnreadableHash(m.ID, unreadableCause(err), time.Now()) {
 			s.markMemberUnmeasured(ctx, m)
 		}

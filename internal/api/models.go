@@ -672,18 +672,26 @@ func buildTestModelRequest(m *model.Model, prov *provider.Provider) (baseBody []
 	baseBody, _ = json.Marshal(body)
 
 	targetURL = util.BuildProviderTargetURL(prov.BaseURL, providerType, "/chat/completions")
-	switch providerType {
-	case "vertex-express":
+	switch {
+	case providerType == "vertex-express":
 		// Vertex express serves chat only on the native generateContent route;
 		// doTestModelRequest translates the probe body to match.
 		targetURL = util.BuildProviderTargetURL(prov.BaseURL, providerType,
 			"/publishers/google/models/"+url.PathEscape(m.ModelID)+":generateContent")
-	case "anthropic-messages":
-		// The Messages API is the only chat route this type serves.
+	case speaksMessagesOnly(providerType, m.ModelID):
+		// The Messages API is the only chat route these serve.
 		targetURL = util.BuildProviderTargetURL(prov.BaseURL, providerType, "/messages")
 	}
 
 	return baseBody, providerType, targetURL, reqHash
+}
+
+// speaksMessagesOnly reports a candidate whose only chat route is Anthropic
+// Messages: an anthropic-messages provider, or a Claude model on OpenCode. The
+// proxy routes both through the Anthropic egress adapter, so the Test button
+// must too (see doTestModelEgressRequest).
+func speaksMessagesOnly(providerType, modelID string) bool {
+	return providerType == "anthropic-messages" || util.IsOpenCodeClaude(providerType, modelID)
 }
 
 // testModelClient is the 30s-timeout client every Test button probe is sent
@@ -705,11 +713,11 @@ func (h *Handler) testModelClient() *http.Client {
 // max_completion_tokens) that the proxy failover loop uses for live traffic.
 func (h *Handler) doTestModelRequest(ctx context.Context, providerType, targetURL, modelID, apiKey string, baseBody []byte) (*http.Response, error) {
 	testClient := h.testModelClient()
-	switch providerType {
-	case "vertex-express":
+	switch {
+	case providerType == "vertex-express":
 		return h.doTestModelEgressRequest(ctx, testClient, targetURL, providerType, modelID, apiKey, baseBody,
 			gemini.TranslateRequest, gemini.BuildChatCompletion)
-	case "anthropic-messages":
+	case speaksMessagesOnly(providerType, modelID):
 		return h.doTestModelEgressRequest(ctx, testClient, targetURL, providerType, modelID, apiKey, baseBody,
 			anthropicegress.TranslateRequest, anthropicegress.BuildChatCompletion)
 	}
@@ -745,7 +753,11 @@ func (h *Handler) doTestModelEgressRequest(ctx context.Context, client *http.Cli
 	if err != nil {
 		return nil, err
 	}
-	util.SetProviderAuthHeaders(req, providerType, apiKey)
+	// The Messages headers are a superset of the type's own for every type
+	// that reaches here (Vertex keeps its x-goog-api-key), and the Go session
+	// header is what an opencode-go provider refuses a request without.
+	util.SetMessagesAuthHeaders(req, providerType, apiKey)
+	util.SetOpenCodeGoSession(req, providerType, util.OpenCodeGoModelTestSession)
 	req.Header.Set("Content-Type", "application/json")
 	// #nosec G704 -- provider URL is admin-configured, not arbitrary user input
 	resp, err := client.Do(req)

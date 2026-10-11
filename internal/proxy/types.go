@@ -419,8 +419,9 @@ type requestState struct {
 	// anthropicEgressAttempt is set per failover attempt by
 	// buildCandidateRequest: true when the current candidate is served through
 	// the internal/anthropicegress translation (every chat request to an
-	// anthropic-messages provider, and an anthropic one carrying a document its
-	// OpenAI-compat endpoint cannot express), read by the response dispatch so
+	// anthropic-messages provider or to a Claude model on OpenCode, and an
+	// anthropic one carrying a document its OpenAI-compat endpoint cannot
+	// express), read by the response dispatch so
 	// it translates the Messages body/stream back to the chat-completions shape
 	// the pipeline and client expect.
 	anthropicEgressAttempt bool

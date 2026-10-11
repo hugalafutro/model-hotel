@@ -145,6 +145,8 @@ curl -X POST http://localhost:8081/v1/chat/completions \
 
 This is invisible to the client: ordinary Chat Completions in and out, streaming included, with the model's reasoning summary surfaced as `reasoning_content` and token usage metered as usual. Every `/v1/responses` call sends `store: false`, so OpenAI retains no conversation state. See [Failover & Hotel Routing](Failover-and-Hotel-Routing).
 
+**Anthropic Messages route for OpenCode's Claude models:** OpenCode Zen and OpenCode Go serve their Claude models (`claude-*`) over Anthropic Messages alone and refuse Chat Completions with the same 400. A chat request to one of them goes straight to the provider's `/messages` by name, no refusal needed, translated in both directions by the adapter that serves `anthropic-messages` providers and built with that type's parameter rules: `reasoning_effort` becomes extended thinking (with the same dialect self-heal and parameter learning), `top_p` is dropped, and the Go session header rides along. An Anthropic-in request (`/v1/messages`) to one of them is forwarded verbatim, as it is to Anthropic itself, and the dashboard's Test button probes `/messages` too.
+
 **Model Routing:**
 
 - `hotel/<model>` - Failover routing (tries all providers that offer the model, moving to the next one on an upstream 5xx, 401, 402, 403, 404 or 499, and on 429 while `failover_on_rate_limit` is on, the default)

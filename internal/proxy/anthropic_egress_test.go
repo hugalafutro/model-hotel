@@ -38,6 +38,13 @@ func TestIsAnthropicEgressAttempt(t *testing.T) {
 		providerType string
 		want         bool
 	}{
+		// OpenCode serves its Claude models over Messages alone, so plain text
+		// routes there on both OpenCode types; its GPT models have their own
+		// Responses route and never come here; an Anthropic-in request keeps
+		// the verbatim path.
+		{"text to opencode-go claude", &requestState{bodyBytes: textBody}, "opencode-go", true},
+		{"text to opencode-zen claude", &requestState{bodyBytes: textBody}, "opencode-zen", true},
+		{"anthropic-in to opencode-go claude", &requestState{bodyBytes: textBody, anthropicIn: true}, "opencode-go", false},
 		{"document to anthropic", &requestState{bodyBytes: docBody}, "anthropic", true},
 		{"text to anthropic", &requestState{bodyBytes: textBody}, "anthropic", false},
 		{"document to another provider", &requestState{bodyBytes: docBody}, "openai", false},
@@ -63,10 +70,23 @@ func TestIsAnthropicEgressAttempt(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := isAnthropicEgressAttempt(tt.st, tt.providerType); got != tt.want {
+			// A Claude id for the OpenCode rows, a neutral one everywhere else:
+			// only the OpenCode rule reads the model name.
+			modelID := "m"
+			if isOpenCodeType(tt.providerType) {
+				modelID = "claude-haiku-5-5"
+			}
+			if got := isAnthropicEgressAttempt(tt.st, tt.providerType, modelID); got != tt.want {
 				t.Errorf("isAnthropicEgressAttempt = %v, want %v", got, tt.want)
 			}
 		})
+	}
+	// The same OpenCode types with a GPT model stay off this route: the
+	// Responses re-route owns those.
+	for _, providerType := range []string{"opencode-go", "opencode-zen"} {
+		if isAnthropicEgressAttempt(&requestState{bodyBytes: textBody}, providerType, "gpt-6-luna") {
+			t.Errorf("%s gpt model must not take the Messages route", providerType)
+		}
 	}
 }
 

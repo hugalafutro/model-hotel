@@ -40,7 +40,7 @@ func TestRearmWatchStopJoinsTheWatcher(t *testing.T) {
 	// stop), so only the first call parks: the second must return so stop can get
 	// as far as waiting on the watcher.
 	var parked atomic.Bool
-	stop := srv.startRearmWatch(ctx, rearmCh, gen, func() {
+	stop := srv.startRearmWatch(ctx, rearmCh, gen, func(error) {
 		if parked.CompareAndSwap(false, true) {
 			close(inCancel)
 			<-release

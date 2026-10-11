@@ -269,6 +269,118 @@ func TestAutoSyncStaleImportIsBenign(t *testing.T) {
 	}
 }
 
+// TestAutoSyncRearmCancelledPushIsBenign: the other way the same race can end.
+// The rearm the member reports mid-flight wakes the pass's rearm watcher, which
+// cancels the in-flight push; when that cancellation beats the member's answer,
+// the client sees a cancelled request rather than a stale refusal. It is the
+// same benign supersede and must be treated the same way: no stamp, not
+// recorded converged, and no config.sync_failed event. The stub holds its
+// answer until the request context is cancelled, so the cancelled shape is the
+// one the pass sees every time, not only on a slow runner.
+func TestAutoSyncRearmCancelledPushIsBenign(t *testing.T) {
+	srv, store := newTestServer(t)
+	primary := newStubAutoMember(t, "ptoken")
+	primary.versionHash = "hash-B"
+	replica := newStubAutoMember(t, "rtoken")
+	replica.dryDiff = driftDiff
+	replica.staleImport = true
+	replica.onStale = func(ctx context.Context) {
+		// The server-level rearm, as the operator's PUT does: it bumps the
+		// generation and broadcasts to the pass's watcher, which cancels the
+		// in-flight push.
+		srv.rearmAutoSync(context.WithoutCancel(ctx))
+		select {
+		case <-ctx.Done(): // the watcher cancelled the push; answer into the void
+		case <-time.After(10 * time.Second):
+			t.Error("the rearm watcher did not cancel the in-flight push")
+		}
+	}
+
+	pm, _ := store.CreateMember(t.Context(), "primary", primary.srv.URL, "ptoken")
+	rm, _ := store.CreateMember(t.Context(), "replica", replica.srv.URL, "rtoken")
+	enableAutoSync(t, store, pm.ID)
+	alignFleetVersions(t, srv, store, "dev")
+
+	ch := srv.bus.Subscribe()
+	defer srv.bus.Unsubscribe(ch)
+
+	srv.forceAutoSyncNow(t.Context())
+
+	got, err := store.GetMember(t.Context(), rm.ID)
+	if err != nil {
+		t.Fatalf("GetMember: %v", err)
+	}
+	if got.LastConfigSyncAt != nil {
+		t.Error("a push cancelled by a rearm must not have its last-sync marker stamped")
+	}
+	if memberVerified(srv, rm.ID) {
+		t.Error("a member whose push was cancelled by a rearm was recorded verified in sync")
+	}
+	if sawSyncFailed(ch) {
+		t.Error("a push cancelled by a newer generation must not emit a config.sync_failed event")
+	}
+}
+
+// TestApplyMemberConfig_FenceRefusalSupersededIsBenign pins the answer-first
+// ending directly: a fence refusal whose source generation the store has since
+// moved past is filed as superseded, with no failure event. Called on a context
+// no watcher cancels, so which arm runs does not depend on scheduling, which it
+// does in TestAutoSyncStaleImportIsBenign (the watcher's first generation read
+// may land before or after the stub's store-only bump).
+func TestApplyMemberConfig_FenceRefusalSupersededIsBenign(t *testing.T) {
+	srv, store := newTestServer(t)
+	replica := newStubAutoMember(t, "rtoken")
+	replica.dryDiff = driftDiff
+	replica.staleImport = true
+	rm, _ := store.CreateMember(t.Context(), "replica", replica.srv.URL, "rtoken")
+	if err := store.RearmAutoSync(t.Context()); err != nil {
+		t.Fatalf("rearm: %v", err)
+	}
+	gen, _ := store.AutoSyncGen(t.Context())
+
+	ch := srv.bus.Subscribe()
+	defer srv.bus.Unsubscribe(ch)
+
+	res := srv.applyMemberConfig(t.Context(), rm, "rtoken", []byte(`{"export":true}`), autoSyncReason, false, gen-1, "hash-X")
+	if res.OK || res.Error != "superseded by a newer sync" {
+		t.Fatalf("want a benign supersede, got %+v", res)
+	}
+	if sawSyncFailed(ch) {
+		t.Error("a fence refusal superseded by a newer generation must not emit a config.sync_failed event")
+	}
+	got, _ := store.GetMember(t.Context(), rm.ID)
+	if got.LastConfigSyncAt != nil {
+		t.Error("a superseded push must not stamp the last-sync marker")
+	}
+}
+
+// TestMeasureMember_SupersededReadStartsNoClock: a hash read the rearm watcher
+// cut off teaches nothing about the member, so it must not start the
+// unreadable-hash clock (which would later alert "could not be reached" for a
+// member nobody failed to reach). A read cancelled for any other reason still
+// does, as before.
+func TestMeasureMember_SupersededReadStartsNoClock(t *testing.T) {
+	srv, store := newTestServer(t)
+	replica := newStubAutoMember(t, "rtoken")
+	rm, _ := store.CreateMember(t.Context(), "replica", replica.srv.URL, "rtoken")
+
+	superseded, cancelSuperseded := context.WithCancelCause(t.Context())
+	cancelSuperseded(errPassSuperseded)
+	if converged, measured, _ := srv.measureMember(t.Context(), superseded, rm, "rtoken", "hash-B", nil); converged || measured {
+		t.Fatalf("a superseded read must be neither converged nor measured, got %v/%v", converged, measured)
+	}
+	if !unreadableSince(srv, rm.ID).IsZero() {
+		t.Error("a read the watcher cut off started the unreadable clock")
+	}
+
+	plain, cancelPlain := context.WithCancelCause(t.Context())
+	cancelPlain(nil)
+	srv.measureMember(t.Context(), plain, rm, "rtoken", "hash-B", nil)
+	if unreadableSince(srv, rm.ID).IsZero() {
+		t.Error("a read cancelled for another reason must still start the unreadable clock")
+	}
+}
+
 // A stale refusal with no newer generation behind it is not a race: the
 // member's fence holds a generation this Front Desk never issued (a Front Desk
 // rebuilt on a fresh volume, restored from an older backup, or a member
