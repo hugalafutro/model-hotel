@@ -702,6 +702,12 @@ func (s *Server) measureMember(ctx, passCtx context.Context, m *Member, token, h
 		// while it holds unknown config. That is the failure this whole check exists to
 		// end, and it is the more dangerous case, because the member looks healthy.
 		debuglog.Debug("frontdesk: auto-sync: read member config version", "member", m.Name, "error", err)
+		if errors.Is(err, errPassSuperseded) {
+			// The rearm watcher cut this read off, not the member: nothing was
+			// learned about it, so neither the unreadable clock nor a running
+			// alert's cause may move. The superseding pass measures it afresh.
+			return false, false, nil
+		}
 		if s.recordUnreadableHash(m.ID, unreadableCause(err), time.Now()) {
 			s.markMemberUnmeasured(ctx, m)
 		}

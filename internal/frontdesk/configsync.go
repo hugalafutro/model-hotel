@@ -216,20 +216,18 @@ func (s *Server) applyMemberConfig(ctx context.Context, m *Member, token string,
 		// No stamp lands below, but the import may still complete member-side; the
 		// pass that measures the member holding this exact config stamps it then.
 		s.markUnconfirmedPush(m.ID, pushedHash)
-	case err != nil && errors.Is(context.Cause(ctx), errPassSuperseded):
+	case errors.Is(err, errPassSuperseded):
 		// The rearm watcher cancelled this push mid-flight because the fleet's
 		// sync inputs moved (a rearm, repoint or disband): the same benign
 		// supersede the member's commit fence reports when its answer gets through
 		// first, treated the same way (no stamp, no failure event, left to the
-		// newer pass). The cause, not the generation, is the test: a disband wakes
-		// the watcher without moving the generation, and a cancellation from
-		// anywhere else (shutdown) carries no cause and stays a failure below. The
-		// error itself is not inspected: a cancel landing after the request was
-		// written comes back from the transport as its own "request canceled"
-		// error, not one wrapping context.Canceled. A push that failed on its own
-		// in the same instant the watcher fired is filed here too; the next pass
-		// measures that member again and reports it then. No status gate, since
-		// the cancel can land after the headers arrived.
+		// newer pass). The watcher cancels the pass context with that cause and
+		// the HTTP client reports the cause as the request's error, so the error
+		// itself says why the push ended: a disband is covered although it moves
+		// no generation, a cancellation from anywhere else (shutdown) carries no
+		// cause and stays a failure below, and a push that failed on its own in
+		// the same instant keeps its own error. No status gate, since the cancel
+		// can land after the headers arrived.
 		res.Error = "superseded by a newer sync"
 		debuglog.Debug("frontdesk: config sync cancelled by a fleet rearm, repoint or disband", "member", m.Name, "source_gen", sourceGen)
 		recordConfigSync("superseded")
