@@ -462,6 +462,9 @@ func TestHandleNativeNonStreaming_RecordsCacheSplit(t *testing.T) {
 	if logData.tokensPromptCacheHit != 20000 || logData.tokensPromptCacheMiss != 34 {
 		t.Errorf("cache split = (%d,%d), want (20000,34)", logData.tokensPromptCacheHit, logData.tokensPromptCacheMiss)
 	}
+	if logData.tokensPromptCacheWrite != 30 {
+		t.Errorf("cache write = %d, want 30 (priced at the write premium)", logData.tokensPromptCacheWrite)
+	}
 }
 
 // creationOnlyStream is a native stream whose message_start reports a cache
@@ -496,6 +499,11 @@ func TestNative_CacheCreationOnlyRecordsNoCacheSplit(t *testing.T) {
 		if logData.tokensPromptCacheHit != 0 || logData.tokensPromptCacheMiss != 0 {
 			t.Errorf("cache split = (%d,%d), want (0,0)", logData.tokensPromptCacheHit, logData.tokensPromptCacheMiss)
 		}
+		// No split, but the write is still booked: the first request of a cached
+		// conversation pays the write premium.
+		if logData.tokensPromptCacheWrite != 30 {
+			t.Errorf("cache write = %d, want 30", logData.tokensPromptCacheWrite)
+		}
 	})
 
 	t.Run("streaming", func(t *testing.T) {
@@ -506,6 +514,9 @@ func TestNative_CacheCreationOnlyRecordsNoCacheSplit(t *testing.T) {
 		}
 		if logData.tokensPromptCacheHit != 0 || logData.tokensPromptCacheMiss != 0 {
 			t.Errorf("cache split = (%d,%d), want (0,0)", logData.tokensPromptCacheHit, logData.tokensPromptCacheMiss)
+		}
+		if logData.tokensPromptCacheWrite != 30 {
+			t.Errorf("cache write = %d, want 30", logData.tokensPromptCacheWrite)
 		}
 	})
 }

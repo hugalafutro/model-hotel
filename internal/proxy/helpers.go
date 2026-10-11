@@ -125,6 +125,15 @@ func extractCacheTokens(u Usage) (hitTokens, missTokens int) {
 	return hitTokens, max(0, prompt-hitTokens)
 }
 
+// extractCacheWriteTokens returns the prompt tokens a provider wrote into its
+// cache on this answer, Anthropic's cache_creation_input_tokens (the only such
+// field any provider reports), clamped like every other token figure; 0 when
+// absent. They are a subset of the misses extractCacheTokens returns and carry
+// the write premium in model.CostUSD.
+func extractCacheWriteTokens(u Usage) int {
+	return util.ClampTokenCount(max(0, u.CacheCreationInputTokens))
+}
+
 // parsedChunk holds the decomposed fields from an SSE data line payload.
 // Instead of nesting 5-6 levels of json.Unmarshal checks, parseChunkPayload
 // returns all three maps in a single call.

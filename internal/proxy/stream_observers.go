@@ -215,6 +215,9 @@ func (st *streamState) observeUsage(usage *Usage) {
 		st.promptCacheHitTokens = hit
 		st.promptCacheMissTokens = miss
 	}
+	if write := extractCacheWriteTokens(*usage); write > 0 {
+		st.promptCacheWriteTokens = write
+	}
 }
 
 // observeDataChunk applies the four non-emitting, side-channel observers over a

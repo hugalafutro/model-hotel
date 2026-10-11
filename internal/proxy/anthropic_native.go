@@ -150,7 +150,7 @@ func (h *Handler) handleNativeNonStreaming(w http.ResponseWriter, r *http.Reques
 	if canFailOver && !answered {
 		// Charged before the candidate is left behind: the provider read this
 		// prompt and billed it, whoever ends up serving the request.
-		h.meterRejectedPrompt(st, logData, candidate, inputTokens, usage.CacheHitTokens, usage.CacheMissTokens)
+		h.meterRejectedPrompt(st, logData, candidate, inputTokens, usage.CacheHitTokens, usage.CacheMissTokens, usage.CacheWriteTokens)
 		return h.rejectUntranslatableBody(st, candidate, logData, native.label(), resp.StatusCode, errEmptyCompletion, attempt, r)
 	}
 
@@ -174,6 +174,7 @@ func (h *Handler) handleNativeNonStreaming(w http.ResponseWriter, r *http.Reques
 	// the prompt total, so a rejected earlier candidate's split survives.
 	logData.tokensPromptCacheHit += util.ClampTokenCount(usage.CacheHitTokens)
 	logData.tokensPromptCacheMiss += util.ClampTokenCount(usage.CacheMissTokens)
+	logData.tokensPromptCacheWrite += util.ClampTokenCount(usage.CacheWriteTokens)
 	logData.failoverAttempt = attempt
 	logData.state = "completed"
 	logData.deliveredContent = carriesContent
@@ -221,6 +222,9 @@ func (h *Handler) emitRawData(sink *streamSink, st *streamState, native nativeDi
 		// without cache fields must not zero a split an earlier one reported.
 		// The split is clamped rather than refused, matching extractCacheTokens:
 		// these two are log columns, not a charge.
+		if info.CacheWriteTokens > 0 {
+			st.promptCacheWriteTokens = util.ClampTokenCount(info.CacheWriteTokens)
+		}
 		if info.CacheHitTokens > 0 || info.CacheMissTokens > 0 {
 			st.promptCacheHitTokens = util.ClampTokenCount(info.CacheHitTokens)
 			st.promptCacheMissTokens = util.ClampTokenCount(info.CacheMissTokens)

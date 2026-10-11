@@ -50,6 +50,9 @@ func TestParseResponseUsage_SplitsCachedInput(t *testing.T) {
 	if u.CacheHitTokens+u.CacheMissTokens != u.PromptTokens {
 		t.Errorf("split %d+%d does not sum back to the prompt %d", u.CacheHitTokens, u.CacheMissTokens, u.PromptTokens)
 	}
+	if u.CacheWriteTokens != 30 {
+		t.Errorf("cache write tokens = %d, want 30 (the written share, priced at the write premium)", u.CacheWriteTokens)
+	}
 }
 
 // Writing a cache entry without reading one reports no cache counts: the
@@ -66,6 +69,11 @@ func TestParseResponseUsage_CacheCreationOnly(t *testing.T) {
 	if u.CacheHitTokens != 0 || u.CacheMissTokens != 0 {
 		t.Errorf("cache split = (%d,%d), want (0,0)", u.CacheHitTokens, u.CacheMissTokens)
 	}
+	// The write is still reported on its own: the first request of a cached
+	// conversation pays the write premium without any read.
+	if u.CacheWriteTokens != 30 {
+		t.Errorf("cache write tokens = %d, want 30", u.CacheWriteTokens)
+	}
 }
 
 // The streaming path reads its usage through the same summary(), so
@@ -74,6 +82,9 @@ func TestInspectStreamEvent_CacheCreationOnly(t *testing.T) {
 	ev := InspectStreamEvent([]byte(`{"type":"message_start","message":{"usage":{"input_tokens":4,"output_tokens":1,"cache_creation_input_tokens":30}}}`))
 	if !ev.HasInput || ev.InputTokens != 34 {
 		t.Errorf("input tokens = %d (has=%v), want 34 (4 + 30)", ev.InputTokens, ev.HasInput)
+	}
+	if ev.CacheWriteTokens != 30 {
+		t.Errorf("cache write tokens = %d, want 30", ev.CacheWriteTokens)
 	}
 	if ev.CacheHitTokens != 0 || ev.CacheMissTokens != 0 {
 		t.Errorf("cache split = (%d,%d), want (0,0)", ev.CacheHitTokens, ev.CacheMissTokens)

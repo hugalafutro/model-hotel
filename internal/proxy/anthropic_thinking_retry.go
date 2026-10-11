@@ -143,9 +143,12 @@ func (h *Handler) learnAndRebuildMessages400(st *requestState, candidate modelCa
 
 	if anthropicegress.CacheControlRefused(body) {
 		// The endpoint rejected the cache_control field itself. Learned for every
-		// Messages speaker (Anthropic never says this, so it can only be an
+		// Messages speaker (Anthropic never refuses the field, so this is an
 		// operator-entered endpoint), then rebuilt without breakpoints. A body the
 		// rebuild does not change (one that carried none) earns the same 400.
+		// One repair per request: a body that also needs the other thinking
+		// dialect gets that 400 back once, with the refusal already learned for
+		// the next request (messagesRetried, see retryLearnableMessages400).
 		h.learnCacheRefusal(candidate)
 		rebuilt, model, stream, err := h.anthropicEgressBody(st, candidate, providerType, h.thinkingDialectFor(candidate))
 		if err != nil {

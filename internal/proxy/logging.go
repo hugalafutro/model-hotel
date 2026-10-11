@@ -48,7 +48,7 @@ func (logEntry *requestLogData) terminalCostParts() (serving, rejected float64, 
 	if !isTerminalLogState(logEntry.state) {
 		return 0, 0, false
 	}
-	rPrompt, rHit, rMiss, rCost := logEntry.rejectedTotals()
+	rPrompt, rHit, rMiss, rWrite, rCost := logEntry.rejectedTotals()
 	// A rerank served by a model that bills per search unit is priced from the
 	// units the provider reported, not from the token columns (which hold the
 	// prompt estimate that charges the token limits). Only when it reported
@@ -64,10 +64,11 @@ func (logEntry *requestLogData) terminalCostParts() (serving, rejected float64, 
 		}
 	}
 	usage := model.Usage{
-		Prompt:          logEntry.tokensPrompt - rPrompt + logEntry.estimatedPrompt,
-		PromptCacheHit:  logEntry.tokensPromptCacheHit - rHit,
-		PromptCacheMiss: logEntry.tokensPromptCacheMiss - rMiss,
-		Completion:      logEntry.tokensCompletion + logEntry.estimatedCompletion,
+		Prompt:           logEntry.tokensPrompt - rPrompt + logEntry.estimatedPrompt,
+		PromptCacheHit:   logEntry.tokensPromptCacheHit - rHit,
+		PromptCacheMiss:  logEntry.tokensPromptCacheMiss - rMiss,
+		PromptCacheWrite: logEntry.tokensPromptCacheWrite - rWrite,
+		Completion:       logEntry.tokensCompletion + logEntry.estimatedCompletion,
 	}
 	serving, ok = logEntry.priceServingShare(usage)
 	if !ok {

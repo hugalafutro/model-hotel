@@ -668,6 +668,19 @@ func TestUpdateRequestLog_StampsCost(t *testing.T) {
 		t.Errorf("walked cost_usd = %v, want 2.18 (rejected hop 1.00 at its own price + serving share 1.18)", got)
 	}
 
+	// The same walk with a cache write on both hops: the rejected hop's write is
+	// its own (priced in its 1.00 already), and the serving hop's 0.1M write
+	// adds the premium on its share: 1.18 + 0.1M * $1 * 0.25 = 1.205.
+	walkedWrite := newRow()
+	walkedWrite.servedModel = priced.servedModel
+	walkedWrite.tokensPromptCacheWrite = 150_000
+	walkedWrite.rejected = []rejectedAttempt{{providerName: "walked-away", prompt: 100_000, cacheMiss: 100_000, cacheWrite: 50_000, costUSD: 1.0, priced: true}}
+	walkedWrite.state = "completed"
+	h.updateRequestLog(walkedWrite)
+	if got := readCost(walkedWrite.id); got == nil || *got < 2.205-1e-9 || *got > 2.205+1e-9 {
+		t.Errorf("walked-with-write cost_usd = %v, want 2.205 (rejected hop 1.00 + serving share 1.18 + write premium 0.025)", got)
+	}
+
 	// A rejected hop whose model carries no prices stays in the serving share
 	// and is priced at the serving model, so the row is still charged: the
 	// whole 1M prompt at the serving prices, 1.28 as in the priced case.

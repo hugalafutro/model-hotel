@@ -54,11 +54,14 @@ type UsageBlock struct {
 // created a cache entry without reading one, or that used no cache at all,
 // reports NO cache counts rather than "miss = the whole prompt". Creation
 // tokens still count inside PromptTokens, which is what the request is metered
-// and priced on.
+// and priced on, and are reported on their own as CacheWriteTokens whether or
+// not a read occurred, so the write premium is priced on the first request of
+// a conversation too.
 func (u UsageBlock) summary() egress.NativeUsage {
 	out := egress.NativeUsage{
 		PromptTokens:     u.InputTokens + u.CacheReadInputTokens + u.CacheCreationInputTokens,
 		CompletionTokens: u.OutputTokens,
+		CacheWriteTokens: u.CacheCreationInputTokens,
 	}
 	if u.CacheReadInputTokens > 0 {
 		out.CacheHitTokens = u.CacheReadInputTokens
@@ -197,6 +200,7 @@ func InspectStreamEvent(payload []byte) egress.NativeStreamEvent {
 			// have the caller overwrite a good count with nothing.
 			info.InputTokens, info.HasInput = u.PromptTokens, u.PromptTokens > 0
 			info.CacheHitTokens, info.CacheMissTokens = u.CacheHitTokens, u.CacheMissTokens
+			info.CacheWriteTokens = u.CacheWriteTokens
 			if usage.OutputTokens > 0 {
 				info.OutputTokens, info.HasOutput = usage.OutputTokens, true
 			}

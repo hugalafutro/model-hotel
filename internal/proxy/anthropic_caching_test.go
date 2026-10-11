@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"math"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -11,6 +12,8 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+
+	"github.com/hugalafutro/model-hotel/internal/model"
 )
 
 // sendCachedChat sends a chat request with a system prompt, two tools and three
@@ -51,10 +54,18 @@ func TestChatCompletions_AnthropicEgressCachesPrompt(t *testing.T) {
 		_ = json.NewDecoder(r.Body).Decode(&body)
 		log.record(anthropicUpstreamCall{path: r.URL.Path, body: body})
 		w.Header().Set("Content-Type", "application/json")
-		_, _ = w.Write([]byte(`{"id":"msg_1","type":"message","role":"assistant","model":"claude","content":[{"type":"text","text":"CACHED-9"}],"stop_reason":"end_turn","usage":{"input_tokens":12,"cache_creation_input_tokens":0,"cache_read_input_tokens":3000,"output_tokens":4}}`))
+		_, _ = w.Write([]byte(`{"id":"msg_1","type":"message","role":"assistant","model":"claude","content":[{"type":"text","text":"CACHED-9"}],"stop_reason":"end_turn","usage":{"input_tokens":0,"cache_creation_input_tokens":12,"cache_read_input_tokens":3000,"output_tokens":4}}`))
 	}))
 	defer upstream.Close()
 	env := newAnthropicMessagesEnv(t, upstream)
+	// Priced, so the row proves the cache split AND the write premium reach the
+	// bill: 3000 hits at $0.1 + 12 writes at $1 plus 25% + 4 output at $4,
+	// all per million.
+	if _, err := testDB.Pool().Exec(context.Background(),
+		`UPDATE models SET input_price_per_million = 1, input_price_per_million_cache_hit = 0.1, output_price_per_million = 4 WHERE id = $1`, env.ModelID); err != nil {
+		t.Fatal(err)
+	}
+	model.InvalidateModelCache()
 
 	w := sendCachedChat(env, "")
 	if w.Code != http.StatusOK {
@@ -87,6 +98,23 @@ func TestChatCompletions_AnthropicEgressCachesPrompt(t *testing.T) {
 	}
 	if resp.Usage.PromptTokens != 3012 || resp.Usage.PromptTokensDetails.CachedTokens != 3000 {
 		t.Errorf("usage = %+v, want prompt 3012 with 3000 cached", resp.Usage)
+	}
+	if state, _, _, _ := waitForRequestLog(t, env.ProviderID); state != "completed" {
+		t.Fatalf("row state = %q, want completed", state)
+	}
+	var hit, miss int
+	var cost float64
+	if err := testDB.Pool().QueryRow(context.Background(),
+		`SELECT tokens_prompt_cache_hit, tokens_prompt_cache_miss, cost_usd FROM request_logs WHERE provider_id = $1 ORDER BY created_at DESC LIMIT 1`,
+		env.ProviderID).Scan(&hit, &miss, &cost); err != nil {
+		t.Fatal(err)
+	}
+	if hit != 3000 || miss != 12 {
+		t.Errorf("row cache split = (%d,%d), want (3000,12)", hit, miss)
+	}
+	// 300 + 12 + 3 (the write premium on the 12 written tokens) + 16, per million.
+	if want := 331.0 / 1e6; math.Abs(cost-want) > 1e-9 { // REAL column
+		t.Errorf("cost_usd = %v, want %v (the write premium on the 12 created tokens included)", cost, want)
 	}
 }
 

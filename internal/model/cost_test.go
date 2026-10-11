@@ -30,6 +30,16 @@ func TestCostUSD(t *testing.T) {
 		// A split with no cache-hit price falls back to the whole prompt at the
 		// input price rather than pricing the hit tokens at nothing.
 		{"cache hit without a cache price", noCache, Usage{Prompt: 1_000_000, PromptCacheHit: 800_000, PromptCacheMiss: 200_000}, 1, true},
+		// Cache writes are a subset of the misses: priced once as misses, plus
+		// the write premium (Anthropic's 1.25x) on the written share only.
+		{"cache write adds the premium", priced, Usage{Prompt: 1_000_000, PromptCacheHit: 800_000, PromptCacheMiss: 200_000, PromptCacheWrite: 200_000}, 0.08 + 0.2 + 0.05, true},
+		// A first request writes without reading: no split, the whole prompt at
+		// the input price, plus the premium on the written part.
+		{"cache write without a read", priced, Usage{Prompt: 1_000_000, PromptCacheWrite: 400_000}, 1 + 0.1, true},
+		// The premium is capped by the prompt: a write figure beyond it (a
+		// provider bug) cannot bill more than the prompt was.
+		{"cache write beyond the prompt", priced, Usage{Prompt: 1_000_000, PromptCacheWrite: 5_000_000}, 1 + 0.25, true},
+		{"negative cache write is ignored", priced, Usage{Prompt: 1_000_000, PromptCacheWrite: -7}, 1, true},
 		{"nothing charged", priced, Usage{}, 0, true},
 	} {
 		t.Run(tc.name, func(t *testing.T) {

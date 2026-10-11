@@ -167,14 +167,58 @@ func TestTranslateRequest_EmptySystemHasNoKey(t *testing.T) {
 	}
 }
 
-// TestCacheControlRefused: only a 400 that names the field counts.
+// TestTranslateRequest_CacheBreakpointsSkipWhitespace: Anthropic rejects a
+// breakpoint on an empty text block and a whitespace-only one reads as empty.
+// A whitespace-only system prompt stays a plain string, and a turn ending in a
+// whitespace-only text block carries its breakpoint on the block before it, or
+// none when every block is whitespace.
+func TestTranslateRequest_CacheBreakpointsSkipWhitespace(t *testing.T) {
+	body, _, _, err := TranslateRequestWithOptions([]byte(`{"model":"m","messages":[
+		{"role":"system","content":" \n "},
+		{"role":"user","content":[{"type":"text","text":"real"},{"type":"text","text":"\n"}]},
+		{"role":"assistant","content":"   "}
+	]}`), Options{Caching: true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	out := decodeAnt(t, body)
+	if system, isString := out["system"].(string); !isString || system != " \n " {
+		t.Errorf("a whitespace-only system prompt must stay a plain string, got %v", out["system"])
+	}
+	msgs := out["messages"].([]any)
+	if len(msgs) != 2 {
+		t.Fatalf("messages = %d, want 2\n%s", len(msgs), body)
+	}
+	user := msgs[0].(map[string]any)["content"].([]any)
+	if len(user) != 2 || !hasCacheControl(user[0]) || hasCacheControl(user[1]) {
+		t.Errorf("the breakpoint must skip the trailing whitespace block and land on the block before, got %v", user)
+	}
+	if _, isString := msgs[1].(map[string]any)["content"].(string); !isString {
+		t.Errorf("a whitespace-only turn has nowhere to put a breakpoint and must keep its string content, got %v", msgs[1])
+	}
+	if n := strings.Count(string(body), `"cache_control"`); n != 1 {
+		t.Errorf("markers = %d, want 1\n%s", n, body)
+	}
+}
+
+// TestCacheControlRefused: only a 400 that names the field AND refuses it as
+// unknown counts. Anthropic's own body-specific cache_control complaints
+// (empty block, too many breakpoints, a thinking block) must not switch caching
+// off for a model that supports it.
 func TestCacheControlRefused(t *testing.T) {
 	cases := map[string]bool{
 		`{"type":"error","error":{"type":"invalid_request_error","message":"messages.2.content.1.cache_control: Extra inputs are not permitted"}}`: true,
-		`{"error":{"message":"Unknown field: cache control"}}`:                                                                                true,
-		`{"type":"error","error":{"type":"invalid_request_error","message":"` + "`temperature` is deprecated for this model." + `"}}`:         false,
-		`{"type":"error","error":{"type":"invalid_request_error","message":"adaptive thinking is not supported on this model"}}`:              false,
-		`{"type":"error","error":{"type":"invalid_request_error","message":"messages.0.content.0.document: Input should be a valid string"}}`: false,
+		`{"error":{"message":"Unknown field: cache control"}}`:                                                                                        true,
+		`{"error":{"message":"unrecognized parameter 'cache_control' in system[0]"}}`:                                                                 true,
+		`{"error":{"message":"cache_control is not supported by this endpoint"}}`:                                                                     true,
+		`{"type":"error","error":{"type":"invalid_request_error","message":"cache_control cannot be set for empty text blocks"}}`:                     false,
+		`{"type":"error","error":{"type":"invalid_request_error","message":"A maximum of 4 blocks with cache_control may be provided"}}`:              false,
+		`{"type":"error","error":{"type":"invalid_request_error","message":"messages.1.content.0: cache_control is not allowed on thinking blocks"}}`: false,
+		`{"type":"error","error":{"type":"invalid_request_error","message":"messages.0.content.0.cache_control.ttl: Input should be '5m' or '1h'"}}`:  false,
+		`{"type":"error","error":{"type":"invalid_request_error","message":"messages.0.content.0.cache_control: field required"}}`:                    false,
+		`{"type":"error","error":{"type":"invalid_request_error","message":"` + "`temperature` is deprecated for this model." + `"}}`:                 false,
+		`{"type":"error","error":{"type":"invalid_request_error","message":"adaptive thinking is not supported on this model"}}`:                      false,
+		`{"type":"error","error":{"type":"invalid_request_error","message":"messages.0.content.0.document: Input should be a valid string"}}`:         false,
 		``: false,
 	}
 	for body, want := range cases {

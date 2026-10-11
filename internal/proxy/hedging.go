@@ -441,15 +441,16 @@ func (h *Handler) probeStreamingCandidate(ctx context.Context, st *requestState,
 			// sequential retry. Learning here spares every later request to this
 			// model the refusal, even though this race slot cannot re-issue to
 			// recover the current one.
+			// Same order as learnAndRebuildMessages400, so the two learners can
+			// never read one body two ways.
 			switch {
+			case func() bool { _, ok := anthropicegress.DialectFromError(errBody); return ok }():
+				dialect, _ := anthropicegress.DialectFromError(errBody)
+				h.learnThinkingDialect(candidate, dialect)
 			case anthropicegress.CacheControlRefused(errBody):
 				h.learnCacheRefusal(candidate)
-			default:
-				if dialect, ok := anthropicegress.DialectFromError(errBody); ok {
-					h.learnThinkingDialect(candidate, dialect)
-				} else if learnsMessagesParams(providerType, candidate.model.ModelID) {
-					h.learnRejectedParams(st, candidate, errBody)
-				}
+			case learnsMessagesParams(providerType, candidate.model.ModelID):
+				h.learnRejectedParams(st, candidate, errBody)
 			}
 		}
 		// A hedged race drops every candidate but the winner here, so without

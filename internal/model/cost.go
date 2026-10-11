@@ -13,7 +13,11 @@ type Usage struct {
 	Prompt          int
 	PromptCacheHit  int
 	PromptCacheMiss int
-	Completion      int
+	// PromptCacheWrite is the part of PromptCacheMiss a provider wrote into its
+	// prompt cache (Anthropic's cache_creation_input_tokens). Those tokens take
+	// the input price plus the write premium; 0 when the provider reports none.
+	PromptCacheWrite int
+	Completion       int
 }
 
 // Priceable reports whether a stored price can price anything: present,
@@ -38,12 +42,19 @@ func PriceOrNil(p *float64) *float64 {
 	return p
 }
 
+// CacheWritePremium is the surcharge on a prompt token written into the
+// provider's cache, as a fraction of the input price: Anthropic's 5-minute
+// cache write costs 1.25x the input price.
+const CacheWritePremium = 0.25
+
 // CostUSD prices usage at the model's stored per-million prices. ok is false
 // when the model holds no priceable input or output price (absent, or a figure
 // Priceable refuses), in which case the cost is unknown rather than zero.
 // Cache-hit tokens take the cache-hit price when the model has a priceable
-// one and the input price otherwise; completion tokens, reasoning included,
-// take the output price.
+// one and the input price otherwise; cache-write tokens, a subset of the
+// misses, add CacheWritePremium of the input price on top (Anthropic bills a
+// 5-minute cache write at 1.25x and is the only provider reporting writes);
+// completion tokens, reasoning included, take the output price.
 //
 // The prompt can exceed the cache split (a provider that reports a total but
 // no split, or only part of one). The excess takes the input price, so every
@@ -58,6 +69,10 @@ func (m *Model) CostUSD(u Usage) (cost float64, ok bool) {
 			float64(u.PromptCacheMiss)**m.InputPricePerMillion +
 			float64(max(0, u.Prompt-u.PromptCacheHit-u.PromptCacheMiss))**m.InputPricePerMillion
 	}
+	// The premium only: the written tokens are already priced once as misses
+	// (or as plain prompt when the provider reported no split). Capped by the
+	// prompt so a provider cannot report more writes than it read.
+	prompt += float64(min(max(0, u.PromptCacheWrite), max(0, u.Prompt))) * *m.InputPricePerMillion * CacheWritePremium
 	output := float64(u.Completion) * *m.OutputPricePerMillion
 	cost = (prompt + output) / 1e6
 	// A finite price a listing stated as 1e308 still overflows the product; an

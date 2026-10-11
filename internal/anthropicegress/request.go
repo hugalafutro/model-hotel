@@ -274,9 +274,11 @@ type Options struct {
 	// Dialect is the extended-thinking shape to ask for.
 	Dialect ThinkingDialect
 	// Caching places prompt-cache breakpoints (see applyCacheBreakpoints). On for
-	// served traffic, off for the retirement probe and the Test button, whose
-	// bodies are below every model's minimum cacheable length anyway, and off
-	// again for a model whose endpoint refused the field (CacheControlRefused).
+	// every request the proxy builds for a candidate (served traffic and the
+	// retirement probe alike, which follows the same learned facts), off for a
+	// model whose endpoint refused the field (CacheControlRefused), and off for
+	// the dashboard Test button, which calls TranslateRequest. Bodies below a
+	// model's minimum cacheable length are accepted and simply not cached.
 	Caching bool
 }
 
@@ -367,51 +369,6 @@ func foldResponseFormat(system string, raw json.RawMessage) string {
 		return instruction
 	}
 	return system + "\n\n" + instruction
-}
-
-// MaxCacheBreakpoints is Anthropic's limit on cache_control markers per request.
-// applyCacheBreakpoints never places more than this many.
-const MaxCacheBreakpoints = 4
-
-var ephemeral = &antCacheControl{Type: "ephemeral"}
-
-// applyCacheBreakpoints places Anthropic prompt-cache breakpoints on the built
-// request. Without one Anthropic caches nothing, so every turn of an agent
-// loop re-reads its whole context at full price; with them a prefix that
-// repeats is read back at the cache-read price. Breakpoints go where the
-// cache hierarchy (tools, then system, then messages) makes a reusable prefix:
-//
-//   - the last tool, so the tool set is one prefix shared by every request
-//     that carries it;
-//   - the system prompt, lifted into array form because only a block carries
-//     cache_control, shared by every conversation under the same instructions;
-//   - the last block of the final turn, which moves forward as a conversation
-//     grows (Anthropic looks back up to twenty block positions from a
-//     breakpoint for an earlier cache entry, so the previous request's prefix is
-//     found again);
-//   - the last block of the turn before it, the standing entry a growing
-//     conversation hits while the final one is being written.
-//
-// That is exactly MaxCacheBreakpoints when every part is present and fewer
-// otherwise, and a chat-completions client has no way of adding its own, so the
-// limit cannot be exceeded. A turn marked here is promoted from string content
-// to one text block; unmarked turns keep whatever shape they had. Prompts below
-// a model's minimum cacheable length are accepted and simply not cached.
-func applyCacheBreakpoints(out *antRequest) {
-	if n := len(out.Tools); n > 0 {
-		out.Tools[n-1].CacheControl = ephemeral
-	}
-	if system, ok := out.System.(string); ok && system != "" {
-		out.System = []antSystemBlock{{Type: "text", Text: system, CacheControl: ephemeral}}
-	}
-	for i := len(out.Messages) - 1; i >= 0 && i >= len(out.Messages)-2; i-- {
-		blocks := contentBlocks(out.Messages[i].Content)
-		if len(blocks) == 0 {
-			continue
-		}
-		blocks[len(blocks)-1].CacheControl = ephemeral
-		out.Messages[i].Content = blocks
-	}
 }
 
 // applyThinking turns an OpenAI reasoning_effort into the Anthropic thinking
