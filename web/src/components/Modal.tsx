@@ -156,18 +156,13 @@ export const Modal = forwardRef<ModalHandle, ModalProps>(function Modal(
 	// hand focus back to whatever opened it when it unmounts: aria-modal says
 	// the rest of the page is inert, so a keyboard user must not be dropped on
 	// <body> and made to start over from the top.
-	// A child whose own mount effect focuses a field (the typed delete
-	// confirmation) has already placed focus inside the dialog by the time
-	// this runs, so the opener is captured once, at the first render, and the
-	// container focus steps aside.
-	const [opener] = useState(() => document.activeElement);
 	useEffect(() => {
-		if (!dialogRef.current?.contains(document.activeElement))
-			dialogRef.current?.focus();
+		const opener = document.activeElement;
+		dialogRef.current?.focus();
 		return () => {
 			if (opener instanceof HTMLElement && opener.isConnected) opener.focus();
 		};
-	}, [opener]);
+	}, []);
 
 	// Tab stays inside the dialog: the page behind the portal is still in the
 	// tab order, and a Tab past the last control would otherwise land on the

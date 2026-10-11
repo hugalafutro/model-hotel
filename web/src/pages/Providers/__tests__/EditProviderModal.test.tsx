@@ -972,6 +972,24 @@ describe("EditProviderModal", () => {
 			).not.toBeNull();
 		});
 
+		it("keeps a moved slider visible after the type is switched to one the reserve does not govern, so the value it would still save stays in view", async () => {
+			const { user } = renderWithProviders(
+				<EditProviderModal
+					{...defaultProps}
+					provider={{ ...mockProvider, provider_type: "zai-coding" }}
+				/>,
+			);
+			const slider = document.getElementById(
+				"edit-provider-quota-reserve",
+			) as HTMLInputElement;
+			fireEvent.change(slider, { target: { value: "30" } });
+			await user.click(screen.getByRole("button", { name: /Z\.ai/ }));
+			await user.click(screen.getByRole("option", { name: "Custom" }));
+			expect(
+				document.getElementById("edit-provider-quota-reserve"),
+			).not.toBeNull();
+		});
+
 		it("sends a moved quota reserve slider and nothing when it stays put", async () => {
 			const captured = capturePut();
 			const { user } = renderWithProviders(

@@ -50,10 +50,10 @@ export function DeleteConfirmModal({
 	const inputId = useId();
 	const [typed, setTyped] = useState("");
 	const inputRef = useRef<HTMLInputElement>(null);
-	// Focus from an effect rather than autoFocus: Modal's own focus effect runs
-	// after this one (children first) and steps aside when focus is already
-	// inside the dialog, and StrictMode's effect replay repeats this one too,
-	// where a DOM autoFocus fires only on insertion.
+	// Modal is this component's child, so its mount effect runs first and
+	// focuses the dialog container; this effect runs after it and moves focus
+	// on to the field. StrictMode's effect replay repeats both in that order,
+	// where a DOM autoFocus would fire only on insertion and lose out.
 	useEffect(() => {
 		inputRef.current?.focus();
 	}, []);
