@@ -296,3 +296,35 @@ func TestProbeStreamingCandidate_OpenCodeClaudeLearnsRejectedParam(t *testing.T)
 		t.Errorf("the next build still carries temperature: %s", rebuilt)
 	}
 }
+
+// TestProbeStreamingCandidate_AnthropicDocumentDoesNotLearnParams: the hedged
+// learner keeps the sequential gate. An "anthropic" provider takes the Messages
+// route only for a document, and its default route is the compat endpoint that
+// accepts the parameter, so a Messages 400 naming one must not be learned
+// there: the strip would reach compat traffic too.
+func TestProbeStreamingCandidate_AnthropicDocumentDoesNotLearnParams(t *testing.T) {
+	h := newIntegrationHandler()
+	defer stopUnitHandler(h)
+
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusBadRequest)
+		_, _ = w.Write([]byte("{\"type\":\"error\",\"error\":{\"type\":\"invalid_request_error\",\"message\":\"`temperature` is deprecated for this model.\"}}"))
+	}))
+	defer srv.Close()
+
+	st, cand := probeStateForServer(srv.URL)
+	st.bodyBytes = []byte(`{"model":"orig-model","stream":true,"temperature":0.7,"max_tokens":200,"messages":[{"role":"user","content":[{"type":"file","file":{"file_data":"` + pdfDataURI + `"}}]}]}`)
+	cand.provider.ProviderType = "anthropic"
+	cand.model.ModelID = "claude-sonnet-5"
+
+	if res := h.probeStreamingCandidate(context.Background(), st, cand, 0, 5*time.Second, 30*time.Second); res.won {
+		t.Fatal("a 400 must not win the race")
+	}
+	if !st.anthropicEgressAttempt {
+		t.Fatal("a document to anthropic must take the Messages route for this test to mean anything")
+	}
+	if h.learnedStrip(learnedScopeFor(cand), cand.model.ModelID, "temperature") {
+		t.Error("temperature was learned for an anthropic provider, whose compat route accepts it")
+	}
+}
