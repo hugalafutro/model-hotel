@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"sync"
 	"time"
 
 	"github.com/go-chi/chi/v5"
@@ -52,6 +53,19 @@ type QuotaFleetHandler struct {
 	// most of every interval. The pass reads the database and the breaker, never
 	// an upstream.
 	onApplied func(ctx context.Context)
+	// writeMu is Handler.quotaWriteMu, so a pushed row and the event it
+	// publishes are ordered against this node's own writes. Nil in tests that
+	// only exercise the wire format.
+	writeMu *sync.Mutex
+}
+
+// lockWrites takes writeMu when one is wired and returns the matching unlock.
+func (h *QuotaFleetHandler) lockWrites() func() {
+	if h.writeMu == nil {
+		return func() {}
+	}
+	h.writeMu.Lock()
+	return h.writeMu.Unlock
 }
 
 // NewQuotaFleetHandler builds a QuotaFleetHandler.
@@ -197,6 +211,7 @@ func (h *QuotaFleetHandler) storeSnapshots(ctx context.Context, snaps []QuotaSna
 		// The replaced status comes back with the write so a flip the primary
 		// observed is announced on this member too (dashboard only, see
 		// EventTypeQuotaStatusSynced).
+		unlock := h.lockWrites()
 		wrote, prior, err := h.quotaRepo.ReplaceIfNewer(ctx, quota.Snapshot{
 			ProviderID: prov.ID,
 			Kind:       s.Kind,
@@ -211,6 +226,7 @@ func (h *QuotaFleetHandler) storeSnapshots(ctx context.Context, snaps []QuotaSna
 			LastError: s.LastError,
 		})
 		if err != nil {
+			unlock()
 			return applied, skipped, err
 		}
 		if wrote {
@@ -219,6 +235,7 @@ func (h *QuotaFleetHandler) storeSnapshots(ctx context.Context, snaps []QuotaSna
 		} else {
 			skipped++
 		}
+		unlock()
 	}
 	return applied, skipped, nil
 }

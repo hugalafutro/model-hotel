@@ -196,6 +196,12 @@ type Handler struct {
 	// goroutine opened the circuit, so several can land at once.
 	quotaNudgeMu   sync.Mutex
 	quotaNudgeLast map[uuid.UUID]time.Time
+	// quotaWriteMu orders snapshot writes with the status events they publish.
+	// The repository serialises the writes themselves, but the event goes out
+	// after the commit, so two in-process writers (poll and nudge, nudge and
+	// fleet import) could otherwise publish in the opposite order to the one
+	// they committed in and leave the last event contradicting the stored row.
+	quotaWriteMu sync.Mutex
 }
 
 // NewHandler creates a new admin API handler with the given dependencies.
@@ -494,6 +500,7 @@ func (h *Handler) registerAdminOnly(r chi.Router) {
 	// minutes after it reached the primary's. Rebuilding from the rows just
 	// stored converges every member on the same pins.
 	fleetQuota.onApplied = h.RefreshQuotaAdvice
+	fleetQuota.writeMu = &h.quotaWriteMu
 	fleetQuota.Register(r)
 
 	// HA fleet membership heartbeat. Front Desk POSTs /fleet/announce on its poll;

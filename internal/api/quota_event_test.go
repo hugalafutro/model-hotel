@@ -147,23 +147,25 @@ func TestPollQuotasOnce_FirstAnswerAfterFailureIsSilent(t *testing.T) {
 	}
 }
 
-// TestPollQuotasOnce_FedMemberFlipIsDashboardOnly: a managed member that a
-// fleet push reached recently announces a flip it fetched itself (a breaker
-// nudge makes every member poll at once) under the synced type; the primary
-// alerts for the fleet. A member no push has reached within three intervals
-// (primary down, no primary resolved) alerts for itself, and so does the
-// primary.
-func TestPollQuotasOnce_FedMemberFlipIsDashboardOnly(t *testing.T) {
+// TestNudgeOnMember_DefersOnlyOverAFreshFleetRow: a breaker nudge polls one
+// provider on every member at once. On a managed member whose stored row for
+// that provider is a fleet push younger than one interval, the flip goes out
+// under the synced type (the primary is feeding this provider and alerts). A
+// stale fleet row, the member's own earlier fetch, or being the primary all
+// announce the alertable type. The poll pass only ever reaches a stale or
+// non-fleet row, so it always alerts; this is the one path that can defer.
+func TestNudgeOnMember_DefersOnlyOverAFreshFleetRow(t *testing.T) {
 	for _, tc := range []struct {
 		name     string
 		primary  string
-		fedAgo   time.Duration // age of the newest fleet row on another provider; 0 = none
+		source   string
+		age      time.Duration
 		wantType string
 	}{
-		{name: "fed member", primary: "false", fedAgo: 7 * time.Minute, wantType: EventTypeQuotaStatusSynced},
-		{name: "member nobody feeds", primary: "false", fedAgo: 0, wantType: EventTypeQuotaStatusRestored},
-		{name: "member fed too long ago", primary: "false", fedAgo: 40 * time.Minute, wantType: EventTypeQuotaStatusRestored},
-		{name: "primary", primary: "true", fedAgo: 7 * time.Minute, wantType: EventTypeQuotaStatusRestored},
+		{name: "member over a fresh fleet row", primary: "false", source: "fleet", age: 2 * time.Minute, wantType: EventTypeQuotaStatusSynced},
+		{name: "member over a stale fleet row", primary: "false", source: "fleet", age: 2 * time.Hour, wantType: EventTypeQuotaStatusRestored},
+		{name: "member over its own fresh row", primary: "false", source: "poll", age: 2 * time.Minute, wantType: EventTypeQuotaStatusRestored},
+		{name: "primary over a fresh fleet row", primary: "true", source: "fleet", age: 2 * time.Minute, wantType: EventTypeQuotaStatusRestored},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			ctx := context.Background()
@@ -173,28 +175,48 @@ func TestPollQuotasOnce_FedMemberFlipIsDashboardOnly(t *testing.T) {
 					t.Fatalf("set %s: %v", k, err)
 				}
 			}
-			// The provider under test holds a stale fleet row, so the poll's fleet
-			// dedup lets it fetch; the feeding evidence sits on a second provider.
-			id := insertQuotaPollProvider(t, h.dbPool.Pool(), "nanogpt-"+tc.name, "https://api.nano-gpt.com/v1", true)
-			stale := time.Now().Add(-2 * time.Hour).UTC()
-			if _, err := h.quotaRepo.Replace(ctx, quota.Snapshot{ProviderID: id, Kind: "usage", Payload: json.RawMessage("null"), HTTPStatus: http.StatusNoContent, Source: "fleet", FetchedAt: stale}); err != nil {
+			id := insertQuotaPollProvider(t, h.dbPool.Pool(), "nanogpt-nudge", "https://api.nano-gpt.com/v1", true)
+			if _, err := h.quotaRepo.Replace(ctx, quota.Snapshot{ProviderID: id, Kind: "usage", Payload: json.RawMessage("null"), HTTPStatus: http.StatusNoContent, Source: tc.source, FetchedAt: time.Now().Add(-tc.age).UTC()}); err != nil {
 				t.Fatalf("seed snapshot: %v", err)
 			}
-			if tc.fedAgo > 0 {
-				other := insertQuotaPollProvider(t, h.dbPool.Pool(), "zai-"+tc.name, "https://api.z.ai/api/coding/paas/v4", false)
-				if _, err := h.quotaRepo.Replace(ctx, quota.Snapshot{ProviderID: other, Kind: "usage", Payload: json.RawMessage(`{}`), HTTPStatus: http.StatusOK, Source: "fleet", FetchedAt: time.Now().Add(-tc.fedAgo).UTC()}); err != nil {
-					t.Fatalf("seed fleet evidence: %v", err)
-				}
+			prov, err := h.providerRepo.Get(ctx, id)
+			if err != nil {
+				t.Fatalf("get provider: %v", err)
 			}
-			h.newDiscovery = func() *provider.DiscoveryService { return nanoGPTPollDiscovery(9) }
 			drain := drainQuotaStatusEvents(t)
 
-			h.PollQuotasOnce(ctx)
+			h.pollQuotaForProvider(ctx, nanoGPTPollDiscovery(9), prov, "usage")
 			got := drain()
 			if len(got) != 1 || got[0].Type != tc.wantType || got[0].Severity != "success" {
 				t.Fatalf("want one %s/success event, got %+v", tc.wantType, got)
 			}
 		})
+	}
+}
+
+// TestPollQuotasOnce_MemberPollAlwaysAlerts: the poll pass reaches a member's
+// provider only once its fleet row is at least one interval old, which is the
+// primary not feeding that provider (down, or failing on this one upstream), so
+// the flip it finds is announced under the alertable type.
+func TestPollQuotasOnce_MemberPollAlwaysAlerts(t *testing.T) {
+	ctx := context.Background()
+	h := newTestHandler(t)
+	for k, v := range map[string]string{keyFleetManagedSeenAt: time.Now().Format(time.RFC3339), keyFleetIsPrimary: "false"} {
+		if err := h.settingsRepo.Set(ctx, k, v); err != nil {
+			t.Fatalf("set %s: %v", k, err)
+		}
+	}
+	id := insertQuotaPollProvider(t, h.dbPool.Pool(), "nanogpt-member-poll", "https://api.nano-gpt.com/v1", true)
+	if _, err := h.quotaRepo.Replace(ctx, quota.Snapshot{ProviderID: id, Kind: "usage", Payload: json.RawMessage("null"), HTTPStatus: http.StatusNoContent, Source: "fleet", FetchedAt: time.Now().Add(-6 * time.Minute).UTC()}); err != nil {
+		t.Fatalf("seed snapshot: %v", err)
+	}
+	h.newDiscovery = func() *provider.DiscoveryService { return nanoGPTPollDiscovery(9) }
+	drain := drainQuotaStatusEvents(t)
+
+	h.PollQuotasOnce(ctx)
+	got := drain()
+	if len(got) != 1 || got[0].Type != EventTypeQuotaStatusRestored {
+		t.Fatalf("want one restored event from the member's own poll, got %+v", got)
 	}
 }
 

@@ -34,11 +34,14 @@ type Repository struct {
 // NewRepository builds a Repository backed by pool.
 func NewRepository(pool *pgxpool.Pool) *Repository { return &Repository{pool: pool} }
 
-// Prior describes the row a write replaced. A zero HTTPStatus is no reading:
-// either no row existed or only the placeholder RecordFailure leaves before any
-// fetch has succeeded.
+// Prior describes the row a write replaced: the HTTP status it held, the source
+// that wrote it and when it was fetched. A zero HTTPStatus is no reading: either
+// no row existed or only the placeholder RecordFailure leaves before any fetch
+// has succeeded.
 type Prior struct {
 	HTTPStatus int
+	Source     string
+	FetchedAt  time.Time
 }
 
 // Replace writes a fresh snapshot (poll, manual refresh, cold fill), replacing
@@ -89,24 +92,12 @@ func lockPrior(ctx context.Context, tx pgx.Tx, providerID uuid.UUID, kind string
 	}
 	var p Prior
 	err := tx.QueryRow(ctx,
-		`SELECT http_status FROM provider_quota_snapshots WHERE provider_id = $1 AND kind = $2`,
-		providerID, kind).Scan(&p.HTTPStatus)
+		`SELECT http_status, source, fetched_at FROM provider_quota_snapshots WHERE provider_id = $1 AND kind = $2`,
+		providerID, kind).Scan(&p.HTTPStatus, &p.Source, &p.FetchedAt)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return Prior{}, nil
 	}
 	return p, err
-}
-
-// LastFleetWrite reports the fetched_at of the newest fleet-distributed
-// snapshot stored here, zero when none ever landed. A node that received one
-// recently is being fed by the primary and can leave quota alerts to it.
-func (r *Repository) LastFleetWrite(ctx context.Context) (time.Time, error) {
-	var t *time.Time
-	err := r.pool.QueryRow(ctx, `SELECT max(fetched_at) FROM provider_quota_snapshots WHERE source = 'fleet'`).Scan(&t)
-	if err != nil || t == nil {
-		return time.Time{}, err
-	}
-	return *t, nil
 }
 
 // snapshotColumns is the projection every snapshot read shares, in the order

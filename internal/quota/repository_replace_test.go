@@ -12,26 +12,28 @@ import (
 	"github.com/hugalafutro/model-hotel/internal/quota"
 )
 
-// TestReplaceReportsThePrior: Replace hands back the status of the row it
-// overwrote, a zero Prior for no row and for RecordFailure's placeholder, so
-// the caller can tell a flip from a first answer.
+// TestReplaceReportsThePrior: Replace hands back the status, source and fetch
+// time of the row it overwrote, a zero Prior for no row and status 0 for
+// RecordFailure's placeholder, so the caller can tell a flip from a first
+// answer and a fresh fleet-pushed row from its own.
 func TestReplaceReportsThePrior(t *testing.T) {
 	ctx := context.Background()
 	repo := quota.NewRepository(testPool)
 	provID := insertTestProvider(ctx, t, "test-quota-replace")
 	t.Cleanup(func() { cleanupProvider(ctx, t, provID) })
 
+	at := time.Now().Add(-3 * time.Minute).UTC().Truncate(time.Microsecond)
 	snap := func(status int, source string) quota.Snapshot {
-		return quota.Snapshot{ProviderID: provID, Kind: "usage", Payload: json.RawMessage(`null`), HTTPStatus: status, Source: source}
+		return quota.Snapshot{ProviderID: provID, Kind: "usage", Payload: json.RawMessage(`null`), HTTPStatus: status, Source: source, FetchedAt: at}
 	}
 	if prior, err := repo.Replace(ctx, snap(204, "fleet")); err != nil || prior != (quota.Prior{}) {
 		t.Fatalf("first write: want zero prior, got %+v (err %v)", prior, err)
 	}
-	if prior, err := repo.Replace(ctx, snap(200, "poll")); err != nil || prior != (quota.Prior{HTTPStatus: 204}) {
-		t.Fatalf("second write: want prior 204, got %+v (err %v)", prior, err)
+	if prior, err := repo.Replace(ctx, snap(200, "poll")); err != nil || prior.HTTPStatus != 204 || prior.Source != "fleet" || !prior.FetchedAt.Equal(at) {
+		t.Fatalf("second write: want prior 204/fleet at %v, got %+v (err %v)", at, prior, err)
 	}
-	if prior, err := repo.Replace(ctx, snap(200, "poll")); err != nil || prior != (quota.Prior{HTTPStatus: 200}) {
-		t.Fatalf("same status: want prior 200, got %+v (err %v)", prior, err)
+	if prior, err := repo.Replace(ctx, snap(200, "poll")); err != nil || prior.HTTPStatus != 200 || prior.Source != "poll" {
+		t.Fatalf("same status: want prior 200/poll, got %+v (err %v)", prior, err)
 	}
 
 	other := insertTestProvider(ctx, t, "test-quota-replace-placeholder")
@@ -237,33 +239,5 @@ func TestReplaceErrorPaths(t *testing.T) {
 	_ = holder.Rollback(ctx)
 	if snap, err := repo.Get(ctx, provID, "usage"); err != nil || snap != nil {
 		t.Fatalf("nothing may be written when the read fails, got %+v (err %v)", snap, err)
-	}
-}
-
-// TestLastFleetWrite: zero until a fleet-distributed row lands, then the newest
-// fleet fetched_at; locally fetched rows do not count as being fed.
-func TestLastFleetWrite(t *testing.T) {
-	ctx := context.Background()
-	repo := quota.NewRepository(testPool)
-	if _, err := testPool.Exec(ctx, `DELETE FROM provider_quota_snapshots WHERE source = 'fleet'`); err != nil {
-		t.Fatalf("clear fleet rows: %v", err)
-	}
-	if last, err := repo.LastFleetWrite(ctx); err != nil || !last.IsZero() {
-		t.Fatalf("no fleet rows: want zero, got %v (err %v)", last, err)
-	}
-	provID := insertTestProvider(ctx, t, "test-quota-last-fleet")
-	t.Cleanup(func() { cleanupProvider(ctx, t, provID) })
-	at := time.Now().Add(-10 * time.Minute).UTC().Truncate(time.Microsecond)
-	if _, err := repo.Replace(ctx, quota.Snapshot{ProviderID: provID, Kind: "usage", Payload: json.RawMessage(`{}`), HTTPStatus: 200, Source: "poll", FetchedAt: at.Add(5 * time.Minute)}); err != nil {
-		t.Fatalf("local write: %v", err)
-	}
-	if last, err := repo.LastFleetWrite(ctx); err != nil || !last.IsZero() {
-		t.Fatalf("a local row is not a fleet write, got %v (err %v)", last, err)
-	}
-	if _, err := repo.Replace(ctx, quota.Snapshot{ProviderID: provID, Kind: "balance", Payload: json.RawMessage(`{}`), HTTPStatus: 200, Source: "fleet", FetchedAt: at}); err != nil {
-		t.Fatalf("fleet write: %v", err)
-	}
-	if last, err := repo.LastFleetWrite(ctx); err != nil || !last.Equal(at) {
-		t.Fatalf("want %v, got %v (err %v)", at, last, err)
 	}
 }
