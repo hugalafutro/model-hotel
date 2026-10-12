@@ -1321,7 +1321,6 @@
 				"ownerNone": "소유자 없음(공유 키)",
 				"ownerHint": "소유자의 사용자별 제한은 소유한 모든 키에 적용됩니다. 소유자를 비활성화하면 이 키도 비활성화됩니다."
 			},
-			"detailTitle": "가상 키 세부 정보",
 			"sections": {
 				"identity": "식별 정보",
 				"rateLimits": "요청 제한",
@@ -1331,7 +1330,6 @@
 			},
 			"labels": {
 				"key": "키",
-				"tokensConsumed": "소모된 토큰",
 				"lastUsed": "마지막 사용일",
 				"created": "작성됨",
 				"id": "ID",

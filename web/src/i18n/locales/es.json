@@ -1376,7 +1376,6 @@
 				"ownerNone": "Sin propietario (clave compartida)",
 				"ownerHint": "Los límites por usuario del propietario se aplican a todas sus claves. Desactivar al propietario también desactiva esta clave."
 			},
-			"detailTitle": "Detalles de Clave Virtual",
 			"sections": {
 				"identity": "Identidad",
 				"rateLimits": "Límites de tasa",
@@ -1386,7 +1385,6 @@
 			},
 			"labels": {
 				"key": "Clave",
-				"tokensConsumed": "Tokens consumidos",
 				"lastUsed": "Último uso",
 				"created": "Creado",
 				"id": "ID",

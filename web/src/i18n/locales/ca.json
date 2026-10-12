@@ -1376,7 +1376,6 @@
 				"ownerNone": "Sense propietari (clau compartida)",
 				"ownerHint": "Els límits per usuari del propietari s'apliquen a totes les seves claus. Desactivar el propietari també desactiva aquesta clau."
 			},
-			"detailTitle": "Detalls de la clau virtual",
 			"sections": {
 				"identity": "Identitat",
 				"rateLimits": "Límits de velocitat",
@@ -1386,7 +1385,6 @@
 			},
 			"labels": {
 				"key": "Clau",
-				"tokensConsumed": "Tokens consumits",
 				"lastUsed": "Últim ús",
 				"created": "Creat",
 				"id": "ID",

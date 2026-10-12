@@ -59,7 +59,7 @@ async function openEdit(
 ) {
 	await user.click(await screen.findByText(keyName));
 	const dialog = await screen.findByRole("dialog", {
-		name: "Virtual Key Details",
+		name: /tokens/,
 	});
 	const editButton = within(dialog).getByRole("button", { name: "Edit" });
 	await waitFor(() => {
@@ -417,7 +417,7 @@ async function openDetail(
 	keyName: string,
 ) {
 	await user.click(await screen.findByText(keyName));
-	return screen.findByRole("dialog", { name: "Virtual Key Details" });
+	return screen.findByRole("dialog", { name: /tokens/ });
 }
 
 describe("KeyDetailModal read-only provider access", () => {
@@ -426,7 +426,7 @@ describe("KeyDetailModal read-only provider access", () => {
 		vi.clearAllMocks();
 	});
 
-	it("shows every provider as granted when nothing caps the key", async () => {
+	it("reads as all providers when nothing caps the key", async () => {
 		server.use(
 			http.get("/api/auth/me", () => HttpResponse.json(capped(null))),
 			http.get("/api/providers", () => HttpResponse.json(providers)),
@@ -437,18 +437,43 @@ describe("KeyDetailModal read-only provider access", () => {
 		const dialog = await openDetail(user, "Test API Key");
 
 		await waitFor(() => {
-			expect(
-				within(dialog).getByTestId("vk-detail-provider-provider-001"),
-			).toBeInTheDocument();
+			expect(within(dialog).getByText("All providers")).toBeInTheDocument();
 		});
+		// One pill stands in for the whole roster: no per-provider chips.
 		for (const p of providers) {
-			const chip = within(dialog).getByTestId(`vk-detail-provider-${p.id}`);
-			expect(chip).toHaveClass("ui-badge-accent");
-			expect(chip).not.toHaveAttribute("data-outside-cap");
+			expect(
+				within(dialog).queryByTestId(`vk-detail-provider-${p.id}`),
+			).not.toBeInTheDocument();
 		}
 		expect(
 			within(dialog).queryByTestId("vk-detail-readonly-cap-note"),
 		).not.toBeInTheDocument();
+	});
+
+	it("lists only the providers a scoped key names", async () => {
+		server.use(
+			http.get("/api/auth/me", () => HttpResponse.json(capped(null))),
+			http.get("/api/providers", () => HttpResponse.json(providers)),
+			http.get("/api/virtual-keys", () =>
+				HttpResponse.json([
+					{ ...mockVirtualKey, allowed_providers: ["provider-001"] },
+				]),
+			),
+		);
+
+		const { user } = renderPage();
+		const dialog = await openDetail(user, "Test API Key");
+
+		await waitFor(() => {
+			expect(
+				within(dialog).getByTestId("vk-detail-provider-provider-001"),
+			).toHaveClass("ui-badge-accent");
+		});
+		// The provider the key does not name is absent, not struck through.
+		expect(
+			within(dialog).queryByTestId("vk-detail-provider-provider-002"),
+		).not.toBeInTheDocument();
+		expect(within(dialog).queryByText("All providers")).not.toBeInTheDocument();
 	});
 
 	it("marks a provider the key stores but the owner's cap denies", async () => {
@@ -492,7 +517,7 @@ describe("KeyDetailModal read-only provider access", () => {
 		).toHaveAttribute("data-cap-source", "owner");
 	});
 
-	it("marks every provider for a deny-all cap", async () => {
+	it("lists no provider for a deny-all cap", async () => {
 		server.use(
 			// An empty cap is a restriction, not the absence of one. A
 			// length-based test would render this account as unrestricted.
@@ -506,16 +531,15 @@ describe("KeyDetailModal read-only provider access", () => {
 
 		await waitFor(() => {
 			expect(
-				within(dialog).getByTestId("vk-detail-provider-provider-001"),
-			).toHaveAttribute("data-outside-cap", "true");
+				within(dialog).getByTestId("vk-detail-readonly-cap-note"),
+			).toHaveAttribute("data-cap-source", "account");
 		});
+		// Nothing is reachable, so nothing is listed: the pill says so instead.
+		expect(within(dialog).getByText("No providers")).toBeInTheDocument();
 		for (const p of providers) {
-			const chip = within(dialog).getByTestId(`vk-detail-provider-${p.id}`);
-			expect(chip).toHaveAttribute("data-outside-cap", "true");
-			expect(chip).toHaveClass("ui-badge-neutral");
+			expect(
+				within(dialog).queryByTestId(`vk-detail-provider-${p.id}`),
+			).not.toBeInTheDocument();
 		}
-		expect(
-			within(dialog).getByTestId("vk-detail-readonly-cap-note"),
-		).toHaveAttribute("data-cap-source", "account");
 	});
 });

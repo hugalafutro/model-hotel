@@ -320,12 +320,12 @@ describe("VirtualKeys edge cases", () => {
 
 		await waitFor(() => {
 			expect(
-				screen.getByRole("dialog", { name: "Virtual Key Details" }),
+				screen.getByRole("dialog", { name: /tokens/ }),
 			).toBeInTheDocument();
 		});
 
 		const dialog = screen.getByRole("dialog", {
-			name: "Virtual Key Details",
+			name: /tokens/,
 		});
 
 		// Verify view mode shows "Global" for null limits (RPS, Burst and TPM)

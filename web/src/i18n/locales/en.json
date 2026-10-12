@@ -1322,7 +1322,6 @@
 				"ownerNone": "No owner (shared key)",
 				"ownerHint": "The owner's per-user limits apply across all their keys. Disabling the owner also disables this key."
 			},
-			"detailTitle": "Virtual Key Details",
 			"sections": {
 				"identity": "Identity",
 				"rateLimits": "Rate Limits",
@@ -1333,7 +1332,6 @@
 			"labels": {
 				"id": "ID",
 				"key": "Key",
-				"tokensConsumed": "Tokens Consumed",
 				"lastUsed": "Last Used",
 				"created": "Created",
 				"owner": "Owner"

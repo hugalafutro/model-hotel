@@ -1321,7 +1321,6 @@
 				"ownerNone": "Sahipsiz (paylaşılan anahtar)",
 				"ownerHint": "Sahibin kullanıcı sınırları tüm anahtarları genelinde geçerlidir. Sahibin devre dışı bırakılması bu anahtarı da devre dışı bırakır."
 			},
-			"detailTitle": "Sanal Anahtar Bilgileri",
 			"sections": {
 				"identity": "Kimlik",
 				"rateLimits": "İstek Sınırları",
@@ -1331,7 +1330,6 @@
 			},
 			"labels": {
 				"key": "Anahtar",
-				"tokensConsumed": "Kullanılan Jetonlar",
 				"lastUsed": "En Son Kullanım Tarihi",
 				"created": "Oluşturuldu",
 				"id": "ID",

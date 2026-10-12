@@ -1376,7 +1376,6 @@
 				"ownerNone": "Aucun propriétaire (clé partagée)",
 				"ownerHint": "Les limites par utilisateur du propriétaire s'appliquent à toutes ses clés. Désactiver le propriétaire désactive aussi cette clé."
 			},
-			"detailTitle": "Détails de la clé virtuelle",
 			"sections": {
 				"identity": "Identité",
 				"rateLimits": "Limites de taux",
@@ -1386,7 +1385,6 @@
 			},
 			"labels": {
 				"key": "Clés",
-				"tokensConsumed": "Jetons Consommés",
 				"lastUsed": "Dernière utilisation",
 				"created": "Créé",
 				"id": "ID",

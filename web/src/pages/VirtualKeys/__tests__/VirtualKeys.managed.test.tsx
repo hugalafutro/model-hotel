@@ -47,7 +47,7 @@ describe("VirtualKeys managed (fleet member) mode", () => {
 
 		await user.click(await screen.findByText("Test API Key"));
 		const dialog = await screen.findByRole("dialog", {
-			name: "Virtual Key Details",
+			name: /tokens/,
 		});
 		expect(within(dialog).getByTestId("managed-note")).toBeInTheDocument();
 		expect(

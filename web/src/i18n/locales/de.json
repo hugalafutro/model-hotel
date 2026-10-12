@@ -1321,7 +1321,6 @@
 				"ownerNone": "Kein Besitzer (gemeinsamer Schlüssel)",
 				"ownerHint": "Die Benutzerlimits des Besitzers gelten über alle seine Schlüssel hinweg. Wird der Besitzer deaktiviert, wird auch dieser Schlüssel deaktiviert."
 			},
-			"detailTitle": "Details des virtuellen Schlüssels",
 			"sections": {
 				"identity": "Identität",
 				"rateLimits": "Rate-Limits",
@@ -1331,7 +1330,6 @@
 			},
 			"labels": {
 				"key": "Schlüssel",
-				"tokensConsumed": "Konsumierte Token",
 				"lastUsed": "Zuletzt verwendet",
 				"created": "Erstellt",
 				"id": "ID",

@@ -1376,7 +1376,6 @@
 				"ownerNone": "Nessun proprietario (chiave condivisa)",
 				"ownerHint": "I limiti per utente del proprietario si applicano a tutte le sue chiavi. Disattivare il proprietario disattiva anche questa chiave."
 			},
-			"detailTitle": "Dettagli Chiave Virtuale",
 			"sections": {
 				"identity": "Identità",
 				"rateLimits": "Limiti di frequenza",
@@ -1386,7 +1385,6 @@
 			},
 			"labels": {
 				"key": "Chiave",
-				"tokensConsumed": "Token Consumati",
 				"lastUsed": "Ultimo Utilizzato",
 				"created": "Creato",
 				"id": "ID",

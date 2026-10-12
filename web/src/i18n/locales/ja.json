@@ -1321,7 +1321,6 @@
 				"ownerNone": "所有者なし（共有キー）",
 				"ownerHint": "所有者のユーザー制限は所有するすべてのキーに適用されます。所有者を無効にすると、このキーも無効になります。"
 			},
-			"detailTitle": "仮想キーの詳細",
 			"sections": {
 				"identity": "Identity",
 				"rateLimits": "レート制限",
@@ -1331,7 +1330,6 @@
 			},
 			"labels": {
 				"key": "キー",
-				"tokensConsumed": "消費トークン",
 				"lastUsed": "最終使用",
 				"created": "作成済み",
 				"id": "ID",

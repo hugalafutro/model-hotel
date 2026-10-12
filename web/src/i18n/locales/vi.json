@@ -1321,7 +1321,6 @@
 				"ownerNone": "Không có chủ sở hữu (khóa dùng chung)",
 				"ownerHint": "Giới hạn theo người dùng của chủ sở hữu áp dụng cho tất cả khóa của họ. Vô hiệu hóa chủ sở hữu cũng vô hiệu hóa khóa này."
 			},
-			"detailTitle": "Chi tiết về Khóa ảo",
 			"sections": {
 				"identity": "Danh tính",
 				"rateLimits": "Giới hạn tốc độ",
@@ -1331,7 +1330,6 @@
 			},
 			"labels": {
 				"key": "Khóa",
-				"tokensConsumed": "Số lượng token đã sử dụng",
 				"lastUsed": "Lần sử dụng gần nhất",
 				"created": "Được tạo",
 				"id": "ID",

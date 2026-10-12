@@ -1321,7 +1321,6 @@
 				"ownerNone": "无所有者（共享密钥）",
 				"ownerHint": "所有者的用户限制作用于其全部密钥。停用所有者也会停用此密钥。"
 			},
-			"detailTitle": "虚拟密钥详细信息",
 			"sections": {
 				"identity": "身份",
 				"rateLimits": "速率限制",
@@ -1331,7 +1330,6 @@
 			},
 			"labels": {
 				"key": "密钥",
-				"tokensConsumed": "已消耗令牌",
 				"lastUsed": "上次使用",
 				"created": "已创建",
 				"id": "ID",

@@ -1431,7 +1431,6 @@
 				"ownerNone": "Brak właściciela (klucz współdzielony)",
 				"ownerHint": "Limity użytkownika właściciela obowiązują dla wszystkich jego kluczy. Wyłączenie właściciela wyłącza też ten klucz."
 			},
-			"detailTitle": "Szczegóły klucza wirtualnego",
 			"sections": {
 				"identity": "Tożsamość",
 				"rateLimits": "Wartości graniczne",
@@ -1441,7 +1440,6 @@
 			},
 			"labels": {
 				"key": "Klucz",
-				"tokensConsumed": "Zużyte tokeny",
 				"lastUsed": "Ostatnio używane",
 				"created": "Utworzono",
 				"id": "ID",
