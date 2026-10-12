@@ -12,6 +12,16 @@ Virtual keys are client-facing API keys that provide authenticated access to the
 <em>Key creation dialog - the plaintext key is shown only once</em>
 </p>
 
+<p align="center">
+<img src="screenshots/keydetailmodal.png" alt="Key detail modal" width="500"><br>
+<em>Key detail modal: the key name heads it with its consumed tokens beside, then owner, id, created, last used, key preview, strip reasoning, budget, burst, TPM, RPS, and the providers the key can reach. An unrestricted key reads "All providers"; a scoped key lists only the providers it names.</em>
+</p>
+
+<p align="center">
+<img src="screenshots/keydetailmodal_edit.png" alt="Key detail modal, editing" width="500"><br>
+<em>The same modal after Edit: name, owner, rate limits, budget and period, provider access (click a provider to toggle it; struck ones are blocked), and strip reasoning. Save Changes stays disabled until something differs.</em>
+</p>
+
 ## Overview
 
 ![Virtual Keys Auth Flow](virtual-keys-flow.svg)

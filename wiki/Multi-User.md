@@ -47,6 +47,11 @@ Admins manage accounts from the Users page:
 - **Reset two-factor authentication**: clear a user's TOTP enrollment if they lose their authenticator. It removes the authenticator binding **and all of that user's recovery codes**; their password is untouched.
 - **Delete**: remove the account and its sessions. Virtual keys the account owned are kept and become unowned, not deleted.
 
+<p align="center">
+<img src="screenshots/usereditmodal.png" alt="Edit user modal" width="500"><br>
+<em>The edit modal: profile fields, role, grants, provider access cap, proxy limits and budget, the enabled switch, then password reset and delete below the save row</em>
+</p>
+
 Passwords must be at least 8 characters. When breached-password screening is enabled (the default), they are also checked against the Have I Been Pwned corpus and a known-breached password is refused. See [Security](Security#authentication) for that check and what it sends.
 
 The **Email** field is more than a profile detail: it is the binding key for single sign-on. A verified OIDC or GitHub login carrying that address signs in as this account. One account binds to one external identity, so a second provider cannot claim it later by asserting the same email.
