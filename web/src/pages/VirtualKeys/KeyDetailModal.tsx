@@ -97,12 +97,12 @@ export function KeyDetailModal({
 			? vk.allowed_providers.includes(p.id)
 			: !isOutsideCap(p.id),
 	);
-	// The cap note explains a struck chip, or an empty list the cap emptied.
-	// Above accent chips alone it would read as if those were the blocked ones.
-	const showCapNote =
-		listedProviders.length === 0
-			? outsideCapIds.length > 0
-			: listedProviders.some((p) => isOutsideCap(p.id));
+	// The cap note explains a struck chip, or an unrestricted key the cap left
+	// nothing. Above accent chips alone it would read as if those were the
+	// blocked ones, and a stored empty list is the key's own doing.
+	const showCapNote = vk.allowed_providers
+		? listedProviders.some((p) => isOutsideCap(p.id))
+		: listedProviders.length === 0 && outsideCapIds.length > 0;
 
 	return (
 		<>

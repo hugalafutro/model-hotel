@@ -567,9 +567,11 @@ describe("KeyDetailModal read-only provider access", () => {
 				within(dialog).getByTestId("vk-detail-provider-provider-002"),
 			).toHaveAttribute("data-outside-cap", "true");
 		});
+		const note = within(dialog).getByTestId("vk-detail-readonly-cap-note");
+		expect(note).toHaveAttribute("data-cap-source", "account");
 		expect(
-			within(dialog).getByTestId("vk-detail-readonly-cap-note"),
-		).toHaveAttribute("data-cap-source", "account");
+			within(dialog).getByTestId("vk-detail-provider-provider-002"),
+		).toHaveAttribute("aria-describedby", note.id);
 		// The stored chip stands, struck; the pill is for an empty list only.
 		expect(within(dialog).queryByText("No providers")).not.toBeInTheDocument();
 	});
@@ -590,6 +592,29 @@ describe("KeyDetailModal read-only provider access", () => {
 			expect(within(dialog).getByText("No providers")).toBeInTheDocument();
 		});
 		// Nothing capped this key; the empty list is its own doing, so no note.
+		expect(
+			within(dialog).queryByTestId("vk-detail-readonly-cap-note"),
+		).not.toBeInTheDocument();
+	});
+
+	it("blames an empty stored list on the key, not on a partial cap", async () => {
+		server.use(
+			http.get("/api/auth/me", () =>
+				HttpResponse.json(capped(["provider-001"])),
+			),
+			http.get("/api/providers", () => HttpResponse.json(providers)),
+			http.get("/api/virtual-keys", () =>
+				HttpResponse.json([{ ...mockVirtualKey, allowed_providers: [] }]),
+			),
+		);
+
+		const { user } = renderPage();
+		const dialog = await openDetail(user, "Test API Key");
+
+		await waitFor(() => {
+			expect(within(dialog).getByText("No providers")).toBeInTheDocument();
+		});
+		// The cap did not empty this list; the key stores it empty.
 		expect(
 			within(dialog).queryByTestId("vk-detail-readonly-cap-note"),
 		).not.toBeInTheDocument();
