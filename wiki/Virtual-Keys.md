@@ -14,7 +14,7 @@ Virtual keys are client-facing API keys that provide authenticated access to the
 
 <p align="center">
 <img src="screenshots/keydetailmodal.png" alt="Key detail modal" width="500"><br>
-<em>Key detail modal: the key name heads it with its consumed tokens beside, then owner, id, created, last used, key preview, strip reasoning, budget, burst, TPM, RPS, and the providers the key can reach. What is listed is effective access: an unrestricted key whose owner has no provider cap reads "All providers", a capped owner's key lists the cap, and a scoped key lists the providers it names, with one the owner's cap denies struck through and a note saying why.</em>
+<em>Key detail modal: the key name heads it with its consumed tokens beside, then owner, id, created, last used, key preview, strip reasoning, budget, burst, TPM, RPS, and the providers the key can reach. The list is the key's provider scope with blocked providers marked: an unrestricted key whose owner has no provider cap reads "All providers", a capped owner's key lists the cap, and a scoped key lists the providers it names, any the owner's cap denies struck through with a note saying why.</em>
 </p>
 
 <p align="center">
