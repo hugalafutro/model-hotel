@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useId, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
 	BrainSlashIcon,
@@ -22,7 +22,7 @@ import { InfoHint } from "../../components/InfoHint";
 import { DetailItem } from "../../components/LogDetailItem";
 import { Modal } from "../../components/Modal";
 import { Toggle } from "../../components/Toggle";
-import { formatDateTime, formatTokens } from "../../utils/format";
+import { formatDateTime, formatNumber, formatTokens } from "../../utils/format";
 import { ProviderAccessPicker } from "./ProviderAccessPicker";
 import { RateLimitField } from "./RateLimitField";
 import { SectionHeader } from "./SectionHeader";
@@ -46,6 +46,7 @@ export function KeyDetailModal({
 	const limitText = (n: number | null | undefined) =>
 		n != null ? String(n) : t("common.global");
 	const [confirmDelete, setConfirmDelete] = useState(false);
+	const nameId = useId();
 	const {
 		editing,
 		editName,
@@ -96,14 +97,29 @@ export function KeyDetailModal({
 			? vk.allowed_providers.includes(p.id)
 			: !isOutsideCap(p.id),
 	);
+	// The cap note explains a struck chip, or an empty list the cap emptied.
+	// Above accent chips alone it would read as if those were the blocked ones.
+	const showCapNote =
+		listedProviders.length === 0
+			? outsideCapIds.length > 0
+			: listedProviders.some((p) => isOutsideCap(p.id));
 
 	return (
 		<>
 			<Modal
 				header={
 					<div className="flex flex-wrap items-center gap-3 mb-4">
-						<h2 className="ui-modal-title min-w-0 truncate">{vk.name}</h2>
-						<span className="px-2 py-px leading-[1.6] text-xs font-medium whitespace-nowrap ui-badge ui-badge-purple">
+						<h2
+							id={nameId}
+							className="ui-modal-title min-w-0 truncate"
+							title={vk.name}
+						>
+							{vk.name}
+						</h2>
+						<span
+							className="px-2 py-px leading-[1.6] text-xs font-medium whitespace-nowrap ui-badge ui-badge-purple"
+							title={formatNumber(vk.tokens_used)}
+						>
 							<span className="badge-text">
 								{t("providers.card_tokens", {
 									tokens: formatTokens(vk.tokens_used),
@@ -112,6 +128,7 @@ export function KeyDetailModal({
 						</span>
 					</div>
 				}
+				labelledBy={nameId}
 				onCloseRequest={requestClose}
 				onClose={onClose}
 				maxWidth="max-w-lg"
@@ -333,7 +350,7 @@ export function KeyDetailModal({
 									</span>
 								) : (
 									<>
-										{outsideCapIds.length > 0 && (
+										{showCapNote && (
 											<p
 												id={capNoteId}
 												data-testid="vk-detail-readonly-cap-note"

@@ -91,13 +91,13 @@ describe("VirtualKeys", () => {
 
 			await waitFor(() => {
 				expect(
-					screen.getByRole("dialog", { name: /tokens/ }),
+					screen.getByRole("dialog", { name: "Test API Key" }),
 				).toBeInTheDocument();
 			});
 
 			// Verify modal content (query within dialog to avoid ambiguity)
 			const dialog = screen.getByRole("dialog", {
-				name: /tokens/,
+				name: "Test API Key",
 			});
 			expect(
 				within(dialog).getByRole("heading", { name: "Test API Key" }),
@@ -133,12 +133,12 @@ describe("VirtualKeys", () => {
 
 			await waitFor(() => {
 				expect(
-					screen.getByRole("dialog", { name: /tokens/ }),
+					screen.getByRole("dialog", { name: "Test API Key" }),
 				).toBeInTheDocument();
 			});
 
 			const dialog = screen.getByRole("dialog", {
-				name: /tokens/,
+				name: "Test API Key",
 			});
 
 			// Click Edit button to enter edit mode

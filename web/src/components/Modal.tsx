@@ -26,6 +26,11 @@ export interface ModalHandle {
 interface ModalProps {
 	title?: string;
 	header?: ReactNode;
+	// id of the element inside `header` that names the dialog, for a header
+	// that carries more than its title (a badge beside it, say) so the
+	// accessible name stays the title alone. Without it the whole header names
+	// the dialog.
+	labelledBy?: string;
 	closeOnBackdrop?: boolean;
 	// Whether the quiet exits (Escape, the header X) are offered. False while the
 	// dialog is doing work that walking out would strand, e.g. a write in flight:
@@ -108,6 +113,7 @@ const FOCUSABLE_SELECTOR =
 export const Modal = forwardRef<ModalHandle, ModalProps>(function Modal(
 	{
 		title,
+		labelledBy,
 		header,
 		closeOnBackdrop = true,
 		dismissible = true,
@@ -344,7 +350,7 @@ export const Modal = forwardRef<ModalHandle, ModalProps>(function Modal(
 			ref={dialogRef}
 			role="dialog"
 			aria-modal="true"
-			aria-labelledby={title || header ? headingId : undefined}
+			aria-labelledby={labelledBy ?? (title || header ? headingId : undefined)}
 			tabIndex={-1}
 			data-placement={placement}
 			// px-4 keeps a narrow screen's card off the edges of the glass.

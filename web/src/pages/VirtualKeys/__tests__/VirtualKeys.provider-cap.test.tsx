@@ -59,7 +59,7 @@ async function openEdit(
 ) {
 	await user.click(await screen.findByText(keyName));
 	const dialog = await screen.findByRole("dialog", {
-		name: /tokens/,
+		name: keyName,
 	});
 	const editButton = within(dialog).getByRole("button", { name: "Edit" });
 	await waitFor(() => {
@@ -417,7 +417,7 @@ async function openDetail(
 	keyName: string,
 ) {
 	await user.click(await screen.findByText(keyName));
-	return screen.findByRole("dialog", { name: /tokens/ });
+	return screen.findByRole("dialog", { name: keyName });
 }
 
 describe("KeyDetailModal read-only provider access", () => {
@@ -515,6 +515,84 @@ describe("KeyDetailModal read-only provider access", () => {
 		expect(
 			within(dialog).getByTestId("vk-detail-readonly-cap-note"),
 		).toHaveAttribute("data-cap-source", "owner");
+	});
+
+	it("lists the cap's providers for an unrestricted key under a partial cap", async () => {
+		server.use(
+			http.get("/api/auth/me", () =>
+				HttpResponse.json(capped(["provider-001"])),
+			),
+			http.get("/api/providers", () => HttpResponse.json(providers)),
+			http.get("/api/virtual-keys", () => HttpResponse.json([mockVirtualKey])),
+		);
+
+		const { user } = renderPage();
+		const dialog = await openDetail(user, "Test API Key");
+
+		await waitFor(() => {
+			expect(
+				within(dialog).getByTestId("vk-detail-provider-provider-001"),
+			).toHaveClass("ui-badge-accent");
+		});
+		// The provider the cap denies is absent, and with no struck chip to
+		// explain the note stays away: above accent chips alone it would read
+		// as if those were the blocked ones.
+		expect(
+			within(dialog).queryByTestId("vk-detail-provider-provider-002"),
+		).not.toBeInTheDocument();
+		expect(
+			within(dialog).queryByTestId("vk-detail-readonly-cap-note"),
+		).not.toBeInTheDocument();
+		expect(within(dialog).queryByText("All providers")).not.toBeInTheDocument();
+	});
+
+	it("strikes every chip when the stored list sits wholly outside the cap", async () => {
+		server.use(
+			http.get("/api/auth/me", () =>
+				HttpResponse.json(capped(["provider-001"])),
+			),
+			http.get("/api/providers", () => HttpResponse.json(providers)),
+			http.get("/api/virtual-keys", () =>
+				HttpResponse.json([
+					{ ...mockVirtualKey, allowed_providers: ["provider-002"] },
+				]),
+			),
+		);
+
+		const { user } = renderPage();
+		const dialog = await openDetail(user, "Test API Key");
+
+		await waitFor(() => {
+			expect(
+				within(dialog).getByTestId("vk-detail-provider-provider-002"),
+			).toHaveAttribute("data-outside-cap", "true");
+		});
+		expect(
+			within(dialog).getByTestId("vk-detail-readonly-cap-note"),
+		).toHaveAttribute("data-cap-source", "account");
+		// The stored chip stands, struck; the pill is for an empty list only.
+		expect(within(dialog).queryByText("No providers")).not.toBeInTheDocument();
+	});
+
+	it("reads as no providers for an empty stored list with no cap", async () => {
+		server.use(
+			http.get("/api/auth/me", () => HttpResponse.json(capped(null))),
+			http.get("/api/providers", () => HttpResponse.json(providers)),
+			http.get("/api/virtual-keys", () =>
+				HttpResponse.json([{ ...mockVirtualKey, allowed_providers: [] }]),
+			),
+		);
+
+		const { user } = renderPage();
+		const dialog = await openDetail(user, "Test API Key");
+
+		await waitFor(() => {
+			expect(within(dialog).getByText("No providers")).toBeInTheDocument();
+		});
+		// Nothing capped this key; the empty list is its own doing, so no note.
+		expect(
+			within(dialog).queryByTestId("vk-detail-readonly-cap-note"),
+		).not.toBeInTheDocument();
 	});
 
 	it("lists no provider for a deny-all cap", async () => {

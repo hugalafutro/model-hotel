@@ -43,12 +43,12 @@ describe("VirtualKeys", () => {
 
 			await waitFor(() => {
 				expect(
-					screen.getByRole("dialog", { name: /tokens/ }),
+					screen.getByRole("dialog", { name: "Test API Key" }),
 				).toBeInTheDocument();
 			});
 
 			const dialog = screen.getByRole("dialog", {
-				name: /tokens/,
+				name: "Test API Key",
 			});
 			expect(
 				within(dialog).getByRole("heading", { name: "Test API Key" }),
@@ -94,12 +94,12 @@ describe("VirtualKeys", () => {
 
 			await waitFor(() => {
 				expect(
-					screen.getByRole("dialog", { name: /tokens/ }),
+					screen.getByRole("dialog", { name: "Test API Key" }),
 				).toBeInTheDocument();
 			});
 
 			const dialog = screen.getByRole("dialog", {
-				name: /tokens/,
+				name: "Test API Key",
 			});
 
 			// Check Provider Access section header exists
@@ -144,12 +144,12 @@ describe("VirtualKeys", () => {
 
 			await waitFor(() => {
 				expect(
-					screen.getByRole("dialog", { name: /tokens/ }),
+					screen.getByRole("dialog", { name: "Test API Key" }),
 				).toBeInTheDocument();
 			});
 
 			const dialog = screen.getByRole("dialog", {
-				name: /tokens/,
+				name: "Test API Key",
 			});
 
 			// Click Edit button
@@ -191,12 +191,12 @@ describe("VirtualKeys", () => {
 
 			await waitFor(() => {
 				expect(
-					screen.getByRole("dialog", { name: /tokens/ }),
+					screen.getByRole("dialog", { name: "Test API Key" }),
 				).toBeInTheDocument();
 			});
 
 			const dialog = screen.getByRole("dialog", {
-				name: /tokens/,
+				name: "Test API Key",
 			});
 
 			// Enter edit mode
@@ -252,12 +252,12 @@ describe("VirtualKeys", () => {
 
 			await waitFor(() => {
 				expect(
-					screen.getByRole("dialog", { name: /tokens/ }),
+					screen.getByRole("dialog", { name: "Restricted Key" }),
 				).toBeInTheDocument();
 			});
 
 			const dialog = screen.getByRole("dialog", {
-				name: /tokens/,
+				name: "Restricted Key",
 			});
 
 			// Click Edit button
@@ -319,12 +319,12 @@ describe("VirtualKeys", () => {
 
 			await waitFor(() => {
 				expect(
-					screen.getByRole("dialog", { name: /tokens/ }),
+					screen.getByRole("dialog", { name: "Test API Key" }),
 				).toBeInTheDocument();
 			});
 
 			const dialog = screen.getByRole("dialog", {
-				name: /tokens/,
+				name: "Test API Key",
 			});
 
 			// Click Edit button
@@ -381,12 +381,12 @@ describe("VirtualKeys", () => {
 
 			await waitFor(() => {
 				expect(
-					screen.getByRole("dialog", { name: /tokens/ }),
+					screen.getByRole("dialog", { name: "Test API Key" }),
 				).toBeInTheDocument();
 			});
 
 			const dialog = screen.getByRole("dialog", {
-				name: /tokens/,
+				name: "Test API Key",
 			});
 
 			// Enter edit mode
@@ -441,13 +441,13 @@ describe("VirtualKeys", () => {
 
 			await waitFor(() => {
 				expect(
-					screen.getByRole("dialog", { name: /tokens/ }),
+					screen.getByRole("dialog", { name: "Test API Key" }),
 				).toBeInTheDocument();
 			});
 
 			// Check modal shows "Never" for last used - query within modal
 			const modal = screen.getByRole("dialog", {
-				name: /tokens/,
+				name: "Test API Key",
 			});
 			expect(within(modal).getByText("Never")).toBeInTheDocument();
 		});
@@ -478,12 +478,12 @@ describe("VirtualKeys", () => {
 
 			await waitFor(() => {
 				expect(
-					screen.getByRole("dialog", { name: /tokens/ }),
+					screen.getByRole("dialog", { name: "Test API Key" }),
 				).toBeInTheDocument();
 			});
 
 			const dialog = screen.getByRole("dialog", {
-				name: /tokens/,
+				name: "Test API Key",
 			});
 
 			// Click Edit button to enter edit mode
@@ -510,7 +510,7 @@ describe("VirtualKeys", () => {
 			// Modal closes after successful save
 			await waitFor(() => {
 				expect(
-					screen.queryByRole("dialog", { name: /tokens/ }),
+					screen.queryByRole("dialog", { name: "Test API Key" }),
 				).not.toBeInTheDocument();
 			});
 		});
@@ -537,12 +537,12 @@ describe("VirtualKeys", () => {
 
 			await waitFor(() => {
 				expect(
-					screen.getByRole("dialog", { name: /tokens/ }),
+					screen.getByRole("dialog", { name: "Test API Key" }),
 				).toBeInTheDocument();
 			});
 
 			const dialog = screen.getByRole("dialog", {
-				name: /tokens/,
+				name: "Test API Key",
 			});
 
 			// Click Edit button
@@ -596,12 +596,12 @@ describe("VirtualKeys", () => {
 
 			await waitFor(() => {
 				expect(
-					screen.getByRole("dialog", { name: /tokens/ }),
+					screen.getByRole("dialog", { name: "Test API Key" }),
 				).toBeInTheDocument();
 			});
 
 			const dialog = screen.getByRole("dialog", {
-				name: /tokens/,
+				name: "Test API Key",
 			});
 
 			// Click Edit button
@@ -660,7 +660,7 @@ describe("VirtualKeys", () => {
 			await user.click(screen.getByText("Test API Key"));
 
 			const dialog = await screen.findByRole("dialog", {
-				name: /tokens/,
+				name: "Test API Key",
 			});
 
 			await user.click(within(dialog).getByRole("button", { name: "Edit" }));
@@ -715,7 +715,7 @@ describe("VirtualKeys", () => {
 
 			await user.click(screen.getByText("Test API Key"));
 			const dialog = await screen.findByRole("dialog", {
-				name: /tokens/,
+				name: "Test API Key",
 			});
 			expect(
 				within(dialog).getByText("$3.25 of $25.00 this month"),
@@ -757,12 +757,12 @@ describe("VirtualKeys", () => {
 
 			await waitFor(() => {
 				expect(
-					screen.getByRole("dialog", { name: /tokens/ }),
+					screen.getByRole("dialog", { name: "Test API Key" }),
 				).toBeInTheDocument();
 			});
 
 			const dialog = screen.getByRole("dialog", {
-				name: /tokens/,
+				name: "Test API Key",
 			});
 
 			// Click Edit button
@@ -814,7 +814,7 @@ describe("VirtualKeys", () => {
 			// Wait for detail modal and click Edit
 			await waitFor(() => {
 				expect(
-					screen.getByRole("dialog", { name: /tokens/ }),
+					screen.getByRole("dialog", { name: "Test API Key" }),
 				).toBeInTheDocument();
 			});
 			await user.click(screen.getByRole("button", { name: "Edit" }));
@@ -825,7 +825,7 @@ describe("VirtualKeys", () => {
 			// Should still have modal open but in view mode
 			await waitFor(() => {
 				expect(
-					screen.getByRole("dialog", { name: /tokens/ }),
+					screen.getByRole("dialog", { name: "Test API Key" }),
 				).toBeInTheDocument();
 				expect(
 					screen.getByRole("button", { name: "Edit" }),
@@ -857,12 +857,12 @@ describe("VirtualKeys", () => {
 
 			await waitFor(() => {
 				expect(
-					screen.getByRole("dialog", { name: /tokens/ }),
+					screen.getByRole("dialog", { name: "Test API Key" }),
 				).toBeInTheDocument();
 			});
 
 			const dialog = screen.getByRole("dialog", {
-				name: /tokens/,
+				name: "Test API Key",
 			});
 			// Click "Delete Key" button (default label)
 			const deleteButton = within(dialog).getByRole("button", {
@@ -880,7 +880,7 @@ describe("VirtualKeys", () => {
 
 			await waitFor(() => {
 				expect(
-					screen.queryByRole("dialog", { name: /tokens/ }),
+					screen.queryByRole("dialog", { name: "Test API Key" }),
 				).not.toBeInTheDocument();
 			});
 		});
@@ -907,12 +907,12 @@ describe("VirtualKeys", () => {
 
 			await waitFor(() => {
 				expect(
-					screen.getByRole("dialog", { name: /tokens/ }),
+					screen.getByRole("dialog", { name: "Test API Key" }),
 				).toBeInTheDocument();
 			});
 
 			const dialog = screen.getByRole("dialog", {
-				name: /tokens/,
+				name: "Test API Key",
 			});
 			const deleteButton = within(dialog).getByRole("button", {
 				name: "Delete Key",
@@ -947,12 +947,12 @@ describe("VirtualKeys", () => {
 
 			await waitFor(() => {
 				expect(
-					screen.getByRole("dialog", { name: /tokens/ }),
+					screen.getByRole("dialog", { name: "Test API Key" }),
 				).toBeInTheDocument();
 			});
 
 			const dialog = screen.getByRole("dialog", {
-				name: /tokens/,
+				name: "Test API Key",
 			});
 
 			// Click Delete Key button
@@ -999,12 +999,12 @@ describe("VirtualKeys", () => {
 
 			await waitFor(() => {
 				expect(
-					screen.getByRole("dialog", { name: /tokens/ }),
+					screen.getByRole("dialog", { name: "Test API Key" }),
 				).toBeInTheDocument();
 			});
 
 			const dialog = screen.getByRole("dialog", {
-				name: /tokens/,
+				name: "Test API Key",
 			});
 
 			// Click Edit button
@@ -1063,12 +1063,12 @@ describe("VirtualKeys", () => {
 
 			await waitFor(() => {
 				expect(
-					screen.getByRole("dialog", { name: /tokens/ }),
+					screen.getByRole("dialog", { name: "Test API Key" }),
 				).toBeInTheDocument();
 			});
 
 			const dialog = screen.getByRole("dialog", {
-				name: /tokens/,
+				name: "Test API Key",
 			});
 
 			// Click Edit button
@@ -1112,12 +1112,12 @@ describe("KeyDetailModal edit validation", () => {
 		await user.click(screen.getByText("Test API Key"));
 		await waitFor(() => {
 			expect(
-				screen.getByRole("dialog", { name: /tokens/ }),
+				screen.getByRole("dialog", { name: "Test API Key" }),
 			).toBeInTheDocument();
 		});
 
 		const dialog = screen.getByRole("dialog", {
-			name: /tokens/,
+			name: "Test API Key",
 		});
 
 		// Enter edit mode
@@ -1153,12 +1153,12 @@ describe("KeyDetailModal unsaved-changes guard", () => {
 		await user.click(screen.getByText("Test API Key"));
 		await waitFor(() => {
 			expect(
-				screen.getByRole("dialog", { name: /tokens/ }),
+				screen.getByRole("dialog", { name: "Test API Key" }),
 			).toBeInTheDocument();
 		});
 
 		const dialog = screen.getByRole("dialog", {
-			name: /tokens/,
+			name: "Test API Key",
 		});
 
 		await user.click(within(dialog).getByRole("button", { name: "Edit" }));
@@ -1182,7 +1182,7 @@ describe("KeyDetailModal unsaved-changes guard", () => {
 
 		await user.click(screen.getByTestId("confirm-dialog-cancel"));
 
-		const dialog = screen.getByRole("dialog", { name: /tokens/ });
+		const dialog = screen.getByRole("dialog", { name: "Test API Key" });
 		expect(dialog).toBeInTheDocument();
 		// The dialog still answers: a refused close must not leave it faded
 		// out over the page, deaf to every later close.
@@ -1202,7 +1202,7 @@ describe("KeyDetailModal unsaved-changes guard", () => {
 
 		await waitFor(() => {
 			expect(
-				screen.queryByRole("dialog", { name: /tokens/ }),
+				screen.queryByRole("dialog", { name: "Test API Key" }),
 			).not.toBeInTheDocument();
 		});
 	});
@@ -1224,12 +1224,12 @@ describe("hasChanges revert", () => {
 		await user.click(screen.getByText("Test API Key"));
 		await waitFor(() => {
 			expect(
-				screen.getByRole("dialog", { name: /tokens/ }),
+				screen.getByRole("dialog", { name: "Test API Key" }),
 			).toBeInTheDocument();
 		});
 
 		const dialog = screen.getByRole("dialog", {
-			name: /tokens/,
+			name: "Test API Key",
 		});
 
 		// Enter edit mode
@@ -1284,12 +1284,12 @@ describe("hasChanges revert", () => {
 
 		await waitFor(() => {
 			expect(
-				screen.getByRole("dialog", { name: /tokens/ }),
+				screen.getByRole("dialog", { name: "Restricted Key" }),
 			).toBeInTheDocument();
 		});
 
 		const dialog = screen.getByRole("dialog", {
-			name: /tokens/,
+			name: "Restricted Key",
 		});
 
 		// Click Edit button
@@ -1325,12 +1325,12 @@ describe("hasChanges revert", () => {
 
 		await waitFor(() => {
 			expect(
-				screen.getByRole("dialog", { name: /tokens/ }),
+				screen.getByRole("dialog", { name: "Restricted Key" }),
 			).toBeInTheDocument();
 		});
 
 		const dialog = screen.getByRole("dialog", {
-			name: /tokens/,
+			name: "Restricted Key",
 		});
 
 		// Click Edit — should NOT enter edit mode because providers haven't loaded
@@ -1369,11 +1369,11 @@ describe("hasChanges revert", () => {
 
 		await waitFor(() => {
 			expect(
-				screen.getByRole("dialog", { name: /tokens/ }),
+				screen.getByRole("dialog", { name: "Deny All Key" }),
 			).toBeInTheDocument();
 		});
 		const dialog = screen.getByRole("dialog", {
-			name: /tokens/,
+			name: "Deny All Key",
 		});
 
 		const editButton = within(dialog).getByRole("button", { name: "Edit" });
@@ -1401,12 +1401,12 @@ describe("hasChanges revert", () => {
 
 		await waitFor(() => {
 			expect(
-				screen.getByRole("dialog", { name: /tokens/ }),
+				screen.getByRole("dialog", { name: "Test API Key" }),
 			).toBeInTheDocument();
 		});
 
 		const dialog = screen.getByRole("dialog", {
-			name: /tokens/,
+			name: "Test API Key",
 		});
 
 		const editButton = within(dialog).getByRole("button", {
