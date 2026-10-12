@@ -63,6 +63,26 @@ beforeEach(() => {
 		http.get("/api/auth/oidc/status", () =>
 			HttpResponse.json({ enabled: false }),
 		),
+		// The remaining panels read on mount too. Left unmocked, each read dies
+		// under the setup's "error" strategy in the same tick the polling form's
+		// PUT goes out, and the devices panel re-polls every 5 s on top. The
+		// save-error test, which clicks Save the instant the form appears, is
+		// the one that runs its PUT inside that burst and the one that flakes on
+		// CI. Every read gets a benign answer so nothing in this file is unhandled.
+		http.get("/api/alert/targets", () => HttpResponse.json({ targets: [] })),
+		http.get("/api/observability", () =>
+			HttpResponse.json({
+				log_export_json: false,
+				log_export_otel: false,
+				log_export_metrics: false,
+			}),
+		),
+		http.get("/api/webauthn/available", () =>
+			HttpResponse.json({ enabled: false }),
+		),
+		http.get("/api/totp/status", () => HttpResponse.json({ enabled: false })),
+		http.get("/api/auth/sessions", () => HttpResponse.json({ sessions: [] })),
+		http.get("/api/devices", () => HttpResponse.json([])),
 	);
 });
 
