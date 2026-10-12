@@ -78,7 +78,7 @@ beforeEach(() => {
 			}),
 		),
 		http.get("/api/webauthn/available", () =>
-			HttpResponse.json({ enabled: false }),
+			HttpResponse.json({ enabled: false, has_credentials: false }),
 		),
 		http.get("/api/totp/status", () => HttpResponse.json({ enabled: false })),
 		http.get("/api/auth/sessions", () => HttpResponse.json({ sessions: [] })),
@@ -142,9 +142,8 @@ describe("SettingsPage", () => {
 		renderPage();
 		await screen.findByRole("button", { name: /^Save$/i });
 		await userEvent.click(screen.getByRole("button", { name: /^Save$/i }));
-		// Target the save error itself: the page's other panels can raise their
-		// own role="alert" (their reads are not mocked here), and which alert is
-		// first in the DOM depends on response timing.
+		// Target the save error itself rather than the first role="alert" in the
+		// DOM, so another panel's alert can never shadow it.
 		const alert = await screen.findByText(/at least 1 second/i);
 		expect(alert.closest('[role="alert"]')).not.toBeNull();
 	});
