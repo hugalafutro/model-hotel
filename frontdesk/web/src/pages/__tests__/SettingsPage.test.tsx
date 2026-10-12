@@ -63,6 +63,26 @@ beforeEach(() => {
 		http.get("/api/auth/oidc/status", () =>
 			HttpResponse.json({ enabled: false }),
 		),
+		// The remaining panels read on mount too. Left unmocked, each read dies
+		// under the setup's "error" strategy in the same tick the polling form's
+		// PUT goes out, and the devices panel re-polls every 5 s on top. The
+		// save-error test, which clicks Save the instant the form appears, is
+		// the one that runs its PUT inside that burst and the one that flakes on
+		// CI. Every read gets a benign answer so nothing in this file is unhandled.
+		http.get("/api/alert/targets", () => HttpResponse.json({ targets: [] })),
+		http.get("/api/observability", () =>
+			HttpResponse.json({
+				log_export_json: false,
+				log_export_otel: false,
+				log_export_metrics: false,
+			}),
+		),
+		http.get("/api/webauthn/available", () =>
+			HttpResponse.json({ enabled: false, has_credentials: false }),
+		),
+		http.get("/api/totp/status", () => HttpResponse.json({ enabled: false })),
+		http.get("/api/auth/sessions", () => HttpResponse.json({ sessions: [] })),
+		http.get("/api/devices", () => HttpResponse.json([])),
 	);
 });
 
@@ -122,9 +142,8 @@ describe("SettingsPage", () => {
 		renderPage();
 		await screen.findByRole("button", { name: /^Save$/i });
 		await userEvent.click(screen.getByRole("button", { name: /^Save$/i }));
-		// Target the save error itself: the page's other panels can raise their
-		// own role="alert" (their reads are not mocked here), and which alert is
-		// first in the DOM depends on response timing.
+		// Target the save error itself rather than the first role="alert" in the
+		// DOM, so another panel's alert can never shadow it.
 		const alert = await screen.findByText(/at least 1 second/i);
 		expect(alert.closest('[role="alert"]')).not.toBeNull();
 	});
