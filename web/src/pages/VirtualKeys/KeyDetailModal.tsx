@@ -1,16 +1,14 @@
-import { useState } from "react";
+import { useId, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
 	BrainSlashIcon,
 	CalendarPlus,
 	Clock,
-	Coins,
 	DollarSign,
 	Fingerprint,
 	Gauge,
 	Key,
 	ShieldCheck,
-	Tag,
 	UserRound,
 	Zap,
 } from "@/lib/icons";
@@ -24,7 +22,7 @@ import { InfoHint } from "../../components/InfoHint";
 import { DetailItem } from "../../components/LogDetailItem";
 import { Modal } from "../../components/Modal";
 import { Toggle } from "../../components/Toggle";
-import { formatDateTime, formatNumber } from "../../utils/format";
+import { formatDateTime, formatNumber, formatTokens } from "../../utils/format";
 import { ProviderAccessPicker } from "./ProviderAccessPicker";
 import { RateLimitField } from "./RateLimitField";
 import { SectionHeader } from "./SectionHeader";
@@ -48,6 +46,7 @@ export function KeyDetailModal({
 	const limitText = (n: number | null | undefined) =>
 		n != null ? String(n) : t("common.global");
 	const [confirmDelete, setConfirmDelete] = useState(false);
+	const nameId = useId();
 	const {
 		editing,
 		editName,
@@ -90,11 +89,46 @@ export function KeyDetailModal({
 		capNote,
 		capNoteId,
 	} = cap;
+	// Only the providers the key can reach are listed: the ones its stored list
+	// names, or with no stored list the ones the owner's cap allows. With 200
+	// providers and a key scoped to three, the other 197 are noise.
+	const listedProviders = sortedProviders.filter((p) =>
+		vk.allowed_providers
+			? vk.allowed_providers.includes(p.id)
+			: !isOutsideCap(p.id),
+	);
+	// The cap note explains a struck chip, or an unrestricted key the cap left
+	// nothing. Above accent chips alone it would read as if those were the
+	// blocked ones, and a stored empty list is the key's own doing.
+	const showCapNote = vk.allowed_providers
+		? listedProviders.some((p) => isOutsideCap(p.id))
+		: listedProviders.length === 0 && outsideCapIds.length > 0;
 
 	return (
 		<>
 			<Modal
-				title={t("virtualkeys.modal.detailTitle")}
+				header={
+					<div className="flex flex-wrap items-center gap-3 mb-4">
+						<h2
+							id={nameId}
+							className="ui-modal-title min-w-0 truncate"
+							title={vk.name}
+						>
+							{vk.name}
+						</h2>
+						<span
+							className="px-2 py-px leading-[1.6] text-xs font-medium whitespace-nowrap ui-badge ui-badge-purple"
+							title={formatNumber(vk.tokens_used)}
+						>
+							<span className="badge-text">
+								{t("providers.card_tokens", {
+									tokens: formatTokens(vk.tokens_used),
+								})}
+							</span>
+						</span>
+					</div>
+				}
+				labelledBy={nameId}
 				onCloseRequest={requestClose}
 				onClose={onClose}
 				maxWidth="max-w-lg"
@@ -220,6 +254,13 @@ export function KeyDetailModal({
 					) : (
 						<div className="grid grid-cols-2 gap-2">
 							<DetailItem
+								icon={UserRound}
+								label={t("virtualkeys.modal.labels.owner")}
+								value={
+									vk.owner_username ?? t("virtualkeys.modal.form.ownerNone")
+								}
+							/>
+							<DetailItem
 								icon={Fingerprint}
 								label={t("virtualkeys.modal.labels.id")}
 							>
@@ -230,15 +271,17 @@ export function KeyDetailModal({
 								/>
 							</DetailItem>
 							<DetailItem
-								icon={Tag}
-								label={t("virtualkeys.modal.form.name")}
-								value={vk.name}
+								icon={CalendarPlus}
+								label={t("virtualkeys.modal.labels.created")}
+								value={formatDateTime(vk.created_at)}
 							/>
 							<DetailItem
-								icon={UserRound}
-								label={t("virtualkeys.modal.labels.owner")}
+								icon={Clock}
+								label={t("virtualkeys.modal.labels.lastUsed")}
 								value={
-									vk.owner_username ?? t("virtualkeys.modal.form.ownerNone")
+									vk.last_used_at
+										? formatDateTime(vk.last_used_at)
+										: t("common.never")
 								}
 							/>
 							<DetailItem icon={Key} label={t("virtualkeys.modal.labels.key")}>
@@ -260,10 +303,10 @@ export function KeyDetailModal({
 							/>
 							<DetailItem
 								emphasis="stat"
-								icon={Gauge}
-								label={t("virtualKeys.detail.rps")}
-								labelExtra={<InfoHint tooltip={t("virtualkeys.tooltip.rps")} />}
-								value={limitText(vk.rate_limit_rps)}
+								icon={DollarSign}
+								label={t("budget.label")}
+								labelExtra={<InfoHint tooltip={t("budget.tooltip")} />}
+								value={budgetText(t, vk)}
 								mono
 							/>
 							<DetailItem
@@ -286,32 +329,11 @@ export function KeyDetailModal({
 							/>
 							<DetailItem
 								emphasis="stat"
-								icon={DollarSign}
-								label={t("budget.label")}
-								labelExtra={<InfoHint tooltip={t("budget.tooltip")} />}
-								value={budgetText(t, vk)}
+								icon={Gauge}
+								label={t("virtualKeys.detail.rps")}
+								labelExtra={<InfoHint tooltip={t("virtualkeys.tooltip.rps")} />}
+								value={limitText(vk.rate_limit_rps)}
 								mono
-							/>
-							<DetailItem
-								emphasis="stat"
-								icon={Coins}
-								label={t("virtualkeys.modal.labels.tokensConsumed")}
-								value={formatNumber(vk.tokens_used)}
-								mono
-							/>
-							<DetailItem
-								icon={Clock}
-								label={t("virtualkeys.modal.labels.lastUsed")}
-								value={
-									vk.last_used_at
-										? formatDateTime(vk.last_used_at)
-										: t("common.never")
-								}
-							/>
-							<DetailItem
-								icon={CalendarPlus}
-								label={t("virtualkeys.modal.labels.created")}
-								value={formatDateTime(vk.created_at)}
 							/>
 							<DetailItem
 								icon={ShieldCheck}
@@ -322,9 +344,13 @@ export function KeyDetailModal({
 									<p className="text-xs text-gray-500 italic">
 										{t("virtualkeys.modal.noProvidersConfigured")}
 									</p>
+								) : !vk.allowed_providers && outsideCapIds.length === 0 ? (
+									<span className="inline-flex items-center px-2 py-px leading-[1.6] text-xs font-medium ui-badge ui-badge-neutral">
+										{t("users.providerAccessAll")}
+									</span>
 								) : (
 									<>
-										{outsideCapIds.length > 0 && (
+										{showCapNote && (
 											<p
 												id={capNoteId}
 												data-testid="vk-detail-readonly-cap-note"
@@ -335,21 +361,21 @@ export function KeyDetailModal({
 											</p>
 										)}
 										<div className="flex flex-wrap gap-1.5">
-											{sortedProviders.map((provider) => {
-												const outsideCap = isOutsideCap(provider.id);
+											{listedProviders.length === 0 && (
+												<span className="inline-flex items-center px-2 py-px leading-[1.6] text-xs font-medium ui-badge ui-badge-neutral">
+													{t("users.providerAccessNone")}
+												</span>
+											)}
+											{listedProviders.map((provider) => {
 												// Being named by the key is not the same as being
 												// granted. A stored list wider than the owner's cap is a
 												// deliberate, ordinary state here (the key keeps its
 												// stored intent and effectiveAllowedProviders in
 												// internal/proxy intersects the two on every request),
 												// so a provider the cap excludes reads as denied however
-												// the stored list spells it. Both reasons strike the
-												// chip through; only the cap adds the note, since that
-												// is the one the stored list cannot explain.
-												const isAllowed =
-													!outsideCap &&
-													(!vk.allowed_providers ||
-														vk.allowed_providers.includes(provider.id));
+												// the stored list spells it: struck through, with the
+												// note saying why.
+												const outsideCap = isOutsideCap(provider.id);
 												return (
 													<span
 														key={provider.id}
@@ -363,9 +389,9 @@ export function KeyDetailModal({
 														title={outsideCap ? capNote : undefined}
 														className={`inline-flex items-center px-2 py-px leading-[1.6] text-xs font-medium ui-badge
 														${
-															isAllowed
-																? "ui-badge-accent"
-																: "ui-badge-neutral line-through opacity-60"
+															outsideCap
+																? "ui-badge-neutral line-through opacity-60"
+																: "ui-badge-accent"
 														}`}
 													>
 														{provider.name}

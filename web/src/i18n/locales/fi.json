@@ -1321,7 +1321,6 @@
 				"ownerNone": "Ei omistajaa (jaettu avain)",
 				"ownerHint": "Omistajan käyttäjäkohtaiset rajat koskevat kaikkia hänen avaimiaan. Omistajan poistaminen käytöstä poistaa myös tämän avaimen käytöstä."
 			},
-			"detailTitle": "Virtuaalisen Avaimen Yksityiskohdat",
 			"sections": {
 				"identity": "Identiteetti",
 				"rateLimits": "Nopeusrajoitukset",
@@ -1331,7 +1330,6 @@
 			},
 			"labels": {
 				"key": "Avain",
-				"tokensConsumed": "Kulutetut tokenit",
 				"lastUsed": "Viimeksi Käytetty",
 				"created": "Luotu",
 				"id": "ID",

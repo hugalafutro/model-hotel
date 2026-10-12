@@ -1321,7 +1321,6 @@
 				"ownerNone": "Ingen ejer (delt nøgle)",
 				"ownerHint": "Ejerens brugergrænser gælder på tværs af alle vedkommendes nøgler. Deaktiveres ejeren, deaktiveres denne nøgle også."
 			},
-			"detailTitle": "Virtuel Nøgle Detaljer",
 			"sections": {
 				"identity": "Identitet",
 				"rateLimits": "Hastighedsgrænser",
@@ -1331,7 +1330,6 @@
 			},
 			"labels": {
 				"key": "Nøgle",
-				"tokensConsumed": "Tokens forbrugt",
 				"lastUsed": "Sidst Brugt",
 				"created": "Oprettet",
 				"id": "ID",

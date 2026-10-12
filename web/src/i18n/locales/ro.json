@@ -1376,7 +1376,6 @@
 				"ownerNone": "Fără proprietar (cheie partajată)",
 				"ownerHint": "Limitele per utilizator ale proprietarului se aplică tuturor cheilor sale. Dezactivarea proprietarului dezactivează și această cheie."
 			},
-			"detailTitle": "Detalii cheie virtuală",
 			"sections": {
 				"identity": "Identitate",
 				"rateLimits": "Limite de rată",
@@ -1386,7 +1385,6 @@
 			},
 			"labels": {
 				"key": "Cheie",
-				"tokensConsumed": "Tokene consumate",
 				"lastUsed": "Ultima utilizare",
 				"created": "Creat",
 				"id": "ID",

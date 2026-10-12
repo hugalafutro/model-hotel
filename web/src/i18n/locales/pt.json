@@ -1376,7 +1376,6 @@
 				"ownerNone": "Sem proprietário (chave partilhada)",
 				"ownerHint": "Os limites por utilizador do proprietário aplicam-se a todas as suas chaves. Desativar o proprietário também desativa esta chave."
 			},
-			"detailTitle": "Detalhes da Chave Virtual",
 			"sections": {
 				"identity": "Identidade",
 				"rateLimits": "Limites de taxa",
@@ -1386,7 +1385,6 @@
 			},
 			"labels": {
 				"key": "Chave",
-				"tokensConsumed": "Tokens Consumidos",
 				"lastUsed": "Último uso",
 				"created": "Criado",
 				"id": "ID",

@@ -1431,7 +1431,6 @@
 				"ownerNone": "Bez vlastníka (zdieľaný kľúč)",
 				"ownerHint": "Používateľské limity vlastníka platia naprieč všetkými jeho kľúčmi. Zakázaním vlastníka sa zakáže aj tento kľúč."
 			},
-			"detailTitle": "Podrobnosti o virtuálnom kľúči",
 			"sections": {
 				"identity": "Identita",
 				"rateLimits": "Obmedzenia frekvencie",
@@ -1441,7 +1440,6 @@
 			},
 			"labels": {
 				"key": "Kľúč",
-				"tokensConsumed": "Spotrebované tokeny",
 				"lastUsed": "Naposledy použité",
 				"created": "Vytvorené",
 				"id": "ID",

@@ -1321,7 +1321,6 @@
 				"ownerNone": "Ingen eier (delt nøkkel)",
 				"ownerHint": "Eierens brukergrenser gjelder på tvers av alle nøklene deres. Deaktiveres eieren, deaktiveres også denne nøkkelen."
 			},
-			"detailTitle": "Virtuell nøkkel detaljer",
 			"sections": {
 				"identity": "Identitet",
 				"rateLimits": "Hastighetsgrenser",
@@ -1331,7 +1330,6 @@
 			},
 			"labels": {
 				"key": "Nøkkel",
-				"tokensConsumed": "Tokens brukt",
 				"lastUsed": "Sist brukt",
 				"created": "Opprettet",
 				"id": "ID",

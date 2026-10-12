@@ -1321,7 +1321,6 @@
 				"ownerNone": "Ingen ägare (delad nyckel)",
 				"ownerHint": "Ägarens användargränser gäller över alla dennes nycklar. Inaktiveras ägaren inaktiveras även denna nyckel."
 			},
-			"detailTitle": "Information om virtuell nyckel",
 			"sections": {
 				"identity": "Identitet",
 				"rateLimits": "Hastighetsgränser",
@@ -1331,7 +1330,6 @@
 			},
 			"labels": {
 				"key": "Nyckel",
-				"tokensConsumed": "Tokens förbrukade",
 				"lastUsed": "Senast använd",
 				"created": "Skapad",
 				"id": "ID",

@@ -1321,7 +1321,6 @@
 				"ownerNone": "Nincs tulajdonos (megosztott kulcs)",
 				"ownerHint": "A tulajdonos felhasználói korlátai az összes kulcsára érvényesek. A tulajdonos letiltása ezt a kulcsot is letiltja."
 			},
-			"detailTitle": "A virtuális kulcs adatai",
 			"sections": {
 				"identity": "Identitás",
 				"rateLimits": "Kérési korlátok",
@@ -1331,7 +1330,6 @@
 			},
 			"labels": {
 				"key": "Kulcs",
-				"tokensConsumed": "Felhasznált tokenek",
 				"lastUsed": "Utoljára használt",
 				"created": "Létrehozva",
 				"id": "ID",

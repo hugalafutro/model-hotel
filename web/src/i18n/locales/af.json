@@ -1321,7 +1321,6 @@
 				"ownerNone": "Geen eienaar (gedeelde sleutel)",
 				"ownerHint": "Die eienaar se gebruikerslimiete geld oor al sy sleutels. As die eienaar gedeaktiveer word, word hierdie sleutel ook gedeaktiveer."
 			},
-			"detailTitle": "Virtuele Sleutelbesonderhede",
 			"sections": {
 				"identity": "Identiteit",
 				"rateLimits": "Ratelimiete",
@@ -1331,7 +1330,6 @@
 			},
 			"labels": {
 				"key": "Sleutel",
-				"tokensConsumed": "Gebruikte tokens",
 				"lastUsed": "Laaste gebruik",
 				"created": "Geskep",
 				"id": "ID",
