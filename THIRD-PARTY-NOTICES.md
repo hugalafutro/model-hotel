@@ -6,7 +6,7 @@ Model Hotel is distributed under the MIT License (see [LICENSE](./LICENSE)).
 It bundles the third-party open-source components listed below; each is the
 property of its respective authors and is used under the terms reproduced here.
 
-_59 Go modules, 237 npm packages (regenerate with `make notices`)._
+_59 Go modules, 238 npm packages (regenerate with `make notices`)._
 
 ## Fonts
 
@@ -22,7 +22,7 @@ The web UI embeds the JetBrains Mono, Onest, and Schibsted Grotesk typefaces, an
 | [github.com/cespare/xxhash/v2](https://github.com/cespare/xxhash/v2) | v2.3.0 | Go | MIT |
 | [github.com/coreos/go-oidc/v3](https://github.com/coreos/go-oidc/v3) | v3.21.0 | Go | Apache-2.0 |
 | [github.com/dustin/go-humanize](https://github.com/dustin/go-humanize) | v1.0.1 | Go | MIT |
-| [github.com/fxamacker/cbor/v2](https://github.com/fxamacker/cbor/v2) | v2.9.4 | Go | MIT |
+| [github.com/fxamacker/cbor/v2](https://github.com/fxamacker/cbor/v2) | v2.9.6 | Go | MIT |
 | [github.com/go-chi/chi/v5](https://github.com/go-chi/chi/v5) | v5.3.2 | Go | MIT |
 | [github.com/go-jose/go-jose/v4](https://github.com/go-jose/go-jose/v4) | v4.1.5 | Go | Apache-2.0 |
 | [github.com/go-logr/logr](https://github.com/go-logr/logr) | v1.4.4 | Go | Apache-2.0 |
@@ -42,10 +42,10 @@ The web UI embeds the JetBrains Mono, Onest, and Schibsted Grotesk typefaces, an
 | [github.com/munnerz/goautoneg](https://github.com/munnerz/goautoneg) | v0.0.0-20191010083416-a7dc8b61c822 | Go | BSD-3-Clause |
 | [github.com/philhofer/fwd](https://github.com/philhofer/fwd) | v1.2.0 | Go | MIT |
 | [github.com/pquerna/otp](https://github.com/pquerna/otp) | v1.5.0 | Go | Apache-2.0 |
-| [github.com/prometheus/client_golang](https://github.com/prometheus/client_golang) | v1.24.1 | Go | Apache-2.0 |
-| [github.com/prometheus/client_model](https://github.com/prometheus/client_model) | v0.6.2 | Go | Apache-2.0 |
-| [github.com/prometheus/common](https://github.com/prometheus/common) | v0.70.1 | Go | Apache-2.0 |
-| [github.com/prometheus/procfs](https://github.com/prometheus/procfs) | v0.21.1 | Go | Apache-2.0 |
+| [github.com/prometheus/client_golang](https://github.com/prometheus/client_golang) | v1.25.0 | Go | Apache-2.0 |
+| [github.com/prometheus/client_model](https://github.com/prometheus/client_model) | v0.6.3 | Go | Apache-2.0 |
+| [github.com/prometheus/common](https://github.com/prometheus/common) | v0.72.0 | Go | Apache-2.0 |
+| [github.com/prometheus/procfs](https://github.com/prometheus/procfs) | v0.22.0 | Go | Apache-2.0 |
 | [github.com/remyoudompheng/bigfft](https://github.com/remyoudompheng/bigfft) | v0.0.0-20230129092748-24d4a6f8daec | Go | BSD-3-Clause |
 | [github.com/tinylib/msgp](https://github.com/tinylib/msgp) | v1.6.4 | Go | MIT |
 | [github.com/x448/float16](https://github.com/x448/float16) | v0.8.4 | Go | MIT |
@@ -60,12 +60,12 @@ The web UI embeds the JetBrains Mono, Onest, and Schibsted Grotesk typefaces, an
 | [go.opentelemetry.io/otel/sdk/log](https://go.opentelemetry.io/otel/sdk/log) | v1.47.0 | Go | Apache-2.0 |
 | [go.opentelemetry.io/otel/trace](https://go.opentelemetry.io/otel/trace) | v1.47.0 | Go | Apache-2.0 |
 | [go.opentelemetry.io/proto/otlp](https://go.opentelemetry.io/proto/otlp) | v1.11.0 | Go | Apache-2.0 |
-| [golang.org/x/crypto](https://golang.org/x/crypto) | v0.57.0 | Go | BSD-3-Clause |
+| [golang.org/x/crypto](https://golang.org/x/crypto) | v0.58.0 | Go | BSD-3-Clause |
 | [golang.org/x/net](https://golang.org/x/net) | v0.60.0 | Go | BSD-3-Clause |
 | [golang.org/x/oauth2](https://golang.org/x/oauth2) | v0.37.0 | Go | BSD-3-Clause |
-| [golang.org/x/sync](https://golang.org/x/sync) | v0.23.0 | Go | BSD-3-Clause |
-| [golang.org/x/sys](https://golang.org/x/sys) | v0.48.0 | Go | BSD-3-Clause |
-| [golang.org/x/text](https://golang.org/x/text) | v0.42.0 | Go | BSD-3-Clause |
+| [golang.org/x/sync](https://golang.org/x/sync) | v0.24.0 | Go | BSD-3-Clause |
+| [golang.org/x/sys](https://golang.org/x/sys) | v0.49.0 | Go | BSD-3-Clause |
+| [golang.org/x/text](https://golang.org/x/text) | v0.43.0 | Go | BSD-3-Clause |
 | [golang.org/x/time](https://golang.org/x/time) | v0.16.0 | Go | BSD-3-Clause |
 | [google.golang.org/genproto/googleapis/api](https://google.golang.org/genproto/googleapis/api) | v0.0.0-20260928230214-8a89bd6388cc | Go | Apache-2.0 |
 | [google.golang.org/genproto/googleapis/rpc](https://google.golang.org/genproto/googleapis/rpc) | v0.0.0-20260928230214-8a89bd6388cc | Go | Apache-2.0 |
@@ -75,6 +75,7 @@ The web UI embeds the JetBrains Mono, Onest, and Schibsted Grotesk typefaces, an
 | [modernc.org/mathutil](https://modernc.org/mathutil) | v1.7.1 | Go | BSD-3-Clause |
 | [modernc.org/memory](https://modernc.org/memory) | v1.12.1 | Go | BSD-3-Clause |
 | [modernc.org/sqlite](https://modernc.org/sqlite) | v1.60.1 | Go | Apache-2.0 |
+| [@babel/runtime](https://babel.dev/docs/en/next/babel-runtime) | 7.29.10 | npm | MIT |
 | [@babel/runtime](https://babel.dev/docs/en/next/babel-runtime) | 7.29.7 | npm | MIT |
 | [@dnd-kit/accessibility](https://github.com/clauderic/dnd-kit#readme) | 3.1.1 | npm | MIT |
 | [@dnd-kit/core](https://github.com/clauderic/dnd-kit#readme) | 6.3.1 | npm | MIT |
@@ -99,8 +100,8 @@ The web UI embeds the JetBrains Mono, Onest, and Schibsted Grotesk typefaces, an
 | [@standard-schema/utils](https://github.com/standard-schema/standard-schema#readme) | 0.3.0 | npm | MIT |
 | [@tanstack/query-core](https://tanstack.com/query) | 5.104.1 | npm | MIT |
 | [@tanstack/react-query](https://tanstack.com/query) | 5.104.1 | npm | MIT |
-| [@tanstack/react-virtual](https://tanstack.com/virtual) | 3.14.13 | npm | MIT |
-| [@tanstack/virtual-core](https://tanstack.com/virtual) | 3.17.11 | npm | MIT |
+| [@tanstack/react-virtual](https://tanstack.com/virtual) | 3.14.14 | npm | MIT |
+| [@tanstack/virtual-core](https://tanstack.com/virtual) | 3.18.0 | npm | MIT |
 | [@types/d3-array](https://github.com/DefinitelyTyped/DefinitelyTyped/tree/master/types/d3-array) | 3.2.2 | npm | MIT |
 | [@types/d3-color](https://github.com/DefinitelyTyped/DefinitelyTyped/tree/master/types/d3-color) | 3.1.3 | npm | MIT |
 | [@types/d3-ease](https://github.com/DefinitelyTyped/DefinitelyTyped/tree/master/types/d3-ease) | 3.0.2 | npm | MIT |
@@ -181,7 +182,7 @@ The web UI embeds the JetBrains Mono, Onest, and Schibsted Grotesk typefaces, an
 | [html-parse-stringify](https://github.com/i18next/html-parse-stringify) | 4.0.1 | npm | MIT |
 | [html-url-attributes](https://github.com/rehypejs/rehype-minify/tree/main#readme) | 3.0.1 | npm | MIT |
 | [html-void-elements](https://github.com/wooorm/html-void-elements#readme) | 3.0.0 | npm | MIT |
-| [i18next](https://www.i18next.com) | 26.4.2 | npm | MIT |
+| [i18next](https://www.i18next.com) | 26.4.3 | npm | MIT |
 | [i18next-browser-languagedetector](https://github.com/i18next/i18next-browser-languageDetector) | 8.2.1 | npm | MIT |
 | [immer](https://github.com/immerjs/immer#readme) | 11.1.15 | npm | MIT |
 | [immer](https://github.com/immerjs/immer#readme) | 11.1.21 | npm | MIT |
@@ -257,7 +258,7 @@ The web UI embeds the JetBrains Mono, Onest, and Schibsted Grotesk typefaces, an
 | [react](https://react.dev/) | 19.3.0 | npm | MIT |
 | [react-colorful](https://omgovich.github.io/react-colorful) | 5.8.1 | npm | MIT |
 | [react-dom](https://react.dev/) | 19.3.0 | npm | MIT |
-| [react-i18next](https://github.com/i18next/react-i18next) | 17.0.15 | npm | MIT |
+| [react-i18next](https://github.com/i18next/react-i18next) | 17.0.16 | npm | MIT |
 | [react-is](https://react.dev/) | 19.2.6 | npm | MIT |
 | [react-is](https://react.dev/) | 19.2.7 | npm | MIT |
 | [react-markdown](https://github.com/remarkjs/react-markdown#readme) | 10.1.0 | npm | MIT |
@@ -974,7 +975,7 @@ Apache License
 
 Copyright 2009 The Go Authors.
 
-Applies to: `golang.org/x/crypto@v0.57.0`, `golang.org/x/net@v0.60.0`, `golang.org/x/oauth2@v0.37.0`, `golang.org/x/sync@v0.23.0`, `golang.org/x/sys@v0.48.0`, `golang.org/x/text@v0.42.0`, `golang.org/x/time@v0.16.0`
+Applies to: `golang.org/x/crypto@v0.58.0`, `golang.org/x/net@v0.60.0`, `golang.org/x/oauth2@v0.37.0`, `golang.org/x/sync@v0.24.0`, `golang.org/x/sys@v0.49.0`, `golang.org/x/text@v0.43.0`, `golang.org/x/time@v0.16.0`
 
 ```
 Copyright 2009 The Go Authors.
@@ -1070,7 +1071,7 @@ SOFTWARE.
 
 Copyright (c) 2021-present Tanner Linsley
 
-Applies to: `@tanstack/query-core@5.104.1`, `@tanstack/react-query@5.104.1`, `@tanstack/react-virtual@3.14.13`, `@tanstack/virtual-core@3.17.11`
+Applies to: `@tanstack/query-core@5.104.1`, `@tanstack/react-query@5.104.1`, `@tanstack/react-virtual@3.14.14`, `@tanstack/virtual-core@3.18.0`
 
 ```
 MIT License
@@ -1192,6 +1193,37 @@ LIABLE FOR ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES
 OR ANY DAMAGES WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS,
 WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION,
 ARISING OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
+```
+
+### MIT
+
+Copyright (c) 2014-present Sebastian McKenzie and other contributors
+
+Applies to: `@babel/runtime@7.29.10`, `@babel/runtime@7.29.7`
+
+```
+MIT License
+
+Copyright (c) 2014-present Sebastian McKenzie and other contributors
+
+Permission is hereby granted, free of charge, to any person obtaining
+a copy of this software and associated documentation files (the
+"Software"), to deal in the Software without restriction, including
+without limitation the rights to use, copy, modify, merge, publish,
+distribute, sublicense, and/or sell copies of the Software, and to
+permit persons to whom the Software is furnished to do so, subject to
+the following conditions:
+
+The above copyright notice and this permission notice shall be
+included in all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
+NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE
+LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION
+OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
+WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 ```
 
 ### Apache-2.0
@@ -1826,7 +1858,7 @@ SOFTWARE.
 
 Copyright (c) 2019-present Faye Amacker
 
-Applies to: `github.com/fxamacker/cbor/v2@v2.9.4`
+Applies to: `github.com/fxamacker/cbor/v2@v2.9.6`
 
 ```
 MIT License
@@ -2708,7 +2740,7 @@ Paul Querna (http://paul.querna.org/).
 
 copyright notice that is included in or attached to the work
 
-Applies to: `github.com/prometheus/client_golang@v1.24.1`
+Applies to: `github.com/prometheus/client_golang@v1.25.0`
 
 ```
 Apache License
@@ -2939,7 +2971,7 @@ See source code for license details.
 
 copyright notice that is included in or attached to the work
 
-Applies to: `github.com/prometheus/client_model@v0.6.2`
+Applies to: `github.com/prometheus/client_model@v0.6.3`
 
 ```
 Apache License
@@ -3157,7 +3189,7 @@ SoundCloud Ltd. (http://soundcloud.com/).
 
 copyright notice that is included in or attached to the work
 
-Applies to: `github.com/prometheus/common@v0.70.1`
+Applies to: `github.com/prometheus/common@v0.72.0`
 
 ```
 Apache License
@@ -3375,7 +3407,7 @@ SoundCloud Ltd. (http://soundcloud.com/).
 
 copyright notice that is included in or attached to the work
 
-Applies to: `github.com/prometheus/procfs@v0.21.1`
+Applies to: `github.com/prometheus/procfs@v0.22.0`
 
 ```
 Apache License
@@ -6117,37 +6149,6 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-### MIT
-
-Copyright (c) 2014-present Sebastian McKenzie and other contributors
-
-Applies to: `@babel/runtime@7.29.7`
-
-```
-MIT License
-
-Copyright (c) 2014-present Sebastian McKenzie and other contributors
-
-Permission is hereby granted, free of charge, to any person obtaining
-a copy of this software and associated documentation files (the
-"Software"), to deal in the Software without restriction, including
-without limitation the rights to use, copy, modify, merge, publish,
-distribute, sublicense, and/or sell copies of the Software, and to
-permit persons to whom the Software is furnished to do so, subject to
-the following conditions:
-
-The above copyright notice and this permission notice shall be
-included in all copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
-EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
-MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
-NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE
-LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION
-OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
-WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
-```
-
 ### OFL-1.1
 
 Copyright 2020 The JetBrains Mono Project Authors (https://github.com/JetBrains/JetBrainsMono) JetBrainsMono-Italic[wght].ttf: Copyright 2020 The JetBrains Mono Project Authors (https://github.com/JetBrains/JetBrainsMono)
@@ -7486,7 +7487,7 @@ THE SOFTWARE.
 
 Copyright (c) 2011-present i18next
 
-Applies to: `i18next@26.4.2`
+Applies to: `i18next@26.4.3`
 
 ```
 The MIT License (MIT)
@@ -7872,7 +7873,7 @@ SOFTWARE.
 
 Copyright (c) 2015-present i18next
 
-Applies to: `react-i18next@17.0.15`
+Applies to: `react-i18next@17.0.16`
 
 ```
 The MIT License (MIT)
