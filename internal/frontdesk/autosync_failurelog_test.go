@@ -189,11 +189,21 @@ func TestAutoSync_RecoveryInsertFailureGivesMemoBack(t *testing.T) {
 	if err := store.db.Close(); err != nil {
 		t.Fatalf("close store db: %v", err)
 	}
+	ch := srv.bus.Subscribe()
+	defer srv.bus.Unsubscribe(ch)
 	srv.emitSyncRecovered(t.Context(), m, "m1 holds the primary's config again")
 	srv.syncIncompleteMu.Lock()
 	checked := srv.failureLogChecked[m.ID]
 	srv.syncIncompleteMu.Unlock()
 	if checked {
 		t.Error("a recovery that failed to persist stayed memoised as closed; the next converged pass must retry")
+	}
+	select {
+	case ev := <-ch:
+		if ev.Type != "config.sync_recovered" {
+			t.Errorf("published %q, want config.sync_recovered", ev.Type)
+		}
+	default:
+		t.Error("a recovery that failed to persist was not published; the divergence path cannot retry it")
 	}
 }
