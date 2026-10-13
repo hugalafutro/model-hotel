@@ -418,6 +418,7 @@ func (s *Server) forgetMemberState(id string) {
 	delete(s.syncIncomplete, id)
 	delete(s.unconfirmedSync, id)
 	delete(s.lastSyncFailure, id)
+	delete(s.failureLogChecked, id)
 	s.syncIncompleteMu.Unlock()
 
 	s.backupStaleMu.Lock()

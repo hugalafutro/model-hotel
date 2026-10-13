@@ -727,7 +727,7 @@ func (s *Server) measureMember(ctx, passCtx context.Context, m *Member, token, h
 		// heartbeat. Only a hash match moves it, so it means "measured holding the
 		// primary's config", never "written to".
 		recovered := s.clearMemberIncomplete(ctx, m)
-		if s.clearSyncFailure(m.ID) && !recovered {
+		if (s.clearSyncFailure(m.ID) || s.failedPerLog(ctx, m)) && !recovered {
 			// One recovery, one event: the divergence's own event says it when
 			// the member was flagged; otherwise the cleared push failure does.
 			s.emitSyncRecovered(ctx, m, fmt.Sprintf("%s holds the primary's config again", m.Name))
