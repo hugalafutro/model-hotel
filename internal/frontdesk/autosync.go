@@ -527,9 +527,12 @@ func (s *Server) applyAutoSync(ctx context.Context, primary *Member, primaryBuil
 			// reach it, and an unclosed config.sync_held would stay the new
 			// primary's newest event forever.
 			s.closeSyncHold(ctx, m, fmt.Sprintf("%s is no longer held for sync: it is now the primary", m.Name))
-			// Nor is a push failure it remembered from before its promotion news
-			// once it is a replica again, days later, under another topology.
-			s.clearSyncFailure(m.ID)
+			// Nor is a push failure from before its promotion news once it is a
+			// replica again, days later, under another topology: forgotten here
+			// and closed in the log, or a restart would read it back as open.
+			if s.clearSyncFailure(m.ID) || s.failedPerLog(ctx, m) {
+				s.emitSyncRecovered(ctx, m, fmt.Sprintf("%s is no longer awaiting a config push: it is now the primary", m.Name))
+			}
 			continue
 		}
 		if stale() {

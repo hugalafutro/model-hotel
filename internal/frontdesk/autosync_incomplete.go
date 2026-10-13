@@ -80,11 +80,20 @@ func (s *Server) recordSyncAttempt(memberID string, unapplied, partial, unapplie
 // only: a member alternating between two causes reports both each time. A
 // push that converged, by its own answer or by a later hash match, must go
 // through clearSyncFailure so the next failure counts as new.
-func (s *Server) syncFailureRepeats(memberID, cause string) bool {
+//
+// A process that remembers nothing for the member asks the event log once: a
+// Front Desk restarted while a member keeps refusing for one cause must not
+// re-announce that cause as news.
+func (s *Server) syncFailureRepeats(ctx context.Context, m *Member, cause string) bool {
 	s.syncIncompleteMu.Lock()
-	defer s.syncIncompleteMu.Unlock()
-	prev, had := s.lastSyncFailure[memberID]
-	s.lastSyncFailure[memberID] = cause
+	prev, had := s.lastSyncFailure[m.ID]
+	s.syncIncompleteMu.Unlock()
+	if !had {
+		prev, had = s.loggedSyncFailure(ctx, m)
+	}
+	s.syncIncompleteMu.Lock()
+	s.lastSyncFailure[m.ID] = cause
+	s.syncIncompleteMu.Unlock()
 	return had && prev == cause
 }
 
@@ -101,30 +110,49 @@ func (s *Server) clearSyncFailure(memberID string) bool {
 	return had
 }
 
-// failedPerLog reports whether the event log left this member inside an open
-// push failure: a config.sync_failed with no config.sync_recovered after it. It
-// is the restart fallback for lastSyncFailure, which clearSyncFailure consults
-// first, and reads the log at most once per member per process, as heldPerLog
-// does for holds (a read error is not memoised and retries on the next pass).
-// Observed on 2026-10-13: Front Desk was recreated four seconds after it logged
-// a member unreachable, and the push that converged the member a minute later
-// found nothing to clear, so the failure stayed the member's newest event.
-func (s *Server) failedPerLog(ctx context.Context, m *Member) bool {
+// loggedSyncFailure is the restart fallback for lastSyncFailure: the cause of an
+// open push failure the event log holds for this member (a config.sync_failed with
+// no config.sync_recovered after it), read at most once per member per process,
+// as heldPerLog does for holds. Observed on 2026-10-13: Front Desk was recreated
+// four seconds after it logged a member unreachable, and the push that converged
+// the member a minute later found nothing to clear, so the failure stayed the
+// member's newest event.
+//
+// The memo is claimed before the read, so a wizard push and an auto-sync pass
+// landing on the same member cannot both read the open failure and both close
+// it; a read error gives the claim back so the next pass retries. An unconfirmed
+// failure (a push that timed out or lost its answer) is not open: it was never
+// remembered in lastSyncFailure either, because the pass that later proves it
+// landed would otherwise announce a recovery from a failure that never was.
+func (s *Server) loggedSyncFailure(ctx context.Context, m *Member) (cause string, open bool) {
 	s.syncIncompleteMu.Lock()
 	done := s.failureLogChecked[m.ID]
+	s.failureLogChecked[m.ID] = true
 	s.syncIncompleteMu.Unlock()
 	if done {
-		return false
+		return "", false
 	}
 	newest, found, err := s.store.NewestEventOfTypes(ctx, m.ID, "config.sync_failed", "config.sync_recovered")
 	if err != nil {
 		debuglog.Warn("frontdesk: auto-sync: read persisted push-failure state", "member", m.Name, "error", err)
-		return false
+		s.syncIncompleteMu.Lock()
+		delete(s.failureLogChecked, m.ID)
+		s.syncIncompleteMu.Unlock()
+		return "", false
 	}
-	s.syncIncompleteMu.Lock()
-	s.failureLogChecked[m.ID] = true
-	s.syncIncompleteMu.Unlock()
-	return found && newest.Type == "config.sync_failed"
+	if !found || newest.Type != "config.sync_failed" || newest.Metadata["unconfirmed"] == true {
+		return "", false
+	}
+	cause, _ = newest.Metadata["error"].(string)
+	return cause, true
+}
+
+// failedPerLog reports whether the event log left this member inside an open
+// push failure, for the two sites that close one: the push that succeeds again
+// and the pass that measures the member converged.
+func (s *Server) failedPerLog(ctx context.Context, m *Member) bool {
+	_, open := s.loggedSyncFailure(ctx, m)
+	return open
 }
 
 // isDiverged reports whether the member is currently flagged as holding
@@ -407,12 +435,25 @@ func (s *Server) clearMemberIncomplete(ctx context.Context, m *Member) bool {
 	return true
 }
 
-// emitSyncRecovered emits config.sync_recovered for m with msg.
+// emitSyncRecovered emits config.sync_recovered for m with msg. Inserted and
+// published by hand, like closeSyncHold: a recovery that fails to persist leaves
+// the log ending in the open failure, so the log memo is given back and the next
+// pass that finds the member converged re-reads the log and closes it then.
 func (s *Server) emitSyncRecovered(ctx context.Context, m *Member, msg string) {
-	s.emit(ctx, Event{
+	ev := Event{
 		Type: "config.sync_recovered", Severity: "success", Source: "frontdesk",
 		Message: msg, MemberID: m.ID,
-	})
+	}
+	stored, err := s.store.InsertEvent(ctx, ev)
+	if err != nil {
+		debuglog.Warn("frontdesk: persist event", "type", ev.Type, "error", err)
+		s.syncIncompleteMu.Lock()
+		delete(s.failureLogChecked, m.ID)
+		s.syncIncompleteMu.Unlock()
+		return
+	}
+	logEvent(stored)
+	s.bus.Publish(busEvent(stored))
 }
 
 // incompleteSnapshot copies the diverged set under its lock for the fleet state
