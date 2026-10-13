@@ -87,10 +87,15 @@ func (s *Server) recordSyncAttempt(memberID string, unapplied, partial, unapplie
 func (s *Server) syncFailureRepeats(ctx context.Context, m *Member, cause string) bool {
 	s.syncIncompleteMu.Lock()
 	prev, had := s.lastSyncFailure[m.ID]
-	s.syncIncompleteMu.Unlock()
-	if !had {
-		prev, had = s.loggedSyncFailure(ctx, m)
+	if had {
+		// One critical section: a converged pass clearing the entry between
+		// this read and the write below would otherwise have its clear undone.
+		s.lastSyncFailure[m.ID] = cause
+		s.syncIncompleteMu.Unlock()
+		return prev == cause
 	}
+	s.syncIncompleteMu.Unlock()
+	prev, had = s.loggedSyncFailure(ctx, m)
 	s.syncIncompleteMu.Lock()
 	s.lastSyncFailure[m.ID] = cause
 	s.syncIncompleteMu.Unlock()
@@ -132,7 +137,12 @@ func (s *Server) loggedSyncFailure(ctx context.Context, m *Member) (cause string
 	if done {
 		return "", false
 	}
-	newest, found, err := s.store.NewestEventOfTypes(ctx, m.ID, "config.sync_failed", "config.sync_recovered")
+	failed, err := s.newestConfirmedSyncFailure(ctx, m.ID)
+	var recovered Event
+	var found bool
+	if err == nil {
+		recovered, found, err = s.store.NewestEventOfTypes(ctx, m.ID, "config.sync_recovered")
+	}
 	if err != nil {
 		debuglog.Warn("frontdesk: auto-sync: read persisted push-failure state", "member", m.Name, "error", err)
 		s.syncIncompleteMu.Lock()
@@ -140,11 +150,29 @@ func (s *Server) loggedSyncFailure(ctx context.Context, m *Member) (cause string
 		s.syncIncompleteMu.Unlock()
 		return "", false
 	}
-	if !found || newest.Type != "config.sync_failed" || newest.Metadata["unconfirmed"] == true {
+	if failed == nil || (found && !recovered.CreatedAt.Before(failed.CreatedAt)) {
 		return "", false
 	}
-	cause, _ = newest.Metadata["error"].(string)
+	cause, _ = failed.Metadata["error"].(string)
 	return cause, true
+}
+
+// newestConfirmedSyncFailure returns the member's newest config.sync_failed
+// whose push was refused or unreachable, skipping unconfirmed ones (timed out or
+// lost answer), which were never remembered as failures and must not hide an
+// older refusal that still stands. Reads the newest few rows rather than the
+// newest one; nil when none is confirmed.
+func (s *Server) newestConfirmedSyncFailure(ctx context.Context, memberID string) (*Event, error) {
+	evs, _, err := s.store.ListEvents(ctx, EventFilter{MemberID: memberID, Type: "config.sync_failed", Limit: 20})
+	if err != nil {
+		return nil, err
+	}
+	for i := range evs {
+		if evs[i].Metadata["unconfirmed"] != true {
+			return &evs[i], nil
+		}
+	}
+	return nil, nil
 }
 
 // failedPerLog reports whether the event log left this member inside an open
@@ -435,10 +463,10 @@ func (s *Server) clearMemberIncomplete(ctx context.Context, m *Member) bool {
 	return true
 }
 
-// emitSyncRecovered emits config.sync_recovered for m with msg. Inserted and
-// published by hand, like closeSyncHold: a recovery that fails to persist leaves
-// the log ending in the open failure, so the log memo is given back and the next
-// pass that finds the member converged re-reads the log and closes it then.
+// emitSyncRecovered emits config.sync_recovered for m with msg. Inserted by
+// hand so a failed insert is seen: it leaves the log ending in the open failure,
+// so the log memo is given back and the next pass that finds the member
+// converged re-reads the log and closes it then.
 func (s *Server) emitSyncRecovered(ctx context.Context, m *Member, msg string) {
 	ev := Event{
 		Type: "config.sync_recovered", Severity: "success", Source: "frontdesk",
@@ -446,11 +474,14 @@ func (s *Server) emitSyncRecovered(ctx context.Context, m *Member, msg string) {
 	}
 	stored, err := s.store.InsertEvent(ctx, ev)
 	if err != nil {
+		// Still published, as emit does: the divergence path has already dropped
+		// its flag and will not retry, so SSE and the alert dispatcher must not
+		// lose the recovery. The log path retries on its own from the memo.
 		debuglog.Warn("frontdesk: persist event", "type", ev.Type, "error", err)
 		s.syncIncompleteMu.Lock()
 		delete(s.failureLogChecked, m.ID)
 		s.syncIncompleteMu.Unlock()
-		return
+		stored = ev
 	}
 	logEvent(stored)
 	s.bus.Publish(busEvent(stored))

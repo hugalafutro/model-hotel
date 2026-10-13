@@ -131,7 +131,69 @@ func TestAutoSync_PromotionClosesLoggedFailure(t *testing.T) {
 	}
 	f.tick(t)
 	evs := recoveredEvents(t, f)
-	if len(evs) != 1 || evs[0].MemberID != f.primaryM.ID || !strings.Contains(evs[0].Message, "now the primary") {
+	if len(evs) != 1 || evs[0].MemberID != f.primaryM.ID || !strings.Contains(evs[0].Message, "no longer awaiting a config push") {
 		t.Fatalf("config.sync_recovered for the promoted member = %+v, want exactly one", evs)
+	}
+	f.tick(t)
+	if n := len(recoveredEvents(t, f)); n != 1 {
+		t.Errorf("config.sync_recovered after another pass = %d, want still 1", n)
+	}
+}
+
+// TestAutoSync_PromotionClosesRememberedFailure: the in-memory branch of the
+// same site. A failure remembered from before the promotion used to be cleared
+// silently; it now closes with one event, like a logged one.
+func TestAutoSync_PromotionClosesRememberedFailure(t *testing.T) {
+	f := newHashFleet(t, func(r *stubAutoMember) { r.versionHash = "hash-B" })
+	f.srv.syncIncompleteMu.Lock()
+	f.srv.lastSyncFailure[f.primaryM.ID] = "could not reach this member"
+	f.srv.failureLogChecked[f.primaryM.ID] = true
+	f.srv.syncIncompleteMu.Unlock()
+	f.tick(t)
+	evs := recoveredEvents(t, f)
+	if len(evs) != 1 || evs[0].MemberID != f.primaryM.ID || !strings.Contains(evs[0].Message, "no longer awaiting a config push") {
+		t.Fatalf("config.sync_recovered for the promoted member = %+v, want exactly one", evs)
+	}
+}
+
+// TestAutoSync_UnconfirmedRowDoesNotHideOlderConfirmedFailure: a refusal followed
+// by a timed-out push, then a restart. The timeout row is newest but was never a
+// failure, so the refusal underneath it is still open and gets its recovery.
+func TestAutoSync_UnconfirmedRowDoesNotHideOlderConfirmedFailure(t *testing.T) {
+	f := refuseThenRestart(t)
+	if _, err := f.store.InsertEvent(t.Context(), Event{
+		Type: "config.sync_failed", Severity: "info", Source: "frontdesk",
+		Message: "replica did not answer the config push in time", MemberID: f.replicaM.ID,
+		Metadata: map[string]any{"error": "timed out", "timed_out": true, "unconfirmed": true},
+	}); err != nil {
+		t.Fatalf("InsertEvent: %v", err)
+	}
+	f.replica.mu.Lock()
+	f.replica.versionHash = "hash-B"
+	f.replica.mu.Unlock()
+	f.tick(t)
+	if n := len(recoveredEvents(t, f)); n != 1 {
+		t.Errorf("config.sync_recovered with a timeout row over the refusal = %d, want 1", n)
+	}
+}
+
+// TestAutoSync_RecoveryInsertFailureGivesMemoBack: a recovery that could not be
+// persisted leaves the open failure in the log, so the memo must be returned for
+// the next converged pass to retry; the event is still published best-effort.
+func TestAutoSync_RecoveryInsertFailureGivesMemoBack(t *testing.T) {
+	srv, store := newTestServer(t)
+	m := &Member{ID: "m1", Name: "m1"}
+	srv.syncIncompleteMu.Lock()
+	srv.failureLogChecked[m.ID] = true
+	srv.syncIncompleteMu.Unlock()
+	if err := store.db.Close(); err != nil {
+		t.Fatalf("close store db: %v", err)
+	}
+	srv.emitSyncRecovered(t.Context(), m, "m1 holds the primary's config again")
+	srv.syncIncompleteMu.Lock()
+	checked := srv.failureLogChecked[m.ID]
+	srv.syncIncompleteMu.Unlock()
+	if checked {
+		t.Error("a recovery that failed to persist stayed memoised as closed; the next converged pass must retry")
 	}
 }
