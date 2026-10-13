@@ -527,9 +527,12 @@ func (s *Server) applyAutoSync(ctx context.Context, primary *Member, primaryBuil
 			// reach it, and an unclosed config.sync_held would stay the new
 			// primary's newest event forever.
 			s.closeSyncHold(ctx, m, fmt.Sprintf("%s is no longer held for sync: it is now the primary", m.Name))
-			// Nor is a push failure it remembered from before its promotion news
-			// once it is a replica again, days later, under another topology.
-			s.clearSyncFailure(m.ID)
+			// Nor is a push failure from before its promotion news once it is a
+			// replica again, days later, under another topology: forgotten here
+			// and closed in the log, or a restart would read it back as open.
+			if s.clearSyncFailure(m.ID) || s.failedPerLog(ctx, m) {
+				s.emitSyncRecovered(ctx, m, fmt.Sprintf("%s is no longer awaiting a config push: it is now the primary", m.Name))
+			}
 			continue
 		}
 		if stale() {
@@ -727,7 +730,7 @@ func (s *Server) measureMember(ctx, passCtx context.Context, m *Member, token, h
 		// heartbeat. Only a hash match moves it, so it means "measured holding the
 		// primary's config", never "written to".
 		recovered := s.clearMemberIncomplete(ctx, m)
-		if s.clearSyncFailure(m.ID) && !recovered {
+		if (s.clearSyncFailure(m.ID) || s.failedPerLog(ctx, m)) && !recovered {
 			// One recovery, one event: the divergence's own event says it when
 			// the member was flagged; otherwise the cleared push failure does.
 			s.emitSyncRecovered(ctx, m, fmt.Sprintf("%s holds the primary's config again", m.Name))

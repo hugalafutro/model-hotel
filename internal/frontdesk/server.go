@@ -158,6 +158,12 @@ type Server struct {
 	// matching hash or a promotion to primary clears it. Guarded by
 	// syncIncompleteMu; in-memory and bounded by fleet size.
 	lastSyncFailure map[string]string
+	// failureLogChecked marks members whose persisted push-failure state this
+	// process has reconciled, mirroring holdLogChecked: lastSyncFailure is
+	// in-memory, so a restart between a config.sync_failed and the push that
+	// converges the member would otherwise leave that warning as the member's
+	// newest event forever. Guarded by syncIncompleteMu.
+	failureLogChecked map[string]bool
 	// backupStale tracks which members have no database backup from the last
 	// memberBackupStaleAfter, so backup.stale fires once on the transition in and
 	// backup.recovered once on the way out. In-memory and bounded by fleet size,
@@ -297,20 +303,21 @@ func NewServer(cfg ServerConfig) *Server {
 		// from the request, so a deployment that never sets COOKIE_SECURE cannot
 		// silently ship the session cookie over cleartext. cmd/frontdesk normalizes
 		// the env value; this covers programmatic callers.
-		cookieSecure:    cmp.Or(cfg.CookieSecure, "always"),
-		pairing:         newPairingCodes(),
-		ipLimiter:       cfg.IPLimiter,
-		healthzLimiter:  cfg.HealthzLimiter,
-		traefikLimiter:  cfg.TraefikLimiter,
-		trustedProxies:  cfg.TrustedProxies,
-		rearmCh:         make(chan struct{}),
-		syncHeld:        make(map[string]string),
-		holdLogChecked:  make(map[string]bool),
-		syncIncomplete:  make(map[string]incompleteState),
-		lastSyncFailure: make(map[string]string),
-		unconfirmedSync: make(map[string]string),
-		backupStale:     make(map[string]bool),
-		startedAt:       time.Now(),
+		cookieSecure:      cmp.Or(cfg.CookieSecure, "always"),
+		pairing:           newPairingCodes(),
+		ipLimiter:         cfg.IPLimiter,
+		healthzLimiter:    cfg.HealthzLimiter,
+		traefikLimiter:    cfg.TraefikLimiter,
+		trustedProxies:    cfg.TrustedProxies,
+		rearmCh:           make(chan struct{}),
+		syncHeld:          make(map[string]string),
+		holdLogChecked:    make(map[string]bool),
+		syncIncomplete:    make(map[string]incompleteState),
+		lastSyncFailure:   make(map[string]string),
+		failureLogChecked: make(map[string]bool),
+		unconfirmedSync:   make(map[string]string),
+		backupStale:       make(map[string]bool),
+		startedAt:         time.Now(),
 	}
 	// The server's own lifetime, handed to detached request work. Cancelled by
 	// Shutdown and by nothing else, so a server that is never shut down simply

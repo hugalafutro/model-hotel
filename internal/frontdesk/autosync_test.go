@@ -1720,6 +1720,48 @@ func TestAutoSync_PushSucceedingAgainRecovers(t *testing.T) {
 	}
 }
 
+// TestAutoSync_PushSucceedingAgainRecoversAcrossRestart: the failure record is
+// in-memory, so a Front Desk restarted between the refusal and the push that
+// succeeds again (prod, 2026-10-13: recreated four seconds after logging a member
+// unreachable) remembers no failure to clear. The persisted config.sync_failed
+// must still get its one config.sync_recovered, and only one.
+func TestAutoSync_PushSucceedingAgainRecoversAcrossRestart(t *testing.T) {
+	f := newHashFleet(t, func(r *stubAutoMember) {
+		r.versionHash = "hash-drifted"
+		r.dryDiff = driftDiff
+		r.realImportCode = http.StatusBadRequest
+	})
+	f.tick(t)
+	if n := countEvents(t, f.store, "config.sync_failed"); n != 1 {
+		t.Fatalf("config.sync_failed after the refusal = %d, want 1", n)
+	}
+
+	// Simulate a restart: the in-memory failure state is gone, the event log is not.
+	f.srv.syncIncompleteMu.Lock()
+	f.srv.lastSyncFailure = make(map[string]string)
+	f.srv.failureLogChecked = make(map[string]bool)
+	f.srv.syncIncompleteMu.Unlock()
+
+	f.replica.mu.Lock()
+	f.replica.realImportCode = 0
+	f.replica.appliedHash = "hash-B"
+	f.replica.mu.Unlock()
+	f.tick(t)
+	evs, _, err := f.store.ListEvents(t.Context(), EventFilter{Type: "config.sync_recovered"})
+	if err != nil {
+		t.Fatalf("ListEvents: %v", err)
+	}
+	if len(evs) != 1 || evs[0].MemberID != f.replicaM.ID {
+		t.Fatalf("config.sync_recovered after restart = %+v, want exactly 1 for the refused member", evs)
+	}
+
+	// The log verdict is consumed: later converged passes emit nothing more.
+	f.tick(t)
+	if n := countEvents(t, f.store, "config.sync_recovered"); n != 1 {
+		t.Errorf("config.sync_recovered after another converged pass = %d, want still 1", n)
+	}
+}
+
 // TestAutoSync_PushedMemberIsNotStampedVerifiedUntilItMatches: a completed write
 // is not a verification. A member that commits every import and never ends up
 // holding the config is re-pushed once per incompleteRetryInterval forever, so a
