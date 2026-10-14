@@ -157,9 +157,7 @@ function contentFor(
 			};
 		}
 		case "opencode-go": {
-			// Rolling and weekly go on the pill, the same two-window reading the
-			// other window providers get; monthly has nowhere to go on a pill
-			// that narrow, so the tooltip carries it.
+			// All three windows go on the pill: rolling, weekly, then monthly.
 			const percentByKey = new Map<OpenCodeGoWindowKey, number>(
 				getOpenCodeGoWindows(payload as OpenCodeGoUsageResponse).map((w) => [
 					w.key,
@@ -169,12 +167,12 @@ function contentFor(
 			const pct = (key: OpenCodeGoWindowKey) =>
 				windowPct(percentByKey.get(key), mode);
 			return {
-				label: `${pct("rolling")}/${pct("weekly")}`,
+				label: `${pct("rolling")}/${pct("weekly")}/${pct("monthly")}`,
 				title: t(
 					mode === "remaining"
 						? "quota.badge.openCodeGoRemaining"
 						: "quota.badge.openCodeGoUsed",
-					{ provider, monthly: pct("monthly") },
+					{ provider },
 				),
 			};
 		}

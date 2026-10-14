@@ -704,8 +704,8 @@
 			"unreadable": "{{provider}}: プライマリの最後の取得で読み取れない応答が返されました",
 			"noQuota": "{{provider}}: プライマリの最後の取得でクォータは返されませんでした",
 			"neuralwattEnergyOverage": "{{provider}}: 超過中、使用分はクレジットから差し引かれます",
-			"openCodeGoUsed": "{{provider}}: ローリングおよび週間クォータの使用量、月間 {{monthly}}",
-			"openCodeGoRemaining": "{{provider}}: ローリングおよび週間クォータの残量、月間 {{monthly}}"
+			"openCodeGoUsed": "{{provider}}: ローリング、週間および月間クォータの使用量",
+			"openCodeGoRemaining": "{{provider}}: ローリング、週間および月間クォータの残量"
 		},
 		"modal": {
 			"toggleBarMode": "使用量と残量を切り替える",

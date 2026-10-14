@@ -347,9 +347,8 @@ describe("QuotaBadge", () => {
 		);
 	});
 
-	it("renders the OpenCode Go rolling and weekly windows with monthly in the tooltip", () => {
-		// Only two windows fit on a pill, so monthly rides in the tooltip; the
-		// assertion reads both so a rolling/weekly swap cannot pass.
+	it("renders the OpenCode Go rolling, weekly and monthly windows", () => {
+		// The assertion reads all three in order so a window swap cannot pass.
 		const usage = {
 			usage: {
 				rolling: { status: "ok", percent: 12 },
@@ -365,8 +364,7 @@ describe("QuotaBadge", () => {
 			/>,
 		);
 		const badge = screen.getByTestId("quota-badge-opencode-go:p");
-		expect(badge).toHaveTextContent("12%/34%");
-		expect(badge.getAttribute("title")).toContain("56%");
+		expect(badge).toHaveTextContent("12%/34%/56%");
 	});
 
 	it("inverts the OpenCode Go percentages in remaining mode", () => {
@@ -386,10 +384,9 @@ describe("QuotaBadge", () => {
 			/>,
 		);
 		const badge = screen.getByTestId("quota-badge-opencode-go:p");
-		// Weekly is absent from the payload, so its half of the pill is a dash
+		// Weekly is absent from the payload, so its slot on the pill is a dash
 		// rather than an invented 100%.
-		expect(badge).toHaveTextContent("88%/-");
-		expect(badge.getAttribute("title")).toContain("44%");
+		expect(badge).toHaveTextContent("88%/-/44%");
 	});
 
 	it("marks an OpenCode Go account spent on a window at its ceiling or off status", () => {
@@ -434,7 +431,7 @@ describe("QuotaBadge", () => {
 		// 10% it carries next to the spent styling.
 		expect(
 			screen.getByTestId("quota-badge-opencode-go:flagged"),
-		).toHaveTextContent("100%/-");
+		).toHaveTextContent("100%/-/-");
 		expect(
 			screen.getByTestId("quota-badge-opencode-go:healthy"),
 		).not.toHaveClass("fd-quota-pill-spent");
