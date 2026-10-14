@@ -137,7 +137,7 @@ func (s *Server) loggedSyncFailure(ctx context.Context, m *Member) (cause string
 	if done {
 		return "", false
 	}
-	failed, err := s.newestConfirmedSyncFailure(ctx, m.ID)
+	failed, failedFound, err := s.store.NewestConfirmedSyncFailure(ctx, m.ID)
 	var recovered Event
 	var found bool
 	if err == nil {
@@ -150,29 +150,11 @@ func (s *Server) loggedSyncFailure(ctx context.Context, m *Member) (cause string
 		s.syncIncompleteMu.Unlock()
 		return "", false
 	}
-	if failed == nil || (found && !recovered.CreatedAt.Before(failed.CreatedAt)) {
+	if !failedFound || (found && !recovered.CreatedAt.Before(failed.CreatedAt)) {
 		return "", false
 	}
 	cause, _ = failed.Metadata["error"].(string)
 	return cause, true
-}
-
-// newestConfirmedSyncFailure returns the member's newest config.sync_failed
-// whose push was refused or unreachable, skipping unconfirmed ones (timed out or
-// lost answer), which were never remembered as failures and must not hide an
-// older refusal that still stands. Reads the newest few rows rather than the
-// newest one; nil when none is confirmed.
-func (s *Server) newestConfirmedSyncFailure(ctx context.Context, memberID string) (*Event, error) {
-	evs, _, err := s.store.ListEvents(ctx, EventFilter{MemberID: memberID, Type: "config.sync_failed", Limit: 20})
-	if err != nil {
-		return nil, err
-	}
-	for i := range evs {
-		if evs[i].Metadata["unconfirmed"] != true {
-			return &evs[i], nil
-		}
-	}
-	return nil, nil
 }
 
 // failedPerLog reports whether the event log left this member inside an open
