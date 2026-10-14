@@ -469,6 +469,14 @@ func TestNewestConfirmedSyncFailure(t *testing.T) {
 	if err != nil || !found || ev.Message != "other member" {
 		t.Errorf("NewestConfirmedSyncFailure (b) = %q found %v err %v; want its own refusal", ev.Message, found, err)
 	}
+	// A row the store cannot scan is an error, not "no open failure": the caller
+	// gives its memo back on an error and would otherwise close the failure for good.
+	if _, err := s.db.ExecContext(ctx, `UPDATE events SET created_at = 'corrupt' WHERE member_id = ? AND message = 'other member'`, b.ID); err != nil {
+		t.Fatalf("corrupt row: %v", err)
+	}
+	if _, found, err := s.NewestConfirmedSyncFailure(ctx, b.ID); err == nil {
+		t.Errorf("NewestConfirmedSyncFailure (corrupt row) = found %v, nil error; want an error", found)
+	}
 }
 
 func TestNewestEventOfTypes(t *testing.T) {
