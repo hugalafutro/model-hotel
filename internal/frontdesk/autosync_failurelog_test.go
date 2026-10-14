@@ -162,10 +162,10 @@ func TestAutoSync_PromotionClosesRememberedFailure(t *testing.T) {
 	}
 }
 
-// TestAutoSync_UnconfirmedRowsDoNotHideOlderConfirmedFailure: a refusal, then
-// hours of timed-out pushes (25 rows, more than a 20-row page once hid the
-// refusal behind), then a restart. The timeout rows are newest but were never
-// failures, so the refusal underneath them is still open and gets its recovery.
+// TestAutoSync_UnconfirmedRowsDoNotHideOlderConfirmedFailure: a refusal under a
+// deep stack of timed-out pushes (25 rows), then a restart. The timeout rows are
+// newest but were never failures, so the refusal underneath them is still open
+// and gets its recovery.
 func TestAutoSync_UnconfirmedRowsDoNotHideOlderConfirmedFailure(t *testing.T) {
 	f := refuse(t)
 	for range 25 {

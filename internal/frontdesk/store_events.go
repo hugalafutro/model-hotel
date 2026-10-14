@@ -149,13 +149,15 @@ func (s *Store) NewestEventOfTypes(ctx context.Context, memberID string, types .
 // NewestConfirmedSyncFailure returns the member's newest config.sync_failed
 // whose push was refused or unreachable, skipping unconfirmed ones (timed out or
 // lost answer): those were never remembered as failures and must not hide an
-// older refusal that still stands. One filtered read rather than a page walk:
-// unconfirmed pushes retry at most every incompleteRetryInterval, sooner after a
-// primary edit, so a member that keeps timing out stacks them without bound over
-// the refusal underneath. found is false when no confirmed failure is logged.
+// older refusal that still stands. The filter is in SQL because every retried
+// unconfirmed push logs another row, so a member that keeps timing out stacks
+// them over the refusal as deep as retention allows. found is false when no
+// confirmed failure is logged.
 func (s *Store) NewestConfirmedSyncFailure(ctx context.Context, memberID string) (ev Event, found bool, err error) {
 	// json_extract yields 1 for a JSON true; IS NOT 1 also admits a row with no
 	// unconfirmed key or no metadata, which only a confirmed failure ever lacks.
+	// Metadata is json.Marshal output or NULL (InsertEvent), so json_extract
+	// never fails on a malformed row.
 	const query = `SELECT id, type, severity, source, message, metadata, member_id, created_at FROM events
 		WHERE member_id = ? AND type = 'config.sync_failed' AND json_extract(metadata, '$.unconfirmed') IS NOT 1
 		ORDER BY created_at DESC, id DESC LIMIT 1`

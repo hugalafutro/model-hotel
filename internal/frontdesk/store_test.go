@@ -460,10 +460,16 @@ func TestNewestConfirmedSyncFailure(t *testing.T) {
 	if ev.Message != "refused" {
 		t.Errorf("NewestConfirmedSyncFailure picked %q, want the refusal under the timeout rows", ev.Message)
 	}
-	// A row written before the unconfirmed key existed carries none and is confirmed.
-	insert(Event{Type: "config.sync_failed", Severity: "warning", Source: "frontdesk", Message: "legacy row", MemberID: a.ID, CreatedAt: base.Add(90 * time.Second)})
-	if ev, found, err = s.NewestConfirmedSyncFailure(ctx, a.ID); err != nil || !found || ev.Message != "legacy row" {
-		t.Errorf("NewestConfirmedSyncFailure (legacy) = %q found %v err %v; want the keyless row as the newest confirmed", ev.Message, found, err)
+	// Rows written before the unconfirmed key existed are confirmed: one with
+	// metadata lacking the key, and the oldest shape with no metadata at all.
+	insert(Event{Type: "config.sync_failed", Severity: "warning", Source: "frontdesk", Message: "keyless row", MemberID: a.ID, CreatedAt: base.Add(90 * time.Second),
+		Metadata: map[string]any{"error": "legacy"}})
+	if ev, found, err = s.NewestConfirmedSyncFailure(ctx, a.ID); err != nil || !found || ev.Message != "keyless row" {
+		t.Errorf("NewestConfirmedSyncFailure (keyless) = %q found %v err %v; want the keyless row as the newest confirmed", ev.Message, found, err)
+	}
+	insert(Event{Type: "config.sync_failed", Severity: "warning", Source: "frontdesk", Message: "no metadata", MemberID: a.ID, CreatedAt: base.Add(100 * time.Second)})
+	if ev, found, err = s.NewestConfirmedSyncFailure(ctx, a.ID); err != nil || !found || ev.Message != "no metadata" {
+		t.Errorf("NewestConfirmedSyncFailure (no metadata) = %q found %v err %v; want the metadata-less row as the newest confirmed", ev.Message, found, err)
 	}
 	ev, found, err = s.NewestConfirmedSyncFailure(ctx, b.ID)
 	if err != nil || !found || ev.Message != "other member" {
