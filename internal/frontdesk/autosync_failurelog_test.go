@@ -18,7 +18,7 @@ func resetFailureState(f *hashFleet) {
 	f.srv.syncIncompleteMu.Unlock()
 }
 
-func refuseThenRestart(t *testing.T) *hashFleet {
+func refuse(t *testing.T) *hashFleet {
 	t.Helper()
 	f := newHashFleet(t, func(r *stubAutoMember) {
 		r.versionHash = "hash-drifted"
@@ -29,6 +29,12 @@ func refuseThenRestart(t *testing.T) *hashFleet {
 	if n := countEvents(t, f.store, "config.sync_failed"); n != 1 {
 		t.Fatalf("config.sync_failed after the refusal = %d, want 1", n)
 	}
+	return f
+}
+
+func refuseThenRestart(t *testing.T) *hashFleet {
+	t.Helper()
+	f := refuse(t)
 	resetFailureState(f)
 	return f
 }
@@ -156,12 +162,12 @@ func TestAutoSync_PromotionClosesRememberedFailure(t *testing.T) {
 	}
 }
 
-// TestAutoSync_UnconfirmedRowsDoNotHideOlderConfirmedFailure: a refusal followed
-// by more timed-out pushes than one page of the restart fallback reads (25 over
-// a page of 20), then a restart. The timeout rows are newest but were never
+// TestAutoSync_UnconfirmedRowsDoNotHideOlderConfirmedFailure: a refusal, then
+// hours of timed-out pushes (25 rows, more than a 20-row page once hid the
+// refusal behind), then a restart. The timeout rows are newest but were never
 // failures, so the refusal underneath them is still open and gets its recovery.
 func TestAutoSync_UnconfirmedRowsDoNotHideOlderConfirmedFailure(t *testing.T) {
-	f := refuseThenRestart(t)
+	f := refuse(t)
 	for range 25 {
 		if _, err := f.store.InsertEvent(t.Context(), Event{
 			Type: "config.sync_failed", Severity: "info", Source: "frontdesk",
@@ -171,6 +177,7 @@ func TestAutoSync_UnconfirmedRowsDoNotHideOlderConfirmedFailure(t *testing.T) {
 			t.Fatalf("InsertEvent: %v", err)
 		}
 	}
+	resetFailureState(f)
 	f.replica.mu.Lock()
 	f.replica.versionHash = "hash-B"
 	f.replica.mu.Unlock()

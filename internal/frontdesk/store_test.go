@@ -417,6 +417,60 @@ func TestNewestEventPerMember(t *testing.T) {
 	}
 }
 
+// TestNewestConfirmedSyncFailure: the restart fallback's read. Newer unconfirmed
+// rows (timed out, lost answer) never hide an older refusal; a row with no
+// unconfirmed key is confirmed; other members and other types do not count.
+func TestNewestConfirmedSyncFailure(t *testing.T) {
+	s := newTestStore(t)
+	ctx := context.Background()
+
+	a, err := s.CreateMember(ctx, "a", "http://a:8081", "")
+	if err != nil {
+		t.Fatalf("CreateMember a: %v", err)
+	}
+	b, err := s.CreateMember(ctx, "b", "http://b:8081", "")
+	if err != nil {
+		t.Fatalf("CreateMember b: %v", err)
+	}
+	insert := func(e Event) {
+		t.Helper()
+		if _, err := s.InsertEvent(ctx, e); err != nil {
+			t.Fatalf("InsertEvent %s: %v", e.Type, err)
+		}
+	}
+	base := time.Now().UTC()
+
+	if _, found, err := s.NewestConfirmedSyncFailure(ctx, a.ID); err != nil || found {
+		t.Fatalf("NewestConfirmedSyncFailure (empty) = found %v, err %v; want none", found, err)
+	}
+	insert(Event{Type: "config.sync_failed", Severity: "warning", Source: "frontdesk", Message: "refused", MemberID: a.ID, CreatedAt: base.Add(time.Minute),
+		Metadata: map[string]any{"error": "refused", "timed_out": false, "unconfirmed": false}})
+	for i := range 25 {
+		insert(Event{Type: "config.sync_failed", Severity: "info", Source: "frontdesk", Message: "timed out", MemberID: a.ID, CreatedAt: base.Add(time.Duration(2+i) * time.Minute),
+			Metadata: map[string]any{"error": "timed out", "timed_out": true, "unconfirmed": true}})
+	}
+	insert(Event{Type: "config.sync_recovered", Severity: "success", Source: "frontdesk", Message: "recovered", MemberID: a.ID, CreatedAt: base.Add(time.Hour)})
+	insert(Event{Type: "config.sync_failed", Severity: "warning", Source: "frontdesk", Message: "other member", MemberID: b.ID, CreatedAt: base.Add(2 * time.Hour),
+		Metadata: map[string]any{"error": "refused", "timed_out": false, "unconfirmed": false}})
+
+	ev, found, err := s.NewestConfirmedSyncFailure(ctx, a.ID)
+	if err != nil || !found {
+		t.Fatalf("NewestConfirmedSyncFailure = found %v, err %v; want the refusal", found, err)
+	}
+	if ev.Message != "refused" {
+		t.Errorf("NewestConfirmedSyncFailure picked %q, want the refusal under the timeout rows", ev.Message)
+	}
+	// A row written before the unconfirmed key existed carries none and is confirmed.
+	insert(Event{Type: "config.sync_failed", Severity: "warning", Source: "frontdesk", Message: "legacy row", MemberID: a.ID, CreatedAt: base.Add(90 * time.Second)})
+	if ev, found, err = s.NewestConfirmedSyncFailure(ctx, a.ID); err != nil || !found || ev.Message != "legacy row" {
+		t.Errorf("NewestConfirmedSyncFailure (legacy) = %q found %v err %v; want the keyless row as the newest confirmed", ev.Message, found, err)
+	}
+	ev, found, err = s.NewestConfirmedSyncFailure(ctx, b.ID)
+	if err != nil || !found || ev.Message != "other member" {
+		t.Errorf("NewestConfirmedSyncFailure (b) = %q found %v err %v; want its own refusal", ev.Message, found, err)
+	}
+}
+
 func TestNewestEventOfTypes(t *testing.T) {
 	s := newTestStore(t)
 	ctx := context.Background()
