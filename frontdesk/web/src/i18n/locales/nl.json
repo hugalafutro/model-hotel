@@ -704,8 +704,8 @@
 			"unreadable": "{{provider}}: de laatste ophaalpoging van de primaire gaf een onleesbaar antwoord",
 			"noQuota": "{{provider}}: de laatste ophaalpoging van de primaire gaf geen quotum",
 			"neuralwattEnergyOverage": "{{provider}}: boven de limiet, gebruik wordt van het tegoed afgeschreven",
-			"openCodeGoUsed": "{{provider}}: gebruikt doorlopend en weekquotum, maandelijks {{monthly}}",
-			"openCodeGoRemaining": "{{provider}}: resterend doorlopend en weekquotum, maandelijks {{monthly}}"
+			"openCodeGoUsed": "{{provider}}: gebruikt doorlopend, week- en maandquotum",
+			"openCodeGoRemaining": "{{provider}}: resterend doorlopend, week- en maandquotum"
 		},
 		"modal": {
 			"toggleBarMode": "Wisselen tussen gebruikt en resterend",

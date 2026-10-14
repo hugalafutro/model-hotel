@@ -726,8 +726,8 @@
 			"unreadable": "{{provider}}: posledné načítanie primárnym členom vrátilo nečitateľnú odpoveď",
 			"noQuota": "{{provider}}: posledné načítanie primárnym členom nevrátilo žiadnu kvótu",
 			"neuralwattEnergyOverage": "{{provider}}: nad limitom, využitie sa čerpá z kreditov",
-			"openCodeGoUsed": "{{provider}}: využitá priebežná a týždenná kvóta, mesačná {{monthly}}",
-			"openCodeGoRemaining": "{{provider}}: zostávajúca priebežná a týždenná kvóta, mesačná {{monthly}}"
+			"openCodeGoUsed": "{{provider}}: využitá priebežná, týždenná a mesačná kvóta",
+			"openCodeGoRemaining": "{{provider}}: zostávajúca priebežná, týždenná a mesačná kvóta"
 		},
 		"modal": {
 			"toggleBarMode": "Prepnúť medzi využitým a zostávajúcim",

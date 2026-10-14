@@ -715,8 +715,8 @@
 			"unreadable": "{{provider}} : la dernière récupération du primaire a renvoyé une réponse illisible",
 			"noQuota": "{{provider}} : la dernière récupération du primaire n'a renvoyé aucun quota",
 			"neuralwattEnergyOverage": "{{provider}} : en dépassement, l'utilisation est prélevée sur les crédits",
-			"openCodeGoUsed": "{{provider}} : quota glissant et hebdomadaire utilisé, mensuel {{monthly}}",
-			"openCodeGoRemaining": "{{provider}} : quota glissant et hebdomadaire restant, mensuel {{monthly}}"
+			"openCodeGoUsed": "{{provider}} : quota glissant, hebdomadaire et mensuel utilisé",
+			"openCodeGoRemaining": "{{provider}} : quota glissant, hebdomadaire et mensuel restant"
 		},
 		"modal": {
 			"toggleBarMode": "Basculer entre utilisé et restant",

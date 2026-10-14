@@ -715,8 +715,8 @@
 			"unreadable": "{{provider}}: la última lectura del principal devolvió una respuesta ilegible",
 			"noQuota": "{{provider}}: la última lectura del principal no devolvió ninguna cuota",
 			"neuralwattEnergyOverage": "{{provider}}: en exceso, el uso se descuenta de los créditos",
-			"openCodeGoUsed": "{{provider}}: cuota móvil y semanal usada, mensual {{monthly}}",
-			"openCodeGoRemaining": "{{provider}}: cuota móvil y semanal restante, mensual {{monthly}}"
+			"openCodeGoUsed": "{{provider}}: cuota móvil, semanal y mensual usada",
+			"openCodeGoRemaining": "{{provider}}: cuota móvil, semanal y mensual restante"
 		},
 		"modal": {
 			"toggleBarMode": "Cambiar entre usada y restante",

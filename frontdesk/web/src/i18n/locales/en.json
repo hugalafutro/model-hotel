@@ -704,8 +704,8 @@
 			"unreadable": "{{provider}}: the primary's last fetch returned an unreadable response",
 			"noQuota": "{{provider}}: the primary's last fetch returned no quota",
 			"neuralwattEnergyOverage": "{{provider}}: in overage, usage draws from credits",
-			"openCodeGoUsed": "{{provider}}: rolling and weekly quota used, monthly {{monthly}}",
-			"openCodeGoRemaining": "{{provider}}: rolling and weekly quota remaining, monthly {{monthly}}"
+			"openCodeGoUsed": "{{provider}}: rolling, weekly and monthly quota used",
+			"openCodeGoRemaining": "{{provider}}: rolling, weekly and monthly quota remaining"
 		},
 		"modal": {
 			"toggleBarMode": "Switch between used and remaining",

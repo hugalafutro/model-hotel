@@ -179,10 +179,7 @@ function miniMaxBadgeContent(
 	);
 }
 
-/**
- * The pill shows the two windows a session runs into, rolling then weekly; the
- * monthly window only has room in the tooltip.
- */
+/** The pill shows all three windows: rolling (5h), weekly, then monthly. */
 function openCodeGoBadgeContent(
 	usage: OpenCodeGoUsageResponse | null | undefined,
 	barMode: QuotaBarMode,
@@ -191,12 +188,11 @@ function openCodeGoBadgeContent(
 	const pct = (key: "rolling" | "weekly" | "monthly") =>
 		windowPct(windows.find((x) => x.key === key)?.percent, barMode);
 	return {
-		label: `${pct("rolling")}/${pct("weekly")}`,
+		label: `${pct("rolling")}/${pct("weekly")}/${pct("monthly")}`,
 		title: i18next.t(
 			barMode === "remaining"
 				? "components.quotaBadge.openCodeGoRemaining"
 				: "components.quotaBadge.openCodeGoUsed",
-			{ monthly: pct("monthly") },
 		),
 	};
 }

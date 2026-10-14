@@ -926,8 +926,7 @@ describe("QuotaBadge", () => {
 		});
 	});
 
-	// The pill has room for the two windows a session runs into; the monthly
-	// window only fits in the tooltip, so it is read from there.
+	// The pill carries all three windows, rolling then weekly then monthly.
 	describe("opencode-go type", () => {
 		const usage = {
 			usage: {
@@ -945,7 +944,7 @@ describe("QuotaBadge", () => {
 			},
 		};
 
-		it("shows rolling and weekly used, with monthly in the tooltip", () => {
+		it("shows rolling, weekly and monthly used", () => {
 			render(
 				<QuotaBadge
 					type="opencode-go"
@@ -955,11 +954,10 @@ describe("QuotaBadge", () => {
 				/>,
 			);
 			const badge = screen.getByRole("button");
-			expect(badge).toHaveTextContent("12%/34%");
-			expect(badge.getAttribute("title")).toContain("56%");
+			expect(badge).toHaveTextContent("12%/34%/56%");
 		});
 
-		it("inverts both windows in remaining mode", () => {
+		it("inverts all three windows in remaining mode", () => {
 			render(
 				<QuotaBadge
 					type="opencode-go"
@@ -968,7 +966,7 @@ describe("QuotaBadge", () => {
 					opencodeGoUsage={usage}
 				/>,
 			);
-			expect(screen.getByRole("button")).toHaveTextContent("88%/66%");
+			expect(screen.getByRole("button")).toHaveTextContent("88%/66%/44%");
 		});
 
 		it("renders a dash per window the payload omits", () => {
@@ -980,7 +978,7 @@ describe("QuotaBadge", () => {
 					opencodeGoUsage={{ usage: {} }}
 				/>,
 			);
-			expect(screen.getByRole("button")).toHaveTextContent("OCG-/-");
+			expect(screen.getByRole("button")).toHaveTextContent("OCG-/-/-");
 		});
 
 		// A refused window reads as spent, so the pill must not show the 0
@@ -999,7 +997,7 @@ describe("QuotaBadge", () => {
 					}}
 				/>,
 			);
-			expect(screen.getByRole("button")).toHaveTextContent("100%/34%");
+			expect(screen.getByRole("button")).toHaveTextContent("100%/34%/-");
 		});
 	});
 });
