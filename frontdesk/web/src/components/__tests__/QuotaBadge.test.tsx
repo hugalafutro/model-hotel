@@ -384,7 +384,7 @@ describe("QuotaBadge", () => {
 			/>,
 		);
 		const badge = screen.getByTestId("quota-badge-opencode-go:p");
-		// Weekly is absent from the payload, so its half of the pill is a dash
+		// Weekly is absent from the payload, so its slot on the pill is a dash
 		// rather than an invented 100%.
 		expect(badge).toHaveTextContent("88%/-/44%");
 	});
@@ -431,7 +431,7 @@ describe("QuotaBadge", () => {
 		// 10% it carries next to the spent styling.
 		expect(
 			screen.getByTestId("quota-badge-opencode-go:flagged"),
-		).toHaveTextContent("100%/-");
+		).toHaveTextContent("100%/-/-");
 		expect(
 			screen.getByTestId("quota-badge-opencode-go:healthy"),
 		).not.toHaveClass("fd-quota-pill-spent");
