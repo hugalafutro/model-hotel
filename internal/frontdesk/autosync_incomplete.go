@@ -160,19 +160,26 @@ func (s *Server) loggedSyncFailure(ctx context.Context, m *Member) (cause string
 // newestConfirmedSyncFailure returns the member's newest config.sync_failed
 // whose push was refused or unreachable, skipping unconfirmed ones (timed out or
 // lost answer), which were never remembered as failures and must not hide an
-// older refusal that still stands. Reads the newest few rows rather than the
-// newest one; nil when none is confirmed.
+// older refusal that still stands. Pages through the rows newest first until
+// one is confirmed or none are left: unconfirmed pushes retry every
+// incompleteRetryInterval, so a member that keeps timing out stacks them
+// without bound over a refusal underneath. nil when none is confirmed.
 func (s *Server) newestConfirmedSyncFailure(ctx context.Context, memberID string) (*Event, error) {
-	evs, _, err := s.store.ListEvents(ctx, EventFilter{MemberID: memberID, Type: "config.sync_failed", Limit: 20})
-	if err != nil {
-		return nil, err
-	}
-	for i := range evs {
-		if evs[i].Metadata["unconfirmed"] != true {
-			return &evs[i], nil
+	const page = 20
+	for offset := 0; ; offset += page {
+		evs, _, err := s.store.ListEvents(ctx, EventFilter{MemberID: memberID, Type: "config.sync_failed", Limit: page, Offset: offset})
+		if err != nil {
+			return nil, err
+		}
+		for i := range evs {
+			if evs[i].Metadata["unconfirmed"] != true {
+				return &evs[i], nil
+			}
+		}
+		if len(evs) < page {
+			return nil, nil
 		}
 	}
-	return nil, nil
 }
 
 // failedPerLog reports whether the event log left this member inside an open
