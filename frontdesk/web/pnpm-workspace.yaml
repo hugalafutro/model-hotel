@@ -6,16 +6,16 @@
 packages: []
 
 # Supply-chain cooldown mirrored from web/pnpm-workspace.yaml: refuse dependency
-# versions published < 24h (1440 min) ago during fresh resolution. Only affects
-# install/update/add; --frozen-lockfile CI installs are unaffected. pnpm >= 10.16.
+# versions published < 24h (1440 min) ago. Gates fresh resolution AND every
+# --frozen-lockfile install (pnpm 11.3+ re-applies it to each lockfile entry).
 minimumReleaseAge: 1440
 
 # Supply-chain trust gates mirrored from web/pnpm-workspace.yaml (see there for
 # the rationale): reject a version that drops supply-chain trust rank relative to
 # the package's own history (the fingerprint of a stolen maintainer token), and
 # reject subdependencies resolved from git refs, tarball URLs or local paths
-# instead of a registry. Both gate fresh resolution only, so --frozen-lockfile CI
-# installs are unaffected. Verified against the pinned pnpm 12.11.
+# instead of a registry. The trust check is re-applied to every lockfile entry on
+# each install, frozen included. Verified against the pinned pnpm 12.11.
 trustPolicy: no-downgrade
 trustPolicyIgnoreAfter: 129600
 blockExoticSubdeps: true
