@@ -54,6 +54,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.SpanStyle
@@ -759,6 +760,17 @@ private fun MemberCard(
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
+            }
+            val openCircuits = member.status.circuits?.total ?: 0
+            if (openCircuits > 0) {
+                // The count only, like the Members table on the web: the ledger
+                // itself (provider, model, state, retry) is on the detail screen.
+                Text(
+                    text = pluralStringResource(R.plurals.member_circuits_open, openCircuits, openCircuits),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.error,
+                    modifier = Modifier.testTag("member-circuits-${member.name}"),
+                )
             }
             if (health.known && !health.healthy && health.error.isNotBlank()) {
                 Text(

@@ -16,6 +16,7 @@ import com.hugalafutro.bellhop.data.FdEvent
 import com.hugalafutro.bellhop.data.FleetMember
 import com.hugalafutro.bellhop.data.HealthStatus
 import com.hugalafutro.bellhop.data.LinkState
+import com.hugalafutro.bellhop.data.MemberCircuits
 import com.hugalafutro.bellhop.data.MemberStatus
 import com.hugalafutro.bellhop.data.MemberTraffic
 import com.hugalafutro.bellhop.data.TrafficPoint
@@ -614,5 +615,33 @@ class DashboardScreenTest {
         }
         composeTestRule.onNodeWithTag("dashboard-error").assertIsDisplayed()
         composeTestRule.onNodeWithTag("dashboard-refresh-error").assertDoesNotExist()
+    }
+
+    // The card carries the open-circuit count only when there is one; a member
+    // with none, or one FD could not read, shows no line at all.
+    @Test
+    fun cardShowsOpenCircuitCountOnlyWhenNonZero() {
+        val dark = members[0].copy(status = members[0].status.copy(circuits = MemberCircuits(total = 2)))
+        val clean =
+            members[0].copy(
+                id = "m9",
+                name = "clean",
+                status = members[0].status.copy(circuits = MemberCircuits(total = 0)),
+            )
+        composeTestRule.setContent {
+            BellhopTheme {
+                DashboardScreen(
+                    link = link,
+                    ui =
+                        DashboardUiState(
+                            loading = false,
+                            members = listOf(dark, clean, members[0].copy(id = "m8", name = "unread")),
+                        ),
+                )
+            }
+        }
+        composeTestRule.onNodeWithTag("member-circuits-alpha", useUnmergedTree = true).assertIsDisplayed()
+        composeTestRule.onNodeWithTag("member-circuits-clean", useUnmergedTree = true).assertDoesNotExist()
+        composeTestRule.onNodeWithTag("member-circuits-unread", useUnmergedTree = true).assertDoesNotExist()
     }
 }

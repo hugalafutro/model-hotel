@@ -64,6 +64,20 @@
     <string name="member_detail_label_verified">Vérifié</string>
     <string name="member_detail_label_added">Ajouté</string>
     <string name="member_detail_label_version">Version</string>
+    <string name="member_circuits_title">Disjoncteurs</string>
+    <string name="member_circuits_none">Aucun disjoncteur ouvert</string>
+    <string name="member_circuits_unknown">Pas encore lu</string>
+    <string name="member_circuits_no_token">Front Desk n\'a pas de jeton admin pour ce membre, ses disjoncteurs ne peuvent donc pas être lus.</string>
+    <plurals name="member_circuits_open">
+        <item quantity="one">%1$d disjoncteur ouvert</item>
+        <item quantity="other">%1$d disjoncteurs ouverts</item>
+    </plurals>
+    <string name="member_circuits_showing">%1$d sur %2$d affichés</string>
+    <string name="member_circuit_retry">Nouvel essai %1$s</string>
+    <string name="circuit_state_open">ouvert</string>
+    <string name="circuit_state_probe">sonde en attente</string>
+    <string name="circuit_state_pinned">épinglé</string>
+    <string name="circuit_state_reserved">réservé</string>
     <string name="member_url_title">Ouvrir l\'adresse du membre</string>
     <string name="member_url_open">Ouvrir</string>
     <string name="open_url_title">Ouvrir le lien</string>

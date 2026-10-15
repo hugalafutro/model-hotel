@@ -56,6 +56,7 @@ import com.hugalafutro.bellhop.data.HealthStatus
 import com.hugalafutro.bellhop.data.MemberState
 import com.hugalafutro.bellhop.data.MemberStatus
 import com.hugalafutro.bellhop.data.MemberTraffic
+import com.hugalafutro.bellhop.data.OpenCircuit
 import com.hugalafutro.bellhop.data.TrafficPoint
 import com.hugalafutro.bellhop.data.buildDetail
 import com.hugalafutro.bellhop.ui.common.ConfirmOpenUrlDialog
@@ -210,6 +211,7 @@ fun MemberDetailScreen(
                             modifier = Modifier.padding(bottom = 20.dp),
                         )
                     }
+                    item { CircuitsLedger(member = member, modifier = Modifier.padding(bottom = 20.dp)) }
                     if (canOperate) {
                         item {
                             OperatorControls(
@@ -415,6 +417,137 @@ private fun MetaLedger(
                     },
                 trailingColor = syncAgeColorFor(member.status.autoSyncVerifiedAt),
                 tag = "member-detail-verified",
+            )
+        }
+    }
+}
+
+/**
+ * CircuitsLedger is the member's own circuit-breaker ledger as Front Desk last
+ * read it (the Members table's circuits column on the web): which provider and
+ * model the breaker holds dark, why, and until when. Same flat register as
+ * [MetaLedger]. A member FD cannot read (no admin token, or the read failed)
+ * says so rather than showing a clean slate, since a stale "none" would hide
+ * the one member that has not recovered.
+ */
+@Composable
+private fun CircuitsLedger(
+    member: FleetMember,
+    modifier: Modifier = Modifier,
+) {
+    val ledger = member.status.circuits
+    Column(
+        modifier = modifier.fillMaxWidth().testTag("member-detail-circuits"),
+        verticalArrangement = Arrangement.spacedBy(6.dp),
+    ) {
+        SectionHeader(
+            text = stringResource(R.string.member_circuits_title),
+            modifier = Modifier.padding(bottom = 2.dp),
+        )
+        when {
+            ledger == null ->
+                Text(
+                    text =
+                        stringResource(
+                            if (member.hasToken) {
+                                R.string.member_circuits_unknown
+                            } else {
+                                R.string.member_circuits_no_token
+                            },
+                        ),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.testTag("member-detail-circuits-unknown"),
+                )
+            ledger.total == 0 ->
+                Text(
+                    text = stringResource(R.string.member_circuits_none),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.testTag("member-detail-circuits-none"),
+                )
+            else -> {
+                ledger.open.forEach { circuit -> CircuitRow(circuit) }
+                if (ledger.total > ledger.open.size) {
+                    // FD caps the list; the count is the load-bearing number.
+                    Text(
+                        text = stringResource(R.string.member_circuits_showing, ledger.open.size, ledger.total),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.testTag("member-detail-circuits-showing"),
+                    )
+                }
+            }
+        }
+    }
+}
+
+/**
+ * circuitStateTag names the state a circuit row shows: "probe" for a circuit
+ * owed a probe, "reserved" when the operator's quota reserve holds it (the
+ * quota is still there, just kept back), "pinned" for any other quota pin,
+ * else "open". It is the test tag suffix and the key of the label and colour.
+ */
+internal fun circuitStateTag(circuit: OpenCircuit): String =
+    when {
+        circuit.state == "half-open" -> "probe"
+        !circuit.quotaPinned -> "open"
+        circuit.pinSource == "reserve" -> "reserved"
+        else -> "pinned"
+    }
+
+/**
+ * CircuitRow is one ledger line: provider and model in mono, the state at the
+ * right edge, and the last verdict plus the next retry instant underneath in
+ * the muted register.
+ */
+@Composable
+private fun CircuitRow(circuit: OpenCircuit) {
+    val stateTag = circuitStateTag(circuit)
+    val stateLabel =
+        when (stateTag) {
+            "probe" -> stringResource(R.string.circuit_state_probe)
+            "reserved" -> stringResource(R.string.circuit_state_reserved)
+            "pinned" -> stringResource(R.string.circuit_state_pinned)
+            else -> stringResource(R.string.circuit_state_open)
+        }
+    // Open is the alarm, a probe is recovery under way, a pin is a long wait
+    // the quota poller measured, and a reserve is quota deliberately kept back.
+    val stateColor =
+        when (stateTag) {
+            "probe" -> SyncAgeYellow
+            "reserved" -> MaterialTheme.colorScheme.primary
+            "pinned" -> SyncAgeOrange
+            else -> MaterialTheme.colorScheme.error
+        }
+    val retry =
+        circuit.nextRetryAt.takeIf { it.isNotBlank() }?.let {
+            stringResource(R.string.member_circuit_retry, formatEventTime(it, LocalTimePattern.current))
+        }
+    val detail = listOfNotNull(circuit.cause.takeIf { it.isNotBlank() }, retry).joinToString(" · ")
+    Column(
+        modifier = Modifier.fillMaxWidth().testTag("member-detail-circuit-${circuit.model}-$stateTag"),
+        verticalArrangement = Arrangement.spacedBy(2.dp),
+    ) {
+        Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            Text(
+                text = "${circuit.providerLabel} / ${circuit.model}",
+                style = MaterialTheme.typography.bodySmall,
+                fontFamily = MonoFamily,
+                color = MaterialTheme.colorScheme.onSurface,
+                modifier = Modifier.weight(1f),
+            )
+            Text(
+                text = stateLabel.uppercase(),
+                style = MaterialTheme.typography.labelSmall,
+                color = stateColor,
+            )
+        }
+        if (detail.isNotBlank()) {
+            Text(
+                text = detail,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
     }

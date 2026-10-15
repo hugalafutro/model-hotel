@@ -64,6 +64,20 @@
     <string name="member_detail_label_verified">Verifiziert</string>
     <string name="member_detail_label_added">Hinzugefügt</string>
     <string name="member_detail_label_version">Version</string>
+    <string name="member_circuits_title">Schutzschalter</string>
+    <string name="member_circuits_none">Keine Schutzschalter offen</string>
+    <string name="member_circuits_unknown">Noch nicht gelesen</string>
+    <string name="member_circuits_no_token">Front Desk hat kein Admin-Token für dieses Mitglied, daher können seine Schutzschalter nicht gelesen werden.</string>
+    <plurals name="member_circuits_open">
+        <item quantity="one">%1$d Schutzschalter offen</item>
+        <item quantity="other">%1$d Schutzschalter offen</item>
+    </plurals>
+    <string name="member_circuits_showing">%1$d von %2$d angezeigt</string>
+    <string name="member_circuit_retry">Erneuter Versuch %1$s</string>
+    <string name="circuit_state_open">offen</string>
+    <string name="circuit_state_probe">Probe fällig</string>
+    <string name="circuit_state_pinned">gepinnt</string>
+    <string name="circuit_state_reserved">reserviert</string>
     <string name="member_url_title">Mitgliedsadresse öffnen</string>
     <string name="member_url_open">Öffnen</string>
     <string name="open_url_title">Link öffnen</string>

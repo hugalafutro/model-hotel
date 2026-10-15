@@ -48,7 +48,47 @@ data class MemberStatus(
     // ~every tick while the member is reachable, distinct from lastConfigSyncAt
     // (which only moves on a real config write). Empty until first verified.
     @SerialName("auto_sync_verified_at") val autoSyncVerifiedAt: String = "",
+    // The member's own circuit-breaker ledger as Front Desk last read it; null
+    // when FD holds no admin token for the member or the read failed, which the
+    // UI shows as "not read" rather than as a clean slate.
+    val circuits: MemberCircuits? = null,
 )
+
+/**
+ * MemberCircuits mirrors FD's poller MemberCircuits
+ * (internal/frontdesk/poller_circuits.go): the circuits the member's breaker
+ * holds open or owes a probe. [total] is the load-bearing number; [open] is
+ * capped by FD (50), so it can be shorter than the total.
+ */
+@Serializable
+data class MemberCircuits(
+    @SerialName("checked_at") val checkedAt: String = "",
+    val open: List<OpenCircuit> = emptyList(),
+    val total: Int = 0,
+)
+
+/**
+ * OpenCircuit is one circuit the breaker holds open or owes a probe. [state] is
+ * "open" or "half-open"; [quotaPinned] says a quota pin governs the wait and
+ * [pinSource] where it came from: "advisor" (a spent window the quota poller
+ * measured), "reserve" (the operator's quota reserve line, with the reserve
+ * still left), "response" or "account" (inferred from a 429).
+ */
+@Serializable
+data class OpenCircuit(
+    @SerialName("provider_id") val providerId: String = "",
+    val provider: String = "",
+    val model: String = "",
+    val state: String = "",
+    val cause: String = "",
+    val status: Int = 0,
+    @SerialName("next_retry_at") val nextRetryAt: String = "",
+    @SerialName("quota_pinned") val quotaPinned: Boolean = false,
+    @SerialName("pin_source") val pinSource: String = "",
+) {
+    /** The provider as the ledger names it: the display name, else the id's head. */
+    val providerLabel: String get() = provider.ifBlank { providerId.take(8) }
+}
 
 /**
  * HealthStatus is the poller's view of a member's /health endpoint. known=false

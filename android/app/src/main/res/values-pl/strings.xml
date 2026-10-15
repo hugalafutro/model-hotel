@@ -68,6 +68,22 @@
     <string name="member_detail_label_verified">Zweryfikowano</string>
     <string name="member_detail_label_added">Dodano</string>
     <string name="member_detail_label_version">Wersja</string>
+    <string name="member_circuits_title">Wyłączniki obwodu</string>
+    <string name="member_circuits_none">Żaden wyłącznik nie jest otwarty</string>
+    <string name="member_circuits_unknown">Jeszcze nie odczytano</string>
+    <string name="member_circuits_no_token">Front Desk nie ma tokenu administratora dla tego członka, więc nie może odczytać jego wyłączników.</string>
+    <plurals name="member_circuits_open">
+        <item quantity="one">%1$d wyłącznik otwarty</item>
+        <item quantity="few">%1$d wyłączniki otwarte</item>
+        <item quantity="many">%1$d wyłączników otwartych</item>
+        <item quantity="other">%1$d wyłącznika otwartego</item>
+    </plurals>
+    <string name="member_circuits_showing">Pokazano %1$d z %2$d</string>
+    <string name="member_circuit_retry">Ponowna próba %1$s</string>
+    <string name="circuit_state_open">otwarty</string>
+    <string name="circuit_state_probe">oczekuje na sondę</string>
+    <string name="circuit_state_pinned">przypięty</string>
+    <string name="circuit_state_reserved">zarezerwowany</string>
     <string name="member_url_title">Otwórz adres węzła</string>
     <string name="member_url_open">Otwórz</string>
     <string name="open_url_title">Otwórz link</string>

@@ -14,8 +14,10 @@ import androidx.compose.ui.test.performTouchInput
 import com.hugalafutro.bellhop.data.FdEvent
 import com.hugalafutro.bellhop.data.FleetMember
 import com.hugalafutro.bellhop.data.HealthStatus
+import com.hugalafutro.bellhop.data.MemberCircuits
 import com.hugalafutro.bellhop.data.MemberStatus
 import com.hugalafutro.bellhop.data.MemberTraffic
+import com.hugalafutro.bellhop.data.OpenCircuit
 import com.hugalafutro.bellhop.data.TrafficPoint
 import com.hugalafutro.bellhop.ui.common.EventRange
 import com.hugalafutro.bellhop.ui.theme.BellhopTheme
@@ -947,5 +949,128 @@ class MemberDetailScreenTest {
             .onNodeWithTag("member-detail-list")
             .performScrollToNode(hasTestTag("member-op-busy"))
         composeTestRule.onNodeWithTag("member-op-busy").assertIsDisplayed()
+    }
+
+    // The circuits ledger: one row per circuit FD read off the member, tagged by
+    // model and state so each of the four states (open, probe due, pinned,
+    // reserved) is told apart without reading copy, plus the truncation note.
+    @Test
+    fun circuitsLedgerShowsEachStateAndTruncation() {
+        val ledger =
+            MemberCircuits(
+                checkedAt = "2026-10-15T17:39:47Z",
+                total = 5,
+                open =
+                    listOf(
+                        OpenCircuit(
+                            providerId = "p1",
+                            provider = "Z.ai",
+                            model = "glm",
+                            state = "open",
+                            cause = "upstream status 503",
+                            status = 503,
+                            nextRetryAt = "2026-10-15T18:00:00Z",
+                        ),
+                        OpenCircuit(providerId = "p2", provider = "Kimi", model = "k3", state = "half-open"),
+                        OpenCircuit(
+                            providerId = "p3",
+                            provider = "NanoGPT",
+                            model = "(account quota)",
+                            state = "open",
+                            quotaPinned = true,
+                            pinSource = "advisor",
+                        ),
+                        OpenCircuit(
+                            providerId = "p4",
+                            provider = "OpenCode Go",
+                            model = "(account quota)",
+                            state = "open",
+                            quotaPinned = true,
+                            pinSource = "reserve",
+                        ),
+                    ),
+            )
+        composeTestRule.setContent {
+            BellhopTheme {
+                MemberDetailScreen(
+                    member = member.copy(hasToken = true, status = member.status.copy(circuits = ledger)),
+                    isPrimary = false,
+                    isDesignated = false,
+                    onBack = {},
+                    ui = MemberDetailUiState(loading = false, traffic = reachableTraffic),
+                )
+            }
+        }
+        for (
+        tag in
+        listOf(
+            "member-detail-circuit-glm-open",
+            "member-detail-circuit-k3-probe",
+            "member-detail-circuit-(account quota)-pinned",
+            "member-detail-circuit-(account quota)-reserved",
+            "member-detail-circuits-showing",
+        )
+        ) {
+            composeTestRule.onNodeWithTag("member-detail-list").performScrollToNode(hasTestTag(tag))
+            composeTestRule.onNodeWithTag(tag).assertIsDisplayed()
+        }
+        composeTestRule.onNodeWithTag("member-detail-circuits-none").assertDoesNotExist()
+        composeTestRule.onNodeWithTag("member-detail-circuits-unknown").assertDoesNotExist()
+    }
+
+    // No ledger is "not read", never a clean slate; an empty ledger is "none".
+    @Test
+    fun circuitsLedgerTellsUnreadFromNone() {
+        composeTestRule.setContent {
+            BellhopTheme {
+                MemberDetailScreen(
+                    member = member.copy(hasToken = false),
+                    isPrimary = false,
+                    isDesignated = false,
+                    onBack = {},
+                    ui = MemberDetailUiState(loading = false, traffic = reachableTraffic),
+                )
+            }
+        }
+        composeTestRule
+            .onNodeWithTag(
+                "member-detail-list",
+            ).performScrollToNode(hasTestTag("member-detail-circuits-unknown"))
+        composeTestRule.onNodeWithTag("member-detail-circuits-unknown").assertIsDisplayed()
+        composeTestRule.onNodeWithTag("member-detail-circuits-none").assertDoesNotExist()
+    }
+
+    @Test
+    fun circuitsLedgerEmptyShowsNone() {
+        composeTestRule.setContent {
+            BellhopTheme {
+                MemberDetailScreen(
+                    member = member.copy(status = member.status.copy(circuits = MemberCircuits(total = 0))),
+                    isPrimary = false,
+                    isDesignated = false,
+                    onBack = {},
+                    ui = MemberDetailUiState(loading = false, traffic = reachableTraffic),
+                )
+            }
+        }
+        composeTestRule
+            .onNodeWithTag(
+                "member-detail-list",
+            ).performScrollToNode(hasTestTag("member-detail-circuits-none"))
+        composeTestRule.onNodeWithTag("member-detail-circuits-none").assertIsDisplayed()
+    }
+
+    @Test
+    fun circuitStateTagOrdersProbeThenReserveThenPin() {
+        assertEquals(
+            "probe",
+            circuitStateTag(OpenCircuit(state = "half-open", quotaPinned = true, pinSource = "reserve")),
+        )
+        assertEquals("open", circuitStateTag(OpenCircuit(state = "open", pinSource = "reserve")))
+        assertEquals(
+            "reserved",
+            circuitStateTag(OpenCircuit(state = "open", quotaPinned = true, pinSource = "reserve")),
+        )
+        assertEquals("pinned", circuitStateTag(OpenCircuit(state = "open", quotaPinned = true, pinSource = "account")))
     }
 }
