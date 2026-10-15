@@ -66,7 +66,7 @@
     <string name="member_detail_label_version">Versión</string>
     <string name="member_circuits_title">Interruptores de circuito</string>
     <string name="member_circuits_none">Ningún interruptor abierto</string>
-    <string name="member_circuits_unknown">Aún no leído</string>
+    <string name="member_circuits_unknown">No leído</string>
     <string name="member_circuits_no_token">Front Desk no tiene token de administrador para este miembro, así que no puede leer sus interruptores.</string>
     <plurals name="member_circuits_open">
         <item quantity="one">%1$d interruptor abierto</item>

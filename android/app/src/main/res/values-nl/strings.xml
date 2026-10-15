@@ -66,7 +66,7 @@
     <string name="member_detail_label_version">Versie</string>
     <string name="member_circuits_title">Circuit breakers</string>
     <string name="member_circuits_none">Geen circuits open</string>
-    <string name="member_circuits_unknown">Nog niet gelezen</string>
+    <string name="member_circuits_unknown">Niet gelezen</string>
     <string name="member_circuits_no_token">Front Desk heeft geen admin-token voor dit lid, dus de circuits kunnen niet worden gelezen.</string>
     <plurals name="member_circuits_open">
         <item quantity="one">%1$d circuit open</item>

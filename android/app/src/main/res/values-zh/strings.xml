@@ -64,7 +64,7 @@
     <string name="member_detail_label_version">版本</string>
     <string name="member_circuits_title">断路器</string>
     <string name="member_circuits_none">没有断开的断路器</string>
-    <string name="member_circuits_unknown">尚未读取</string>
+    <string name="member_circuits_unknown">未读取</string>
     <string name="member_circuits_no_token">Front Desk 没有此成员的管理员令牌，无法读取其断路器。</string>
     <plurals name="member_circuits_open">
         <item quantity="other">%1$d 个断路器已断开</item>

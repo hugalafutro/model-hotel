@@ -52,6 +52,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.pluralStringResource
@@ -87,6 +88,8 @@ import com.hugalafutro.bellhop.ui.common.rememberCopyText
 import com.hugalafutro.bellhop.ui.common.severityColors
 import com.hugalafutro.bellhop.ui.common.withoutMemberName
 import com.hugalafutro.bellhop.ui.theme.BellhopTheme
+import com.hugalafutro.bellhop.ui.theme.SeverityWarnBg
+import com.hugalafutro.bellhop.ui.theme.SeverityWarnTextLight
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.distinctUntilChanged
 import java.time.Instant
@@ -763,12 +766,15 @@ private fun MemberCard(
             }
             val openCircuits = member.status.circuits?.total ?: 0
             if (openCircuits > 0) {
-                // The count only, like the Members table on the web: the ledger
+                // The count only, like the Members table on the web, and in the
+                // web cell's warning tone rather than red: a circuit held by a
+                // quota reserve or waiting on a probe is not an outage. The ledger
                 // itself (provider, model, state, retry) is on the detail screen.
+                val dark = MaterialTheme.colorScheme.surface.luminance() < 0.5f
                 Text(
                     text = pluralStringResource(R.plurals.member_circuits_open, openCircuits, openCircuits),
                     style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.error,
+                    color = if (dark) SeverityWarnBg else SeverityWarnTextLight,
                     modifier = Modifier.testTag("member-circuits-${member.name}"),
                 )
             }

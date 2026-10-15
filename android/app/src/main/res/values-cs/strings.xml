@@ -69,14 +69,14 @@
     <string name="member_detail_label_added">Přidáno</string>
     <string name="member_detail_label_version">Verze</string>
     <string name="member_circuits_title">Jističe</string>
-    <string name="member_circuits_none">Žádný jistič není rozpojený</string>
-    <string name="member_circuits_unknown">Zatím nenačteno</string>
+    <string name="member_circuits_none">Žádný jistič není rozepnutý</string>
+    <string name="member_circuits_unknown">Nenačteno</string>
     <string name="member_circuits_no_token">Front Desk nemá pro tohoto člena admin token, takže jeho jističe nelze načíst.</string>
     <plurals name="member_circuits_open">
-        <item quantity="one">%1$d jistič rozpojený</item>
-        <item quantity="few">%1$d jističe rozpojené</item>
-        <item quantity="many">%1$d jističe rozpojeného</item>
-        <item quantity="other">%1$d jističů rozpojených</item>
+        <item quantity="one">%1$d jistič rozepnutý</item>
+        <item quantity="few">%1$d jističe rozepnuté</item>
+        <item quantity="many">%1$d jističe rozepnutého</item>
+        <item quantity="other">%1$d jističů rozepnutých</item>
     </plurals>
     <string name="member_circuits_showing">Zobrazeno %1$d z %2$d</string>
     <string name="member_circuit_retry">Další pokus %1$s</string>

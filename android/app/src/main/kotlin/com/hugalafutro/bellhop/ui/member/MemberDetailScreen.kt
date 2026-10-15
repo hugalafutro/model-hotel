@@ -42,6 +42,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.pluralStringResource
@@ -80,6 +81,8 @@ import com.hugalafutro.bellhop.ui.events.eventClipboardText
 import com.hugalafutro.bellhop.ui.events.formatEventTime
 import com.hugalafutro.bellhop.ui.theme.BellhopTheme
 import com.hugalafutro.bellhop.ui.theme.MonoFamily
+import com.hugalafutro.bellhop.ui.theme.SeverityWarnBg
+import com.hugalafutro.bellhop.ui.theme.SeverityWarnTextLight
 import java.time.Instant
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
@@ -445,16 +448,18 @@ private fun CircuitsLedger(
             modifier = Modifier.padding(bottom = 2.dp),
         )
         when {
+            // No ledger: FD could not read it (no admin token, or the last read
+            // failed), which is a different thing from a clean slate.
+            ledger == null && !member.hasToken ->
+                Text(
+                    text = stringResource(R.string.member_circuits_no_token),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.testTag("member-detail-circuits-no-token"),
+                )
             ledger == null ->
                 Text(
-                    text =
-                        stringResource(
-                            if (member.hasToken) {
-                                R.string.member_circuits_unknown
-                            } else {
-                                R.string.member_circuits_no_token
-                            },
-                        ),
+                    text = stringResource(R.string.member_circuits_unknown),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.testTag("member-detail-circuits-unknown"),
@@ -486,11 +491,14 @@ private fun CircuitsLedger(
  * circuitStateTag names the state a circuit row shows: "probe" for a circuit
  * owed a probe, "reserved" when the operator's quota reserve holds it (the
  * quota is still there, just kept back), "pinned" for any other quota pin,
- * else "open". It is the test tag suffix and the key of the label and colour.
+ * "open" for an open circuit, and the raw state for anything a newer Front
+ * Desk sends, as the web ledger does. It is the test tag suffix and the key of
+ * the label and colour.
  */
 internal fun circuitStateTag(circuit: OpenCircuit): String =
     when {
         circuit.state == "half-open" -> "probe"
+        circuit.state != "open" -> circuit.state
         !circuit.quotaPinned -> "open"
         circuit.pinSource == "reserve" -> "reserved"
         else -> "pinned"
@@ -509,14 +517,19 @@ private fun CircuitRow(circuit: OpenCircuit) {
             "probe" -> stringResource(R.string.circuit_state_probe)
             "reserved" -> stringResource(R.string.circuit_state_reserved)
             "pinned" -> stringResource(R.string.circuit_state_pinned)
-            else -> stringResource(R.string.circuit_state_open)
+            "open" -> stringResource(R.string.circuit_state_open)
+            else -> stateTag
         }
-    // Open is the alarm, a probe is recovery under way, a pin is a long wait
-    // the quota poller measured, and a reserve is quota deliberately kept back.
+    // Open is the alarm, a probe is recovery under way (the warning tone, read
+    // off the scheme so it stays legible on the light Paper ground), a pin is
+    // a long wait the quota poller measured, and a reserve is quota kept back
+    // on purpose: steel, the secondary status tone, not brass, which the screen
+    // already spends on the name and the address.
+    val dark = MaterialTheme.colorScheme.surface.luminance() < 0.5f
     val stateColor =
         when (stateTag) {
-            "probe" -> SyncAgeYellow
-            "reserved" -> MaterialTheme.colorScheme.primary
+            "probe" -> if (dark) SeverityWarnBg else SeverityWarnTextLight
+            "reserved" -> MaterialTheme.colorScheme.secondary
             "pinned" -> SyncAgeOrange
             else -> MaterialTheme.colorScheme.error
         }
@@ -524,9 +537,15 @@ private fun CircuitRow(circuit: OpenCircuit) {
         circuit.nextRetryAt.takeIf { it.isNotBlank() }?.let {
             stringResource(R.string.member_circuit_retry, formatEventTime(it, LocalTimePattern.current))
         }
-    val detail = listOfNotNull(circuit.cause.takeIf { it.isNotBlank() }, retry).joinToString(" · ")
+    // A comma, since the retry time itself carries the register's middle dot.
+    val detail = listOfNotNull(circuit.cause.takeIf { it.isNotBlank() }, retry).joinToString(", ")
     Column(
-        modifier = Modifier.fillMaxWidth().testTag("member-detail-circuit-${circuit.model}-$stateTag"),
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                // Two providers can share a synthetic model ("(account quota)"),
+                // so the provider id keeps the tag unique.
+                .testTag("member-detail-circuit-${circuit.providerId}-${circuit.model}-$stateTag"),
         verticalArrangement = Arrangement.spacedBy(2.dp),
     ) {
         Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -535,6 +554,8 @@ private fun CircuitRow(circuit: OpenCircuit) {
                 style = MaterialTheme.typography.bodySmall,
                 fontFamily = MonoFamily,
                 color = MaterialTheme.colorScheme.onSurface,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
                 modifier = Modifier.weight(1f),
             )
             Text(
@@ -548,6 +569,7 @@ private fun CircuitRow(circuit: OpenCircuit) {
                 text = detail,
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.testTag("member-detail-circuit-detail-${circuit.providerId}"),
             )
         }
     }
