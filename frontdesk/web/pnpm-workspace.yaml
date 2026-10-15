@@ -11,11 +11,13 @@ packages: []
 minimumReleaseAge: 1440
 
 # Supply-chain trust gates mirrored from web/pnpm-workspace.yaml (see there for
-# the rationale): reject a version that drops supply-chain trust rank relative to
-# the package's own history (the fingerprint of a stolen maintainer token), and
-# reject subdependencies resolved from git refs or bare tarball URLs (registry,
-# local paths and workspace links stay allowed). The trust check is re-applied to every lockfile entry on
-# each install, frozen included. Verified against the pinned pnpm 12.11.
+# the rationale). trustPolicy rejects a version that drops supply-chain trust
+# rank relative to the package's own history (the fingerprint of a stolen
+# maintainer token); it is re-applied to every lockfile entry on each install,
+# frozen included. blockExoticSubdeps rejects subdependencies resolved from git
+# refs or bare tarball URLs when they are resolved (registry, local paths,
+# workspace links and the node/bun/deno GitHub repositories stay allowed).
+# Verified against the pinned pnpm 12.11.
 trustPolicy: no-downgrade
 trustPolicyIgnoreAfter: 129600
 blockExoticSubdeps: true
