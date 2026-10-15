@@ -265,16 +265,21 @@ func neuralwattWindows(payload json.RawMessage) []Window {
 // the provider's longest window kept back for use outside the gateway.
 // reserve is that share, 0 for none, up to 0.9. A provider whose payload
 // reports no exhaustion is still treated as exhausted once a dated governing
-// window of the longest span has consumed 1 - reserve of itself, and the
-// verdict says Reserved: the pin targets the earliest such reset, the same
-// rule the assessors apply to a spent window. A shorter window refills on its
-// own and stops routing only when spent, which matters on a plan the assessor
-// never calls exhausted (NanoGPT with overage): there a spent window pins
-// under a reserve too, as plain exhaustion. A window the assessor does not
-// judge on its own (Z.ai's MCP calls, a NeuralWatt balance) is left alone, an
-// undated window past the line cannot place a pin and is ignored, as an
-// undated spent window is, and a payload the assessor already reads as
-// exhausted, or cannot read at all, is returned as it stands.
+// window of the type's reserve span (reserveSpan: the month for OpenCode Go,
+// the week elsewhere) has consumed 1 - reserve of itself, and the verdict
+// says Reserved: the pin targets the earliest such reset, the same rule the
+// assessors apply to a spent window. The span is fixed per type rather than
+// read off the payload, so a payload missing that window (or carrying only
+// windows whose length it does not state) places no reserve pin at all: the
+// edit modal promises the week or the month, and a 5-hour window must not
+// stand in for it. A shorter window refills on its own and stops routing only
+// when spent, which matters on a plan the assessor never calls exhausted
+// (NanoGPT with overage): there a spent window pins under a reserve too, as
+// plain exhaustion. A window the assessor does not judge on its own (Z.ai's
+// MCP calls, a NeuralWatt balance) is left alone, an undated window past the
+// line cannot place a pin and is ignored, as an undated spent window is, and a
+// payload the assessor already reads as exhausted, or cannot read at all, is
+// returned as it stands.
 func AssessWithReserve(providerType string, s Snapshot, reserve float64, now time.Time) Assessment {
 	a := Assess(providerType, s)
 	if reserve <= 0 || !a.OK || a.Exhausted {
@@ -294,7 +299,10 @@ func AssessWithReserve(providerType string, s Snapshot, reserve float64, now tim
 	if spent.found {
 		return spent.result(now)
 	}
-	span := longestSpan(windows)
+	span, ok := reserveSpan[providerType]
+	if !ok {
+		return a
+	}
 	var e earliestReset
 	for _, w := range windows {
 		if !w.Governs || w.Span != span || w.Used < line || w.ResetsAt.IsZero() {
@@ -310,21 +318,19 @@ func AssessWithReserve(providerType string, s Snapshot, reserve float64, now tim
 	return r
 }
 
-// longestSpan is the span of the longest dated governing window: the one the
-// operator's reserve is kept on. A 5-hour window at the line refills on its
+// reserveSpan is the window the operator's reserve is kept on, per type: the
+// longest one the type carries. A 5-hour window at the line refills on its
 // own within the day and is not what the reserve protects; the weekly or
-// monthly allowance behind it is. Windows of that span all count, which is
-// how MiniMax's per-model weekly windows each draw the line. An undated window
-// could never place a pin, so it does not rank either: ranking it would
-// silence the reserve on every shorter window for nothing.
-func longestSpan(windows []Window) time.Duration {
-	var span time.Duration
-	for _, w := range windows {
-		if w.Governs && !w.ResetsAt.IsZero() && w.Span > span {
-			span = w.Span
-		}
-	}
-	return span
+// monthly allowance behind it is. Every window of that span counts, which is
+// how MiniMax's per-model weekly windows each draw the line. Mirrored by
+// QUOTA_RESERVE_WINDOW in web/src/pages/Providers/constants.ts, which names
+// the window in the edit modal; a type absent here never pins on a reserve.
+var reserveSpan = map[string]time.Duration{
+	"zai-coding":  spanByName["weekly"],
+	"kimi-code":   spanByName["weekly"],
+	"minimax":     spanByName["weekly"],
+	"nanogpt":     spanByName["weekly"],
+	"opencode-go": spanByName["monthly"],
 }
 
 // spanByName is the length of the windows the readers name by their span, so

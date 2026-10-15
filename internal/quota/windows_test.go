@@ -202,7 +202,7 @@ func TestAssessWithReserve(t *testing.T) {
 	reset := time.Now().Add(3 * time.Hour).Truncate(time.Millisecond)
 	payload := func(pct float64) []byte {
 		b, _ := json.Marshal(map[string]any{"data": map[string]any{"limits": []map[string]any{
-			{"type": "TOKENS_LIMIT", "unit": 3, "percentage": pct, "nextResetTime": reset.UnixMilli()},
+			{"type": "TOKENS_LIMIT", "unit": 6, "percentage": pct, "nextResetTime": reset.UnixMilli()},
 		}}})
 		return b
 	}
@@ -295,6 +295,22 @@ func TestAssessWithReserve_LongestWindowOnly(t *testing.T) {
 	if a := AssessWithReserve("zai-coding", Snapshot{Payload: zai}, 0.1, now); !a.OK || a.Exhausted {
 		t.Errorf("zai 5h past the line: got %+v, want healthy", a)
 	}
+	// The reserve window is fixed per type, never whichever window the payload
+	// happens to carry: a 5-hour-only payload places no reserve pin, and an
+	// OpenCode Go payload without its month pins on nothing short of spent.
+	fiveOnly, _ := json.Marshal(map[string]any{"data": map[string]any{"limits": []map[string]any{
+		{"type": "TOKENS_LIMIT", "unit": 3, "percentage": 95, "nextResetTime": soon.UnixMilli()},
+	}}})
+	if a := AssessWithReserve("zai-coding", Snapshot{Payload: fiveOnly}, 0.1, now); !a.OK || a.Exhausted {
+		t.Errorf("zai 5h-only payload past the line: got %+v, want healthy (no week to reserve)", a)
+	}
+	noMonth, _ := json.Marshal(map[string]any{"usage": map[string]any{
+		"rolling": map[string]any{"status": "ok", "percent": 95, "resetsAt": soon.Format(time.RFC3339)},
+		"weekly":  map[string]any{"status": "ok", "percent": 95, "resetsAt": later.Format(time.RFC3339)},
+	}})
+	if a := AssessWithReserve("opencode-go", Snapshot{Payload: noMonth}, 0.1, now); !a.OK || a.Exhausted {
+		t.Errorf("opencode-go without a month: got %+v, want healthy", a)
+	}
 
 	// MiniMax meters per model: every model's weekly window draws the line, so
 	// one model's week at the line pins while its interval window does not.
@@ -309,6 +325,13 @@ func TestAssessWithReserve_LongestWindowOnly(t *testing.T) {
 	}
 	if a := AssessWithReserve("minimax", minimax(5, 50), 0.1, now); !a.OK || a.Exhausted {
 		t.Errorf("minimax interval past the line: got %+v, want healthy", a)
+	}
+	// Interval-only (the week not active): nothing to reserve, so no pin.
+	intervalOnly, _ := json.Marshal(map[string]any{"base_resp": map[string]any{"status_code": 0}, "model_remains": []map[string]any{
+		{"model_name": "M2", "current_interval_status": 1, "current_interval_remaining_percent": 5, "end_time": soon.Unix(), "current_weekly_status": 3},
+	}})
+	if a := AssessWithReserve("minimax", Snapshot{Payload: intervalOnly}, 0.1, now); !a.OK || a.Exhausted {
+		t.Errorf("minimax interval-only payload past the line: got %+v, want healthy", a)
 	}
 	if a := AssessWithReserve("minimax", minimax(50, 10), 0.1, now); !a.Exhausted || !a.Reserved || !a.ResetsAt.Equal(later) {
 		t.Errorf("minimax one model's week at the line: got %+v, want reserved until %v", a, later)
@@ -346,16 +369,9 @@ func TestWindows_SpansRankTheWindows(t *testing.T) {
 			t.Errorf("span of %+v = %v, want %v", tc.w, got, tc.want)
 		}
 	}
-	if got := longestSpan(nil); got != 0 {
-		t.Errorf("no windows: longest span = %v, want 0", got)
-	}
-	// An undated window cannot place a pin, so it does not rank: the reserve
-	// falls to the longest window that can.
-	undated := []Window{
-		{Name: "monthly", Governs: true, Span: 30 * 24 * time.Hour},
-		{Name: "weekly", Governs: true, Span: 7 * 24 * time.Hour, ResetsAt: soon},
-	}
-	if got := longestSpan(undated); got != 7*24*time.Hour {
-		t.Errorf("undated month ranked: longest span = %v, want the dated week", got)
+	for typ := range quotaReaders {
+		if _, ok := reserveSpan[typ]; !ok && typ != "neuralwatt" {
+			t.Errorf("%s reads windows but names no reserve window", typ)
+		}
 	}
 }

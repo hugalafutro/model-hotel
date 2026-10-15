@@ -180,10 +180,11 @@ export const QUOTA_RESERVE_TYPES: ReadonlySet<string> = new Set([
 ]);
 
 /**
- * The window the reserve is kept on, per type: the longest one the breaker
- * judges (quota.AssessWithReserve). Shorter windows refill on their own and
- * pin only when spent. The value is the i18n key suffix under
- * providers.edit.quotaReserveWindow.
+ * The window the reserve is kept on, per type: the longest one the type
+ * carries. Mirrors reserveSpan in internal/quota/windows.go, which draws the
+ * line on exactly this window (a payload without it places no reserve pin).
+ * Shorter windows refill on their own and pin only when spent. The value is
+ * the i18n key suffix under providers.edit.quotaReserveWindow.
  */
 export const QUOTA_RESERVE_WINDOW: Readonly<
 	Record<string, "weekly" | "monthly">
