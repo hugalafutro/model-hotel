@@ -23,11 +23,11 @@ type Window struct {
 	// balances are shown but do not govern (NeuralWatt refuses only once both
 	// are gone), so a reserve leaves them alone too.
 	Governs bool
-	// Span is the window's length, which ranks it against its siblings: the
-	// operator's quota reserve applies to the longest governing window only
-	// (AssessWithReserve), since that is the allowance the reserve keeps back
-	// while the shorter ones refill on their own. Zero when the payload does
-	// not state the length; such a window ranks below any dated one.
+	// Span is the window's length. The operator's quota reserve applies to the
+	// windows whose span equals the type's reserveSpan (AssessWithReserve),
+	// the longest window the type carries, since that is the allowance the
+	// reserve keeps back while the shorter ones refill on their own. Zero when
+	// the payload does not state the length; such a window never matches.
 	Span time.Duration
 }
 
@@ -296,8 +296,12 @@ func AssessWithReserve(providerType string, s Snapshot, reserve float64, now tim
 			spent.add(w.ResetsAt, true)
 		}
 	}
-	if spent.found {
-		return spent.result(now)
+	// A spent window whose reset has already passed is no pin (the window has
+	// rolled over), and it must not pre-empt the reserve pass either, or a
+	// snapshot taken just before a 5-hour rollover would read as healthy and
+	// release a standing reserve pin for one poll.
+	if r := spent.result(now); r.Exhausted {
+		return r
 	}
 	span, ok := reserveSpan[providerType]
 	if !ok {
@@ -334,8 +338,9 @@ var reserveSpan = map[string]time.Duration{
 }
 
 // spanByName is the length of the windows the readers name by their span, so
-// one table ranks them: OpenCode Go's month is the calendar-ish 30 days its
-// resetsAt reflects, and a week is seven days everywhere.
+// every reader and reserveSpan speak the same lengths: OpenCode Go's month is
+// the calendar-ish 30 days its resetsAt reflects, and a week is seven days
+// everywhere.
 var spanByName = map[string]time.Duration{
 	"5h":      5 * time.Hour,
 	"daily":   24 * time.Hour,

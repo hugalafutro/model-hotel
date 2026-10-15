@@ -286,6 +286,16 @@ func TestAssessWithReserve_LongestWindowOnly(t *testing.T) {
 	if a := AssessWithReserve("opencode-go", opencode(100, 10, 10), 0.1, now); !a.Exhausted || a.Reserved || !a.ResetsAt.Equal(soon) {
 		t.Errorf("5h spent: got %+v, want exhausted (not reserved) until %v", a, soon)
 	}
+	// A spent 5h window that has already rolled over (snapshot taken just
+	// before its reset) is no pin, and it must not hide the month at the line.
+	rolled, _ := json.Marshal(map[string]any{"usage": map[string]any{
+		"rolling": map[string]any{"status": "ok", "percent": 100, "resetsAt": now.Add(-time.Minute).Format(time.RFC3339)},
+		"weekly":  map[string]any{"status": "ok", "percent": 10, "resetsAt": later.Format(time.RFC3339)},
+		"monthly": map[string]any{"status": "ok", "percent": 90, "resetsAt": month.Format(time.RFC3339)},
+	}})
+	if a := AssessWithReserve("opencode-go", Snapshot{Payload: rolled}, 0.1, now); !a.Exhausted || !a.Reserved || !a.ResetsAt.Equal(month) {
+		t.Errorf("rolled-over 5h with the month at the line: got %+v, want reserved until %v", a, month)
+	}
 
 	// Z.ai: the 5-hour window past the line leaves the week alone.
 	zai, _ := json.Marshal(map[string]any{"data": map[string]any{"limits": []map[string]any{
@@ -338,7 +348,7 @@ func TestAssessWithReserve_LongestWindowOnly(t *testing.T) {
 	}
 }
 
-func TestWindows_SpansRankTheWindows(t *testing.T) {
+func TestWindows_SpansAndReserveWindows(t *testing.T) {
 	soon := time.Now().Add(time.Hour)
 	kimi, _ := json.Marshal(map[string]any{
 		"usage": map[string]any{"limit": "100", "remaining": "50", "resetTime": soon.Format(time.RFC3339)},

@@ -166,20 +166,6 @@ export function providerTypeOptions(
 }
 
 /**
- * Provider types whose quota reserve does anything. The breaker's quotaReaders
- * (internal/quota/normalize.go) judge a window on its own for these, so the
- * reserve line pins them; a balance provider, or NeuralWatt, whose windows never
- * govern, ignores the slider, so the edit modal does not show it.
- */
-export const QUOTA_RESERVE_TYPES: ReadonlySet<string> = new Set([
-	"nanogpt",
-	"zai-coding",
-	"kimi-code",
-	"minimax",
-	"opencode-go",
-]);
-
-/**
  * The window the reserve is kept on, per type: the longest one the type
  * carries. Mirrors reserveSpan in internal/quota/windows.go, which draws the
  * line on exactly this window (a payload without it places no reserve pin).
@@ -195,6 +181,15 @@ export const QUOTA_RESERVE_WINDOW: Readonly<
 	minimax: "weekly",
 	"opencode-go": "monthly",
 };
+
+/**
+ * Provider types whose quota reserve does anything: exactly the types with a
+ * reserve window above. A balance provider, or NeuralWatt, whose windows never
+ * govern, ignores the slider, so the edit modal does not show it.
+ */
+export const QUOTA_RESERVE_TYPES: ReadonlySet<string> = new Set(
+	Object.keys(QUOTA_RESERVE_WINDOW),
+);
 
 /** The reserve window's name for copy: a type outside the table reads "longest". */
 export function quotaReserveWindowKey(providerType: string): string {
