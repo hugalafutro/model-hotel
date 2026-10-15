@@ -12,7 +12,7 @@ the Go binary inside the image. The rest matter when you build or lint outside t
 | **Docker & Docker Compose** | Latest | The dev stack, the test database, and production deployment |
 | **Go** | 1.27+ | Backend runtime (required by `go.mod`) |
 | **Node.js** | 24+ | Frontend build tooling (CI uses Node 24; the Dockerfile uses `node:26-alpine`) |
-| **pnpm** | 10.33.0 | Frontend package manager (pinned by `web/package.json`) |
+| **pnpm** | 12.11.2 | Frontend package manager (the `packageManager` version in `web/package.json`; self-switching is off, install it yourself) |
 | **PostgreSQL** | 16 | Database (Compose uses `postgres:16-alpine`) |
 | **golangci-lint** | v2.14+ | Go linting (CI pins v2.14) |
 | **Python 3** | 3.x | The i18n gate, the coverage scripts, and the pre-push gate |
