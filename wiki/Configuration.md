@@ -644,9 +644,9 @@ The `Dockerfile` is a three-stage build.
 
 ### Stage 1: Frontend build
 
-- **Base:** `node:26-alpine`, with pnpm 10 installed via `npm install -g pnpm@10`.
+- **Base:** `node:26-alpine`, with pnpm 12 installed via `npm install -g pnpm@12`.
 - **Working directory:** `/app/web`.
-- Copies `package.json`, `pnpm-lock.yaml` and `pnpm-workspace.yaml` before the sources, then installs with `--frozen-lockfile`. The workspace file must be present: pnpm 10 reads the dependency `overrides` from it, and without it the lockfile check fails.
+- Copies `package.json`, `pnpm-lock.yaml` and `pnpm-workspace.yaml` before the sources, then installs with `--frozen-lockfile`. The workspace file must be present: pnpm 12 reads the dependency `overrides` from it, and without it the lockfile check fails.
 - Also copies `web-shared/`, the shared frontend modules the app pulls in through the `@web-shared/*` alias.
 - **Build command:** `pnpm run build:docker`, which skips `tsc -b`. Type-checking is gated by the pre-push hook and by CI's full `pnpm run build`, so the image build stays off the typecheck path.
 
