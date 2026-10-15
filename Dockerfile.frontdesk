@@ -6,7 +6,7 @@
 # Stage 1: Build the Front Desk SPA (its own pnpm package, not the web/ workspace)
 FROM node:26-alpine AS frontend-builder
 
-RUN npm install -g pnpm@10
+RUN npm install -g pnpm@12.11.2
 
 WORKDIR /app/frontdesk/web
 

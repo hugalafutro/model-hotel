@@ -3,11 +3,14 @@
 # (e.g. a stray ~/pnpm-workspace.yaml), linking node_modules to it.
 packages: []
 
-# Supply-chain cooldown: refuse to resolve dependency versions published less
-# than 24h (1440 min) ago, so a compromised-then-yanked release can't be pulled
-# in during the window maintainers typically catch and unpublish it. Only gates
-# fresh resolution (install/update/add); --frozen-lockfile CI installs replay
-# exact lockfile versions and are unaffected. pnpm >= 10.16.
+# Supply-chain cooldown: refuse dependency versions published less than 24h
+# (1440 min) ago, so a compromised-then-yanked release can't be pulled in during
+# the window maintainers typically catch and unpublish it. Gates fresh resolution
+# (install/update/add) AND every --frozen-lockfile install: since pnpm 11.3 a
+# verification pass re-applies this and trustPolicy to each lockfile entry, so a
+# lockfile committed under a weaker policy fails CI too (verified on pnpm 12.11:
+# a 10-year window makes `pnpm install --frozen-lockfile` fail). pnpm 11+ makes
+# 1440 the default; kept explicit so the policy reads here.
 minimumReleaseAge: 1440
 
 # Refuse a version whose supply-chain trust rank is lower than the ranks already
@@ -15,8 +18,8 @@ minimumReleaseAge: 1440
 # That drop is the signature of a stolen maintainer token publishing outside the
 # package's normal CI: the release still looks like a routine bump, but arrives
 # without the attestation every prior release carried. Like the cooldown above it
-# only gates fresh resolution, so --frozen-lockfile CI installs are unaffected.
-# Verified against the pinned pnpm 10.33 (packageManager in package.json).
+# is re-applied to every lockfile entry on each install, frozen included.
+# Verified against the pinned pnpm 12.11 (packageManager in package.json).
 trustPolicy: no-downgrade
 
 # Enforce that trust check only on releases younger than 90 days (129600 min).
@@ -28,12 +31,13 @@ trustPolicy: no-downgrade
 # covers, and minimumReleaseAge above already holds the first 24h of it.
 trustPolicyIgnoreAfter: 129600
 
-# Refuse subdependencies resolved from anywhere but a registry (git refs, bare
-# tarball URLs, local paths). Direct dependencies here are all registry packages,
-# so an exotic spec appearing at depth > 0 means some transitive maintainer
-# started pulling code from a URL nobody in this repo reviewed. Checked only on
-# fresh resolution; entries replayed from the lockfile are skipped. Verified
-# against the pinned pnpm 10.33.
+# Refuse subdependencies resolved from git refs or bare tarball URLs (registry,
+# local paths, workspace links and the node/bun/deno GitHub repositories stay
+# allowed). Direct dependencies here are all registry packages, so an exotic spec
+# appearing at depth > 0 means some transitive maintainer started pulling code
+# from a URL nobody in this repo reviewed. Checked when a subdependency is
+# resolved; pnpm 11+ makes it the default, kept explicit so the policy reads
+# here. Verified against the pinned pnpm 12.11.
 blockExoticSubdeps: true
 
 # Force the transitive @babel/core (pulled in by eslint-plugin-react-hooks,
@@ -47,3 +51,14 @@ overrides:
   # the Dependabot advisory for prototype pollution in katex < 0.18.2. Remove
   # once rehype-katex requires >=0.18.2 on its own.
   katex: "^0.19.0"
+
+# Do not let pnpm self-switch to the packageManager version or record it in the
+# lockfile. pnpm 12 otherwise writes a two-document pnpm-lock.yaml (its own
+# @pnpm/exe.* binaries first), and GitHub's dependency graph reads only the first
+# document: the web packages vanish from the SBOM and npm security alerts go
+# silent (dependabot/dependabot-core#15904, open). With `ignore` the lockfile
+# stays single-document, so the exact pnpm version is pinned where pnpm is
+# installed instead: both Dockerfiles, .github/workflows/ci.yml and
+# scripts/pre-push say 12.11.2. Drop this once the dependency graph parses the
+# env document.
+pmOnFail: ignore

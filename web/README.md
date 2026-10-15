@@ -39,8 +39,10 @@ both `vite.config.ts` and `vitest.config.ts`. They are linted and coverage-gated
 ## Commands
 
 Node 24 or newer (the floor CI runs; the Docker builder image is `node:26-alpine`) and pnpm
-10.33.0, pinned by the `packageManager` field in `package.json`. Run everything from `web/`, with
-paths relative to `web/`.
+12.11.2, the version the `packageManager` field in `package.json` names. pnpm does not switch
+itself to it (`pmOnFail: ignore` in `pnpm-workspace.yaml` keeps the lockfile single-document for
+GitHub's dependency graph), so install that version. Run everything from `web/`, with paths
+relative to `web/`.
 
 ```bash
 pnpm install
