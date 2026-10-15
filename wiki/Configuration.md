@@ -644,7 +644,7 @@ The `Dockerfile` is a three-stage build.
 
 ### Stage 1: Frontend build
 
-- **Base:** `node:26-alpine`, with pnpm 12 installed via `npm install -g pnpm@12`.
+- **Base:** `node:26-alpine`, with pnpm 12.11.2 installed via `npm install -g pnpm@12.11.2` (the version `packageManager` names; pnpm self-switching is off, see `pmOnFail` in `web/pnpm-workspace.yaml`).
 - **Working directory:** `/app/web`.
 - Copies `package.json`, `pnpm-lock.yaml` and `pnpm-workspace.yaml` before the sources, then installs with `--frozen-lockfile`. The workspace file must be present: pnpm 12 reads the dependency `overrides` from it, and without it the lockfile check fails.
 - Also copies `web-shared/`, the shared frontend modules the app pulls in through the `@web-shared/*` alias.

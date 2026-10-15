@@ -294,7 +294,7 @@ else
 		-e PNPM_HOME=/root/.local/share/pnpm \
 		-w /app/web \
 		node:22-alpine \
-		sh -c "npm install -g pnpm@12 >/dev/null 2>&1 && pnpm config set store-dir /pnpm/store >/dev/null && pnpm install --frozen-lockfile >/dev/null 2>&1 && pnpm run lint && pnpm exec tsc -b" 2>&1; then
+		sh -c "npm install -g pnpm@12.11.2 >/dev/null 2>&1 && pnpm config set store-dir /pnpm/store >/dev/null && pnpm install --frozen-lockfile >/dev/null 2>&1 && pnpm run lint && pnpm exec tsc -b" 2>&1; then
 		echo "pre-push: FAILED - pnpm lint / tsc -b" >&2
 		exit 1
 	fi

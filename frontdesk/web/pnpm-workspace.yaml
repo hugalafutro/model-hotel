@@ -13,8 +13,8 @@ minimumReleaseAge: 1440
 # Supply-chain trust gates mirrored from web/pnpm-workspace.yaml (see there for
 # the rationale): reject a version that drops supply-chain trust rank relative to
 # the package's own history (the fingerprint of a stolen maintainer token), and
-# reject subdependencies resolved from git refs, tarball URLs or local paths
-# instead of a registry. The trust check is re-applied to every lockfile entry on
+# reject subdependencies resolved from git refs or bare tarball URLs (registry,
+# local paths and workspace links stay allowed). The trust check is re-applied to every lockfile entry on
 # each install, frozen included. Verified against the pinned pnpm 12.11.
 trustPolicy: no-downgrade
 trustPolicyIgnoreAfter: 129600
@@ -25,3 +25,14 @@ blockExoticSubdeps: true
 # dependency requires the patched range on its own.
 overrides:
   "@babel/core": "^7.29.6"
+
+# Do not let pnpm self-switch to the packageManager version or record it in the
+# lockfile. pnpm 12 otherwise writes a two-document pnpm-lock.yaml (its own
+# @pnpm/exe.* binaries first), and GitHub's dependency graph reads only the first
+# document: the web packages vanish from the SBOM and npm security alerts go
+# silent (dependabot/dependabot-core#15904, open). With `ignore` the lockfile
+# stays single-document, so the exact pnpm version is pinned where pnpm is
+# installed instead: both Dockerfiles, .github/workflows/ci.yml and
+# scripts/pre-push say 12.11.2. Drop this once the dependency graph parses the
+# env document.
+pmOnFail: ignore

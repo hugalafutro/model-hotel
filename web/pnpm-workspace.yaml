@@ -31,12 +31,13 @@ trustPolicy: no-downgrade
 # covers, and minimumReleaseAge above already holds the first 24h of it.
 trustPolicyIgnoreAfter: 129600
 
-# Refuse subdependencies resolved from anywhere but a registry (git refs, bare
-# tarball URLs, local paths). Direct dependencies here are all registry packages,
-# so an exotic spec appearing at depth > 0 means some transitive maintainer
-# started pulling code from a URL nobody in this repo reviewed. Checked when a
-# subdependency is resolved; pnpm 11+ makes it the default, kept explicit so the
-# policy reads here. Verified against the pinned pnpm 12.11.
+# Refuse subdependencies resolved from git refs or bare tarball URLs (registry,
+# local paths, workspace links and the node/bun/deno GitHub repositories stay
+# allowed). Direct dependencies here are all registry packages, so an exotic spec
+# appearing at depth > 0 means some transitive maintainer started pulling code
+# from a URL nobody in this repo reviewed. Checked when a subdependency is
+# resolved; pnpm 11+ makes it the default, kept explicit so the policy reads
+# here. Verified against the pinned pnpm 12.11.
 blockExoticSubdeps: true
 
 # Force the transitive @babel/core (pulled in by eslint-plugin-react-hooks,
@@ -50,3 +51,14 @@ overrides:
   # the Dependabot advisory for prototype pollution in katex < 0.18.2. Remove
   # once rehype-katex requires >=0.18.2 on its own.
   katex: "^0.19.0"
+
+# Do not let pnpm self-switch to the packageManager version or record it in the
+# lockfile. pnpm 12 otherwise writes a two-document pnpm-lock.yaml (its own
+# @pnpm/exe.* binaries first), and GitHub's dependency graph reads only the first
+# document: the web packages vanish from the SBOM and npm security alerts go
+# silent (dependabot/dependabot-core#15904, open). With `ignore` the lockfile
+# stays single-document, so the exact pnpm version is pinned where pnpm is
+# installed instead: both Dockerfiles, .github/workflows/ci.yml and
+# scripts/pre-push say 12.11.2. Drop this once the dependency graph parses the
+# env document.
+pmOnFail: ignore
