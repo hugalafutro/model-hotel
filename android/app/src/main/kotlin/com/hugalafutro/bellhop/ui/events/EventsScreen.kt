@@ -47,6 +47,7 @@ import com.hugalafutro.bellhop.ui.common.rememberCopyText
 import com.hugalafutro.bellhop.ui.theme.BellhopTheme
 import com.hugalafutro.bellhop.ui.theme.MonoFamily
 import java.time.Instant
+import java.time.OffsetDateTime
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.time.format.DateTimeParseException
@@ -308,14 +309,16 @@ private fun severityLabel(severity: String): String =
 // current default locale (kept in step with the in-app language by AppLocale), so
 // month names follow a language switch instead of freezing at process start.
 // [timePattern] is the clock half, from the Settings preference (LocalTimePattern);
-// the date half is the locale's business, not the user's.
+// the date half is the locale's business, not the user's. Parsed as an offset
+// time, since a member's circuit retry instant is stamped in the member's own
+// zone (RFC 3339 with an offset), while Front Desk's own stamps end in Z.
 internal fun formatEventTime(
     createdAt: String,
     timePattern: String,
 ): String =
     try {
         val format = DateTimeFormatter.ofPattern("MMM d, yyyy · $timePattern", Locale.getDefault())
-        Instant.parse(createdAt).atZone(ZoneId.systemDefault()).format(format)
+        OffsetDateTime.parse(createdAt).atZoneSameInstant(ZoneId.systemDefault()).format(format)
     } catch (e: Exception) {
         createdAt
     }

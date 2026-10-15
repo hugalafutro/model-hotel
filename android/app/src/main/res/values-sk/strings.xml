@@ -83,7 +83,7 @@
     <string name="circuit_state_open">rozopnutý</string>
     <string name="circuit_state_probe">čaká na sondu</string>
     <string name="circuit_state_pinned">pripnutý</string>
-    <string name="circuit_state_reserved">rezervované</string>
+    <string name="circuit_state_reserved">rezervovaný</string>
     <string name="member_url_title">Otvoriť adresu člena</string>
     <string name="member_url_open">Otvoriť</string>
     <string name="open_url_title">Otvoriť odkaz</string>

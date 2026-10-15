@@ -520,25 +520,23 @@ private fun CircuitRow(circuit: OpenCircuit) {
             "open" -> stringResource(R.string.circuit_state_open)
             else -> stateTag
         }
-    // Open is the alarm, a probe is recovery under way (the warning tone, read
-    // off the scheme so it stays legible on the light Paper ground), a pin is
-    // a long wait the quota poller measured, and a reserve is quota kept back
-    // on purpose: steel, the secondary status tone, not brass, which the screen
-    // already spends on the name and the address.
+    // Open and pinned are the alarm tone: both hold the provider dark, a pin
+    // (a quota pin, measured by the quota poller or inferred from a 429) for
+    // the longer stretch. A probe is recovery under way, in the warning tone
+    // read off the scheme so it stays legible on the light Paper ground. A
+    // reserve is quota kept back on purpose: steel, the secondary status tone,
+    // not brass, which the screen already spends on the name and the address.
     val dark = MaterialTheme.colorScheme.surface.luminance() < 0.5f
     val stateColor =
         when (stateTag) {
             "probe" -> if (dark) SeverityWarnBg else SeverityWarnTextLight
             "reserved" -> MaterialTheme.colorScheme.secondary
-            "pinned" -> SyncAgeOrange
             else -> MaterialTheme.colorScheme.error
         }
     val retry =
         circuit.nextRetryAt.takeIf { it.isNotBlank() }?.let {
             stringResource(R.string.member_circuit_retry, formatEventTime(it, LocalTimePattern.current))
         }
-    // A comma, since the retry time itself carries the register's middle dot.
-    val detail = listOfNotNull(circuit.cause.takeIf { it.isNotBlank() }, retry).joinToString(", ")
     Column(
         modifier =
             Modifier
@@ -564,12 +562,23 @@ private fun CircuitRow(circuit: OpenCircuit) {
                 color = stateColor,
             )
         }
-        if (detail.isNotBlank()) {
+        // The verdict and the retry on their own lines: the formatted time
+        // already carries a comma and the register's middle dot, so no
+        // separator reads as a field boundary.
+        if (circuit.cause.isNotBlank()) {
             Text(
-                text = detail,
+                text = circuit.cause,
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.testTag("member-detail-circuit-detail-${circuit.providerId}"),
+                modifier = Modifier.testTag("member-detail-circuit-cause-${circuit.providerId}-${circuit.model}"),
+            )
+        }
+        if (retry != null) {
+            Text(
+                text = retry,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.testTag("member-detail-circuit-retry-${circuit.providerId}-${circuit.model}"),
             )
         }
     }

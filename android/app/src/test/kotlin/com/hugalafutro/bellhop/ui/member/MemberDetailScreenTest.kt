@@ -963,7 +963,8 @@ class MemberDetailScreenTest {
         val ledger =
             MemberCircuits(
                 checkedAt = "2026-10-15T17:39:47Z",
-                total = 5,
+                // One more than the rows FD listed, so the truncation note shows.
+                total = 6,
                 open =
                     listOf(
                         OpenCircuit(
@@ -992,6 +993,14 @@ class MemberDetailScreenTest {
                             quotaPinned = true,
                             pinSource = "reserve",
                         ),
+                        // A state a newer Front Desk might send renders as itself.
+                        OpenCircuit(
+                            providerId = "p5",
+                            provider = "New",
+                            model = "n1",
+                            state = "forced-open",
+                            quotaPinned = true,
+                        ),
                     ),
             )
         composeTestRule.setContent {
@@ -1012,16 +1021,19 @@ class MemberDetailScreenTest {
             "member-detail-circuit-p2-k3-probe",
             "member-detail-circuit-p3-(account quota)-pinned",
             "member-detail-circuit-p4-(account quota)-reserved",
+            "member-detail-circuit-p5-n1-forced-open",
             "member-detail-circuits-showing",
         )
         ) {
             composeTestRule.onNodeWithTag("member-detail-list").performScrollToNode(hasTestTag(tag))
             composeTestRule.onNodeWithTag(tag).assertIsDisplayed()
         }
-        // The verdict and the retry instant ride under the row; a row with
-        // neither shows no detail line at all.
-        composeTestRule.onNodeWithTag("member-detail-circuit-detail-p1", useUnmergedTree = true).assertIsDisplayed()
-        composeTestRule.onNodeWithTag("member-detail-circuit-detail-p2", useUnmergedTree = true).assertDoesNotExist()
+        // The verdict and the retry instant ride under the row on their own
+        // lines; a row with neither shows no detail at all.
+        composeTestRule.onNodeWithTag("member-detail-circuit-cause-p1-glm", useUnmergedTree = true).assertIsDisplayed()
+        composeTestRule.onNodeWithTag("member-detail-circuit-retry-p1-glm", useUnmergedTree = true).assertIsDisplayed()
+        composeTestRule.onNodeWithTag("member-detail-circuit-cause-p2-k3", useUnmergedTree = true).assertDoesNotExist()
+        composeTestRule.onNodeWithTag("member-detail-circuit-retry-p2-k3", useUnmergedTree = true).assertDoesNotExist()
         composeTestRule.onNodeWithTag("member-detail-circuits-none").assertDoesNotExist()
         composeTestRule.onNodeWithTag("member-detail-circuits-unknown").assertDoesNotExist()
         composeTestRule.onNodeWithTag("member-detail-circuits-no-token").assertDoesNotExist()
