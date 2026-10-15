@@ -1,10 +1,12 @@
 package com.hugalafutro.bellhop.ui.dashboard
 
+import android.content.Context
 import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.test.assertHasClickAction
 import androidx.compose.ui.test.assertHasNoClickAction
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsNotEnabled
+import androidx.compose.ui.test.assertTextEquals
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.longClick
 import androidx.compose.ui.test.onNodeWithTag
@@ -12,10 +14,13 @@ import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performSemanticsAction
 import androidx.compose.ui.test.performTouchInput
+import androidx.test.core.app.ApplicationProvider
+import com.hugalafutro.bellhop.R
 import com.hugalafutro.bellhop.data.FdEvent
 import com.hugalafutro.bellhop.data.FleetMember
 import com.hugalafutro.bellhop.data.HealthStatus
 import com.hugalafutro.bellhop.data.LinkState
+import com.hugalafutro.bellhop.data.MemberCircuits
 import com.hugalafutro.bellhop.data.MemberStatus
 import com.hugalafutro.bellhop.data.MemberTraffic
 import com.hugalafutro.bellhop.data.TrafficPoint
@@ -614,5 +619,48 @@ class DashboardScreenTest {
         }
         composeTestRule.onNodeWithTag("dashboard-error").assertIsDisplayed()
         composeTestRule.onNodeWithTag("dashboard-refresh-error").assertDoesNotExist()
+    }
+
+    // The card carries the open-circuit count only when there is one, through
+    // the plural resource so one and two read differently; a member with none,
+    // or one FD could not read, shows no line at all.
+    @Test
+    fun cardShowsOpenCircuitCountOnlyWhenNonZero() {
+        val one = members[0].copy(status = members[0].status.copy(circuits = MemberCircuits(total = 1)))
+        val two =
+            members[0].copy(
+                id = "m7",
+                name = "two",
+                status = members[0].status.copy(circuits = MemberCircuits(total = 2)),
+            )
+        val clean =
+            members[0].copy(
+                id = "m9",
+                name = "clean",
+                status = members[0].status.copy(circuits = MemberCircuits(total = 0)),
+            )
+        composeTestRule.setContent {
+            BellhopTheme {
+                DashboardScreen(
+                    link = link,
+                    ui =
+                        DashboardUiState(
+                            loading = false,
+                            members = listOf(one, two, clean, members[0].copy(id = "m8", name = "unread")),
+                        ),
+                )
+            }
+        }
+        val res = ApplicationProvider.getApplicationContext<Context>().resources
+        composeTestRule
+            .onNodeWithTag("member-circuits-alpha", useUnmergedTree = true)
+            .assertIsDisplayed()
+            .assertTextEquals(res.getQuantityString(R.plurals.member_circuits_open, 1, 1))
+        composeTestRule
+            .onNodeWithTag("member-circuits-two", useUnmergedTree = true)
+            .assertIsDisplayed()
+            .assertTextEquals(res.getQuantityString(R.plurals.member_circuits_open, 2, 2))
+        composeTestRule.onNodeWithTag("member-circuits-clean", useUnmergedTree = true).assertDoesNotExist()
+        composeTestRule.onNodeWithTag("member-circuits-unread", useUnmergedTree = true).assertDoesNotExist()
     }
 }

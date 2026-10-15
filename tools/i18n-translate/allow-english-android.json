@@ -6,6 +6,9 @@
 	"autosync_title": [
 		"nl"
 	],
+	"circuit_state_open": [
+		"nl"
+	],
 	"dashboard_footer": [
 		"cs",
 		"de",
@@ -28,6 +31,12 @@
 		"nl",
 		"pl",
 		"sk"
+	],
+	"member_circuits_open": [
+		"nl"
+	],
+	"member_circuits_title": [
+		"nl"
 	],
 	"member_detail_label_version": [
 		"de",

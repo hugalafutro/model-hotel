@@ -46,6 +46,15 @@ class QuotaResetFormatTest {
             assertEquals("Sep 8, 2026 · 8:25 PM", formatEventTime(resetsAt, "h:mm a"))
         }
 
+    // A member stamps its circuit retry instant in its own zone (RFC 3339 with
+    // an offset), unlike Front Desk's Z stamps: 18:25-02:00 is 20:25Z, 22:25
+    // in Prague.
+    @Test
+    fun readsAnOffsetStampAsTheSameInstant() =
+        inPragueEnUs {
+            assertEquals("Sep 8, 2026 · 22:25", formatEventTime("2026-09-08T18:25:46-02:00", "HH:mm"))
+        }
+
     // 22:30 UTC is already the next day in Prague, the case a UTC-only reading
     // gets wrong.
     private val periodEnd = "2026-09-08T22:30:00Z"

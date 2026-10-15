@@ -64,6 +64,20 @@
     <string name="member_detail_label_verified">Geverifieerd</string>
     <string name="member_detail_label_added">Toegevoegd</string>
     <string name="member_detail_label_version">Versie</string>
+    <string name="member_circuits_title">Circuit breakers</string>
+    <string name="member_circuits_none">Geen circuits open</string>
+    <string name="member_circuits_unknown">Niet gelezen</string>
+    <string name="member_circuits_no_token">Front Desk heeft geen admin-token voor dit lid, dus de circuits kunnen niet worden gelezen.</string>
+    <plurals name="member_circuits_open">
+        <item quantity="one">%1$d circuit open</item>
+        <item quantity="other">%1$d circuits open</item>
+    </plurals>
+    <string name="member_circuits_showing">%1$d van %2$d getoond</string>
+    <string name="member_circuit_retry">Nieuwe poging %1$s</string>
+    <string name="circuit_state_open">open</string>
+    <string name="circuit_state_probe">probe verwacht</string>
+    <string name="circuit_state_pinned">vastgezet</string>
+    <string name="circuit_state_reserved">gereserveerd</string>
     <string name="member_url_title">Lidadres openen</string>
     <string name="member_url_open">Openen</string>
     <string name="open_url_title">Link openen</string>

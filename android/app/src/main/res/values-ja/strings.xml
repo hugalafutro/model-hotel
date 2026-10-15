@@ -62,6 +62,19 @@
     <string name="member_detail_label_verified">検証済み</string>
     <string name="member_detail_label_added">追加</string>
     <string name="member_detail_label_version">バージョン</string>
+    <string name="member_circuits_title">サーキットブレーカー</string>
+    <string name="member_circuits_none">オープンなブレーカーはありません</string>
+    <string name="member_circuits_unknown">未読み取り</string>
+    <string name="member_circuits_no_token">Front Desk にこのメンバーの管理トークンがないため、ブレーカーを読み取れません。</string>
+    <plurals name="member_circuits_open">
+        <item quantity="other">%1$d 件のブレーカーがオープン</item>
+    </plurals>
+    <string name="member_circuits_showing">%2$d 件中 %1$d 件を表示</string>
+    <string name="member_circuit_retry">再試行 %1$s</string>
+    <string name="circuit_state_open">オープン</string>
+    <string name="circuit_state_probe">プローブ待ち</string>
+    <string name="circuit_state_pinned">固定</string>
+    <string name="circuit_state_reserved">予備確保</string>
     <string name="member_url_title">メンバーのアドレスを開く</string>
     <string name="member_url_open">開く</string>
     <string name="open_url_title">リンクを開く</string>

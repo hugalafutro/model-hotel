@@ -1,5 +1,8 @@
 package com.hugalafutro.bellhop.ui.member
 
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.junit4.v2.createComposeRule
@@ -14,8 +17,10 @@ import androidx.compose.ui.test.performTouchInput
 import com.hugalafutro.bellhop.data.FdEvent
 import com.hugalafutro.bellhop.data.FleetMember
 import com.hugalafutro.bellhop.data.HealthStatus
+import com.hugalafutro.bellhop.data.MemberCircuits
 import com.hugalafutro.bellhop.data.MemberStatus
 import com.hugalafutro.bellhop.data.MemberTraffic
+import com.hugalafutro.bellhop.data.OpenCircuit
 import com.hugalafutro.bellhop.data.TrafficPoint
 import com.hugalafutro.bellhop.ui.common.EventRange
 import com.hugalafutro.bellhop.ui.theme.BellhopTheme
@@ -947,5 +952,193 @@ class MemberDetailScreenTest {
             .onNodeWithTag("member-detail-list")
             .performScrollToNode(hasTestTag("member-op-busy"))
         composeTestRule.onNodeWithTag("member-op-busy").assertIsDisplayed()
+    }
+
+    // The circuits ledger: one row per circuit FD read off the member, tagged by
+    // provider, model and state so each of the four states (open, probe due,
+    // pinned, reserved) is told apart without reading copy, plus the
+    // truncation note.
+    @Test
+    fun circuitsLedgerShowsEachStateAndTruncation() {
+        val ledger =
+            MemberCircuits(
+                checkedAt = "2026-10-15T17:39:47Z",
+                // One more than the rows FD listed, so the truncation note shows.
+                total = 6,
+                open =
+                    listOf(
+                        OpenCircuit(
+                            providerId = "p1",
+                            provider = "Z.ai",
+                            model = "glm",
+                            state = "open",
+                            cause = "upstream status 503",
+                            status = 503,
+                            nextRetryAt = "2026-10-15T18:00:00Z",
+                        ),
+                        OpenCircuit(providerId = "p2", provider = "Kimi", model = "k3", state = "half-open"),
+                        OpenCircuit(
+                            providerId = "p3",
+                            provider = "NanoGPT",
+                            model = "(account quota)",
+                            state = "open",
+                            quotaPinned = true,
+                            pinSource = "advisor",
+                        ),
+                        OpenCircuit(
+                            providerId = "p4",
+                            provider = "OpenCode Go",
+                            model = "(account quota)",
+                            state = "open",
+                            quotaPinned = true,
+                            pinSource = "reserve",
+                        ),
+                        // A state a newer Front Desk might send renders as itself.
+                        OpenCircuit(
+                            providerId = "p5",
+                            provider = "New",
+                            model = "n1",
+                            state = "forced-open",
+                            quotaPinned = true,
+                        ),
+                    ),
+            )
+        composeTestRule.setContent {
+            BellhopTheme {
+                MemberDetailScreen(
+                    member = member.copy(hasToken = true, status = member.status.copy(circuits = ledger)),
+                    isPrimary = false,
+                    isDesignated = false,
+                    onBack = {},
+                    ui = MemberDetailUiState(loading = false, traffic = reachableTraffic),
+                )
+            }
+        }
+        for (
+        tag in
+        listOf(
+            "member-detail-circuit-p1-glm-open",
+            "member-detail-circuit-p2-k3-probe",
+            "member-detail-circuit-p3-(account quota)-pinned",
+            "member-detail-circuit-p4-(account quota)-reserved",
+            "member-detail-circuit-p5-n1-forced-open",
+            "member-detail-circuits-showing",
+        )
+        ) {
+            composeTestRule.onNodeWithTag("member-detail-list").performScrollToNode(hasTestTag(tag))
+            composeTestRule.onNodeWithTag(tag).assertIsDisplayed()
+        }
+        // The verdict and the retry instant ride under the row on their own
+        // lines; a row with neither shows no detail at all.
+        composeTestRule.onNodeWithTag("member-detail-circuit-cause-p1-glm", useUnmergedTree = true).assertIsDisplayed()
+        composeTestRule.onNodeWithTag("member-detail-circuit-retry-p1-glm", useUnmergedTree = true).assertIsDisplayed()
+        composeTestRule.onNodeWithTag("member-detail-circuit-cause-p2-k3", useUnmergedTree = true).assertDoesNotExist()
+        composeTestRule.onNodeWithTag("member-detail-circuit-retry-p2-k3", useUnmergedTree = true).assertDoesNotExist()
+        composeTestRule.onNodeWithTag("member-detail-circuits-none").assertDoesNotExist()
+        composeTestRule.onNodeWithTag("member-detail-circuits-unknown").assertDoesNotExist()
+        composeTestRule.onNodeWithTag("member-detail-circuits-no-token").assertDoesNotExist()
+    }
+
+    // Two providers pinned on the same synthetic model get distinct rows.
+    @Test
+    fun circuitsLedgerKeepsSameModelRowsApart() {
+        val ledger =
+            MemberCircuits(
+                total = 2,
+                open =
+                    listOf(
+                        OpenCircuit(providerId = "p3", model = "(account quota)", state = "open", quotaPinned = true),
+                        OpenCircuit(providerId = "p4", model = "(account quota)", state = "open", quotaPinned = true),
+                    ),
+            )
+        composeTestRule.setContent {
+            BellhopTheme {
+                MemberDetailScreen(
+                    member = member.copy(hasToken = true, status = member.status.copy(circuits = ledger)),
+                    isPrimary = false,
+                    isDesignated = false,
+                    onBack = {},
+                    ui = MemberDetailUiState(loading = false, traffic = reachableTraffic),
+                )
+            }
+        }
+        for (
+        tag in
+        listOf(
+            "member-detail-circuit-p3-(account quota)-pinned",
+            "member-detail-circuit-p4-(account quota)-pinned",
+        )
+        ) {
+            composeTestRule.onNodeWithTag("member-detail-list").performScrollToNode(hasTestTag(tag))
+            composeTestRule.onNodeWithTag(tag).assertIsDisplayed()
+        }
+    }
+
+    // No ledger is never a clean slate: a tokenless member says why it cannot
+    // be read, a tokened one reads "not read".
+    @Test
+    fun circuitsLedgerTellsNoTokenFromUnread() {
+        var hasToken by mutableStateOf(false)
+        composeTestRule.setContent {
+            BellhopTheme {
+                MemberDetailScreen(
+                    member = member.copy(hasToken = hasToken),
+                    isPrimary = false,
+                    isDesignated = false,
+                    onBack = {},
+                    ui = MemberDetailUiState(loading = false, traffic = reachableTraffic),
+                )
+            }
+        }
+        composeTestRule
+            .onNodeWithTag(
+                "member-detail-list",
+            ).performScrollToNode(hasTestTag("member-detail-circuits-no-token"))
+        composeTestRule.onNodeWithTag("member-detail-circuits-no-token").assertIsDisplayed()
+        composeTestRule.onNodeWithTag("member-detail-circuits-unknown").assertDoesNotExist()
+        composeTestRule.onNodeWithTag("member-detail-circuits-none").assertDoesNotExist()
+        hasToken = true
+        composeTestRule
+            .onNodeWithTag(
+                "member-detail-list",
+            ).performScrollToNode(hasTestTag("member-detail-circuits-unknown"))
+        composeTestRule.onNodeWithTag("member-detail-circuits-unknown").assertIsDisplayed()
+        composeTestRule.onNodeWithTag("member-detail-circuits-no-token").assertDoesNotExist()
+    }
+
+    @Test
+    fun circuitsLedgerEmptyShowsNone() {
+        composeTestRule.setContent {
+            BellhopTheme {
+                MemberDetailScreen(
+                    member = member.copy(status = member.status.copy(circuits = MemberCircuits(total = 0))),
+                    isPrimary = false,
+                    isDesignated = false,
+                    onBack = {},
+                    ui = MemberDetailUiState(loading = false, traffic = reachableTraffic),
+                )
+            }
+        }
+        composeTestRule
+            .onNodeWithTag(
+                "member-detail-list",
+            ).performScrollToNode(hasTestTag("member-detail-circuits-none"))
+        composeTestRule.onNodeWithTag("member-detail-circuits-none").assertIsDisplayed()
+    }
+
+    @Test
+    fun circuitStateTagOrdersProbeThenReserveThenPin() {
+        assertEquals(
+            "probe",
+            circuitStateTag(OpenCircuit(state = "half-open", quotaPinned = true, pinSource = "reserve")),
+        )
+        assertEquals("open", circuitStateTag(OpenCircuit(state = "open", pinSource = "reserve")))
+        assertEquals(
+            "reserved",
+            circuitStateTag(OpenCircuit(state = "open", quotaPinned = true, pinSource = "reserve")),
+        )
+        assertEquals("pinned", circuitStateTag(OpenCircuit(state = "open", quotaPinned = true, pinSource = "account")))
+        // A state a newer Front Desk might send shows as itself, as on the web.
+        assertEquals("forced-open", circuitStateTag(OpenCircuit(state = "forced-open", quotaPinned = true)))
     }
 }

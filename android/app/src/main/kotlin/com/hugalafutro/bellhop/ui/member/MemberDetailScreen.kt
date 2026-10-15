@@ -42,6 +42,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.pluralStringResource
@@ -56,6 +57,7 @@ import com.hugalafutro.bellhop.data.HealthStatus
 import com.hugalafutro.bellhop.data.MemberState
 import com.hugalafutro.bellhop.data.MemberStatus
 import com.hugalafutro.bellhop.data.MemberTraffic
+import com.hugalafutro.bellhop.data.OpenCircuit
 import com.hugalafutro.bellhop.data.TrafficPoint
 import com.hugalafutro.bellhop.data.buildDetail
 import com.hugalafutro.bellhop.ui.common.ConfirmOpenUrlDialog
@@ -79,6 +81,8 @@ import com.hugalafutro.bellhop.ui.events.eventClipboardText
 import com.hugalafutro.bellhop.ui.events.formatEventTime
 import com.hugalafutro.bellhop.ui.theme.BellhopTheme
 import com.hugalafutro.bellhop.ui.theme.MonoFamily
+import com.hugalafutro.bellhop.ui.theme.SeverityWarnBg
+import com.hugalafutro.bellhop.ui.theme.SeverityWarnTextLight
 import java.time.Instant
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
@@ -210,6 +214,7 @@ fun MemberDetailScreen(
                             modifier = Modifier.padding(bottom = 20.dp),
                         )
                     }
+                    item { CircuitsLedger(member = member, modifier = Modifier.padding(bottom = 20.dp)) }
                     if (canOperate) {
                         item {
                             OperatorControls(
@@ -415,6 +420,165 @@ private fun MetaLedger(
                     },
                 trailingColor = syncAgeColorFor(member.status.autoSyncVerifiedAt),
                 tag = "member-detail-verified",
+            )
+        }
+    }
+}
+
+/**
+ * CircuitsLedger is the member's own circuit-breaker ledger as Front Desk last
+ * read it (the Members table's circuits column on the web): which provider and
+ * model the breaker holds dark, why, and until when. Same flat register as
+ * [MetaLedger]. A member FD cannot read (no admin token, or the read failed)
+ * says so rather than showing a clean slate, since a stale "none" would hide
+ * the one member that has not recovered.
+ */
+@Composable
+private fun CircuitsLedger(
+    member: FleetMember,
+    modifier: Modifier = Modifier,
+) {
+    val ledger = member.status.circuits
+    Column(
+        modifier = modifier.fillMaxWidth().testTag("member-detail-circuits"),
+        verticalArrangement = Arrangement.spacedBy(6.dp),
+    ) {
+        SectionHeader(
+            text = stringResource(R.string.member_circuits_title),
+            modifier = Modifier.padding(bottom = 2.dp),
+        )
+        when {
+            // No ledger: FD could not read it (no admin token, or the last read
+            // failed), which is a different thing from a clean slate.
+            ledger == null && !member.hasToken ->
+                Text(
+                    text = stringResource(R.string.member_circuits_no_token),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.testTag("member-detail-circuits-no-token"),
+                )
+            ledger == null ->
+                Text(
+                    text = stringResource(R.string.member_circuits_unknown),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.testTag("member-detail-circuits-unknown"),
+                )
+            ledger.total == 0 ->
+                Text(
+                    text = stringResource(R.string.member_circuits_none),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.testTag("member-detail-circuits-none"),
+                )
+            else -> {
+                ledger.open.forEach { circuit -> CircuitRow(circuit) }
+                if (ledger.total > ledger.open.size) {
+                    // FD caps the list; the count is the load-bearing number.
+                    Text(
+                        text = stringResource(R.string.member_circuits_showing, ledger.open.size, ledger.total),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.testTag("member-detail-circuits-showing"),
+                    )
+                }
+            }
+        }
+    }
+}
+
+/**
+ * circuitStateTag names the state a circuit row shows: "probe" for a circuit
+ * owed a probe, "reserved" when the operator's quota reserve holds it (the
+ * quota is still there, just kept back), "pinned" for any other quota pin,
+ * "open" for an open circuit, and the raw state for anything a newer Front
+ * Desk sends, as the web ledger does. It is the test tag suffix and the key of
+ * the label and colour.
+ */
+internal fun circuitStateTag(circuit: OpenCircuit): String =
+    when {
+        circuit.state == "half-open" -> "probe"
+        circuit.state != "open" -> circuit.state
+        !circuit.quotaPinned -> "open"
+        circuit.pinSource == "reserve" -> "reserved"
+        else -> "pinned"
+    }
+
+/**
+ * CircuitRow is one ledger line: provider and model in mono, the state at the
+ * right edge, and the last verdict plus the next retry instant underneath in
+ * the muted register.
+ */
+@Composable
+private fun CircuitRow(circuit: OpenCircuit) {
+    val stateTag = circuitStateTag(circuit)
+    val stateLabel =
+        when (stateTag) {
+            "probe" -> stringResource(R.string.circuit_state_probe)
+            "reserved" -> stringResource(R.string.circuit_state_reserved)
+            "pinned" -> stringResource(R.string.circuit_state_pinned)
+            "open" -> stringResource(R.string.circuit_state_open)
+            else -> stateTag
+        }
+    // Open and pinned are the alarm tone: both hold the provider dark, a pin
+    // (a quota pin, measured by the quota poller or inferred from a 429) for
+    // the longer stretch. A probe is recovery under way, in the warning tone
+    // read off the scheme so it stays legible on the light Paper ground. A
+    // reserve is quota kept back on purpose: steel, the secondary status tone,
+    // not brass, which the screen already spends on the name and the address.
+    val dark = MaterialTheme.colorScheme.surface.luminance() < 0.5f
+    val stateColor =
+        when (stateTag) {
+            "probe" -> if (dark) SeverityWarnBg else SeverityWarnTextLight
+            "reserved" -> MaterialTheme.colorScheme.secondary
+            else -> MaterialTheme.colorScheme.error
+        }
+    val retry =
+        circuit.nextRetryAt.takeIf { it.isNotBlank() }?.let {
+            stringResource(R.string.member_circuit_retry, formatEventTime(it, LocalTimePattern.current))
+        }
+    Column(
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                // Two providers can share a synthetic model ("(account quota)"),
+                // so the provider id keeps the tag unique.
+                .testTag("member-detail-circuit-${circuit.providerId}-${circuit.model}-$stateTag"),
+        verticalArrangement = Arrangement.spacedBy(2.dp),
+    ) {
+        Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            Text(
+                text = "${circuit.providerLabel} / ${circuit.model}",
+                style = MaterialTheme.typography.bodySmall,
+                fontFamily = MonoFamily,
+                color = MaterialTheme.colorScheme.onSurface,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.weight(1f),
+            )
+            Text(
+                text = stateLabel.uppercase(),
+                style = MaterialTheme.typography.labelSmall,
+                color = stateColor,
+            )
+        }
+        // The verdict and the retry on their own lines: the formatted time
+        // already carries a comma and the register's middle dot, so no
+        // separator reads as a field boundary.
+        if (circuit.cause.isNotBlank()) {
+            Text(
+                text = circuit.cause,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.testTag("member-detail-circuit-cause-${circuit.providerId}-${circuit.model}"),
+            )
+        }
+        if (retry != null) {
+            Text(
+                text = retry,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.testTag("member-detail-circuit-retry-${circuit.providerId}-${circuit.model}"),
             )
         }
     }
