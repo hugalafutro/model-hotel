@@ -33,7 +33,7 @@ func (c nanoGPTCounter) window() (Window, bool) {
 	if c.limit == nil || *c.limit <= 0 || c.counter == nil {
 		return Window{}, false
 	}
-	w := Window{Name: c.name, Used: float64(c.counter.Used) / float64(*c.limit), Governs: true}
+	w := Window{Name: c.name, Used: float64(c.counter.Used) / float64(*c.limit), Governs: true, Span: spanByName[c.name]}
 	if t, ok := epochToTime(c.counter.ResetAt); ok {
 		w.ResetsAt = t
 	}
@@ -45,7 +45,8 @@ func (c nanoGPTCounter) window() (Window, bool) {
 // allowOverage plan is never exhausted, the same rule isNanoGptQuotaSpent in
 // web-shared/quota/spent.ts applies to the badge: NanoGPT keeps serving and
 // bills the overage, so the only line that stops routing there is the
-// operator's reserve, which AssessWithReserve draws over the same windows.
+// operator's reserve, which AssessWithReserve draws over the same windows: on
+// the weekly counter at the reserve line, and on either counter once spent.
 func assessNanoGPT(payload json.RawMessage) Assessment {
 	var res provider.NanoGPTUsageResponse
 	if err := json.Unmarshal(payload, &res); err != nil {

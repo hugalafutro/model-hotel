@@ -68,9 +68,9 @@ func (cb *CircuitBreaker) applyQuotaPin(providerID uuid.UUID, c *circuit, exhaus
 		// duration that clampPin rejects, discarding the hint the refusal
 		// itself supplied and leaving no pin at all.
 		now := time.Now()
-		if resetsAt, ok := cb.quota.ResetsAt(providerID); ok && resetsAt.After(now) {
-			d = resetsAt.Sub(now)
-			source = pinSourceAdvisor
+		if adv, ok := cb.quota.Advice(providerID); ok && adv.ResetsAt.After(now) {
+			d = adv.ResetsAt.Sub(now)
+			source = advisorPinSource(adv)
 		}
 	}
 	// Ceiling, floor, then jitter: pinning must never make the breaker more
@@ -103,13 +103,25 @@ func clampPin(d, ceiling, floor time.Duration) (time.Duration, bool) {
 }
 
 // The pin sources ProviderStatus and the breaker events publish: measured by
-// the quota advisor, inferred from one model's response, or inferred from a
-// response that refused the whole account.
+// the quota advisor (a spent window, or the operator's reserve line reached
+// with the reserve still left), inferred from one model's response, or
+// inferred from a response that refused the whole account.
 const (
 	pinSourceAdvisor  = "advisor"
+	pinSourceReserve  = "reserve"
 	pinSourceResponse = "response"
 	pinSourceAccount  = "account"
 )
+
+// advisorPinSource names the source of a pin stamped from quota advice: the
+// reserve line and the window's cap are both measured, and the name is what
+// tells an operator "quota spent" from "reserve reached, quota left".
+func advisorPinSource(adv QuotaAdvice) string {
+	if adv.Reserved {
+		return pinSourceReserve
+	}
+	return pinSourceAdvisor
+}
 
 // pinProbes reports whether a pin of this source is served as the probe
 // interval rather than its full length: every pin inferred from a response
@@ -124,12 +136,12 @@ func pinProbes(source string) bool {
 // than about a model. A plain response pin is one model's evidence and does
 // not; see providerReport.
 func pinSpeaksForAccount(source string) bool {
-	return source == pinSourceAdvisor || source == pinSourceAccount
+	return source == pinSourceAdvisor || source == pinSourceReserve || source == pinSourceAccount
 }
 
 // ReleaseQuotaPins lifts the quota cooldown override from every circuit whose
 // provider appears in recovered and whose pin speaks for the account (source
-// "advisor" or "account"), and reports how many pins it lifted. It is how a
+// "advisor", "reserve" or "account"), and reports how many pins it lifted. It is how a
 // provider that has recovered (a topped-up plan, a reset window observed early
 // by the quota poller) stops serving out a pin that could otherwise run to the
 // 24h ceiling. A "response" pin is one model's own refusal (a model outside the
@@ -226,7 +238,7 @@ func (cb *CircuitBreaker) retireIfSeeded(id string, models modelCircuits, model 
 // so a seeded circuit, which no request has named yet, still reports one in its
 // status row and on the state gauge; a missing entry leaves whatever name the
 // request path recorded.
-func (cb *CircuitBreaker) ApplyQuotaPins(advice map[uuid.UUID]time.Time, names map[uuid.UUID]string) int {
+func (cb *CircuitBreaker) ApplyQuotaPins(advice map[uuid.UUID]QuotaAdvice, names map[uuid.UUID]string) int {
 	cb.mu.Lock()
 	var after afterUnlock
 	defer func() { cb.mu.Unlock(); after.run() }()
@@ -248,7 +260,7 @@ func (cb *CircuitBreaker) ApplyQuotaPins(advice map[uuid.UUID]time.Time, names m
 	// ReleaseQuotaPins walks the recovered set: it is the smaller side, and the
 	// circuits map is keyed by the provider's UUID string.
 	changed := 0
-	for providerID, resetsAt := range advice {
+	for providerID, adv := range advice {
 		for model, c := range cb.circuits[providerID.String()] {
 			if cb.logicalStateWith(c, r) != StateOpen {
 				continue
@@ -260,12 +272,20 @@ func (cb *CircuitBreaker) ApplyQuotaPins(advice map[uuid.UUID]time.Time, names m
 			// One comparison covers every floor: the cooldown in force is never
 			// less than the configured one, is the backoff when one governs, and is
 			// the pin already stamped when that reaches further still.
-			d, ok := clampPin(resetsAt.Sub(c.openedAt), maxPin, cb.effectiveCooldownForWith(c, r))
+			d, ok := clampPin(adv.ResetsAt.Sub(c.openedAt), maxPin, cb.effectiveCooldownForWith(c, r))
 			if !ok {
+				// The wait stands, but the reading may have changed what the pin
+				// says: a reserve pin at the ceiling whose window then went spent
+				// must stop reporting "reserve still left". Only a pin the advisor
+				// stamped is renamed; a response or account pin keeps its own
+				// provenance until a retarget replaces it.
+				if c.cooldownOverride > 0 && (c.pinSource == pinSourceAdvisor || c.pinSource == pinSourceReserve) {
+					c.pinSource = advisorPinSource(adv)
+				}
 				continue
 			}
 			c.cooldownOverride = d
-			c.pinSource = pinSourceAdvisor
+			c.pinSource = advisorPinSource(adv)
 			// A transition with no request behind it: the wait changed, and the
 			// status the open recorded stays, so the row says both what opened the
 			// circuit and what holds it.
@@ -280,7 +300,7 @@ func (cb *CircuitBreaker) ApplyQuotaPins(advice map[uuid.UUID]time.Time, names m
 				debuglog.Info("circuit-breaker: quota pin retargeted (fresh exhaustion reading)", "provider_id", providerID, "cooldown_ms", ms, "model", model)
 			})
 		}
-		if cb.seedQuotaPin(&after, providerID, resetsAt, maxPin, r) {
+		if cb.seedQuotaPin(&after, providerID, adv, maxPin, r) {
 			changed++
 		}
 		// After the seed, and only for a provider that now has a circuit, so the
@@ -372,7 +392,7 @@ const seededModel = "(account quota)"
 // write once the lock is released.
 // The provider name comes from the names map ApplyQuotaPins stamps once the
 // seed exists, since no request has recorded one for a circuit opened on a reading.
-func (cb *CircuitBreaker) seedQuotaPin(after *afterUnlock, providerID uuid.UUID, resetsAt time.Time, maxPin time.Duration, r *cooldownReads) bool {
+func (cb *CircuitBreaker) seedQuotaPin(after *afterUnlock, providerID uuid.UUID, adv QuotaAdvice, maxPin time.Duration, r *cooldownReads) bool {
 	id := providerID.String()
 	if cb.accountPinned(cb.circuits[id], r) {
 		return false
@@ -380,7 +400,7 @@ func (cb *CircuitBreaker) seedQuotaPin(after *afterUnlock, providerID uuid.UUID,
 	// A zero or past reset yields a non-positive candidate, which cannot clear
 	// the floor. A fresh circuit carries no backoff, so the floor is the
 	// configured cooldown.
-	d, ok := clampPin(time.Until(resetsAt), maxPin, r.base)
+	d, ok := clampPin(time.Until(adv.ResetsAt), maxPin, r.base)
 	if !ok {
 		return false
 	}
@@ -392,7 +412,7 @@ func (cb *CircuitBreaker) seedQuotaPin(after *afterUnlock, providerID uuid.UUID,
 	// like one open on no failures at all.
 	c.consecutiveFails = cb.effectiveThreshold()
 	c.cooldownOverride = d
-	c.pinSource = pinSourceAdvisor
+	c.pinSource = advisorPinSource(adv)
 	c.probeSeed = rand.Float64()
 	// No upstream status: nothing answered. The cause names the seed, so the row
 	// and the log line say this circuit opened on a reading rather than a reply.
@@ -401,8 +421,12 @@ func (cb *CircuitBreaker) seedQuotaPin(after *afterUnlock, providerID uuid.UUID,
 	// a provider dark for a day on evidence no request produced. Routing metadata
 	// only, never payload or credentials.
 	ms := d.Milliseconds()
+	verdict := "exhausted"
+	if adv.Reserved {
+		verdict = "reserve reached"
+	}
 	after.add(func() {
-		debuglog.Info("circuit-breaker: model state=closed→open (exhausted, seeded from quota advice)", "provider_id", providerID, "cooldown_ms", ms, "model", seededModel)
+		debuglog.Info("circuit-breaker: model state=closed→open ("+verdict+", seeded from quota advice)", "provider_id", providerID, "cooldown_ms", ms, "model", seededModel)
 	})
 	return true
 }

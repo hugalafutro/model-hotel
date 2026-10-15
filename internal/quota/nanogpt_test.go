@@ -112,3 +112,22 @@ func TestAssessWithReserve_NanoGPT_PinsAtTheLineEvenOnOverage(t *testing.T) {
 		}
 	}
 }
+
+// TestAssessWithReserve_NanoGPT_OverageSpentDailyStillPins: the reserve line
+// sits on the weekly counter, but a plan serving into overage never reads as
+// exhausted on its own, so a daily counter at its cap must still pin under a
+// reserve, and as exhaustion rather than a reserve verdict: the reserve is
+// not what stopped it.
+func TestAssessWithReserve_NanoGPT_OverageSpentDailyStillPins(t *testing.T) {
+	weekly := time.Now().Add(5 * 24 * time.Hour).Truncate(time.Second)
+	daily := time.Now().Add(2 * time.Hour).Truncate(time.Second)
+	payload := nanoGPTPayload(50, weekly.Unix(), 10, daily.Unix(), true)
+	snap := Snapshot{Kind: "usage", Payload: payload}
+	if got := AssessWithReserve("nanogpt", snap, 0, time.Now()); got.Exhausted {
+		t.Errorf("no reserve on an overage plan drains fully, got %+v", got)
+	}
+	got := AssessWithReserve("nanogpt", snap, 0.1, time.Now())
+	if !got.Exhausted || got.Reserved || !got.ResetsAt.Equal(daily) {
+		t.Errorf("daily spent under a reserve: got %+v, want exhausted (not reserved) until %v", got, daily)
+	}
+}

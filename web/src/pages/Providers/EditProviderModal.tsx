@@ -18,6 +18,7 @@ import {
 	isKnownProviderUrl,
 	providerTypeOptions,
 	QUOTA_RESERVE_TYPES,
+	quotaReserveWindowKey,
 } from "./constants";
 import { findProviderAtAddress } from "./duplicateAddress";
 import { providerTypeGateMessage } from "./typeGateError";
@@ -447,8 +448,10 @@ export function EditProviderModal({
 								}
 								className="w-full accent-yellow-400"
 							/>
-							<p className="ui-hint mt-1">
-								{t("providers.edit.quotaReserveHelper")}
+							<p className="ui-hint mt-1" data-testid="quota-reserve-helper">
+								{t("providers.edit.quotaReserveHelper", {
+									window: t(quotaReserveWindowKey(formData.provider_type)),
+								})}
 							</p>
 							<p
 								className="text-yellow-400 text-xs mt-1"

@@ -874,8 +874,13 @@
 			"maxInFlightHelper": "Tetto rigido di richieste simultanee verso questo provider. Lascia vuoto per nessun tetto; l'apprendimento adattivo continua a regolarsi al di sotto.",
 			"quotaReserveLabel": "Riserva di quota",
 			"quotaReserveDrain": "Esaurire del tutto",
-			"quotaReserveHelper": "Quota di ogni finestra di abbonamento tenuta per l'uso al di fuori di Model Hotel. L'instradamento qui si ferma quando a una finestra resta solo questo e riprende quando si azzera.",
-			"quotaReserveHelperScope": "Rispondono solo i provider con finestre di abbonamento, non quelli a saldo."
+			"quotaReserveHelper": "Quota della finestra {{window}} tenuta per l'uso al di fuori di Model Hotel. L'instradamento qui si ferma quando a quella finestra resta solo questo e riprende quando si azzera; le finestre più brevi fermano l'instradamento solo quando sono esaurite.",
+			"quotaReserveHelperScope": "Rispondono solo i provider con finestre di abbonamento, non quelli a saldo.",
+			"quotaReserveWindow": {
+				"weekly": "settimanale",
+				"monthly": "mensile",
+				"longest": "più lunga"
+			}
 		},
 		"quotas": {
 			"expand": "Espandi le quote"
@@ -1060,7 +1065,7 @@
 		"type_anthropic_messages": "Anthropic (Messages API)",
 		"card_website": "Apri il sito web del provider",
 		"card_tokens_tooltip": "Token instradati tramite questo provider dal {{date}}, prompt e completamento insieme",
-		"quota_reserve_card_tooltip": "Il {{percent}}% di ogni finestra di quota è tenuto di riserva"
+		"quota_reserve_card_tooltip": "Il {{percent}}% della finestra di quota {{window}} è tenuto di riserva"
 	},
 	"models": {
 		"page_title_one": "Modello",
@@ -3167,11 +3172,13 @@
 				"busy": "occupato",
 				"open": "aperto",
 				"probe": "sonda in scadenza",
-				"pinned": "bloccato"
+				"pinned": "bloccato",
+				"reserved": "riservato"
 			},
 			"chipBusyTip": "Questo provider ha risposto con un 429 di occupato nell'ultimo minuto; il suo interruttore è chiuso e le richieste continuano a essere instradate qui, passando alla voce successiva quando è pieno.",
 			"circuitCause": "Ultimo verdetto: {{cause}} (stato upstream {{status}}) alle {{when}}",
-			"circuitCauseNoStatus": "Ultimo verdetto: {{cause}} alle {{when}}"
+			"circuitCauseNoStatus": "Ultimo verdetto: {{cause}} alle {{when}}",
+			"circuitBreakerQuotaReserved": "Interruttore aperto - riserva di quota del provider raggiunta, la riserva resta disponibile per l'uso al di fuori di Model Hotel; prossimo tentativo il {{resetTime}}"
 		}
 	},
 	"virtualKeys": {

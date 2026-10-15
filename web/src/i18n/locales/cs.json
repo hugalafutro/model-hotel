@@ -898,8 +898,13 @@
 			"maxInFlightHelper": "Pevný strop souběžných požadavků na tohoto poskytovatele. Prázdné pole znamená žádný strop; adaptivní učení běží dál pod ním.",
 			"quotaReserveLabel": "Rezerva kvóty",
 			"quotaReserveDrain": "Vyčerpat úplně",
-			"quotaReserveHelper": "Podíl každého okna předplatného ponechaný pro použití mimo Model Hotel. Směrování sem skončí, jakmile oknu zbývá jen tolik, a obnoví se po jeho resetu.",
-			"quotaReserveHelperScope": "Reagují jen poskytovatelé s okny předplatného, ne poskytovatelé se zůstatkem."
+			"quotaReserveHelper": "Podíl {{window}} okna ponechaný pro použití mimo Model Hotel. Směrování sem skončí, jakmile tomuto oknu zbývá jen tolik, a obnoví se po jeho resetu; kratší okna zastaví směrování až po vyčerpání.",
+			"quotaReserveHelperScope": "Reagují jen poskytovatelé s okny předplatného, ne poskytovatelé se zůstatkem.",
+			"quotaReserveWindow": {
+				"weekly": "týdenního",
+				"monthly": "měsíčního",
+				"longest": "nejdelšího"
+			}
 		},
 		"quotas": {
 			"expand": "Rozbalit kvóty"
@@ -1102,7 +1107,7 @@
 		"type_anthropic_messages": "Anthropic (Messages API)",
 		"card_website": "Otevřít web poskytovatele",
 		"card_tokens_tooltip": "Tokeny směrované přes tohoto poskytovatele od {{date}}, prompt a dokončení dohromady",
-		"quota_reserve_card_tooltip": "V rezervě zůstává {{percent}}% každého okna kvóty"
+		"quota_reserve_card_tooltip": "V rezervě zůstává {{percent}}% {{window}} okna kvóty"
 	},
 	"models": {
 		"page_title_one": "Model",
@@ -3243,11 +3248,13 @@
 				"busy": "zaneprázdněný",
 				"open": "otevřený",
 				"probe": "čeká na sondu",
-				"pinned": "připnutý"
+				"pinned": "připnutý",
+				"reserved": "rezervováno"
 			},
 			"chipBusyTip": "Tento poskytovatel odpověděl v poslední minutě zaneprázdněným 429; jeho jistič je sepnutý a požadavky sem stále směřují, při zaplnění přetečou na další položku.",
 			"circuitCause": "Poslední verdikt: {{cause}} (stav upstreamu {{status}}) v {{when}}",
-			"circuitCauseNoStatus": "Poslední verdikt: {{cause}} v {{when}}"
+			"circuitCauseNoStatus": "Poslední verdikt: {{cause}} v {{when}}",
+			"circuitBreakerQuotaReserved": "Jistič je rozpojený – dosažena rezerva kvóty poskytovatele, rezerva stále zbývá pro použití mimo Model Hotel; další pokus v {{resetTime}}"
 		}
 	},
 	"virtualKeys": {

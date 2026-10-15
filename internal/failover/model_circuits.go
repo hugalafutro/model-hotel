@@ -60,11 +60,12 @@ type circuit struct {
 	// that served moments ago is load, not a spent window.
 	lastSuccess time.Time
 	// pinSource says where the quota pin in force came from: "advisor" (a
-	// measured quota reading), "response" (inferred from the exhausted 429
-	// itself) or "account" (inferred from a 429 that refused the whole
-	// account). Empty when no pin is stamped. The cooldown reads it: a response
-	// pin is capped at the probe interval, an advisor pin is not, so a wrong
-	// source changes how long the circuit stays dark.
+	// measured quota reading of a spent window), "reserve" (a measured reading
+	// past the operator's quota reserve), "response" (inferred from the
+	// exhausted 429 itself) or "account" (inferred from a 429 that refused the
+	// whole account). Empty when no pin is stamped. The cooldown reads it: a
+	// response pin is capped at the probe interval, a measured pin is not, so a
+	// wrong source changes how long the circuit stays dark.
 	pinSource string
 	// probeSeed spreads a response pin's probes: a fraction in [0, 1) drawn once
 	// with the pin and scaled by the interval at read time, so every read agrees
@@ -702,7 +703,7 @@ func (cb *CircuitBreaker) quotaPinnedForWith(c *circuit, r *cooldownReads) bool 
 	return c != nil && c.cooldownOverride > 0 && r.pinEnabled()
 }
 
-// pinSourceForWith is the pin's provenance ("advisor", "response" or "account"), reported
+// pinSourceForWith is the pin's provenance ("advisor", "reserve", "response" or "account"), reported
 // only while the pin is in force. It uses the predicate the quota_pinned flag
 // derives from, so a row cannot name a source for a pin it does not claim.
 func (cb *CircuitBreaker) pinSourceForWith(c *circuit, r *cooldownReads) string {

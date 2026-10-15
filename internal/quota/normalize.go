@@ -17,6 +17,10 @@ type Assessment struct {
 	Exhausted bool      // at least one quota window is spent
 	ResetsAt  time.Time // earliest reset among exhausted windows
 	OK        bool      // the payload was understood
+	// Reserved marks an Exhausted verdict the operator's quota reserve
+	// produced: the longest window reached the reserve line, not its cap, so
+	// the provider still has the reserve left for use outside the gateway.
+	Reserved bool
 }
 
 // epochUnitBoundary separates second-precision from millisecond-precision epoch

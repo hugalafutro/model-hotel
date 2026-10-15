@@ -32,9 +32,12 @@ export function MemberCircuitsCell({
 	const stateLabel = (c: (typeof ledger.open)[number]) => {
 		if (c.state === "half-open") return t("members.circuitStateHalfOpen");
 		if (c.state !== "open") return c.state;
-		return c.quota_pinned
-			? t("members.circuitStatePinned")
-			: t("members.circuitStateOpen");
+		if (!c.quota_pinned) return t("members.circuitStateOpen");
+		// A reserve pin: the operator's quota reserve holds the circuit while the
+		// window still has that share left.
+		return c.pin_source === "reserve"
+			? t("members.circuitStateReserved")
+			: t("members.circuitStatePinned");
 	};
 	const lines = ledger.open.map((c) => {
 		const parts = [

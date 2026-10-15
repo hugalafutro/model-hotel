@@ -793,7 +793,7 @@ func (m *mockCircuitBreaker) ReleaseAllQuotaPins() int { return 0 }
 
 // ApplyQuotaPins is a no-op for the same reason: only the quota refresh
 // retargets a pin, never an HTTP handler.
-func (m *mockCircuitBreaker) ApplyQuotaPins(map[uuid.UUID]time.Time, map[uuid.UUID]string) int {
+func (m *mockCircuitBreaker) ApplyQuotaPins(map[uuid.UUID]failover.QuotaAdvice, map[uuid.UUID]string) int {
 	return 0
 }
 

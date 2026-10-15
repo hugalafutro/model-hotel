@@ -58,9 +58,11 @@ type ProviderStatus struct {
 	NextRetryAt      string `json:"next_retry_at,omitempty"`
 	QuotaPinned      bool   `json:"quota_pinned,omitempty"`
 	// PinSource says where the dominant circuit's quota pin came from:
-	// "advisor" (a measured quota reading), "response" (inferred from the
-	// exhausted 429 itself) or "account" (inferred from a 429 that refused the
-	// whole account). Empty when that circuit carries no pin.
+	// "advisor" (a measured quota reading of a spent window), "reserve" (a
+	// measured reading past the operator's quota reserve, with the reserve
+	// still left), "response" (inferred from the exhausted 429 itself) or
+	// "account" (inferred from a 429 that refused the whole account). Empty
+	// when that circuit carries no pin.
 	PinSource string `json:"pin_source,omitempty"`
 	// BackedOff is true when the cooldown governing the circuit is the probe
 	// backoff rather than circuit_breaker_cooldown: CooldownMs and NextRetryAt
@@ -93,13 +95,22 @@ type SettingsReader interface {
 	GetBool(ctx context.Context, key string, defaultValue bool) bool
 }
 
-// QuotaAdvisor supplies the reset deadline for a provider whose quota window is
-// spent. Implementations must be non-blocking: this is consulted while the
-// breaker holds its write lock on the request path. They must not call back
-// into the CircuitBreaker (e.g. GetState, Status): cb.mu is held exclusively
-// across the call and any such re-entry self-deadlocks.
+// QuotaAdvice is one provider's measured quota verdict: the reset the pin
+// waits for, and whether the line crossed was the operator's reserve rather
+// than the window's cap. A reserved provider still has that share left for use
+// outside the gateway, which is why its pin reports the source "reserve".
+type QuotaAdvice struct {
+	ResetsAt time.Time
+	Reserved bool
+}
+
+// QuotaAdvisor supplies the quota advice for a provider whose window is spent
+// or past its reserve. Implementations must be non-blocking: this is consulted
+// while the breaker holds its write lock on the request path. They must not
+// call back into the CircuitBreaker (e.g. GetState, Status): cb.mu is held
+// exclusively across the call and any such re-entry self-deadlocks.
 type QuotaAdvisor interface {
-	ResetsAt(providerID uuid.UUID) (time.Time, bool)
+	Advice(providerID uuid.UUID) (QuotaAdvice, bool)
 }
 
 // CircuitBreaker tracks health per (provider, resolved upstream model) and

@@ -850,8 +850,13 @@
 			"maxInFlightHelper": "Kova katto tälle palveluntarjoajalle lähetettäville samanaikaisille pyynnöille. Jätä tyhjäksi, jos kattoa ei ole; mukautuva oppija säätää silti sen alla.",
 			"quotaReserveLabel": "Kiintiövaranto",
 			"quotaReserveDrain": "Käytä kokonaan",
-			"quotaReserveHelper": "Osuus jokaisesta tilausikkunasta, joka pidetään Model Hotelin ulkopuolista käyttöä varten. Reititys tänne loppuu, kun ikkunasta on jäljellä vain tämän verran, ja jatkuu, kun ikkuna nollautuu.",
-			"quotaReserveHelperScope": "Vain tilausikkunoita käyttävät palveluntarjoajat reagoivat, eivät saldopohjaiset."
+			"quotaReserveHelper": "Osuus {{window}} ikkunasta, joka pidetään Model Hotelin ulkopuolista käyttöä varten. Reititys tänne loppuu, kun siitä ikkunasta on jäljellä vain tämän verran, ja jatkuu, kun ikkuna nollautuu; lyhyemmät ikkunat pysäyttävät reitityksen vasta loppuessaan.",
+			"quotaReserveHelperScope": "Vain tilausikkunoita käyttävät palveluntarjoajat reagoivat, eivät saldopohjaiset.",
+			"quotaReserveWindow": {
+				"weekly": "viikoittaisesta",
+				"monthly": "kuukausittaisesta",
+				"longest": "pisimmästä"
+			}
 		},
 		"quotas": {
 			"expand": "Kiintiöiden laajentaminen"
@@ -1018,7 +1023,7 @@
 		"type_anthropic_messages": "Anthropic (Messages API)",
 		"card_website": "Avaa palveluntarjoajan verkkosivusto",
 		"card_tokens_tooltip": "Tämän palveluntarjoajan kautta reititetyt tokenit {{date}} alkaen, kehote ja vastaus yhteensä",
-		"quota_reserve_card_tooltip": "{{percent}}% jokaisesta kiintiöikkunasta pidetään varannossa"
+		"quota_reserve_card_tooltip": "{{percent}}% {{window}} kiintiöikkunasta pidetään varannossa"
 	},
 	"models": {
 		"page_title_one": "Malli",
@@ -3091,11 +3096,13 @@
 				"busy": "varattu",
 				"open": "auki",
 				"probe": "koetus tulossa",
-				"pinned": "kiinnitetty"
+				"pinned": "kiinnitetty",
+				"reserved": "varattu"
 			},
 			"chipBusyTip": "Tämä palveluntarjoaja vastasi varattu-429:llä viimeisen minuutin aikana; sen virrankatkaisin on kiinni ja pyynnöt reititetään yhä tänne, seuraavaan kohtaan kun se on täynnä.",
 			"circuitCause": "Viimeisin päätös: {{cause}} (upstream-tila {{status}}) klo {{when}}",
-			"circuitCauseNoStatus": "Viimeisin päätös: {{cause}} klo {{when}}"
+			"circuitCauseNoStatus": "Viimeisin päätös: {{cause}} klo {{when}}",
+			"circuitBreakerQuotaReserved": "Katkaisin auki - palveluntarjoajan kiintiövaranto saavutettu, varanto on yhä jäljellä Model Hotelin ulkopuoliseen käyttöön; seuraava yritys {{resetTime}}"
 		}
 	},
 	"virtualKeys": {

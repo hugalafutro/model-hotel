@@ -15,7 +15,11 @@ import {
 	formatTimestamp,
 	formatTokens,
 } from "../../utils/format";
-import { providerHomepages, QUOTA_RESERVE_TYPES } from "./constants";
+import {
+	providerHomepages,
+	QUOTA_RESERVE_TYPES,
+	quotaReserveWindowKey,
+} from "./constants";
 
 interface ProviderCardProps {
 	provider: Provider;
@@ -99,6 +103,7 @@ export function ProviderCard({
 									className="text-yellow-400 shrink-0 inline-flex"
 									title={t("providers.quota_reserve_card_tooltip", {
 										percent: provider.quota_reserve_percent,
+										window: t(quotaReserveWindowKey(provider.provider_type)),
 									})}
 								>
 									<PiggyBank size={16} />

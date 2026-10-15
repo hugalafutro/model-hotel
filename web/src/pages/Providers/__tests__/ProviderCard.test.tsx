@@ -1104,9 +1104,14 @@ describe("ProviderCard quota reserve icon", () => {
 			/>,
 			{ wrapper: AllProviders },
 		);
-		expect(
-			screen.getByTestId("quota-reserve-icon").getAttribute("title"),
-		).toContain("20%");
+		const title = screen
+			.getByTestId("quota-reserve-icon")
+			.getAttribute("title");
+		expect(title).toContain("20%");
+		// The tooltip names the window the reserve is kept on.
+		expect(title).toContain(
+			i18next.t("providers.edit.quotaReserveWindow.weekly"),
+		);
 	});
 
 	it("shows no reserve icon for a leftover reserve on a type the gateway ignores it for", () => {

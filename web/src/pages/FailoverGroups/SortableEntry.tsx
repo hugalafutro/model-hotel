@@ -42,6 +42,7 @@ const CHIP_CLASS: Record<EntryCircuitView["chip"], string> = {
 	open: "ui-badge-error",
 	probe: "ui-badge-warning",
 	pinned: "ui-badge-purple",
+	reserved: "ui-badge-purple",
 };
 
 // A quota pin can run for hours or days, and a CSS animation over that span is
@@ -129,6 +130,9 @@ export function SortableEntry({
 	// The cooldown in force was pinned to the provider's quota reset deadline.
 	// This says why the wait is long, not that the provider is unreachable now.
 	const quotaPinned = Boolean(showFuse && cbStatus.quota_pinned);
+	// That pin is the operator's quota reserve: the window still has the
+	// reserved share left, just not for the gateway.
+	const quotaReserved = quotaPinned && cbStatus?.pin_source === "reserve";
 
 	// The cooldown in force has been doubled by failed probes. Ranked below both
 	// the provider-wide skip and the quota pin in the tooltip: a whole provider
@@ -226,15 +230,17 @@ export function SortableEntry({
 		? undefined
 		: cooldownOver
 			? t("failoverGroups.entry.circuitBreakerReadyToProbe")
-			: quotaPinned && resetTime
-				? t("failoverGroups.entry.circuitBreakerQuotaPinned", { resetTime })
-				: providerSkipped
-					? t("failoverGroups.entry.circuitBreakerProviderOpen", {
-							models: openModels?.join(", "),
-						})
-					: backedOff && resetTime
-						? t("failoverGroups.entry.circuitBreakerBackedOff", { resetTime })
-						: t("failoverGroups.entry.circuitBreakerOpen");
+			: quotaReserved && resetTime
+				? t("failoverGroups.entry.circuitBreakerQuotaReserved", { resetTime })
+				: quotaPinned && resetTime
+					? t("failoverGroups.entry.circuitBreakerQuotaPinned", { resetTime })
+					: providerSkipped
+						? t("failoverGroups.entry.circuitBreakerProviderOpen", {
+								models: openModels?.join(", "),
+							})
+						: backedOff && resetTime
+							? t("failoverGroups.entry.circuitBreakerBackedOff", { resetTime })
+							: t("failoverGroups.entry.circuitBreakerOpen");
 	// The chip's tooltip: the fuse text, or for a busy entry (which has no fuse,
 	// its circuit being closed) why it is busy, plus the cause line. The row
 	// keeps only the fuse text, since its inner text div carries its own title.

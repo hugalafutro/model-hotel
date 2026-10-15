@@ -850,8 +850,13 @@
 			"maxInFlightHelper": "Bu sağlayıcıya eşzamanlı istekler için katı tavan. Tavan istemiyorsanız boş bırakın; uyarlanabilir öğrenme altında ayarlanmaya devam eder.",
 			"quotaReserveLabel": "Kota rezervi",
 			"quotaReserveDrain": "Tamamen tüket",
-			"quotaReserveHelper": "Her abonelik penceresinin Model Hotel dışında kullanım için ayrılan payı. Bir pencerede yalnızca bu kadar kaldığında buraya yönlendirme durur, pencere sıfırlanınca yeniden başlar.",
-			"quotaReserveHelperScope": "Yalnızca abonelik pencereli sağlayıcılar tepki verir, bakiye sağlayıcıları vermez."
+			"quotaReserveHelper": "{{window}} pencerenin Model Hotel dışında kullanım için ayrılan payı. O pencerede yalnızca bu kadar kaldığında buraya yönlendirme durur, pencere sıfırlanınca yeniden başlar; daha kısa pencereler yönlendirmeyi yalnızca tükendiklerinde durdurur.",
+			"quotaReserveHelperScope": "Yalnızca abonelik pencereli sağlayıcılar tepki verir, bakiye sağlayıcıları vermez.",
+			"quotaReserveWindow": {
+				"weekly": "Haftalık",
+				"monthly": "Aylık",
+				"longest": "En uzun"
+			}
 		},
 		"quotas": {
 			"expand": "Kotaları genişlet"
@@ -1018,7 +1023,7 @@
 		"type_anthropic_messages": "Anthropic (Messages API)",
 		"card_website": "Sağlayıcının web sitesini aç",
 		"card_tokens_tooltip": "{{date}} tarihinden bu yana bu sağlayıcı üzerinden yönlendirilen tokenlar, istem ve yanıt toplamı",
-		"quota_reserve_card_tooltip": "Her kota penceresinin {{percent}}%'i rezervde tutuluyor"
+		"quota_reserve_card_tooltip": "{{window}} kota penceresinin {{percent}}%'i rezervde tutuluyor"
 	},
 	"models": {
 		"page_title_one": "Model",
@@ -3091,11 +3096,13 @@
 				"busy": "meşgul",
 				"open": "açık",
 				"probe": "sonda bekliyor",
-				"pinned": "sabitlenmiş"
+				"pinned": "sabitlenmiş",
+				"reserved": "rezerve"
 			},
 			"chipBusyTip": "Bu sağlayıcı son bir dakikada meşgul 429 yanıtı verdi; devre kesicisi kapalı ve istekler hâlâ buraya yönlendiriliyor, dolduğunda bir sonraki girdiye taşıyor.",
 			"circuitCause": "Son karar: {{cause}} (yukarı akış durumu {{status}}) {{when}}",
-			"circuitCauseNoStatus": "Son karar: {{cause}} {{when}}"
+			"circuitCauseNoStatus": "Son karar: {{cause}} {{when}}",
+			"circuitBreakerQuotaReserved": "Devre kesici açık - sağlayıcının kota rezervine ulaşıldı, rezerv Model Hotel dışında kullanım için hâlâ duruyor; sonraki deneme {{resetTime}}"
 		}
 	},
 	"virtualKeys": {

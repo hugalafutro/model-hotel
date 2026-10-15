@@ -850,7 +850,9 @@ func TestQuotaPollLoop_TransitionToDisabledClearsQuotaAdvice(t *testing.T) {
 // opening against it always carries a quota override.
 type quotaPinAdvisor struct{ at time.Time }
 
-func (q quotaPinAdvisor) ResetsAt(uuid.UUID) (time.Time, bool) { return q.at, true }
+func (q quotaPinAdvisor) Advice(uuid.UUID) (failover.QuotaAdvice, bool) {
+	return failover.QuotaAdvice{ResetsAt: q.at}, true
+}
 
 func quotaPinnedFor(cb *failover.CircuitBreaker, id uuid.UUID) bool {
 	for _, s := range cb.Status() {

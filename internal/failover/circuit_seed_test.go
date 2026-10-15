@@ -30,7 +30,7 @@ func TestSeedQuotaPin_OpensClosedCircuitAndDarkensEveryModel(t *testing.T) {
 	id := uuid.New()
 	reset := time.Now().Add(6 * time.Hour)
 
-	cb.ApplyQuotaPins(map[uuid.UUID]time.Time{id: reset}, map[uuid.UUID]string{id: "Seeded Co"})
+	cb.ApplyQuotaPins(map[uuid.UUID]QuotaAdvice{id: {ResetsAt: reset}}, map[uuid.UUID]string{id: "Seeded Co"})
 
 	// Never requested, never failed: the derived provider verdict is the only
 	// thing that can be skipping it.
@@ -74,7 +74,7 @@ func TestSeedQuotaPin_CeilingApplies(t *testing.T) {
 	cb := NewCircuitBreaker(&stubSettings{cooldown: time.Minute, pinMax: 2 * time.Hour})
 	id := uuid.New()
 
-	cb.ApplyQuotaPins(map[uuid.UUID]time.Time{id: time.Now().Add(7 * 24 * time.Hour)}, nil)
+	cb.ApplyQuotaPins(map[uuid.UUID]QuotaAdvice{id: {ResetsAt: time.Now().Add(7 * 24 * time.Hour)}}, nil)
 
 	s := cb.Status()[0]
 	// The ceiling is a pre-jitter cap, so up to 5% above it is expected.
@@ -93,7 +93,7 @@ func TestSeedQuotaPin_PinningOffSeedsNothing(t *testing.T) {
 	cb := NewCircuitBreaker(&stubSettings{cooldown: time.Minute, pinOff: true})
 	id := uuid.New()
 
-	cb.ApplyQuotaPins(map[uuid.UUID]time.Time{id: time.Now().Add(6 * time.Hour)}, nil)
+	cb.ApplyQuotaPins(map[uuid.UUID]QuotaAdvice{id: {ResetsAt: time.Now().Add(6 * time.Hour)}}, nil)
 	if seededCircuit(cb, id) != nil {
 		t.Fatal("pinning is off: no circuit may be seeded")
 	}
@@ -118,7 +118,7 @@ func TestSeedQuotaPin_UndatableAdviceSeedsNothing(t *testing.T) {
 			cb := newTestCB(3, time.Minute)
 			id := uuid.New()
 
-			cb.ApplyQuotaPins(map[uuid.UUID]time.Time{id: tc.reset}, nil)
+			cb.ApplyQuotaPins(map[uuid.UUID]QuotaAdvice{id: {ResetsAt: tc.reset}}, nil)
 			if seededCircuit(cb, id) != nil {
 				t.Error("no measurable window: nothing may be seeded")
 			}
@@ -137,7 +137,7 @@ func TestSeedQuotaPin_AlreadyPinnedProviderIsRetargetedNotSeeded(t *testing.T) {
 	// pin that already darkens the provider.
 	cb.RecordExhaustedAccount(id, "test-provider", "gemma-4-31b", 402, time.Hour)
 
-	if n := cb.ApplyQuotaPins(map[uuid.UUID]time.Time{id: time.Now().Add(6 * time.Hour)}, nil); n != 1 {
+	if n := cb.ApplyQuotaPins(map[uuid.UUID]QuotaAdvice{id: {ResetsAt: time.Now().Add(6 * time.Hour)}}, nil); n != 1 {
 		t.Fatalf("got %d circuits changed, want 1 retarget", n)
 	}
 	if seededCircuit(cb, id) != nil {
@@ -158,7 +158,7 @@ func TestSeedQuotaPin_AlreadyPinnedProviderIsRetargetedNotSeeded(t *testing.T) {
 func TestSeedQuotaPin_SecondPassDoesNotReseed(t *testing.T) {
 	cb := newTestCB(3, time.Minute)
 	id := uuid.New()
-	advice := map[uuid.UUID]time.Time{id: time.Now().Add(6 * time.Hour)}
+	advice := map[uuid.UUID]QuotaAdvice{id: {ResetsAt: time.Now().Add(6 * time.Hour)}}
 
 	cb.ApplyQuotaPins(advice, nil)
 	cb.ApplyQuotaPins(advice, nil)
@@ -178,7 +178,7 @@ func TestSeedQuotaPin_ReleasedOnRecovery(t *testing.T) {
 	cb := newTestCB(3, time.Minute)
 	id := uuid.New()
 
-	cb.ApplyQuotaPins(map[uuid.UUID]time.Time{id: time.Now().Add(6 * time.Hour)}, map[uuid.UUID]string{id: "Seeded Co"})
+	cb.ApplyQuotaPins(map[uuid.UUID]QuotaAdvice{id: {ResetsAt: time.Now().Add(6 * time.Hour)}}, map[uuid.UUID]string{id: "Seeded Co"})
 	if !cb.IsOpen(id, "test-provider", "any-model") {
 		t.Fatal("setup: seeded provider must be open")
 	}
@@ -211,7 +211,7 @@ func TestSeedQuotaPin_ReleasedWhenPollingSwitchedOff(t *testing.T) {
 	cb := newTestCB(3, time.Minute)
 	id := uuid.New()
 
-	cb.ApplyQuotaPins(map[uuid.UUID]time.Time{id: time.Now().Add(6 * time.Hour)}, nil)
+	cb.ApplyQuotaPins(map[uuid.UUID]QuotaAdvice{id: {ResetsAt: time.Now().Add(6 * time.Hour)}}, nil)
 	if n := cb.ReleaseAllQuotaPins(); n != 1 {
 		t.Fatalf("got %d pins released, want 1", n)
 	}
@@ -229,7 +229,7 @@ func TestSeedQuotaPin_LeavesOtherProvidersAlone(t *testing.T) {
 	cb := newTestCB(3, time.Minute)
 	spent, healthy := uuid.New(), uuid.New()
 
-	cb.ApplyQuotaPins(map[uuid.UUID]time.Time{spent: time.Now().Add(6 * time.Hour)}, nil)
+	cb.ApplyQuotaPins(map[uuid.UUID]QuotaAdvice{spent: {ResetsAt: time.Now().Add(6 * time.Hour)}}, nil)
 
 	if cb.IsOpen(healthy, "other-provider", "some-model") {
 		t.Error("an unadvised provider must not be darkened")
@@ -251,7 +251,7 @@ func TestSeedQuotaPin_ExpiredSeedIsRetired(t *testing.T) {
 	cb := newTestCB(3, time.Minute)
 	id := uuid.New()
 
-	cb.ApplyQuotaPins(map[uuid.UUID]time.Time{id: time.Now().Add(6 * time.Hour)}, nil)
+	cb.ApplyQuotaPins(map[uuid.UUID]QuotaAdvice{id: {ResetsAt: time.Now().Add(6 * time.Hour)}}, nil)
 	c := seededCircuit(cb, id)
 	if c == nil {
 		t.Fatal("setup: the reading must seed a circuit")
@@ -275,5 +275,78 @@ func TestSeedQuotaPin_ExpiredSeedIsRetired(t *testing.T) {
 	}
 	if cb.IsOpen(id, "test-provider", "any-model") {
 		t.Error("a provider whose seeded pin elapsed must be routed to again")
+	}
+}
+
+// TestSeedQuotaPin_ReserveNamesItsSource: a reading past the operator's
+// reserve line pins exactly like a spent window (darkens every model, speaks
+// for the account, lifts on recovery) but reports the source "reserve", so an
+// operator can tell "quota spent" from "reserve reached, quota still left".
+func TestSeedQuotaPin_ReserveNamesItsSource(t *testing.T) {
+	cb := newTestCB(3, time.Minute)
+	id := uuid.New()
+	advice := map[uuid.UUID]QuotaAdvice{id: {ResetsAt: time.Now().Add(6 * time.Hour), Reserved: true}}
+
+	if n := cb.ApplyQuotaPins(advice, map[uuid.UUID]string{id: "Reserved Co"}); n != 1 {
+		t.Fatalf("got %d circuits changed, want 1 seed", n)
+	}
+	if !cb.IsOpen(id, "test-provider", "any-model") {
+		t.Error("a reserve pin must darken the provider like an exhaustion pin")
+	}
+	s := cb.StatusDetail()[0]
+	if !s.QuotaPinned || s.PinSource != pinSourceReserve {
+		t.Errorf("got quota_pinned=%v pin_source=%q, want true/reserve", s.QuotaPinned, s.PinSource)
+	}
+
+	// A request-opened circuit stamped from the same advice reports the same
+	// source, through applyQuotaPin.
+	cb2 := newTestCB(3, time.Minute)
+	cb2.SetQuotaAdvisor(stubAdvisor{at: time.Now().Add(6 * time.Hour), ok: true, reserved: true})
+	openBreaker(t, cb2, id)
+	if got := cb2.StatusDetail()[0].PinSource; got != pinSourceReserve {
+		t.Errorf("request-opened pin_source = %q, want reserve", got)
+	}
+
+	// Recovery releases it and retires the seed, exactly as for exhaustion.
+	if n := cb.ReleaseQuotaPins(map[uuid.UUID]struct{}{id: {}}); n != 1 {
+		t.Errorf("released %d pins, want 1", n)
+	}
+	if cb.IsOpen(id, "test-provider", "any-model") {
+		t.Error("a released reserve pin must stop darkening the provider")
+	}
+}
+
+// TestApplyQuotaPins_RetargetRenamesTheSourceWhenTheWaitStands: a reserve pin
+// already reaching the reading's reset is not retargeted, but a reading that
+// now says the window is spent must stop the row claiming "reserve still
+// left", and the reverse holds once the window drops back to the line.
+func TestApplyQuotaPins_RetargetRenamesTheSourceWhenTheWaitStands(t *testing.T) {
+	cb := newTestCB(3, time.Minute)
+	id := uuid.New()
+	reset := time.Now().Add(6 * time.Hour)
+
+	cb.ApplyQuotaPins(map[uuid.UUID]QuotaAdvice{id: {ResetsAt: reset, Reserved: true}}, nil)
+	if got := cb.StatusDetail()[0].PinSource; got != pinSourceReserve {
+		t.Fatalf("seeded pin_source = %q, want reserve", got)
+	}
+	// Same reset, window now spent: nothing to retarget, so no change counted,
+	// but the source follows the reading.
+	if n := cb.ApplyQuotaPins(map[uuid.UUID]QuotaAdvice{id: {ResetsAt: reset}}, nil); n != 0 {
+		t.Errorf("got %d circuits changed, want 0: the wait already stands", n)
+	}
+	if got := cb.StatusDetail()[0].PinSource; got != pinSourceAdvisor {
+		t.Errorf("pin_source after a spent reading = %q, want advisor", got)
+	}
+	// A request-opened circuit with a reserve reading retargets as reserve.
+	cb.RecordFailure(id, "test-provider", "m", Cause{})
+	cb.RecordFailure(id, "test-provider", "m", Cause{})
+	cb.RecordFailure(id, "test-provider", "m", Cause{})
+	if n := cb.ApplyQuotaPins(map[uuid.UUID]QuotaAdvice{id: {ResetsAt: reset, Reserved: true}}, nil); n != 1 {
+		t.Errorf("got %d circuits changed, want 1 retarget of the request-opened circuit", n)
+	}
+	for _, c := range cb.StatusDetail()[0].Circuits {
+		if c.Model == "m" && c.PinSource != pinSourceReserve {
+			t.Errorf("retargeted pin_source = %q, want reserve", c.PinSource)
+		}
 	}
 }

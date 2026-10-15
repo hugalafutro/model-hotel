@@ -1,4 +1,5 @@
 import { fireEvent, screen, waitFor, within } from "@testing-library/react";
+import i18next from "i18next";
 import { HttpResponse, http } from "msw";
 import type { Provider } from "../../../api/types";
 import { pad } from "../../../components/AccentCalendar.utils";
@@ -958,6 +959,34 @@ describe("EditProviderModal", () => {
 			expect(
 				document.getElementById("edit-provider-quota-reserve"),
 			).not.toBeNull();
+		});
+
+		it("names the window the reserve is kept on: the month for OpenCode Go, the week elsewhere", () => {
+			renderWithProviders(
+				<EditProviderModal
+					{...defaultProps}
+					provider={{
+						...mockProvider,
+						id: "p-ocg",
+						provider_type: "opencode-go",
+					}}
+				/>,
+			);
+			const month = screen.getByTestId("quota-reserve-helper").textContent;
+			renderWithProviders(
+				<EditProviderModal
+					{...defaultProps}
+					provider={{ ...mockProvider, id: "p-nano", provider_type: "nanogpt" }}
+				/>,
+			);
+			const week = screen.getAllByTestId("quota-reserve-helper")[1].textContent;
+			expect(month).not.toEqual(week);
+			expect(month).toContain(
+				i18next.t("providers.edit.quotaReserveWindow.monthly"),
+			);
+			expect(week).toContain(
+				i18next.t("providers.edit.quotaReserveWindow.weekly"),
+			);
 		});
 
 		it("keeps the slider for a type the reserve does not govern while a leftover reserve is set, so it can be cleared", () => {

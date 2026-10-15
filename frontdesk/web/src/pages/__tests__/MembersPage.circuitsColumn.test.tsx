@@ -1,4 +1,5 @@
 import { render, screen, within } from "@testing-library/react";
+import i18next from "i18next";
 import { HttpResponse, http } from "msw";
 import { beforeEach, describe, expect, it } from "vitest";
 import type { MemberCircuits, MemberView } from "../../api/types";
@@ -55,7 +56,7 @@ describe("MembersPage circuits column", () => {
 				HttpResponse.json([
 					member("m1", "dark", true, {
 						checked_at: "2026-08-31T14:47:00Z",
-						total: 2,
+						total: 3,
 						open: [
 							{
 								provider_id: "p-zai",
@@ -76,6 +77,14 @@ describe("MembersPage circuits column", () => {
 								cause: "upstream status 503",
 								status: 503,
 							},
+							{
+								provider_id: "p-ocg",
+								provider: "OpenCode Go",
+								model: "(account quota)",
+								state: "open",
+								quota_pinned: true,
+								pin_source: "reserve",
+							},
 						],
 					}),
 					member("m2", "fine", true, {
@@ -94,9 +103,19 @@ describe("MembersPage circuits column", () => {
 			</ToastProvider>,
 		);
 		const open = await screen.findByTestId("member-circuits-open");
-		expect(open).toHaveTextContent("2");
+		expect(open).toHaveTextContent("3");
 		const title = open.getAttribute("title") ?? "";
 		expect(title).toContain("Z.ai / glm-5.3");
+		// A reserve pin is a different state from an exhaustion pin: the quota is
+		// still there, just kept back, and the ledger line says so.
+		const lines = title.split("\n");
+		const pinned = lines.find((l) => l.startsWith("Z.ai / glm-5.3")) ?? "";
+		const reserved = lines.find((l) => l.startsWith("OpenCode Go /")) ?? "";
+		expect(reserved).toContain(i18next.t("members.circuitStateReserved"));
+		expect(pinned).toContain(i18next.t("members.circuitStatePinned"));
+		expect(i18next.t("members.circuitStateReserved")).not.toEqual(
+			i18next.t("members.circuitStatePinned"),
+		);
 		expect(title).toContain("upstream status 429 (exhausted)");
 		expect(title).toContain("Neuralwatt / glm-5.3");
 		expect(title).toContain("upstream status 503");

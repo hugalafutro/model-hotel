@@ -461,7 +461,7 @@ in `ALLOWED_PROVIDER_HOSTS` before the provider can be created.
 
 **Request Body:** all fields optional for partial update. Accepts `name`, `base_url`, `provider_type`, `api_key`, `enabled`, `autodiscovery_enabled`, `scheduled_disable_on`, `max_in_flight` and `quota_reserve_percent`; POST accepts only the first four of those.
 
-`provider_type` can be corrected here, which matters for a row the legacy hostname rules filed under the wrong type: re-adding the provider instead would cascade its models away. A new self-hosted type is probed exactly as on create, as is a changed `base_url`. `scheduled_disable_on` is an ISO date (`YYYY-MM-DD`) that must not be in the past, or `null` to clear it. `max_in_flight` caps the provider's concurrent upstream requests: `null` means no ceiling, and any number outside 1-10000 is a `400`. `quota_reserve_percent` is the share of every quota window kept back for use outside the gateway: `0` (the default) drains a window fully, `10` to `90` in steps of ten pins the provider once that much is left; `null` reads as `0`, anything else is a `400`. See [Quota reserve](Failover-and-Hotel-Routing#quota-reserve).
+`provider_type` can be corrected here, which matters for a row the legacy hostname rules filed under the wrong type: re-adding the provider instead would cascade its models away. A new self-hosted type is probed exactly as on create, as is a changed `base_url`. `scheduled_disable_on` is an ISO date (`YYYY-MM-DD`) that must not be in the past, or `null` to clear it. `max_in_flight` caps the provider's concurrent upstream requests: `null` means no ceiling, and any number outside 1-10000 is a `400`. `quota_reserve_percent` is the share of the provider's longest quota window (weekly, or monthly for OpenCode Go) kept back for use outside the gateway: `0` (the default) drains it fully, `10` to `90` in steps of ten pins the provider once that much of that window is left; `null` reads as `0`, anything else is a `400`. See [Quota reserve](Failover-and-Hotel-Routing#quota-reserve).
 
 #### DELETE `/api/providers/{id}`
 
@@ -1944,7 +1944,7 @@ Heartbeat comments (`: heartbeat`) are sent every 30 seconds.
 | `provider_open` | bool | always | Whether the provider as a whole is now being skipped |
 | `consecutive_fails` | int | always | Consecutive failures recorded against that model's circuit |
 | `quota_pinned` | bool | always | Whether a quota reset deadline is in force on this circuit |
-| `pin_source` | string | always | Where a pin came from: `advisor` (measured by the quota poller), `response` (inferred from the exhausted reply), `account` (the reply refused the whole account); empty when no pin governs |
+| `pin_source` | string | always | Where a pin came from: `advisor` (measured by the quota poller off a spent window), `reserve` (measured off the operator's quota reserve line, with the reserve still left), `response` (inferred from the exhausted reply), `account` (the reply refused the whole account); empty when no pin governs |
 | `backed_off` | bool | always | Whether the probe backoff is in force on this circuit |
 | `failed_probes` | int | always | Half-open probes that failed since the circuit last closed |
 | `cooldown_ms` | int | on `open` | The cooldown actually enforced |

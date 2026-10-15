@@ -178,6 +178,7 @@
 		"circuitStateOpen": "open",
 		"circuitStateHalfOpen": "probe due",
 		"circuitStatePinned": "pinned",
+		"circuitStateReserved": "reserved",
 		"circuitRetry": "retry {{when}}",
 		"circuitsOpen_one": "{{count}} open",
 		"circuitsOpen_other": "{{count}} open",

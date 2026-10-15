@@ -189,7 +189,8 @@
 		"resetCircuitsRecovered_one": "{{count}} hersteld",
 		"resetCircuitsRecovered_other": "{{count}} hersteld",
 		"errPrimaryElsewhere": "Een andere Front Desk noemt deze host nog steeds de primary van zijn fleet. Mogelijk is die op dit moment alleen onbereikbaar, en hem hier toevoegen zou die fleet overnemen. Verwijder hem daar eerst, of voer, als die Front Desk definitief weg is, hieronder het admintoken van deze Front Desk in om hem toch op te nemen.",
-		"confirmDeskTokenLabel": "Admintoken van deze Front Desk"
+		"confirmDeskTokenLabel": "Admintoken van deze Front Desk",
+		"circuitStateReserved": "gereserveerd"
 	},
 	"traffic": {
 		"title": "Verkeer",

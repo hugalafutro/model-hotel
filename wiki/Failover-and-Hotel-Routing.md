@@ -664,7 +664,7 @@ type circuit struct {
     cooldownBackoff  time.Duration // The cooldown those failures earned: base doubled per probe, capped
     lastCharged      time.Time     // Orders eviction above the per-provider cap
     lastSuccess      time.Time     // Backs the recent-success 429 fallback
-    pinSource        string        // "advisor", "response" or "account"; empty when unpinned
+    pinSource        string        // "advisor", "reserve", "response" or "account"; empty when unpinned
     probeSeed        float64       // Spreads a response pin's probes
     lastCause        string        // Last verdict, its upstream status and when (observability only)
     lastStatus       int
@@ -700,7 +700,7 @@ that window is short.
 
 A provider is skipped for **every** model when either of these holds:
 
-- a quota pin that speaks for the whole **account** is in force: one the quota advisor measured (`pin_source` `advisor`), or one taken from a 429 that refused the account itself (`pin_source` `account`, see "A refusal about the account" under [Quota-pinned cooldowns](#quota-pinned-cooldowns)). A plain `response` pin is one model's own refusal and darkens only that model, or
+- a quota pin that speaks for the whole **account** is in force: one the quota advisor measured (`pin_source` `advisor`, or `reserve` when the [quota reserve](#quota-reserve) drew the line), or one taken from a 429 that refused the account itself (`pin_source` `account`, see "A refusal about the account" under [Quota-pinned cooldowns](#quota-pinned-cooldowns)). A plain `response` pin is one model's own refusal and darkens only that model, or
 - at least `circuit_breaker_span_models` distinct model circuits are open and still inside their cooldown.
 
 Nothing stores that verdict; it is recomputed from the circuits on every read, so it cannot go stale against a cooldown that elapsed a moment ago. A circuit owed a probe blocks nothing, so it counts towards neither the verdict nor the list of models beside it.
@@ -820,7 +820,7 @@ The seeded circuit is one per provider, listed under the model id `(account quot
 
 These behaviors are worth knowing before you reach for these controls:
 
-- **A pin ends by itself when the provider recovers.** A pin is stamped on at the moment the circuit opens, but it is not a commitment to wait that long. The quota poller refreshes its picture every `quota_refresh_interval_min` minutes (5 by default), and any provider that is no longer out of quota has its account-level pins (`advisor` and `account`) lifted on the spot. A plain `response` pin is one model's own refusal (a model outside the plan, say), which a healthy account reading does not contradict, so it keeps its own timer and probe interval. The circuit falls back to `circuit_breaker_cooldown` (or to its probe backoff, if its probes had been failing before the pin) and, if that has already elapsed, goes half-open and probes on the next request. So an operator who tops up a spent plan gets the provider back within one poll interval instead of waiting out a pin that could run to the 24h ceiling. Lifting a pin only ever shortens a wait: it does not close the circuit, and the probe still has to succeed before traffic resumes. Look for `circuit-breaker: quota pin released (provider no longer exhausted)` in the logs.
+- **A pin ends by itself when the provider recovers.** A pin is stamped on at the moment the circuit opens, but it is not a commitment to wait that long. The quota poller refreshes its picture every `quota_refresh_interval_min` minutes (5 by default), and any provider that is no longer out of quota has its account-level pins (`advisor`, `reserve` and `account`) lifted on the spot. A plain `response` pin is one model's own refusal (a model outside the plan, say), which a healthy account reading does not contradict, so it keeps its own timer and probe interval. The circuit falls back to `circuit_breaker_cooldown` (or to its probe backoff, if its probes had been failing before the pin) and, if that has already elapsed, goes half-open and probes on the next request. So an operator who tops up a spent plan gets the provider back within one poll interval instead of waiting out a pin that could run to the 24h ceiling. Lifting a pin only ever shortens a wait: it does not close the circuit, and the probe still has to succeed before traffic resumes. Look for `circuit-breaker: quota pin released (provider no longer exhausted)` in the logs.
 
   A pin is released only on positive evidence of recovery: a refresh that actually succeeded, which read a snapshot fresh enough to trust and understood it well enough to say the window is no longer spent. Everything short of that leaves the pin exactly where it is. A refresh that could not read the database, a provider whose quota endpoint has been failing long enough for its last snapshot to go stale, a snapshot whose own most recent refresh attempt failed (the last good payload is kept on file for the dashboard, so it can still look fresh even though nothing since has confirmed it), and a payload the gateway cannot interpret all say nothing about provider health, and treating any of them as recovery would put a still-exhausted provider back into rotation precisely when quota reporting is broken.
 
@@ -840,19 +840,25 @@ By default a provider is routed to until its window is spent and the provider sa
 **quota reserve** on the provider (edit modal, a slider in 10% steps from 0 to 90, where 0
 drains fully; the slider appears only for the provider types listed below, since nothing else
 reads it, and stays while a reserve saved earlier on another type waits to be cleared; the
-providers list shows a yellow piggy-bank icon while one is set on a type that reads it) keeps that share of every
-window back for use outside the gateway: an IDE plugin or a chat client on the same
-subscription. Once any dated window has consumed `100 - reserve` percent of itself, the quota
-refresh advises the provider as exhausted exactly as a spent window would, so the same pin holds
-it dark until that window resets and the same refresh releases it once the reading drops back
-under the line. Only windows the breaker judges on their own respond: Z.ai Coding Plan's 5-hour
-and weekly token windows (not its MCP call window), Kimi Code, OpenCode Go, MiniMax and NanoGPT's
-weekly and daily input-token counters (a NanoGPT plan with overage enabled keeps serving past its
-cap, so the reserve is the only line that stops routing to it). NeuralWatt
-is a balance provider that serves into overage, so a reserve leaves it alone, and an undated
-window (a prepaid balance) never places a pin. `0` is the default and drains fully. The value rides config sync
-like every other provider field, and `modelhotel_provider_quota_reserve_ratio` carries it to
-Prometheus.
+providers list shows a yellow piggy-bank icon while one is set on a type that reads it) keeps that share of the
+provider's **longest** window back for use outside the gateway: an IDE plugin or a chat client on
+the same subscription. The line is drawn on the weekly window for Z.ai Coding Plan, Kimi Code,
+MiniMax (each model's weekly window) and NanoGPT, and on the monthly window for OpenCode Go; the
+edit modal and the piggy-bank tooltip name the window. Shorter windows (a 5-hour window, NanoGPT's
+daily counter, OpenCode Go's week) refill on their own and stop routing only when spent. Once the
+longest window has consumed `100 - reserve` percent of itself, the quota refresh advises the
+provider exactly as a spent window would, so the same pin holds it dark until that window resets
+and the same refresh releases it once the reading drops back under the line. The pin reports
+`pin_source` `reserve` rather than `advisor`, the failover entry chip reads **reserved** rather
+than **pinned**, and the seeded-circuit log line says `reserve reached` rather than `exhausted`:
+the quota is still there, just kept back, which is a different state from an account that has
+nothing left. Only windows the breaker judges on their own count: Z.ai Coding Plan's token windows
+(not its MCP call window), Kimi Code, OpenCode Go, MiniMax and NanoGPT's input-token counters (a
+NanoGPT plan with overage enabled keeps serving past its cap, so the reserve is the only line that
+stops routing to it). NeuralWatt is a balance provider that serves into overage, so a reserve
+leaves it alone, and an undated window (a prepaid balance) never places a pin. `0` is the default
+and drains fully. The value rides config sync like every other provider field, and
+`modelhotel_provider_quota_reserve_ratio` carries it to Prometheus.
 
 #### Probe backoff
 
@@ -915,7 +921,7 @@ These events appear in the real-time sidebar and dashboard.
 | `provider_open` | bool | always | Whether the provider as a whole is now being skipped, derived from how many of its model circuits are open (see `circuit_breaker_span_models`) |
 | `consecutive_fails` | int | always | Consecutive failures recorded against that model's circuit |
 | `quota_pinned` | bool | always | `true` when a quota reset deadline is in force on this circuit |
-| `pin_source` | string | always | Where the pin in force came from: `advisor` for one the quota poller measured, `response` for one inferred from the exhausted response itself, `account` for one whose response refused the whole account. Empty when no pin governs |
+| `pin_source` | string | always | Where the pin in force came from: `advisor` for one the quota poller measured off a spent window, `reserve` for one it measured off the operator's [quota reserve](#quota-reserve) line (the reserve is still left), `response` for one inferred from the exhausted response itself, `account` for one whose response refused the whole account. Empty when no pin governs |
 | `backed_off` | bool | always | `true` when the probe backoff is in force on this circuit (see [Probe backoff](#probe-backoff)); the longer of the two overrides governs |
 | `failed_probes` | int | always | Half-open probes that failed since the circuit last closed; `0` on a first open |
 | `cooldown_ms` | int | on `open` | The cooldown actually enforced, whichever override produced it |
@@ -1361,7 +1367,7 @@ The `/metrics` endpoint carries the failover story as counters, so a rerun of a 
 | `modelhotel_failover_attempts_total` | `model`, `provider` | Attempts after the first, one per attempt, labeled with the provider it went to (hedged launches included). The fan-out to fallback entries per provider, not only per group. |
 | `modelhotel_circuit_breaker_state` | `provider_id`, `provider` | The state gauge: 0 closed, 1 half-open, 2 open, read at scrape time. Every enabled provider appears: one the breaker has not routed to yet reads closed, since it is served as one. `provider` is the operator's name, as the counters carry it; `provider_id` stays stable across a rename. |
 | `modelhotel_provider_quota_used_ratio` | `provider_id`, `provider`, `window` | Share of a subscription window consumed, from the provider's latest stored quota snapshot: 0 untouched, 1 spent, above 1 where the provider serves into overage (NeuralWatt). `window` is the window's name as the quota modal shows it (`5h`, `weekly`, `mcp`, `monthly`, `energy`, `credits`, a Kimi span such as `5h` or `7d`, or a MiniMax model class with its span). Read at scrape time; only provider types with a readable quota endpoint appear. |
-| `modelhotel_provider_quota_reserve_ratio` | `provider_id`, `provider` | The provider's quota reserve as a share (`quota_reserve_percent` / 100); present for a provider with a reserve set and at least one readable window. A window the breaker judges on its own pins the provider once its used ratio reaches 1 minus this; a NeuralWatt balance and Z.ai's MCP calls never do. |
+| `modelhotel_provider_quota_reserve_ratio` | `provider_id`, `provider` | The provider's quota reserve as a share (`quota_reserve_percent` / 100); present for a provider with a reserve set and at least one readable window. The provider's longest governing window (weekly, or monthly for OpenCode Go) pins the provider once its used ratio reaches 1 minus this; shorter windows pin only when spent, and a NeuralWatt balance or Z.ai's MCP calls never do. |
 | `modelhotel_provider_quota_resets_at_seconds` | `provider_id`, `provider`, `window` | Unix time at which that window rolls over. Absent for a window the provider does not date (a prepaid balance). |
 | `modelhotel_provider_inflight_limit`, `modelhotel_provider_inflight` | `provider_id` | The adaptive in-flight limiter's learned allowance (0 = uncapped) and current load. |
 

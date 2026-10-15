@@ -922,8 +922,13 @@
 			"maxInFlightHelper": "سقف صارم للطلبات المتزامنة إلى هذا المزوّد. اتركه فارغًا لعدم وضع سقف؛ يواصل التعلم التكيفي الضبط تحته.",
 			"quotaReserveLabel": "احتياطي الحصة",
 			"quotaReserveDrain": "استنفاد بالكامل",
-			"quotaReserveHelper": "نسبة من كل نافذة اشتراك تُحفظ للاستخدام خارج Model Hotel. يتوقف التوجيه هنا عندما لا يتبقى من النافذة سوى هذا القدر ويُستأنف عند إعادة ضبطها.",
-			"quotaReserveHelperScope": "يستجيب فقط المزودون ذوو نوافذ الاشتراك، لا مزودو الرصيد."
+			"quotaReserveHelper": "نسبة من النافذة {{window}} تُحفظ للاستخدام خارج Model Hotel. يتوقف التوجيه هنا عندما لا يتبقى من تلك النافذة سوى هذا القدر ويُستأنف عند إعادة ضبطها؛ أما النوافذ الأقصر فتوقف التوجيه فقط عند نفادها.",
+			"quotaReserveHelperScope": "يستجيب فقط المزودون ذوو نوافذ الاشتراك، لا مزودو الرصيد.",
+			"quotaReserveWindow": {
+				"weekly": "الأسبوعية",
+				"monthly": "الشهرية",
+				"longest": "الأطول"
+			}
 		},
 		"quotas": {
 			"expand": "توسيع الحصص"
@@ -1186,7 +1191,7 @@
 		"type_anthropic_messages": "Anthropic (Messages API)",
 		"card_website": "افتح موقع المزود",
 		"card_tokens_tooltip": "الرموز المُمرّرة عبر هذا المزود منذ {{date}}، المطالبة والإكمال معًا",
-		"quota_reserve_card_tooltip": "يُحتفظ بـ {{percent}}% من كل نافذة حصة كاحتياطي"
+		"quota_reserve_card_tooltip": "يُحتفظ بـ {{percent}}% من نافذة الحصة {{window}} كاحتياطي"
 	},
 	"models": {
 		"page_description": "النماذج المكتشفة من مزودك",
@@ -3389,11 +3394,13 @@
 				"busy": "مشغول",
 				"open": "مفتوح",
 				"probe": "فحص مستحق",
-				"pinned": "مثبّت"
+				"pinned": "مثبّت",
+				"reserved": "محجوز"
 			},
 			"chipBusyTip": "أجاب هذا المزوّد بـ 429 مشغول خلال الدقيقة الأخيرة؛ قاطع الدائرة مغلق وما زالت الطلبات توجَّه إليه، وتنتقل إلى الإدخال التالي عند امتلائه.",
 			"circuitCause": "آخر حكم: {{cause}} (حالة المنبع {{status}}) في {{when}}",
-			"circuitCauseNoStatus": "آخر حكم: {{cause}} في {{when}}"
+			"circuitCauseNoStatus": "آخر حكم: {{cause}} في {{when}}",
+			"circuitBreakerQuotaReserved": "كسر الدائرة مفتوح - تم بلوغ احتياطي حصة المزود، ولا يزال الاحتياطي متاحًا للاستخدام خارج Model Hotel؛ المحاولة التالية في {{resetTime}}"
 		},
 		"countLabel_zero": "مجموعات التحويل التلقائي",
 		"countLabel_one": "مجموعة تحويل تلقائي",

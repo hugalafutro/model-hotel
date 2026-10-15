@@ -850,8 +850,13 @@
 			"maxInFlightHelper": "Hard plafond voor gelijktijdige verzoeken aan deze provider. Leeg laten voor geen plafond; de adaptieve leerling blijft zich eronder aanpassen.",
 			"quotaReserveLabel": "Quotareserve",
 			"quotaReserveDrain": "Volledig opgebruiken",
-			"quotaReserveHelper": "Deel van elk abonnementsvenster dat wordt achtergehouden voor gebruik buiten Model Hotel. Routering hierheen stopt zodra een venster nog maar zoveel over heeft en gaat verder zodra het wordt gereset.",
-			"quotaReserveHelperScope": "Alleen providers met abonnementsvensters reageren, geen saldoproviders."
+			"quotaReserveHelper": "Deel van het {{window}} venster dat wordt achtergehouden voor gebruik buiten Model Hotel. Routering hierheen stopt zodra dat venster nog maar zoveel over heeft en gaat verder zodra het wordt gereset; kortere vensters stoppen de routering pas als ze op zijn.",
+			"quotaReserveHelperScope": "Alleen providers met abonnementsvensters reageren, geen saldoproviders.",
+			"quotaReserveWindow": {
+				"weekly": "wekelijkse",
+				"monthly": "maandelijkse",
+				"longest": "langste"
+			}
 		},
 		"quotas": {
 			"expand": "Quota tonen"
@@ -1018,7 +1023,7 @@
 		"type_anthropic_messages": "Anthropic (Messages API)",
 		"card_website": "Website van de provider openen",
 		"card_tokens_tooltip": "Tokens via deze provider gerouteerd sinds {{date}}, prompt en antwoord samen",
-		"quota_reserve_card_tooltip": "{{percent}}% van elk quotavenster wordt in reserve gehouden"
+		"quota_reserve_card_tooltip": "{{percent}}% van het {{window}} quotavenster wordt in reserve gehouden"
 	},
 	"models": {
 		"page_title_one": "Model",
@@ -3091,11 +3096,13 @@
 				"busy": "bezet",
 				"open": "open",
 				"probe": "probe verwacht",
-				"pinned": "vastgezet"
+				"pinned": "vastgezet",
+				"reserved": "gereserveerd"
 			},
 			"chipBusyTip": "Deze provider antwoordde in de afgelopen minuut met een bezet-429; de stroomonderbreker is gesloten en verzoeken worden nog steeds hierheen gerouteerd, met overloop naar het volgende item als hij vol is.",
 			"circuitCause": "Laatste oordeel: {{cause}} (upstream-status {{status}}) om {{when}}",
-			"circuitCauseNoStatus": "Laatste oordeel: {{cause}} om {{when}}"
+			"circuitCauseNoStatus": "Laatste oordeel: {{cause}} om {{when}}",
+			"circuitBreakerQuotaReserved": "Circuit breaker open - quotumreserve van de provider bereikt, de reserve blijft over voor gebruik buiten Model Hotel; volgende poging om {{resetTime}}"
 		}
 	},
 	"virtualKeys": {

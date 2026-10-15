@@ -67,7 +67,7 @@ type CircuitBreakerQuotaPinner interface {
 	// read advice and names only for the duration of the call. names gives the
 	// display name of each advised provider, so a seeded circuit is reported by
 	// name rather than as unknown.
-	ApplyQuotaPins(advice map[uuid.UUID]time.Time, names map[uuid.UUID]string) int
+	ApplyQuotaPins(advice map[uuid.UUID]failover.QuotaAdvice, names map[uuid.UUID]string) int
 }
 
 // CircuitBreakerControl is the whole breaker surface the failover API needs.
