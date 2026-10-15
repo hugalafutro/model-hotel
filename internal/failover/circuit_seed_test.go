@@ -315,3 +315,38 @@ func TestSeedQuotaPin_ReserveNamesItsSource(t *testing.T) {
 		t.Error("a released reserve pin must stop darkening the provider")
 	}
 }
+
+// TestApplyQuotaPins_RetargetRenamesTheSourceWhenTheWaitStands: a reserve pin
+// already reaching the reading's reset is not retargeted, but a reading that
+// now says the window is spent must stop the row claiming "reserve still
+// left", and the reverse holds once the window drops back to the line.
+func TestApplyQuotaPins_RetargetRenamesTheSourceWhenTheWaitStands(t *testing.T) {
+	cb := newTestCB(3, time.Minute)
+	id := uuid.New()
+	reset := time.Now().Add(6 * time.Hour)
+
+	cb.ApplyQuotaPins(map[uuid.UUID]QuotaAdvice{id: {ResetsAt: reset, Reserved: true}}, nil)
+	if got := cb.StatusDetail()[0].PinSource; got != pinSourceReserve {
+		t.Fatalf("seeded pin_source = %q, want reserve", got)
+	}
+	// Same reset, window now spent: nothing to retarget, so no change counted,
+	// but the source follows the reading.
+	if n := cb.ApplyQuotaPins(map[uuid.UUID]QuotaAdvice{id: {ResetsAt: reset}}, nil); n != 0 {
+		t.Errorf("got %d circuits changed, want 0: the wait already stands", n)
+	}
+	if got := cb.StatusDetail()[0].PinSource; got != pinSourceAdvisor {
+		t.Errorf("pin_source after a spent reading = %q, want advisor", got)
+	}
+	// A request-opened circuit with a reserve reading retargets as reserve.
+	cb.RecordFailure(id, "test-provider", "m", Cause{})
+	cb.RecordFailure(id, "test-provider", "m", Cause{})
+	cb.RecordFailure(id, "test-provider", "m", Cause{})
+	if n := cb.ApplyQuotaPins(map[uuid.UUID]QuotaAdvice{id: {ResetsAt: reset, Reserved: true}}, nil); n != 1 {
+		t.Errorf("got %d circuits changed, want 1 retarget of the request-opened circuit", n)
+	}
+	for _, c := range cb.StatusDetail()[0].Circuits {
+		if c.Model == "m" && c.PinSource != pinSourceReserve {
+			t.Errorf("retargeted pin_source = %q, want reserve", c.PinSource)
+		}
+	}
+}

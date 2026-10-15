@@ -349,4 +349,13 @@ func TestWindows_SpansRankTheWindows(t *testing.T) {
 	if got := longestSpan(nil); got != 0 {
 		t.Errorf("no windows: longest span = %v, want 0", got)
 	}
+	// An undated window cannot place a pin, so it does not rank: the reserve
+	// falls to the longest window that can.
+	undated := []Window{
+		{Name: "monthly", Governs: true, Span: 30 * 24 * time.Hour},
+		{Name: "weekly", Governs: true, Span: 7 * 24 * time.Hour, ResetsAt: soon},
+	}
+	if got := longestSpan(undated); got != 7*24*time.Hour {
+		t.Errorf("undated month ranked: longest span = %v, want the dated week", got)
+	}
 }

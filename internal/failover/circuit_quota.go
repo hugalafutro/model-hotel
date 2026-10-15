@@ -141,7 +141,7 @@ func pinSpeaksForAccount(source string) bool {
 
 // ReleaseQuotaPins lifts the quota cooldown override from every circuit whose
 // provider appears in recovered and whose pin speaks for the account (source
-// "advisor" or "account"), and reports how many pins it lifted. It is how a
+// "advisor", "reserve" or "account"), and reports how many pins it lifted. It is how a
 // provider that has recovered (a topped-up plan, a reset window observed early
 // by the quota poller) stops serving out a pin that could otherwise run to the
 // 24h ceiling. A "response" pin is one model's own refusal (a model outside the
@@ -274,6 +274,14 @@ func (cb *CircuitBreaker) ApplyQuotaPins(advice map[uuid.UUID]QuotaAdvice, names
 			// the pin already stamped when that reaches further still.
 			d, ok := clampPin(adv.ResetsAt.Sub(c.openedAt), maxPin, cb.effectiveCooldownForWith(c, r))
 			if !ok {
+				// The wait stands, but the reading may have changed what the pin
+				// says: a reserve pin at the ceiling whose window then went spent
+				// must stop reporting "reserve still left". Only a pin the advisor
+				// stamped is renamed; a response or account pin keeps its own
+				// provenance until a retarget replaces it.
+				if c.cooldownOverride > 0 && (c.pinSource == pinSourceAdvisor || c.pinSource == pinSourceReserve) {
+					c.pinSource = advisorPinSource(adv)
+				}
 				continue
 			}
 			c.cooldownOverride = d

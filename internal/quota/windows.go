@@ -262,11 +262,15 @@ func neuralwattWindows(payload json.RawMessage) []Window {
 }
 
 // AssessWithReserve is Assess with the operator's reserve applied: a share of
-// every window kept back for use outside the gateway. reserve is that share,
-// 0 for none, up to 0.9. A provider whose payload reports no exhaustion is
-// still treated as exhausted once any dated governing window has consumed
-// 1 - reserve of itself, and the pin targets the earliest such reset, the same
-// rule the assessors apply to a spent window. A window the assessor does not
+// the provider's longest window kept back for use outside the gateway.
+// reserve is that share, 0 for none, up to 0.9. A provider whose payload
+// reports no exhaustion is still treated as exhausted once a dated governing
+// window of the longest span has consumed 1 - reserve of itself, and the
+// verdict says Reserved: the pin targets the earliest such reset, the same
+// rule the assessors apply to a spent window. A shorter window refills on its
+// own and stops routing only when spent, which matters on a plan the assessor
+// never calls exhausted (NanoGPT with overage): there a spent window pins
+// under a reserve too, as plain exhaustion. A window the assessor does not
 // judge on its own (Z.ai's MCP calls, a NeuralWatt balance) is left alone, an
 // undated window past the line cannot place a pin and is ignored, as an
 // undated spent window is, and a payload the assessor already reads as
@@ -278,9 +282,18 @@ func AssessWithReserve(providerType string, s Snapshot, reserve float64, now tim
 	}
 	// The line is 1 - reserve, compared with a little slack: 1 - 0.7 is a hair
 	// above 30/100 in float64, and the operator's 70% must pin at exactly 30%
-	// however the provider stated it.
+	// however the provider stated it. The cap gets the same slack.
 	line := 1 - reserve - 1e-9
 	windows := Windows(providerType, s)
+	var spent earliestReset
+	for _, w := range windows {
+		if w.Governs && !w.ResetsAt.IsZero() && w.Used >= 1-1e-9 {
+			spent.add(w.ResetsAt, true)
+		}
+	}
+	if spent.found {
+		return spent.result(now)
+	}
 	span := longestSpan(windows)
 	var e earliestReset
 	for _, w := range windows {
@@ -297,15 +310,17 @@ func AssessWithReserve(providerType string, s Snapshot, reserve float64, now tim
 	return r
 }
 
-// longestSpan is the span of the longest governing window: the one the
+// longestSpan is the span of the longest dated governing window: the one the
 // operator's reserve is kept on. A 5-hour window at the line refills on its
 // own within the day and is not what the reserve protects; the weekly or
 // monthly allowance behind it is. Windows of that span all count, which is
-// how MiniMax's per-model weekly windows each draw the line.
+// how MiniMax's per-model weekly windows each draw the line. An undated window
+// could never place a pin, so it does not rank either: ranking it would
+// silence the reserve on every shorter window for nothing.
 func longestSpan(windows []Window) time.Duration {
 	var span time.Duration
 	for _, w := range windows {
-		if w.Governs && w.Span > span {
+		if w.Governs && !w.ResetsAt.IsZero() && w.Span > span {
 			span = w.Span
 		}
 	}
