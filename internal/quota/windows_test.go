@@ -254,3 +254,99 @@ func TestAssessWithReserve(t *testing.T) {
 		t.Errorf("energy past the line: got %+v, want healthy", a)
 	}
 }
+
+// TestAssessWithReserve_LongestWindowOnly fixes the window the reserve is kept
+// on: the longest governing one. A shorter window refills on its own, so it
+// pins only when spent outright; the weekly or monthly allowance behind it is
+// what the operator keeps back, and a verdict from that line says so.
+func TestAssessWithReserve_LongestWindowOnly(t *testing.T) {
+	now := time.Now()
+	soon := now.Add(3 * time.Hour).Truncate(time.Second)
+	later := now.Add(5 * 24 * time.Hour).Truncate(time.Second)
+	month := now.Add(20 * 24 * time.Hour).Truncate(time.Second)
+	opencode := func(rolling, weekly, monthly float64) Snapshot {
+		b, _ := json.Marshal(map[string]any{"usage": map[string]any{
+			"rolling": map[string]any{"status": "ok", "percent": rolling, "resetsAt": soon.Format(time.RFC3339)},
+			"weekly":  map[string]any{"status": "ok", "percent": weekly, "resetsAt": later.Format(time.RFC3339)},
+			"monthly": map[string]any{"status": "ok", "percent": monthly, "resetsAt": month.Format(time.RFC3339)},
+		}})
+		return Snapshot{Payload: b}
+	}
+
+	// The prod reading that prompted the rule: weekly on the line, monthly
+	// under it. The reserve is kept on the month, so no pin.
+	if a := AssessWithReserve("opencode-go", opencode(0, 90, 85), 0.1, now); !a.OK || a.Exhausted {
+		t.Errorf("weekly at the line with the month under it: got %+v, want healthy", a)
+	}
+	// The month at the line pins to the month's reset and names the reserve.
+	if a := AssessWithReserve("opencode-go", opencode(0, 10, 90), 0.1, now); !a.Exhausted || !a.Reserved || !a.ResetsAt.Equal(month) {
+		t.Errorf("month at the line: got %+v, want reserved until %v", a, month)
+	}
+	// A shorter window spent outright is still exhaustion, and not a reserve.
+	if a := AssessWithReserve("opencode-go", opencode(100, 10, 10), 0.1, now); !a.Exhausted || a.Reserved || !a.ResetsAt.Equal(soon) {
+		t.Errorf("5h spent: got %+v, want exhausted (not reserved) until %v", a, soon)
+	}
+
+	// Z.ai: the 5-hour window past the line leaves the week alone.
+	zai, _ := json.Marshal(map[string]any{"data": map[string]any{"limits": []map[string]any{
+		{"type": "TOKENS_LIMIT", "unit": 3, "percentage": 95, "nextResetTime": soon.UnixMilli()},
+		{"type": "TOKENS_LIMIT", "unit": 6, "percentage": 50, "nextResetTime": later.UnixMilli()},
+	}}})
+	if a := AssessWithReserve("zai-coding", Snapshot{Payload: zai}, 0.1, now); !a.OK || a.Exhausted {
+		t.Errorf("zai 5h past the line: got %+v, want healthy", a)
+	}
+
+	// MiniMax meters per model: every model's weekly window draws the line, so
+	// one model's week at the line pins while its interval window does not.
+	minimax := func(intervalRemaining, weeklyRemaining float64) Snapshot {
+		b, _ := json.Marshal(map[string]any{"base_resp": map[string]any{"status_code": 0}, "model_remains": []map[string]any{
+			{"model_name": "M2", "current_interval_status": 1, "current_interval_remaining_percent": intervalRemaining, "end_time": soon.Unix(),
+				"current_weekly_status": 1, "current_weekly_remaining_percent": weeklyRemaining, "weekly_end_time": later.Unix()},
+			{"model_name": "T2A", "current_interval_status": 1, "current_interval_remaining_percent": 100, "end_time": soon.Unix(),
+				"current_weekly_status": 1, "current_weekly_remaining_percent": 100, "weekly_end_time": later.Unix()},
+		}})
+		return Snapshot{Payload: b}
+	}
+	if a := AssessWithReserve("minimax", minimax(5, 50), 0.1, now); !a.OK || a.Exhausted {
+		t.Errorf("minimax interval past the line: got %+v, want healthy", a)
+	}
+	if a := AssessWithReserve("minimax", minimax(50, 10), 0.1, now); !a.Exhausted || !a.Reserved || !a.ResetsAt.Equal(later) {
+		t.Errorf("minimax one model's week at the line: got %+v, want reserved until %v", a, later)
+	}
+}
+
+func TestWindows_SpansRankTheWindows(t *testing.T) {
+	soon := time.Now().Add(time.Hour)
+	kimi, _ := json.Marshal(map[string]any{
+		"usage": map[string]any{"limit": "100", "remaining": "50", "resetTime": soon.Format(time.RFC3339)},
+		"limits": []map[string]any{
+			{"window": map[string]any{"duration": 300, "timeUnit": "TIME_UNIT_MINUTE"}, "detail": map[string]any{"limit": "10", "remaining": "5", "resetTime": soon.Format(time.RFC3339)}},
+			{"window": map[string]any{"duration": 7, "timeUnit": "DAY"}, "detail": map[string]any{"limit": "10", "remaining": "5", "resetTime": soon.Format(time.RFC3339)}},
+		},
+	})
+	ws := Windows("kimi-code", Snapshot{Payload: kimi})
+	if w := window(t, ws, "weekly"); w.Span != 7*24*time.Hour {
+		t.Errorf("kimi weekly span = %v, want 7d", w.Span)
+	}
+	if w := window(t, ws, "5h"); w.Span != 5*time.Hour {
+		t.Errorf("kimi 5h span = %v, want 5h", w.Span)
+	}
+	if w := window(t, ws, "7d"); w.Span != 7*24*time.Hour {
+		t.Errorf("kimi 7d span = %v, want 7d", w.Span)
+	}
+	for _, tc := range []struct {
+		w    provider.KimiCodeQuotaWindow
+		want time.Duration
+	}{
+		{provider.KimiCodeQuotaWindow{Duration: 3, TimeUnit: "HOUR"}, 3 * time.Hour},
+		{provider.KimiCodeQuotaWindow{Duration: 1, TimeUnit: "TIME_UNIT_WEEK"}, 7 * 24 * time.Hour},
+		{provider.KimiCodeQuotaWindow{Duration: 2, TimeUnit: "FORTNIGHT"}, 0},
+	} {
+		if got := kimiWindowSpan(tc.w); got != tc.want {
+			t.Errorf("span of %+v = %v, want %v", tc.w, got, tc.want)
+		}
+	}
+	if got := longestSpan(nil); got != 0 {
+		t.Errorf("no windows: longest span = %v, want 0", got)
+	}
+}

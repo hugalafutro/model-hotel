@@ -197,7 +197,8 @@
 		"resetCircuitsRecovered_many": "{{count}} przywróconych",
 		"resetCircuitsRecovered_other": "{{count}} przywróconego",
 		"errPrimaryElsewhere": "Inny Front Desk nadal uznaje tego hosta za podstawową instancję swojej floty. Może być po prostu chwilowo nieosiągalny, a dodanie go tutaj przejęłoby tamtą flotę. Najpierw usuń go tam lub, jeśli tamten Front Desk zniknął na dobre, wpisz poniżej token administratora tego Front Desku, aby mimo to go dodać.",
-		"confirmDeskTokenLabel": "Token administratora tego Front Desku"
+		"confirmDeskTokenLabel": "Token administratora tego Front Desku",
+		"circuitStateReserved": "zarezerwowany"
 	},
 	"traffic": {
 		"title": "Ruch",

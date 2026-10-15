@@ -178,3 +178,24 @@ export const QUOTA_RESERVE_TYPES: ReadonlySet<string> = new Set([
 	"minimax",
 	"opencode-go",
 ]);
+
+/**
+ * The window the reserve is kept on, per type: the longest one the breaker
+ * judges (quota.AssessWithReserve). Shorter windows refill on their own and
+ * pin only when spent. The value is the i18n key suffix under
+ * providers.edit.quotaReserveWindow.
+ */
+export const QUOTA_RESERVE_WINDOW: Readonly<
+	Record<string, "weekly" | "monthly">
+> = {
+	nanogpt: "weekly",
+	"zai-coding": "weekly",
+	"kimi-code": "weekly",
+	minimax: "weekly",
+	"opencode-go": "monthly",
+};
+
+/** The reserve window's name for copy: a type outside the table reads "longest". */
+export function quotaReserveWindowKey(providerType: string): string {
+	return `providers.edit.quotaReserveWindow.${QUOTA_RESERVE_WINDOW[providerType] ?? "longest"}`;
+}

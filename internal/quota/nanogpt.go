@@ -33,7 +33,7 @@ func (c nanoGPTCounter) window() (Window, bool) {
 	if c.limit == nil || *c.limit <= 0 || c.counter == nil {
 		return Window{}, false
 	}
-	w := Window{Name: c.name, Used: float64(c.counter.Used) / float64(*c.limit), Governs: true}
+	w := Window{Name: c.name, Used: float64(c.counter.Used) / float64(*c.limit), Governs: true, Span: spanByName[c.name]}
 	if t, ok := epochToTime(c.counter.ResetAt); ok {
 		w.ResetsAt = t
 	}

@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"log/slog"
 	"net/http"
@@ -426,10 +427,10 @@ func TestRefreshQuotaAdvice_ThreeIntervalWindowBoundary(t *testing.T) {
 	// applies, resolving maxAge to 3*5=15 minutes.
 	h.RefreshQuotaAdvice(ctx)
 
-	if _, ok := adv.ResetsAt(freshID); !ok {
+	if _, ok := adv.Advice(freshID); !ok {
 		t.Error("a 14-minute-old snapshot (within the 15-minute window) must be advised")
 	}
-	if _, ok := adv.ResetsAt(oldID); ok {
+	if _, ok := adv.Advice(oldID); ok {
 		t.Error("a 16-minute-old snapshot (past the 15-minute window) must not be advised")
 	}
 }
@@ -590,7 +591,7 @@ func (p *pinReleaseRecorder) ReleaseAllQuotaPins() int {
 // ApplyQuotaPins records nothing: these tests are about the release half of the
 // contract, and returning 0 keeps a refresh that retargets pins from disturbing
 // the release assertions.
-func (p *pinReleaseRecorder) ApplyQuotaPins(map[uuid.UUID]time.Time, map[uuid.UUID]string) int {
+func (p *pinReleaseRecorder) ApplyQuotaPins(map[uuid.UUID]failover.QuotaAdvice, map[uuid.UUID]string) int {
 	return 0
 }
 
@@ -657,7 +658,9 @@ func TestRefreshQuotaAdvice_ReleasesPinsForRecoveredProviders(t *testing.T) {
 // caring which provider is which.
 type fixedQuotaAdvisor struct{ at time.Time }
 
-func (f fixedQuotaAdvisor) ResetsAt(uuid.UUID) (time.Time, bool) { return f.at, true }
+func (f fixedQuotaAdvisor) Advice(uuid.UUID) (failover.QuotaAdvice, bool) {
+	return failover.QuotaAdvice{ResetsAt: f.at}, true
+}
 
 // TestRefreshQuotaAdvice_ReleasesPinsOnlyOnFreshRecoveryEvidence drives the real
 // breaker (not a recorder) through a refresh and asserts on observable breaker
@@ -895,7 +898,7 @@ func TestDisableQuotaAdvice_ReleasesPinsThatARefreshWouldKeep(t *testing.T) {
 	if !pinnedByProvider(cb)[spentID.String()] {
 		t.Fatal("setup: a still-exhausted provider must keep its pin while polling runs")
 	}
-	if _, ok := adv.ResetsAt(spentID); !ok {
+	if _, ok := adv.Advice(spentID); !ok {
 		t.Fatal("setup: a fresh exhausted snapshot must be advised")
 	}
 
@@ -904,7 +907,7 @@ func TestDisableQuotaAdvice_ReleasesPinsThatARefreshWouldKeep(t *testing.T) {
 	if pinnedByProvider(cb)[spentID.String()] {
 		t.Error("disabling polling must release a pin already in force, not leave the provider benched for its ceiling")
 	}
-	if _, ok := adv.ResetsAt(spentID); ok {
+	if _, ok := adv.Advice(spentID); ok {
 		t.Error("disabling polling must drop the advice too, so nothing new can be pinned")
 	}
 	// Still only a cooldown change: the circuit stays open and HTTP decides
@@ -1019,12 +1022,12 @@ func TestRefreshQuotaAdvice_QuotaRepoListErrorClearsAdvice(t *testing.T) {
 	adv := NewQuotaAdvisor()
 	seedID := uuid.New()
 	seedAt := time.Now().Add(time.Hour).Truncate(time.Second)
-	adv.Replace(map[uuid.UUID]time.Time{seedID: seedAt})
+	adv.Replace(map[uuid.UUID]failover.QuotaAdvice{seedID: {ResetsAt: seedAt}})
 	h.SetQuotaAdvisor(adv)
 
 	h.RefreshQuotaAdvice(context.Background())
 
-	if _, ok := adv.ResetsAt(seedID); ok {
+	if _, ok := adv.Advice(seedID); ok {
 		t.Fatal("a quotaRepo.List failure must clear the advisor, not leave a stale pin")
 	}
 }
@@ -1044,12 +1047,12 @@ func TestRefreshQuotaAdvice_ProviderRepoListErrorClearsAdvice(t *testing.T) {
 	adv := NewQuotaAdvisor()
 	seedID := uuid.New()
 	seedAt := time.Now().Add(time.Hour).Truncate(time.Second)
-	adv.Replace(map[uuid.UUID]time.Time{seedID: seedAt})
+	adv.Replace(map[uuid.UUID]failover.QuotaAdvice{seedID: {ResetsAt: seedAt}})
 	h.SetQuotaAdvisor(adv)
 
 	h.RefreshQuotaAdvice(context.Background())
 
-	if _, ok := adv.ResetsAt(seedID); ok {
+	if _, ok := adv.Advice(seedID); ok {
 		t.Fatal("a providerRepo.List failure must clear the advisor, not leave a stale pin")
 	}
 }
@@ -1068,12 +1071,12 @@ func TestPollQuotasOnce_ProviderListFailureClearsQuotaAdvice(t *testing.T) {
 
 	adv := NewQuotaAdvisor()
 	staleID := uuid.New()
-	adv.Replace(map[uuid.UUID]time.Time{staleID: time.Now().Add(time.Hour)})
+	adv.Replace(map[uuid.UUID]failover.QuotaAdvice{staleID: {ResetsAt: time.Now().Add(time.Hour)}})
 	h.SetQuotaAdvisor(adv)
 
 	h.PollQuotasOnce(context.Background())
 
-	if _, ok := adv.ResetsAt(staleID); ok {
+	if _, ok := adv.Advice(staleID); ok {
 		t.Error("a providerRepo.List failure in PollQuotasOnce must clear quota advice, not freeze it")
 	}
 }
@@ -1210,9 +1213,9 @@ func TestNudgeQuotaPoll_RetargetsAdviceFromFreshReading(t *testing.T) {
 
 	deadline := time.Now().Add(5 * time.Second)
 	for {
-		if at, ok := advisor.ResetsAt(id); ok {
-			if at.UnixMilli() != resetsAt.UnixMilli() {
-				t.Fatalf("advised reset %s, want %s", at, resetsAt)
+		if adv, ok := advisor.Advice(id); ok {
+			if adv.ResetsAt.UnixMilli() != resetsAt.UnixMilli() {
+				t.Fatalf("advised reset %s, want %s", adv.ResetsAt, resetsAt)
 			}
 			return
 		}
@@ -1310,7 +1313,7 @@ func TestNudgeQuotaPoll_SpentPollBudgetDoesNotWipeAdvice(t *testing.T) {
 		name string
 		id   uuid.UUID
 	}{{"nudged", nudged}, {"bystander", bystander}} {
-		if _, ok := advisor.ResetsAt(c.id); !ok {
+		if _, ok := advisor.Advice(c.id); !ok {
 			t.Fatalf("setup: %s provider must start out advised", c.name)
 		}
 	}
@@ -1325,10 +1328,44 @@ func TestNudgeQuotaPoll_SpentPollBudgetDoesNotWipeAdvice(t *testing.T) {
 
 	h.runQuotaNudge(spent, exhaustedZaiCodingDiscovery(resetsAt), prov, "usage")
 
-	if _, ok := advisor.ResetsAt(bystander); !ok {
+	if _, ok := advisor.Advice(bystander); !ok {
 		t.Error("a spent poll budget wiped advice for an unrelated provider: the refresh must not run on a context the poll could exhaust")
 	}
-	if _, ok := advisor.ResetsAt(nudged); !ok {
+	if _, ok := advisor.Advice(nudged); !ok {
 		t.Error("a spent poll budget dropped the nudged provider's own advice, which its stored snapshot still supports")
+	}
+}
+
+// TestBuildQuotaAdvice_CarriesTheReserveVerdict: the advice says which line
+// the provider crossed, so the breaker's pin can name its source.
+func TestBuildQuotaAdvice_CarriesTheReserveVerdict(t *testing.T) {
+	now := time.Now()
+	month := now.Add(20 * 24 * time.Hour).UTC().Truncate(time.Second)
+	payload := func(monthly float64) json.RawMessage {
+		return json.RawMessage(fmt.Sprintf(`{"usage":{"rolling":{"status":"ok","percent":0,"resetsAt":%q},"weekly":{"status":"ok","percent":90,"resetsAt":%q},"monthly":{"status":"ok","percent":%v,"resetsAt":%q}}}`,
+			now.Add(time.Hour).Format(time.RFC3339), now.Add(24*time.Hour).Format(time.RFC3339), monthly, month.Format(time.RFC3339)))
+	}
+	id := uuid.New()
+	snap := func(p json.RawMessage) []quota.Snapshot {
+		return []quota.Snapshot{{ProviderID: id, Kind: "usage", Payload: p, FetchedAt: now.Add(-time.Minute)}}
+	}
+	types := map[uuid.UUID]string{id: "opencode-go"}
+	reserve := map[uuid.UUID]float64{id: 0.1}
+
+	// Weekly at the line, month under it: the reserve is kept on the month.
+	advice, recovered := buildQuotaAdvice(snap(payload(85)), types, reserve, 15*time.Minute, now)
+	if _, ok := advice[id]; ok {
+		t.Errorf("weekly at the line must not advise a pin, got %+v", advice[id])
+	}
+	if _, ok := recovered[id]; !ok {
+		t.Error("a provider under its reserve line is healthy")
+	}
+	advice, _ = buildQuotaAdvice(snap(payload(90)), types, reserve, 15*time.Minute, now)
+	if got := advice[id]; !got.Reserved || !got.ResetsAt.Equal(month) {
+		t.Errorf("month at the line: got %+v, want reserved until %v", got, month)
+	}
+	advice, _ = buildQuotaAdvice(snap(payload(100)), types, reserve, 15*time.Minute, now)
+	if got := advice[id]; got.Reserved || !got.ResetsAt.Equal(month) {
+		t.Errorf("month spent: got %+v, want exhausted (not reserved) until %v", got, month)
 	}
 }

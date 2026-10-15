@@ -39,6 +39,7 @@ export function entryCircuitStatus(
 			...row,
 			state: own.state,
 			quota_pinned: Boolean(own.quota_pinned),
+			pin_source: own.pin_source,
 			backed_off: Boolean(own.backed_off),
 			next_retry_at: own.next_retry_at,
 		};
@@ -48,7 +49,26 @@ export function entryCircuitStatus(
 }
 
 /** The state chip an entry shows. */
-export type EntryChip = "live" | "busy" | "open" | "probe" | "pinned";
+export type EntryChip =
+	| "live"
+	| "busy"
+	| "open"
+	| "probe"
+	| "pinned"
+	| "reserved";
+
+/**
+ * The chip of a blocking circuit: reserved when the operator's quota reserve
+ * holds it (quota is left, just not for the gateway), pinned when a quota pin
+ * of any other source does, else open.
+ */
+function blockedChip(c: {
+	quota_pinned?: boolean;
+	pin_source?: string;
+}): EntryChip {
+	if (!c.quota_pinned) return "open";
+	return c.pin_source === "reserve" ? "reserved" : "pinned";
+}
 
 /**
  * How recently a saturated 429 must have landed on a closed circuit for the
@@ -78,8 +98,9 @@ export interface EntryCircuitView {
  * renders every entry either way.
  *
  * Rules, in order: the provider verdict open turns every entry of the provider
- * away (pinned when a quota pin holds it, else open); the entry's own circuit
- * open and blocking is open/pinned; owed a probe is probe; a closed circuit
+ * away (reserved when the quota reserve holds it, pinned when another quota pin
+ * does, else open); the entry's own circuit open and blocking is
+ * open/pinned/reserved the same way; owed a probe is probe; a closed circuit
  * whose last verdict was a saturated 429 inside BUSY_WINDOW_MS is busy; else
  * live.
  */
@@ -102,7 +123,7 @@ export function entryCircuitView(
 	if (row.provider_open) {
 		return {
 			...base,
-			chip: row.quota_pinned ? "pinned" : "open",
+			chip: blockedChip(row),
 			nextRetryAt: circuit?.next_retry_at ?? row.next_retry_at,
 		};
 	}
@@ -111,7 +132,7 @@ export function entryCircuitView(
 		if (circuit.state === "open") {
 			return {
 				...base,
-				chip: circuit.quota_pinned ? "pinned" : "open",
+				chip: blockedChip(circuit),
 				nextRetryAt: circuit.next_retry_at,
 			};
 		}
@@ -134,7 +155,7 @@ export function entryCircuitView(
 		if (row.state === "open" && row.open_models?.includes(modelId)) {
 			return {
 				...base,
-				chip: row.quota_pinned ? "pinned" : "open",
+				chip: blockedChip(row),
 				nextRetryAt: row.next_retry_at,
 			};
 		}

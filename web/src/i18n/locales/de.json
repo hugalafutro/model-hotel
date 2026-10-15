@@ -850,8 +850,13 @@
 			"maxInFlightHelper": "Harte Obergrenze für gleichzeitige Anfragen an diesen Anbieter. Leer lassen für keine Obergrenze; der adaptive Lerner passt sich darunter weiter an.",
 			"quotaReserveLabel": "Kontingentreserve",
 			"quotaReserveDrain": "Vollständig aufbrauchen",
-			"quotaReserveHelper": "Anteil jedes Abonnementfensters, der für die Nutzung außerhalb von Model Hotel zurückgehalten wird. Das Routing hierher endet, sobald einem Fenster nur noch so viel bleibt, und läuft nach dem Zurücksetzen weiter.",
-			"quotaReserveHelperScope": "Nur Anbieter mit Abonnementfenstern reagieren, keine Guthabenanbieter."
+			"quotaReserveHelper": "Anteil des {{window}} Fensters, der für die Nutzung außerhalb von Model Hotel zurückgehalten wird. Das Routing hierher endet, sobald diesem Fenster nur noch so viel bleibt, und läuft nach dem Zurücksetzen weiter; kürzere Fenster stoppen das Routing erst, wenn sie aufgebraucht sind.",
+			"quotaReserveHelperScope": "Nur Anbieter mit Abonnementfenstern reagieren, keine Guthabenanbieter.",
+			"quotaReserveWindow": {
+				"weekly": "wöchentlichen",
+				"monthly": "monatlichen",
+				"longest": "längsten"
+			}
 		},
 		"quotas": {
 			"expand": "Quoten erweitern"
@@ -1018,7 +1023,7 @@
 		"type_anthropic_messages": "Anthropic (Messages API)",
 		"card_website": "Website des Providers öffnen",
 		"card_tokens_tooltip": "Seit {{date}} über diesen Provider geleitete Tokens, Prompt und Antwort zusammen",
-		"quota_reserve_card_tooltip": "{{percent}}% jedes Kontingentfensters werden als Reserve gehalten"
+		"quota_reserve_card_tooltip": "{{percent}}% des {{window}} Kontingentfensters werden als Reserve gehalten"
 	},
 	"models": {
 		"page_title_one": "Modell",
@@ -3091,11 +3096,13 @@
 				"busy": "ausgelastet",
 				"open": "offen",
 				"probe": "Probe fällig",
-				"pinned": "gepinnt"
+				"pinned": "gepinnt",
+				"reserved": "reserviert"
 			},
 			"chipBusyTip": "Dieser Anbieter hat in der letzten Minute mit einem 429 (ausgelastet) geantwortet; sein Schutzschalter ist geschlossen, Anfragen gehen weiterhin hierhin und weichen auf den nächsten Eintrag aus, wenn er voll ist.",
 			"circuitCause": "Letztes Urteil: {{cause}} (Upstream-Status {{status}}) um {{when}}",
-			"circuitCauseNoStatus": "Letztes Urteil: {{cause}} um {{when}}"
+			"circuitCauseNoStatus": "Letztes Urteil: {{cause}} um {{when}}",
+			"circuitBreakerQuotaReserved": "Schutzschalter offen - Kontingentreserve des Anbieters erreicht, die Reserve bleibt für die Nutzung außerhalb von Model Hotel; nächster Versuch am {{resetTime}}"
 		}
 	},
 	"virtualKeys": {

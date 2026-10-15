@@ -10,6 +10,7 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/hugalafutro/model-hotel/internal/debuglog"
+	"github.com/hugalafutro/model-hotel/internal/failover"
 	"github.com/hugalafutro/model-hotel/internal/provider"
 	"github.com/hugalafutro/model-hotel/internal/quota"
 	"github.com/hugalafutro/model-hotel/internal/util"
@@ -434,18 +435,19 @@ func (h *Handler) DisableQuotaAdvice(ctx context.Context) {
 //     deserved.
 //
 // reserveByID carries each provider's quota reserve as a share (0.1 for 10%);
-// a provider absent from it drains fully. A window past its reserve line is
-// advised exactly like a spent one, so the same pin holds the provider dark
-// until the window resets, and the same recovered path releases it once the
-// reading drops back under the line.
+// a provider absent from it drains fully. A provider whose longest window is
+// past its reserve line is advised exactly like a spent one, so the same pin
+// holds it dark until the window resets, and the same recovered path releases
+// it once the reading drops back under the line; the advice carries Reserved
+// so the pin reports which line it was.
 func buildQuotaAdvice(
 	snaps []quota.Snapshot,
 	typeByID map[uuid.UUID]string,
 	reserveByID map[uuid.UUID]float64,
 	maxAge time.Duration,
 	now time.Time,
-) (advice map[uuid.UUID]time.Time, recovered map[uuid.UUID]struct{}) {
-	advice = make(map[uuid.UUID]time.Time)
+) (advice map[uuid.UUID]failover.QuotaAdvice, recovered map[uuid.UUID]struct{}) {
+	advice = make(map[uuid.UUID]failover.QuotaAdvice)
 	recovered = make(map[uuid.UUID]struct{})
 	if maxAge <= 0 {
 		// Quota polling is disabled (or the resolved interval is otherwise
@@ -467,7 +469,7 @@ func buildQuotaAdvice(
 			continue
 		}
 		if a.Exhausted {
-			advice[s.ProviderID] = a.ResetsAt
+			advice[s.ProviderID] = failover.QuotaAdvice{ResetsAt: a.ResetsAt, Reserved: a.Reserved}
 			continue
 		}
 		// A row whose latest refresh attempt failed still carries the last good

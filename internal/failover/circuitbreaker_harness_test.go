@@ -129,11 +129,14 @@ func (s *countingSettings) reads(key string) int {
 }
 
 type stubAdvisor struct {
-	at time.Time
-	ok bool
+	at       time.Time
+	ok       bool
+	reserved bool
 }
 
-func (s stubAdvisor) ResetsAt(uuid.UUID) (time.Time, bool) { return s.at, s.ok }
+func (s stubAdvisor) Advice(uuid.UUID) (QuotaAdvice, bool) {
+	return QuotaAdvice{ResetsAt: s.at, Reserved: s.reserved}, s.ok
+}
 
 // openBreaker drives a fresh breaker to the Open state using real failures.
 func openBreaker(t *testing.T, cb *CircuitBreaker, id uuid.UUID) {

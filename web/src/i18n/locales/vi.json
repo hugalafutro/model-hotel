@@ -850,8 +850,13 @@
 			"maxInFlightHelper": "Trần cứng cho các yêu cầu đồng thời tới nhà cung cấp này. Để trống nếu không muốn trần; bộ học thích ứng vẫn tự điều chỉnh bên dưới.",
 			"quotaReserveLabel": "Dự trữ hạn mức",
 			"quotaReserveDrain": "Dùng cạn",
-			"quotaReserveHelper": "Phần của mỗi cửa sổ đăng ký được giữ lại để dùng ngoài Model Hotel. Việc định tuyến tới đây dừng khi một cửa sổ chỉ còn chừng này và tiếp tục khi cửa sổ đặt lại.",
-			"quotaReserveHelperScope": "Chỉ các nhà cung cấp có cửa sổ đăng ký mới phản hồi, không phải nhà cung cấp theo số dư."
+			"quotaReserveHelper": "Phần của cửa sổ {{window}} được giữ lại để dùng ngoài Model Hotel. Việc định tuyến tới đây dừng khi cửa sổ đó chỉ còn chừng này và tiếp tục khi cửa sổ đặt lại; các cửa sổ ngắn hơn chỉ dừng định tuyến khi đã hết.",
+			"quotaReserveHelperScope": "Chỉ các nhà cung cấp có cửa sổ đăng ký mới phản hồi, không phải nhà cung cấp theo số dư.",
+			"quotaReserveWindow": {
+				"weekly": "hàng tuần",
+				"monthly": "hàng tháng",
+				"longest": "dài nhất"
+			}
 		},
 		"quotas": {
 			"expand": "Mở rộng hạn ngạch"
@@ -1018,7 +1023,7 @@
 		"type_anthropic_messages": "Anthropic (Messages API)",
 		"card_website": "Mở trang web của nhà cung cấp",
 		"card_tokens_tooltip": "Token được định tuyến qua nhà cung cấp này kể từ {{date}}, gồm cả prompt và phản hồi",
-		"quota_reserve_card_tooltip": "Đang giữ {{percent}}% của mỗi cửa sổ hạn mức làm dự trữ"
+		"quota_reserve_card_tooltip": "Đang giữ {{percent}}% của cửa sổ hạn mức {{window}} làm dự trữ"
 	},
 	"models": {
 		"page_title_one": "Mô hình",
@@ -3091,11 +3096,13 @@
 				"busy": "bận",
 				"open": "mở",
 				"probe": "chờ thăm dò",
-				"pinned": "ghim"
+				"pinned": "ghim",
+				"reserved": "dự trữ"
 			},
 			"chipBusyTip": "Nhà cung cấp này đã trả về 429 bận trong phút vừa qua; cầu dao của nó đang đóng và yêu cầu vẫn được định tuyến tới đây, tràn sang mục tiếp theo khi đầy.",
 			"circuitCause": "Phán quyết gần nhất: {{cause}} (trạng thái upstream {{status}}) lúc {{when}}",
-			"circuitCauseNoStatus": "Phán quyết gần nhất: {{cause}} lúc {{when}}"
+			"circuitCauseNoStatus": "Phán quyết gần nhất: {{cause}} lúc {{when}}",
+			"circuitBreakerQuotaReserved": "Công tắc ngắt mạch đang mở - đã chạm mức dự trữ hạn ngạch của nhà cung cấp, phần dự trữ vẫn còn để dùng ngoài Model Hotel; lần thử tiếp theo vào {{resetTime}}"
 		}
 	},
 	"virtualKeys": {

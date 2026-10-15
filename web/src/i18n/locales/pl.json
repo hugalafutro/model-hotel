@@ -898,8 +898,13 @@
 			"maxInFlightHelper": "Twardy limit równoczesnych żądań do tego dostawcy. Pozostaw puste, aby nie stosować limitu; adaptacyjne uczenie nadal działa poniżej niego.",
 			"quotaReserveLabel": "Rezerwa limitu",
 			"quotaReserveDrain": "Wyczerpać całkowicie",
-			"quotaReserveHelper": "Część każdego okna subskrypcji zachowana do użytku poza Model Hotel. Kierowanie tutaj ustaje, gdy w oknie zostaje tylko tyle, i wznawia się po jego zresetowaniu.",
-			"quotaReserveHelperScope": "Reagują tylko dostawcy z oknami subskrypcji, nie dostawcy z saldem."
+			"quotaReserveHelper": "Część okna {{window}} zachowana do użytku poza Model Hotel. Kierowanie tutaj ustaje, gdy w tym oknie zostaje tylko tyle, i wznawia się po jego zresetowaniu; krótsze okna wstrzymują kierowanie dopiero po wyczerpaniu.",
+			"quotaReserveHelperScope": "Reagują tylko dostawcy z oknami subskrypcji, nie dostawcy z saldem.",
+			"quotaReserveWindow": {
+				"weekly": "tygodniowego",
+				"monthly": "miesięcznego",
+				"longest": "najdłuższego"
+			}
 		},
 		"quotas": {
 			"expand": "Rozwiń kontyngenty"
@@ -1102,7 +1107,7 @@
 		"type_anthropic_messages": "Anthropic (Messages API)",
 		"card_website": "Otwórz stronę dostawcy",
 		"card_tokens_tooltip": "Tokeny przekierowane przez tego dostawcę od {{date}}, prompt i odpowiedź łącznie",
-		"quota_reserve_card_tooltip": "W rezerwie pozostaje {{percent}}% każdego okna limitu"
+		"quota_reserve_card_tooltip": "W rezerwie pozostaje {{percent}}% {{window}} okna limitu"
 	},
 	"models": {
 		"page_title_one": "Model",
@@ -3243,11 +3248,13 @@
 				"busy": "zajęty",
 				"open": "otwarty",
 				"probe": "sonda należna",
-				"pinned": "przypięty"
+				"pinned": "przypięty",
+				"reserved": "zarezerwowany"
 			},
 			"chipBusyTip": "Ten dostawca odpowiedział zajętym 429 w ciągu ostatniej minuty; jego bezpiecznik jest zamknięty, a żądania nadal tu trafiają i przelewają się do następnej pozycji, gdy jest pełny.",
 			"circuitCause": "Ostatni werdykt: {{cause}} (status upstream {{status}}) o {{when}}",
-			"circuitCauseNoStatus": "Ostatni werdykt: {{cause}} o {{when}}"
+			"circuitCauseNoStatus": "Ostatni werdykt: {{cause}} o {{when}}",
+			"circuitBreakerQuotaReserved": "Wyłącznik obwodu otwarty - osiągnięto rezerwę limitu dostawcy, rezerwa nadal pozostaje do użytku poza Model Hotel; następna próba o {{resetTime}}"
 		}
 	},
 	"virtualKeys": {

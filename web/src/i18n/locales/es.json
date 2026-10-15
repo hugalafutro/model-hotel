@@ -874,8 +874,13 @@
 			"maxInFlightHelper": "Tope estricto de peticiones simultáneas a este proveedor. Déjalo vacío para no aplicar tope; el aprendizaje adaptativo sigue ajustándose por debajo.",
 			"quotaReserveLabel": "Reserva de cuota",
 			"quotaReserveDrain": "Agotar por completo",
-			"quotaReserveHelper": "Parte de cada ventana de suscripción que se reserva para uso fuera de Model Hotel. El enrutamiento se detiene aquí cuando a una ventana solo le queda eso y se reanuda cuando se reinicia.",
-			"quotaReserveHelperScope": "Solo responden los proveedores con ventanas de suscripción, no los de saldo."
+			"quotaReserveHelper": "Parte de la ventana {{window}} que se reserva para uso fuera de Model Hotel. El enrutamiento se detiene aquí cuando a esa ventana solo le queda eso y se reanuda cuando se reinicia; las ventanas más cortas solo detienen el enrutamiento cuando se agotan.",
+			"quotaReserveHelperScope": "Solo responden los proveedores con ventanas de suscripción, no los de saldo.",
+			"quotaReserveWindow": {
+				"weekly": "semanal",
+				"monthly": "mensual",
+				"longest": "más larga"
+			}
 		},
 		"quotas": {
 			"expand": "Expandir cuotas"
@@ -1060,7 +1065,7 @@
 		"type_anthropic_messages": "Anthropic (Messages API)",
 		"card_website": "Abrir el sitio web del proveedor",
 		"card_tokens_tooltip": "Tokens enrutados a través de este proveedor desde {{date}}, prompt y respuesta combinados",
-		"quota_reserve_card_tooltip": "Se reserva el {{percent}}% de cada ventana de cuota"
+		"quota_reserve_card_tooltip": "Se reserva el {{percent}}% de la ventana de cuota {{window}}"
 	},
 	"models": {
 		"page_title_one": "Modelo",
@@ -3167,11 +3172,13 @@
 				"busy": "ocupado",
 				"open": "abierto",
 				"probe": "sonda pendiente",
-				"pinned": "fijado"
+				"pinned": "fijado",
+				"reserved": "reservado"
 			},
 			"chipBusyTip": "Este proveedor respondió un 429 de ocupado en el último minuto; su disyuntor está cerrado y las solicitudes se siguen enrutando aquí, pasando a la siguiente entrada cuando está lleno.",
 			"circuitCause": "Último veredicto: {{cause}} (estado upstream {{status}}) a las {{when}}",
-			"circuitCauseNoStatus": "Último veredicto: {{cause}} a las {{when}}"
+			"circuitCauseNoStatus": "Último veredicto: {{cause}} a las {{when}}",
+			"circuitBreakerQuotaReserved": "Interruptor de circuito abierto - se alcanzó la reserva de cuota del proveedor, la reserva sigue disponible para uso fuera de Model Hotel; próximo intento el {{resetTime}}"
 		}
 	},
 	"virtualKeys": {

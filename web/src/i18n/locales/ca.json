@@ -874,8 +874,13 @@
 			"maxInFlightHelper": "Sostre estricte de peticions simultànies a aquest proveïdor. Deixa-ho buit per no aplicar sostre; l'aprenentatge adaptatiu continua ajustant-se per sota.",
 			"quotaReserveLabel": "Reserva de quota",
 			"quotaReserveDrain": "Esgotar del tot",
-			"quotaReserveHelper": "Part de cada finestra de subscripció que es reserva per a ús fora de Model Hotel. L'encaminament s'atura aquí quan a una finestra només li queda això i es reprèn quan es reinicia.",
-			"quotaReserveHelperScope": "Només hi responen els proveïdors amb finestres de subscripció, no els de saldo."
+			"quotaReserveHelper": "Part de la finestra {{window}} que es reserva per a ús fora de Model Hotel. L'encaminament s'atura aquí quan a aquesta finestra només li queda això i es reprèn quan es reinicia; les finestres més curtes només aturen l'encaminament quan s'esgoten.",
+			"quotaReserveHelperScope": "Només hi responen els proveïdors amb finestres de subscripció, no els de saldo.",
+			"quotaReserveWindow": {
+				"weekly": "setmanal",
+				"monthly": "mensual",
+				"longest": "més llarga"
+			}
 		},
 		"quotas": {
 			"expand": "Ampliar les quotes"
@@ -1060,7 +1065,7 @@
 		"type_anthropic_messages": "Anthropic (Messages API)",
 		"card_website": "Obre el lloc web del proveïdor",
 		"card_tokens_tooltip": "Tokens encaminats a través d'aquest proveïdor des de {{date}}, prompt i compleció combinats",
-		"quota_reserve_card_tooltip": "Es reserva el {{percent}}% de cada finestra de quota"
+		"quota_reserve_card_tooltip": "Es reserva el {{percent}}% de la finestra de quota {{window}}"
 	},
 	"models": {
 		"page_title_one": "Model",
@@ -3167,11 +3172,13 @@
 				"busy": "ocupat",
 				"open": "obert",
 				"probe": "sonda pendent",
-				"pinned": "fixat"
+				"pinned": "fixat",
+				"reserved": "reservat"
 			},
 			"chipBusyTip": "Aquest proveïdor ha respost un 429 d'ocupat en l'últim minut; el seu disjuntor està tancat i les sol·licituds encara s'hi encaminen, passant a l'entrada següent quan és ple.",
 			"circuitCause": "Últim veredicte: {{cause}} (estat amunt {{status}}) a les {{when}}",
-			"circuitCauseNoStatus": "Últim veredicte: {{cause}} a les {{when}}"
+			"circuitCauseNoStatus": "Últim veredicte: {{cause}} a les {{when}}",
+			"circuitBreakerQuotaReserved": "Interruptor automàtic obert - s'ha arribat a la reserva de quota del proveïdor, la reserva encara queda per a ús fora de Model Hotel; propera prova a les {{resetTime}}"
 		}
 	},
 	"virtualKeys": {

@@ -197,7 +197,8 @@
 		"resetCircuitsRecovered_many": "{{count}} восстановлено",
 		"resetCircuitsRecovered_other": "{{count}} восстановлено",
 		"errPrimaryElsewhere": "Другой Front Desk по-прежнему считает этот хост основным в своём флоте. Возможно, он лишь временно недоступен, и добавление здесь означало бы захват его флота. Сначала удалите хост там или, если тот Front Desk исчез окончательно, введите ниже админ-токен этого Front Desk, чтобы всё равно его добавить.",
-		"confirmDeskTokenLabel": "Админ-токен этого Front Desk"
+		"confirmDeskTokenLabel": "Админ-токен этого Front Desk",
+		"circuitStateReserved": "в резерве"
 	},
 	"traffic": {
 		"title": "Трафик",

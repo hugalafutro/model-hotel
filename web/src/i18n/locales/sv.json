@@ -850,8 +850,13 @@
 			"maxInFlightHelper": "Hårt tak för samtidiga förfrågningar till denna leverantör. Lämna tomt för inget tak; den adaptiva inlärningen justerar fortfarande under det.",
 			"quotaReserveLabel": "Kvotreserv",
 			"quotaReserveDrain": "Använd helt",
-			"quotaReserveHelper": "Andel av varje prenumerationsfönster som hålls undan för användning utanför Model Hotel. Routning hit upphör när ett fönster bara har så mycket kvar och återupptas när det återställs.",
-			"quotaReserveHelperScope": "Endast leverantörer med prenumerationsfönster reagerar, inte saldoleverantörer."
+			"quotaReserveHelper": "Andel av det {{window}} fönstret som hålls undan för användning utanför Model Hotel. Routning hit upphör när det fönstret bara har så mycket kvar och återupptas när det återställs; kortare fönster stoppar routning först när de är slut.",
+			"quotaReserveHelperScope": "Endast leverantörer med prenumerationsfönster reagerar, inte saldoleverantörer.",
+			"quotaReserveWindow": {
+				"weekly": "veckovisa",
+				"monthly": "månatliga",
+				"longest": "längsta"
+			}
 		},
 		"quotas": {
 			"expand": "Expandera kvoter"
@@ -1018,7 +1023,7 @@
 		"type_anthropic_messages": "Anthropic (Messages API)",
 		"card_website": "Öppna leverantörens webbplats",
 		"card_tokens_tooltip": "Tokens som skickats via denna leverantör sedan {{date}}, prompt och svar sammanlagt",
-		"quota_reserve_card_tooltip": "Håller {{percent}}% av varje kvotfönster i reserv"
+		"quota_reserve_card_tooltip": "Håller {{percent}}% av det {{window}} kvotfönstret i reserv"
 	},
 	"models": {
 		"page_title_one": "Modell",
@@ -3091,11 +3096,13 @@
 				"busy": "upptagen",
 				"open": "öppen",
 				"probe": "sond väntar",
-				"pinned": "fäst"
+				"pinned": "fäst",
+				"reserved": "reserverad"
 			},
 			"chipBusyTip": "Den här leverantören svarade med en upptagen-429 under den senaste minuten; dess kretsbrytare är stängd och begäranden dirigeras fortfarande hit, och rinner över till nästa post när den är full.",
 			"circuitCause": "Senaste utslag: {{cause}} (uppströmsstatus {{status}}) kl. {{when}}",
-			"circuitCauseNoStatus": "Senaste utslag: {{cause}} kl. {{when}}"
+			"circuitCauseNoStatus": "Senaste utslag: {{cause}} kl. {{when}}",
+			"circuitBreakerQuotaReserved": "Kretsbrytare öppen - leverantörens kvotreserv nådd, reserven finns kvar för användning utanför Model Hotel; nästa försök {{resetTime}}"
 		}
 	},
 	"virtualKeys": {

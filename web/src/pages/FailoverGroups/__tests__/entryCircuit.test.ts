@@ -219,6 +219,41 @@ describe("entryCircuitView", () => {
 		expect(entryCircuitView(unpinned, "dark", now).chip).toBe("open");
 	});
 
+	it("reads reserved off a reserve pin, on the entry's own circuit and on the provider verdict", () => {
+		const own = row({
+			state: "open",
+			circuits: [
+				{
+					model: "dark",
+					state: "open",
+					consecutive_fails: 5,
+					quota_pinned: true,
+					pin_source: "reserve",
+					next_retry_at: "2026-10-19T00:00:00Z",
+				},
+			],
+		});
+		expect(entryCircuitView(own, "dark", now).chip).toBe("reserved");
+		expect(entryCircuitStatus(own, "dark")?.pin_source).toBe("reserve");
+		const whole = row({
+			state: "open",
+			provider_open: true,
+			quota_pinned: true,
+			pin_source: "reserve",
+			open_models: ["a"],
+			circuits: [{ model: "a", state: "open", consecutive_fails: 5 }],
+		});
+		expect(entryCircuitView(whole, "b", now).chip).toBe("reserved");
+		// An older member with no circuits[] still names the reserve.
+		const older = row({
+			state: "open",
+			quota_pinned: true,
+			pin_source: "reserve",
+			open_models: ["a"],
+		});
+		expect(entryCircuitView(older, "a", now).chip).toBe("reserved");
+	});
+
 	it("turns every entry of a skipped provider away, pinned when a pin holds it", () => {
 		const r = row({
 			state: "open",

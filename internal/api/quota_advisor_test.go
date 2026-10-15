@@ -8,6 +8,7 @@ import (
 
 	"github.com/google/uuid"
 
+	"github.com/hugalafutro/model-hotel/internal/failover"
 	"github.com/hugalafutro/model-hotel/internal/quota"
 )
 
@@ -15,22 +16,22 @@ func TestQuotaAdvisor_ReplaceAndRead(t *testing.T) {
 	adv := NewQuotaAdvisor()
 	id := uuid.New()
 
-	if _, ok := adv.ResetsAt(id); ok {
+	if _, ok := adv.Advice(id); ok {
 		t.Error("empty advisor must decline")
 	}
 
 	want := time.Now().Add(time.Hour).Truncate(time.Second)
-	adv.Replace(map[uuid.UUID]time.Time{id: want})
+	adv.Replace(map[uuid.UUID]failover.QuotaAdvice{id: {ResetsAt: want}})
 
-	got, ok := adv.ResetsAt(id)
+	got, ok := adv.Advice(id)
 	if !ok {
 		t.Fatal("advisor must report a stored deadline")
 	}
-	if !got.Equal(want) {
-		t.Errorf("got %v, want %v", got, want)
+	if !got.ResetsAt.Equal(want) {
+		t.Errorf("got %v, want %v", got.ResetsAt, want)
 	}
 
-	if _, ok := adv.ResetsAt(uuid.New()); ok {
+	if _, ok := adv.Advice(uuid.New()); ok {
 		t.Error("unknown provider must decline")
 	}
 }
@@ -38,11 +39,11 @@ func TestQuotaAdvisor_ReplaceAndRead(t *testing.T) {
 func TestQuotaAdvisor_ReplaceDropsStaleEntries(t *testing.T) {
 	adv := NewQuotaAdvisor()
 	gone := uuid.New()
-	adv.Replace(map[uuid.UUID]time.Time{gone: time.Now().Add(time.Hour)})
+	adv.Replace(map[uuid.UUID]failover.QuotaAdvice{gone: {ResetsAt: time.Now().Add(time.Hour)}})
 
-	adv.Replace(map[uuid.UUID]time.Time{})
+	adv.Replace(map[uuid.UUID]failover.QuotaAdvice{})
 
-	if _, ok := adv.ResetsAt(gone); ok {
+	if _, ok := adv.Advice(gone); ok {
 		t.Error("Replace must swap the map wholesale, not merge into it")
 	}
 }
@@ -50,7 +51,7 @@ func TestQuotaAdvisor_ReplaceDropsStaleEntries(t *testing.T) {
 func TestQuotaAdvisor_NilSafeReplace(t *testing.T) {
 	adv := NewQuotaAdvisor()
 	adv.Replace(nil)
-	if _, ok := adv.ResetsAt(uuid.New()); ok {
+	if _, ok := adv.Advice(uuid.New()); ok {
 		t.Error("nil replace must leave the advisor empty, not panic")
 	}
 }

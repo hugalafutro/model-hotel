@@ -850,8 +850,13 @@
 			"maxInFlightHelper": "Harde plafon vir gelyktydige versoeke aan hierdie verskaffer. Laat leeg vir geen plafon; die aanpasbare leerder stel steeds daaronder aan.",
 			"quotaReserveLabel": "Kwotareserwe",
 			"quotaReserveDrain": "Volledig opgebruik",
-			"quotaReserveHelper": "Deel van elke intekenvenster wat vir gebruik buite Model Hotel gehou word. Roetering stop hier sodra 'n venster net soveel oor het en hervat wanneer dit herstel.",
-			"quotaReserveHelperScope": "Slegs verskaffers met intekenvensters reageer, nie saldo-verskaffers nie."
+			"quotaReserveHelper": "Deel van die {{window}} venster wat vir gebruik buite Model Hotel gehou word. Roetering stop hier sodra daardie venster net soveel oor het en hervat wanneer dit herstel; korter vensters stop roetering eers wanneer hulle op is.",
+			"quotaReserveHelperScope": "Slegs verskaffers met intekenvensters reageer, nie saldo-verskaffers nie.",
+			"quotaReserveWindow": {
+				"weekly": "weeklikse",
+				"monthly": "maandelikse",
+				"longest": "langste"
+			}
 		},
 		"quotas": {
 			"expand": "Brei kwotas uit"
@@ -1018,7 +1023,7 @@
 		"type_anthropic_messages": "Anthropic (Messages API)",
 		"card_website": "Open die verskaffer se webwerf",
 		"card_tokens_tooltip": "Tokens wat sedert {{date}} deur hierdie verskaffer gestuur is, prompt en voltooiing saam",
-		"quota_reserve_card_tooltip": "Hou {{percent}}% van elke kwotavenster in reserwe"
+		"quota_reserve_card_tooltip": "Hou {{percent}}% van die {{window}} kwotavenster in reserwe"
 	},
 	"models": {
 		"page_title_one": "Model",
@@ -3091,11 +3096,13 @@
 				"busy": "besig",
 				"open": "oop",
 				"probe": "toets verskuldig",
-				"pinned": "vasgepen"
+				"pinned": "vasgepen",
+				"reserved": "gereserveer"
 			},
 			"chipBusyTip": "Hierdie verskaffer het die afgelope minuut 'n besige 429 geantwoord; sy stroombreker is toe en versoeke word steeds hierheen gestuur, en vloei oor na die volgende inskrywing wanneer dit vol is.",
 			"circuitCause": "Laaste uitspraak: {{cause}} (stroomop-status {{status}}) om {{when}}",
-			"circuitCauseNoStatus": "Laaste uitspraak: {{cause}} om {{when}}"
+			"circuitCauseNoStatus": "Laaste uitspraak: {{cause}} om {{when}}",
+			"circuitBreakerQuotaReserved": "Kringbreker oop - verskaffer se kwotareserwe bereik, die reserwe is nog oor vir gebruik buite Model Hotel; volgende poging om {{resetTime}}"
 		}
 	},
 	"virtualKeys": {

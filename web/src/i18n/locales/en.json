@@ -856,8 +856,13 @@
 			"maxInFlightHelper": "Hard ceiling on simultaneous requests to this provider. Leave empty for no ceiling; the adaptive learner still adjusts underneath it.",
 			"quotaReserveLabel": "Quota Reserve",
 			"quotaReserveDrain": "Drain fully",
-			"quotaReserveHelper": "Share of every subscription window kept for use outside Model Hotel. Routing stops here once a window has only this much left and resumes when it resets.",
-			"quotaReserveHelperScope": "Only subscription window providers respond, not balance providers."
+			"quotaReserveHelper": "Share of the {{window}} window kept for use outside Model Hotel. Routing stops here once that window has only this much left and resumes when it resets; shorter windows stop routing only when spent.",
+			"quotaReserveHelperScope": "Only subscription window providers respond, not balance providers.",
+			"quotaReserveWindow": {
+				"weekly": "weekly",
+				"monthly": "monthly",
+				"longest": "longest"
+			}
 		},
 		"quotas": {
 			"expand": "Expand quotas"
@@ -1018,7 +1023,7 @@
 		"schedule_disable_cancel": "Cancel schedule",
 		"scheduled_disable_card_tooltip": "Scheduled to be disabled on {{date}}",
 		"type_anthropic_messages": "Anthropic (Messages API)",
-		"quota_reserve_card_tooltip": "Keeping {{percent}}% of every quota window in reserve"
+		"quota_reserve_card_tooltip": "Keeping {{percent}}% of the {{window}} quota window in reserve"
 	},
 	"models": {
 		"page_title_one": "Model",
@@ -3070,6 +3075,7 @@
 			"enableProvider": "Enable provider",
 			"circuitBreakerOpen": "Circuit breaker open - waiting for cooldown",
 			"circuitBreakerQuotaPinned": "Circuit breaker open - provider quota exhausted, next retry at {{resetTime}}",
+			"circuitBreakerQuotaReserved": "Circuit breaker open - provider quota reserve reached, the reserve is still left for use outside Model Hotel; next retry at {{resetTime}}",
 			"circuitBreakerBackedOff": "Circuit breaker open - the last retry failed too, so the cooldown is backing off; next retry at {{resetTime}}",
 			"circuitBreakerProviderOpen": "Whole provider skipped - circuit breaker open for: {{models}}",
 			"circuitBreakerReadyToProbe": "Cooldown over - probing recovery",
@@ -3091,7 +3097,8 @@
 				"busy": "busy",
 				"open": "open",
 				"probe": "probe due",
-				"pinned": "pinned"
+				"pinned": "pinned",
+				"reserved": "reserved"
 			},
 			"chipBusyTip": "This provider answered a busy 429 in the last minute; its circuit is closed and requests still route here, spilling to the next entry when it is full.",
 			"circuitCause": "Last verdict: {{cause}} (upstream status {{status}}) at {{when}}",

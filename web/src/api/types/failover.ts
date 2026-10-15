@@ -60,6 +60,14 @@ export interface CircuitBreakerStatus {
 	open: number;
 	providers?: CircuitBreakerProviderStatus[];
 }
+/**
+ * Where a quota pin came from: a measured reading of a spent window
+ * ("advisor"), a measured reading past the operator's quota reserve with the
+ * reserve still left ("reserve"), the exhausted 429 itself ("response") or a
+ * 429 that refused the whole account ("account").
+ */
+export type PinSource = "advisor" | "reserve" | "response" | "account";
+
 export interface CircuitBreakerProviderStatus {
 	provider_id: string;
 	provider_name?: string;
@@ -73,6 +81,9 @@ export interface CircuitBreakerProviderStatus {
 	// override in force, not whether traffic is blocked; next_retry_at is then
 	// that reset deadline.
 	quota_pinned?: boolean;
+	// Where the dominant circuit's pin came from; "reserve" means the operator's
+	// quota reserve drew the line and the provider still has that share left.
+	pin_source?: PinSource;
 	// True when a probe backoff is in force: the cooldown doubled once per
 	// half-open probe that failed since the circuit last closed, up to
 	// circuit_breaker_backoff_max. Can be set alongside quota_pinned, in which
@@ -111,7 +122,7 @@ export interface CircuitStatus {
 	// The overrides governing THIS circuit's cooldown, unlike the row's
 	// quota_pinned, which means "any blocking circuit is pinned".
 	quota_pinned?: boolean;
-	pin_source?: "advisor" | "response" | "account";
+	pin_source?: PinSource;
 	backed_off?: boolean;
 	failed_probes?: number;
 	// Why the circuit was last charged, credited, pinned or released ("upstream

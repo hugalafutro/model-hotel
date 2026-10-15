@@ -197,7 +197,8 @@
 		"resetCircuitsRecovered_many": "{{count}} obnoveného",
 		"resetCircuitsRecovered_other": "{{count}} obnovených",
 		"errPrimaryElsewhere": "Iný Front Desk stále označuje tohto hostiteľa za primárnu inštanciu svojej flotily. Možno je len práve nedostupný a pridaním sem by ste prevzali jeho flotilu. Najprv ho odstráňte tam, alebo, ak ten Front Desk už definitívne zanikol, zadajte nižšie administrátorský token tohto Front Desku a pridajte ho aj tak.",
-		"confirmDeskTokenLabel": "Administrátorský token tohto Front Desku"
+		"confirmDeskTokenLabel": "Administrátorský token tohto Front Desku",
+		"circuitStateReserved": "rezervované"
 	},
 	"traffic": {
 		"title": "Prevádzka",

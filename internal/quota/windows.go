@@ -23,6 +23,12 @@ type Window struct {
 	// balances are shown but do not govern (NeuralWatt refuses only once both
 	// are gone), so a reserve leaves them alone too.
 	Governs bool
+	// Span is the window's length, which ranks it against its siblings: the
+	// operator's quota reserve applies to the longest governing window only
+	// (AssessWithReserve), since that is the allowance the reserve keeps back
+	// while the shorter ones refill on their own. Zero when the payload does
+	// not state the length; such a window ranks below any dated one.
+	Span time.Duration
 }
 
 // Windows reads every quota window a stored snapshot carries, for the Prometheus
@@ -67,7 +73,7 @@ func zaiCodingWindows(payload json.RawMessage) []Window {
 		default:
 			continue
 		}
-		w := Window{Name: name, Used: *l.Percentage / 100, Governs: l.Type == "TOKENS_LIMIT"}
+		w := Window{Name: name, Used: *l.Percentage / 100, Governs: l.Type == "TOKENS_LIMIT", Span: spanByName[name]}
 		if t, ok := epochToTime(l.NextResetTime); ok {
 			w.ResetsAt = t
 		}
@@ -89,18 +95,18 @@ func kimiCodeWindows(payload json.RawMessage) []Window {
 		return nil
 	}
 	var out []Window
-	if w, ok := kimiWindow("weekly", res.Usage); ok {
+	if w, ok := kimiWindow("weekly", 7*24*time.Hour, res.Usage); ok {
 		out = append(out, w)
 	}
 	for _, l := range res.Limits {
-		if w, ok := kimiWindow(kimiWindowName(l.Window), l.Detail); ok {
+		if w, ok := kimiWindow(kimiWindowName(l.Window), kimiWindowSpan(l.Window), l.Detail); ok {
 			out = append(out, w)
 		}
 	}
 	return out
 }
 
-func kimiWindow(name string, d provider.KimiCodeQuotaDetail) (Window, bool) {
+func kimiWindow(name string, span time.Duration, d provider.KimiCodeQuotaDetail) (Window, bool) {
 	limit, err := strconv.ParseInt(strings.TrimSpace(d.Limit), 10, 64)
 	if err != nil || limit <= 0 {
 		return Window{}, false
@@ -109,11 +115,29 @@ func kimiWindow(name string, d provider.KimiCodeQuotaDetail) (Window, bool) {
 	if !ok {
 		return Window{}, false
 	}
-	w := Window{Name: name, Used: 1 - float64(remaining)/float64(limit), Governs: true}
+	w := Window{Name: name, Used: 1 - float64(remaining)/float64(limit), Governs: true, Span: span}
 	if t, ok := parseResetString(d.ResetTime); ok {
 		w.ResetsAt = t
 	}
 	return w, true
+}
+
+// kimiWindowSpan is the length of a Kimi rolling limit, from the duration and
+// unit the payload states; an unknown unit measures nothing.
+func kimiWindowSpan(w provider.KimiCodeQuotaWindow) time.Duration {
+	d := time.Duration(w.Duration)
+	switch strings.ToLower(strings.TrimPrefix(w.TimeUnit, "TIME_UNIT_")) {
+	case "minute":
+		return d * time.Minute
+	case "hour":
+		return d * time.Hour
+	case "day":
+		return d * 24 * time.Hour
+	case "week":
+		return d * 7 * 24 * time.Hour
+	default:
+		return 0
+	}
 }
 
 // kimiWindowName renders a Kimi window span the way the dashboard modal does:
@@ -157,7 +181,7 @@ func openCodeGoWindows(payload json.RawMessage) []Window {
 		if x.w.ResetsAt == "" && x.w.Status == "" {
 			continue
 		}
-		w := Window{Name: x.name, Used: x.w.Percent / 100, Governs: true}
+		w := Window{Name: x.name, Used: x.w.Percent / 100, Governs: true, Span: spanByName[x.name]}
 		if openCodeGoWindowSpent(x.w) && w.Used < 1 {
 			w.Used = 1
 		}
@@ -172,7 +196,9 @@ func openCodeGoWindows(payload json.RawMessage) []Window {
 // miniMaxWindows reports the interval and weekly window of every model class
 // the plan covers, named "<model> interval" and "<model> weekly" since MiniMax
 // meters per model. Counts win when present, else the remaining percent, the
-// same precedence addMiniMaxWindow applies.
+// same precedence addMiniMaxWindow applies. The payload dates the interval's
+// end but never states its length, so only the weekly window carries a span
+// and the reserve line is drawn on every model's weekly window.
 func miniMaxWindows(payload json.RawMessage) []Window {
 	var res minimaxQuotaPayload
 	if err := json.Unmarshal(payload, &res); err != nil || res.BaseResp.StatusCode != 0 {
@@ -184,6 +210,7 @@ func miniMaxWindows(payload json.RawMessage) []Window {
 			out = append(out, w)
 		}
 		if w, ok := miniMaxWindow(m.ModelName+" weekly", m.CurrentWeeklyStatus, m.CurrentWeeklyTotalCount, m.CurrentWeeklyUsageCount, m.CurrentWeeklyRemainingPercent, m.WeeklyEndTime); ok {
+			w.Span = spanByName["weekly"]
 			out = append(out, w)
 		}
 	}
@@ -253,9 +280,11 @@ func AssessWithReserve(providerType string, s Snapshot, reserve float64, now tim
 	// above 30/100 in float64, and the operator's 70% must pin at exactly 30%
 	// however the provider stated it.
 	line := 1 - reserve - 1e-9
+	windows := Windows(providerType, s)
+	span := longestSpan(windows)
 	var e earliestReset
-	for _, w := range Windows(providerType, s) {
-		if !w.Governs || w.Used < line || w.ResetsAt.IsZero() {
+	for _, w := range windows {
+		if !w.Governs || w.Span != span || w.Used < line || w.ResetsAt.IsZero() {
 			continue
 		}
 		e.add(w.ResetsAt, true)
@@ -263,5 +292,32 @@ func AssessWithReserve(providerType string, s Snapshot, reserve float64, now tim
 	if !e.found {
 		return a
 	}
-	return e.result(now)
+	r := e.result(now)
+	r.Reserved = r.Exhausted
+	return r
+}
+
+// longestSpan is the span of the longest governing window: the one the
+// operator's reserve is kept on. A 5-hour window at the line refills on its
+// own within the day and is not what the reserve protects; the weekly or
+// monthly allowance behind it is. Windows of that span all count, which is
+// how MiniMax's per-model weekly windows each draw the line.
+func longestSpan(windows []Window) time.Duration {
+	var span time.Duration
+	for _, w := range windows {
+		if w.Governs && w.Span > span {
+			span = w.Span
+		}
+	}
+	return span
+}
+
+// spanByName is the length of the windows the readers name by their span, so
+// one table ranks them: OpenCode Go's month is the calendar-ish 30 days its
+// resetsAt reflects, and a week is seven days everywhere.
+var spanByName = map[string]time.Duration{
+	"5h":      5 * time.Hour,
+	"daily":   24 * time.Hour,
+	"weekly":  7 * 24 * time.Hour,
+	"monthly": 30 * 24 * time.Hour,
 }
