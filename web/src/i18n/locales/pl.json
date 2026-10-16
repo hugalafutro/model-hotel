@@ -2647,6 +2647,7 @@
 		"appLogDetail": {
 			"title": "Szczegóły wpisu dziennika",
 			"timestamp": "Znacznik czasu",
+			"level": "Poziom",
 			"source": "Źródło",
 			"message": "Wiadomość",
 			"copyMessage": "Kopiuj wiadomość"

@@ -2647,6 +2647,7 @@
 		"appLogDetail": {
 			"title": "Detail log záznamu",
 			"timestamp": "Časové razítko",
+			"level": "Úroveň",
 			"source": "Zdroj",
 			"message": "Zpráva",
 			"copyMessage": "Kopírovat zprávu"

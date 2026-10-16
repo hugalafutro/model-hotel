@@ -49,6 +49,9 @@ function AppLogDetail({
 					<h2 id={titleId} className="ui-modal-title">
 						{t("components.appLogDetail.title")}
 					</h2>
+					{/* The badge alone reads as a bare "INFO" to a screen reader;
+					   the hidden label gives it the meaning the old Level tile had. */}
+					<span className="sr-only">{t("components.appLogDetail.level")}</span>
 					<Badge
 						variant={getLevelBadgeVariant(log.level)}
 						className="text-xs px-2"

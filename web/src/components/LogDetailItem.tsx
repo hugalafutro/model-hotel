@@ -40,9 +40,9 @@ export function DetailItem({
 			<div className="flex-1 min-w-0">
 				<div className="flex items-center gap-2 text-[11px] uppercase tracking-wider text-(--text-tertiary) font-medium mb-1">
 					{label}
-					{/* Pushed to the row's right edge so actions (e.g. the Message
+					{/* Pushed to the row's end edge so actions (e.g. the Message
 					   copy pill) don't read as part of the label text. */}
-					{labelExtra && <span className="ml-auto">{labelExtra}</span>}
+					{labelExtra && <span className="ms-auto">{labelExtra}</span>}
 				</div>
 				{children ? (
 					children

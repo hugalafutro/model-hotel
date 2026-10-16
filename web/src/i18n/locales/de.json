@@ -2515,6 +2515,7 @@
 		"appLogDetail": {
 			"title": "Logeintragsdetails",
 			"timestamp": "Zeitstempel",
+			"level": "Level",
 			"source": "Quelle",
 			"message": "Nachricht",
 			"copyMessage": "Nachricht kopieren"

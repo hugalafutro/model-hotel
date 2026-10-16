@@ -2581,6 +2581,7 @@
 		"appLogDetail": {
 			"title": "Детаљи уноса у дневник",
 			"timestamp": "Временски жиг",
+			"level": "Ниво",
 			"source": "Извор",
 			"message": "Порука",
 			"copyMessage": "Копирај поруку"

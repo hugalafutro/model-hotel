@@ -2515,6 +2515,7 @@
 		"appLogDetail": {
 			"title": "로그 항목 세부 정보",
 			"timestamp": "시간 표시",
+			"level": "레벨",
 			"source": "출처",
 			"message": "메시지",
 			"copyMessage": "메시지 복사"

@@ -2515,6 +2515,7 @@
 		"appLogDetail": {
 			"title": "Naplóbejegyzés részletei",
 			"timestamp": "Időbélyeg",
+			"level": "Szint",
 			"source": "Forrás",
 			"message": "Üzenet",
 			"copyMessage": "Üzenet másolása"
