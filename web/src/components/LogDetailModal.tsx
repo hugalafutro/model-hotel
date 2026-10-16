@@ -1,5 +1,6 @@
+import { useId } from "react";
 import { useTranslation } from "react-i18next";
-import { Activity, Calendar, FileText, Tag } from "@/lib/icons";
+import { Calendar, FileText, Tag } from "@/lib/icons";
 import type { AppLogEntry, LogEntry } from "../api/types";
 import {
 	formatLogTimestamp,
@@ -38,30 +39,39 @@ function AppLogDetail({
 	onClose: () => void;
 }) {
 	const { t } = useTranslation();
+	const titleId = useId();
 	const message = displayLogMessage(log.message, log.escaped, log.attrs_at);
 
 	return (
 		<Modal
-			title={t("components.appLogDetail.title")}
-			nav={withRowLabel(nav, t, log.timestamp, log.level.toUpperCase())}
-			onClose={onClose}
-			maxWidth="max-w-lg"
-			scrollable
-		>
-			<div className="space-y-3">
-				<DetailItem
-					icon={Calendar}
-					label={t("components.appLogDetail.timestamp")}
-					value={formatLogTimestamp(log.timestamp)}
-				/>
-				<DetailItem icon={Activity} label={t("components.appLogDetail.level")}>
+			header={
+				<div className="flex flex-wrap items-center gap-3 mb-4">
+					<h2 id={titleId} className="ui-modal-title">
+						{t("components.appLogDetail.title")}
+					</h2>
+					{/* The badge alone reads as a bare "INFO" to a screen reader;
+					   the hidden label gives it the meaning the old Level tile had. */}
+					<span className="sr-only">{t("components.appLogDetail.level")}</span>
 					<Badge
 						variant={getLevelBadgeVariant(log.level)}
 						className="text-xs px-2"
 					>
 						{log.level.toUpperCase()}
 					</Badge>
-				</DetailItem>
+				</div>
+			}
+			labelledBy={titleId}
+			nav={withRowLabel(nav, t, log.timestamp, log.level.toUpperCase())}
+			onClose={onClose}
+			maxWidth="max-w-lg"
+			scrollable
+		>
+			<div className="grid grid-cols-2 gap-3">
+				<DetailItem
+					icon={Calendar}
+					label={t("components.appLogDetail.timestamp")}
+					value={formatLogTimestamp(log.timestamp)}
+				/>
 				<DetailItem
 					icon={Tag}
 					label={t("components.appLogDetail.source")}
@@ -69,6 +79,7 @@ function AppLogDetail({
 				/>
 				<DetailItem
 					icon={FileText}
+					className="col-span-2"
 					label={t("components.appLogDetail.message")}
 					labelExtra={
 						<CopyablePill

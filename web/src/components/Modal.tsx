@@ -336,6 +336,8 @@ export const Modal = forwardRef<ModalHandle, ModalProps>(function Modal(
 	// A dialog with a stepper hangs from a fixed top edge instead of centring:
 	// rows differ in height, and a centred dialog would move its arrows up or
 	// down on every step, out from under a pointer clicking through the rows.
+	// It hangs 12dvh down and its scroll cap is 80dvh, so a tall row keeps an
+	// 8dvh gap below as well; a centred dialog gets the full 85dvh.
 	// dvh, not vh, here and in the scroll cap below: on a phone vh is the
 	// viewport with the browser toolbar retracted, which would put the
 	// dialog's bottom under the toolbar.
@@ -353,8 +355,17 @@ export const Modal = forwardRef<ModalHandle, ModalProps>(function Modal(
 			aria-labelledby={labelledBy ?? (title || header ? headingId : undefined)}
 			tabIndex={-1}
 			data-placement={placement}
-			// px-4 keeps a narrow screen's card off the edges of the glass.
-			className={`fixed inset-0 flex ${placement === "top" ? "items-start pt-[7.5dvh]" : "items-center"} justify-center px-4 ${zIndex} outline-none`}
+			// From md up, ps-[17rem] centres the card on the content area, not
+			// the viewport: the sidebar (w-64) takes the first 16rem of every
+			// page, and a card centred on the whole window sits 8rem left of
+			// where the eye expects it. At 768px that still leaves a max-w-lg
+			// card 480px. Below md (a phone, or a laptop at high zoom) the
+			// offset would leave the card a few dozen pixels, so the card
+			// centres on the window and may overlap the sidebar. px-4 keeps a
+			// narrow screen's card off the edges of the glass. The backdrop
+			// itself still covers the sidebar: it is inset-0 of this wrapper,
+			// padding and all.
+			className={`fixed inset-0 flex ${placement === "top" ? "items-start pt-[12dvh]" : "items-center"} justify-center px-4 md:ps-[17rem] ${zIndex} outline-none`}
 			style={{
 				opacity,
 				transition: `opacity ${FADE_DURATION}ms ease`,
@@ -373,7 +384,7 @@ export const Modal = forwardRef<ModalHandle, ModalProps>(function Modal(
 			<div
 				className={`relative ui-card p-6 w-full ${maxWidth}${
 					tierRem ? " ui-modal-panel" : ""
-				}${scrollable ? " max-h-[85dvh] flex flex-col" : ""}`}
+				}${scrollable ? ` ${stepped ? "max-h-[80dvh]" : "max-h-[85dvh]"} flex flex-col` : ""}`}
 				style={
 					tierRem
 						? ({ "--modal-w": tierRem } as React.CSSProperties)
