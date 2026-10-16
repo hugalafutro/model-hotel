@@ -2515,7 +2515,6 @@
 		"appLogDetail": {
 			"title": "日志条目详细信息",
 			"timestamp": "时间戳",
-			"level": "级别",
 			"source": "来源",
 			"message": "消息",
 			"copyMessage": "复制消息"

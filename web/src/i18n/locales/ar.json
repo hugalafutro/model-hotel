@@ -2779,7 +2779,6 @@
 		"appLogDetail": {
 			"title": "تفاصيل إدخال السجل",
 			"timestamp": "الطابع الزمني",
-			"level": "المستوى",
 			"source": "المصدر",
 			"message": "رسالة",
 			"copyMessage": "نسخ الرسالة"

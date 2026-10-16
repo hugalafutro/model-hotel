@@ -2515,7 +2515,6 @@
 		"appLogDetail": {
 			"title": "ログエントリの詳細",
 			"timestamp": "タイムスタンプ",
-			"level": "レベル",
 			"source": "ソース",
 			"message": "メッセージ",
 			"copyMessage": "メッセージをコピー"

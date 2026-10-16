@@ -2581,7 +2581,6 @@
 		"appLogDetail": {
 			"title": "פרטי הרישום ביומן",
 			"timestamp": "תאריך ושעה",
-			"level": "רמה",
 			"source": "מקור",
 			"message": "הודעה",
 			"copyMessage": "העתק הודעה"

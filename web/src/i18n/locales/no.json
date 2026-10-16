@@ -2515,7 +2515,6 @@
 		"appLogDetail": {
 			"title": "Detaljer for loggoppføring",
 			"timestamp": "Tidsstempel",
-			"level": "Nivå",
 			"source": "Kilde",
 			"message": "Melding",
 			"copyMessage": "Kopier melding"

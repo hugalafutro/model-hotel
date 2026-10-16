@@ -2515,7 +2515,6 @@
 		"appLogDetail": {
 			"title": "Loki Merkintöjen Tiedot",
 			"timestamp": "Aikaleima",
-			"level": "Taso",
 			"source": "Lähde",
 			"message": "Viesti",
 			"copyMessage": "Kopioi viesti"

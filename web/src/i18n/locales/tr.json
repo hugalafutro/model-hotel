@@ -2515,7 +2515,6 @@
 		"appLogDetail": {
 			"title": "Günlük Kaydı Ayrıntıları",
 			"timestamp": "Zaman damgası",
-			"level": "Seviye",
 			"source": "Kaynak",
 			"message": "Mesaj",
 			"copyMessage": "Mesajı kopyala"

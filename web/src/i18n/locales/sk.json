@@ -2647,7 +2647,6 @@
 		"appLogDetail": {
 			"title": "Podrobnosti záznamu v protokole",
 			"timestamp": "Časová pečiatka",
-			"level": "Úroveň",
 			"source": "Zdroj",
 			"message": "Správa",
 			"copyMessage": "Kopírovať správu"

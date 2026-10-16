@@ -2581,7 +2581,6 @@
 		"appLogDetail": {
 			"title": "Detalhes do Registro",
 			"timestamp": "Timestamp",
-			"level": "Nível",
 			"source": "fonte",
 			"message": "mensagem",
 			"copyMessage": "Copiar mensagem"

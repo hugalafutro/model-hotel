@@ -2515,7 +2515,6 @@
 		"appLogDetail": {
 			"title": "Inskrywingbesonderhede",
 			"timestamp": "Tydstempel",
-			"level": "Vlak",
 			"source": "Bron",
 			"message": "Boodskap",
 			"copyMessage": "Kopieer boodskap"

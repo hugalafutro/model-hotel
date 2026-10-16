@@ -2515,7 +2515,6 @@
 		"appLogDetail": {
 			"title": "Log Indtastningsoplysninger",
 			"timestamp": "Tidsstempel",
-			"level": "Niveau",
 			"source": "Kilde",
 			"message": "Besked",
 			"copyMessage": "Kopiér besked"

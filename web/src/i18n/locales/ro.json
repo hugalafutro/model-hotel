@@ -2581,7 +2581,6 @@
 		"appLogDetail": {
 			"title": "Detalii intrare jurnal",
 			"timestamp": "Ora",
-			"level": "Nivel",
 			"source": "Sursa",
 			"message": "Mesaj",
 			"copyMessage": "Copiază mesajul"

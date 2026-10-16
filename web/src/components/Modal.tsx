@@ -353,8 +353,13 @@ export const Modal = forwardRef<ModalHandle, ModalProps>(function Modal(
 			aria-labelledby={labelledBy ?? (title || header ? headingId : undefined)}
 			tabIndex={-1}
 			data-placement={placement}
-			// px-4 keeps a narrow screen's card off the edges of the glass.
-			className={`fixed inset-0 flex ${placement === "top" ? "items-start pt-[7.5dvh]" : "items-center"} justify-center px-4 ${zIndex} outline-none`}
+			// ps-[17rem] centres the card on the content area, not the viewport:
+			// the sidebar (w-64) takes the first 16rem of every page, and a card
+			// centred on the whole window sits 8rem left of where the eye expects
+			// it. pe-4 (and the extra 1rem start side) keep a narrow screen's card
+			// off the edges of the glass. The backdrop itself still covers the
+			// sidebar: it is inset-0 of this wrapper, padding and all.
+			className={`fixed inset-0 flex ${placement === "top" ? "items-start pt-[12dvh]" : "items-center"} justify-center ps-[17rem] pe-4 ${zIndex} outline-none`}
 			style={{
 				opacity,
 				transition: `opacity ${FADE_DURATION}ms ease`,

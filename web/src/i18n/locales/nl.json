@@ -2515,7 +2515,6 @@
 		"appLogDetail": {
 			"title": "Log invoer details",
 			"timestamp": "Tijdstempel",
-			"level": "Niveau",
 			"source": "Bron",
 			"message": "bericht",
 			"copyMessage": "Bericht kopiëren"

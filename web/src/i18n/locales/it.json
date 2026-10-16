@@ -2581,7 +2581,6 @@
 		"appLogDetail": {
 			"title": "Dettagli Voce Log",
 			"timestamp": "Timestamp",
-			"level": "Livello",
 			"source": "Fonte",
 			"message": "Messaggio",
 			"copyMessage": "Copia messaggio"

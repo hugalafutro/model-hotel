@@ -2515,7 +2515,6 @@
 		"appLogDetail": {
 			"title": "Log Entry Details",
 			"timestamp": "Timestamp",
-			"level": "Level",
 			"source": "Source",
 			"message": "Message",
 			"copyMessage": "Copy message"

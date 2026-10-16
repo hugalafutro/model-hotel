@@ -2581,7 +2581,6 @@
 		"appLogDetail": {
 			"title": "Detalls de l'entrada del registre",
 			"timestamp": "Segell de temps",
-			"level": "Nivell",
 			"source": "Font",
 			"message": "Missatge",
 			"copyMessage": "Copiar missatge"

@@ -2581,7 +2581,6 @@
 		"appLogDetail": {
 			"title": "Détails de l'entrée de journal",
 			"timestamp": "Horodatage",
-			"level": "Niveau",
 			"source": "Source",
 			"message": "Message",
 			"copyMessage": "Copier le message"

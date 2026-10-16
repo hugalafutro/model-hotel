@@ -2515,7 +2515,6 @@
 		"appLogDetail": {
 			"title": "Chi tiết mục nhật ký",
 			"timestamp": "Dấu thời gian",
-			"level": "Cấp độ",
 			"source": "Nguồn",
 			"message": "Thông điệp",
 			"copyMessage": "Sao chép tin nhắn"
