@@ -362,10 +362,13 @@ export const Modal = forwardRef<ModalHandle, ModalProps>(function Modal(
 			// card 480px. Below md (a phone, or a laptop at high zoom) the
 			// offset would leave the card a few dozen pixels, so the card
 			// centres on the window and may overlap the sidebar. px-4 keeps a
-			// narrow screen's card off the edges of the glass. The backdrop
-			// itself still covers the sidebar: it is inset-0 of this wrapper,
-			// padding and all.
-			className={`fixed inset-0 flex ${placement === "top" ? "items-start pt-[12dvh]" : "items-center"} justify-center px-4 md:ps-[17rem] ${zIndex} outline-none`}
+			// narrow screen's card off the edges of the glass.
+			// A card taller than the window (a long form without scrollable, on a
+			// 1080p screen) scrolls this wrapper rather than spilling past both
+			// edges: items-center-safe falls back to the top edge on overflow, so
+			// the title and the action buttons both stay reachable, and py-4
+			// keeps a gap at either end of the scroll.
+			className={`fixed inset-0 overflow-y-auto flex ${placement === "top" ? "items-start pt-[12dvh] pb-4" : "items-center-safe py-4"} justify-center px-4 md:ps-[17rem] ${zIndex} outline-none`}
 			style={{
 				opacity,
 				transition: `opacity ${FADE_DURATION}ms ease`,
@@ -373,9 +376,12 @@ export const Modal = forwardRef<ModalHandle, ModalProps>(function Modal(
 			onTransitionEnd={handleTransitionEnd}
 			onKeyDown={handleTabKey}
 		>
+			{/* fixed, not absolute: the wrapper scrolls a tall card, and an
+			   absolute backdrop would scroll away with it. It still covers the
+			   sidebar, padding and all. */}
 			<button
 				type="button"
-				className="ui-modal-backdrop absolute inset-0 bg-black/60 cursor-default"
+				className="ui-modal-backdrop fixed inset-0 bg-black/60 cursor-default"
 				onClick={closeOnBackdrop ? handleClose : undefined}
 				aria-label={t("common.closeDialog")}
 			/>
