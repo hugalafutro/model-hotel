@@ -232,21 +232,21 @@ export function KeyDetailModal({
 								label={t("virtualkeys.modal.form.stripReasoning")}
 								spacing="mt-4 first:mt-0 mb-2"
 							/>
-							<div>
-								<div className="flex items-center gap-3">
-									<Toggle
-										checked={editStripReasoning}
-										onChange={setEditStripReasoning}
-										size="sm"
-										ariaLabel={t("virtualkeys.modal.form.stripReasoning")}
-									/>
-									<span className="text-sm text-gray-200">
-										{editStripReasoning
-											? t("common.enabled")
-											: t("common.disabled")}
-									</span>
-								</div>
-								<p className="text-xs text-gray-400 mt-1.5">
+							{/* Toggle, state and description share one row, as in the
+							   create dialog. */}
+							<div className="flex items-start gap-3">
+								<Toggle
+									checked={editStripReasoning}
+									onChange={setEditStripReasoning}
+									size="sm"
+									ariaLabel={t("virtualkeys.modal.form.stripReasoning")}
+								/>
+								<span className="text-sm text-gray-200 shrink-0">
+									{editStripReasoning
+										? t("common.enabled")
+										: t("common.disabled")}
+								</span>
+								<p className="text-xs text-gray-400 pt-0.5">
 									{t("virtualkeys.modal.form.stripReasoningDescription")}
 								</p>
 							</div>
