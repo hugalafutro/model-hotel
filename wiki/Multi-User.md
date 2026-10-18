@@ -48,8 +48,8 @@ Admins manage accounts from the Users page:
 - **Delete**: remove the account and its sessions. Virtual keys the account owned are kept and become unowned, not deleted.
 
 <p align="center">
-<img src="screenshots/usereditmodal.png" alt="Edit user modal" width="500"><br>
-<em>The edit modal: profile fields, role, grants, provider access cap, proxy limits and budget, the enabled switch, then password reset and delete below the save row</em>
+<img src="screenshots/usereditmodal.png" alt="Edit user modal" width="600"><br>
+<em>The edit modal: profile fields, role, grants, provider access cap, proxy limits and budget and the enabled switch, then password reset and delete; Cancel and Save stay pinned at the bottom</em>
 </p>
 
 Passwords must be at least 8 characters. When breached-password screening is enabled (the default), they are also checked against the Have I Been Pwned corpus and a known-breached password is refused. See [Security](Security#authentication) for that check and what it sends.

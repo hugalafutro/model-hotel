@@ -61,6 +61,33 @@ describe("Modal", () => {
 		expect(screen.getByRole("dialog")).toHaveAttribute("data-placement", "top");
 	});
 
+	it("pins the footer outside the scrolling body", () => {
+		// A tall form scrolls under its title; the action row must not scroll
+		// away with it.
+		render(
+			<Modal
+				title="Form"
+				footer={<button type="button">Save</button>}
+				onClose={onClose}
+			>
+				<p>body</p>
+			</Modal>,
+		);
+		const body = document.querySelector("[data-modal-scroll]");
+		const save = screen.getByRole("button", { name: "Save" });
+		expect(body).toContainElement(screen.getByText("body"));
+		expect(body).not.toContainElement(save);
+		const footer = save.closest("[data-modal-footer]");
+		expect(footer).not.toBeNull();
+		// jsdom has no layout, so the geometry is pinned through the classes
+		// that make it: a height-capped column panel, a shrinkable scroll body
+		// and a footer that does not shrink.
+		const panel = document.querySelector("[data-modal-panel]");
+		expect(panel).toHaveClass("flex", "flex-col", "max-h-[90dvh]");
+		expect(body).toHaveClass("min-h-0", "overflow-y-auto");
+		expect(footer).toHaveClass("shrink-0");
+	});
+
 	it("renders children", () => {
 		render(<Modal onClose={onClose}>Test Content</Modal>);
 		expect(screen.getByText("Test Content")).toBeInTheDocument();

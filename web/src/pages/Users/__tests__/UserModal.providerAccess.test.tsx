@@ -327,3 +327,54 @@ describe("UserModal provider access", () => {
 		).toBeDisabled();
 	});
 });
+
+describe("UserModal form submit", () => {
+	const onClose = vi.fn();
+	const onToast = vi.fn();
+
+	beforeEach(() => {
+		server.resetHandlers();
+		vi.clearAllMocks();
+	});
+
+	it("makes Save the form's own submit button, so Enter in a field saves", async () => {
+		// The browser's Enter-to-submit presses the first submit button of the
+		// field's form; Save lives in the dialog footer, outside the <form>
+		// element, and joins it through form="<id>". jsdom's user-event does
+		// not follow that link, so the wiring itself is what is pinned here.
+		mockCatalog();
+		const bodies = captureWrites();
+		const { user } = renderWithProviders(
+			<UserModal user={existing} onClose={onClose} onToast={onToast} />,
+		);
+
+		const save = screen.getByTestId("user-modal-save") as HTMLButtonElement;
+		const name = field("user-display-name") as HTMLInputElement;
+		expect(save.type).toBe("submit");
+		expect(save.form).not.toBeNull();
+		expect(save.form).toBe(name.form);
+
+		await user.clear(name);
+		await user.type(name, "Bob Builder");
+		await user.click(save);
+		await waitFor(() => expect(bodies).toHaveLength(1));
+		expect(bodies[0].display_name).toBe("Bob Builder");
+	});
+
+	it("Regression pin: Enter in Reset password does not save the user", async () => {
+		// The reset-password row sits outside the form, so Enter there leaves
+		// the rest of the dialog's edits unsent.
+		mockCatalog();
+		const bodies = captureWrites();
+		const { user } = renderWithProviders(
+			<UserModal user={existing} onClose={onClose} onToast={onToast} />,
+		);
+
+		const reset = field("user-reset-password") as HTMLInputElement;
+		expect(reset.form).toBeNull();
+		await user.type(reset, "newpassword1{Enter}");
+
+		expect(bodies).toHaveLength(0);
+		expect(onClose).not.toHaveBeenCalled();
+	});
+});

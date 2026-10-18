@@ -53,6 +53,11 @@ interface ModalProps {
 	onClose: () => void;
 	maxWidth?: string;
 	scrollable?: boolean;
+	// Action row (Cancel / Save) pinned under the body. A dialog with a footer
+	// is scrollable: the body scrolls between the title and this row, so the
+	// buttons stay on screen however tall the form grows. A form's submit
+	// button here sits outside the <form>, so it names it with form="<id>".
+	footer?: ReactNode;
 	children: ReactNode;
 	zIndex?: string;
 }
@@ -121,7 +126,8 @@ export const Modal = forwardRef<ModalHandle, ModalProps>(function Modal(
 		onCloseRequest,
 		onClose,
 		maxWidth = "max-w-md",
-		scrollable = false,
+		scrollable: scrollableProp = false,
+		footer,
 		children,
 		zIndex = "z-50",
 	}: ModalProps,
@@ -134,6 +140,7 @@ export const Modal = forwardRef<ModalHandle, ModalProps>(function Modal(
 	const [stepped, setStepped] = useState(nav !== undefined);
 	if (nav && !stepped) setStepped(true);
 	const tierRem = MODAL_TIER_REM[maxWidth];
+	const scrollable = scrollableProp || footer !== undefined;
 	const dialogRef = useRef<HTMLDivElement>(null);
 	const headingId = useId();
 
@@ -337,7 +344,7 @@ export const Modal = forwardRef<ModalHandle, ModalProps>(function Modal(
 	// rows differ in height, and a centred dialog would move its arrows up or
 	// down on every step, out from under a pointer clicking through the rows.
 	// It hangs 12dvh down and its scroll cap is 80dvh, so a tall row keeps an
-	// 8dvh gap below as well; a centred dialog gets the full 85dvh.
+	// 8dvh gap below as well; a centred dialog gets 90dvh, a 5dvh gap at either end.
 	// dvh, not vh, here and in the scroll cap below: on a phone vh is the
 	// viewport with the browser toolbar retracted, which would put the
 	// dialog's bottom under the toolbar.
@@ -362,10 +369,13 @@ export const Modal = forwardRef<ModalHandle, ModalProps>(function Modal(
 			// card 480px. Below md (a phone, or a laptop at high zoom) the
 			// offset would leave the card a few dozen pixels, so the card
 			// centres on the window and may overlap the sidebar. px-4 keeps a
-			// narrow screen's card off the edges of the glass. The backdrop
-			// itself still covers the sidebar: it is inset-0 of this wrapper,
-			// padding and all.
-			className={`fixed inset-0 flex ${placement === "top" ? "items-start pt-[12dvh]" : "items-center"} justify-center px-4 md:ps-[17rem] ${zIndex} outline-none`}
+			// narrow screen's card off the edges of the glass.
+			// A card taller than the window (a long form without scrollable, on a
+			// 1080p screen) scrolls this wrapper rather than spilling past both
+			// edges: items-center-safe falls back to the top edge on overflow, so
+			// the title and the action buttons both stay reachable, and py-4
+			// keeps a gap at either end of the scroll.
+			className={`fixed inset-0 overflow-y-auto flex ${placement === "top" ? "items-start pt-[12dvh] pb-4" : "items-center-safe py-4"} justify-center px-4 md:ps-[17rem] ${zIndex} outline-none`}
 			style={{
 				opacity,
 				transition: `opacity ${FADE_DURATION}ms ease`,
@@ -373,9 +383,12 @@ export const Modal = forwardRef<ModalHandle, ModalProps>(function Modal(
 			onTransitionEnd={handleTransitionEnd}
 			onKeyDown={handleTabKey}
 		>
+			{/* fixed, not absolute: the wrapper scrolls a tall card, and an
+			   absolute backdrop would scroll away with it. It still covers the
+			   sidebar, padding and all. */}
 			<button
 				type="button"
-				className="ui-modal-backdrop absolute inset-0 bg-black/60 cursor-default"
+				className="ui-modal-backdrop fixed inset-0 bg-black/60 cursor-default"
 				onClick={closeOnBackdrop ? handleClose : undefined}
 				aria-label={t("common.closeDialog")}
 			/>
@@ -384,7 +397,7 @@ export const Modal = forwardRef<ModalHandle, ModalProps>(function Modal(
 			<div
 				className={`relative ui-card p-6 w-full ${maxWidth}${
 					tierRem ? " ui-modal-panel" : ""
-				}${scrollable ? ` ${stepped ? "max-h-[80dvh]" : "max-h-[85dvh]"} flex flex-col` : ""}`}
+				}${scrollable ? ` ${stepped ? "max-h-[80dvh]" : "max-h-[90dvh]"} flex flex-col` : ""}`}
 				style={
 					tierRem
 						? ({ "--modal-w": tierRem } as React.CSSProperties)
@@ -445,6 +458,11 @@ export const Modal = forwardRef<ModalHandle, ModalProps>(function Modal(
 					</div>
 				) : (
 					children
+				)}
+				{footer !== undefined && (
+					<div className="shrink-0 pt-4" data-modal-footer>
+						{footer}
+					</div>
 				)}
 			</div>
 		</div>,

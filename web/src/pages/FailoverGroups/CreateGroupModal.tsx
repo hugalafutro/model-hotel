@@ -1,10 +1,11 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { useMemo, useState } from "react";
+import { useId, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { api } from "../../api/client";
 import { isConflict } from "../../api/http";
 import type { CandidateModel, FailoverGroup } from "../../api/types";
 import { DeleteConfirmModal } from "../../components/DeleteConfirmModal";
+import { FieldRow, FORM_GRID } from "../../components/FieldRow";
 import { Modal } from "../../components/Modal";
 import type { ModelItem } from "../../components/ModelPicker";
 import { ModelPicker } from "../../components/ModelPicker";
@@ -38,6 +39,7 @@ export function CreateGroupModal({
 	// badge counts. See useRefreshDiscoveryBadge.
 	const refreshBadge = useRefreshDiscoveryBadge();
 	const isEdit = !!group;
+	const formId = useId();
 
 	const [displayModel, setDisplayModel] = useState(group?.display_model ?? "");
 	const [displayName, setDisplayName] = useState(group?.display_name ?? "");
@@ -332,81 +334,10 @@ export function CreateGroupModal({
 					: t("failoverGroups.create.createTitle")
 			}
 			onClose={onClose}
-			maxWidth="max-w-lg"
-			scrollable
-		>
-			<form onSubmit={handleSubmit} className="space-y-4">
-				<div>
-					<label htmlFor="display-model" className="block ui-label mb-1">
-						{t("failoverGroups.create.displayModelName")}
-					</label>
-					<input
-						id="display-model"
-						type="text"
-						required={!isEdit}
-						maxLength={128}
-						value={displayModel}
-						onChange={(e) => setDisplayModel(e.target.value)}
-						className="ui-input"
-						placeholder={t("failoverGroups.create.displayModelNamePlaceholder")}
-					/>
-					<p className="ui-hint mt-1">
-						{t("failoverGroups.create.displayModelNameHelper", {
-							modelName: displayModel || "model-name",
-						})}
-					</p>
-				</div>
-
-				<div>
-					<label htmlFor="display-name" className="block ui-label mb-1">
-						{t("failoverGroups.create.displayNameOptional")}
-					</label>
-					<input
-						id="display-name"
-						type="text"
-						maxLength={128}
-						value={displayName}
-						onChange={(e) => setDisplayName(e.target.value)}
-						className="ui-input"
-						placeholder={t("failoverGroups.create.displayNamePlaceholder")}
-					/>
-				</div>
-
-				<div>
-					<label htmlFor="group-description" className="block ui-label mb-1">
-						{t("failoverGroups.create.descriptionOptional")}
-					</label>
-					<input
-						id="group-description"
-						type="text"
-						maxLength={256}
-						value={description}
-						onChange={(e) => setDescription(e.target.value)}
-						className="ui-input"
-						placeholder={t("failoverGroups.create.descriptionPlaceholder")}
-					/>
-				</div>
-
-				<div>
-					<ModelPicker
-						id={`failover-group-entries-${isEdit ? "edit" : "create"}`}
-						models={modelItems}
-						selected={selectedProxyIDs}
-						onChange={setSelectedProxyIDs}
-						multi={true}
-						label={t("failoverGroups.create.modelEntries")}
-						align="left"
-						sortProvidersAlpha
-					/>
-					<p className="ui-hint mt-1">
-						{t("failoverGroups.create.selectedCount", {
-							count: selectedProxyIDs.length,
-						})}
-					</p>
-				</div>
-
-				<div className="flex justify-between gap-3 pt-4 mt-2 border-t border-(--border-default)">
-					<div className="flex gap-2">
+			maxWidth="max-w-2xl"
+			footer={
+				<div className="flex flex-col gap-2 sm:flex-row sm:justify-between sm:gap-3">
+					<div className="flex flex-wrap gap-2">
 						{isEdit && naEntries.length > 0 && (
 							<>
 								<button
@@ -436,7 +367,7 @@ export function CreateGroupModal({
 							</>
 						)}
 					</div>
-					<div className="flex gap-3">
+					<div className="flex flex-wrap justify-end gap-3">
 						<button
 							type="button"
 							onClick={onClose}
@@ -446,6 +377,7 @@ export function CreateGroupModal({
 						</button>
 						<button
 							type="submit"
+							form={formId}
 							disabled={isPending}
 							className="ui-btn ui-btn-primary"
 						>
@@ -458,6 +390,77 @@ export function CreateGroupModal({
 									: t("failoverGroups.create.createGroup")}
 						</button>
 					</div>
+				</div>
+			}
+		>
+			<form id={formId} onSubmit={handleSubmit} className={FORM_GRID}>
+				<FieldRow
+					label={t("failoverGroups.create.displayModelName")}
+					htmlFor="display-model"
+				>
+					<input
+						id="display-model"
+						type="text"
+						required={!isEdit}
+						maxLength={128}
+						value={displayModel}
+						onChange={(e) => setDisplayModel(e.target.value)}
+						className="ui-input"
+						placeholder={t("failoverGroups.create.displayModelNamePlaceholder")}
+					/>
+					<p className="ui-hint mt-1">
+						{t("failoverGroups.create.displayModelNameHelper", {
+							modelName: displayModel || "model-name",
+						})}
+					</p>
+				</FieldRow>
+
+				<FieldRow
+					label={t("failoverGroups.create.displayNameOptional")}
+					htmlFor="display-name"
+				>
+					<input
+						id="display-name"
+						type="text"
+						maxLength={128}
+						value={displayName}
+						onChange={(e) => setDisplayName(e.target.value)}
+						className="ui-input"
+						placeholder={t("failoverGroups.create.displayNamePlaceholder")}
+					/>
+				</FieldRow>
+
+				<FieldRow
+					label={t("failoverGroups.create.descriptionOptional")}
+					htmlFor="group-description"
+				>
+					<input
+						id="group-description"
+						type="text"
+						maxLength={256}
+						value={description}
+						onChange={(e) => setDescription(e.target.value)}
+						className="ui-input"
+						placeholder={t("failoverGroups.create.descriptionPlaceholder")}
+					/>
+				</FieldRow>
+
+				<div className="sm:col-span-2">
+					<ModelPicker
+						id={`failover-group-entries-${isEdit ? "edit" : "create"}`}
+						models={modelItems}
+						selected={selectedProxyIDs}
+						onChange={setSelectedProxyIDs}
+						multi={true}
+						label={t("failoverGroups.create.modelEntries")}
+						align="left"
+						sortProvidersAlpha
+					/>
+					<p className="ui-hint mt-1">
+						{t("failoverGroups.create.selectedCount", {
+							count: selectedProxyIDs.length,
+						})}
+					</p>
 				</div>
 			</form>
 			{retryResult && (

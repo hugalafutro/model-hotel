@@ -1,9 +1,6 @@
 import { useTranslation } from "react-i18next";
 import type { BudgetPeriod } from "../api/types";
-import { BUDGET_PERIODS } from "./budget";
-
-/** The bounds the amount input accepts, matching the API's. */
-const AMOUNT = { min: "0.01", max: "10000000", step: "0.01" } as const;
+import { BUDGET_AMOUNT_BOUNDS, BUDGET_PERIODS } from "./budget";
 
 /**
  * A dollar budget with its calendar period. An empty amount means no budget,
@@ -37,7 +34,7 @@ export function BudgetField({
 				<input
 					id={`${idPrefix}-budget`}
 					type="number"
-					{...AMOUNT}
+					{...BUDGET_AMOUNT_BOUNDS}
 					value={amount}
 					onChange={(e) => onAmountChange(e.target.value)}
 					className="ui-input"
