@@ -53,6 +53,11 @@ interface ModalProps {
 	onClose: () => void;
 	maxWidth?: string;
 	scrollable?: boolean;
+	// Action row (Cancel / Save) pinned under the body. A dialog with a footer
+	// is scrollable: the body scrolls between the title and this row, so the
+	// buttons stay on screen however tall the form grows. A form's submit
+	// button here sits outside the <form>, so it names it with form="<id>".
+	footer?: ReactNode;
 	children: ReactNode;
 	zIndex?: string;
 }
@@ -121,7 +126,8 @@ export const Modal = forwardRef<ModalHandle, ModalProps>(function Modal(
 		onCloseRequest,
 		onClose,
 		maxWidth = "max-w-md",
-		scrollable = false,
+		scrollable: scrollableProp = false,
+		footer,
 		children,
 		zIndex = "z-50",
 	}: ModalProps,
@@ -134,6 +140,7 @@ export const Modal = forwardRef<ModalHandle, ModalProps>(function Modal(
 	const [stepped, setStepped] = useState(nav !== undefined);
 	if (nav && !stepped) setStepped(true);
 	const tierRem = MODAL_TIER_REM[maxWidth];
+	const scrollable = scrollableProp || footer !== undefined;
 	const dialogRef = useRef<HTMLDivElement>(null);
 	const headingId = useId();
 
@@ -451,6 +458,11 @@ export const Modal = forwardRef<ModalHandle, ModalProps>(function Modal(
 					</div>
 				) : (
 					children
+				)}
+				{footer !== undefined && (
+					<div className="shrink-0 pt-4" data-modal-footer>
+						{footer}
+					</div>
 				)}
 			</div>
 		</div>,

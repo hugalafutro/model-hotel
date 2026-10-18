@@ -1,5 +1,5 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { useRef, useState } from "react";
+import { useId, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { CalendarDays } from "@/lib/icons";
 import { api } from "../../api/client";
@@ -58,6 +58,7 @@ export function EditProviderModal({
 	onToast: (msg: string, type: "success" | "error" | "info") => void;
 }) {
 	const queryClient = useQueryClient();
+	const formId = useId();
 	// Claims are read per enabled provider, so switching one off takes every
 	// claim it owns out of the Models nav badge, and back on restores them.
 	const refreshBadge = useRefreshDiscoveryBadge();
@@ -178,6 +179,27 @@ export function EditProviderModal({
 				title={t("providers.edit_modal_title")}
 				onCloseRequest={requestClose}
 				onClose={onClose}
+				footer={
+					<div className="flex space-x-3 justify-end">
+						<button
+							type="button"
+							onClick={() => requestClose() && onClose()}
+							className="ui-btn ui-btn-secondary"
+						>
+							{t("common.cancel")}
+						</button>
+						<button
+							type="submit"
+							form={formId}
+							disabled={updateMutation.isPending}
+							className="ui-btn ui-btn-primary"
+						>
+							{updateMutation.isPending
+								? t("common.saving")
+								: t("providers.form_btn_save")}
+						</button>
+					</div>
+				}
 			>
 				{error && (
 					<ErrorCallout className="mb-4" testId="edit-provider-error">
@@ -185,7 +207,7 @@ export function EditProviderModal({
 					</ErrorCallout>
 				)}
 
-				<form onSubmit={handleSubmit} className="space-y-4">
+				<form id={formId} onSubmit={handleSubmit} className="space-y-4">
 					<div>
 						<label htmlFor="edit-provider-name" className="block ui-label mb-1">
 							{t("providers.form_name_label")}
@@ -461,25 +483,6 @@ export function EditProviderModal({
 							</p>
 						</div>
 					)}
-
-					<div className="flex space-x-3 justify-end pt-4">
-						<button
-							type="button"
-							onClick={() => requestClose() && onClose()}
-							className="ui-btn ui-btn-secondary"
-						>
-							{t("common.cancel")}
-						</button>
-						<button
-							type="submit"
-							disabled={updateMutation.isPending}
-							className="ui-btn ui-btn-primary"
-						>
-							{updateMutation.isPending
-								? t("common.saving")
-								: t("providers.form_btn_save")}
-						</button>
-					</div>
 				</form>
 			</Modal>
 			{confirmFields && (

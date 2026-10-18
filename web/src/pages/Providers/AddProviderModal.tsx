@@ -1,6 +1,6 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { deepseekUsd, isOpenCodeGoQuotaVisible } from "@web-shared/quota";
-import { type SubmitEvent, useState } from "react";
+import { type SubmitEvent, useId, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { api } from "../../api/client";
 import type { Provider } from "../../api/types";
@@ -90,6 +90,7 @@ export function AddProviderModal({
 	const queryClient = useQueryClient();
 	const refreshBadge = useRefreshDiscoveryBadge();
 	const { t } = useTranslation();
+	const formId = useId();
 	const [formData, setFormData] = useState(EMPTY_FORM);
 	const [error, setError] = useState<string | null>(null);
 
@@ -268,14 +269,38 @@ export function AddProviderModal({
 	};
 
 	return (
-		<Modal title={t("providers.form_modal_title")} onClose={onClose}>
+		<Modal
+			title={t("providers.form_modal_title")}
+			onClose={onClose}
+			footer={
+				<div className="flex space-x-3 justify-end">
+					<button
+						type="button"
+						onClick={onClose}
+						className="ui-btn ui-btn-secondary"
+					>
+						{t("common.cancel")}
+					</button>
+					<button
+						type="submit"
+						form={formId}
+						disabled={createMutation.isPending}
+						className="ui-btn ui-btn-primary"
+					>
+						{createMutation.isPending
+							? t("providers.form_btn_adding")
+							: t("providers.form_btn_add")}
+					</button>
+				</div>
+			}
+		>
 			{error && (
 				<ErrorCallout className="mb-4" testId="add-provider-error">
 					{error}
 				</ErrorCallout>
 			)}
 
-			<form onSubmit={handleSubmit} className="space-y-4">
+			<form id={formId} onSubmit={handleSubmit} className="space-y-4">
 				<div>
 					<span className="block ui-label mb-1">
 						{t("providers.form_type_label")}
@@ -391,25 +416,6 @@ export function AddProviderModal({
 								: t("providers.form_api_key_placeholder_required")
 						}
 					/>
-				</div>
-
-				<div className="flex space-x-3 justify-end pt-4">
-					<button
-						type="button"
-						onClick={onClose}
-						className="ui-btn ui-btn-secondary"
-					>
-						{t("common.cancel")}
-					</button>
-					<button
-						type="submit"
-						disabled={createMutation.isPending}
-						className="ui-btn ui-btn-primary"
-					>
-						{createMutation.isPending
-							? t("providers.form_btn_adding")
-							: t("providers.form_btn_add")}
-					</button>
 				</div>
 			</form>
 		</Modal>

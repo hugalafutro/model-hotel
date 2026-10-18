@@ -61,6 +61,25 @@ describe("Modal", () => {
 		expect(screen.getByRole("dialog")).toHaveAttribute("data-placement", "top");
 	});
 
+	it("pins the footer outside the scrolling body", () => {
+		// A tall form scrolls under its title; the action row must not scroll
+		// away with it.
+		render(
+			<Modal
+				title="Form"
+				footer={<button type="button">Save</button>}
+				onClose={onClose}
+			>
+				<p>body</p>
+			</Modal>,
+		);
+		const body = document.querySelector("[data-modal-scroll]");
+		const save = screen.getByRole("button", { name: "Save" });
+		expect(body).toContainElement(screen.getByText("body"));
+		expect(body).not.toContainElement(save);
+		expect(save.closest("[data-modal-footer]")).not.toBeNull();
+	});
+
 	it("renders children", () => {
 		render(<Modal onClose={onClose}>Test Content</Modal>);
 		expect(screen.getByText("Test Content")).toBeInTheDocument();
