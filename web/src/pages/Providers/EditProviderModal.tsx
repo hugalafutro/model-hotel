@@ -417,12 +417,12 @@ export function EditProviderModal({
 						label={t("providers.edit.maxInFlightLabel")}
 						htmlFor="edit-provider-max-in-flight"
 					>
-						{/* At most five digits, so the box is narrow and the hint
-						   sits beside it. */}
-						<div className="flex items-center gap-3">
+						{/* At most five digits, so from sm up the box is narrow and the
+						   hint sits beside it; on a phone the hint goes under it. */}
+						<div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:gap-3">
 							{/* .ui-input is full width, so the box's width lives on a
 							   wrapper. */}
-							<div className="w-32 shrink-0">
+							<div className="w-full sm:w-32 shrink-0">
 								<input
 									id="edit-provider-max-in-flight"
 									type="number"

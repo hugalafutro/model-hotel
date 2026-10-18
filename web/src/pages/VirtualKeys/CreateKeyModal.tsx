@@ -267,18 +267,21 @@ export function CreateKeyModal({
 							label={t("virtualkeys.modal.form.stripReasoning")}
 							spacing="mb-2"
 						/>
-						{/* Toggle, state and description share one row. */}
-						<div className="flex items-start gap-3">
-							<Toggle
-								checked={stripReasoning}
-								onChange={setStripReasoning}
-								size="sm"
-								ariaLabel={t("virtualkeys.modal.form.stripReasoning")}
-							/>
-							<span className="text-sm text-gray-200 shrink-0">
-								{stripReasoning ? t("common.enabled") : t("common.disabled")}
-							</span>
-							<p className="text-xs text-gray-400 pt-0.5">
+						{/* Toggle, state and description share one row from sm up; on
+						   a phone the description goes under the toggle. */}
+						<div className="flex flex-col gap-1 sm:flex-row sm:items-start sm:gap-3">
+							<div className="flex items-center gap-3 shrink-0">
+								<Toggle
+									checked={stripReasoning}
+									onChange={setStripReasoning}
+									size="sm"
+									ariaLabel={t("virtualkeys.modal.form.stripReasoning")}
+								/>
+								<span className="text-sm text-gray-200">
+									{stripReasoning ? t("common.enabled") : t("common.disabled")}
+								</span>
+							</div>
+							<p className="text-xs text-gray-400 sm:pt-0.5">
 								{t("virtualkeys.modal.stripReasoningDescriptionText")}
 							</p>
 						</div>
