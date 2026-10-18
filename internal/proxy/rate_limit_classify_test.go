@@ -667,3 +667,14 @@ func TestClassifyRateLimit_AccountWide(t *testing.T) {
 		})
 	}
 }
+
+// A delta-seconds value past the hint ceiling is clamped, not multiplied into an
+// int64 wrap whose sign would then decide the verdict.
+func TestParseRetryAfter_HugeDeltaSecondsIsClamped(t *testing.T) {
+	for _, v := range []string{"10000000000", "99999999999", "9223372036854775807"} {
+		d, ok := parseRetryAfter(v)
+		if !ok || d != bodyResetHintMax {
+			t.Errorf("parseRetryAfter(%q) = (%v, %v), want (%v, true)", v, d, ok, bodyResetHintMax)
+		}
+	}
+}

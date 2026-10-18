@@ -240,14 +240,21 @@ func TestSafeDialer_NoPortInAddr(t *testing.T) {
 }
 
 func TestSafeDialer_DialTimingContext(t *testing.T) {
-	sd := NewSafeDialer(nil, nil)
-	ctx, slot := withDialTiming(context.Background())
+	// A resolver that takes a measurable time: the slot must carry at least
+	// that, so a dial that never recorded (take() reads 0) fails the test.
+	sd := newSafeDialerWithResolver(nil, &mockResolver{lookupFunc: func(context.Context, string) ([]net.IPAddr, error) {
+		time.Sleep(20 * time.Millisecond)
+		return []net.IPAddr{{IP: net.ParseIP("203.0.113.10")}}, nil
+	}}, nil)
+	ctx, cancel := context.WithTimeout(context.Background(), 200*time.Millisecond)
+	defer cancel()
+	ctx, slot := withDialTiming(ctx)
 
-	// This will fail to connect but should set the timing value
-	_, _ = sd.DialContext(ctx, "tcp", "127.0.0.1:80")
-	// dialMs should be >= 0 (DNS resolution was attempted, even for IP)
-	if dialMs := slot.take(); dialMs < 0 {
-		t.Errorf("expected dialMs >= 0, got %f", dialMs)
+	// TEST-NET-3 never answers; the dial fails on the context, after the resolve
+	// has recorded its time.
+	_, _ = sd.DialContext(ctx, "tcp", "timing.example:80")
+	if dialMs := slot.take(); dialMs < 15 {
+		t.Errorf("expected dialMs to carry the 20ms resolve, got %f", dialMs)
 	}
 }
 

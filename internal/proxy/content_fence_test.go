@@ -391,6 +391,10 @@ func TestContentFence_HedgeProbeLogCarriesTheFence(t *testing.T) {
 	if snap.content != entry.content || snap.modelID != "hotel/g" || snap.providerName != "p" || snap.endpointType != "chat" {
 		t.Fatalf("snapshot = %+v", snap)
 	}
+	// The probe's stall floor is measured from this launch, not the request.
+	if snap.attemptStarted.IsZero() {
+		t.Fatal("snapshot has no attemptStarted: the hedged probe would measure its stall from the request's ingest")
+	}
 	if got := snap.content.fenceUpstream("cannot process: " + canary); got != contentWithheld {
 		t.Fatalf("snapshot fence inert: %q", got)
 	}

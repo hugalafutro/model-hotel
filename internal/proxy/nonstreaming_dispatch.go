@@ -80,6 +80,23 @@ func (h *Handler) dispatchNonStreaming(w http.ResponseWriter, r *http.Request, s
 	}
 
 	h.deferAnswerJudgement(st, candidate, logData, resp.StatusCode)
+	// The slot's verdict is the handler's, not the 2xx's: on the last candidate
+	// a body that would not decode is answered with this gateway's 502 and
+	// charged to the breaker, and the close the handler performs must not then
+	// settle the slot clean for an answer the client never saw.
+	st.attemptSlot.holdVerdict()
 	h.handleNonStreamingResponse(w, r, logData, resp, ans, st.startTime, st.proxyOverhead, st.parseMs, st.timings, responseHeaderMs, st.vkHash, attempt)
+	// Settled the way the breaker reads it (recordAnswerOutcome): a completed
+	// answer with content is clean, a completed answer without content is the
+	// failure it is charged as, and a failed one follows its kind, so a caller
+	// who left is neutral rather than a mark against the provider.
+	switch {
+	case logData.state == "completed" && !logData.emptyCompletion:
+		st.attemptSlot.settle(slotClean)
+	case logData.state == "completed":
+		st.attemptSlot.settle(slotUnclean)
+	default:
+		st.attemptSlot.settle(slotOutcomeFor(logData.errorKind))
+	}
 	return served(outcomeServed)
 }

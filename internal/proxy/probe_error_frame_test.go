@@ -1449,3 +1449,77 @@ func TestRunHedgedStreaming_TheWinnersVerdictLandsOnItsModel(t *testing.T) {
 		t.Errorf("circuit = %s, want open: the hedged winner's stream verdict missed its own model", got)
 	}
 }
+
+// A native Responses stream has no choices and no [DONE]: its opener must not
+// read as a first token, its deltas must, and its terminal snapshots end the
+// probe the way message_stop does.
+func TestClassifyProbeFrame_ResponsesEvents(t *testing.T) {
+	t.Parallel()
+	for _, tc := range []struct {
+		name, payload string
+		want          probeFrame
+		wantMsg       string
+	}{
+		{"created is not a token", `{"type":"response.created","sequence_number":0,"response":{"id":"r","status":"in_progress"}}`, probeFrameNotAToken, ""},
+		{"in_progress is not a token", `{"type":"response.in_progress","sequence_number":1,"response":{"id":"r"}}`, probeFrameNotAToken, ""},
+		{"output_item.added is not a token", `{"type":"response.output_item.added","output_index":0,"item":{"type":"message","role":"assistant","content":[]}}`, probeFrameNotAToken, ""},
+		{"text delta is the token", `{"type":"response.output_text.delta","delta":"Hi"}`, probeFrameToken, ""},
+		{"empty delta is not", `{"type":"response.output_text.delta","delta":""}`, probeFrameNotAToken, ""},
+		{"completed ends the stream", `{"type":"response.completed","response":{"id":"r","usage":{"input_tokens":3,"output_tokens":0}}}`, probeFrameEmptyStream, ""},
+		{"failed is the provider's error", `{"type":"response.failed","response":{"id":"r","error":{"code":"server_error","message":"upstream fell over"}}}`, probeFrameError, "upstream fell over"},
+		{"the dialect's error event is the provider's error", `{"type":"error","code":"server_error","message":"stream broke","param":null,"sequence_number":2}`, probeFrameError, "stream broke"},
+		{"a tool call item with no arguments is output", `{"type":"response.output_item.added","output_index":0,"item":{"type":"function_call","id":"fc_1","call_id":"call_1","name":"get_time","arguments":""}}`, probeFrameToken, ""},
+		{"a message item opener is not", `{"type":"response.output_item.added","output_index":0,"item":{"type":"message","id":"msg_1","role":"assistant","content":[]}}`, probeFrameNotAToken, ""},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			got, msg := classifyProbeFrame(tc.payload)
+			if got != tc.want || msg != tc.wantMsg {
+				t.Errorf("classifyProbeFrame = (%v, %q), want (%v, %q)", got, msg, tc.want, tc.wantMsg)
+			}
+		})
+	}
+}
+
+// The hedged probe's stall floor is measured from this launch, not from the
+// request: a launch deep into the stagger whose client leaves two hundred
+// milliseconds in is a client disconnect, not a provider stall charged to a
+// provider that had barely been asked.
+func TestProbeStreamingCandidate_ClientGoneIsJudgedFromTheLaunch(t *testing.T) {
+	h := newIntegrationHandler()
+	defer stopUnitHandler(h)
+	withBreakerThresholdOne(t, h)
+
+	release := make(chan struct{})
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "text/event-stream")
+		w.WriteHeader(http.StatusOK)
+		w.(http.Flusher).Flush()
+		select {
+		case <-release:
+		case <-r.Context().Done():
+		}
+	}))
+	defer srv.Close()
+	defer close(release)
+
+	st, cand := probeStateForServer(srv.URL)
+	st.circuitBreakerEnabled = true
+	st.startTime = time.Now().Add(-time.Minute)  // the request is a minute old
+	st.logData = hedgeProbeLog(st.logData, cand) // this launch just began
+	ctx, cancel := context.WithCancel(context.Background())
+	time.AfterFunc(200*time.Millisecond, cancel) // the client leaves
+
+	res := h.probeStreamingCandidate(ctx, st, cand, 1, 30*time.Second, 30*time.Second)
+	if res.resp != nil {
+		_ = res.resp.Body.Close()
+	}
+	if res.won {
+		t.Fatal("a probe with no token must not win")
+	}
+	if res.reqErr.Kind != KindClientDisconnect {
+		t.Errorf("kind = %s, want %s: the launch was 200ms old when the client left", res.reqErr.Kind, KindClientDisconnect)
+	}
+	if got := h.circuitBreaker.GetState(cand.provider.ID, cand.model.ModelID); got != failover.StateClosed {
+		t.Errorf("circuit = %s, want closed: a client disconnect is not the provider's stall", got)
+	}
+}

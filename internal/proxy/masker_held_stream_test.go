@@ -66,3 +66,33 @@ func TestSSEErrorMaskWriter_HeldKeyInErrorEvents(t *testing.T) {
 		})
 	}
 }
+
+// The caller's buffer is reused between writes (io.Copy hands the same 32 KiB
+// slice to every Write), so a line held across a Write must be a copy: an
+// aliased event line would read whatever the next fill put there.
+func TestSSEErrorMaskWriter_HeldLinesSurviveBufferReuse(t *testing.T) {
+	var out bytes.Buffer
+	w := newSSEErrorMaskWriter(&out, credentialMasker{})
+	buf := make([]byte, 64)
+
+	first := []byte("event: image_generation.partial_image\n")
+	n := copy(buf, first)
+	if _, err := w.Write(buf[:n]); err != nil {
+		t.Fatal(err)
+	}
+	// The next read refills the same buffer.
+	for i := range buf {
+		buf[i] = 'A'
+	}
+	second := []byte("data: {\"b64\":\"AAAA\"}\n\n")
+	n = copy(buf, second)
+	if _, err := w.Write(buf[:n]); err != nil {
+		t.Fatal(err)
+	}
+	if err := w.Flush(); err != nil {
+		t.Fatal(err)
+	}
+	if want := string(first) + string(second); out.String() != want {
+		t.Fatalf("got %q\nwant %q", out.String(), want)
+	}
+}

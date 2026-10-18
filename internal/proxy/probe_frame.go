@@ -10,6 +10,7 @@ import (
 	"strings"
 
 	"github.com/hugalafutro/model-hotel/internal/anthropic"
+	"github.com/hugalafutro/model-hotel/internal/openairesponses"
 	"github.com/hugalafutro/model-hotel/internal/util"
 )
 
@@ -92,10 +93,50 @@ func classifyProbeFrame(content string) (probeFrame, string) {
 		// open after message_stop would run an empty answer into the timeout.
 		return probeFrameEmptyStream, ""
 	}
+	if frame, msg, isResponses := classifyResponsesProbeFrame(content); isResponses {
+		return frame, msg
+	}
 	if !frameCarriesOutput(content) {
 		return probeFrameNotAToken, ""
 	}
 	return probeFrameToken, ""
+}
+
+// classifyResponsesProbeFrame reads a native Responses stream event for the
+// probe. The dialect has no [DONE] and no choices: response.created and
+// response.in_progress carry nothing, a delta with text is the first token, and
+// the completed/incomplete/failed snapshots end the stream (a failed one is an
+// error, with the response's own error member as its message). Without this the first event, response.created, read as output
+// to frameCarriesOutput: true_ttft_ms measured time to the opener, and a
+// Responses upstream that opened and then hung never met the TTFT timeout.
+// Not a Responses event: ok is false and the caller reads the other shapes.
+func classifyResponsesProbeFrame(payload string) (frame probeFrame, msg string, ok bool) {
+	var ev struct {
+		Type string `json:"type"`
+		Item struct {
+			Type string `json:"type"`
+		} `json:"item"`
+	}
+	// The dialect's own error event is {"type":"error","code":..,"message":..}
+	// with no error member, so errorEnvelopeMessage does not see it; read here
+	// it is the provider's failure, not output.
+	if json.Unmarshal([]byte(payload), &ev) != nil || (ev.Type != "error" && !strings.HasPrefix(ev.Type, "response.")) {
+		return probeFrameNotAToken, "", false
+	}
+	info := openairesponses.InspectStreamEvent([]byte(payload))
+	switch {
+	case info.CarriesError:
+		return probeFrameError, info.ErrorMessage, true
+	case info.Terminal:
+		return probeFrameEmptyStream, "", true
+	case info.TextBytes > 0:
+		return probeFrameToken, "", true
+	case (ev.Type == "response.output_item.added" || ev.Type == "response.output_item.done") && strings.HasSuffix(ev.Item.Type, "_call"):
+		// A tool call item is output the client acts on even when its
+		// arguments are empty and no arguments delta ever follows.
+		return probeFrameToken, "", true
+	}
+	return probeFrameNotAToken, "", true
 }
 
 // isAnthropicMessageStop reports whether a payload is the native Anthropic

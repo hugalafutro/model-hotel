@@ -131,7 +131,9 @@ func (m *sseErrorMaskWriter) Write(p []byte) (int, error) {
 			delivered = consumed
 			continue
 		}
-		m.event = append(m.event, line)
+		// line aliases the caller's buffer, which io.Copy reuses on the next
+		// read; the held line must outlive this Write.
+		m.event = append(m.event, bytes.Clone(line))
 		m.held += nl + 1
 		if m.held > sseErrorMaskEventCap {
 			if err := m.spill(); err != nil {

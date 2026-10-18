@@ -3,6 +3,8 @@ package proxy
 import (
 	"bytes"
 	"encoding/json"
+
+	"github.com/hugalafutro/model-hotel/internal/util"
 )
 
 // stripReasoningDecision is what computeStripReasoning decided for a chunk.
@@ -90,6 +92,12 @@ func computeStripReasoning(payload string, lastFinishReason *string, logData *re
 			"choices": []map[string]any{
 				{"index": 0, "delta": map[string]any{}},
 			},
+		}
+		// The usage frame of several providers is a role-only or empty delta
+		// (OpenRouter's final chunk is one): the observers metered it already,
+		// and a client that asked for stream_options.include_usage must see it.
+		if usageRaw, ok := p.raw["usage"]; ok && util.ValueCarries(usageRaw) {
+			keepAlivePayload["usage"] = usageRaw
 		}
 		keepAliveJSON, err := json.Marshal(keepAlivePayload)
 		if err != nil {

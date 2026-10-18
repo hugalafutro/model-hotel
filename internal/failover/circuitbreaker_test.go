@@ -919,3 +919,90 @@ func TestOnOpen_NoCallbackIsSafe(t *testing.T) {
 // ---------------------------------------------------------------------------
 // Quota re-pin tests
 // ---------------------------------------------------------------------------
+
+// A circuit opened by direct provider/model traffic never passes through
+// IsOpen, which is where the cooldown used to be judged. The record paths judge
+// it themselves: an outcome landing after the cooldown is the probe, so a
+// success closes the circuit and a failure re-opens it with a longer backoff.
+func TestCircuitBreaker_DirectOutcomesProbeAnElapsedCooldown(t *testing.T) {
+	cb := newTestCB(3, time.Second)
+	pid := uuid.New()
+	open := func() {
+		for range 3 {
+			cb.RecordFailure(pid, "p", "m", Cause{Status: 503, Reason: "upstream"})
+		}
+		cb.mu.Lock()
+		c := cb.circuits[pid.String()]["m"]
+		if c.state != StateOpen {
+			cb.mu.Unlock()
+			t.Fatalf("setup: state = %v, want open", c.state)
+		}
+		c.openedAt = c.openedAt.Add(-24 * time.Hour)
+		cb.mu.Unlock()
+	}
+
+	open()
+	cb.RecordSuccess(pid, "p", "m")
+	if s := cb.GetState(pid, "m"); s != StateClosed {
+		t.Errorf("after a success past the cooldown: state = %v, want closed", s)
+	}
+
+	open()
+	cb.RecordFailure(pid, "p", "m", Cause{Status: 503, Reason: "upstream"})
+	cb.mu.RLock()
+	c := cb.circuits[pid.String()]["m"]
+	state, failedProbes, openedAgo := c.state, c.failedProbes, time.Since(c.openedAt)
+	cb.mu.RUnlock()
+	if state != StateOpen || failedProbes != 1 || openedAgo > time.Minute {
+		t.Errorf("after a failure past the cooldown: state=%v failedProbes=%d openedAgo=%v, want a fresh open counted as a failed probe", state, failedProbes, openedAgo)
+	}
+}
+
+// An open circuit reports why it opened. A request admitted before the open
+// that completes while the circuit is still dark is not that reason.
+func TestCircuitBreaker_LateOutcomeKeepsTheOpenVerdict(t *testing.T) {
+	cb := newTestCB(2, time.Hour)
+	pid := uuid.New()
+	for range 2 {
+		cb.RecordFailure(pid, "p", "m", Cause{Status: 503, Reason: "upstream"})
+	}
+	cb.RecordSuccess(pid, "p", "m")
+	cb.RecordFailure(pid, "p", "m", Cause{Status: 400, Reason: "late"})
+
+	cb.mu.RLock()
+	c := cb.circuits[pid.String()]["m"]
+	state, status, cause := c.state, c.lastStatus, c.lastCause
+	cb.mu.RUnlock()
+	if state != StateOpen || status != 503 || cause != "upstream" {
+		t.Errorf("state=%v last_status=%d last_cause=%q, want open/503/upstream", state, status, cause)
+	}
+}
+
+// RecordSaturated is a record path too: past the cooldown it probes the
+// circuit, while the circuit still blocks it leaves the open verdict alone.
+func TestCircuitBreaker_SaturatedOutcomeFollowsTheCooldown(t *testing.T) {
+	cb := newTestCB(2, time.Hour)
+	pid := uuid.New()
+	for range 2 {
+		cb.RecordFailure(pid, "p", "m", Cause{Status: 503, Reason: "upstream"})
+	}
+	cb.RecordSaturated(pid, "p", "m")
+	cb.mu.RLock()
+	c := cb.circuits[pid.String()]["m"]
+	state, status := c.state, c.lastStatus
+	cb.mu.RUnlock()
+	if state != StateOpen || status != 503 {
+		t.Errorf("while dark: state=%v last_status=%d, want open/503", state, status)
+	}
+
+	cb.mu.Lock()
+	c.openedAt = c.openedAt.Add(-24 * time.Hour)
+	cb.mu.Unlock()
+	cb.RecordSaturated(pid, "p", "m")
+	cb.mu.RLock()
+	state, status = c.state, c.lastStatus
+	cb.mu.RUnlock()
+	if state != StateHalfOpen || status != 429 {
+		t.Errorf("past the cooldown: state=%v last_status=%d, want half-open/429", state, status)
+	}
+}

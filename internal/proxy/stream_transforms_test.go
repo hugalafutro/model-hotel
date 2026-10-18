@@ -146,6 +146,19 @@ func TestComputeStripReasoning(t *testing.T) {
 		}
 	})
 
+	t.Run("usage frame with an empty delta → keep-alive that carries the usage", func(t *testing.T) {
+		var lastFR string
+		in := `{"id":"cid","object":"chat.completion.chunk","choices":[{"index":0,"delta":{"role":"assistant","content":""},"finish_reason":null}],"usage":{"prompt_tokens":7,"completion_tokens":2,"total_tokens":9}}`
+		d, out := computeStripReasoning(in, &lastFR, ld)
+		if d != stripKeepalive {
+			t.Fatalf("decision = %v, want stripKeepalive", d)
+		}
+		want := `{"choices":[{"delta":{},"index":0}],"id":"cid","object":"chat.completion.chunk","usage":{"prompt_tokens":7,"completion_tokens":2,"total_tokens":9}}`
+		if string(out) != want {
+			t.Errorf("keep-alive payload mismatch\n got: %s\nwant: %s", out, want)
+		}
+	})
+
 	t.Run("content survives strip → forward", func(t *testing.T) {
 		var lastFR string
 		in := `{"id":"x","object":"chat.completion.chunk","choices":[{"index":0,"delta":{"reasoning_content":"r","content":"hello"},"finish_reason":null}]}`

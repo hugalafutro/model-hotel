@@ -305,8 +305,8 @@ func TestStreamTranslator_MixedIndexShapes(t *testing.T) {
 }
 
 // finish_reason "content_filter" beside tool calls is not an ordinary end
-// either; it stays end_turn rather than telling the client to run the call.
-func TestStreamTranslator_ContentFilterBesideToolCallsStaysEndTurn(t *testing.T) {
+// either; it is a refusal rather than telling the client to run the call.
+func TestStreamTranslator_ContentFilterBesideToolCallsIsARefusal(t *testing.T) {
 	tr := NewStreamTranslator("msg_cf", "m")
 	chunks := []OAStreamChunk{
 		{Choices: []OAStreamChoice{{Delta: OAStreamDelta{ToolCalls: []OAToolCallDelta{
@@ -314,8 +314,8 @@ func TestStreamTranslator_ContentFilterBesideToolCallsStaysEndTurn(t *testing.T)
 		}}}}},
 		{Choices: []OAStreamChoice{{Delta: OAStreamDelta{}, FinishReason: new("content_filter")}}},
 	}
-	if got := decodeWithSDK(t, runTranslator(t, tr, chunks)); got.stopReason != "end_turn" {
-		t.Errorf("stop_reason = %q, want end_turn", got.stopReason)
+	if got := decodeWithSDK(t, runTranslator(t, tr, chunks)); got.stopReason != "refusal" {
+		t.Errorf("stop_reason = %q, want refusal", got.stopReason)
 	}
 }
 

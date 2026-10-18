@@ -1058,3 +1058,34 @@ func TestUntranslatableEgress2xx_NeitherGrowsTheWindowNorLeaksTheSlot(t *testing
 		t.Errorf("in-flight count = %d, want 0: the attempt's slot was never settled, so the provider loses it for the life of the process", after.inflight)
 	}
 }
+
+// On the last candidate a 2xx whose body does not decode is answered with this
+// gateway's 502 and charged to the breaker; the in-flight slot must settle the
+// same way, not clean on the strength of the 2xx. A clean settlement there grows
+// the learned window on an answer the client never saw.
+func TestDispatchNonStreaming_LastCandidateUndecodableBodySettlesUnclean(t *testing.T) {
+	h := newIntegrationHandler()
+	t.Cleanup(func() { stopUnitHandler(h) })
+	st, candidate := nonCompletionState(t)
+	settled := make(chan slotOutcome, 1)
+	slot := &attemptSlot{fire: func(o slotOutcome) { settled <- o }}
+	st.attemptSlot = slot
+	body := &inflightRelease{ReadCloser: io.NopCloser(strings.NewReader("<html>not a completion</html>")), slot: slot, clean: true, onEOF: true}
+	resp := &http.Response{StatusCode: http.StatusOK, Body: body, Header: make(http.Header)}
+	w := httptest.NewRecorder()
+	req := withAuthContext(httptest.NewRequest("POST", "/v1/chat/completions", http.NoBody))
+
+	h.dispatchNonStreaming(w, req, st, candidate, resp, 0, 1.0, false)
+
+	if w.Code != http.StatusBadGateway {
+		t.Errorf("client status = %d, want 502", w.Code)
+	}
+	select {
+	case o := <-settled:
+		if o != slotUnclean {
+			t.Errorf("slot settled %d, want unclean: the client got a 502", o)
+		}
+	default:
+		t.Fatal("the slot never settled")
+	}
+}

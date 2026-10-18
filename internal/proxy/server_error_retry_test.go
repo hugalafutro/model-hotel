@@ -12,6 +12,9 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+
+	"github.com/hugalafutro/model-hotel/internal/failover"
+	"github.com/hugalafutro/model-hotel/internal/settings"
 )
 
 // directChatRequest sends a chat completion straight at the env's provider
@@ -355,4 +358,122 @@ func TestDeferLastCandidateRetry_ServerErrorNeedsRoom(t *testing.T) {
 			}
 		})
 	}
+}
+
+// A retry needs a round of its own after its wait. One admitted with
+// microseconds of budget fails on its own deadline before the dial and charges
+// the breaker for a provider never contacted, so the floor refuses it.
+func TestRetryLastCandidate_NeedsARoundAfterTheWait(t *testing.T) {
+	env := newTestProxyHandler(t)
+	defer env.Upstream.Close()
+	attempted := false
+	fn := func(http.ResponseWriter, *http.Request, *requestState, modelCandidate, int, int) candidateOutcome {
+		attempted = true
+		return outcomeServed
+	}
+	st := &requestState{overallDeadline: time.Now().Add(retryMinRound / 2), logData: &requestLogData{}}
+	if env.Handler.retryLastCandidate(httptest.NewRecorder(), httptest.NewRequest("POST", "/", http.NoBody), st, modelCandidateForBreaker(uuid.New()), 1, fn, 0, false, "saturation") {
+		t.Error("a budget under one round reported the request as answered")
+	}
+	if attempted {
+		t.Error("the retry ran with less than one round of budget")
+	}
+
+	// A provider-stated wait is kept whole: when it and the round do not both
+	// fit, the retry is refused rather than run before the provider said so.
+	st = &requestState{overallDeadline: time.Now().Add(retryMinRound + 50*time.Millisecond), logData: &requestLogData{}}
+	if env.Handler.retryLastCandidate(httptest.NewRecorder(), httptest.NewRequest("POST", "/", http.NoBody), st, modelCandidateForBreaker(uuid.New()), 1, fn, retryMinRound, false, "saturation") {
+		t.Error("a saturation retry that does not fit reported the request as answered")
+	}
+	if attempted {
+		t.Error("the saturation retry ran before the provider's wait had passed")
+	}
+}
+
+// The self-heal retry names a transport response-header timeout the way the
+// first round does: the provider accepted the rebuilt request and never
+// answered, which is provider_timeout, not the retry's own budget.
+func TestIssueRetry_HeaderTimeoutIsTheProviders(t *testing.T) {
+	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		select {
+		case <-time.After(500 * time.Millisecond):
+		case <-r.Context().Done():
+		}
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer upstream.Close()
+	env := newTestProxyEnvWithUpstream(t, upstream)
+	ctx := context.Background()
+	if err := env.Handler.settingsRepo.Set(ctx, "upstream_header_timeout", "50ms"); err != nil {
+		t.Fatalf("set upstream_header_timeout: %v", err)
+	}
+	env.Handler.settingsRepo.InvalidateCache("upstream_header_timeout")
+	t.Cleanup(func() {
+		_ = env.Handler.settingsRepo.DeleteKey(ctx, "upstream_header_timeout")
+		env.Handler.settingsRepo.InvalidateCache("upstream_header_timeout")
+	})
+
+	st := &requestState{startTime: time.Now(), failoverTimeout: 10 * time.Second, overallDeadline: time.Now().Add(10 * time.Second), logData: &requestLogData{}}
+	req := httptest.NewRequest("POST", "/v1/chat/completions", http.NoBody)
+	var dialMs float64
+	_, _, re, served := env.Handler.issueRetry(req, st, modelCandidateForBreaker(uuid.New()), "openai", upstream.URL+"/v1/chat/completions", []byte(`{"model":"m"}`), 1, &dialMs, "retry")
+	if served {
+		t.Fatal("a header timeout reported a response")
+	}
+	if re.Kind != KindProviderTimeout {
+		t.Errorf("kind = %q, want %q", re.Kind, KindProviderTimeout)
+	}
+}
+
+// A self-heal retry that runs its own deadline out before the headers is a
+// provider stall, charged like doUpstream charges the failover deadline on a
+// first round: the provider accepted the rebuilt request and never answered.
+func TestSelfHealRetry_DeadlineBeforeHeadersChargesTheBreaker(t *testing.T) {
+	var calls atomic.Int32
+	release := make(chan struct{})
+	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if calls.Add(1) == 1 {
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusBadRequest)
+			_, _ = io.WriteString(w, `{"error":{"message":"Unsupported parameter: 'temperature' is not supported with this model.","type":"invalid_request_error","param":"temperature","code":"unsupported_parameter"}}`)
+			return
+		}
+		// The retry never gets its headers; released at the end so Close
+		// does not wait on a handler the server never saw hang up.
+		select {
+		case <-release:
+		case <-r.Context().Done():
+		}
+	}))
+	defer upstream.Close()
+	defer close(release)
+	env := newTestProxyEnvWithUpstream(t, upstream)
+	withBreakerThresholdOne(t, env.Handler)
+	ctx := context.Background()
+	if err := env.Handler.settingsRepo.Set(ctx, settings.KeyRequestTimeout, "400ms"); err != nil {
+		t.Fatalf("set request_timeout: %v", err)
+	}
+	env.Handler.settingsRepo.InvalidateCache(settings.KeyRequestTimeout)
+	t.Cleanup(func() {
+		_ = env.Handler.settingsRepo.DeleteKey(ctx, settings.KeyRequestTimeout)
+		env.Handler.settingsRepo.InvalidateCache(settings.KeyRequestTimeout)
+	})
+
+	body := `{"model": "` + env.ProviderName + `/` + env.ModelName + `", "messages": [{"role": "user", "content": "hello"}], "stream": false, "temperature": 0.7}`
+	req := httptest.NewRequest("POST", "/v1/chat/completions", strings.NewReader(body))
+	rctx := context.WithValue(req.Context(), virtualKeyNameKey, "test-key")
+	rctx = context.WithValue(rctx, VirtualKeyHashKey, env.KeyHash)
+	w := httptest.NewRecorder()
+	env.Handler.ChatCompletions(w, req.WithContext(rctx))
+
+	if calls.Load() != 2 {
+		t.Fatalf("upstream calls = %d, want the learnable 400 and one retry", calls.Load())
+	}
+	if w.Code < 500 {
+		t.Errorf("status = %d, want a 5xx for a retry that never answered; body %s", w.Code, w.Body.String())
+	}
+	if got := env.Handler.circuitBreaker.GetState(env.ProviderID, env.ModelName); got != failover.StateOpen {
+		t.Errorf("circuit = %s, want open: the retry ran its deadline out before the headers", got)
+	}
+	assertLastVerdict(t, env.Handler.circuitBreaker, env.ProviderID, "retry request failed", 0)
 }

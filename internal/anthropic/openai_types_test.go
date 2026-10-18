@@ -8,7 +8,7 @@ func TestMapStopReason(t *testing.T) {
 		"tool_calls":     "tool_use",
 		"function_call":  "tool_use",
 		"stop":           "end_turn",
-		"content_filter": "end_turn",
+		"content_filter": "refusal",
 		"":               "end_turn",
 		"unknown":        "end_turn",
 	}

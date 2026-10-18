@@ -158,6 +158,9 @@ func (h *Handler) attemptCandidate(w http.ResponseWriter, r *http.Request, st *r
 			}
 			if res.cont {
 				st.attemptSlot.settle(slotOutcomeFor(res.lastReqErr.Kind))
+				if retryRoundIsProviderFault(res.lastReqErr.Kind) {
+					h.chargeBreaker(st, candidate, 0, "retry request failed")
+				}
 				st.setReqErr(res.lastReqErr)
 				logData.closeAttemptRecord(0, res.lastReqErr.Kind, res.lastReqErr.Underlying, "", 0)
 				return outcomeFailover
@@ -357,6 +360,15 @@ func classifyProbeFailure(providerName, underlying string, clientGone bool, elap
 	return re, true
 }
 
+// retryRoundIsProviderFault says whether a self-heal retry that failed before
+// its headers is charged to the breaker. A transport fault is the provider's,
+// as it is on the first round in doUpstream, and so is a retry that ran its
+// own deadline out (doUpstream charges the failover deadline the same way); a
+// caller who left is not.
+func retryRoundIsProviderFault(k ErrorKind) bool {
+	return k == KindProviderTimeout || k == KindProviderError || k == KindRetryTimeout
+}
+
 // dispatchStreaming serves a streaming 200 response (phase H): read the TTFT and
 // stall timeouts, build the streamOptions, run the TTFT probe (on success commit
 // the breaker and stash the pre-read buffer; on failure close the body, classify
@@ -409,7 +421,10 @@ func (h *Handler) dispatchStreaming(w http.ResponseWriter, r *http.Request, st *
 			// not have closed the body (only when its context ended); close it
 			// unconditionally to release the connection.
 			_ = resp.Body.Close()
-			elapsed := time.Since(st.startTime)
+			// Measured from THIS attempt: the stall floor asks whether this
+			// provider stayed silent, and the request's ingest time carries the
+			// earlier candidates' silence into a healthy later one.
+			elapsed := time.Since(logData.attemptStarted)
 			re, recordFailure := classifyProbeError(probeErr, candidate.provider.Name, newCredentialMasker(candidate.apiKey), logData.fence(), clientGone, elapsed, stallTimeout, ttftTimeout, attempt)
 			// A failed probe is no consumed success, so the learned window
 			// never grows on it; a caller who left is no evidence against the

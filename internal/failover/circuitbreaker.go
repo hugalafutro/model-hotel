@@ -195,18 +195,6 @@ func (cb *CircuitBreaker) SetOnOpen(fn func(providerID uuid.UUID)) {
 	cb.onOpen = fn
 }
 
-// notifyOpen fires the open-transition callback for a circuit that just went
-// open. The callback runs on its own goroutine, so it never executes under
-// cb.mu and never adds latency to the request that opened the circuit. Must be
-// called with cb.mu held.
-func (cb *CircuitBreaker) notifyOpen(providerID uuid.UUID) {
-	if cb.onOpen == nil {
-		return
-	}
-	fn := cb.onOpen
-	go fn(providerID)
-}
-
 // afterUnlock collects what a locked section wants emitted once cb.mu is
 // released: log lines and bus events. The app-log sink can block for seconds
 // per line on a backed-up store, and cb.mu is the lock every request's IsOpen
@@ -265,9 +253,7 @@ func (cb *CircuitBreaker) IsOpen(providerID uuid.UUID, providerName, model strin
 	if !ok {
 		return false
 	}
-	if c = models[model]; c != nil && c.state == StateOpen && !cb.stillDark(c, cb.cooldowns()) {
-		c.state = StateHalfOpen
-		c.halfOpenProbes = 0
+	if c = models[model]; c != nil && cb.probeIfCooldownElapsed(c) {
 		after.add(func() {
 			debuglog.Info("circuit-breaker: model state=open→half-open (cooldown elapsed)", "provider", providerName, "provider_id", providerID, "model", model)
 		})
@@ -276,6 +262,23 @@ func (cb *CircuitBreaker) IsOpen(providerID uuid.UUID, providerName, model strin
 	// circuits still inside their cooldown do, which is what lets a provider
 	// recover. The provider can still be open on the others.
 	return cb.providerOpen(models)
+}
+
+// probeIfCooldownElapsed moves an open circuit whose cooldown has elapsed to
+// half-open and reports whether it did. IsOpen runs it for the hotel/ walk;
+// the record paths run it too, because a direct provider/model request never
+// calls IsOpen, and an outcome landing on a stored-Open circuit would otherwise
+// be discarded: the circuit would read half-open to every observer and never
+// close, re-open, back off or publish an event again.
+//
+// Must be called with cb.mu held for writing.
+func (cb *CircuitBreaker) probeIfCooldownElapsed(c *circuit) bool {
+	if c.state != StateOpen || cb.stillDark(c, cb.cooldowns()) {
+		return false
+	}
+	c.state = StateHalfOpen
+	c.halfOpenProbes = 0
+	return true
 }
 
 // RecordFailure records a failed request to one of a provider's models. It
@@ -311,9 +314,14 @@ func (cb *CircuitBreaker) recordFailure(providerID uuid.UUID, providerName, mode
 	cb.names[providerID.String()] = providerName
 	c := cb.getOrCreate(providerID.String(), model)
 	c.lastCharged = time.Now()
+	cb.probeIfCooldownElapsed(c)
 	// Stamped before the switch so an open transition logs and publishes the
-	// verdict that produced it.
-	c.note(c.lastCharged, cause)
+	// verdict that produced it. A circuit still inside its cooldown keeps the
+	// verdict that opened it: a late outcome of a request admitted before the
+	// open is not why the circuit is blocking.
+	if c.state != StateOpen {
+		c.note(c.lastCharged, cause)
+	}
 
 	switch c.state {
 	case StateClosed:
@@ -374,7 +382,10 @@ func (cb *CircuitBreaker) recordExhausted(providerID uuid.UUID, providerName, mo
 
 	c := cb.getOrCreate(providerID.String(), model)
 	c.lastCharged = time.Now()
-	c.note(c.lastCharged, UpstreamStatus(status, causeExhausted))
+	cb.probeIfCooldownElapsed(c)
+	if c.state != StateOpen {
+		c.note(c.lastCharged, UpstreamStatus(status, causeExhausted))
+	}
 
 	// by429 feeds the rate-limit-only open streak, so it follows the status the
 	// provider sent rather than the fact that this is the exhaustion path. A 402
@@ -420,7 +431,14 @@ func (cb *CircuitBreaker) RecordSaturated(providerID uuid.UUID, providerName, mo
 	cb.names[providerID.String()] = providerName
 	defer cb.mu.Unlock()
 
-	cb.getOrCreate(providerID.String(), model).note(time.Now(), UpstreamStatus(429, causeSaturated))
+	c := cb.getOrCreate(providerID.String(), model)
+	// Same reading as the other record paths: a saturated answer past the
+	// cooldown is the probe's verdict; one landing while the circuit still
+	// blocks is not why it opened.
+	cb.probeIfCooldownElapsed(c)
+	if c.state != StateOpen {
+		c.note(time.Now(), UpstreamStatus(429, causeSaturated))
+	}
 }
 
 // BlockedUntil reports when the breaker next lets a request at this
@@ -519,8 +537,12 @@ func (cb *CircuitBreaker) openCircuit(after *afterUnlock, msg string, providerID
 		after.add(func() { cb.reportUnstable(providerID, providerName, model, opens) })
 	}
 	// After the line and the event: the callback is the quota refresh, whose
-	// retarget line must not precede the open it retargets.
-	after.add(func() { cb.notifyOpen(providerID) })
+	// retarget line must not precede the open it retargets. Read under the
+	// lock, like SetOnOpen writes it; it runs on its own goroutine so it never
+	// adds latency to the request that opened the circuit.
+	if fn := cb.onOpen; fn != nil {
+		after.add(func() { go fn(providerID) })
+	}
 }
 
 // reportUnstable says once that a model has opened its circuit repeatedly inside
@@ -591,7 +613,10 @@ func (cb *CircuitBreaker) recordSuccess(providerID uuid.UUID, providerName, mode
 
 	c := cb.getOrCreate(providerID.String(), model)
 	c.lastCharged = time.Now()
-	c.note(c.lastCharged, cause)
+	cb.probeIfCooldownElapsed(c)
+	if c.state != StateOpen {
+		c.note(c.lastCharged, cause)
+	}
 	if served {
 		c.lastSuccess = c.lastCharged
 	}
