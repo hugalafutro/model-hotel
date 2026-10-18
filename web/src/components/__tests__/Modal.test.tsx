@@ -77,7 +77,15 @@ describe("Modal", () => {
 		const save = screen.getByRole("button", { name: "Save" });
 		expect(body).toContainElement(screen.getByText("body"));
 		expect(body).not.toContainElement(save);
-		expect(save.closest("[data-modal-footer]")).not.toBeNull();
+		const footer = save.closest("[data-modal-footer]");
+		expect(footer).not.toBeNull();
+		// jsdom has no layout, so the geometry is pinned through the classes
+		// that make it: a height-capped column panel, a shrinkable scroll body
+		// and a footer that does not shrink.
+		const panel = document.querySelector("[data-modal-panel]");
+		expect(panel).toHaveClass("flex", "flex-col", "max-h-[90dvh]");
+		expect(body).toHaveClass("min-h-0", "overflow-y-auto");
+		expect(footer).toHaveClass("shrink-0");
 	});
 
 	it("renders children", () => {

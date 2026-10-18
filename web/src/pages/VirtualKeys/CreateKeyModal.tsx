@@ -7,7 +7,7 @@ import type { BudgetPeriod, VirtualKey } from "../../api/types";
 import { BudgetField } from "../../components/BudgetField";
 import { budgetPayload } from "../../components/budget";
 import { CopyablePill } from "../../components/CopyablePill";
-import { FieldRow } from "../../components/FieldRow";
+import { FieldRow, FORM_GRID } from "../../components/FieldRow";
 import { Modal } from "../../components/Modal";
 import { Toggle } from "../../components/Toggle";
 import { useIdentity } from "../../context/IdentityContext";
@@ -178,11 +178,7 @@ export function CreateKeyModal({
 					)}
 				</>
 			) : (
-				<form
-					id={formId}
-					onSubmit={handleSubmit}
-					className="grid grid-cols-[auto_minmax(0,1fr)] gap-x-4 gap-y-4"
-				>
+				<form id={formId} onSubmit={handleSubmit} className={FORM_GRID}>
 					<FieldRow label={t("virtualkeys.modal.nameLabel")} htmlFor="vk-name">
 						<input
 							id="vk-name"
@@ -221,8 +217,9 @@ export function CreateKeyModal({
 							</p>
 						</FieldRow>
 					)}
-					<div className="col-span-2 grid grid-cols-3 items-end gap-2">
+					<div className="sm:col-span-2 grid grid-cols-1 sm:grid-cols-3 items-end gap-2">
 						<RateLimitField
+							breakUnit
 							id="vk-rate-limit-rps"
 							labelKey="virtualkeys.modal.rateLimitRpsLabel"
 							field="rps"
@@ -230,6 +227,7 @@ export function CreateKeyModal({
 							onChange={setRateLimitRps}
 						/>
 						<RateLimitField
+							breakUnit
 							id="vk-rate-limit-burst"
 							labelKey="virtualkeys.modal.rateLimitBurstLabel"
 							field="burst"
@@ -237,6 +235,7 @@ export function CreateKeyModal({
 							onChange={setRateLimitBurst}
 						/>
 						<RateLimitField
+							breakUnit
 							id="vk-rate-limit-tpm"
 							labelKey="virtualkeys.modal.rateLimitTpmLabel"
 							field="tpm"
@@ -244,7 +243,7 @@ export function CreateKeyModal({
 							onChange={setRateLimitTpm}
 						/>
 					</div>
-					<div className="col-span-2">
+					<div className="sm:col-span-2">
 						<BudgetField
 							idPrefix="vk-create"
 							amount={budgetUsd}
@@ -253,7 +252,7 @@ export function CreateKeyModal({
 							onPeriodChange={setBudgetPeriod}
 						/>
 					</div>
-					<div className="col-span-2">
+					<div className="sm:col-span-2">
 						<ProviderAccessPicker
 							cap={cap}
 							headingKey="virtualkeys.modal.form.providerAccess"
@@ -262,7 +261,7 @@ export function CreateKeyModal({
 						/>
 					</div>
 
-					<div className="col-span-2">
+					<div className="sm:col-span-2">
 						<SectionHeader
 							icon={BrainSlashIcon}
 							label={t("virtualkeys.modal.form.stripReasoning")}

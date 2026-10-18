@@ -5,7 +5,7 @@ import { useTranslation } from "react-i18next";
 import { api } from "../../api/client";
 import type { Provider } from "../../api/types";
 import { ErrorCallout } from "../../components/ErrorCallout";
-import { FieldRow } from "../../components/FieldRow";
+import { FieldRow, FORM_GRID } from "../../components/FieldRow";
 import { FilterDropdown } from "../../components/FilterDropdown";
 import { Modal } from "../../components/Modal";
 import { RevealableInput } from "../../components/RevealableInput";
@@ -302,11 +302,7 @@ export function AddProviderModal({
 				</ErrorCallout>
 			)}
 
-			<form
-				id={formId}
-				onSubmit={handleSubmit}
-				className="grid grid-cols-[auto_minmax(0,1fr)] gap-x-4 gap-y-4"
-			>
+			<form id={formId} onSubmit={handleSubmit} className={FORM_GRID}>
 				<FieldRow label={t("providers.form_type_label")}>
 					<FilterDropdown
 						allowClear={false}

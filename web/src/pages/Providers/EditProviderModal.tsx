@@ -8,7 +8,7 @@ import { toISODate } from "../../components/AccentCalendar.utils";
 import { ConfirmDialog } from "../../components/ConfirmDialog";
 import { DatePickerPopover } from "../../components/DatePickerPopover";
 import { ErrorCallout } from "../../components/ErrorCallout";
-import { FieldRow } from "../../components/FieldRow";
+import { FieldRow, FORM_GRID } from "../../components/FieldRow";
 import { FilterDropdown } from "../../components/FilterDropdown";
 import { Modal } from "../../components/Modal";
 import { RevealableInput } from "../../components/RevealableInput";
@@ -209,11 +209,7 @@ export function EditProviderModal({
 					</ErrorCallout>
 				)}
 
-				<form
-					id={formId}
-					onSubmit={handleSubmit}
-					className="grid grid-cols-[auto_minmax(0,1fr)] gap-x-4 gap-y-4"
-				>
+				<form id={formId} onSubmit={handleSubmit} className={FORM_GRID}>
 					<FieldRow
 						label={t("providers.form_name_label")}
 						htmlFor="edit-provider-name"
@@ -308,9 +304,9 @@ export function EditProviderModal({
 					</FieldRow>
 
 					{/* The two switches side by side, each with its hint under it. */}
-					<div className="col-span-2 grid grid-cols-2 gap-x-6 gap-y-1">
+					<div className="sm:col-span-2 grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-3">
 						<div className="space-y-1" ref={scheduleRowRef}>
-							<div className="flex items-center gap-3">
+							<div className="flex flex-wrap items-center gap-x-3 gap-y-1">
 								<Toggle
 									id="edit-provider-enabled"
 									checked={formData.enabled}

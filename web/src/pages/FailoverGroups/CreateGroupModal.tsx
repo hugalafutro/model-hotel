@@ -5,7 +5,7 @@ import { api } from "../../api/client";
 import { isConflict } from "../../api/http";
 import type { CandidateModel, FailoverGroup } from "../../api/types";
 import { DeleteConfirmModal } from "../../components/DeleteConfirmModal";
-import { FieldRow } from "../../components/FieldRow";
+import { FieldRow, FORM_GRID } from "../../components/FieldRow";
 import { Modal } from "../../components/Modal";
 import type { ModelItem } from "../../components/ModelPicker";
 import { ModelPicker } from "../../components/ModelPicker";
@@ -393,11 +393,7 @@ export function CreateGroupModal({
 				</div>
 			}
 		>
-			<form
-				id={formId}
-				onSubmit={handleSubmit}
-				className="grid grid-cols-[auto_minmax(0,1fr)] gap-x-4 gap-y-4"
-			>
+			<form id={formId} onSubmit={handleSubmit} className={FORM_GRID}>
 				<FieldRow
 					label={t("failoverGroups.create.displayModelName")}
 					htmlFor="display-model"
@@ -449,7 +445,7 @@ export function CreateGroupModal({
 					/>
 				</FieldRow>
 
-				<div className="col-span-2">
+				<div className="sm:col-span-2">
 					<ModelPicker
 						id={`failover-group-entries-${isEdit ? "edit" : "create"}`}
 						models={modelItems}

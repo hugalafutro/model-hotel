@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { ArrowDownAZ, ArrowUpZA, PlugZap } from "@/lib/icons";
 import { api } from "../api/client";
@@ -91,9 +91,19 @@ export function Providers() {
 	// The modals themselves are mounted once by QuotaModalsHost in Layout.
 	const { setOpen } = useQuotaModal();
 
+	// True from the moment this tab's Discover All is sent until its response
+	// arrives. A ref, not the mutation's isPending: the SSE handler reads it
+	// between the response and the next render, when isPending is still stale.
+	const sweepInFlight = useRef(false);
+
 	const discoverAllMutation = useMutation({
 		mutationFn: async () => {
-			return api.providers.discoverAll();
+			sweepInFlight.current = true;
+			try {
+				return await api.providers.discoverAll();
+			} finally {
+				sweepInFlight.current = false;
+			}
 		},
 		onSuccess: (data) => {
 			setDiscoverAllCurrentId(null);
@@ -136,12 +146,12 @@ export function Providers() {
 	// Track which provider is currently being scanned during Discover All.
 	// provider_starting also fires for the rediscovery a provider gets when a
 	// save changes its key or address, and for a Discover All started in
-	// another tab; only this tab's own Discover All clears the id (on settle),
+	// another tab; only this tab's own Discover All clears the id when it returns,
 	// so the event counts only while that request is in flight: anything else
 	// would leave every Discover button grey until a reload.
 	useServerEvent((event) => {
 		if (
-			discoverAllMutation.isPending &&
+			sweepInFlight.current &&
 			event?.type === "request.discovery.provider_starting" &&
 			event?.metadata?.provider_id
 		) {
