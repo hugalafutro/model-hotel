@@ -282,3 +282,54 @@ func TestHandleStreamingResponse_HeldErrorFragmentReachesTheCallerInTheTerminalF
 		t.Errorf("terminal frame message = %q, want the held error", msg)
 	}
 }
+
+// The probe's stall floor is measured from THIS attempt. A client that leaves
+// two seconds into the second candidate's probe, after the first candidate
+// spent a minute producing nothing, is a client disconnect for the second
+// candidate, not a provider stall it is charged for.
+func TestDispatchStreaming_ClientGoneIsJudgedFromTheAttemptNotTheRequest(t *testing.T) {
+	h := newIntegrationHandler()
+	defer stopUnitHandlerIntegration(h)
+
+	settled := make(chan slotOutcome, 1)
+	slot := &attemptSlot{fire: func(o slotOutcome) { settled <- o }}
+	body := &inflightRelease{ReadCloser: newBlockUntilClosedReader(""), slot: slot, clean: true, onEOF: true}
+	resp := &http.Response{StatusCode: http.StatusOK, Body: body}
+	logData := streamingLog()
+	logData.providerName = "second-candidate"
+	logData.attemptStarted = time.Now() // this attempt just began
+	h.insertRequestLogAsync(logData)
+	st := &requestState{
+		startTime:             time.Now().Add(-time.Minute), // the request is a minute old
+		reqModel:              "test-model",
+		isStreaming:           true,
+		circuitBreakerEnabled: true,
+		logData:               logData,
+		attemptSlot:           slot,
+	}
+	cand := modelCandidate{
+		model:    &model.Model{ModelID: "test-model"},
+		provider: &provider.Provider{ID: uuid.New(), Name: "second-candidate"},
+		apiKey:   "sk-test",
+	}
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel() // the client has gone
+	req := httptest.NewRequest("POST", "/v1/chat/completions", http.NoBody).WithContext(ctx)
+
+	h.dispatchStreaming(httptest.NewRecorder(), req, st, cand, resp, 1, 10, "client_disconnect")
+
+	if st.lastReqErr.Kind != KindClientDisconnect {
+		t.Errorf("kind = %q, want %q: the attempt was 0s old when the client left", st.lastReqErr.Kind, KindClientDisconnect)
+	}
+	if logData.attemptBreaker == breakerCharge {
+		t.Error("a client disconnect two seconds into this attempt charged the provider's circuit")
+	}
+	select {
+	case o := <-settled:
+		if o != slotNeutral {
+			t.Errorf("slot settled %d, want neutral for a client that left", o)
+		}
+	default:
+		t.Fatal("the slot never settled")
+	}
+}

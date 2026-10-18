@@ -369,10 +369,55 @@ func TestRetryLastCandidate_NeedsARoundAfterTheWait(t *testing.T) {
 		return outcomeServed
 	}
 	st := &requestState{overallDeadline: time.Now().Add(retryMinRound / 2), logData: &requestLogData{}}
-	if env.Handler.retryLastCandidate(httptest.NewRecorder(), httptest.NewRequest("POST", "/", http.NoBody), st, modelCandidateForBreaker(uuid.New()), 1, fn, 0, "saturation") {
+	if env.Handler.retryLastCandidate(httptest.NewRecorder(), httptest.NewRequest("POST", "/", http.NoBody), st, modelCandidateForBreaker(uuid.New()), 1, fn, 0, false, "saturation") {
 		t.Error("a budget under one round reported the request as answered")
 	}
 	if attempted {
 		t.Error("the retry ran with less than one round of budget")
+	}
+
+	// A provider-stated wait is kept whole: when it and the round do not both
+	// fit, the retry is refused rather than run before the provider said so.
+	st = &requestState{overallDeadline: time.Now().Add(retryMinRound + 50*time.Millisecond), logData: &requestLogData{}}
+	if env.Handler.retryLastCandidate(httptest.NewRecorder(), httptest.NewRequest("POST", "/", http.NoBody), st, modelCandidateForBreaker(uuid.New()), 1, fn, retryMinRound, false, "saturation") {
+		t.Error("a saturation retry that does not fit reported the request as answered")
+	}
+	if attempted {
+		t.Error("the saturation retry ran before the provider's wait had passed")
+	}
+}
+
+// The self-heal retry names a transport response-header timeout the way the
+// first round does: the provider accepted the rebuilt request and never
+// answered, which is provider_timeout, not the retry's own budget.
+func TestIssueRetry_HeaderTimeoutIsTheProviders(t *testing.T) {
+	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		select {
+		case <-time.After(500 * time.Millisecond):
+		case <-r.Context().Done():
+		}
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer upstream.Close()
+	env := newTestProxyEnvWithUpstream(t, upstream)
+	ctx := context.Background()
+	if err := env.Handler.settingsRepo.Set(ctx, "upstream_header_timeout", "50ms"); err != nil {
+		t.Fatalf("set upstream_header_timeout: %v", err)
+	}
+	env.Handler.settingsRepo.InvalidateCache("upstream_header_timeout")
+	t.Cleanup(func() {
+		_ = env.Handler.settingsRepo.DeleteKey(ctx, "upstream_header_timeout")
+		env.Handler.settingsRepo.InvalidateCache("upstream_header_timeout")
+	})
+
+	st := &requestState{startTime: time.Now(), failoverTimeout: 10 * time.Second, overallDeadline: time.Now().Add(10 * time.Second), logData: &requestLogData{}}
+	req := httptest.NewRequest("POST", "/v1/chat/completions", http.NoBody)
+	var dialMs float64
+	_, _, re, served := env.Handler.issueRetry(req, st, modelCandidateForBreaker(uuid.New()), "openai", upstream.URL+"/v1/chat/completions", []byte(`{"model":"m"}`), 1, &dialMs, "retry")
+	if served {
+		t.Fatal("a header timeout reported a response")
+	}
+	if re.Kind != KindProviderTimeout {
+		t.Errorf("kind = %q, want %q", re.Kind, KindProviderTimeout)
 	}
 }

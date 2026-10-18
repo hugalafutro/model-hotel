@@ -282,14 +282,15 @@ func (h *Handler) issueRetry(r *http.Request, st *requestState, candidate modelC
 	resp, doErr := h.upstreamClient(req.Context()).Do(req)
 	*dialMs += retryDial.take()
 	if doErr != nil {
-		rc() // no body to consume on retry error
+		ctxErr := retryCtx.Err() // read before rc() ends the context below
+		rc()                     // no body to consume on retry error
 		// Same pass the main failover loop's transport error takes: the text can
 		// carry the upstream's own bytes.
 		debuglog.Warn(what, "attempt", attempt+1, "provider", candidate.provider.Name, "provider_id", candidate.provider.ID,
 			"error", st.logData.fencedErr(doErr))
 		if errors.Is(doErr, context.Canceled) || errors.Is(doErr, context.DeadlineExceeded) {
-			if retryCtx.Err() == nil {
-				// The context is live: the transport's own response-header
+			if ctxErr == nil {
+				// The context was live: the transport's own response-header
 				// timer fired (it satisfies DeadlineExceeded), so the provider
 				// accepted the rebuilt request and never answered. Named like
 				// doUpstream names it, and charged like it.

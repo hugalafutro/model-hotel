@@ -1467,6 +1467,9 @@ func TestClassifyProbeFrame_ResponsesEvents(t *testing.T) {
 		{"empty delta is not", `{"type":"response.output_text.delta","delta":""}`, probeFrameNotAToken, ""},
 		{"completed ends the stream", `{"type":"response.completed","response":{"id":"r","usage":{"input_tokens":3,"output_tokens":0}}}`, probeFrameEmptyStream, ""},
 		{"failed is the provider's error", `{"type":"response.failed","response":{"id":"r","error":{"code":"server_error","message":"upstream fell over"}}}`, probeFrameError, "upstream fell over"},
+		{"the dialect's error event is the provider's error", `{"type":"error","code":"server_error","message":"stream broke","param":null,"sequence_number":2}`, probeFrameError, "stream broke"},
+		{"a tool call item with no arguments is output", `{"type":"response.output_item.added","output_index":0,"item":{"type":"function_call","id":"fc_1","call_id":"call_1","name":"get_time","arguments":""}}`, probeFrameToken, ""},
+		{"a message item opener is not", `{"type":"response.output_item.added","output_index":0,"item":{"type":"message","id":"msg_1","role":"assistant","content":[]}}`, probeFrameNotAToken, ""},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			got, msg := classifyProbeFrame(tc.payload)

@@ -431,7 +431,14 @@ func (cb *CircuitBreaker) RecordSaturated(providerID uuid.UUID, providerName, mo
 	cb.names[providerID.String()] = providerName
 	defer cb.mu.Unlock()
 
-	cb.getOrCreate(providerID.String(), model).note(time.Now(), UpstreamStatus(429, causeSaturated))
+	c := cb.getOrCreate(providerID.String(), model)
+	// Same reading as the other record paths: a saturated answer past the
+	// cooldown is the probe's verdict; one landing while the circuit still
+	// blocks is not why it opened.
+	cb.probeIfCooldownElapsed(c)
+	if c.state != StateOpen {
+		c.note(time.Now(), UpstreamStatus(429, causeSaturated))
+	}
 }
 
 // BlockedUntil reports when the breaker next lets a request at this

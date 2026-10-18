@@ -113,8 +113,14 @@ func classifyProbeFrame(content string) (probeFrame, string) {
 func classifyResponsesProbeFrame(payload string) (frame probeFrame, msg string, ok bool) {
 	var ev struct {
 		Type string `json:"type"`
+		Item struct {
+			Type string `json:"type"`
+		} `json:"item"`
 	}
-	if json.Unmarshal([]byte(payload), &ev) != nil || !strings.HasPrefix(ev.Type, "response.") {
+	// The dialect's own error event is {"type":"error","code":..,"message":..}
+	// with no error member, so errorEnvelopeMessage does not see it; read here
+	// it is the provider's failure, not output.
+	if json.Unmarshal([]byte(payload), &ev) != nil || (ev.Type != "error" && !strings.HasPrefix(ev.Type, "response.")) {
 		return probeFrameNotAToken, "", false
 	}
 	info := openairesponses.InspectStreamEvent([]byte(payload))
@@ -124,6 +130,10 @@ func classifyResponsesProbeFrame(payload string) (frame probeFrame, msg string, 
 	case info.Terminal:
 		return probeFrameEmptyStream, "", true
 	case info.TextBytes > 0:
+		return probeFrameToken, "", true
+	case (ev.Type == "response.output_item.added" || ev.Type == "response.output_item.done") && strings.HasSuffix(ev.Item.Type, "_call"):
+		// A tool call item is output the client acts on even when its
+		// arguments are empty and no arguments delta ever follows.
 		return probeFrameToken, "", true
 	}
 	return probeFrameNotAToken, "", true

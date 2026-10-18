@@ -977,3 +977,32 @@ func TestCircuitBreaker_LateOutcomeKeepsTheOpenVerdict(t *testing.T) {
 		t.Errorf("state=%v last_status=%d last_cause=%q, want open/503/upstream", state, status, cause)
 	}
 }
+
+// RecordSaturated is a record path too: past the cooldown it probes the
+// circuit, while the circuit still blocks it leaves the open verdict alone.
+func TestCircuitBreaker_SaturatedOutcomeFollowsTheCooldown(t *testing.T) {
+	cb := newTestCB(2, time.Hour)
+	pid := uuid.New()
+	for range 2 {
+		cb.RecordFailure(pid, "p", "m", Cause{Status: 503, Reason: "upstream"})
+	}
+	cb.RecordSaturated(pid, "p", "m")
+	cb.mu.RLock()
+	c := cb.circuits[pid.String()]["m"]
+	state, status := c.state, c.lastStatus
+	cb.mu.RUnlock()
+	if state != StateOpen || status != 503 {
+		t.Errorf("while dark: state=%v last_status=%d, want open/503", state, status)
+	}
+
+	cb.mu.Lock()
+	c.openedAt = c.openedAt.Add(-24 * time.Hour)
+	cb.mu.Unlock()
+	cb.RecordSaturated(pid, "p", "m")
+	cb.mu.RLock()
+	state, status = c.state, c.lastStatus
+	cb.mu.RUnlock()
+	if state != StateHalfOpen || status != 429 {
+		t.Errorf("past the cooldown: state=%v last_status=%d, want half-open/429", state, status)
+	}
+}

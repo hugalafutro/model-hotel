@@ -86,10 +86,17 @@ func (h *Handler) dispatchNonStreaming(w http.ResponseWriter, r *http.Request, s
 	// settle the slot clean for an answer the client never saw.
 	st.attemptSlot.holdVerdict()
 	h.handleNonStreamingResponse(w, r, logData, resp, ans, st.startTime, st.proxyOverhead, st.parseMs, st.timings, responseHeaderMs, st.vkHash, attempt)
-	if logData.state == "completed" {
+	// Settled the way the breaker reads it (recordAnswerOutcome): a completed
+	// answer with content is clean, a completed answer without content is the
+	// failure it is charged as, and a failed one follows its kind, so a caller
+	// who left is neutral rather than a mark against the provider.
+	switch {
+	case logData.state == "completed" && !logData.emptyCompletion:
 		st.attemptSlot.settle(slotClean)
-	} else {
+	case logData.state == "completed":
 		st.attemptSlot.settle(slotUnclean)
+	default:
+		st.attemptSlot.settle(slotOutcomeFor(logData.errorKind))
 	}
 	return served(outcomeServed)
 }

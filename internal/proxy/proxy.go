@@ -242,7 +242,7 @@ func (h *Handler) retrySaturatedCandidate(w http.ResponseWriter, r *http.Request
 		wait = defaultSaturatedRetryAfter
 	}
 	wait = min(wait, h.settingsRepo.GetDuration(r.Context(), "rate_limit_saturation_max_wait", defaultSaturationMaxWait))
-	return h.retryLastCandidate(w, r, st, candidate, attempt, attemptOne, wait, "saturation")
+	return h.retryLastCandidate(w, r, st, candidate, attempt, attemptOne, wait, false, "saturation")
 }
 
 // retryServerErrorCandidate is the one extra attempt a last candidate that
@@ -254,17 +254,10 @@ func (h *Handler) retryServerErrorCandidate(w http.ResponseWriter, r *http.Reque
 	// The backoff is the proxy's own guess, not a wait the provider asked for,
 	// so it yields to the deadline: draining the failed answer may have eaten
 	// the room the retry was offered on, and a shorter wait beats trading that
-	// answer for a generic exhaustion error. (A provider-stated wait does not
-	// yield: retryLastCandidate refuses one longer than the room left.)
-	if !st.overallDeadline.IsZero() {
-		remaining := time.Until(st.overallDeadline)
-		if remaining <= retryMinRound {
-			debuglog.Info("proxy: no time budget left to retry the last candidate", "reason", "server error", "model", st.logData.modelID, "remaining", remaining)
-			return false
-		}
-		wait = min(wait, remaining-retryMinRound)
-	}
-	return h.retryLastCandidate(w, r, st, candidate, attempt, attemptOne, wait, "server error")
+	// answer for a generic exhaustion error. A provider-stated wait (the
+	// saturation retry) does not yield: retrying before the provider said so
+	// is the hammering the wait exists to stop.
+	return h.retryLastCandidate(w, r, st, candidate, attempt, attemptOne, wait, true, "server error")
 }
 
 // retryLastCandidate waits, then sends the same candidate again. The retry is
@@ -274,23 +267,26 @@ func (h *Handler) retryServerErrorCandidate(w http.ResponseWriter, r *http.Reque
 // it as a further failover_attempt. Reports true when the request was
 // answered (served or terminal), false when the loop should fall through to
 // the exhaustion path.
-func (h *Handler) retryLastCandidate(w http.ResponseWriter, r *http.Request, st *requestState, candidate modelCandidate, attempt int, attemptOne attemptFn, wait time.Duration, why string) bool {
+func (h *Handler) retryLastCandidate(w http.ResponseWriter, r *http.Request, st *requestState, candidate modelCandidate, attempt int, attemptOne attemptFn, wait time.Duration, yields bool, why string) bool {
 	// Never wait past the overall deadline: a slot that frees after the
 	// request's own budget is spent frees for someone else. A state that never
 	// set the deadline has no budget to run out of.
 	//
 	// The retry also needs a round of its own after the wait: one started with
 	// microseconds left fails on its deadline before the dial and charges the
-	// breaker for a provider that was never contacted. A wait that would leave
-	// less than that yields to the deadline, so the retry runs inside the room
-	// that is left; no room at all refuses.
+	// breaker for a provider that was never contacted. A wait the gateway chose
+	// itself (yields) shortens to leave that round; a wait the provider asked
+	// for is kept whole, and the retry is refused when it and the round do not
+	// both fit.
 	if !st.overallDeadline.IsZero() {
 		remaining := time.Until(st.overallDeadline)
-		if wait >= remaining || remaining <= retryMinRound {
+		if yields {
+			wait = min(wait, remaining-retryMinRound)
+		}
+		if wait < 0 || wait+retryMinRound > remaining {
 			debuglog.Info("proxy: no time budget left to retry the last candidate", "reason", why, "model", st.logData.modelID, "wait", wait, "remaining", remaining)
 			return false
 		}
-		wait = min(wait, remaining-retryMinRound)
 	}
 	debuglog.Info("proxy: waiting before the final retry of the last candidate", "reason", why, "model", st.logData.modelID, "provider", candidate.provider.Name, "provider_id", candidate.provider.ID, "wait", wait, "attempt", attempt+1)
 	select {
