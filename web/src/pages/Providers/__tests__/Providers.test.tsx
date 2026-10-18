@@ -35,38 +35,67 @@ describe("Providers", () => {
 	});
 
 	describe("SSE event handling (lines 88-93)", () => {
-		it("updates discoverAllCurrentId when receiving provider_starting event", async () => {
+		const providerStarting = () =>
+			act(async () => {
+				window.dispatchEvent(
+					new CustomEvent("server-event", {
+						detail: {
+							type: "request.discovery.provider_starting",
+							metadata: { provider_id: mockProvider.id },
+						},
+					}),
+				);
+			});
+
+		it("marks the card being scanned while this tab's Discover All runs", async () => {
+			server.use(
+				...mockProvidersPageDefaults(),
+				// Never answers: the sweep stays in flight for the whole test.
+				http.post("/api/providers/discover-all", () => new Promise(() => {})),
+			);
+
+			const { user } = renderWithProviders(<Providers />);
+
+			await waitFor(() => {
+				expect(screen.getByText("Test Provider")).toBeInTheDocument();
+			});
+			await user.click(
+				screen.getByRole("button", { name: "Discover All Models" }),
+			);
+			await providerStarting();
+
+			// The page header's Discover All button reads "Discovering" for the
+			// whole sweep; the card's own button is the one the event marks.
+			await waitFor(() => {
+				const discovering = screen.getAllByRole("button", {
+					name: /Discovering/i,
+				});
+				expect(discovering).toHaveLength(2);
+				// Disabled styling comes from the global .ui-btn:disabled rule,
+				// so the disabled attribute is the observable state.
+				for (const b of discovering) expect(b).toBeDisabled();
+			});
+		});
+
+		it("Regression pin: ignores a discovery this tab did not start", async () => {
+			// A key change rediscovers the provider server-side and publishes
+			// provider_starting; nothing here would ever clear the card's state,
+			// so taking the event left every Discover button grey until a reload.
 			server.use(...mockProvidersPageDefaults());
 
 			renderWithProviders(<Providers />);
 
-			// Wait for providers to load
 			await waitFor(() => {
 				expect(screen.getByText("Test Provider")).toBeInTheDocument();
 			});
+			await providerStarting();
 
-			// Dispatch a custom SSE event
-			const event = new CustomEvent("server-event", {
-				detail: {
-					type: "request.discovery.provider_starting",
-					metadata: { provider_id: mockProvider.id },
-				},
-			});
-			await act(async () => {
-				window.dispatchEvent(event);
-			});
-
-			// The provider card should now show "Discovering..." state
-			// We can verify this by checking the button text and styling
-			await waitFor(() => {
-				const discoveringButton = screen.getByRole("button", {
-					name: /Discovering/i,
-				});
-				expect(discoveringButton).toBeInTheDocument();
-				// Disabled styling comes from the global .ui-btn:disabled rule,
-				// so the disabled attribute is the observable state.
-				expect(discoveringButton).toBeDisabled();
-			});
+			expect(
+				screen.queryByRole("button", { name: /Discovering/i }),
+			).not.toBeInTheDocument();
+			expect(
+				screen.getByRole("button", { name: "Discover All Models" }),
+			).toBeEnabled();
 		});
 	});
 

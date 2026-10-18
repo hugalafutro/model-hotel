@@ -91,16 +91,6 @@ export function Providers() {
 	// The modals themselves are mounted once by QuotaModalsHost in Layout.
 	const { setOpen } = useQuotaModal();
 
-	// Track which provider is currently being scanned during Discover All
-	useServerEvent((event) => {
-		if (
-			event?.type === "request.discovery.provider_starting" &&
-			event?.metadata?.provider_id
-		) {
-			setDiscoverAllCurrentId(event.metadata.provider_id as string);
-		}
-	});
-
 	const discoverAllMutation = useMutation({
 		mutationFn: async () => {
 			return api.providers.discoverAll();
@@ -141,6 +131,22 @@ export function Providers() {
 			queryClient.invalidateQueries({ queryKey: ["models"] });
 			refreshBadge();
 		},
+	});
+
+	// Track which provider is currently being scanned during Discover All.
+	// provider_starting also fires for the rediscovery a provider gets when a
+	// save changes its key or address, and for a Discover All started in
+	// another tab; only this tab's own Discover All clears the id (on settle),
+	// so the event counts only while that request is in flight: anything else
+	// would leave every Discover button grey until a reload.
+	useServerEvent((event) => {
+		if (
+			discoverAllMutation.isPending &&
+			event?.type === "request.discovery.provider_starting" &&
+			event?.metadata?.provider_id
+		) {
+			setDiscoverAllCurrentId(event.metadata.provider_id as string);
+		}
 	});
 
 	const { refreshQuotas, isRefreshingQuotas } = useQuotaRefresh();
