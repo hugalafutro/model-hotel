@@ -1,5 +1,5 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { useState } from "react";
+import { useId, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { BrainSlashIcon, ChevronRight } from "@/lib/icons";
 import { api } from "../../api/client";
@@ -7,6 +7,7 @@ import type { BudgetPeriod, VirtualKey } from "../../api/types";
 import { BudgetField } from "../../components/BudgetField";
 import { budgetPayload } from "../../components/budget";
 import { CopyablePill } from "../../components/CopyablePill";
+import { FieldRow } from "../../components/FieldRow";
 import { Modal } from "../../components/Modal";
 import { Toggle } from "../../components/Toggle";
 import { useIdentity } from "../../context/IdentityContext";
@@ -27,6 +28,7 @@ export function CreateKeyModal({
 	const queryClient = useQueryClient();
 	const { t } = useTranslation();
 	const { isAdmin } = useIdentity();
+	const formId = useId();
 	const [name, setName] = useState("");
 	const [ownerId, setOwnerId] = useState("");
 	const [rateLimitRps, setRateLimitRps] = useState<string>("");
@@ -96,8 +98,41 @@ export function CreateKeyModal({
 			closeOnBackdrop={!createdKey && !createMutation.isPending}
 			dismissible={!createMutation.isPending}
 			onClose={onClose}
-			maxWidth={createdKey ? "max-w-2xl" : "max-w-md"}
-			scrollable={!!createdKey}
+			maxWidth="max-w-2xl"
+			footer={
+				createdKey ? (
+					<div className="flex justify-end">
+						<button
+							type="button"
+							onClick={onClose}
+							className="ui-btn ui-btn-secondary"
+						>
+							{t("common.done")}
+						</button>
+					</div>
+				) : (
+					<div className="flex space-x-3 justify-end">
+						<button
+							type="button"
+							onClick={onClose}
+							disabled={createMutation.isPending}
+							className="ui-btn ui-btn-secondary"
+						>
+							{t("common.cancel")}
+						</button>
+						<button
+							type="submit"
+							form={formId}
+							disabled={createMutation.isPending}
+							className="ui-btn ui-btn-primary"
+						>
+							{createMutation.isPending
+								? t("common.creating")
+								: t("virtualKeys.create.createKey")}
+						</button>
+					</div>
+				)
+			}
 		>
 			{createdKey ? (
 				<>
@@ -141,22 +176,14 @@ export function CreateKeyModal({
 							)}
 						</div>
 					)}
-					<div className="flex justify-end">
-						<button
-							type="button"
-							onClick={onClose}
-							className="ui-btn ui-btn-secondary"
-						>
-							{t("common.done")}
-						</button>
-					</div>
 				</>
 			) : (
-				<form onSubmit={handleSubmit} className="space-y-4">
-					<div>
-						<label htmlFor="vk-name" className="block ui-label mb-1">
-							{t("virtualkeys.modal.nameLabel")}
-						</label>
+				<form
+					id={formId}
+					onSubmit={handleSubmit}
+					className="grid grid-cols-[auto_minmax(0,1fr)] gap-x-4 gap-y-4"
+				>
+					<FieldRow label={t("virtualkeys.modal.nameLabel")} htmlFor="vk-name">
 						<input
 							id="vk-name"
 							type="text"
@@ -167,12 +194,12 @@ export function CreateKeyModal({
 							className="ui-input"
 							placeholder={t("virtualkeys.modal.form.namePlaceholder")}
 						/>
-					</div>
+					</FieldRow>
 					{isAdmin && (
-						<div>
-							<label htmlFor="vk-owner" className="block ui-label mb-1">
-								{t("virtualkeys.modal.form.owner")}
-							</label>
+						<FieldRow
+							label={t("virtualkeys.modal.form.owner")}
+							htmlFor="vk-owner"
+						>
 							<select
 								id="vk-owner"
 								value={ownerId}
@@ -192,83 +219,70 @@ export function CreateKeyModal({
 							<p className="ui-hint mt-1">
 								{t("virtualkeys.modal.form.ownerHint")}
 							</p>
-						</div>
+						</FieldRow>
 					)}
-					<RateLimitField
-						id="vk-rate-limit-rps"
-						labelKey="virtualkeys.modal.rateLimitRpsLabel"
-						field="rps"
-						value={rateLimitRps}
-						onChange={setRateLimitRps}
-					/>
-					<RateLimitField
-						id="vk-rate-limit-burst"
-						labelKey="virtualkeys.modal.rateLimitBurstLabel"
-						field="burst"
-						value={rateLimitBurst}
-						onChange={setRateLimitBurst}
-					/>
-					<RateLimitField
-						id="vk-rate-limit-tpm"
-						labelKey="virtualkeys.modal.rateLimitTpmLabel"
-						field="tpm"
-						value={rateLimitTpm}
-						onChange={setRateLimitTpm}
-					/>
-					<BudgetField
-						idPrefix="vk-create"
-						amount={budgetUsd}
-						period={budgetPeriod}
-						onAmountChange={setBudgetUsd}
-						onPeriodChange={setBudgetPeriod}
-					/>
-					<ProviderAccessPicker
-						cap={cap}
-						headingKey="virtualkeys.modal.form.providerAccess"
-						instructionsKey="virtualkeys.modal.providerInstructionsText"
-						providerError={providerError}
-					/>
+					<div className="col-span-2 grid grid-cols-3 items-end gap-2">
+						<RateLimitField
+							id="vk-rate-limit-rps"
+							labelKey="virtualkeys.modal.rateLimitRpsLabel"
+							field="rps"
+							value={rateLimitRps}
+							onChange={setRateLimitRps}
+						/>
+						<RateLimitField
+							id="vk-rate-limit-burst"
+							labelKey="virtualkeys.modal.rateLimitBurstLabel"
+							field="burst"
+							value={rateLimitBurst}
+							onChange={setRateLimitBurst}
+						/>
+						<RateLimitField
+							id="vk-rate-limit-tpm"
+							labelKey="virtualkeys.modal.rateLimitTpmLabel"
+							field="tpm"
+							value={rateLimitTpm}
+							onChange={setRateLimitTpm}
+						/>
+					</div>
+					<div className="col-span-2">
+						<BudgetField
+							idPrefix="vk-create"
+							amount={budgetUsd}
+							period={budgetPeriod}
+							onAmountChange={setBudgetUsd}
+							onPeriodChange={setBudgetPeriod}
+						/>
+					</div>
+					<div className="col-span-2">
+						<ProviderAccessPicker
+							cap={cap}
+							headingKey="virtualkeys.modal.form.providerAccess"
+							instructionsKey="virtualkeys.modal.providerInstructionsText"
+							providerError={providerError}
+						/>
+					</div>
 
-					<div>
+					<div className="col-span-2">
 						<SectionHeader
 							icon={BrainSlashIcon}
 							label={t("virtualkeys.modal.form.stripReasoning")}
 							spacing="mb-2"
 						/>
-						<div className="flex items-center gap-3">
+						{/* Toggle, state and description share one row. */}
+						<div className="flex items-start gap-3">
 							<Toggle
 								checked={stripReasoning}
 								onChange={setStripReasoning}
 								size="sm"
 								ariaLabel={t("virtualkeys.modal.form.stripReasoning")}
 							/>
-							<span className="text-sm text-gray-200">
+							<span className="text-sm text-gray-200 shrink-0">
 								{stripReasoning ? t("common.enabled") : t("common.disabled")}
 							</span>
+							<p className="text-xs text-gray-400 pt-0.5">
+								{t("virtualkeys.modal.stripReasoningDescriptionText")}
+							</p>
 						</div>
-						<p className="text-xs text-gray-400 mt-1.5">
-							{t("virtualkeys.modal.stripReasoningDescriptionText")}
-						</p>
-					</div>
-
-					<div className="flex space-x-3 justify-end pt-2">
-						<button
-							type="button"
-							onClick={onClose}
-							disabled={createMutation.isPending}
-							className="ui-btn ui-btn-secondary"
-						>
-							{t("common.cancel")}
-						</button>
-						<button
-							type="submit"
-							disabled={createMutation.isPending}
-							className="ui-btn ui-btn-primary"
-						>
-							{createMutation.isPending
-								? t("common.creating")
-								: t("virtualKeys.create.createKey")}
-						</button>
 					</div>
 				</form>
 			)}

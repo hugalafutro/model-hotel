@@ -1739,7 +1739,7 @@ html[data-ui-style="glassmorphism-lite"].light .ui-popover {
    ============================================= */
 
 /* The page behind a modal is dimmed and GENTLY blurred via the overlay
-   close-button (absolute inset-0) — a SIBLING of the dialog card, never
+   close-button (fixed inset-0) — a SIBLING of the dialog card, never
    the [role="dialog"] wrapper itself: Firefox does not render
    backdrop-filter on descendants of an element that has backdrop-filter,
    so a blurred wrapper kills the card's frost. blur(6px) recedes the page

@@ -25,10 +25,23 @@ export function RateLimitField({
 	onChange: (value: string) => void;
 }) {
 	const { t } = useTranslation();
+	// The unit in brackets ("(requests/sec)", "（最大同時）") goes on its own line,
+	// so three of these side by side wrap evenly instead of at whatever word
+	// the column width happens to cut. The space keeps the accessible name
+	// the whole label.
+	const label = t(labelKey);
+	const unit = label.match(/^(.*?)\s*([(（].*)$/);
 	return (
 		<div>
 			<label htmlFor={id} className="block ui-label mb-1">
-				{t(labelKey)}
+				{unit ? (
+					<>
+						{unit[1]} <br />
+						{unit[2]}
+					</>
+				) : (
+					label
+				)}
 			</label>
 			<input
 				id={id}

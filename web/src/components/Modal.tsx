@@ -344,7 +344,7 @@ export const Modal = forwardRef<ModalHandle, ModalProps>(function Modal(
 	// rows differ in height, and a centred dialog would move its arrows up or
 	// down on every step, out from under a pointer clicking through the rows.
 	// It hangs 12dvh down and its scroll cap is 80dvh, so a tall row keeps an
-	// 8dvh gap below as well; a centred dialog gets the full 85dvh.
+	// 8dvh gap below as well; a centred dialog gets 90dvh, a 5dvh gap at either end.
 	// dvh, not vh, here and in the scroll cap below: on a phone vh is the
 	// viewport with the browser toolbar retracted, which would put the
 	// dialog's bottom under the toolbar.
@@ -397,7 +397,7 @@ export const Modal = forwardRef<ModalHandle, ModalProps>(function Modal(
 			<div
 				className={`relative ui-card p-6 w-full ${maxWidth}${
 					tierRem ? " ui-modal-panel" : ""
-				}${scrollable ? ` ${stepped ? "max-h-[80dvh]" : "max-h-[85dvh]"} flex flex-col` : ""}`}
+				}${scrollable ? ` ${stepped ? "max-h-[80dvh]" : "max-h-[90dvh]"} flex flex-col` : ""}`}
 				style={
 					tierRem
 						? ({ "--modal-w": tierRem } as React.CSSProperties)

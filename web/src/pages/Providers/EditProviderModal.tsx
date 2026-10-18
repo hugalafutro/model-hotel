@@ -8,6 +8,7 @@ import { toISODate } from "../../components/AccentCalendar.utils";
 import { ConfirmDialog } from "../../components/ConfirmDialog";
 import { DatePickerPopover } from "../../components/DatePickerPopover";
 import { ErrorCallout } from "../../components/ErrorCallout";
+import { FieldRow } from "../../components/FieldRow";
 import { FilterDropdown } from "../../components/FilterDropdown";
 import { Modal } from "../../components/Modal";
 import { RevealableInput } from "../../components/RevealableInput";
@@ -177,6 +178,7 @@ export function EditProviderModal({
 		<>
 			<Modal
 				title={t("providers.edit_modal_title")}
+				maxWidth="max-w-2xl"
 				onCloseRequest={requestClose}
 				onClose={onClose}
 				footer={
@@ -207,11 +209,15 @@ export function EditProviderModal({
 					</ErrorCallout>
 				)}
 
-				<form id={formId} onSubmit={handleSubmit} className="space-y-4">
-					<div>
-						<label htmlFor="edit-provider-name" className="block ui-label mb-1">
-							{t("providers.form_name_label")}
-						</label>
+				<form
+					id={formId}
+					onSubmit={handleSubmit}
+					className="grid grid-cols-[auto_minmax(0,1fr)] gap-x-4 gap-y-4"
+				>
+					<FieldRow
+						label={t("providers.form_name_label")}
+						htmlFor="edit-provider-name"
+					>
 						<input
 							id="edit-provider-name"
 							type="text"
@@ -227,12 +233,9 @@ export function EditProviderModal({
 							className="ui-input"
 							placeholder={t("providers.form_name_placeholder")}
 						/>
-					</div>
+					</FieldRow>
 
-					<div>
-						<span className="block ui-label mb-1">
-							{t("providers.form_type_label")}
-						</span>
+					<FieldRow label={t("providers.form_type_label")}>
 						<FilterDropdown
 							allowClear={false}
 							className="w-full"
@@ -244,15 +247,12 @@ export function EditProviderModal({
 							options={providerTypeOptions(t)}
 						/>
 						<p className="ui-hint mt-1">{t("providers.edit.typeHelper")}</p>
-					</div>
+					</FieldRow>
 
-					<div>
-						<label
-							htmlFor="edit-provider-base-url"
-							className="block ui-label mb-1"
-						>
-							{t("providers.form_base_url_label")}
-						</label>
+					<FieldRow
+						label={t("providers.form_base_url_label")}
+						htmlFor="edit-provider-base-url"
+					>
 						<input
 							id="edit-provider-base-url"
 							type="url"
@@ -287,15 +287,12 @@ export function EditProviderModal({
 								})}
 							</p>
 						)}
-					</div>
+					</FieldRow>
 
-					<div>
-						<label
-							htmlFor="edit-provider-api-key"
-							className="block ui-label mb-1"
-						>
-							{t("providers.form_api_key_label")}
-						</label>
+					<FieldRow
+						label={t("providers.form_api_key_label")}
+						htmlFor="edit-provider-api-key"
+					>
 						<RevealableInput
 							id="edit-provider-api-key"
 							maxLength={500}
@@ -308,67 +305,99 @@ export function EditProviderModal({
 								key: provider.masked_key,
 							})}
 						</p>
-					</div>
+					</FieldRow>
 
-					<div className="space-y-1" ref={scheduleRowRef}>
-						<div className="flex items-center gap-3">
-							<Toggle
-								id="edit-provider-enabled"
-								checked={formData.enabled}
-								onChange={(v) => {
-									// Switching off hides the schedule row and disables its
-									// trigger, so an open picker closes with it. The keyboard
-									// path fires no mousedown and so never reaches the
-									// popover's own click-outside handler.
-									if (!v) setPickerOpen(false);
-									setFormData({
-										...formData,
-										enabled: v,
-									});
-								}}
-								showFocusRing
-								ariaLabel={t("providers.edit.enabledToggle")}
-							/>
-							<label htmlFor="edit-provider-enabled" className="ui-label">
-								{t("providers.edit_enabled_label")}
-							</label>
-							<button
-								type="button"
-								data-testid="schedule-disable-btn"
-								data-popover-trigger="schedule-disable"
-								disabled={!formData.enabled}
-								onClick={() => {
-									setPendingDate(formData.scheduled_disable_on);
-									setPickerOpen((o) => !o);
-								}}
-								className="ui-icon-btn p-1 disabled:cursor-not-allowed"
-								title={t("providers.schedule_disable_tooltip")}
-								aria-label={t("providers.schedule_disable_tooltip")}
-							>
-								<CalendarDays size={16} />
-							</button>
-							{formData.enabled && formData.scheduled_disable_on && (
-								<>
-									<span
-										data-testid="scheduled-disable-date"
-										className="text-xs text-orange-400"
-									>
-										{formatDateOnly(formData.scheduled_disable_on)}
-									</span>
-									<button
-										type="button"
-										data-testid="schedule-disable-cancel"
-										onClick={() =>
-											setFormData({ ...formData, scheduled_disable_on: null })
-										}
-										className="text-xs text-(--text-secondary) hover:text-(--text-primary) underline"
-									>
-										{t("providers.schedule_disable_cancel")}
-									</button>
-								</>
-							)}
+					{/* The two switches side by side, each with its hint under it. */}
+					<div className="col-span-2 grid grid-cols-2 gap-x-6 gap-y-1">
+						<div className="space-y-1" ref={scheduleRowRef}>
+							<div className="flex items-center gap-3">
+								<Toggle
+									id="edit-provider-enabled"
+									checked={formData.enabled}
+									onChange={(v) => {
+										// Switching off hides the schedule row and disables its
+										// trigger, so an open picker closes with it. The keyboard
+										// path fires no mousedown and so never reaches the
+										// popover's own click-outside handler.
+										if (!v) setPickerOpen(false);
+										setFormData({
+											...formData,
+											enabled: v,
+										});
+									}}
+									showFocusRing
+									ariaLabel={t("providers.edit.enabledToggle")}
+								/>
+								<label htmlFor="edit-provider-enabled" className="ui-label">
+									{t("providers.edit_enabled_label")}
+								</label>
+								<button
+									type="button"
+									data-testid="schedule-disable-btn"
+									data-popover-trigger="schedule-disable"
+									disabled={!formData.enabled}
+									onClick={() => {
+										setPendingDate(formData.scheduled_disable_on);
+										setPickerOpen((o) => !o);
+									}}
+									className="ui-icon-btn p-1 disabled:cursor-not-allowed"
+									title={t("providers.schedule_disable_tooltip")}
+									aria-label={t("providers.schedule_disable_tooltip")}
+								>
+									<CalendarDays size={16} />
+								</button>
+								{formData.enabled && formData.scheduled_disable_on && (
+									<>
+										<span
+											data-testid="scheduled-disable-date"
+											className="text-xs text-orange-400"
+										>
+											{formatDateOnly(formData.scheduled_disable_on)}
+										</span>
+										<button
+											type="button"
+											data-testid="schedule-disable-cancel"
+											onClick={() =>
+												setFormData({ ...formData, scheduled_disable_on: null })
+											}
+											className="text-xs text-(--text-secondary) hover:text-(--text-primary) underline"
+										>
+											{t("providers.schedule_disable_cancel")}
+										</button>
+									</>
+								)}
+							</div>
+							<p className="ui-hint">{t("providers.edit.enabledHelper")}</p>
 						</div>
-						<p className="ui-hint ml-0">{t("providers.edit.enabledHelper")}</p>
+
+						<div
+							className={`space-y-1 ${!formData.enabled ? "opacity-40 pointer-events-none" : ""}`}
+						>
+							<div className="flex items-center gap-3">
+								<Toggle
+									id="edit-provider-autodiscovery"
+									checked={formData.autodiscovery_enabled}
+									onChange={(v) =>
+										setFormData({
+											...formData,
+											autodiscovery_enabled: v,
+										})
+									}
+									showFocusRing
+									ariaLabel={t("providers.edit.autodiscoveryToggle")}
+									disabled={!formData.enabled}
+								/>
+								<label
+									htmlFor="edit-provider-autodiscovery"
+									className="ui-label"
+								>
+									{t("providers.edit_autodiscovery_label")}
+								</label>
+							</div>
+							<p className="ui-hint">
+								{t("providers.edit.autodiscoveryHelper")}
+							</p>
+						</div>
 					</div>
 					{pickerOpen && (
 						<DatePickerPopover
@@ -388,72 +417,50 @@ export function EditProviderModal({
 						/>
 					)}
 
-					<div
-						className={`space-y-3 ${!formData.enabled ? "opacity-40 pointer-events-none" : ""}`}
+					<FieldRow
+						label={t("providers.edit.maxInFlightLabel")}
+						htmlFor="edit-provider-max-in-flight"
 					>
+						{/* At most five digits, so the box is narrow and the hint
+						   sits beside it. */}
 						<div className="flex items-center gap-3">
-							<Toggle
-								id="edit-provider-autodiscovery"
-								checked={formData.autodiscovery_enabled}
-								onChange={(v) =>
-									setFormData({
-										...formData,
-										autodiscovery_enabled: v,
-									})
-								}
-								showFocusRing
-								ariaLabel={t("providers.edit.autodiscoveryToggle")}
-								disabled={!formData.enabled}
-							/>
-							<label htmlFor="edit-provider-autodiscovery" className="ui-label">
-								{t("providers.edit_autodiscovery_label")}
-							</label>
+							{/* .ui-input is full width, so the box's width lives on a
+							   wrapper. */}
+							<div className="w-32 shrink-0">
+								<input
+									id="edit-provider-max-in-flight"
+									type="number"
+									min={1}
+									max={10000}
+									value={formData.max_in_flight}
+									onChange={(e) =>
+										setFormData({ ...formData, max_in_flight: e.target.value })
+									}
+									className="ui-input"
+									placeholder={t("providers.edit.maxInFlightPlaceholder")}
+								/>
+							</div>
+							<p className="ui-hint">{t("providers.edit.maxInFlightHelper")}</p>
 						</div>
-						<p className="ui-hint ml-0">
-							{t("providers.edit.autodiscoveryHelper")}
-						</p>
-					</div>
-
-					<div>
-						<label
-							htmlFor="edit-provider-max-in-flight"
-							className="block ui-label mb-1"
-						>
-							{t("providers.edit.maxInFlightLabel")}
-						</label>
-						<input
-							id="edit-provider-max-in-flight"
-							type="number"
-							min={1}
-							max={10000}
-							value={formData.max_in_flight}
-							onChange={(e) =>
-								setFormData({ ...formData, max_in_flight: e.target.value })
-							}
-							className="ui-input"
-							placeholder={t("providers.edit.maxInFlightPlaceholder")}
-						/>
-						<p className="ui-hint mt-1">
-							{t("providers.edit.maxInFlightHelper")}
-						</p>
-					</div>
+					</FieldRow>
 
 					{(QUOTA_RESERVE_TYPES.has(formData.provider_type) ||
 						provider.quota_reserve_percent > 0 ||
 						formData.quota_reserve_percent > 0) && (
-						<div>
-							<label
-								htmlFor="edit-provider-quota-reserve"
-								className="block ui-label mb-1"
-							>
-								{t("providers.edit.quotaReserveLabel")}
-								<span
-									className="ml-2 text-yellow-400"
-									data-testid="quota-reserve-value"
-								>
-									{reserveText}
-								</span>
-							</label>
+						<FieldRow
+							label={
+								<>
+									{t("providers.edit.quotaReserveLabel")}
+									<span
+										className="block text-yellow-400"
+										data-testid="quota-reserve-value"
+									>
+										{reserveText}
+									</span>
+								</>
+							}
+							htmlFor="edit-provider-quota-reserve"
+						>
 							<input
 								id="edit-provider-quota-reserve"
 								type="range"
@@ -468,7 +475,7 @@ export function EditProviderModal({
 										quota_reserve_percent: Number(e.target.value),
 									})
 								}
-								className="w-full accent-yellow-400"
+								className="w-full accent-yellow-400 mt-2.5"
 							/>
 							<p className="ui-hint mt-1" data-testid="quota-reserve-helper">
 								{t("providers.edit.quotaReserveHelper", {
@@ -481,7 +488,7 @@ export function EditProviderModal({
 							>
 								{t("providers.edit.quotaReserveHelperScope")}
 							</p>
-						</div>
+						</FieldRow>
 					)}
 				</form>
 			</Modal>
