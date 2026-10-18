@@ -288,6 +288,13 @@ func (h *Handler) issueRetry(r *http.Request, st *requestState, candidate modelC
 		debuglog.Warn(what, "attempt", attempt+1, "provider", candidate.provider.Name, "provider_id", candidate.provider.ID,
 			"error", st.logData.fencedErr(doErr))
 		if errors.Is(doErr, context.Canceled) || errors.Is(doErr, context.DeadlineExceeded) {
+			if retryCtx.Err() == nil {
+				// The context is live: the transport's own response-header
+				// timer fired (it satisfies DeadlineExceeded), so the provider
+				// accepted the rebuilt request and never answered. Named like
+				// doUpstream names it, and charged like it.
+				return nil, nil, reqError{Kind: KindProviderTimeout, Attempt: attempt, Provider: candidate.provider.Name, Underlying: errString(doErr)}, false
+			}
 			origin := "retry_timeout"
 			if errors.Is(doErr, context.Canceled) {
 				origin = "client_disconnect"

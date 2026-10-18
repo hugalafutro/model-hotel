@@ -2,7 +2,6 @@ package failover
 
 import (
 	"context"
-	"encoding/json"
 	"maps"
 	"slices"
 
@@ -93,15 +92,11 @@ func (r *Repository) pruneStaleEntries(ctx context.Context, groups []*FailoverGr
 				"pruned", len(prunedIDs),
 				"remaining", len(validPriority))
 		} else {
-			// Group still viable — rewrite its membership only. pruneMembership
+			// Group still viable — remove the stale members only. pruneMembership
 			// never writes group_enabled, so the group's enabled state (and the
 			// discovery stamp that goes with it) is preserved structurally
 			// rather than by round-tripping the current value.
-			validEntryEnabled := make(map[string]bool, len(validPriority))
-			for _, id := range validPriority {
-				validEntryEnabled[id.String()] = g.IsEntryEnabled(id)
-			}
-			err := r.pruneMembership(ctx, g.ID, g.DisplayModel, validPriority, validEntryEnabled)
+			err := r.pruneMembership(ctx, g.ID, g.DisplayModel, prunedIDs)
 			if err != nil {
 				debuglog.Error("failover: failed to update group after pruning", "display_model", g.DisplayModel, "error", err)
 			} else {
@@ -119,10 +114,14 @@ func (r *Repository) pruneStaleEntries(ctx context.Context, groups []*FailoverGr
 	}
 }
 
-// pruneMembership rewrites one group's membership after stale entries were
-// removed. It is deliberately narrower than Update: it writes priority_order and
-// entry_enabled only, never group_enabled — and therefore never
-// auto_disabled_at.
+// pruneMembership removes the stale members from one group's membership. It is
+// deliberately narrower than Update: it writes priority_order and entry_enabled
+// only, never group_enabled — and therefore never auto_disabled_at.
+//
+// The removal happens in SQL, by value, against the row as it is NOW rather
+// than as it was read: an operator PUT or a discovery sync that added a member
+// between the read and this write keeps that member. Writing the filtered copy
+// back would have dropped it, and for a custom group nothing rebuilds the list.
 //
 // That narrowness is the whole reason it exists instead of reusing Update.
 // Update is the OPERATOR's path and clears the discovery stamp on every call,
@@ -137,19 +136,19 @@ func (r *Repository) pruneStaleEntries(ctx context.Context, groups []*FailoverGr
 // Not writing group_enabled at all also expresses "don't silently re-enable a
 // manually-disabled group" structurally, instead of reading the current value
 // and writing it back through a call that has side effects on other columns.
-func (r *Repository) pruneMembership(ctx context.Context, id uuid.UUID, displayModel string, priorityOrder []uuid.UUID, entryEnabled map[string]bool) error {
-	priorityJSON, err := json.Marshal(priorityOrder)
-	if err != nil {
-		return err
-	}
-	entryEnabledJSON, err := json.Marshal(entryEnabled)
-	if err != nil {
-		return err
-	}
+func (r *Repository) pruneMembership(ctx context.Context, id uuid.UUID, displayModel string, prunedIDs []string) error {
 	if _, err := r.pool.Exec(ctx,
 		`UPDATE model_failover_groups
-		    SET priority_order = $2, entry_enabled = $3, updated_at = now()
-		  WHERE id = $1`, id, priorityJSON, entryEnabledJSON); err != nil {
+		    SET priority_order = CASE WHEN jsonb_typeof(priority_order) = 'array'
+		                             THEN COALESCE((SELECT jsonb_agg(e ORDER BY ord)
+		                                              FROM jsonb_array_elements(priority_order) WITH ORDINALITY AS t(e, ord)
+		                                             WHERE NOT ((e #>> '{}') = ANY($2::text[]))), '[]'::jsonb)
+		                             ELSE '[]'::jsonb END,
+		        entry_enabled  = CASE WHEN jsonb_typeof(entry_enabled) = 'object'
+		                             THEN entry_enabled - $2::text[]
+		                             ELSE '{}'::jsonb END,
+		        updated_at     = now()
+		  WHERE id = $1`, id, prunedIDs); err != nil {
 		return err
 	}
 	// Drop the cached copy instead of re-reading and re-caching it: the next

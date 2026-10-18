@@ -35,7 +35,10 @@ func (st *streamState) captureSSEError(payload string, chunkCount int, logData *
 	// the model's output into request_logs.error_message and mark the request
 	// failed for an error that is not there.
 	if strings.HasPrefix(payload, `{"error"`) && !json.Valid([]byte(payload)) {
-		st.errAccum = append(st.errAccum, []byte(payload)...)
+		// Only the LAST fragment is held: concatenating fragments of different
+		// lines yields nothing parseAccumulatedError can read, and an endpoint
+		// streaming such lines would otherwise grow this buffer per line.
+		st.errAccum = append(st.errAccum[:0], payload...)
 	} else {
 		st.flushAccumulatedError("proxy: accumulated SSE error", chunkCount, logData)
 	}

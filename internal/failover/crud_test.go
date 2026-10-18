@@ -1415,3 +1415,39 @@ func TestRepository_Update_FloorDisableStampsAutoDisabled(t *testing.T) {
 		t.Errorf("after an operator disable: enabled=%v auto=%v, want off and unstamped", got.GroupEnabled, got.AutoDisabled)
 	}
 }
+
+// pruneMembership removes the stale members from the row as it is NOW: a member
+// added between the prune's read and its write survives, where writing the
+// filtered copy back would have dropped it.
+func TestPruneMembership_RemovesByValueAndKeepsAConcurrentAdd(t *testing.T) {
+	repo := newTestRepo(t)
+	ctx := context.Background()
+	baseModel := "test-prune-byvalue-" + uuid.New().String()[:8]
+	stale, keep, added := uuid.New(), uuid.New(), uuid.New()
+
+	group, err := upsertGroup(ctx, t, repo, baseModel, []uuid.UUID{stale, keep})
+	if err != nil {
+		t.Fatalf("upsert: %v", err)
+	}
+	defer func() { _ = repo.Delete(ctx, baseModel) }()
+	// The prune's read happened before this operator write.
+	if _, err := repo.Update(ctx, group.ID, []uuid.UUID{stale, keep, added}, map[string]bool{stale.String(): false, keep.String(): true, added.String(): true}, nil, false, nil, nil, nil); err != nil {
+		t.Fatalf("update: %v", err)
+	}
+
+	if err := repo.pruneMembership(ctx, group.ID, baseModel, []string{stale.String()}); err != nil {
+		t.Fatalf("pruneMembership: %v", err)
+	}
+
+	InvalidateFailoverCache()
+	got, err := repo.GetByModel(ctx, baseModel)
+	if err != nil {
+		t.Fatalf("GetByModel: %v", err)
+	}
+	if len(got.PriorityOrder) != 2 || got.PriorityOrder[0] != keep || got.PriorityOrder[1] != added {
+		t.Errorf("priority_order = %v, want [%s %s]", got.PriorityOrder, keep, added)
+	}
+	if _, present := got.EntryEnabled[stale.String()]; present || !got.IsEntryEnabled(keep) || !got.IsEntryEnabled(added) {
+		t.Errorf("entry_enabled = %v, want the stale key gone and the others as written", got.EntryEnabled)
+	}
+}

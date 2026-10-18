@@ -234,7 +234,7 @@ func TestBuildChatCompletion_FinishReasonMapping(t *testing.T) {
 		{"tool_use", "tool_calls"},
 		{"", "stop"},
 		{"pause_turn", "stop"},
-		{"refusal", "stop"},
+		{"refusal", "content_filter"},
 	}
 	for _, c := range cases {
 		body := `{"type":"message","content":[],"stop_reason":"` + c.stopReason + `"}`

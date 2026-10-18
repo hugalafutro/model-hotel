@@ -211,15 +211,20 @@ func upstreamError(e *antRespError) error {
 }
 
 // mapFinishReason maps an Anthropic stop_reason to an OpenAI finish_reason.
-// An absent or unrecognised reason (including the pause/refusal reasons newer
-// Anthropic models can emit) maps to "stop" rather than failing the
-// translation over a field that only ever changes client-side behaviour.
+// A refusal is content_filter, the value the Gemini adapter and the proxy's own
+// finish_reason table use for the same thing, so the breaker reads the empty
+// answer as a declined prompt rather than a provider fault. An absent or
+// unrecognised reason (including the pause reasons newer Anthropic models can
+// emit) maps to "stop" rather than failing the translation over a field that
+// only ever changes client-side behaviour.
 func mapFinishReason(stopReason string) string {
 	switch stopReason {
 	case "max_tokens":
 		return "length"
 	case "tool_use":
 		return "tool_calls"
+	case "refusal":
+		return "content_filter"
 	default: // "end_turn", "stop_sequence", "", and anything unrecognised
 		return "stop"
 	}

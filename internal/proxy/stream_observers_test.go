@@ -278,3 +278,21 @@ func TestObserveDataChunk_NativeFinishReasonIsFenced(t *testing.T) {
 		t.Errorf("the prompt reached the log or was not withheld: %s", got[0])
 	}
 }
+
+// P1-B holds the LAST fragment only: fragments of different lines concatenated
+// read as nothing, and a broken endpoint streaming such lines must not grow the
+// accumulator per line.
+func TestCaptureSSEError_HoldsOnlyTheLastFragment(t *testing.T) {
+	t.Parallel()
+	ld := &requestLogData{modelID: "m", providerName: "p"}
+	st := &streamState{}
+	st.captureSSEError(`{"error":{"message":"first fragm`, 1, ld)
+	st.captureSSEError(`{"error":{"message":"second fragm`, 2, ld)
+	if got := string(st.errAccum); got != `{"error":{"message":"second fragm` {
+		t.Errorf("errAccum = %q, want the second fragment alone", got)
+	}
+	st.captureSSEError(`{"id":"x","choices":[]}`, 3, ld)
+	if strings.Contains(st.lastErrMsg, "first") || !strings.Contains(st.lastErrMsg, "second") {
+		t.Errorf("flushed message = %q, want the second fragment only", st.lastErrMsg)
+	}
+}

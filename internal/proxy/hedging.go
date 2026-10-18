@@ -527,7 +527,10 @@ func (h *Handler) probeStreamingCandidate(ctx context.Context, st *requestState,
 		// breaker, while our own TTFT timer firing or a stall past the floor
 		// is a provider fault. Mirrors dispatchStreaming.
 		clientGone := ctx.Err() != nil
-		elapsed := time.Since(st.startTime)
+		// Measured from this launch (hedgeProbeLog stamps it), not from the
+		// request: a launch started deep into the stagger must not inherit the
+		// earlier launches' silence as its own stall.
+		elapsed := time.Since(st.logData.attemptStarted)
 		re, recordFailure := classifyProbeError(probeErr, candidate.provider.Name, newCredentialMasker(candidate.apiKey), st.logData.fence(), clientGone, elapsed, stallTimeout, ttftTimeout, attempt)
 		st.attemptSlot.settle(slotOutcomeFor(re.Kind))
 		if recordFailure {
@@ -711,11 +714,12 @@ func (h *Handler) failHedgeDisconnect(w http.ResponseWriter, st *requestState, l
 // that.
 func hedgeProbeLog(entry *requestLogData, candidate modelCandidate) *requestLogData {
 	return &requestLogData{
-		modelID:      entry.modelID,
-		providerName: candidate.provider.Name,
-		endpointType: entry.endpointType,
-		content:      entry.content,
-		masker:       newCredentialMasker(candidate.apiKey),
+		modelID:        entry.modelID,
+		providerName:   candidate.provider.Name,
+		endpointType:   entry.endpointType,
+		content:        entry.content,
+		masker:         newCredentialMasker(candidate.apiKey),
+		attemptStarted: time.Now(),
 	}
 }
 

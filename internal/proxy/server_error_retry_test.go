@@ -356,3 +356,23 @@ func TestDeferLastCandidateRetry_ServerErrorNeedsRoom(t *testing.T) {
 		})
 	}
 }
+
+// A retry needs a round of its own after its wait. One admitted with
+// microseconds of budget fails on its own deadline before the dial and charges
+// the breaker for a provider never contacted, so the floor refuses it.
+func TestRetryLastCandidate_NeedsARoundAfterTheWait(t *testing.T) {
+	env := newTestProxyHandler(t)
+	defer env.Upstream.Close()
+	attempted := false
+	fn := func(http.ResponseWriter, *http.Request, *requestState, modelCandidate, int, int) candidateOutcome {
+		attempted = true
+		return outcomeServed
+	}
+	st := &requestState{overallDeadline: time.Now().Add(retryMinRound / 2), logData: &requestLogData{}}
+	if env.Handler.retryLastCandidate(httptest.NewRecorder(), httptest.NewRequest("POST", "/", http.NoBody), st, modelCandidateForBreaker(uuid.New()), 1, fn, 0, "saturation") {
+		t.Error("a budget under one round reported the request as answered")
+	}
+	if attempted {
+		t.Error("the retry ran with less than one round of budget")
+	}
+}

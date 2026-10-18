@@ -254,7 +254,8 @@ func (h *Handler) retryServerErrorCandidate(w http.ResponseWriter, r *http.Reque
 	// The backoff is the proxy's own guess, not a wait the provider asked for,
 	// so it yields to the deadline: draining the failed answer may have eaten
 	// the room the retry was offered on, and a shorter wait beats trading that
-	// answer for a generic exhaustion error.
+	// answer for a generic exhaustion error. (A provider-stated wait does not
+	// yield: retryLastCandidate refuses one longer than the room left.)
 	if !st.overallDeadline.IsZero() {
 		remaining := time.Until(st.overallDeadline)
 		if remaining <= retryMinRound {
@@ -277,9 +278,19 @@ func (h *Handler) retryLastCandidate(w http.ResponseWriter, r *http.Request, st 
 	// Never wait past the overall deadline: a slot that frees after the
 	// request's own budget is spent frees for someone else. A state that never
 	// set the deadline has no budget to run out of.
-	if remaining := time.Until(st.overallDeadline); !st.overallDeadline.IsZero() && wait >= remaining {
-		debuglog.Info("proxy: no time budget left to retry the last candidate", "reason", why, "model", st.logData.modelID, "wait", wait, "remaining", remaining)
-		return false
+	//
+	// The retry also needs a round of its own after the wait: one started with
+	// microseconds left fails on its deadline before the dial and charges the
+	// breaker for a provider that was never contacted. A wait that would leave
+	// less than that yields to the deadline, so the retry runs inside the room
+	// that is left; no room at all refuses.
+	if !st.overallDeadline.IsZero() {
+		remaining := time.Until(st.overallDeadline)
+		if wait >= remaining || remaining <= retryMinRound {
+			debuglog.Info("proxy: no time budget left to retry the last candidate", "reason", why, "model", st.logData.modelID, "wait", wait, "remaining", remaining)
+			return false
+		}
+		wait = min(wait, remaining-retryMinRound)
 	}
 	debuglog.Info("proxy: waiting before the final retry of the last candidate", "reason", why, "model", st.logData.modelID, "provider", candidate.provider.Name, "provider_id", candidate.provider.ID, "wait", wait, "attempt", attempt+1)
 	select {

@@ -448,6 +448,9 @@ func parseRetryAfter(v string) (time.Duration, bool) {
 		if secs <= 0 {
 			return 0, false
 		}
+		// Bounded before the multiply: a value past the hint ceiling would
+		// wrap the int64 nanoseconds and the verdict would follow the wrap.
+		secs = min(secs, int(bodyResetHintMax/time.Second))
 		return time.Duration(secs) * time.Second, true
 	}
 	if t, err := http.ParseTime(v); err == nil {

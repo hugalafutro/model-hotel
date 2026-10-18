@@ -1449,3 +1449,30 @@ func TestRunHedgedStreaming_TheWinnersVerdictLandsOnItsModel(t *testing.T) {
 		t.Errorf("circuit = %s, want open: the hedged winner's stream verdict missed its own model", got)
 	}
 }
+
+// A native Responses stream has no choices and no [DONE]: its opener must not
+// read as a first token, its deltas must, and its terminal snapshots end the
+// probe the way message_stop does.
+func TestClassifyProbeFrame_ResponsesEvents(t *testing.T) {
+	t.Parallel()
+	for _, tc := range []struct {
+		name, payload string
+		want          probeFrame
+		wantMsg       string
+	}{
+		{"created is not a token", `{"type":"response.created","sequence_number":0,"response":{"id":"r","status":"in_progress"}}`, probeFrameNotAToken, ""},
+		{"in_progress is not a token", `{"type":"response.in_progress","sequence_number":1,"response":{"id":"r"}}`, probeFrameNotAToken, ""},
+		{"output_item.added is not a token", `{"type":"response.output_item.added","output_index":0,"item":{"type":"message","role":"assistant","content":[]}}`, probeFrameNotAToken, ""},
+		{"text delta is the token", `{"type":"response.output_text.delta","delta":"Hi"}`, probeFrameToken, ""},
+		{"empty delta is not", `{"type":"response.output_text.delta","delta":""}`, probeFrameNotAToken, ""},
+		{"completed ends the stream", `{"type":"response.completed","response":{"id":"r","usage":{"input_tokens":3,"output_tokens":0}}}`, probeFrameEmptyStream, ""},
+		{"failed is the provider's error", `{"type":"response.failed","response":{"id":"r","error":{"code":"server_error","message":"upstream fell over"}}}`, probeFrameError, "upstream fell over"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			got, msg := classifyProbeFrame(tc.payload)
+			if got != tc.want || msg != tc.wantMsg {
+				t.Errorf("classifyProbeFrame = (%v, %q), want (%v, %q)", got, msg, tc.want, tc.wantMsg)
+			}
+		})
+	}
+}

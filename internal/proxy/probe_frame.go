@@ -10,6 +10,7 @@ import (
 	"strings"
 
 	"github.com/hugalafutro/model-hotel/internal/anthropic"
+	"github.com/hugalafutro/model-hotel/internal/openairesponses"
 	"github.com/hugalafutro/model-hotel/internal/util"
 )
 
@@ -92,10 +93,40 @@ func classifyProbeFrame(content string) (probeFrame, string) {
 		// open after message_stop would run an empty answer into the timeout.
 		return probeFrameEmptyStream, ""
 	}
+	if frame, msg, isResponses := classifyResponsesProbeFrame(content); isResponses {
+		return frame, msg
+	}
 	if !frameCarriesOutput(content) {
 		return probeFrameNotAToken, ""
 	}
 	return probeFrameToken, ""
+}
+
+// classifyResponsesProbeFrame reads a native Responses stream event for the
+// probe. The dialect has no [DONE] and no choices: response.created and
+// response.in_progress carry nothing, a delta with text is the first token, and
+// the completed/incomplete/failed snapshots end the stream (a failed one is an
+// error, with the response's own error member as its message). Without this the first event, response.created, read as output
+// to frameCarriesOutput: true_ttft_ms measured time to the opener, and a
+// Responses upstream that opened and then hung never met the TTFT timeout.
+// Not a Responses event: ok is false and the caller reads the other shapes.
+func classifyResponsesProbeFrame(payload string) (frame probeFrame, msg string, ok bool) {
+	var ev struct {
+		Type string `json:"type"`
+	}
+	if json.Unmarshal([]byte(payload), &ev) != nil || !strings.HasPrefix(ev.Type, "response.") {
+		return probeFrameNotAToken, "", false
+	}
+	info := openairesponses.InspectStreamEvent([]byte(payload))
+	switch {
+	case info.CarriesError:
+		return probeFrameError, info.ErrorMessage, true
+	case info.Terminal:
+		return probeFrameEmptyStream, "", true
+	case info.TextBytes > 0:
+		return probeFrameToken, "", true
+	}
+	return probeFrameNotAToken, "", true
 }
 
 // isAnthropicMessageStop reports whether a payload is the native Anthropic

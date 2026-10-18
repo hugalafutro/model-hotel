@@ -336,8 +336,9 @@ func TestResponsesWriter_NonStreamingAndErrors(t *testing.T) {
 	if rec.Code != http.StatusBadGateway {
 		t.Errorf("untranslatable success = %d %s", rec.Code, rec.Body.String())
 	}
-	if _, ok := env["error"]; !ok {
-		t.Error("502 must carry an envelope")
+	env = nil
+	if err := json.Unmarshal(rec.Body.Bytes(), &env); err != nil || env["error"]["type"] != "server_error" {
+		t.Errorf("502 must carry an envelope: %s", rec.Body.String())
 	}
 
 	// Native verbatim on a 2xx.
