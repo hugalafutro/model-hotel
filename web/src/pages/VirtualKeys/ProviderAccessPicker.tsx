@@ -14,7 +14,9 @@ export function ProviderAccessPicker({
 	providerError,
 }: {
 	cap: ProviderCap;
-	headingKey: string;
+	// Absent when the surrounding tile already names the section; that caller
+	// then draws the restore button itself.
+	headingKey?: string;
 	instructionsKey: string;
 	providerError: string;
 }) {
@@ -35,20 +37,22 @@ export function ProviderAccessPicker({
 	return (
 		<>
 			<div>
-				<div className="flex items-center justify-between mb-1">
-					<span className="ui-label">{t(headingKey)}</span>
-					{excludedProviders.length > 0 && (
-						<button
-							type="button"
-							onClick={resetProviders}
-							className="text-gray-500 hover:text-gray-300 transition-colors"
-							aria-label={t("virtualkeys.modal.form.restoreAccess")}
-							title={t("virtualkeys.modal.form.restoreAccess")}
-						>
-							<RotateCcw size={14} />
-						</button>
-					)}
-				</div>
+				{headingKey && (
+					<div className="flex items-center justify-between mb-1">
+						<span className="ui-label">{t(headingKey)}</span>
+						{excludedProviders.length > 0 && (
+							<button
+								type="button"
+								onClick={resetProviders}
+								className="text-gray-500 hover:text-gray-300 transition-colors"
+								aria-label={t("virtualkeys.modal.form.restoreAccess")}
+								title={t("virtualkeys.modal.form.restoreAccess")}
+							>
+								<RotateCcw size={14} />
+							</button>
+						)}
+					</div>
+				)}
 				<p className="ui-hint mb-2">{t(instructionsKey)}</p>
 				{outsideCapIds.length > 0 && (
 					<p

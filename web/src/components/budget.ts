@@ -36,3 +36,10 @@ export function budgetText(
 		period: t(`budget.periodNow.${vk.budget_period ?? "month"}`),
 	});
 }
+
+/** The bounds the amount input accepts, matching the API's. */
+export const BUDGET_AMOUNT_BOUNDS = {
+	min: "0.01",
+	max: "10000000",
+	step: "0.01",
+} as const;

@@ -1,11 +1,5 @@
 import { useTranslation } from "react-i18next";
-
-/** The bounds each rate-limit input accepts, matching the API's. */
-const LIMITS = {
-	rps: { min: "0", max: "10000", step: "any" },
-	burst: { min: "1", max: "10000" },
-	tpm: { min: "1", max: "100000000" },
-} as const;
+import { RATE_LIMIT_BOUNDS } from "./rateLimitBounds";
 
 /**
  * One rate-limit number input with its label. Empty means "inherit the global
@@ -21,7 +15,7 @@ export function RateLimitField({
 }: {
 	id: string;
 	labelKey: string;
-	field: keyof typeof LIMITS;
+	field: keyof typeof RATE_LIMIT_BOUNDS;
 	value: string;
 	onChange: (value: string) => void;
 	// Put the bracketed unit on its own line, for a row of narrow columns.
@@ -49,7 +43,7 @@ export function RateLimitField({
 			<input
 				id={id}
 				type="number"
-				{...LIMITS[field]}
+				{...RATE_LIMIT_BOUNDS[field]}
 				value={value}
 				onChange={(e) => onChange(e.target.value)}
 				className="ui-input"
