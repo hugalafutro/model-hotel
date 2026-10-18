@@ -405,13 +405,13 @@ export function UserModal({
 						label={t("users.modal.resetPassword")}
 						htmlFor="user-reset-password"
 					>
-						<div className="flex gap-2">
+						<div className="flex flex-col gap-2 sm:flex-row">
 							<input
 								id="user-reset-password"
 								type="password"
 								value={resetValue}
 								onChange={(e) => setResetValue(e.target.value)}
-								className="ui-input flex-1"
+								className="ui-input flex-1 min-w-0"
 								autoComplete="new-password"
 								placeholder={t("users.modal.passwordPlaceholder")}
 							/>

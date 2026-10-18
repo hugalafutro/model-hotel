@@ -336,8 +336,8 @@ export function CreateGroupModal({
 			onClose={onClose}
 			maxWidth="max-w-2xl"
 			footer={
-				<div className="flex justify-between gap-3">
-					<div className="flex gap-2">
+				<div className="flex flex-col gap-2 sm:flex-row sm:justify-between sm:gap-3">
+					<div className="flex flex-wrap gap-2">
 						{isEdit && naEntries.length > 0 && (
 							<>
 								<button
@@ -367,7 +367,7 @@ export function CreateGroupModal({
 							</>
 						)}
 					</div>
-					<div className="flex gap-3">
+					<div className="flex flex-wrap justify-end gap-3">
 						<button
 							type="button"
 							onClick={onClose}
