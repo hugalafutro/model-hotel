@@ -86,9 +86,15 @@ func (r *Repository) pruneStaleEntries(ctx context.Context, groups []*FailoverGr
 				"remaining", remaining)
 			continue
 		}
-		// 0 or 1 valid entries left — delete the group.
-		if err := r.DeleteByID(ctx, g.ID); err != nil {
+		// 0 or 1 valid entries left — delete the group, unless a member landed
+		// between the count and this delete (the delete re-checks the row).
+		deleted, err := r.deleteIfUnviable(ctx, g.ID)
+		if err != nil {
 			debuglog.Error("failover: failed to delete pruned group", "display_model", g.DisplayModel, "error", err)
+			continue
+		}
+		if !deleted {
+			debuglog.Info("failover: pruned group gained a member before its delete, kept", "display_model", g.DisplayModel)
 			continue
 		}
 		reason := "no valid providers after prune"
@@ -106,6 +112,21 @@ func (r *Repository) pruneStaleEntries(ctx context.Context, groups []*FailoverGr
 			"pruned", len(prunedIDs),
 			"remaining", remaining)
 	}
+}
+
+// deleteIfUnviable deletes a group only while its row still holds 0 or 1
+// members, and reports whether it did. The condition runs inside the DELETE,
+// so a member added after the caller's count keeps the group.
+func (r *Repository) deleteIfUnviable(ctx context.Context, id uuid.UUID) (bool, error) {
+	tag, err := r.pool.Exec(ctx,
+		`DELETE FROM model_failover_groups
+		  WHERE id = $1
+		    AND (jsonb_typeof(priority_order) <> 'array' OR jsonb_array_length(priority_order) <= 1)`, id)
+	InvalidateFailoverCache()
+	if err != nil {
+		return false, err
+	}
+	return tag.RowsAffected() == 1, nil
 }
 
 // pruneMembership removes the stale members from one group's membership and

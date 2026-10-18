@@ -1503,3 +1503,31 @@ func TestPruneStaleEntries_DeletionDecidedFromTheCurrentRow(t *testing.T) {
 		t.Errorf("result = %+v, want one purge and no deletion", result)
 	}
 }
+
+// The delete that follows a prune re-checks the row: a group that gained a
+// member after the prune's count is kept.
+func TestDeleteIfUnviable_KeepsAGroupThatGainedAMember(t *testing.T) {
+	repo := newTestRepo(t)
+	ctx := context.Background()
+	baseModel := "test-delete-unviable-" + uuid.New().String()[:8]
+	a, b := uuid.New(), uuid.New()
+	group, err := upsertGroup(ctx, t, repo, baseModel, []uuid.UUID{a, b})
+	if err != nil {
+		t.Fatalf("upsert: %v", err)
+	}
+	defer func() { _ = repo.Delete(ctx, baseModel) }()
+
+	if deleted, err := repo.deleteIfUnviable(ctx, group.ID); err != nil || deleted {
+		t.Fatalf("deleteIfUnviable on a two-member row = (%v, %v), want kept", deleted, err)
+	}
+	if _, err := repo.Update(ctx, group.ID, []uuid.UUID{a}, nil, nil, false, nil, nil, nil); err != nil {
+		t.Fatalf("update: %v", err)
+	}
+	if deleted, err := repo.deleteIfUnviable(ctx, group.ID); err != nil || !deleted {
+		t.Fatalf("deleteIfUnviable on a one-member row = (%v, %v), want deleted", deleted, err)
+	}
+	InvalidateFailoverCache()
+	if _, err := repo.GetByModel(ctx, baseModel); err == nil {
+		t.Error("the one-member group survived its delete")
+	}
+}

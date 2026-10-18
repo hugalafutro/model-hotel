@@ -12,6 +12,9 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+
+	"github.com/hugalafutro/model-hotel/internal/failover"
+	"github.com/hugalafutro/model-hotel/internal/settings"
 )
 
 // directChatRequest sends a chat completion straight at the env's provider
@@ -420,4 +423,57 @@ func TestIssueRetry_HeaderTimeoutIsTheProviders(t *testing.T) {
 	if re.Kind != KindProviderTimeout {
 		t.Errorf("kind = %q, want %q", re.Kind, KindProviderTimeout)
 	}
+}
+
+// A self-heal retry that runs its own deadline out before the headers is a
+// provider stall, charged like doUpstream charges the failover deadline on a
+// first round: the provider accepted the rebuilt request and never answered.
+func TestSelfHealRetry_DeadlineBeforeHeadersChargesTheBreaker(t *testing.T) {
+	var calls atomic.Int32
+	release := make(chan struct{})
+	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if calls.Add(1) == 1 {
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusBadRequest)
+			_, _ = io.WriteString(w, `{"error":{"message":"Unsupported parameter: 'temperature' is not supported with this model.","type":"invalid_request_error","param":"temperature","code":"unsupported_parameter"}}`)
+			return
+		}
+		// The retry never gets its headers; released at the end so Close
+		// does not wait on a handler the server never saw hang up.
+		select {
+		case <-release:
+		case <-r.Context().Done():
+		}
+	}))
+	defer upstream.Close()
+	defer close(release)
+	env := newTestProxyEnvWithUpstream(t, upstream)
+	withBreakerThresholdOne(t, env.Handler)
+	ctx := context.Background()
+	if err := env.Handler.settingsRepo.Set(ctx, settings.KeyRequestTimeout, "400ms"); err != nil {
+		t.Fatalf("set request_timeout: %v", err)
+	}
+	env.Handler.settingsRepo.InvalidateCache(settings.KeyRequestTimeout)
+	t.Cleanup(func() {
+		_ = env.Handler.settingsRepo.DeleteKey(ctx, settings.KeyRequestTimeout)
+		env.Handler.settingsRepo.InvalidateCache(settings.KeyRequestTimeout)
+	})
+
+	body := `{"model": "` + env.ProviderName + `/` + env.ModelName + `", "messages": [{"role": "user", "content": "hello"}], "stream": false, "temperature": 0.7}`
+	req := httptest.NewRequest("POST", "/v1/chat/completions", strings.NewReader(body))
+	rctx := context.WithValue(req.Context(), virtualKeyNameKey, "test-key")
+	rctx = context.WithValue(rctx, VirtualKeyHashKey, env.KeyHash)
+	w := httptest.NewRecorder()
+	env.Handler.ChatCompletions(w, req.WithContext(rctx))
+
+	if calls.Load() != 2 {
+		t.Fatalf("upstream calls = %d, want the learnable 400 and one retry", calls.Load())
+	}
+	if w.Code < 500 {
+		t.Errorf("status = %d, want a 5xx for a retry that never answered; body %s", w.Code, w.Body.String())
+	}
+	if got := env.Handler.circuitBreaker.GetState(env.ProviderID, env.ModelName); got != failover.StateOpen {
+		t.Errorf("circuit = %s, want open: the retry ran its deadline out before the headers", got)
+	}
+	assertLastVerdict(t, env.Handler.circuitBreaker, env.ProviderID, "retry request failed", 0)
 }
