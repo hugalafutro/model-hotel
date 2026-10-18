@@ -206,7 +206,7 @@ export function UserModal({
 						<legend className="block ui-label mb-2">
 							{t("users.modal.grants")}
 						</legend>
-						<div className="grid grid-cols-3 gap-2">
+						<div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
 							{allGrants.map((g) => (
 								<label
 									key={g}
@@ -296,7 +296,7 @@ export function UserModal({
 						{t("users.modal.limits")}
 					</legend>
 					<p className="ui-hint mb-2">{t("users.modal.limitsHint")}</p>
-					<div className="grid grid-cols-3 gap-2">
+					<div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
 						<div>
 							<label
 								htmlFor="user-limit-rps"
