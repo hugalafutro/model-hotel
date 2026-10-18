@@ -158,10 +158,7 @@ func (h *Handler) attemptCandidate(w http.ResponseWriter, r *http.Request, st *r
 			}
 			if res.cont {
 				st.attemptSlot.settle(slotOutcomeFor(res.lastReqErr.Kind))
-				if k := res.lastReqErr.Kind; k == KindProviderTimeout || k == KindProviderError {
-					// A transport fault on the retry round is the provider's,
-					// as it is on the first round in doUpstream; a caller who
-					// left or a budget that ran out is not.
+				if retryRoundIsProviderFault(res.lastReqErr.Kind) {
 					h.chargeBreaker(st, candidate, 0, "retry request failed")
 				}
 				st.setReqErr(res.lastReqErr)
@@ -361,6 +358,15 @@ func classifyProbeFailure(providerName, underlying string, clientGone bool, elap
 		re.Hint = fmt.Sprintf("%s produced no first token before the connection was closed after %.0fs, under the %s first-token timeout; if the caller did not cancel, an upstream reverse proxy, load balancer, or CDN likely closed the idle connection: raise its read timeout above %s or set ttft_timeout below it", providerName, elapsed.Seconds(), ttftTimeout, ttftTimeout)
 	}
 	return re, true
+}
+
+// retryRoundIsProviderFault says whether a self-heal retry that failed before
+// its headers is charged to the breaker. A transport fault is the provider's,
+// as it is on the first round in doUpstream, and so is a retry that ran its
+// own deadline out (doUpstream charges the failover deadline the same way); a
+// caller who left is not.
+func retryRoundIsProviderFault(k ErrorKind) bool {
+	return k == KindProviderTimeout || k == KindProviderError || k == KindRetryTimeout
 }
 
 // dispatchStreaming serves a streaming 200 response (phase H): read the TTFT and

@@ -49,74 +49,69 @@ func (r *Repository) pruneStaleEntries(ctx context.Context, groups []*FailoverGr
 		existingIDs[id] = struct{}{}
 	}
 
-	// Now prune each group.
+	// Now prune each group. The stale ids come from the snapshot the caller
+	// read; the write and the "is the group still viable" decision both run
+	// against the row as it is NOW, so a member added since the read is kept
+	// and counted, and a concurrent add cannot be erased by a delete decided on
+	// the snapshot.
 	for _, g := range groups {
-		var validPriority []uuid.UUID
 		var prunedIDs []string
-
 		for _, id := range g.PriorityOrder {
-			if _, exists := existingIDs[id]; exists {
-				validPriority = append(validPriority, id)
-			} else {
+			if _, exists := existingIDs[id]; !exists {
 				prunedIDs = append(prunedIDs, id.String())
 			}
 		}
-
 		if len(prunedIDs) == 0 {
 			continue // Nothing to prune in this group.
 		}
 
-		if len(validPriority) <= 1 {
-			// Group has 0 or 1 valid entries left — delete it.
-			if err := r.DeleteByID(ctx, g.ID); err != nil {
-				debuglog.Error("failover: failed to delete pruned group", "display_model", g.DisplayModel, "error", err)
-				continue
-			}
-			// Record purged entries and deleted group only after successful DB operations.
-			result.PurgedEntries = append(result.PurgedEntries, PrunedEntryInfo{
-				GroupDisplayModel: g.DisplayModel,
-				PrunedModelIDs:    prunedIDs,
-			})
-			reason := "no valid providers after prune"
-			if len(validPriority) == 1 {
-				reason = "only 1 valid provider after prune (need 2+ for failover)"
-			}
-			result.DeletedGroups = append(result.DeletedGroups, DeletedGroupInfo{
-				DisplayModel:  g.DisplayModel,
-				ProviderCount: len(validPriority),
-				Reason:        reason,
-				ProviderNames: []string{},
-			})
-			debuglog.Info("failover: deleted group after pruning stale entries",
+		remaining, err := r.pruneMembership(ctx, g.ID, g.DisplayModel, prunedIDs)
+		if err != nil {
+			debuglog.Error("failover: failed to update group after pruning", "display_model", g.DisplayModel, "error", err)
+			continue
+		}
+		// Record purged entries only after the successful DB update.
+		result.PurgedEntries = append(result.PurgedEntries, PrunedEntryInfo{
+			GroupDisplayModel: g.DisplayModel,
+			PrunedModelIDs:    prunedIDs,
+		})
+		if remaining > 1 {
+			// Group still viable. pruneMembership never writes group_enabled, so
+			// the group's enabled state (and the discovery stamp that goes with
+			// it) is preserved structurally rather than by round-tripping the
+			// current value.
+			debuglog.Info("failover: pruned stale entries from group",
 				"display_model", g.DisplayModel,
 				"pruned", len(prunedIDs),
-				"remaining", len(validPriority))
-		} else {
-			// Group still viable — remove the stale members only. pruneMembership
-			// never writes group_enabled, so the group's enabled state (and the
-			// discovery stamp that goes with it) is preserved structurally
-			// rather than by round-tripping the current value.
-			err := r.pruneMembership(ctx, g.ID, g.DisplayModel, prunedIDs)
-			if err != nil {
-				debuglog.Error("failover: failed to update group after pruning", "display_model", g.DisplayModel, "error", err)
-			} else {
-				// Record purged entries only after successful DB update.
-				result.PurgedEntries = append(result.PurgedEntries, PrunedEntryInfo{
-					GroupDisplayModel: g.DisplayModel,
-					PrunedModelIDs:    prunedIDs,
-				})
-				debuglog.Info("failover: pruned stale entries from group",
-					"display_model", g.DisplayModel,
-					"pruned", len(prunedIDs),
-					"remaining", len(validPriority))
-			}
+				"remaining", remaining)
+			continue
 		}
+		// 0 or 1 valid entries left — delete the group.
+		if err := r.DeleteByID(ctx, g.ID); err != nil {
+			debuglog.Error("failover: failed to delete pruned group", "display_model", g.DisplayModel, "error", err)
+			continue
+		}
+		reason := "no valid providers after prune"
+		if remaining == 1 {
+			reason = "only 1 valid provider after prune (need 2+ for failover)"
+		}
+		result.DeletedGroups = append(result.DeletedGroups, DeletedGroupInfo{
+			DisplayModel:  g.DisplayModel,
+			ProviderCount: remaining,
+			Reason:        reason,
+			ProviderNames: []string{},
+		})
+		debuglog.Info("failover: deleted group after pruning stale entries",
+			"display_model", g.DisplayModel,
+			"pruned", len(prunedIDs),
+			"remaining", remaining)
 	}
 }
 
-// pruneMembership removes the stale members from one group's membership. It is
-// deliberately narrower than Update: it writes priority_order and entry_enabled
-// only, never group_enabled — and therefore never auto_disabled_at.
+// pruneMembership removes the stale members from one group's membership and
+// reports how many members the row holds afterwards. It is deliberately
+// narrower than Update: it writes priority_order and entry_enabled only, never
+// group_enabled — and therefore never auto_disabled_at.
 //
 // The removal happens in SQL, by value, against the row as it is NOW rather
 // than as it was read: an operator PUT or a discovery sync that added a member
@@ -136,8 +131,8 @@ func (r *Repository) pruneStaleEntries(ctx context.Context, groups []*FailoverGr
 // Not writing group_enabled at all also expresses "don't silently re-enable a
 // manually-disabled group" structurally, instead of reading the current value
 // and writing it back through a call that has side effects on other columns.
-func (r *Repository) pruneMembership(ctx context.Context, id uuid.UUID, displayModel string, prunedIDs []string) error {
-	if _, err := r.pool.Exec(ctx,
+func (r *Repository) pruneMembership(ctx context.Context, id uuid.UUID, displayModel string, prunedIDs []string) (remaining int, err error) {
+	err = r.pool.QueryRow(ctx,
 		`UPDATE model_failover_groups
 		    SET priority_order = CASE WHEN jsonb_typeof(priority_order) = 'array'
 		                             THEN COALESCE((SELECT jsonb_agg(e ORDER BY ord)
@@ -148,14 +143,16 @@ func (r *Repository) pruneMembership(ctx context.Context, id uuid.UUID, displayM
 		                             THEN entry_enabled - $2::text[]
 		                             ELSE '{}'::jsonb END,
 		        updated_at     = now()
-		  WHERE id = $1`, id, prunedIDs); err != nil {
-		return err
+		  WHERE id = $1
+		  RETURNING jsonb_array_length(priority_order)`, id, prunedIDs).Scan(&remaining)
+	if err != nil {
+		return 0, err
 	}
 	// Drop the cached copy instead of re-reading and re-caching it: the next
 	// lookup refetches, and a surviving cache entry would still list the member
 	// that was just pruned. Same idiom as revalidateCustomGroups.
 	InvalidateFailoverCacheKey(displayModel)
-	return nil
+	return remaining, nil
 }
 
 // routableMemberIDs returns the subset of ids whose model is enabled and whose

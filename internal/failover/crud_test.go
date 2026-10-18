@@ -1435,8 +1435,12 @@ func TestPruneMembership_RemovesByValueAndKeepsAConcurrentAdd(t *testing.T) {
 		t.Fatalf("update: %v", err)
 	}
 
-	if err := repo.pruneMembership(ctx, group.ID, baseModel, []string{stale.String()}); err != nil {
+	remaining, err := repo.pruneMembership(ctx, group.ID, baseModel, []string{stale.String()})
+	if err != nil {
 		t.Fatalf("pruneMembership: %v", err)
+	}
+	if remaining != 2 {
+		t.Errorf("remaining = %d, want 2 counted from the current row", remaining)
 	}
 
 	InvalidateFailoverCache()
@@ -1449,5 +1453,53 @@ func TestPruneMembership_RemovesByValueAndKeepsAConcurrentAdd(t *testing.T) {
 	}
 	if _, present := got.EntryEnabled[stale.String()]; present || !got.IsEntryEnabled(keep) || !got.IsEntryEnabled(added) {
 		t.Errorf("entry_enabled = %v, want the stale key gone and the others as written", got.EntryEnabled)
+	}
+}
+
+// The viability decision is made from the row as it is after the prune, not
+// from the snapshot: a member added after the snapshot was read keeps a group
+// the snapshot alone would have had deleted.
+func TestPruneStaleEntries_DeletionDecidedFromTheCurrentRow(t *testing.T) {
+	repo := newTestRepo(t)
+	ctx := context.Background()
+	baseModel := "test-prune-current-" + uuid.New().String()[:8]
+	stale, keep, added := uuid.New(), uuid.New(), uuid.New()
+
+	// keep and added exist as models; stale does not.
+	for _, m := range []uuid.UUID{keep, added} {
+		pid := uuid.New()
+		if _, err := testDB.Pool().Exec(ctx, `INSERT INTO providers (id, name, base_url, encrypted_key, key_nonce, key_salt, enabled, created_at)
+			VALUES ($1, $2, 'http://localhost:11434', 'dGVzdA==', 'dGVzdA==', 'dGVzdA==', true, now())`, pid, "test-provider-"+uuid.New().String()[:8]); err != nil {
+			t.Fatalf("insert provider: %v", err)
+		}
+		defer func(id uuid.UUID) { _, _ = testDB.Pool().Exec(ctx, "DELETE FROM providers WHERE id = $1", id) }(pid)
+		if _, err := testDB.Pool().Exec(ctx, `INSERT INTO models (id, model_id, provider_id, enabled, created_at) VALUES ($1, $2, $3, true, now())`, m, baseModel, pid); err != nil {
+			t.Fatalf("insert model: %v", err)
+		}
+	}
+
+	snapshot, err := upsertGroup(ctx, t, repo, baseModel, []uuid.UUID{stale, keep})
+	if err != nil {
+		t.Fatalf("upsert: %v", err)
+	}
+	defer func() { _ = repo.Delete(ctx, baseModel) }()
+	// An operator adds a member after the snapshot was read.
+	if _, err := repo.Update(ctx, snapshot.ID, []uuid.UUID{stale, keep, added}, nil, nil, false, nil, nil, nil); err != nil {
+		t.Fatalf("update: %v", err)
+	}
+
+	var result SyncResult
+	repo.pruneStaleEntries(ctx, []*FailoverGroup{snapshot}, &result)
+
+	InvalidateFailoverCache()
+	got, err := repo.GetByModel(ctx, baseModel)
+	if err != nil {
+		t.Fatalf("the group was deleted on the snapshot's count: %v", err)
+	}
+	if len(got.PriorityOrder) != 2 || got.PriorityOrder[0] != keep || got.PriorityOrder[1] != added {
+		t.Errorf("priority_order = %v, want [%s %s]", got.PriorityOrder, keep, added)
+	}
+	if len(result.DeletedGroups) != 0 || len(result.PurgedEntries) != 1 {
+		t.Errorf("result = %+v, want one purge and no deletion", result)
 	}
 }

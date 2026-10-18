@@ -1479,3 +1479,47 @@ func TestClassifyProbeFrame_ResponsesEvents(t *testing.T) {
 		})
 	}
 }
+
+// The hedged probe's stall floor is measured from this launch, not from the
+// request: a launch deep into the stagger whose client leaves two hundred
+// milliseconds in is a client disconnect, not a provider stall charged to a
+// provider that had barely been asked.
+func TestProbeStreamingCandidate_ClientGoneIsJudgedFromTheLaunch(t *testing.T) {
+	h := newIntegrationHandler()
+	defer stopUnitHandler(h)
+	withBreakerThresholdOne(t, h)
+
+	release := make(chan struct{})
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "text/event-stream")
+		w.WriteHeader(http.StatusOK)
+		w.(http.Flusher).Flush()
+		select {
+		case <-release:
+		case <-r.Context().Done():
+		}
+	}))
+	defer srv.Close()
+	defer close(release)
+
+	st, cand := probeStateForServer(srv.URL)
+	st.circuitBreakerEnabled = true
+	st.startTime = time.Now().Add(-time.Minute)  // the request is a minute old
+	st.logData = hedgeProbeLog(st.logData, cand) // this launch just began
+	ctx, cancel := context.WithCancel(context.Background())
+	time.AfterFunc(200*time.Millisecond, cancel) // the client leaves
+
+	res := h.probeStreamingCandidate(ctx, st, cand, 1, 30*time.Second, 30*time.Second)
+	if res.resp != nil {
+		_ = res.resp.Body.Close()
+	}
+	if res.won {
+		t.Fatal("a probe with no token must not win")
+	}
+	if res.reqErr.Kind != KindClientDisconnect {
+		t.Errorf("kind = %s, want %s: the launch was 200ms old when the client left", res.reqErr.Kind, KindClientDisconnect)
+	}
+	if got := h.circuitBreaker.GetState(cand.provider.ID, cand.model.ModelID); got != failover.StateClosed {
+		t.Errorf("circuit = %s, want closed: a client disconnect is not the provider's stall", got)
+	}
+}
