@@ -111,11 +111,13 @@ function hostnameMatches(url: string, suffix: string, exact?: string): boolean {
 // is Go, /zen or /inference is Zen. Zen has no quota endpoint. The host
 // matches exactly or as a subdomain, the same rule every other arm applies, so
 // a subdomain such as www.opencode.ai is recognised; the path is compared
-// segment-wise so a sibling like /zen/gold/v1 does not read as Go while a base
-// URL typed without the version segment still does.
+// segment-wise and lowercased (as the backend classifier does) so a sibling
+// like /zen/gold/v1 does not read as Go while a base URL typed without the
+// version segment or with capitals still does.
 function pathMatches(url: string, host: string, prefix: string): boolean {
 	try {
-		const { hostname, pathname } = new URL(url);
+		const { hostname, pathname: rawPath } = new URL(url);
+		const pathname = rawPath.toLowerCase();
 		return (
 			(hostname === host || hostname.endsWith(`.${host}`)) &&
 			(pathname === prefix || pathname.startsWith(`${prefix}/`))

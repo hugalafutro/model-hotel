@@ -890,6 +890,15 @@ describe("useQuotaData", () => {
 			);
 		});
 
+		it("matches the OpenCode Go path regardless of case, like the backend", () => {
+			expect(detectQuotaProviderType("https://opencode.ai/Zen/Go/v1")).toBe(
+				"opencode-go",
+			);
+			expect(
+				detectQuotaProviderType("https://opencode.ai/Inference/GO/v1"),
+			).toBe("opencode-go");
+		});
+
 		it("leaves OpenCode Zen on the same host unsupported", () => {
 			expect(detectQuotaProviderType("https://opencode.ai/zen/v1")).toBe(null);
 			expect(detectQuotaProviderType("https://opencode.ai/inference/v1")).toBe(

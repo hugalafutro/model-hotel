@@ -234,6 +234,7 @@ func TestDiscoverModels(t *testing.T) {
 		assert.Equal(t, "opencode-go", LegacyTypeFromURL("https://opencode.ai/inference/go/v1"))
 		assert.Equal(t, "opencode-zen", LegacyTypeFromURL("https://opencode.ai/inference/v1"))
 		assert.Equal(t, "opencode-zen", LegacyTypeFromURL("https://opencode.ai/inference/google/v1beta"))
+		assert.Equal(t, "opencode-zen", LegacyTypeFromURL("https://opencode.ai/inference/goose/v1"))
 		assert.Equal(t, "openai", LegacyTypeFromURL("https://opencode.ai/inferences/v1"))
 	})
 
