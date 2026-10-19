@@ -230,6 +230,12 @@ func TestDiscoverModels(t *testing.T) {
 		// The genuine forms still detect, with and without the version segment.
 		assert.Equal(t, "opencode-go", LegacyTypeFromURL("https://opencode.ai/zen/go/v1"))
 		assert.Equal(t, "opencode-zen", LegacyTypeFromURL("https://opencode.ai/zen/v1"))
+		// The /inference aliases resolve the same way, with the same segment rule.
+		assert.Equal(t, "opencode-go", LegacyTypeFromURL("https://opencode.ai/inference/go/v1"))
+		assert.Equal(t, "opencode-zen", LegacyTypeFromURL("https://opencode.ai/inference/v1"))
+		assert.Equal(t, "opencode-zen", LegacyTypeFromURL("https://opencode.ai/inference/google/v1beta"))
+		assert.Equal(t, "opencode-zen", LegacyTypeFromURL("https://opencode.ai/inference/goose/v1"))
+		assert.Equal(t, "openai", LegacyTypeFromURL("https://opencode.ai/inferences/v1"))
 	})
 
 	t.Run("zai_coding", func(t *testing.T) {

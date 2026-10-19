@@ -272,8 +272,8 @@ Hostname rules (`detectByHost`, exact and suffix matching):
 | `api.kimi.com`, `kimi.com`, `*.kimi.com` | - | `kimi-code` |
 | `api.minimax.io`, `minimax.io`, `*.minimax.io` | - | `minimax` |
 | `ollama.com`, `*.ollama.com` | - | `ollama-cloud` |
-| `opencode.ai`, `*.opencode.ai` | `/zen/go/` | `opencode-go` |
-| `opencode.ai`, `*.opencode.ai` | `/zen/` | `opencode-zen` |
+| `opencode.ai`, `*.opencode.ai` | `/zen/go` or `/inference/go` (segment prefix) | `opencode-go` |
+| `opencode.ai`, `*.opencode.ai` | `/zen` or `/inference` (segment prefix) | `opencode-zen` |
 | `openrouter.ai`, `*.openrouter.ai` | - | `openrouter` |
 | `api.x.ai`, `x.ai`, `*.x.ai` | - | `xai` |
 | `generativelanguage.googleapis.com` (and `*generativelanguage*.googleapis.com`) | - | `google` |

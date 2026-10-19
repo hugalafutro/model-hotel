@@ -315,8 +315,9 @@ var hostTypeRules = []struct {
 
 // pathHasSegments reports whether path starts with prefix on a segment
 // boundary: /zen/go matches /zen/go and /zen/go/v1, but not the sibling
-// /zen/goose/v1 nor an unrelated /foo/zen/go/v1. Same rule as pathMatches in
-// the dashboard's detectQuotaProviderType, which the operator sees first.
+// /zen/goose/v1 nor an unrelated /foo/zen/go/v1. The path arrives lowercased.
+// Same rule as pathMatches in the dashboard's detectQuotaProviderType, which
+// the operator sees first.
 func pathHasSegments(path, prefix string) bool {
 	return path == prefix || strings.HasPrefix(path, prefix+"/")
 }
@@ -356,12 +357,14 @@ func detectByHost(host, path string) string {
 		return "google"
 	}
 	if host == "opencode.ai" || strings.HasSuffix(host, ".opencode.ai") {
-		// Path-based detection: the Go base URL is /zen/go, Zen's is /zen.
-		// Must check Go before Zen since /zen/go is a subpath of /zen.
-		if pathHasSegments(path, "/zen/go") {
+		// Path-based detection: the Go base URL is /zen/go, Zen's is /zen;
+		// /inference/go and /inference are the aliases the v2 console docs
+		// publish, served by the same backend. Must check Go before Zen since
+		// each Go path is a subpath of its Zen path.
+		if pathHasSegments(path, "/zen/go") || pathHasSegments(path, "/inference/go") {
 			return "opencode-go"
 		}
-		if pathHasSegments(path, "/zen") {
+		if pathHasSegments(path, "/zen") || pathHasSegments(path, "/inference") {
 			return "opencode-zen"
 		}
 	}
