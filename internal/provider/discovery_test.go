@@ -120,6 +120,8 @@ func TestLegacyTypeFromURL_OpenCodeGo(t *testing.T) {
 	}{
 		{"go path", "https://opencode.ai/zen/go/v1"},
 		{"go subdomain with path", "https://custom.opencode.ai/zen/go/v1"},
+		{"go inference alias", "https://opencode.ai/inference/go/v1"},
+		{"go inference alias without version", "https://opencode.ai/inference/go"},
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {

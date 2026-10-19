@@ -881,8 +881,23 @@ describe("useQuotaData", () => {
 			);
 		});
 
+		it("detects OpenCode Go on the /inference/go alias", () => {
+			expect(
+				detectQuotaProviderType("https://opencode.ai/inference/go/v1"),
+			).toBe("opencode-go");
+			expect(detectQuotaProviderType("https://opencode.ai/inference/go")).toBe(
+				"opencode-go",
+			);
+		});
+
 		it("leaves OpenCode Zen on the same host unsupported", () => {
 			expect(detectQuotaProviderType("https://opencode.ai/zen/v1")).toBe(null);
+			expect(detectQuotaProviderType("https://opencode.ai/inference/v1")).toBe(
+				null,
+			);
+			expect(
+				detectQuotaProviderType("https://opencode.ai/inference/gold/v1"),
+			).toBe(null);
 			expect(detectQuotaProviderType("https://opencode.ai/zen/gold/v1")).toBe(
 				null,
 			);

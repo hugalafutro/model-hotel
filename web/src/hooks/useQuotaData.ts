@@ -107,7 +107,8 @@ function hostnameMatches(url: string, suffix: string, exact?: string): boolean {
 }
 
 // opencode.ai serves OpenCode Zen and OpenCode Go from one host, so only the
-// base URL path tells them apart. Zen (/zen/v1) has no quota endpoint. The host
+// base URL path tells them apart: /zen/go or its v2-console alias /inference/go
+// is Go, /zen or /inference is Zen. Zen has no quota endpoint. The host
 // matches exactly or as a subdomain, the same rule every other arm applies, so
 // a subdomain such as www.opencode.ai is recognised; the path is compared
 // segment-wise so a sibling like /zen/gold/v1 does not read as Go while a base
@@ -136,7 +137,11 @@ export function detectQuotaProviderType(
 	if (hostnameMatches(baseUrl, "openrouter.ai")) return "openrouter";
 	if (hostnameMatches(baseUrl, "ollama.com")) return "ollama-cloud";
 	if (hostnameMatches(baseUrl, "neuralwatt.com")) return "neuralwatt";
-	if (pathMatches(baseUrl, "opencode.ai", "/zen/go")) return "opencode-go";
+	if (
+		pathMatches(baseUrl, "opencode.ai", "/zen/go") ||
+		pathMatches(baseUrl, "opencode.ai", "/inference/go")
+	)
+		return "opencode-go";
 	return null;
 }
 

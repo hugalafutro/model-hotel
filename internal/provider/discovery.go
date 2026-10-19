@@ -356,12 +356,14 @@ func detectByHost(host, path string) string {
 		return "google"
 	}
 	if host == "opencode.ai" || strings.HasSuffix(host, ".opencode.ai") {
-		// Path-based detection: the Go base URL is /zen/go, Zen's is /zen.
-		// Must check Go before Zen since /zen/go is a subpath of /zen.
-		if pathHasSegments(path, "/zen/go") {
+		// Path-based detection: the Go base URL is /zen/go, Zen's is /zen;
+		// /inference/go and /inference are the aliases the v2 console docs
+		// publish (October 2026), served by the same backend. Must check Go
+		// before Zen since /zen/go is a subpath of /zen.
+		if pathHasSegments(path, "/zen/go") || pathHasSegments(path, "/inference/go") {
 			return "opencode-go"
 		}
-		if pathHasSegments(path, "/zen") {
+		if pathHasSegments(path, "/zen") || pathHasSegments(path, "/inference") {
 			return "opencode-zen"
 		}
 	}
