@@ -128,24 +128,64 @@ describe("SettingsPage", () => {
 	});
 
 	it("surfaces a validation error from the API", async () => {
+		let putHits = 0;
 		server.use(
 			http.get("/api/settings", () => HttpResponse.json(defaults)),
-			http.put(
-				"/api/settings",
-				() =>
-					new HttpResponse(
-						"frontdesk: validation failed: poll/stale intervals must be at least 1 second",
-						{ status: 400 },
-					),
-			),
+			http.put("/api/settings", () => {
+				putHits++;
+				return new HttpResponse(
+					"frontdesk: validation failed: poll/stale intervals must be at least 1 second",
+					{ status: 400 },
+				);
+			}),
 		);
-		renderPage();
-		await screen.findByRole("button", { name: /^Save$/i });
-		await userEvent.click(screen.getByRole("button", { name: /^Save$/i }));
-		// Target the save error itself rather than the first role="alert" in the
-		// DOM, so another panel's alert can never shadow it.
-		const alert = await screen.findByText(/at least 1 second/i);
-		expect(alert.closest('[role="alert"]')).not.toBeNull();
+		// What the network layer saw, for the failure message: on CI this test
+		// has shown the generic error instead of the 400's text (a PUT that
+		// failed some other way), which a bare timeout cannot tell apart.
+		const network: string[] = [];
+		const onUnhandled = ({ request }: { request: Request }) =>
+			network.push(
+				`unhandled ${request.method} ${new URL(request.url).pathname}`,
+			);
+		const onException = ({
+			request,
+			error,
+		}: {
+			request: Request;
+			error: Error;
+		}) =>
+			network.push(
+				`exception ${request.method} ${new URL(request.url).pathname}: ${error.message}`,
+			);
+		server.events.on("request:unhandled", onUnhandled);
+		server.events.on("unhandledException", onException);
+		try {
+			renderPage();
+			await screen.findByRole("button", { name: /^Save$/i });
+			// Let the other panels finish their first reads before saving, as a
+			// person would: this test alone used to click Save the instant the
+			// form appeared, putting its PUT inside the page's mount burst.
+			await screen.findByRole("button", { name: /save alert settings/i });
+			await screen.findByTestId("fd-oidc-save");
+			await userEvent.click(screen.getByRole("button", { name: /^Save$/i }));
+			await waitFor(() => expect(putHits).toBe(1));
+			// Target the save error itself rather than the first role="alert" in
+			// the DOM, so another panel's alert can never shadow it.
+			const alert = await screen.findByText(
+				/at least 1 second/i,
+				{},
+				{
+					onTimeout: (err) =>
+						new Error(
+							`${err.message}\nPUT reached its handler ${putHits} time(s); network events: ${network.join("; ") || "none"}`,
+						),
+				},
+			);
+			expect(alert.closest('[role="alert"]')).not.toBeNull();
+		} finally {
+			server.events.removeListener("request:unhandled", onUnhandled);
+			server.events.removeListener("unhandledException", onException);
+		}
 	});
 
 	it("does not revert alert settings when the polling form is saved (B1)", async () => {
