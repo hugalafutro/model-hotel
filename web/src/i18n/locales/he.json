@@ -3275,8 +3275,7 @@
 			"topP": "השימוש ב-top_p אינו מומלץ עוד במודלים הנוכחיים של Anthropic; יש להשתמש ב-top_k במקום זאת",
 			"frequencyPenalty": "Anthropic משתמשת בפרמטר עונשים יחיד, ולא בפרמטרים נפרדים לתדירות ולנוכחות",
 			"presencePenalty": "Anthropic משתמשת בפרמטר עונשים יחיד, ולא בפרמטרים נפרדים לתדירות ולנוכחות",
-			"minP": "לא נתמך על ידי ממשק ה-API של Anthropic",
-			"reasoningEffort": "לא נתמך על ידי ממשק ה-API של Anthropic"
+			"minP": "לא נתמך על ידי ממשק ה-API של Anthropic"
 		},
 		"google": {
 			"frequencyPenalty": "Gemini אינה תומכת בעונשים בגין תדירות או נוכחות",

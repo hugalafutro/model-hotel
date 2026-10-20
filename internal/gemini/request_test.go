@@ -668,12 +668,14 @@ func TestRequestCarriesFile(t *testing.T) {
 		body string
 		want bool
 	}{
-		"string content":        {`{"messages":[{"role":"user","content":"hi"}]}`, false},
-		"text parts only":       {`{"messages":[{"role":"user","content":[{"type":"text","text":"hi"}]}]}`, false},
-		"inline file":           {`{"messages":[{"role":"user","content":[{"type":"file","file":{"file_data":"data:application/pdf;base64,JVBERi0="}}]}]}`, true},
-		"file in later message": {`{"messages":[{"role":"user","content":"hi"},{"role":"user","content":[{"type":"file","file":{"file_data":"data:text/plain;base64,aGk="}}]}]}`, true},
-		"file_id only":          {`{"messages":[{"role":"user","content":[{"type":"file","file":{"file_id":"file-1"}}]}]}`, false},
-		"remote file_data":      {`{"messages":[{"role":"user","content":[{"type":"file","file":{"file_data":"https://x/y.pdf"}}]}]}`, false},
+		"string content":  {`{"messages":[{"role":"user","content":"hi"}]}`, false},
+		"text parts only": {`{"messages":[{"role":"user","content":[{"type":"text","text":"hi"}]}]}`, false},
+		"inline file":     {`{"messages":[{"role":"user","content":[{"type":"file","file":{"file_data":"data:application/pdf;base64,JVBERi0="}}]}]}`, true},
+		"upper-case scheme and marker (RFC 2397)": {`{"messages":[{"role":"user","content":[{"type":"file","file":{"file_data":"DATA:application/pdf;BASE64,JVBERi0="}}]}]}`, true},
+		"non-ascii media type":                    {`{"messages":[{"role":"user","content":[{"type":"file","file":{"file_data":"data:image/K;base64,QUJD"}}]}]}`, true},
+		"file in later message":                   {`{"messages":[{"role":"user","content":"hi"},{"role":"user","content":[{"type":"file","file":{"file_data":"data:text/plain;base64,aGk="}}]}]}`, true},
+		"file_id only":                            {`{"messages":[{"role":"user","content":[{"type":"file","file":{"file_id":"file-1"}}]}]}`, false},
+		"remote file_data":                        {`{"messages":[{"role":"user","content":[{"type":"file","file":{"file_data":"https://x/y.pdf"}}]}]}`, false},
 		// Roles and payloads the translator drops are not a reason to reroute.
 		"file in system turn":    {`{"messages":[{"role":"system","content":[{"type":"file","file":{"file_data":"data:application/pdf;base64,JVBERi0="}}]},{"role":"user","content":"hi"}]}`, false},
 		"file in tool turn":      {`{"messages":[{"role":"tool","tool_call_id":"c1","content":[{"type":"file","file":{"file_data":"data:application/pdf;base64,JVBERi0="}}]}]}`, false},
@@ -688,5 +690,35 @@ func TestRequestCarriesFile(t *testing.T) {
 				t.Errorf("RequestCarriesFile = %v, want %v", got, tc.want)
 			}
 		})
+	}
+}
+
+// mediaPart reads an inline data: URI as RFC 2397 spells it: any-case scheme
+// and base64 parameter, the media type as sent (text/plain when omitted),
+// the cut taken on bytes so a non-ASCII media type cannot shift it.
+func TestMediaPart(t *testing.T) {
+	for _, tc := range []struct {
+		in       string
+		mime     string
+		data     string
+		wantPart bool
+	}{
+		{"data:image/png;base64,QUJD", "image/png", "QUJD", true},
+		{"DATA:image/png;BASE64,QUJD", "image/png", "QUJD", true},
+		{"data:text/plain;charset=utf-8;base64,QUJD", "text/plain;charset=utf-8", "QUJD", true},
+		{"data:;base64,QUJD", "text/plain", "QUJD", true},
+		{"data:image/\u212a;base64,QUJD", "image/\u212a", "QUJD", true},
+		{"data:image/png;base64", "", "", false},
+		{"data:image/png;base64,", "", "", false},
+		{"data:image/png,plain", "", "", false},
+	} {
+		part, ok := mediaPart(tc.in)
+		if ok != tc.wantPart {
+			t.Errorf("mediaPart(%q) ok = %v, want %v", tc.in, ok, tc.wantPart)
+			continue
+		}
+		if ok && (part.InlineData == nil || part.InlineData.MimeType != tc.mime || part.InlineData.Data != tc.data) {
+			t.Errorf("mediaPart(%q) = %+v, want mime %q data %q", tc.in, part.InlineData, tc.mime, tc.data)
+		}
 	}
 }

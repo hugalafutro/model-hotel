@@ -123,14 +123,15 @@ const (
 
 // slotOutcomeFor maps a failed attempt's error kind to its settlement: the
 // causes the provider did not produce (the client leaving, a lost hedge race,
-// an internal failure) are neutral, every other failure is unclean. A failover
+// an internal failure, a body this gateway refused before any upstream call)
+// are neutral, every other failure is unclean. A failover
 // or retry deadline that expires before the headers is unclean: doUpstream
 // charges the breaker for it as a provider stall, and the window has to learn
 // from the same overload. (Mid-stream, streamSlotOutcome follows the breaker,
 // which does not charge those deadlines.)
 func slotOutcomeFor(kind ErrorKind) slotOutcome {
 	switch kind {
-	case KindClientDisconnect, KindHedgeSuperseded, KindInternal:
+	case KindClientDisconnect, KindHedgeSuperseded, KindInternal, KindValidation:
 		return slotNeutral
 	default:
 		return slotUnclean
@@ -435,11 +436,16 @@ func (h *Handler) finishAttemptAdmission(st *requestState, candidate modelCandid
 	resp.Body = &inflightRelease{ReadCloser: resp.Body, slot: st.attemptSlot, clean: servedSuccessStatus(resp.StatusCode), onEOF: true}
 }
 
-// remainingBudgetZero reports whether the provider's OpenAI-style rate-limit
-// headers say a budget is exactly spent. Only a literal "0" counts: any other
-// value, malformed or generous, is no signal.
+// remainingBudgetZero reports whether the provider's rate-limit headers (the
+// OpenAI-style names, or the anthropic-ratelimit-* names the Messages route
+// answers with) say a budget is exactly spent. Only a literal "0" counts: any
+// other value, malformed or generous, is no signal.
 func remainingBudgetZero(hdr http.Header) bool {
-	for _, key := range []string{"X-RateLimit-Remaining-Requests", "X-RateLimit-Remaining-Tokens", "X-RateLimit-Remaining"} {
+	for _, key := range []string{
+		"X-RateLimit-Remaining-Requests", "X-RateLimit-Remaining-Tokens", "X-RateLimit-Remaining",
+		"anthropic-ratelimit-requests-remaining", "anthropic-ratelimit-tokens-remaining",
+		"anthropic-ratelimit-input-tokens-remaining", "anthropic-ratelimit-output-tokens-remaining",
+	} {
 		if hdr.Get(key) == "0" {
 			return true
 		}

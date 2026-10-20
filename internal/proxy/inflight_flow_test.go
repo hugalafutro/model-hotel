@@ -163,8 +163,8 @@ func TestProbeStreamingCandidate_SlotOnEarlyExits(t *testing.T) {
 		if res.won || !res.busy {
 			t.Fatalf("result won=%v busy=%v, want a busy loss", res.won, res.busy)
 		}
-		if res.reqErr.Kind != KindProviderSaturated {
-			t.Errorf("reqErr.Kind = %s, want %s", res.reqErr.Kind, KindProviderSaturated)
+		if res.reqErr.Kind != KindProviderSaturated || res.reqErr.Model != cand.model.ModelID {
+			t.Errorf("reqErr = %+v, want a %s skip naming the candidate's model", res.reqErr, KindProviderSaturated)
 		}
 		if !res.rateLimit.classified || res.rateLimit.class != rateLimitSaturated {
 			t.Errorf("verdict = %+v, want the saturated skip the orchestrator waits on", res.rateLimit)
@@ -472,8 +472,8 @@ func TestRunHedgedStreaming_AllBusyWaitsForASlot(t *testing.T) {
 
 	// Every probe reports busy, as the real probe does at a full window.
 	hh := newHedgeHarness([]fakeProbeSpec{
-		{reqErr: reqError{Kind: KindProviderSaturated, Attempt: 0, Provider: "a", Detail: "at in-flight limit"}, busy: true},
-		{reqErr: reqError{Kind: KindProviderSaturated, Attempt: 1, Provider: "b", Detail: "at in-flight limit"}, busy: true},
+		{reqErr: reqError{Kind: KindProviderSaturated, Attempt: 0, Provider: "a", Model: "m", Detail: busySkipDetail}, busy: true},
+		{reqErr: reqError{Kind: KindProviderSaturated, Attempt: 1, Provider: "b", Model: "m", Detail: busySkipDetail}, busy: true},
 	})
 	st, _ := newHedgeState(5 * time.Millisecond)
 	st.inflightEnabled = true

@@ -53,7 +53,8 @@ const (
 	KindProviderTimeout ErrorKind = "provider_timeout"
 	// KindFailoverTimeout means the overall failover deadline expired.
 	KindFailoverTimeout ErrorKind = "failover_timeout"
-	// KindRetryTimeout means the param-strip retry's deadline expired.
+	// KindRetryTimeout means a self-heal retry's deadline expired (the
+	// param-strip retry, the Messages thinking-dialect or cache_control retry).
 	KindRetryTimeout ErrorKind = "retry_timeout"
 	// KindHedgeSuperseded means the gateway itself abandoned this attempt because
 	// another hedged candidate won the race. It is not a provider failure and
@@ -83,9 +84,17 @@ type reqError struct {
 	Kind     ErrorKind
 	Attempt  int
 	Provider string
-	// Underlying holds upstream text, so setReqErr fences it in place. That is
-	// safe because nothing client-facing reads it: terminalClientMessage names
-	// the model and the class of failure only, and no classifier re-parses it
+	// Model is the candidate's upstream model id, set by the attempts that
+	// never contacted the provider (a busy skip, a refused build): with
+	// Provider it identifies the candidate, so setReqErr can tell the same
+	// candidate's earlier skip from another candidate's failure on a provider
+	// that serves several models.
+	Model string
+	// Underlying holds upstream text, so setReqErr fences it in place. Nothing
+	// client-facing reads it but one case: terminalClientMessage names the
+	// model and the class of failure only, except for KindValidation, whose
+	// Underlying is this gateway's own refusal reason (a part index and type,
+	// fenced like the rest, never request content). No classifier re-parses it
 	// (the 400/429 classifiers read the response body, not this field). Its
 	// readers are the rendered log message (render, withUnderlying), the trail
 	// detail, and app-log attributes, all of which must carry the fenced text.
@@ -218,13 +227,17 @@ func (e reqError) render() string {
 	case KindFailoverTimeout:
 		return e.withUnderlying(fmt.Sprintf("request timed out while waiting on %s (attempt %d)", e.providerLabel(), n))
 	case KindRetryTimeout:
-		return e.withUnderlying(fmt.Sprintf("retry without unsupported parameters timed out on %s (attempt %d)", e.providerLabel(), n))
+		return e.withUnderlying(fmt.Sprintf("self-heal retry timed out on %s (attempt %d)", e.providerLabel(), n))
 	case KindInternal:
 		if e.Underlying != "" {
 			return fmt.Sprintf("internal error on attempt %d: %s", n, e.Underlying)
 		}
 		return fmt.Sprintf("internal error on attempt %d", n)
 	case KindValidation:
+		// This gateway's own refusal, so the reason is not a provider's error.
+		if e.Underlying != "" {
+			return "invalid request: " + e.Underlying
+		}
 		return "invalid request"
 	case KindAuth:
 		return "authorization failed"
@@ -261,6 +274,10 @@ func (e reqError) terminalStatus() int {
 		return statusClientClosedRequest
 	case KindFailoverTimeout, KindRetryTimeout:
 		return http.StatusGatewayTimeout
+	case KindValidation:
+		// The caller's body, not a provider: a Messages translation refused
+		// a content part no candidate could carry.
+		return http.StatusBadRequest
 	default:
 		return http.StatusBadGateway
 	}
@@ -274,7 +291,8 @@ func (e reqError) terminalStatus() int {
 func (e reqError) terminalLogMessage(isFailover bool, numCandidates int) string {
 	last := e.render()
 	switch e.Kind {
-	case KindClientDisconnect, KindFailoverTimeout, KindRetryTimeout, KindHedgeSuperseded:
+	case KindClientDisconnect, KindFailoverTimeout, KindRetryTimeout, KindHedgeSuperseded, KindValidation:
+		// A refusal of the caller's body is nobody's outage.
 		return last
 	case KindProviderSaturated:
 		// Busy, not broken: every provider is alive and at capacity, and "all
@@ -312,6 +330,13 @@ func (e reqError) terminalClientMessage(reqModel string, isFailover bool) string
 			return fmt.Sprintf("all providers busy for model %s, retry shortly", reqModel)
 		}
 		return fmt.Sprintf("provider busy for model %s, retry shortly", reqModel)
+	case KindValidation:
+		// The caller's body was refused before any upstream call; the reason
+		// names a part index and type, never request content, so it travels.
+		if e.Underlying != "" {
+			return fmt.Sprintf("invalid request for model %s: %s", reqModel, e.Underlying)
+		}
+		return fmt.Sprintf("invalid request for model %s", reqModel)
 	default:
 		if isFailover {
 			return fmt.Sprintf("all providers failed for model %s", reqModel)

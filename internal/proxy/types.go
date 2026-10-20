@@ -427,9 +427,8 @@ type requestState struct {
 	// anthropicEgressAttempt is set per failover attempt by
 	// buildCandidateRequest: true when the current candidate is served through
 	// the internal/anthropicegress translation (every chat request to an
-	// anthropic-messages provider or to a Claude model on OpenCode, and an
-	// anthropic one carrying a document its OpenAI-compat endpoint cannot
-	// express), read by the response dispatch so
+	// Anthropic-family provider or to a Claude model on OpenCode), read by the
+	// response dispatch so
 	// it translates the Messages body/stream back to the chat-completions shape
 	// the pipeline and client expect.
 	anthropicEgressAttempt bool
@@ -466,17 +465,37 @@ type requestState struct {
 	hedgeBilled *atomic.Bool
 
 	// Accumulated across failover attempts (phase D / E). lastReqErr is the
-	// structured cause of the most recent attempt's failure; lastErr is its
+	// structured terminal verdict so far: the most recent attempt's failure,
+	// except that a refusal of the caller's body does not displace an earlier
+	// candidate's provider-side failure (see setReqErr); lastErr is its
 	// rendered string, kept in sync by setReqErr for the debug-log "error"
 	// field. The exhaustion path renders the terminal message/status from
 	// lastReqErr.
 	lastErr    string
 	lastReqErr reqError
+	// terminalRateLimit is the 429 verdict that stood when lastReqErr was
+	// recorded, for the exhaustion path's Retry-After: rateLimit itself is reset
+	// per attempt and a later attempt that did not replace lastReqErr (a
+	// refusal) would otherwise leave the class default behind.
+	terminalRateLimit rateLimitVerdict
+	// routedFailure is the latest provider-side failure of a candidate that
+	// had a route for the body (see isRoutedFailure), with the 429 verdict that
+	// stood when it was recorded. A refusal of the caller's body never becomes
+	// the terminal verdict while one exists: busy skips recorded after the
+	// failure may have displaced it from lastReqErr, and the refusal would
+	// otherwise turn a 502 a retry could clear into a 400.
+	routedFailure          reqError
+	routedFailureRateLimit rateLimitVerdict
+	// attemptRefused marks the current attempt as one whose request was never
+	// built because the translation refused the caller's body: no provider
+	// was contacted, so the loop moves on without a backoff.
+	attemptRefused bool
 
 	// rateLimit is the current attempt's 429 verdict, reset at attempt start by
-	// beginAttempt. The terminal paths read it for the Retry-After they hand the
-	// client, and only a terminal whose own status is a classified 429 does, so
-	// a stale verdict from an earlier attempt can never label a later failure.
+	// beginAttempt. The forward path reads it for the Retry-After it hands the
+	// client with a forwarded 429; the exhaustion path reads terminalRateLimit,
+	// the verdict recorded beside the error it renders, so a stale verdict from
+	// an earlier attempt can never label a later failure.
 	// saturationRetried marks that this request has already spent its one
 	// wait-and-retry on a saturated last candidate; serverErrorRetried the one
 	// backoff-and-retry on a last candidate that answered a retryable 5xx.
@@ -494,26 +513,6 @@ type requestState struct {
 	// a failure exit, or the saturated-429 handler gets there first.
 	inflightEnabled bool
 	attemptSlot     *attemptSlot
-}
-
-// setReqErr records the structured cause of the most recent failed attempt and
-// keeps the rendered lastErr string in sync. Every failover-loop failure goes
-// through here, so the exhaustion path always has a structured error to render
-// and classify.
-//
-// Underlying is the one field that can hold upstream text (an SSE error frame,
-// a provider's sentence, a transport error quoting what came off the wire), and
-// the exhaustion path renders it into the row's error_message, so it is masked
-// and then fenced here, once, before anything reads it. Masked first, the order
-// fencedFrameMessage uses: a provider is free to quote the operator's key back,
-// and the row reaches the dashboard. Kind,
-// Detail and Hint are written by this package and are never fenced, which is
-// what keeps a prompt quoting gateway wording from blanking the gateway's own
-// diagnosis of the failure.
-func (st *requestState) setReqErr(e reqError) {
-	e.Underlying = st.logData.fence().fenceUpstream(string(st.logData.masks().mask([]byte(e.Underlying))))
-	st.lastReqErr = e
-	st.lastErr = e.render()
 }
 
 // sentChatCompletionsBody reports whether the current attempt POSTed an OpenAI
@@ -596,9 +595,10 @@ const (
 	// slot to free on any of them.
 	outcomeBusy
 	// outcomeSkipped: the candidate cannot serve this request as asked (a Gemini
-	// TTS candidate and a response format it does not produce), so the attempt
-	// was skipped without a request. The loop moves on; unlike a busy skip
-	// nothing frees up later, so it is not retried.
+	// TTS candidate and a response format it does not produce; an Anthropic
+	// egress candidate and a content part the Messages translation refuses), so
+	// the attempt was skipped without a request. The loop moves on; unlike a
+	// busy skip nothing frees up later, so it is not retried.
 	outcomeSkipped
 )
 

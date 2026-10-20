@@ -3,6 +3,8 @@ package anthropicegress
 import (
 	"encoding/base64"
 	"encoding/json"
+	"errors"
+	"fmt"
 	"strings"
 	"testing"
 )
@@ -20,8 +22,9 @@ type translatedRequest struct {
 	StopSequences []string            `json:"stop_sequences"`
 	Tools         []translatedTool    `json:"tools"`
 	ToolChoice    *struct {
-		Type string `json:"type"`
-		Name string `json:"name"`
+		Type                   string `json:"type"`
+		Name                   string `json:"name"`
+		DisableParallelToolUse bool   `json:"disable_parallel_tool_use"`
 	} `json:"tool_choice"`
 	Thinking *struct {
 		Type         string `json:"type"`
@@ -180,14 +183,19 @@ func TestTranslateRequest_ContentParts(t *testing.T) {
 		{"type":"file","file":{"file_data":"data:application/pdf;base64,SGVsbG8="}},
 		{"type":"file","file":{"file_data":"data:text/plain;base64,aGVsbG8gd29ybGQ="}},
 		{"type":"file","file":{"file_url":"https://example.com/report.pdf"}},
-		{"type":"input_audio","input_audio":{"data":"AAAA","format":"wav"}}]}]}`)
+		{"type":"file","file":{"file_data":"data:text/plain,","file_url":"https://example.com/beside.pdf"}},
+		{"type":"image_url","image_url":{"url":"data:IMAGE/JPEG;base64,/9j/4AAQ"}},
+		{"type":"image_url","image_url":{"url":"data:image/webp;charset=binary;base64,UklGRg=="}},
+		{"type":"file","file":{"file_data":"data:;base64,SGVsbG8="}},
+		{"type":"image_url","image_url":{"url":"DATA:image/gif;base64,R0lGODlh"}},
+		{"type":"file","file":{"file_data":"data:application/pdf;name=base64.pdf,%25PDF"}}]}]}`)
 
 	if len(req.Messages) != 1 {
 		t.Fatalf("got %d messages, want 1", len(req.Messages))
 	}
 	blocks := blocksOf(t, req.Messages[0])
-	if len(blocks) != 7 {
-		t.Fatalf("got %d blocks, want 7 (empty text and the unknown part are dropped): %+v", len(blocks), blocks)
+	if len(blocks) != 13 {
+		t.Fatalf("got %d blocks, want 13 (the empty text is dropped): %+v", len(blocks), blocks)
 	}
 
 	if blocks[0].Type != "text" || blocks[0].Text != "look" {
@@ -205,6 +213,16 @@ func TestTranslateRequest_ContentParts(t *testing.T) {
 		{"document", translatedSource{Type: "base64", MediaType: "application/pdf", Data: "SGVsbG8="}, "a base64 document source"},
 		{"document", translatedSource{Type: "text", MediaType: "text/plain", Data: "hello world"}, "a text document source carrying the decoded text"},
 		{"document", translatedSource{Type: "url", URL: "https://example.com/report.pdf"}, "a url document source"},
+		{"document", translatedSource{Type: "url", URL: "https://example.com/beside.pdf"}, "a url document beside an empty file_data"},
+		// parseDataURI normalises the media type: case, parameters before
+		// ";base64", and an empty type (text/plain, as RFC 2397 defaults it).
+		{"image", translatedSource{Type: "base64", MediaType: "image/jpeg", Data: "/9j/4AAQ"}, "an upper-case media type lower-cased"},
+		{"image", translatedSource{Type: "base64", MediaType: "image/webp", Data: "UklGRg=="}, "a media type with parameters before base64"},
+		{"document", translatedSource{Type: "text", MediaType: "text/plain", Data: "Hello"}, "an empty media type read as text/plain (RFC 2397)"},
+		{"image", translatedSource{Type: "base64", MediaType: "image/gif", Data: "R0lGODlh"}, "an upper-case data: scheme (RFC 2397 allows it)"},
+		// Only an exact ";base64" parameter marks a base64 payload: a parameter
+		// value that merely contains the word is percent-decoded and re-encoded.
+		{"document", translatedSource{Type: "base64", MediaType: "application/pdf", Data: "JVBERg=="}, "a percent-encoded payload beside a parameter named like base64"},
 	}
 	for i, w := range want {
 		b := blocks[i+1]
@@ -215,36 +233,6 @@ func TestTranslateRequest_ContentParts(t *testing.T) {
 		if got := sourceOf(t, b); got != w.source {
 			t.Errorf("block %d source = %+v, want %s: %+v", i+1, got, w.desc, w.source)
 		}
-	}
-}
-
-func TestTranslateRequest_UnusableFileAndImagePartsAreDropped(t *testing.T) {
-	tests := []struct {
-		name string
-		part string
-	}{
-		{name: "empty image url", part: `{"type":"image_url","image_url":{"url":""}}`},
-		{name: "file part with no file object", part: `{"type":"file"}`},
-		{name: "file part with an empty file object", part: `{"type":"file","file":{}}`},
-		{name: "file_data that is not a data uri", part: `{"type":"file","file":{"file_data":"JVBERi0="}}`},
-		{name: "undecodable base64 text payload", part: `{"type":"file","file":{"file_data":"data:text/plain;base64,!!not-base64!!"}}`},
-		// Malformed percent-encoding is unrecoverable: "%PD" and "%ZZ" are not
-		// escapes, so there are no bytes to re-encode as base64.
-		{name: "malformed percent-encoded image payload", part: `{"type":"image_url","image_url":{"url":"data:image/png,%ZZ"}}`},
-		{name: "malformed percent-encoded pdf in the image slot", part: `{"type":"image_url","image_url":{"url":"data:application/pdf,%PDF-1.4"}}`},
-		{name: "malformed percent-encoded pdf file part", part: `{"type":"file","file":{"file_data":"data:application/pdf,%PDF-1.4"}}`},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			req := translate(t, `{"model":"m","messages":[{"role":"user","content":[
-				{"type":"text","text":"look"},`+tt.part+`]}]}`)
-
-			blocks := blocksOf(t, req.Messages[0])
-			if len(blocks) != 1 || blocks[0].Type != "text" {
-				t.Errorf("blocks = %+v, want only the text block", blocks)
-			}
-		})
 	}
 }
 
@@ -532,7 +520,9 @@ func TestTranslateRequest_ToolChoice(t *testing.T) {
 		{name: "absent", toolChoice: "", wantType: "", wantTools: true},
 		{name: "auto", toolChoice: `"auto"`, wantType: "auto", wantTools: true},
 		{name: "required", toolChoice: `"required"`, wantType: "any", wantTools: true},
-		{name: "none drops the tools too", toolChoice: `"none"`, wantType: "", wantTools: false},
+		// "none" keeps the tools: the prompt prefix, and the cache breakpoint on
+		// its last tool, stay the same across a turn that forbids tool use.
+		{name: "none keeps the tools", toolChoice: `"none"`, wantType: "none", wantTools: true},
 		{
 			name:       "named function",
 			toolChoice: `{"type":"function","function":{"name":"get_weather"}}`,
@@ -716,6 +706,9 @@ func TestTranslateRequest_Stop(t *testing.T) {
 		{name: "array", stop: `["A","B"]`, want: []string{"A", "B"}},
 		{name: "string", stop: `"END"`, want: []string{"END"}},
 		{name: "empty string", stop: `""`, want: nil},
+		// Messages refuses a whitespace-only stop sequence.
+		{name: "whitespace-only entries dropped", stop: `["\n"," ","END"]`, want: []string{"END"}},
+		{name: "whitespace-only string", stop: `" "`, want: nil},
 		{name: "null", stop: `null`, want: nil},
 		{name: "unusable shape", stop: `{"a":1}`, want: nil},
 	}
@@ -772,7 +765,7 @@ func TestTranslateRequest_ThinkingBudgetDialect(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			body := `{"model":"m","messages":[{"role":"user","content":"hi"}],
-				"max_tokens":16000,"temperature":0.5,"top_p":0.9,"top_k":40`
+				"max_tokens":32000,"temperature":0.5,"top_p":0.9,"top_k":40`
 			if tt.effort != "" {
 				body += `,"reasoning_effort":"` + tt.effort + `"`
 			}
@@ -832,7 +825,7 @@ func TestTranslateRequest_ThinkingAdaptiveDialect(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			body := `{"model":"m","messages":[{"role":"user","content":"hi"}],
-				"max_tokens":16000,"temperature":0.5,"top_p":0.9,"top_k":40`
+				"max_tokens":32000,"temperature":0.5,"top_p":0.9,"top_k":40`
 			if tt.effort != "" {
 				body += `,"reasoning_effort":"` + tt.effort + `"`
 			}
@@ -884,15 +877,26 @@ func TestTranslateRequest_DefaultsToAdaptive(t *testing.T) {
 	}
 }
 
-func TestTranslateRequest_ThinkingRaisesMaxTokensAboveTheBudget(t *testing.T) {
+// The budget dialect needs max_tokens above the budget. A defaulted allowance
+// is the gateway's own number and grows; an explicit one is the caller's
+// spending cap and never does: the budget is capped at half of it so the
+// answer keeps the other half, and below Anthropic's minimum budget thinking
+// stays off.
+func TestTranslateRequest_ThinkingBudgetFitsUnderMaxTokens(t *testing.T) {
 	tests := []struct {
-		name      string
-		maxTokens string
-		want      int
+		name          string
+		maxTokens     string
+		wantMaxTokens int
+		wantBudget    int // 0 = thinking off
 	}{
-		{name: "default is below the budget", maxTokens: "", want: 8192 + DefaultMaxTokens},
-		{name: "equal to the budget", maxTokens: `,"max_tokens":8192`, want: 8192 + DefaultMaxTokens},
-		{name: "already above the budget", maxTokens: `,"max_tokens":9000`, want: 9000},
+		{name: "default is below the budget and is raised", maxTokens: "", wantMaxTokens: 8192 + DefaultMaxTokens, wantBudget: 8192},
+		{name: "explicit limit equal to the budget halves the budget", maxTokens: `,"max_tokens":8192`, wantMaxTokens: 8192, wantBudget: 4096},
+		{name: "explicit limit above the budget still caps it at half", maxTokens: `,"max_tokens":9000`, wantMaxTokens: 9000, wantBudget: 4500},
+		{name: "explicit limit above twice the budget is left alone", maxTokens: `,"max_tokens":20000`, wantMaxTokens: 20000, wantBudget: 8192},
+		{name: "explicit limit that fits half the minimum budget", maxTokens: `,"max_tokens":2048`, wantMaxTokens: 2048, wantBudget: 1024},
+		{name: "explicit limit too small for any budget keeps thinking off", maxTokens: `,"max_tokens":2000`, wantMaxTokens: 2000, wantBudget: 0},
+		{name: "tiny explicit limit keeps thinking off", maxTokens: `,"max_tokens":30`, wantMaxTokens: 30, wantBudget: 0},
+		{name: "explicit max_completion_tokens is a limit too", maxTokens: `,"max_completion_tokens":30`, wantMaxTokens: 30, wantBudget: 0},
 	}
 
 	for _, tt := range tests {
@@ -900,13 +904,19 @@ func TestTranslateRequest_ThinkingRaisesMaxTokensAboveTheBudget(t *testing.T) {
 			req := translateWith(t, `{"model":"m","messages":[{"role":"user","content":"hi"}],
 				"reasoning_effort":"high"`+tt.maxTokens+`}`, ThinkingBudget)
 
-			if req.MaxTokens != tt.want {
-				t.Errorf("max_tokens = %d, want %d", req.MaxTokens, tt.want)
+			if req.MaxTokens != tt.wantMaxTokens {
+				t.Errorf("max_tokens = %d, want %d", req.MaxTokens, tt.wantMaxTokens)
 			}
-			if req.Thinking == nil {
+			switch {
+			case tt.wantBudget == 0:
+				if req.Thinking != nil {
+					t.Errorf("thinking = %+v, want it off under a limit that cannot hold it", req.Thinking)
+				}
+			case req.Thinking == nil:
 				t.Fatal("thinking omitted, want it enabled for reasoning_effort high")
-			}
-			if req.MaxTokens <= req.Thinking.BudgetTokens {
+			case req.Thinking.BudgetTokens != tt.wantBudget:
+				t.Errorf("budget_tokens = %d, want %d", req.Thinking.BudgetTokens, tt.wantBudget)
+			case req.MaxTokens <= req.Thinking.BudgetTokens:
 				t.Errorf("max_tokens %d is not above the thinking budget %d", req.MaxTokens, req.Thinking.BudgetTokens)
 			}
 		})
@@ -914,18 +924,22 @@ func TestTranslateRequest_ThinkingRaisesMaxTokensAboveTheBudget(t *testing.T) {
 }
 
 // An adaptive request has no budget to clear, but it still needs room for
-// thinking AND an answer. A small max_tokens is raised, because the alternative
-// is what a live claude-sonnet-5 did with max_tokens 30: spend 29 tokens
-// thinking, hit the cap, and return no text at all.
-func TestTranslateRequest_AdaptiveThinkingRaisesASmallMaxTokens(t *testing.T) {
+// thinking AND an answer: a live claude-sonnet-5 with max_tokens 30 spent 29
+// tokens thinking, hit the cap, and returned no text. A defaulted allowance is
+// raised; an explicit one is the caller's cap and is kept, with thinking off
+// when it is below the smallest budget.
+func TestTranslateRequest_AdaptiveThinkingRespectsExplicitMaxTokens(t *testing.T) {
 	tests := []struct {
-		name      string
-		maxTokens string
-		want      int
+		name         string
+		maxTokens    string
+		want         int
+		wantThinking bool
 	}{
-		{name: "tiny allowance is raised", maxTokens: `,"max_tokens":30`, want: minAdaptiveMaxTokens},
-		{name: "absent allowance gets the default", maxTokens: "", want: minAdaptiveMaxTokens},
-		{name: "generous allowance is left alone", maxTokens: `,"max_tokens":50000`, want: 50000},
+		{name: "tiny explicit allowance is kept, thinking off", maxTokens: `,"max_tokens":30`, want: 30, wantThinking: false},
+		{name: "tiny explicit max_completion_tokens is kept, thinking off", maxTokens: `,"max_completion_tokens":30`, want: 30, wantThinking: false},
+		{name: "small explicit allowance above the minimum budget thinks", maxTokens: `,"max_tokens":1024`, want: 1024, wantThinking: true},
+		{name: "absent allowance gets the default", maxTokens: "", want: DefaultMaxTokens, wantThinking: true},
+		{name: "generous allowance is left alone", maxTokens: `,"max_tokens":50000`, want: 50000, wantThinking: true},
 	}
 
 	for _, tt := range tests {
@@ -934,6 +948,9 @@ func TestTranslateRequest_AdaptiveThinkingRaisesASmallMaxTokens(t *testing.T) {
 				"reasoning_effort":"high"`+tt.maxTokens+`}`, ThinkingAdaptive)
 			if req.MaxTokens != tt.want {
 				t.Errorf("max_tokens = %d, want %d", req.MaxTokens, tt.want)
+			}
+			if (req.Thinking != nil) != tt.wantThinking {
+				t.Errorf("thinking = %+v, want on = %v", req.Thinking, tt.wantThinking)
 			}
 		})
 	}
@@ -967,6 +984,171 @@ func TestTranslateRequest_Errors(t *testing.T) {
 			}
 			if !strings.HasPrefix(err.Error(), "anthropicegress: ") {
 				t.Errorf("error = %q, want an anthropicegress: prefix", err)
+			}
+			// Every one of these is the caller's body, which the proxy books as a
+			// validation error rather than a gateway fault.
+			if !errors.Is(err, ErrInvalidRequest) {
+				t.Errorf("error = %q, want ErrInvalidRequest", err)
+			}
+		})
+	}
+}
+
+// A part that carries something Anthropic cannot be given fails the whole
+// translation (ErrUnsupportedContent): the alternative, sending the turn
+// without it, answers confidently about a document the model never saw.
+func TestTranslateRequest_UnsupportedContent(t *testing.T) {
+	tests := []struct {
+		name string
+		part string
+	}{
+		{name: "file_id", part: `{"type":"file","file":{"file_id":"file-abc"}}`},
+		{name: "file_data that is not a data uri", part: `{"type":"file","file":{"file_data":"JVBERi0="}}`},
+		{name: "undecodable base64 text payload", part: `{"type":"file","file":{"file_data":"data:text/plain;base64,!!not-base64!!"}}`},
+		// Malformed percent-encoding is unrecoverable: "%PD" and "%ZZ" are not
+		// escapes, so there are no bytes to re-encode as base64.
+		{name: "malformed percent-encoded image payload", part: `{"type":"image_url","image_url":{"url":"data:image/png,%ZZ"}}`},
+		{name: "data uri image without a payload separator", part: `{"type":"image_url","image_url":{"url":"data:image/png;base64"}}`},
+		{name: "untyped part carrying an image", part: `{"image_url":{"url":"https://example.com/cat.png"}}`},
+		{name: "untyped part carrying a file", part: `{"file":{"file_id":"file-abc"}}`},
+		{name: "empty file_data beside a file_id", part: `{"type":"file","file":{"file_data":"data:text/plain,","file_id":"file-abc"}}`},
+		{name: "malformed percent-encoded pdf in the image slot", part: `{"type":"image_url","image_url":{"url":"data:application/pdf,%PDF-1.4"}}`},
+		{name: "malformed percent-encoded pdf file part", part: `{"type":"file","file":{"file_data":"data:application/pdf,%PDF-1.4"}}`},
+		{name: "input_audio", part: `{"type":"input_audio","input_audio":{"data":"AAAA","format":"wav"}}`},
+		{name: "unknown type", part: `{"type":"video_url","video_url":{"url":"https://example.com/a.mp4"}}`},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			body := `{"model":"m","messages":[{"role":"user","content":[{"type":"text","text":"look"},` + tt.part + `]}]}`
+			_, _, _, err := TranslateRequest([]byte(body))
+			if !errors.Is(err, ErrUnsupportedContent) || !errors.Is(err, ErrInvalidRequest) {
+				t.Fatalf("err = %v, want ErrUnsupportedContent (an ErrInvalidRequest)", err)
+			}
+			if strings.Contains(err.Error(), "file-abc") || strings.Contains(err.Error(), "AAAA") {
+				t.Errorf("error carries request content: %q", err)
+			}
+		})
+	}
+}
+
+// Empty parts carry nothing and are dropped, not refused.
+func TestTranslateRequest_EmptyPartsAreDropped(t *testing.T) {
+	req := translate(t, `{"model":"m","messages":[{"role":"user","content":[
+		{"type":"text","text":"look"},
+		{"type":"image_url","image_url":{"url":""}},
+		{"type":"image_url"},
+		{"type":"file"},
+		{"type":"file","file":{}},
+		{"type":"file","file":{"file_data":"data:text/plain,"}},
+		{"type":"image_url","image_url":{"url":"data:image/png;base64,"}},
+		{"type":"image_url","image_url":{"url":"DATA:image/png;base64,"}},
+		{"type":"refusal","refusal":""},
+		{"text":""},
+		{"image_url":{"url":""}},
+		{"file":{}},
+		{"file":{"file_data":"data:text/plain,"}}]}]}`)
+	if blocks := blocksOf(t, req.Messages[0]); len(blocks) != 1 {
+		t.Fatalf("got %d blocks, want the text alone: %+v", len(blocks), blocks)
+	}
+}
+
+// OpenAI's assistant refusal part and a part with no type (read as text, as
+// FlattenText reads it for the other roles) both translate to text.
+func TestTranslateRequest_RefusalAndUntypedPartsAreText(t *testing.T) {
+	req := translate(t, `{"model":"m","messages":[
+		{"role":"user","content":[{"text":"untyped question"}]},
+		{"role":"assistant","content":[{"type":"refusal","refusal":"I cannot help with that."}]},
+		{"role":"user","content":"ok"}]}`)
+	if len(req.Messages) != 3 {
+		t.Fatalf("got %d messages, want 3", len(req.Messages))
+	}
+	for i, want := range []string{"untyped question", "I cannot help with that."} {
+		blocks := blocksOf(t, req.Messages[i])
+		if len(blocks) != 1 || blocks[0].Type != "text" || blocks[0].Text != want {
+			t.Errorf("message %d blocks = %+v, want one text block %q", i, blocks, want)
+		}
+	}
+}
+
+// Anthropic's temperature range ends at 1 where OpenAI's ends at 2, and
+// Messages rejects a larger value, so the translation caps it.
+func TestTranslateRequest_TemperatureCap(t *testing.T) {
+	for _, tc := range []struct {
+		in, want float64
+	}{{0.5, 0.5}, {1, 1}, {1.7, 1}, {2, 1}} {
+		req := translate(t, fmt.Sprintf(`{"model":"m","messages":[{"role":"user","content":"hi"}],"temperature":%v}`, tc.in))
+		if req.Temperature == nil || *req.Temperature != tc.want {
+			t.Errorf("temperature %v translated to %v, want %v", tc.in, req.Temperature, tc.want)
+		}
+	}
+	if req := translate(t, `{"model":"m","messages":[{"role":"user","content":"hi"}]}`); req.Temperature != nil {
+		t.Errorf("absent temperature translated to %v, want omitted", *req.Temperature)
+	}
+}
+
+// tool_choice "none" keeps the tools so the cache breakpoint on the last tool
+// survives the no-tool turn: the prompt prefix Anthropic caches stays the same.
+func TestTranslateRequest_ToolChoiceNoneKeepsTheToolBreakpoint(t *testing.T) {
+	body := `{"model":"m","messages":[{"role":"user","content":"hi"}],"tool_choice":"none",
+		"tools":[{"type":"function","function":{"name":"get_weather"}},{"type":"function","function":{"name":"get_time"}}]}`
+	out, _, _, err := TranslateRequestWithOptions([]byte(body), Options{Caching: true})
+	if err != nil {
+		t.Fatalf("TranslateRequestWithOptions: %v", err)
+	}
+	var req struct {
+		ToolChoice *struct {
+			Type string `json:"type"`
+		} `json:"tool_choice"`
+		Tools []struct {
+			Name         string          `json:"name"`
+			CacheControl json.RawMessage `json:"cache_control"`
+		} `json:"tools"`
+	}
+	if err := json.Unmarshal(out, &req); err != nil {
+		t.Fatalf("decode: %v", err)
+	}
+	if req.ToolChoice == nil || req.ToolChoice.Type != "none" {
+		t.Fatalf("tool_choice = %+v, want type none", req.ToolChoice)
+	}
+	if len(req.Tools) != 2 {
+		t.Fatalf("tools = %+v, want both kept", req.Tools)
+	}
+	if len(req.Tools[1].CacheControl) == 0 || len(req.Tools[0].CacheControl) != 0 {
+		t.Errorf("cache_control on tools = [%s, %s], want it on the last tool only", req.Tools[0].CacheControl, req.Tools[1].CacheControl)
+	}
+}
+
+// parallel_tool_calls:false is Anthropic's disable_parallel_tool_use flag on
+// tool_choice, hung on "auto" when the caller named no choice.
+func TestTranslateRequest_ParallelToolCalls(t *testing.T) {
+	tools := `"tools":[{"type":"function","function":{"name":"get_weather"}}]`
+	tests := []struct {
+		name        string
+		extra       string
+		wantType    string
+		wantDisable bool
+	}{
+		{name: "false without a choice", extra: tools + `,"parallel_tool_calls":false`, wantType: "auto", wantDisable: true},
+		{name: "false with a named choice", extra: tools + `,"parallel_tool_calls":false,"tool_choice":{"type":"function","function":{"name":"get_weather"}}`, wantType: "tool", wantDisable: true},
+		{name: "true", extra: tools + `,"parallel_tool_calls":true,"tool_choice":"auto"`, wantType: "auto", wantDisable: false},
+		{name: "false without tools", extra: `"parallel_tool_calls":false`, wantType: "", wantDisable: false},
+		// Anthropic's none choice takes no flags.
+		{name: "false with none", extra: tools + `,"parallel_tool_calls":false,"tool_choice":"none"`, wantType: "none", wantDisable: false},
+		// A choice without tools is dropped: Anthropic rejects the pair.
+		{name: "none without tools", extra: `"tool_choice":"none"`, wantType: "", wantDisable: false},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			req := translate(t, `{"model":"m","messages":[{"role":"user","content":"hi"}],`+tt.extra+`}`)
+			switch {
+			case tt.wantType == "":
+				if req.ToolChoice != nil {
+					t.Fatalf("tool_choice = %+v, want omitted", req.ToolChoice)
+				}
+			case req.ToolChoice == nil:
+				t.Fatalf("tool_choice omitted, want type %q", tt.wantType)
+			case req.ToolChoice.Type != tt.wantType || req.ToolChoice.DisableParallelToolUse != tt.wantDisable:
+				t.Errorf("tool_choice = %+v, want type %q disable_parallel_tool_use %v", req.ToolChoice, tt.wantType, tt.wantDisable)
 			}
 		})
 	}

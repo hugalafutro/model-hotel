@@ -3199,8 +3199,7 @@
 			"topP": "top_pは現在のAnthropicモデルでは非推奨です。代わりにtop_kを使用してください",
 			"frequencyPenalty": "Anthropic は単一のペナルティパラメータを使用し、頻度/存在は分かれていません。",
 			"presencePenalty": "Anthropic は単一のペナルティパラメータを使用し、頻度/存在は分かれていません。",
-			"minP": "Anthropic API ではサポートされていません",
-			"reasoningEffort": "Anthropic API ではサポートされていません"
+			"minP": "Anthropic API ではサポートされていません"
 		},
 		"google": {
 			"frequencyPenalty": "Gemini は頻度/存在ペナルティをサポートしていません",

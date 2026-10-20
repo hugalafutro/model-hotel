@@ -3275,8 +3275,7 @@
 			"topP": "top_p је застарео на тренутним Anthropic моделима; уместо тога користите top_k",
 			"frequencyPenalty": "Anthropic користи један параметар казни, а не одвојене параметре за учесталост и присуство.",
 			"presencePenalty": "Anthropic користи један параметар казни, а не одвојене параметре за учесталост и присуство.",
-			"minP": "Није подржано од стране Anthropic API-ја",
-			"reasoningEffort": "Није подржано од стране Anthropic API-ја"
+			"minP": "Није подржано од стране Anthropic API-ја"
 		},
 		"google": {
 			"frequencyPenalty": "Gemini не подржава казне за учесталост/присуство.",

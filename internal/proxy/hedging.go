@@ -226,13 +226,13 @@ func (h *Handler) runHedgedStreaming(w http.ResponseWriter, r *http.Request, st 
 				h.serveHedgeWinner(w, r, st, candidates[res.idx], res, stallTimeout)
 				return
 			}
+			// The loser's 429 verdict goes onto the shared state first, so
+			// setReqErr records it beside the reqError and a terminal all-busy
+			// exhaustion answers with the provider's own Retry-After.
+			st.rateLimit = res.rateLimit
 			st.setReqErr(res.reqErr)
 			st.logData.appendAttemptRecord(hedgeLoserRecord(res, candidates[res.idx], launchedAt[res.idx], st.logData.fence()))
 			charges.charge(st.logData, candidates, res.idx)
-			// Carry the loser's 429 verdict onto the shared state beside its
-			// reqError, so a terminal all-busy exhaustion answers with the
-			// provider's own Retry-After rather than the class default.
-			st.rateLimit = res.rateLimit
 			if res.busy {
 				busyCandidates = append(busyCandidates, candidates[res.idx])
 			}
@@ -376,7 +376,7 @@ func (h *Handler) probeStreamingCandidate(ctx context.Context, st *requestState,
 	// The same admission gate beginAttempt passes: a provider at its learned
 	// in-flight window loses this race slot without a request being made.
 	if !h.admitCandidate(st, candidate) {
-		res.reqErr = reqError{Kind: KindProviderSaturated, Attempt: attempt, Provider: candidate.provider.Name, Detail: "at in-flight limit"}
+		res.reqErr = reqError{Kind: KindProviderSaturated, Attempt: attempt, Provider: candidate.provider.Name, Model: candidate.model.ModelID, Detail: busySkipDetail}
 		res.rateLimit = st.rateLimit
 		res.busy = true
 		st.logData.noteBreaker(breakerNoop)
@@ -392,8 +392,9 @@ func (h *Handler) probeStreamingCandidate(ctx context.Context, st *requestState,
 	var dialMs float64
 	proxyReq, providerType, _, err := h.buildCandidateRequest(ctx, st, candidate)
 	if err != nil {
-		st.attemptSlot.settle(slotOutcomeFor(KindInternal))
-		res.reqErr = reqError{Kind: KindInternal, Attempt: attempt, Provider: candidate.provider.Name, Underlying: errString(err)}
+		kind := buildErrorKind(err)
+		st.attemptSlot.settle(slotOutcomeFor(kind))
+		res.reqErr = reqError{Kind: kind, Attempt: attempt, Provider: candidate.provider.Name, Model: candidate.model.ModelID, Underlying: errString(err)}
 		return res
 	}
 
@@ -435,19 +436,18 @@ func (h *Handler) probeStreamingCandidate(ctx context.Context, st *requestState,
 		h.learnFromHedgedResponsesRefusal(st, candidate, resp.StatusCode, errBody)
 		if resp.StatusCode == http.StatusBadRequest && st.anthropicEgressAttempt {
 			// The Messages route's own learnable 400s, gated the opposite way: they
-			// only arrive on an egress attempt. A thinking-dialect complaint is
-			// learned for every Messages speaker; a rejected parameter only for the
-			// candidates whose sole chat route is Messages, the same gate as the
-			// sequential retry. Learning here spares every later request to this
-			// model the refusal, even though this race slot cannot re-issue to
-			// recover the current one.
+			// only arrive on an egress attempt. A thinking-dialect complaint, a
+			// cache_control refusal and a rejected parameter are each learned for
+			// the candidate, as the sequential retry learns them. Learning here
+			// spares every later request to this model the refusal, even though
+			// this race slot cannot re-issue to recover the current one.
 			// Same order as learnAndRebuildMessages400, so the two learners can
 			// never read one body two ways.
 			if dialect, ok := anthropicegress.DialectFromError(errBody); ok {
 				h.learnThinkingDialect(candidate, dialect)
 			} else if anthropicegress.CacheControlRefused(errBody) {
 				h.learnCacheRefusal(candidate)
-			} else if learnsMessagesParams(providerType, candidate.model.ModelID) {
+			} else {
 				h.learnRejectedParams(st, candidate, errBody)
 			}
 		}

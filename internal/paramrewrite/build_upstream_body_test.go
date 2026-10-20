@@ -7,73 +7,36 @@ import (
 	"testing"
 )
 
-// The two Anthropic types differ by exactly one param, and the difference is
-// load-bearing. Every chat request to anthropic-messages is translated by
-// internal/anthropicegress, which turns reasoning_effort into an Anthropic
-// thinking request in whichever shape the model accepts, so stripping it here
-// would discard the caller's reasoning request before the translator saw it.
-// The "anthropic" type keeps stripping it: its default route is the
-// OpenAI-compat endpoint, which has no thinking control at all.
-func TestBuildUpstreamBody_AnthropicTypesDifferOnReasoningEffort(t *testing.T) {
+// Both Anthropic types keep reasoning_effort, and the choice is load-bearing.
+// Every chat request to either is translated by internal/anthropicegress, which
+// turns reasoning_effort into an Anthropic thinking request in whichever shape
+// the model accepts, so stripping it here would discard the caller's reasoning
+// request before the translator saw it. The sampling params Anthropic rejects
+// are stripped for both.
+func TestBuildUpstreamBody_AnthropicTypesKeepReasoningEffort(t *testing.T) {
 	t.Parallel()
 
 	body := `{"model":"m","messages":[{"role":"user","content":"hi"}],"reasoning_effort":"low","top_p":0.9,"min_p":0.1,"frequency_penalty":0.2,"temperature":0.5}`
 
-	for _, tc := range []struct {
-		providerType      string
-		wantReasoningKept bool
-	}{
-		{"anthropic", false},
-		{"anthropic-messages", true},
-	} {
-		t.Run(tc.providerType, func(t *testing.T) {
-			out := BuildUpstreamBody([]byte(body), tc.providerType, "m", "m", false, &sync.Map{}, &sync.Map{}, nil, tc.providerType)
+	for _, providerType := range []string{"anthropic", "anthropic-messages"} {
+		t.Run(providerType, func(t *testing.T) {
+			out := BuildUpstreamBody([]byte(body), providerType, "m", "m", false, &sync.Map{}, &sync.Map{}, nil, providerType)
 			var raw map[string]any
 			if err := json.Unmarshal(out, &raw); err != nil {
 				t.Fatalf("result is not valid JSON: %v", err)
 			}
-			if _, kept := raw["reasoning_effort"]; kept != tc.wantReasoningKept {
-				t.Errorf("reasoning_effort kept = %v, want %v: %s", kept, tc.wantReasoningKept, out)
+			if _, kept := raw["reasoning_effort"]; !kept {
+				t.Errorf("reasoning_effort was stripped for %s: %s", providerType, out)
 			}
-			// Everything else is stripped for both: the translator would drop them
-			// anyway, and on the compat route they 400.
 			for _, gone := range []string{"top_p", "min_p", "frequency_penalty"} {
 				if _, kept := raw[gone]; kept {
-					t.Errorf("%s survived for %s: %s", gone, tc.providerType, out)
+					t.Errorf("%s survived for %s: %s", gone, providerType, out)
 				}
 			}
 			if _, kept := raw["temperature"]; !kept {
-				t.Errorf("temperature was stripped for %s: %s", tc.providerType, out)
+				t.Errorf("temperature was stripped for %s: %s", providerType, out)
 			}
 		})
-	}
-}
-
-// The Messages list is derived from the compat one, so a param added to the
-// shared list is stripped from both rather than only the type it was added to.
-func TestAnthropicStripListsShareEverythingButReasoningEffort(t *testing.T) {
-	t.Parallel()
-
-	compat := map[string]bool{}
-	for _, p := range ProviderUnsupportedParams["anthropic"] {
-		compat[p] = true
-	}
-	messages := map[string]bool{}
-	for _, p := range ProviderUnsupportedParams["anthropic-messages"] {
-		messages[p] = true
-	}
-	if !compat["reasoning_effort"] || messages["reasoning_effort"] {
-		t.Errorf("reasoning_effort: compat=%v messages=%v, want stripped only on compat", compat["reasoning_effort"], messages["reasoning_effort"])
-	}
-	for p := range compat {
-		if p != "reasoning_effort" && !messages[p] {
-			t.Errorf("%q is stripped for anthropic but not anthropic-messages", p)
-		}
-	}
-	for p := range messages {
-		if !compat[p] {
-			t.Errorf("%q is stripped for anthropic-messages but not anthropic", p)
-		}
 	}
 }
 

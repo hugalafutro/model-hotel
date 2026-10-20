@@ -649,7 +649,6 @@ func TestBuildProviderTargetURL_HasSuffixCheck(t *testing.T) {
 func TestProviderUnsupportedParams_ReasoningEffort(t *testing.T) {
 	// Providers that should strip reasoning_effort
 	providersWithReasoningEffort := []string{
-		"anthropic",
 		"google",
 		"cohere",
 		"deepseek",
@@ -689,43 +688,6 @@ func TestProviderUnsupportedParams_OpenAISupportsReasoningEffort(t *testing.T) {
 				t.Errorf("provider %q: reasoning_effort should NOT be in unsupported params (this provider supports it)", provider)
 			}
 		}
-	}
-}
-
-func TestProviderUnsupportedParams_StripsFromRequestBody(t *testing.T) {
-	// Verify that the stripping logic actually removes reasoning_effort from a request body
-	body := map[string]any{
-		"model":            "gpt-4",
-		"messages":         []any{"hello"},
-		"reasoning_effort": "high",
-		"temperature":      0.7,
-	}
-
-	raw, err := json.Marshal(body)
-	if err != nil {
-		t.Fatalf("failed to marshal body: %v", err)
-	}
-
-	// Simulate the stripping logic from proxy.go
-	var rawMap map[string]any
-	if err := json.Unmarshal(raw, &rawMap); err != nil {
-		t.Fatalf("failed to unmarshal body: %v", err)
-	}
-
-	// Strip anthropic-unsupported params (includes reasoning_effort)
-	if params, ok := paramrewrite.ProviderUnsupportedParams["anthropic"]; ok {
-		for _, p := range params {
-			delete(rawMap, p)
-		}
-	}
-
-	// reasoning_effort should be gone
-	if _, exists := rawMap["reasoning_effort"]; exists {
-		t.Error("reasoning_effort should have been stripped for anthropic provider")
-	}
-	// temperature should remain
-	if _, exists := rawMap["temperature"]; !exists {
-		t.Error("temperature should NOT have been stripped for anthropic provider")
 	}
 }
 

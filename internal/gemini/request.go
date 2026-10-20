@@ -410,7 +410,7 @@ func RequestCarriesFile(body []byte) bool {
 			continue
 		}
 		for _, p := range parts {
-			if p.Type != "file" || p.File == nil || !strings.HasPrefix(p.File.FileData, "data:") {
+			if p.Type != "file" || p.File == nil || !isDataURI(p.File.FileData) {
 				continue
 			}
 			if _, ok := mediaPart(p.File.FileData); ok {
@@ -491,7 +491,7 @@ func translateParts(raw json.RawMessage) ([]genPart, error) {
 			// file_data is base64 inline by definition, so only a data: URI
 			// is honoured; a plain URL here is not a fetch Gemini should make
 			// on the client's behalf.
-			if p.File == nil || !strings.HasPrefix(p.File.FileData, "data:") {
+			if p.File == nil || !isDataURI(p.File.FileData) {
 				continue
 			}
 			if part, ok := mediaPart(p.File.FileData); ok {
@@ -505,10 +505,17 @@ func translateParts(raw json.RawMessage) ([]genPart, error) {
 // mediaPart maps an OpenAI image_url or file_data value to inlineData (data:
 // URIs) or fileData (plain URLs).
 func mediaPart(u string) (genPart, bool) {
-	if rest, ok := strings.CutPrefix(u, "data:"); ok {
-		mime, data, found := strings.Cut(rest, ";base64,")
-		if !found || data == "" {
+	if rest, ok := util.CutDataScheme(u); ok {
+		// The base64 parameter is matched in any case, like the scheme, on the
+		// bytes before the comma, so a non-ASCII media type cannot shift the cut.
+		const marker = ";base64"
+		meta, data, found := strings.Cut(rest, ",")
+		if !found || data == "" || len(meta) < len(marker) || !strings.EqualFold(meta[len(meta)-len(marker):], marker) {
 			return genPart{}, false
+		}
+		mime := meta[:len(meta)-len(marker)]
+		if mime == "" {
+			mime = "text/plain" // RFC 2397's default for an omitted media type
 		}
 		return genPart{InlineData: &genBlob{MimeType: mime, Data: data}}, true
 	}
@@ -548,4 +555,10 @@ func translateToolChoice(raw json.RawMessage) (genFunctionCallingConfig, bool) {
 	default:
 		return genFunctionCallingConfig{Mode: "ANY", AllowedFunctionNames: []string{name}}, true
 	}
+}
+
+// isDataURI reports a data: URI in any scheme case (RFC 2397).
+func isDataURI(u string) bool {
+	_, ok := util.CutDataScheme(u)
+	return ok
 }

@@ -1,18 +1,16 @@
 // Package anthropicegress translates between the OpenAI chat-completions wire
 // shape and Anthropic's native Messages shape. It is an *egress* dialect
 // adapter (the mirror image of internal/anthropic, which translates on
-// ingress): Anthropic's OpenAI-compat /v1/chat/completions endpoint cannot
-// carry a document — a request holding an OpenAI file content part comes back
-// as "messages.0.user.content.str: Input should be a valid string" — so a
-// request carrying one is rewritten here and sent to /v1/messages instead.
+// ingress): every chat request the proxy sends to a Messages speaker (an
+// Anthropic-family provider, a Claude model on OpenCode) is rewritten here and
+// sent to /v1/messages, carrying the prompt-cache breakpoints (caching.go) that
+// Anthropic's OpenAI-compat /v1/chat/completions cannot.
 package anthropicegress
 
 import (
-	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
-	"net/url"
 	"strings"
 
 	"github.com/hugalafutro/model-hotel/internal/egress"
@@ -25,6 +23,42 @@ import (
 // Anthropic requires the field, and a request that omits it 400s rather than
 // falling back to a model default.
 const DefaultMaxTokens = 4096
+
+// ErrInvalidRequest marks every translation failure the caller's body caused
+// (as opposed to a gateway fault): a body that is not a chat request, no
+// usable turn, content in a shape no part array has, or ErrUnsupportedContent.
+// The proxy books such an attempt as the caller's error, a 400 and not a 502.
+// Matched with errors.Is; the message is the specific reason.
+var ErrInvalidRequest = errors.New("anthropicegress: invalid request")
+
+// invalidRequestError is a caller-caused failure with its own message. Is
+// reports ErrInvalidRequest, so every one matches the sentinel.
+type invalidRequestError struct{ msg string }
+
+func (e *invalidRequestError) Error() string        { return e.msg }
+func (e *invalidRequestError) Is(target error) bool { return target == ErrInvalidRequest }
+
+// invalidRequest builds an invalidRequestError with the package prefix.
+func invalidRequest(format string, a ...any) error {
+	return &invalidRequestError{msg: "anthropicegress: " + fmt.Sprintf(format, a...)}
+}
+
+// ErrUnsupportedContent marks a request whose message content carries a part
+// the Messages API cannot be given: a file part naming a file_id (no bytes to
+// send), a malformed data: URI or payload, or a part type with no Anthropic
+// block (input_audio). The request is refused rather than sent without the
+// part: a confident answer about a document the model never saw is worse than
+// a 400. It is an ErrInvalidRequest.
+var ErrUnsupportedContent = invalidRequest("content part cannot be sent to Anthropic Messages")
+
+// minThinkingBudget is Anthropic's smallest thinking budget. An explicit
+// max_tokens that cannot hold that much thinking and an answer leaves thinking
+// off rather than being raised past what the caller allowed.
+const minThinkingBudget = 1024
+
+// maxTemperature is the top of Anthropic's temperature range. OpenAI's runs to
+// 2, and Messages rejects a value above 1, so the translation caps it there.
+const maxTemperature = 1.0
 
 // documentMediaType is the media type stamped on a base64 document source.
 // Anthropic's base64 document source accepts application/pdf only, and the
@@ -113,6 +147,7 @@ type oaiRequest struct {
 	Stop                json.RawMessage `json:"stop"` // string OR []string
 	Tools               []oaiTool       `json:"tools"`
 	ToolChoice          json.RawMessage `json:"tool_choice"`
+	ParallelToolCalls   *bool           `json:"parallel_tool_calls"`
 	ReasoningEffort     string          `json:"reasoning_effort"`
 	ResponseFormat      json.RawMessage `json:"response_format"`
 }
@@ -125,8 +160,9 @@ type oaiMessage struct {
 }
 
 type oaiContentPart struct {
-	Type     string `json:"type"` // "text" | "image_url" | "file"
+	Type     string `json:"type"` // "text" | "image_url" | "file" | "refusal"
 	Text     string `json:"text"`
+	Refusal  string `json:"refusal"` // an assistant refusal part replayed from a transcript
 	ImageURL *struct {
 		URL string `json:"url"`
 	} `json:"image_url"`
@@ -136,6 +172,9 @@ type oaiContentPart struct {
 type oaiFile struct {
 	FileData string `json:"file_data"` // data: URI
 	FileURL  string `json:"file_url"`
+	// FileID names an upload on the caller's provider. Decoded only so an
+	// otherwise empty file object that carries one is refused, not dropped.
+	FileID string `json:"file_id"`
 }
 
 type oaiToolCall struct {
@@ -242,8 +281,10 @@ type antTool struct {
 }
 
 type antToolChoice struct {
-	Type string `json:"type"` // "auto" | "any" | "tool"
+	Type string `json:"type"` // "auto" | "any" | "tool" | "none"
 	Name string `json:"name,omitempty"`
+	// DisableParallelToolUse is OpenAI's parallel_tool_calls:false.
+	DisableParallelToolUse bool `json:"disable_parallel_tool_use,omitempty"`
 }
 
 type antThinking struct {
@@ -288,19 +329,19 @@ func TranslateRequestWithOptions(chatBody []byte, opts Options) (body []byte, mo
 	dialect := opts.Dialect
 	var req oaiRequest
 	if err := json.Unmarshal(chatBody, &req); err != nil {
-		return nil, "", false, fmt.Errorf("anthropicegress: invalid request body: %s", jsonfault.Describe(err, len(chatBody)))
+		return nil, "", false, invalidRequest("invalid request body: %s", jsonfault.Describe(err, len(chatBody)))
 	}
 	if req.Model == "" {
-		return nil, "", false, errors.New("anthropicegress: model is required")
+		return nil, "", false, invalidRequest("model is required")
 	}
 
 	out := antRequest{
 		Model:         req.Model,
 		Stream:        req.Stream,
-		Temperature:   req.Temperature,
+		Temperature:   capTemperature(req.Temperature),
 		TopP:          req.TopP,
 		TopK:          req.TopK,
-		StopSequences: egress.DecodeStop(req.Stop),
+		StopSequences: nonBlankStops(egress.DecodeStop(req.Stop)),
 	}
 
 	system, messages, err := translateMessages(req.Messages)
@@ -308,7 +349,7 @@ func TranslateRequestWithOptions(chatBody []byte, opts Options) (body []byte, mo
 		return nil, "", false, err
 	}
 	if len(messages) == 0 {
-		return nil, "", false, errors.New("anthropicegress: at least one user or assistant message with content is required")
+		return nil, "", false, invalidRequest("at least one user or assistant message with content is required")
 	}
 	// Assigned only when non-empty: an interface holding "" is not "empty" to
 	// encoding/json's omitempty, and Anthropic rejects an empty system string.
@@ -317,27 +358,43 @@ func TranslateRequestWithOptions(chatBody []byte, opts Options) (body []byte, mo
 	}
 	out.Messages = messages
 
-	// tool_choice "none" has no Anthropic equivalent; the tools array goes with
-	// it, or the model would treat the request as tools-with-auto and call one
-	// against the caller's intent.
-	choice, keepTools := translateToolChoice(req.ToolChoice)
-	out.ToolChoice = choice
-	if keepTools {
-		out.Tools = translateTools(req.Tools)
+	out.Tools = translateTools(req.Tools)
+	// Anthropic rejects a tool_choice without tools, so a choice sent alone
+	// (OpenAI tolerates "none" there) is dropped with nothing to choose from.
+	if len(out.Tools) > 0 {
+		out.ToolChoice = translateToolChoice(req.ToolChoice)
+	}
+	// parallel_tool_calls:false is a flag on Anthropic's tool_choice, so a
+	// request that set it without naming a choice gets the default "auto" to
+	// hang it on. The "none" choice takes no flags, and forbids the calls the
+	// flag would serialise anyway.
+	if req.ParallelToolCalls != nil && !*req.ParallelToolCalls && len(out.Tools) > 0 {
+		if out.ToolChoice == nil {
+			out.ToolChoice = &antToolChoice{Type: "auto"}
+		}
+		if out.ToolChoice.Type != "none" {
+			out.ToolChoice.DisableParallelToolUse = true
+		}
 	}
 
 	// max_completion_tokens is the modern OpenAI field and wins over the
 	// deprecated max_tokens when both are present. A non-positive value is no
 	// budget at all — Anthropic 400s on it — so it falls through to the default.
+	// The default is DefaultMaxTokens and not the model's output ceiling:
+	// Anthropic counts max_tokens against the output rate limit when the request
+	// starts, so a large allowance on every plain request would spend that limit
+	// on answers never written. An explicit limit is the caller's and is never
+	// raised.
 	out.MaxTokens = req.MaxCompletionTokens
 	if out.MaxTokens <= 0 {
 		out.MaxTokens = req.MaxTokens
 	}
-	if out.MaxTokens <= 0 {
+	explicitLimit := out.MaxTokens > 0
+	if !explicitLimit {
 		out.MaxTokens = DefaultMaxTokens
 	}
 
-	applyThinking(&out, req.ReasoningEffort, dialect)
+	applyThinking(&out, req.ReasoningEffort, dialect, explicitLimit)
 	if opts.Caching {
 		applyCacheBreakpoints(&out)
 	}
@@ -383,7 +440,15 @@ func foldResponseFormat(system string, raw json.RawMessage) string {
 // way. Dropping the sampling knobs is the only way to honour the caller's
 // reasoning request at all, and it is the lesser loss: a caller who asks to
 // think is asking about reasoning depth, not sampling.
-func applyThinking(out *antRequest, reasoningEffort string, dialect ThinkingDialect) {
+//
+// max_tokens is the other shared rule. A limit the caller set explicitly is a
+// spending cap and is never raised: the budget is capped at half of it so the
+// answer keeps the other half, and thinking stays off when that half is below
+// minThinkingBudget. A defaulted limit (DefaultMaxTokens) is the gateway's own
+// number: a budget that does not fit under it (medium, high) grows it to the
+// budget plus a full answer; a smaller budget and the adaptive dialect leave
+// it as it is.
+func applyThinking(out *antRequest, reasoningEffort string, dialect ThinkingDialect, explicitLimit bool) {
 	effort := strings.ToLower(strings.TrimSpace(reasoningEffort))
 
 	switch dialect {
@@ -401,12 +466,17 @@ func applyThinking(out *antRequest, reasoningEffort string, dialect ThinkingDial
 		if forcesToolUse(out.ToolChoice) {
 			return
 		}
-		out.Thinking = &antThinking{Type: "enabled", BudgetTokens: budget}
 		// Anthropic requires max_tokens strictly greater than the budget: the
-		// remainder is the visible answer's allowance, so it gets a full default.
-		if out.MaxTokens <= budget {
+		// remainder is the visible answer's allowance.
+		if explicitLimit {
+			budget = min(budget, out.MaxTokens/2)
+			if budget < minThinkingBudget {
+				return
+			}
+		} else if out.MaxTokens <= budget {
 			out.MaxTokens = budget + DefaultMaxTokens
 		}
+		out.Thinking = &antThinking{Type: "enabled", BudgetTokens: budget}
 	default: // ThinkingAdaptive
 		level, ok := thinkingEfforts[effort]
 		if !ok {
@@ -414,15 +484,15 @@ func applyThinking(out *antRequest, reasoningEffort string, dialect ThinkingDial
 		}
 		// The model decides how much to think, up to this ceiling, so there is no
 		// budget to keep max_tokens clear of. It still needs room for thinking AND
-		// an answer, and a caller who sent a small max_tokens with a big effort
-		// gets a stream of pure thinking cut off before any text (observed live:
-		// max_tokens 30 spent 29 thinking tokens and returned no content). Raising
-		// a too-small allowance is the difference between an answer and nothing.
+		// an answer: a small allowance with a big effort gets a stream of pure
+		// thinking cut off before any text (observed live: max_tokens 30 spent 29
+		// thinking tokens and returned no content), so an explicit allowance
+		// below the smallest budget leaves thinking off.
+		if explicitLimit && out.MaxTokens < minThinkingBudget {
+			return
+		}
 		out.Thinking = &antThinking{Type: "adaptive"}
 		out.OutputConfig = &antOutputConfig{Effort: level}
-		if out.MaxTokens < minAdaptiveMaxTokens {
-			out.MaxTokens = minAdaptiveMaxTokens
-		}
 	}
 	out.Temperature, out.TopP, out.TopK = nil, nil, nil
 }
@@ -432,12 +502,6 @@ func applyThinking(out *antRequest, reasoningEffort string, dialect ThinkingDial
 func forcesToolUse(c *antToolChoice) bool {
 	return c != nil && (c.Type == "any" || c.Type == "tool")
 }
-
-// minAdaptiveMaxTokens is the allowance an adaptive-thinking request is raised
-// to when the caller asked for less. It is DefaultMaxTokens, the same figure a
-// caller who named no budget gets: enough that thinking cannot consume the whole
-// allowance before the answer starts.
-const minAdaptiveMaxTokens = DefaultMaxTokens
 
 // translateMessages converts the OpenAI message list into the Anthropic system
 // prompt plus the conversation turns. system/developer messages lift out of the
@@ -517,182 +581,6 @@ func contentBlocks(content any) []antBlock {
 	return nil
 }
 
-// translateTurn builds one Anthropic turn from an OpenAI message. It returns
-// nil when the message carries nothing Anthropic can hold (empty or null
-// content and no tool calls).
-func translateTurn(role string, m oaiMessage) (*antMessage, error) {
-	// Plain string content stays a plain string — but only when nothing else
-	// has to ride along in the same turn.
-	if s, ok := egress.AsJSONString(m.Content); ok && len(m.ToolCalls) == 0 {
-		if s == "" {
-			return nil, nil
-		}
-		return &antMessage{Role: role, Content: s}, nil
-	}
-
-	blocks, err := translateBlocks(m.Content)
-	if err != nil {
-		return nil, err
-	}
-	for _, tc := range m.ToolCalls {
-		blocks = append(blocks, antBlock{
-			Type:  "tool_use",
-			ID:    tc.ID,
-			Name:  tc.Function.Name,
-			Input: util.ToolArgumentsObject(tc.Function.Arguments),
-		})
-	}
-	if len(blocks) == 0 {
-		return nil, nil
-	}
-	return &antMessage{Role: role, Content: blocks}, nil
-}
-
-// translateBlocks converts an OpenAI message content field (string, part array
-// or null) into Anthropic content blocks. Part types with no Anthropic
-// equivalent are dropped rather than forwarded raw.
-func translateBlocks(raw json.RawMessage) ([]antBlock, error) {
-	if !util.JSONMemberSet(raw) {
-		return nil, nil
-	}
-	if s, ok := egress.AsJSONString(raw); ok {
-		if s == "" {
-			return nil, nil
-		}
-		return []antBlock{{Type: "text", Text: s}}, nil
-	}
-
-	var parts []oaiContentPart
-	if err := json.Unmarshal(raw, &parts); err != nil {
-		return nil, fmt.Errorf("anthropicegress: invalid message content: %s", jsonfault.Describe(err, len(raw)))
-	}
-
-	var blocks []antBlock
-	for _, p := range parts {
-		switch p.Type {
-		case "text":
-			// An empty text block marshals as {"type":"text"}, which Anthropic
-			// rejects — drop it.
-			if p.Text == "" {
-				continue
-			}
-			blocks = append(blocks, antBlock{Type: "text", Text: p.Text})
-		case "image_url":
-			if p.ImageURL == nil || p.ImageURL.URL == "" {
-				continue
-			}
-			if b, ok := imageBlock(p.ImageURL.URL); ok {
-				blocks = append(blocks, b)
-			}
-		case "file":
-			if p.File == nil {
-				continue
-			}
-			if b, ok := fileBlock(p.File); ok {
-				blocks = append(blocks, b)
-			}
-		}
-	}
-	return blocks, nil
-}
-
-// imageBlock maps an OpenAI image_url value onto an Anthropic block: a base64
-// image source for a data: URI with an image media type, a url image source for
-// an ordinary URL, and a document for a data: URI carrying anything else (which
-// is how clients smuggle PDFs past the compat endpoint's file-part rejection).
-func imageBlock(u string) (antBlock, bool) {
-	du, ok := parseDataURI(u)
-	if !ok {
-		return antBlock{Type: "image", Source: &antSource{Type: "url", URL: u}}, true
-	}
-	if imageMediaTypes[du.mediaType] {
-		data, ok := base64Payload(du)
-		if !ok {
-			return antBlock{}, false
-		}
-		return antBlock{Type: "image", Source: &antSource{
-			Type:      "base64",
-			MediaType: du.mediaType,
-			Data:      data,
-		}}, true
-	}
-	return documentBlock(du)
-}
-
-// fileBlock maps an OpenAI file part onto an Anthropic document block.
-func fileBlock(f *oaiFile) (antBlock, bool) {
-	if f.FileData != "" {
-		du, ok := parseDataURI(f.FileData)
-		if !ok {
-			return antBlock{}, false
-		}
-		return documentBlock(du)
-	}
-	if f.FileURL != "" {
-		return antBlock{Type: "document", Source: &antSource{Type: "url", URL: f.FileURL}}, true
-	}
-	return antBlock{}, false
-}
-
-// documentBlock builds a document block from a parsed data: URI. A text/plain
-// payload becomes a text source carrying the decoded text; everything else
-// becomes a base64 PDF source, the only binary document Anthropic accepts.
-func documentBlock(du dataURI) (antBlock, bool) {
-	if du.mediaType == "text/plain" {
-		text, ok := decodePayload(du)
-		if !ok || text == "" {
-			return antBlock{}, false
-		}
-		return antBlock{Type: "document", Source: &antSource{
-			Type:      "text",
-			MediaType: "text/plain",
-			Data:      text,
-		}}, true
-	}
-	data, ok := base64Payload(du)
-	if !ok {
-		return antBlock{}, false
-	}
-	return antBlock{Type: "document", Source: &antSource{
-		Type:      "base64",
-		MediaType: documentMediaType,
-		Data:      data,
-	}}, true
-}
-
-// base64Payload returns a data: URI payload in the base64 an Anthropic base64
-// source expects. A ";base64" payload is already there; anything else is
-// percent-encoded bytes, which re-encode losslessly. ok is false when the
-// percent-decode fails — malformed input is unrecoverable, and forwarding it
-// under a base64 label would ship garbage.
-func base64Payload(du dataURI) (string, bool) {
-	if du.base64 {
-		return du.payload, true
-	}
-	raw, err := url.PathUnescape(du.payload)
-	if err != nil {
-		return "", false
-	}
-	return base64.StdEncoding.EncodeToString([]byte(raw)), true
-}
-
-// decodePayload returns the plain-text bytes of a data: URI payload: base64 for
-// a ";base64" URI, percent-decoding otherwise.
-func decodePayload(du dataURI) (string, bool) {
-	if du.base64 {
-		decoded, err := base64.StdEncoding.DecodeString(du.payload)
-		if err != nil {
-			return "", false
-		}
-		return string(decoded), true
-	}
-	unescaped, err := url.PathUnescape(du.payload)
-	if err != nil {
-		return "", false
-	}
-	return unescaped, true
-}
-
 // translateTools maps OpenAI function tools onto Anthropic tools. Anthropic
 // requires an input_schema and reads it as a JSON object, so a tool whose
 // parameters are absent, null or any other non-object gets an empty object
@@ -716,24 +604,24 @@ func translateTools(in []oaiTool) []antTool {
 	return out
 }
 
-// translateToolChoice maps the OpenAI tool_choice union onto Anthropic's. The
-// second return reports whether tools may be sent at all: it is false only for
-// "none", which Anthropic cannot express and which therefore drops the tools
-// array along with the choice.
-func translateToolChoice(raw json.RawMessage) (*antToolChoice, bool) {
+// translateToolChoice maps the OpenAI tool_choice union onto Anthropic's, which
+// has a value for each: "none" is {"type":"none"}, with the tools array kept so
+// the prompt prefix (and the cache breakpoint on its last tool) stays the same
+// across a turn that forbids tool use.
+func translateToolChoice(raw json.RawMessage) *antToolChoice {
 	switch mode, name, ok := egress.DecodeToolChoice(raw); {
 	case !ok:
-		return nil, true
+		return nil
 	case mode == "auto":
-		return &antToolChoice{Type: "auto"}, true
+		return &antToolChoice{Type: "auto"}
 	case mode == "required":
-		return &antToolChoice{Type: "any"}, true
+		return &antToolChoice{Type: "any"}
 	case mode == "none":
-		return nil, false
+		return &antToolChoice{Type: "none"}
 	case mode == "function":
-		return &antToolChoice{Type: "tool", Name: name}, true
+		return &antToolChoice{Type: "tool", Name: name}
 	}
-	return nil, true
+	return nil
 }
 
 // flattenText reduces a content field (string or part array) to plain text, for

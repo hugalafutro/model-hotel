@@ -25,9 +25,10 @@ import (
 const pdfDataURI = "data:application/pdf;base64,JVBERi0xLjQK"
 
 // isAnthropicEgressAttempt gates the whole adapter, so each disqualifier is
-// worth pinning: the compat endpoint stays in charge of everything it can
-// actually express, and an Anthropic-in request must reach the verbatim
-// passthrough rather than being translated a second time.
+// worth pinning: every chat request to a Messages speaker is translated, a
+// non-chat surface and a multipart body never are, and an Anthropic-in request
+// must reach the verbatim passthrough rather than being translated a second
+// time.
 func TestIsAnthropicEgressAttempt(t *testing.T) {
 	docBody := []byte(`{"model":"m","messages":[{"role":"user","content":[{"type":"file","file":{"file_data":"` + pdfDataURI + `"}}]}]}`)
 	textBody := []byte(`{"model":"m","messages":[{"role":"user","content":"hi"}]}`)
@@ -45,8 +46,9 @@ func TestIsAnthropicEgressAttempt(t *testing.T) {
 		{"text to opencode-go claude", &requestState{bodyBytes: textBody}, "opencode-go", true},
 		{"text to opencode-zen claude", &requestState{bodyBytes: textBody}, "opencode-zen", true},
 		{"anthropic-in to opencode-go claude", &requestState{bodyBytes: textBody, anthropicIn: true}, "opencode-go", false},
+		// Anthropic's own type is translated for text and documents alike.
 		{"document to anthropic", &requestState{bodyBytes: docBody}, "anthropic", true},
-		{"text to anthropic", &requestState{bodyBytes: textBody}, "anthropic", false},
+		{"text to anthropic", &requestState{bodyBytes: textBody}, "anthropic", true},
 		{"document to another provider", &requestState{bodyBytes: docBody}, "openai", false},
 		{"anthropic-in document", &requestState{bodyBytes: docBody, anthropicIn: true}, "anthropic", false},
 		{"endpoint override", &requestState{bodyBytes: docBody, endpointPath: "/audio/speech"}, "anthropic", false},
@@ -54,8 +56,7 @@ func TestIsAnthropicEgressAttempt(t *testing.T) {
 			bodyBytes:        docBody,
 			makeUpstreamBody: func(string) ([]byte, string, error) { return nil, "", nil },
 		}, "anthropic", false},
-		// The Messages type has no compat endpoint to fall back to, so plain
-		// text routes native there where it would not for "anthropic".
+		// The Messages type has no compat endpoint at all.
 		{"text to anthropic-messages", &requestState{bodyBytes: textBody}, "anthropic-messages", true},
 		{"document to anthropic-messages", &requestState{bodyBytes: docBody}, "anthropic-messages", true},
 		// The disqualifiers still disqualify: an Anthropic-in request has the
@@ -206,10 +207,10 @@ func (l *upstreamCallLog) takeOne(t *testing.T, phase string) anthropicUpstreamC
 
 // TestChatCompletions_AnthropicEgress drives chat requests through the real
 // ChatCompletions pipeline against a fake Anthropic upstream. It proves the
-// whole adapter chain: a document-bearing request is translated to a Messages
-// body on /v1/messages and translated back to a chat.completion (streaming: to
-// chunks ending in [DONE]), while a text-only request to the same provider
-// stays on the untouched compat route.
+// whole adapter chain: a document-bearing request and a text-only one are both
+// translated to a Messages body on /v1/messages and translated back to a
+// chat.completion (streaming: to chunks ending in [DONE]); nothing reaches the
+// upstream's /v1/chat/completions.
 func TestChatCompletions_AnthropicEgress(t *testing.T) {
 	var log upstreamCallLog
 	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -226,9 +227,8 @@ func TestChatCompletions_AnthropicEgress(t *testing.T) {
 		log.record(anthropicUpstreamCall{path: r.URL.Path, body: body})
 
 		if r.URL.Path != "/v1/messages" {
-			// The compat route: answer in OpenAI shape, as Anthropic does.
-			w.Header().Set("Content-Type", "application/json")
-			_, _ = w.Write([]byte(`{"id":"chatcmpl-compat","object":"chat.completion","created":1,"model":"claude","choices":[{"index":0,"message":{"role":"assistant","content":"plain text answer"},"finish_reason":"stop"}],"usage":{"prompt_tokens":5,"completion_tokens":3,"total_tokens":8}}`))
+			t.Errorf("upstream path = %s, want /v1/messages for every chat request", r.URL.Path)
+			http.Error(w, "not found", http.StatusNotFound)
 			return
 		}
 		if stream, _ := body["stream"].(bool); stream {
@@ -306,24 +306,38 @@ func TestChatCompletions_AnthropicEgress(t *testing.T) {
 		t.Errorf("usage = %v", resp["usage"])
 	}
 
-	// Text-only: the gate keeps it on the untouched compat route.
+	// Text-only: translated as well, carrying the prompt-cache breakpoint.
 	w = send(false, `"just text"`)
 	if w.Code != http.StatusOK {
 		t.Fatalf("text-only: %d\n%s", w.Code, w.Body.String())
 	}
 	call = log.takeOne(t, "text-only")
-	if call.path != "/v1/chat/completions" {
-		t.Errorf("text-only request went to %s, want /v1/chat/completions", call.path)
+	if call.path != "/v1/messages" {
+		t.Errorf("text-only request went to %s, want /v1/messages", call.path)
 	}
-	if _, translated := call.body["max_tokens"]; translated {
-		t.Errorf("text-only body was translated: %v", call.body)
+	if _, translated := call.body["max_tokens"]; !translated {
+		t.Errorf("text-only body was not translated: %v", call.body)
+	}
+	if !strings.Contains(fmt.Sprint(call.body["messages"]), "cache_control") {
+		t.Errorf("text-only Messages body carries no cache_control breakpoint: %v", call.body["messages"])
 	}
 	if err := json.Unmarshal(w.Body.Bytes(), &resp); err != nil {
 		t.Fatalf("text-only response not JSON: %v\n%s", err, w.Body.String())
 	}
 	choice = resp["choices"].([]any)[0].(map[string]any)
-	if choice["message"].(map[string]any)["content"] != "plain text answer" {
+	if choice["message"].(map[string]any)["content"] != "PLUM-7431" {
 		t.Errorf("text-only content = %v", choice["message"])
+	}
+
+	// A part Messages cannot be given (a file_id: no bytes to send) is refused
+	// as the caller's error, before anything reaches the upstream, instead of
+	// being dropped from a turn the model then answers about.
+	w = send(false, `[{"type":"text","text":"summarise"},{"type":"file","file":{"file_id":"file-abc"}}]`)
+	if w.Code != http.StatusBadRequest {
+		t.Fatalf("file_id request: %d, want 400\n%s", w.Code, w.Body.String())
+	}
+	if calls := log.takeAll(); len(calls) != 0 {
+		t.Errorf("file_id request reached the upstream: %+v", calls)
 	}
 
 	// Streaming document: translated chunk stream ending in [DONE].

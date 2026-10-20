@@ -330,12 +330,18 @@ func TestTestModel_VertexExpress(t *testing.T) {
 	}
 }
 
-// TestTestModel_AnthropicMessages proves the Test button routes an
-// anthropic-messages model through the Anthropic egress translation. Without
-// it the probe would go to /v1/chat/completions, which this provider type does
-// not serve, and the button would report a 404 for a model that answers live
-// traffic perfectly well.
+// TestTestModel_AnthropicMessages proves the Test button routes a model on
+// either Anthropic type through the Anthropic egress translation, the route the
+// proxy serves live traffic on. An untranslated probe to /v1/chat/completions
+// would 404 on an anthropic-messages endpoint, and on Anthropic's own API would
+// test a route no request takes.
 func TestTestModel_AnthropicMessages(t *testing.T) {
+	for _, providerType := range []string{"anthropic-messages", "anthropic"} {
+		t.Run(providerType, func(t *testing.T) { testTestModelMessagesRoute(t, providerType) })
+	}
+}
+
+func testTestModelMessagesRoute(t *testing.T, providerType string) {
 	h, r := newTestHandlerWithRouter(t)
 
 	mockServer := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
@@ -371,13 +377,14 @@ func TestTestModel_AnthropicMessages(t *testing.T) {
 	}
 	defer func() { h.testModelTransport = origTransport }()
 
-	// Anthropic's own host, deliberately: it is the one address that DETECTS as
-	// the sibling type, so the probe reaching /v1/messages proves the stored
-	// provider_type decides the route and host detection does not. (It is also
-	// allowlisted by default, unlike an arbitrary custom host, which a real
-	// operator must add to ALLOWED_PROVIDER_HOSTS.) Nothing leaves the process:
-	// the transport's dialer is pinned to the mock server above.
-	providerData := fmt.Sprintf(`{"name": "ant-messages-test-%s", "base_url": "https://api.anthropic.com", "provider_type": "anthropic-messages", "api_key": "sk-ant-test"}`, uuid.New().String()[:8])
+	// Anthropic's own host for both types, deliberately: for anthropic-messages
+	// it is the one address that DETECTS as the sibling type, so the probe
+	// reaching /v1/messages proves the stored provider_type decides the route
+	// and host detection does not. (It is also allowlisted by default, unlike an
+	// arbitrary custom host, which a real operator must add to
+	// ALLOWED_PROVIDER_HOSTS.) Nothing leaves the process: the transport's
+	// dialer is pinned to the mock server above.
+	providerData := fmt.Sprintf(`{"name": "ant-messages-test-%s", "base_url": "https://api.anthropic.com", "provider_type": %q, "api_key": "sk-ant-test"}`, uuid.New().String()[:8], providerType)
 	rec := httptest.NewRecorder()
 	req := httptest.NewRequest("POST", "/providers", strings.NewReader(providerData))
 	req.Header.Set("Authorization", "Bearer test-admin-token")

@@ -3351,8 +3351,7 @@
 			"topP": "top_p устарел в текущих моделях Anthropic; используйте вместо него top_k",
 			"frequencyPenalty": "Anthropic использует один параметр штрафов, а не отдельные frequency/presence",
 			"presencePenalty": "Anthropic использует один параметр штрафов, а не отдельные frequency/presence",
-			"minP": "Не поддерживается Anthropic API",
-			"reasoningEffort": "Не поддерживается Anthropic API"
+			"minP": "Не поддерживается Anthropic API"
 		},
 		"google": {
 			"frequencyPenalty": "Gemini не поддерживает штрафы frequency/presence",

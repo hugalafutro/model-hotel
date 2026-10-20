@@ -3199,8 +3199,7 @@
 			"topP": "top_p, güncel Anthropic modellerinde artık kullanılmamaktadır; bunun yerine top_k'yi kullanın",
 			"frequencyPenalty": "Anthropic, ayrı frekans/varlık parametreleri yerine tek bir ceza parametresi kullanır",
 			"presencePenalty": "Anthropic, ayrı frekans/varlık parametreleri yerine tek bir ceza parametresi kullanır",
-			"minP": "Anthropic API tarafından desteklenmiyor",
-			"reasoningEffort": "Anthropic API tarafından desteklenmiyor"
+			"minP": "Anthropic API tarafından desteklenmiyor"
 		},
 		"google": {
 			"frequencyPenalty": "Gemini, sıklık/devamlılık cezalarını desteklemez",

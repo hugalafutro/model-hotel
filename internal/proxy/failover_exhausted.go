@@ -22,6 +22,14 @@ import (
 func (h *Handler) failAllExhausted(w http.ResponseWriter, st *requestState, numCandidates int) {
 	last := st.lastReqErr
 	status := last.terminalStatus()
+	// The log lines, the SSE event and the metrics name the provider whose
+	// failure is the verdict, which is not always the last candidate tried: a
+	// refusal of the caller's body does not displace an earlier candidate's
+	// provider-side failure (see setReqErr). The row's resolved_model_id keeps
+	// the last candidate tried; the attempt trail holds every candidate.
+	if last.Provider != "" {
+		st.logData.providerName = last.Provider
+	}
 	// Not fenced here: this message is the gateway's own account of the
 	// failure, and the one fragment of provider text it can carry (Underlying)
 	// was fenced when setReqErr recorded it. Fencing the whole sentence would
@@ -30,11 +38,15 @@ func (h *Handler) failAllExhausted(w http.ResponseWriter, st *requestState, numC
 	clientMsg := last.terminalClientMessage(st.reqModel, st.isFailover)
 	if st.isFailover {
 		debuglog.Error("proxy: all providers exhausted", "model", st.logData.modelID, "provider", st.logData.providerName, "error", logMsg, "kind", string(last.Kind), "status", status, "candidates", numCandidates, "failover_timeout", st.failoverTimeout)
-		// all_busy means the last candidate was alive and at capacity; any other
-		// cause, and the failover deadline, is all_failed.
+		// all_busy means the candidate whose verdict is rendered was alive and at
+		// capacity; invalid_request that the caller's body was refused before any
+		// upstream call; any other cause, and the failover deadline, is all_failed.
 		reason := "all_failed"
-		if last.Kind == KindProviderSaturated {
+		switch last.Kind {
+		case KindProviderSaturated:
 			reason = "all_busy"
+		case KindValidation:
+			reason = "invalid_request"
 		}
 		// Lower-cased like the group lookup: the client's spelling of the
 		// group must not mint a series per casing.
@@ -44,12 +56,13 @@ func (h *Handler) failAllExhausted(w http.ResponseWriter, st *requestState, numC
 	}
 	// An all-busy exhaustion answers 429 rather than 502: every provider is
 	// alive and at capacity, and OpenAI SDKs back off and retry on a 429.
-	// Retry-After carries the last provider's own ask, or the class default, so
-	// the client's backoff lines up with a slot actually freeing.
+	// Retry-After carries the ask of the provider whose verdict is rendered, or
+	// the class default, so the client's backoff lines up with a slot actually
+	// freeing.
 	// Switching failover_exhaustion_status_429 off restores the 502.
 	if last.Kind == KindProviderSaturated && h.settingsRepo.GetBool(context.Background(), "failover_exhaustion_status_429", true) {
 		status = http.StatusTooManyRequests
-		w.Header().Set("Retry-After", strconv.Itoa(retryAfterSeconds(st.rateLimit.retryAfter)))
+		w.Header().Set("Retry-After", strconv.Itoa(retryAfterSeconds(st.terminalRateLimit.retryAfter)))
 	}
 	st.logData.providerID = uuid.Nil
 	h.failRequest(st.logData, status, last.Kind, logMsg, numCandidates-1, st.startTime, st.parseMs, st.timings, st.cacheHits, st.proxyOverhead)

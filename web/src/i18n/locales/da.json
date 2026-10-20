@@ -3199,8 +3199,7 @@
 			"topP": "top_p er forældet på nuværende Anthropic-modeller; brug i stedet top_k",
 			"frequencyPenalty": "Anthropic bruger én samlet straf-parameter, ikke separat frekvens/tilstedeværelse",
 			"presencePenalty": "Anthropic bruger én samlet straf-parameter, ikke separat frekvens/tilstedeværelse",
-			"minP": "Ikke understøttet af Anthropic API",
-			"reasoningEffort": "Ikke understøttet af Anthropic API"
+			"minP": "Ikke understøttet af Anthropic API"
 		},
 		"google": {
 			"frequencyPenalty": "Gemini understøtter ikke hyppighed/tilstedeværelse sanktioner",

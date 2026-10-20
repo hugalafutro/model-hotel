@@ -560,7 +560,7 @@ func (h *Handler) updateRequestLog(logEntry *requestLogData, opts ...updateLogOp
 			rPrompt, rHit := logEntry.rejectedTokens()
 			for _, a := range logEntry.rejected {
 				metrics.RecordRejectedAttempt(metrics.RejectedAttempt{
-					Provider: a.providerName, Model: metricModelLabel(logEntry.modelID, logEntry.errorKind),
+					Provider: a.providerName, Model: metricModelLabel(logEntry.modelID, logEntry.errorKind, logEntry.attempted()),
 					PromptTokens: a.measuredPrompt(), PromptCachedTokens: a.cacheHit,
 					CostUSD: a.costUSD, Priced: a.priced && priced && chargedNow,
 				})
@@ -568,7 +568,7 @@ func (h *Handler) updateRequestLog(logEntry *requestLogData, opts ...updateLogOp
 			servingPrompt := logEntry.tokensPrompt - rPrompt
 			metrics.Record(metrics.Observation{
 				Provider:         logEntry.providerName,
-				Model:            metricModelLabel(logEntry.modelID, logEntry.errorKind),
+				Model:            metricModelLabel(logEntry.modelID, logEntry.errorKind, logEntry.attempted()),
 				StatusCode:       logEntry.statusCode,
 				ErrorKind:        string(logEntry.errorKind),
 				DurationSeconds:  logEntry.durationMs / 1000.0,
@@ -618,13 +618,21 @@ func (h *Handler) updateRequestLog(logEntry *requestLogData, opts ...updateLogOp
 	}
 }
 
+// attempted reports whether any candidate was tried for this request, on the
+// sequential or the hedged path: the attempt trail holds one record each.
+func (logEntry *requestLogData) attempted() bool {
+	return len(logEntry.attempts) > 0 || logEntry.servedModel != nil
+}
+
 // metricModelLabel is the model label the request-outcome metrics carry: the
-// name the client asked for, with two bounds on it. A validation failure
-// collapses to "unresolved", since the raw string is unbounded, and a hotel/
-// group is lower-cased after the prefix the way the group lookup lower-cases
-// it, so a client's spelling cannot mint one series per casing.
-func metricModelLabel(modelID string, kind ErrorKind) string {
-	if kind == KindValidation {
+// name the client asked for, with two bounds on it. A validation failure before
+// any candidate was attempted collapses to "unresolved", since the raw string
+// is unbounded (one refused after a candidate was attempted names a real model
+// and keeps it), and a hotel/ group is lower-cased after the prefix the way the
+// group lookup lower-cases it, so a client's spelling cannot mint one series
+// per casing.
+func metricModelLabel(modelID string, kind ErrorKind, resolved bool) string {
+	if kind == KindValidation && !resolved {
 		return "unresolved"
 	}
 	if strings.HasPrefix(modelID, "hotel/") {

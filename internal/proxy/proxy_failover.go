@@ -123,6 +123,12 @@ func (h *Handler) attemptCandidate(w http.ResponseWriter, r *http.Request, st *r
 		return outcomeBusy
 	}
 	if !ok {
+		// A body the translation refused contacted nothing: the next candidate
+		// is tried at once, without the backoff a provider failure earns.
+		if st.attemptRefused {
+			st.attemptRefused = false
+			return outcomeSkipped
+		}
 		return outcomeFailover
 	}
 
@@ -501,10 +507,10 @@ func (h *Handler) beginAttempt(failoverCtx context.Context, st *requestState, ca
 	// window is skipped exactly as a breaker-open one is, without a round
 	// trip. On admission a slot is held; every exit below settles it.
 	if !h.admitCandidate(st, candidate) {
-		st.setReqErr(reqError{Kind: KindProviderSaturated, Attempt: attempt, Provider: candidate.provider.Name, Detail: "at in-flight limit"})
+		st.setReqErr(reqError{Kind: KindProviderSaturated, Attempt: attempt, Provider: candidate.provider.Name, Model: candidate.model.ModelID, Detail: busySkipDetail})
 		logData.failoverAttempt = attempt
 		logData.noteBreaker(breakerNoop)
-		logData.closeAttemptRecord(0, KindProviderSaturated, "at in-flight limit", "", 0)
+		logData.closeAttemptRecord(0, KindProviderSaturated, busySkipDetail, "", 0)
 		return nil, "", "", true, false
 	}
 	// Stamped after admission: a candidate skipped at its in-flight limit was
@@ -521,9 +527,11 @@ func (h *Handler) beginAttempt(failoverCtx context.Context, st *requestState, ca
 
 	proxyReq, providerType, targetURL, err := h.buildCandidateRequest(failoverCtx, st, candidate)
 	if err != nil {
-		st.attemptSlot.settle(slotOutcomeFor(KindInternal))
-		st.setReqErr(reqError{Kind: KindInternal, Attempt: attempt, Provider: candidate.provider.Name, Underlying: errString(err)})
-		logData.closeAttemptRecord(0, KindInternal, errString(err), "", 0)
+		kind := buildErrorKind(err)
+		st.attemptSlot.settle(slotOutcomeFor(kind))
+		st.setReqErr(reqError{Kind: kind, Attempt: attempt, Provider: candidate.provider.Name, Model: candidate.model.ModelID, Underlying: errString(err)})
+		logData.closeAttemptRecord(0, kind, errString(err), "", 0)
+		st.attemptRefused = kind == KindValidation
 		return nil, providerType, targetURL, false, false
 	}
 
@@ -640,10 +648,9 @@ func (h *Handler) buildCandidateRequest(ctx context.Context, st *requestState, c
 
 	// Anthropic egress adapter: a chat request is translated to Anthropic's
 	// native Messages shape on the way out and back on the response side. Every
-	// chat request to an anthropic-messages provider or to a Claude model on
-	// OpenCode takes this route; for anthropic, only one carrying a document
-	// does, and text and image requests stay on the cheaper compat endpoint
-	// below.
+	// chat request to an Anthropic-family provider or to a Claude model on
+	// OpenCode takes this route; the Messages body carries the prompt-cache
+	// breakpoints the compat endpoint below cannot.
 	if isAnthropicEgressAttempt(st, providerType, candidate.model.ModelID) {
 		st.anthropicEgressAttempt = true
 		return h.buildAnthropicEgressRequest(ctx, st, candidate, providerType)

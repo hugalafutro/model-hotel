@@ -297,12 +297,112 @@ func TestProbeStreamingCandidate_OpenCodeClaudeLearnsRejectedParam(t *testing.T)
 	}
 }
 
-// TestProbeStreamingCandidate_AnthropicDocumentDoesNotLearnParams: the hedged
-// learner keeps the sequential gate. An "anthropic" provider takes the Messages
-// route only for a document, and its default route is the compat endpoint that
-// accepts the parameter, so a Messages 400 naming one must not be learned
-// there: the strip would reach compat traffic too.
-func TestProbeStreamingCandidate_AnthropicDocumentDoesNotLearnParams(t *testing.T) {
+// A body the Messages translation refuses is skipped, not failed over: no
+// provider was contacted, so the loop pays no backoff before the next
+// candidate, and the refusal is the recorded verdict.
+func TestAttemptCandidate_RefusedBodyIsSkipped(t *testing.T) {
+	h := newIntegrationHandler()
+	defer stopUnitHandler(h)
+
+	st, cand := probeStateForServer("http://unused.example")
+	st.isStreaming = false
+	st.logData.streaming = false
+	st.bodyBytes = []byte(`{"model":"orig-model","messages":[{"role":"user","content":[{"type":"text","text":"summarise"},{"type":"file","file":{"file_id":"file-abc"}}]}]}`)
+	cand.provider.ProviderType = "anthropic"
+	cand.model.ModelID = "claude-haiku-5-5"
+
+	w := httptest.NewRecorder()
+	r := httptest.NewRequest(http.MethodPost, "/v1/chat/completions", http.NoBody)
+	if got := h.attemptCandidate(w, r, st, cand, 0, 2); got != outcomeSkipped {
+		t.Fatalf("outcome = %v, want outcomeSkipped", got)
+	}
+	if st.attemptRefused {
+		t.Error("attemptRefused was not cleared for the next attempt")
+	}
+	if st.lastReqErr.Kind != KindValidation || st.lastReqErr.Model != "claude-haiku-5-5" {
+		t.Errorf("lastReqErr = %+v, want a validation error naming the candidate", st.lastReqErr)
+	}
+	if w.Code != http.StatusOK || w.Body.Len() != 0 {
+		t.Errorf("a skipped attempt wrote to the client: %d %q", w.Code, w.Body.String())
+	}
+}
+
+// retryAfterSlotFrees: a busy candidate whose freed slot refuses the body is
+// dropped from the wait, the others still waiting are tried, and the verdict
+// while they wait is one of their saturations, not the refusal. When the last
+// one refuses, the wait ends with the refusal as the verdict. The standing skip
+// belongs to the candidate admitted first, the ordering in which a refusal
+// replaces it.
+func TestRetryAfterSlotFrees_RefusingCandidateLeavesTheWait(t *testing.T) {
+	h := newIntegrationHandler()
+	defer stopUnitHandler(h)
+
+	newState := func() (*requestState, []modelCandidate) {
+		st, a := probeStateForServer("http://unused.example")
+		st.overallDeadline = time.Now().Add(5 * time.Second)
+		_, b := probeStateForServer("http://unused.example")
+		b.provider.Name = "prov-B"
+		st.setReqErr(reqError{Kind: KindProviderSaturated, Attempt: 1, Provider: "prov-A", Model: a.model.ModelID, Detail: busySkipDetail})
+		return st, []modelCandidate{a, b}
+	}
+	refuse := func(st *requestState, c modelCandidate, attempt int) candidateOutcome {
+		st.setReqErr(reqError{Kind: KindValidation, Attempt: attempt, Provider: c.provider.Name, Model: c.model.ModelID, Underlying: "refused"})
+		return outcomeSkipped
+	}
+	w := httptest.NewRecorder()
+	r := httptest.NewRequest(http.MethodPost, "/v1/chat/completions", http.NoBody)
+
+	// A refuses, B serves.
+	st, busy := newState()
+	var tried []string
+	var verdictWhileWaiting reqError
+	served := h.retryAfterSlotFrees(w, r, st, busy, 2, func(_ http.ResponseWriter, _ *http.Request, st *requestState, c modelCandidate, attempt, _ int) candidateOutcome {
+		tried = append(tried, c.provider.Name)
+		if c.provider.Name == "prov-A" {
+			return refuse(st, c, attempt)
+		}
+		verdictWhileWaiting = st.lastReqErr
+		return outcomeServed
+	})
+	if !served || len(tried) != 2 || tried[0] != "prov-A" || tried[1] != "prov-B" {
+		t.Fatalf("served = %v, tried = %v, want A refused then B served", served, tried)
+	}
+	if verdictWhileWaiting.Kind != KindProviderSaturated || verdictWhileWaiting.Provider != "prov-B" {
+		t.Errorf("verdict while B waited = %+v, want B's saturation, not A's refusal or A's skip", verdictWhileWaiting)
+	}
+
+	// Both refuse: the wait ends, the last refusal is the verdict.
+	st, busy = newState()
+	served = h.retryAfterSlotFrees(w, r, st, busy, 2, func(_ http.ResponseWriter, _ *http.Request, st *requestState, c modelCandidate, attempt, _ int) candidateOutcome {
+		return refuse(st, c, attempt)
+	})
+	if served {
+		t.Fatal("two refusals must not count as served")
+	}
+	if st.lastReqErr.Kind != KindValidation || st.lastReqErr.Provider != "prov-B" {
+		t.Errorf("lastReqErr = %+v, want B's refusal once no candidate waits", st.lastReqErr)
+	}
+
+	// A third candidate with a route for the body failed provider-side and
+	// holds the verdict: two refusals during the wait leave it standing.
+	st, busy = newState()
+	st.setReqErr(reqError{Kind: KindProviderError, Attempt: 2, Provider: "prov-C", Model: "gpt", Underlying: "HTTP 502"})
+	served = h.retryAfterSlotFrees(w, r, st, busy, 3, func(_ http.ResponseWriter, _ *http.Request, st *requestState, c modelCandidate, attempt, _ int) candidateOutcome {
+		return refuse(st, c, attempt)
+	})
+	if served {
+		t.Fatal("two refusals must not count as served")
+	}
+	if st.lastReqErr.Kind != KindProviderError || st.lastReqErr.Provider != "prov-C" {
+		t.Errorf("lastReqErr = %+v, want the third candidate's provider failure kept through both refusals", st.lastReqErr)
+	}
+}
+
+// TestProbeStreamingCandidate_AnthropicLearnsParams: the hedged learner reads
+// a rejected parameter for an "anthropic" provider like for every other
+// Messages speaker. Messages is that type's only chat route, so the strip keyed
+// by provider+model cannot reach traffic that accepts the parameter.
+func TestProbeStreamingCandidate_AnthropicLearnsParams(t *testing.T) {
 	h := newIntegrationHandler()
 	defer stopUnitHandler(h)
 
@@ -314,7 +414,7 @@ func TestProbeStreamingCandidate_AnthropicDocumentDoesNotLearnParams(t *testing.
 	defer srv.Close()
 
 	st, cand := probeStateForServer(srv.URL)
-	st.bodyBytes = []byte(`{"model":"orig-model","stream":true,"temperature":0.7,"max_tokens":200,"messages":[{"role":"user","content":[{"type":"file","file":{"file_data":"` + pdfDataURI + `"}}]}]}`)
+	st.bodyBytes = []byte(`{"model":"orig-model","stream":true,"temperature":0.7,"max_tokens":200,"messages":[{"role":"user","content":"hi"}]}`)
 	cand.provider.ProviderType = "anthropic"
 	cand.model.ModelID = "claude-sonnet-5"
 
@@ -322,9 +422,9 @@ func TestProbeStreamingCandidate_AnthropicDocumentDoesNotLearnParams(t *testing.
 		t.Fatal("a 400 must not win the race")
 	}
 	if !st.anthropicEgressAttempt {
-		t.Fatal("a document to anthropic must take the Messages route for this test to mean anything")
+		t.Fatal("text to anthropic must take the Messages route")
 	}
-	if h.learnedStrip(learnedScopeFor(cand), cand.model.ModelID, "temperature") {
-		t.Error("temperature was learned for an anthropic provider, whose compat route accepts it")
+	if !h.learnedStrip(learnedScopeFor(cand), cand.model.ModelID, "temperature") {
+		t.Error("temperature was not learned for an anthropic provider from the hedged 400")
 	}
 }

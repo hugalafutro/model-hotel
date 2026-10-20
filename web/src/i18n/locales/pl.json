@@ -3351,8 +3351,7 @@
 			"topP": "top_p jest przestarzały w aktualnych modelach Anthropic; użyj zamiast tego top_k",
 			"frequencyPenalty": "Anthropic używa jednego parametru kar, a nie osobnych częstotliwości/obecności",
 			"presencePenalty": "Anthropic używa jednego parametru kar, a nie osobnych częstotliwości/obecności",
-			"minP": "Nieobsługiwane przez API Anthropic",
-			"reasoningEffort": "Nieobsługiwane przez API Anthropic"
+			"minP": "Nieobsługiwane przez API Anthropic"
 		},
 		"google": {
 			"frequencyPenalty": "Gemini nie obsługuje kar za częstotliwość i obecność",
