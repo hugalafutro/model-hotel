@@ -1424,6 +1424,17 @@ describe("AppLogDetail attributes", () => {
 		});
 		second.unmount();
 
+		// With the provider already on the line, a slash belongs to the model id
+		// even when its prefix happens to name another provider.
+		const third = open("provider-001/claude-x provider_id=provider-001");
+		await waitFor(() => {
+			expect(screen.getByTestId("app-log-link-model")).toHaveAttribute(
+				"href",
+				"/models?model=provider-001%2Fclaude-x&provider=Test+Provider",
+			);
+		});
+		third.unmount();
+
 		// A failover alias names no stored model.
 		open("hotel/primary");
 		expect(screen.getByText("hotel/primary")).toBeInTheDocument();
