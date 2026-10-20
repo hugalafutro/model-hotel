@@ -1,29 +1,24 @@
 import { useTranslation } from "react-i18next";
-import { RotateCcw } from "@/lib/icons";
 import type { ProviderCap } from "./useProviderCap";
 
 /**
- * The provider-access chip cloud shared by the create and the edit form: a
- * heading with the restore button, the cap note the inert chips point at, and
- * one chip per provider that strikes through when excluded.
+ * The provider-access chip cloud shared by the create and the edit form: the
+ * cap note the inert chips point at, and one chip per provider that strikes
+ * through when excluded. The surrounding tile names the section and draws the
+ * restore button.
  */
 export function ProviderAccessPicker({
 	cap,
-	headingKey,
 	instructionsKey,
 	providerError,
 }: {
 	cap: ProviderCap;
-	// Absent when the surrounding tile already names the section; that caller
-	// then draws the restore button itself.
-	headingKey?: string;
 	instructionsKey: string;
 	providerError: string;
 }) {
 	const { t } = useTranslation();
 	const {
 		sortedProviders,
-		excludedProviders,
 		effectiveExcluded,
 		outsideCapIds,
 		isOutsideCap,
@@ -31,28 +26,11 @@ export function ProviderAccessPicker({
 		capNote,
 		capNoteId,
 		toggleProvider,
-		resetProviders,
 	} = cap;
 
 	return (
 		<>
 			<div>
-				{headingKey && (
-					<div className="flex items-center justify-between mb-1">
-						<span className="ui-label">{t(headingKey)}</span>
-						{excludedProviders.length > 0 && (
-							<button
-								type="button"
-								onClick={resetProviders}
-								className="text-gray-500 hover:text-gray-300 transition-colors"
-								aria-label={t("virtualkeys.modal.form.restoreAccess")}
-								title={t("virtualkeys.modal.form.restoreAccess")}
-							>
-								<RotateCcw size={14} />
-							</button>
-						)}
-					</div>
-				)}
 				<p className="ui-hint mb-2">{t(instructionsKey)}</p>
 				{outsideCapIds.length > 0 && (
 					<p

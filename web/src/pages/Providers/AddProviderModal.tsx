@@ -5,8 +5,8 @@ import { useTranslation } from "react-i18next";
 import { api } from "../../api/client";
 import type { Provider } from "../../api/types";
 import { ErrorCallout } from "../../components/ErrorCallout";
-import { FieldRow, FORM_GRID } from "../../components/FieldRow";
 import { FilterDropdown } from "../../components/FilterDropdown";
+import { DetailItem } from "../../components/LogDetailItem";
 import { Modal } from "../../components/Modal";
 import { RevealableInput } from "../../components/RevealableInput";
 import { useRefreshDiscoveryBadge } from "../../hooks/useRefreshDiscoveryBadge";
@@ -302,8 +302,12 @@ export function AddProviderModal({
 				</ErrorCallout>
 			)}
 
-			<form id={formId} onSubmit={handleSubmit} className={FORM_GRID}>
-				<FieldRow label={t("providers.form_type_label")}>
+			<form
+				id={formId}
+				onSubmit={handleSubmit}
+				className="grid grid-cols-1 sm:grid-cols-2 gap-2"
+			>
+				<DetailItem label={t("providers.form_type_label")}>
 					<FilterDropdown
 						allowClear={false}
 						className="w-full"
@@ -312,9 +316,9 @@ export function AddProviderModal({
 						onChange={handleProviderTypeChange}
 						options={providerTypeOptions(t)}
 					/>
-				</FieldRow>
+				</DetailItem>
 
-				<FieldRow
+				<DetailItem
 					label={t("providers.form_name_label")}
 					htmlFor="provider-name"
 				>
@@ -335,11 +339,12 @@ export function AddProviderModal({
 						placeholder={t("providers.form_name_placeholder")}
 					/>
 					<p className="ui-hint mt-1">{t("providers.form_name_hint")}</p>
-				</FieldRow>
+				</DetailItem>
 
-				<FieldRow
+				<DetailItem
 					label={t("providers.add.baseUrl")}
 					htmlFor="provider-base-url"
+					className="sm:col-span-2"
 				>
 					<input
 						id="provider-base-url"
@@ -397,9 +402,13 @@ export function AddProviderModal({
 							{t("providers.add.baseUrlHelperAnthropicMessages")}
 						</p>
 					)}
-				</FieldRow>
+				</DetailItem>
 
-				<FieldRow label={t("providers.add.apiKey")} htmlFor="provider-api-key">
+				<DetailItem
+					label={t("providers.add.apiKey")}
+					htmlFor="provider-api-key"
+					className="sm:col-span-2"
+				>
 					<RevealableInput
 						id="provider-api-key"
 						maxLength={500}
@@ -412,7 +421,7 @@ export function AddProviderModal({
 								: t("providers.form_api_key_placeholder_required")
 						}
 					/>
-				</FieldRow>
+				</DetailItem>
 			</form>
 		</Modal>
 	);

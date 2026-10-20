@@ -1,22 +1,41 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useId, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { BrainSlashIcon, ChevronRight } from "@/lib/icons";
+import {
+	BrainSlashIcon,
+	ChevronRight,
+	RotateCcw,
+	ShieldCheck,
+} from "@/lib/icons";
 import { api } from "../../api/client";
 import type { BudgetPeriod, VirtualKey } from "../../api/types";
 import { BudgetField } from "../../components/BudgetField";
 import { budgetPayload } from "../../components/budget";
 import { CopyablePill } from "../../components/CopyablePill";
-import { FieldRow, FORM_GRID } from "../../components/FieldRow";
+import { InfoHint } from "../../components/InfoHint";
+import { DetailItem } from "../../components/LogDetailItem";
 import { Modal } from "../../components/Modal";
 import { Toggle } from "../../components/Toggle";
 import { useIdentity } from "../../context/IdentityContext";
 import { intOrNull, numOrNull } from "../../utils/format";
 import { ProviderAccessPicker } from "./ProviderAccessPicker";
-import { RateLimitField } from "./RateLimitField";
-import { SectionHeader } from "./SectionHeader";
+import { RATE_LIMIT_BOUNDS } from "./rateLimitBounds";
 import { UsageSnippets } from "./UsageSnippets";
 import { allowedProvidersOf, useProviderCap } from "./useProviderCap";
+
+// The bracketed unit ("(requests/sec)", "（最大同時）") on a line of its own,
+// so three narrow tiles side by side wrap at the same place. The space keeps
+// the accessible name the whole label.
+function breakUnit(label: string) {
+	const unit = label.match(/^(.*?)\s*([(（].*)$/);
+	if (!unit) return label;
+	return (
+		<>
+			{unit[1]} <br />
+			{unit[2]}
+		</>
+	);
+}
 
 export function CreateKeyModal({
 	onClose,
@@ -178,8 +197,16 @@ export function CreateKeyModal({
 					)}
 				</>
 			) : (
-				<form id={formId} onSubmit={handleSubmit} className={FORM_GRID}>
-					<FieldRow label={t("virtualkeys.modal.nameLabel")} htmlFor="vk-name">
+				<form
+					id={formId}
+					onSubmit={handleSubmit}
+					className="grid grid-cols-1 sm:grid-cols-2 gap-2"
+				>
+					<DetailItem
+						label={t("virtualkeys.modal.nameLabel")}
+						htmlFor="vk-name"
+						className={isAdmin ? undefined : "sm:col-span-2"}
+					>
 						<input
 							id="vk-name"
 							type="text"
@@ -190,9 +217,9 @@ export function CreateKeyModal({
 							className="ui-input"
 							placeholder={t("virtualkeys.modal.form.namePlaceholder")}
 						/>
-					</FieldRow>
+					</DetailItem>
 					{isAdmin && (
-						<FieldRow
+						<DetailItem
 							label={t("virtualkeys.modal.form.owner")}
 							htmlFor="vk-owner"
 						>
@@ -215,77 +242,114 @@ export function CreateKeyModal({
 							<p className="ui-hint mt-1">
 								{t("virtualkeys.modal.form.ownerHint")}
 							</p>
-						</FieldRow>
+						</DetailItem>
 					)}
-					<div className="sm:col-span-2 grid grid-cols-1 sm:grid-cols-3 items-end gap-2">
-						<RateLimitField
-							breakUnit
-							id="vk-rate-limit-rps"
-							labelKey="virtualkeys.modal.rateLimitRpsLabel"
-							field="rps"
-							value={rateLimitRps}
-							onChange={setRateLimitRps}
-						/>
-						<RateLimitField
-							breakUnit
-							id="vk-rate-limit-burst"
-							labelKey="virtualkeys.modal.rateLimitBurstLabel"
-							field="burst"
-							value={rateLimitBurst}
-							onChange={setRateLimitBurst}
-						/>
-						<RateLimitField
-							breakUnit
-							id="vk-rate-limit-tpm"
-							labelKey="virtualkeys.modal.rateLimitTpmLabel"
-							field="tpm"
-							value={rateLimitTpm}
-							onChange={setRateLimitTpm}
-						/>
+					{/* Empty means "inherit the global setting", which is what the
+					   placeholder says. */}
+					<div className="sm:col-span-2 grid grid-cols-1 sm:grid-cols-3 gap-2">
+						{(
+							[
+								{
+									field: "rps",
+									label: "virtualkeys.modal.rateLimitRpsLabel",
+									tooltip: "virtualkeys.tooltip.rps",
+									draft: rateLimitRps,
+									setDraft: setRateLimitRps,
+								},
+								{
+									field: "burst",
+									label: "virtualkeys.modal.rateLimitBurstLabel",
+									tooltip: "virtualkeys.tooltip.burst",
+									draft: rateLimitBurst,
+									setDraft: setRateLimitBurst,
+								},
+								{
+									field: "tpm",
+									label: "virtualkeys.modal.rateLimitTpmLabel",
+									tooltip: "virtualkeys.tooltip.tpm",
+									draft: rateLimitTpm,
+									setDraft: setRateLimitTpm,
+								},
+							] as const
+						).map((l) => (
+							<DetailItem
+								key={l.field}
+								emphasis="stat"
+								label={breakUnit(t(l.label))}
+								labelExtra={<InfoHint tooltip={t(l.tooltip)} />}
+								htmlFor={`vk-rate-limit-${l.field}`}
+							>
+								<input
+									id={`vk-rate-limit-${l.field}`}
+									type="number"
+									{...RATE_LIMIT_BOUNDS[l.field]}
+									value={l.draft}
+									onChange={(e) => l.setDraft(e.target.value)}
+									className="ui-input"
+									placeholder={t("virtualkeys.modal.form.placeholderGlobal")}
+								/>
+							</DetailItem>
+						))}
 					</div>
-					<div className="sm:col-span-2">
+					<DetailItem
+						emphasis="stat"
+						label={t("budget.label")}
+						labelExtra={<InfoHint tooltip={t("budget.tooltip")} />}
+						className="sm:col-span-2"
+					>
 						<BudgetField
 							idPrefix="vk-create"
 							amount={budgetUsd}
 							period={budgetPeriod}
 							onAmountChange={setBudgetUsd}
 							onPeriodChange={setBudgetPeriod}
+							labelClassName="block text-xs text-gray-400 mb-1"
 						/>
-					</div>
-					<div className="sm:col-span-2">
+					</DetailItem>
+					<DetailItem
+						icon={ShieldCheck}
+						label={t("virtualkeys.modal.form.providerAccess")}
+						labelExtra={
+							cap.excludedProviders.length > 0 ? (
+								<button
+									type="button"
+									onClick={cap.resetProviders}
+									className="text-gray-500 hover:text-gray-300 transition-colors"
+									aria-label={t("virtualkeys.modal.form.restoreAccess")}
+									title={t("virtualkeys.modal.form.restoreAccess")}
+								>
+									<RotateCcw size={14} />
+								</button>
+							) : undefined
+						}
+						className="sm:col-span-2"
+					>
 						<ProviderAccessPicker
 							cap={cap}
-							headingKey="virtualkeys.modal.form.providerAccess"
 							instructionsKey="virtualkeys.modal.providerInstructionsText"
 							providerError={providerError}
 						/>
-					</div>
-
-					<div className="sm:col-span-2">
-						<SectionHeader
-							icon={BrainSlashIcon}
-							label={t("virtualkeys.modal.form.stripReasoning")}
-							spacing="mb-2"
-						/>
-						{/* Toggle, state and description share one row from sm up; on
-						   a phone the description goes under the toggle. */}
-						<div className="flex flex-col gap-1 sm:flex-row sm:items-start sm:gap-3">
-							<div className="flex items-center gap-3 shrink-0">
-								<Toggle
-									checked={stripReasoning}
-									onChange={setStripReasoning}
-									size="sm"
-									ariaLabel={t("virtualkeys.modal.form.stripReasoning")}
-								/>
-								<span className="text-sm text-gray-200">
-									{stripReasoning ? t("common.enabled") : t("common.disabled")}
-								</span>
-							</div>
-							<p className="text-xs text-gray-400 sm:pt-0.5">
-								{t("virtualkeys.modal.stripReasoningDescriptionText")}
-							</p>
+					</DetailItem>
+					<DetailItem
+						icon={BrainSlashIcon}
+						label={t("virtualkeys.modal.form.stripReasoning")}
+						className="sm:col-span-2"
+					>
+						<div className="flex items-center gap-3">
+							<Toggle
+								checked={stripReasoning}
+								onChange={setStripReasoning}
+								size="sm"
+								ariaLabel={t("virtualkeys.modal.form.stripReasoning")}
+							/>
+							<span className="text-sm text-(--text-primary)">
+								{stripReasoning ? t("common.enabled") : t("common.disabled")}
+							</span>
 						</div>
-					</div>
+						<p className="ui-hint mt-1">
+							{t("virtualkeys.modal.stripReasoningDescriptionText")}
+						</p>
+					</DetailItem>
 				</form>
 			)}
 		</Modal>

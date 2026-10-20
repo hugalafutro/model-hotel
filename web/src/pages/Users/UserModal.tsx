@@ -6,7 +6,8 @@ import { budgetText } from "../../components/budget";
 import { ConfirmDialog } from "../../components/ConfirmDialog";
 import { DeleteConfirmModal } from "../../components/DeleteConfirmModal";
 import { ErrorCallout } from "../../components/ErrorCallout";
-import { FieldRow, FORM_GRID_PAIRS } from "../../components/FieldRow";
+import { InfoHint } from "../../components/InfoHint";
+import { DetailItem } from "../../components/LogDetailItem";
 import { Modal } from "../../components/Modal";
 import { Toggle } from "../../components/Toggle";
 import { useUserForm } from "./useUserForm";
@@ -130,15 +131,15 @@ export function UserModal({
 					e.preventDefault();
 					handleSave();
 				}}
-				className={FORM_GRID_PAIRS}
+				className="grid grid-cols-1 sm:grid-cols-2 gap-2"
 			>
 				{error && (
-					<ErrorCallout className="sm:col-span-4" testId="user-modal-error">
+					<ErrorCallout className="sm:col-span-2" testId="user-modal-error">
 						{error}
 					</ErrorCallout>
 				)}
 
-				<FieldRow label={t("users.modal.username")} htmlFor="user-username">
+				<DetailItem label={t("users.modal.username")} htmlFor="user-username">
 					<input
 						id="user-username"
 						type="text"
@@ -149,9 +150,9 @@ export function UserModal({
 						autoComplete="off"
 						disabled={managed}
 					/>
-				</FieldRow>
+				</DetailItem>
 
-				<FieldRow
+				<DetailItem
 					label={t("users.modal.displayName")}
 					htmlFor="user-display-name"
 				>
@@ -164,12 +165,12 @@ export function UserModal({
 						maxLength={128}
 						disabled={managed}
 					/>
-				</FieldRow>
+				</DetailItem>
 
-				<FieldRow
+				<DetailItem
 					label={t("users.modal.email")}
 					htmlFor="user-email"
-					fieldClassName="sm:col-span-3"
+					className="sm:col-span-2"
 				>
 					<input
 						id="user-email"
@@ -181,10 +182,10 @@ export function UserModal({
 						disabled={managed}
 					/>
 					<p className="ui-hint mt-1">{t("users.modal.emailHint")}</p>
-				</FieldRow>
+				</DetailItem>
 
 				{!isEdit && (
-					<FieldRow label={t("users.modal.password")} htmlFor="user-password">
+					<DetailItem label={t("users.modal.password")} htmlFor="user-password">
 						<input
 							id="user-password"
 							type="password"
@@ -195,14 +196,10 @@ export function UserModal({
 							placeholder={t("users.modal.passwordPlaceholder")}
 							disabled={managed}
 						/>
-					</FieldRow>
+					</DetailItem>
 				)}
 
-				<FieldRow
-					label={t("users.modal.role")}
-					htmlFor="user-role"
-					fieldClassName={isEdit ? "sm:col-span-3" : undefined}
-				>
+				<DetailItem label={t("users.modal.role")} htmlFor="user-role">
 					<select
 						id="user-role"
 						value={role}
@@ -218,79 +215,77 @@ export function UserModal({
 							? t("users.modal.roleAdminHint")
 							: t("users.modal.roleUserHint")}
 					</p>
-				</FieldRow>
+				</DetailItem>
 
 				{isEdit && (
-					<FieldRow
-						label={t("users.modal.enabled")}
-						fieldClassName="sm:col-span-3 sm:pt-2"
-					>
-						<Toggle
-							checked={enabled}
-							onChange={setEnabled}
-							disabled={isSelf || managed}
-							ariaLabel={t("users.modal.enabled")}
-						/>
-					</FieldRow>
+					<DetailItem label={t("users.modal.enabled")}>
+						<div className="flex items-center gap-3">
+							<Toggle
+								checked={enabled}
+								onChange={setEnabled}
+								disabled={isSelf || managed}
+								ariaLabel={t("users.modal.enabled")}
+							/>
+							<span className="text-sm text-(--text-primary)">
+								{enabled ? t("common.enabled") : t("common.disabled")}
+							</span>
+						</div>
+					</DetailItem>
 				)}
 
 				{isEdit && !managed && (
-					<>
-						<FieldRow
-							label={t("users.modal.resetPassword")}
-							htmlFor="user-reset-password"
-							fieldClassName="sm:col-span-3"
-						>
-							<div className="flex flex-col gap-2 sm:flex-row">
-								<input
-									id="user-reset-password"
-									type="password"
-									value={resetValue}
-									onChange={(e) => setResetValue(e.target.value)}
-									onKeyDown={(e) => {
-										if (e.key === "Enter") {
-											e.preventDefault();
-											submitReset();
-										}
-									}}
-									className="ui-input flex-1 min-w-0"
-									autoComplete="new-password"
-									placeholder={t("users.modal.passwordPlaceholder")}
-								/>
-								<button
-									type="button"
-									onClick={submitReset}
-									disabled={resetMutation.isPending}
-									className="ui-btn"
-								>
-									{t("users.modal.resetButton")}
-								</button>
-							</div>
-							<p className="ui-hint mt-1">{t("users.modal.resetHint")}</p>
-						</FieldRow>
-
+					<DetailItem
+						label={t("users.modal.resetPassword")}
+						htmlFor="user-reset-password"
+						className="sm:col-span-2"
+					>
+						<div className="flex flex-col gap-2 sm:flex-row">
+							<input
+								id="user-reset-password"
+								type="password"
+								value={resetValue}
+								onChange={(e) => setResetValue(e.target.value)}
+								onKeyDown={(e) => {
+									if (e.key === "Enter") {
+										e.preventDefault();
+										submitReset();
+									}
+								}}
+								className="ui-input flex-1 min-w-0"
+								autoComplete="new-password"
+								placeholder={t("users.modal.passwordPlaceholder")}
+							/>
+							<button
+								type="button"
+								onClick={submitReset}
+								disabled={resetMutation.isPending}
+								className="ui-btn"
+							>
+								{t("users.modal.resetButton")}
+							</button>
+						</div>
+						<p className="ui-hint mt-1">{t("users.modal.resetHint")}</p>
 						{user?.totp_enabled && (
-							<div className="sm:col-span-4">
+							<div className="mt-3 flex flex-col gap-2 sm:flex-row sm:items-start">
 								<button
 									type="button"
 									onClick={() => setConfirmTotpReset(true)}
 									disabled={totpResetMutation.isPending}
-									className="ui-btn w-full"
+									className="ui-btn shrink-0"
 									data-testid="user-modal-totp-reset"
 								>
 									{t("users.modal.totpResetButton")}
 								</button>
-								<p className="ui-hint mt-1">{t("users.modal.totpResetHint")}</p>
+								<p className="ui-hint sm:pt-2">
+									{t("users.modal.totpResetHint")}
+								</p>
 							</div>
 						)}
-					</>
+					</DetailItem>
 				)}
 
 				{role === "user" && (
-					<fieldset className="sm:col-span-4">
-						<legend className="block ui-label mb-2">
-							{t("users.modal.grants")}
-						</legend>
+					<DetailItem label={t("users.modal.grants")} className="sm:col-span-2">
 						<div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
 							{allGrants.map((g) => (
 								<label
@@ -309,13 +304,10 @@ export function UserModal({
 								</label>
 							))}
 						</div>
-					</fieldset>
+					</DetailItem>
 				)}
 
-				<fieldset className="sm:col-span-4">
-					<legend className="block ui-label mb-2">
-						{t("users.providerAccess")}
-					</legend>
+				<DetailItem label={t("users.providerAccess")} className="sm:col-span-2">
 					<div className="space-y-2" data-testid="provider-access-mode">
 						<label className="flex items-center gap-2 text-sm text-gray-200 cursor-pointer">
 							<input
@@ -374,99 +366,92 @@ export function UserModal({
 								: t("users.providerAccessEmpty")}
 						</p>
 					)}
-				</fieldset>
+				</DetailItem>
 
-				<fieldset className="sm:col-span-4">
-					<legend className="block ui-label mb-1">
-						{t("users.modal.limits")}
-					</legend>
-					<p className="ui-hint mb-2">{t("users.modal.limitsHint")}</p>
-					<div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-						<div>
-							<label
-								htmlFor="user-limit-rps"
-								className="block text-xs text-gray-400 mb-1"
-							>
-								{t("users.modal.limitRps")}
-							</label>
+				{/* Aggregate caps across the user's keys, one stat tile each. */}
+				<div className="sm:col-span-2 grid grid-cols-1 sm:grid-cols-3 gap-2">
+					{(
+						[
+							{
+								field: "rps",
+								label: "users.modal.limitRps",
+								min: "0",
+								max: "10000",
+								step: "any",
+								draft: limitRps,
+								setDraft: setLimitRps,
+							},
+							{
+								field: "burst",
+								label: "users.modal.limitBurst",
+								min: "1",
+								max: "10000",
+								step: undefined,
+								draft: limitBurst,
+								setDraft: setLimitBurst,
+							},
+							{
+								field: "tpm",
+								label: "users.modal.limitTpm",
+								min: "1",
+								max: "100000000",
+								step: undefined,
+								draft: limitTpm,
+								setDraft: setLimitTpm,
+							},
+						] as const
+					).map((l) => (
+						<DetailItem
+							key={l.field}
+							emphasis="stat"
+							label={t(l.label)}
+							labelExtra={<InfoHint tooltip={t("users.modal.limitsHint")} />}
+							htmlFor={`user-limit-${l.field}`}
+						>
 							<input
-								id="user-limit-rps"
+								id={`user-limit-${l.field}`}
 								type="number"
-								min="0"
-								max="10000"
-								step="any"
-								value={limitRps}
-								onChange={(e) => setLimitRps(e.target.value)}
+								min={l.min}
+								max={l.max}
+								step={l.step}
+								value={l.draft}
+								onChange={(e) => l.setDraft(e.target.value)}
 								className="ui-input"
 								placeholder={t("users.modal.noCap")}
 								disabled={managed}
-								data-testid="user-limit-rps"
+								data-testid={`user-limit-${l.field}`}
 							/>
-						</div>
-						<div>
-							<label
-								htmlFor="user-limit-burst"
-								className="block text-xs text-gray-400 mb-1"
-							>
-								{t("users.modal.limitBurst")}
-							</label>
-							<input
-								id="user-limit-burst"
-								type="number"
-								min="1"
-								max="10000"
-								value={limitBurst}
-								onChange={(e) => setLimitBurst(e.target.value)}
-								className="ui-input"
-								placeholder={t("users.modal.noCap")}
-								disabled={managed}
-								data-testid="user-limit-burst"
-							/>
-						</div>
-						<div>
-							<label
-								htmlFor="user-limit-tpm"
-								className="block text-xs text-gray-400 mb-1"
-							>
-								{t("users.modal.limitTpm")}
-							</label>
-							<input
-								id="user-limit-tpm"
-								type="number"
-								min="1"
-								max="100000000"
-								value={limitTpm}
-								onChange={(e) => setLimitTpm(e.target.value)}
-								className="ui-input"
-								placeholder={t("users.modal.noCap")}
-								disabled={managed}
-								data-testid="user-limit-tpm"
-							/>
-						</div>
-					</div>
-					<div className="mt-3">
-						<BudgetField
-							idPrefix="user"
-							amount={budgetUsd}
-							period={budgetPeriod}
-							onAmountChange={setBudgetUsd}
-							onPeriodChange={setBudgetPeriod}
-							disabled={managed}
-							labelClassName="block text-xs text-gray-400 mb-1"
-						/>
-						{user?.budget_usd != null && (
-							<p
-								className="text-xs text-gray-400 mt-1"
-								data-testid="user-budget-spent"
-							>
-								{budgetText(t, user)}
-							</p>
-						)}
-					</div>
-				</fieldset>
+						</DetailItem>
+					))}
+				</div>
+
+				<DetailItem
+					emphasis="stat"
+					label={t("budget.label")}
+					labelExtra={<InfoHint tooltip={t("budget.hint")} />}
+					className="sm:col-span-2"
+				>
+					<BudgetField
+						idPrefix="user"
+						amount={budgetUsd}
+						period={budgetPeriod}
+						onAmountChange={setBudgetUsd}
+						onPeriodChange={setBudgetPeriod}
+						disabled={managed}
+						labelClassName="block text-xs text-gray-400 mb-1"
+					/>
+					{user?.budget_usd != null && (
+						<p
+							className="text-xs text-gray-400 mt-1"
+							data-testid="user-budget-spent"
+						>
+							{budgetText(t, user)}
+						</p>
+					)}
+				</DetailItem>
 
 				{managed && isEdit && (
-					<p data-testid="managed-note" className="sm:col-span-4 ui-hint">
+					<p data-testid="managed-note" className="sm:col-span-2 ui-hint">
 						{t("settings.managed.sectionNote")}
 					</p>
 				)}

@@ -5,7 +5,7 @@ import { api } from "../../api/client";
 import { isConflict } from "../../api/http";
 import type { CandidateModel, FailoverGroup } from "../../api/types";
 import { DeleteConfirmModal } from "../../components/DeleteConfirmModal";
-import { FieldRow, FORM_GRID } from "../../components/FieldRow";
+import { DetailItem } from "../../components/LogDetailItem";
 import { Modal } from "../../components/Modal";
 import type { ModelItem } from "../../components/ModelPicker";
 import { ModelPicker } from "../../components/ModelPicker";
@@ -40,6 +40,7 @@ export function CreateGroupModal({
 	const refreshBadge = useRefreshDiscoveryBadge();
 	const isEdit = !!group;
 	const formId = useId();
+	const pickerId = `failover-group-entries-${isEdit ? "edit" : "create"}`;
 
 	const [displayModel, setDisplayModel] = useState(group?.display_model ?? "");
 	const [displayName, setDisplayName] = useState(group?.display_name ?? "");
@@ -393,8 +394,12 @@ export function CreateGroupModal({
 				</div>
 			}
 		>
-			<form id={formId} onSubmit={handleSubmit} className={FORM_GRID}>
-				<FieldRow
+			<form
+				id={formId}
+				onSubmit={handleSubmit}
+				className="grid grid-cols-1 sm:grid-cols-2 gap-2"
+			>
+				<DetailItem
 					label={t("failoverGroups.create.displayModelName")}
 					htmlFor="display-model"
 				>
@@ -413,9 +418,9 @@ export function CreateGroupModal({
 							modelName: displayModel || "model-name",
 						})}
 					</p>
-				</FieldRow>
+				</DetailItem>
 
-				<FieldRow
+				<DetailItem
 					label={t("failoverGroups.create.displayNameOptional")}
 					htmlFor="display-name"
 				>
@@ -428,11 +433,12 @@ export function CreateGroupModal({
 						className="ui-input"
 						placeholder={t("failoverGroups.create.displayNamePlaceholder")}
 					/>
-				</FieldRow>
+				</DetailItem>
 
-				<FieldRow
+				<DetailItem
 					label={t("failoverGroups.create.descriptionOptional")}
 					htmlFor="group-description"
+					className="sm:col-span-2"
 				>
 					<input
 						id="group-description"
@@ -443,16 +449,19 @@ export function CreateGroupModal({
 						className="ui-input"
 						placeholder={t("failoverGroups.create.descriptionPlaceholder")}
 					/>
-				</FieldRow>
+				</DetailItem>
 
-				<div className="sm:col-span-2">
+				<DetailItem
+					label={t("failoverGroups.create.modelEntries")}
+					htmlFor={pickerId}
+					className="sm:col-span-2"
+				>
 					<ModelPicker
-						id={`failover-group-entries-${isEdit ? "edit" : "create"}`}
+						id={pickerId}
 						models={modelItems}
 						selected={selectedProxyIDs}
 						onChange={setSelectedProxyIDs}
 						multi={true}
-						label={t("failoverGroups.create.modelEntries")}
 						align="left"
 						sortProvidersAlpha
 					/>
@@ -461,7 +470,7 @@ export function CreateGroupModal({
 							count: selectedProxyIDs.length,
 						})}
 					</p>
-				</div>
+				</DetailItem>
 			</form>
 			{retryResult && (
 				<DiscoverySummaryModal

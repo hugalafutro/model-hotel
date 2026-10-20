@@ -1,10 +1,12 @@
 interface DetailItemProps {
 	/** Optional leading icon. Accepts lucide icons and custom icon components. */
 	icon?: React.ComponentType<{ size?: number; className?: string }>;
-	label: string;
+	label: React.ReactNode;
 	value?: string | number | null;
 	mono?: boolean;
 	labelExtra?: React.ReactNode;
+	/** Id of the control rendered as children; the label then names it. */
+	htmlFor?: string;
 	children?: React.ReactNode;
 	/** Extra classes on the tile wrapper (e.g. col-span-2) */
 	className?: string;
@@ -22,6 +24,7 @@ export function DetailItem({
 	value,
 	mono = false,
 	labelExtra,
+	htmlFor,
 	children,
 	className = "",
 	emphasis = "flat",
@@ -29,6 +32,16 @@ export function DetailItem({
 	const displayValue =
 		value === null || value === undefined || value === "" ? "-" : value;
 	const tileClass = emphasis === "stat" ? "ui-stat-tile" : "ui-detail-tile";
+	const labelClass =
+		"flex items-center gap-2 text-[11px] uppercase tracking-wider text-(--text-tertiary) font-medium mb-1";
+	const labelRow = (
+		<>
+			{label}
+			{/* Pushed to the row's end edge so actions (e.g. the Message
+			   copy pill) don't read as part of the label text. */}
+			{labelExtra && <span className="ms-auto">{labelExtra}</span>}
+		</>
+	);
 
 	return (
 		<div className={`flex items-start gap-3 p-3 ${tileClass} ${className}`}>
@@ -38,12 +51,13 @@ export function DetailItem({
 				</div>
 			)}
 			<div className="flex-1 min-w-0">
-				<div className="flex items-center gap-2 text-[11px] uppercase tracking-wider text-(--text-tertiary) font-medium mb-1">
-					{label}
-					{/* Pushed to the row's end edge so actions (e.g. the Message
-					   copy pill) don't read as part of the label text. */}
-					{labelExtra && <span className="ms-auto">{labelExtra}</span>}
-				</div>
+				{htmlFor ? (
+					<label htmlFor={htmlFor} className={labelClass}>
+						{labelRow}
+					</label>
+				) : (
+					<div className={labelClass}>{labelRow}</div>
+				)}
 				{children ? (
 					children
 				) : (
