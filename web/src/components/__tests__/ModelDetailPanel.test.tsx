@@ -495,17 +495,17 @@ describe("ModelDetailPanel", () => {
 		expect(screen.queryByText(/Reasoning Effort/i)).not.toBeInTheDocument();
 	});
 
-	it("does NOT show ReasoningEffortSelect when provider doesn't support reasoning_effort (Anthropic)", async () => {
+	it("does NOT show ReasoningEffortSelect when provider doesn't support reasoning_effort (Google)", async () => {
 		const user = userEvent.setup();
-		const anthropicReasoningModel = {
+		const googleReasoningModel = {
 			...mockModel,
 			capabilities: '{"reasoning":true}',
-			provider_name: "Anthropic",
+			provider_name: "Google AI Studio",
 		};
 
 		renderWithProviders(
 			<ModelDetailPanel
-				model={anthropicReasoningModel}
+				model={googleReasoningModel}
 				params={{}}
 				onParamsChange={vi.fn()}
 			/>,
