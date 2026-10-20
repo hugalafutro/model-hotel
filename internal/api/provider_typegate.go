@@ -138,7 +138,7 @@ func hostedAddressKey(raw string) string {
 	scheme := strings.ToLower(u.Scheme)
 	host := strings.ToLower(u.Hostname())
 	// An explicit default port names the same endpoint as none.
-	if port := u.Port(); port != "" && !(scheme == "https" && port == "443") && !(scheme == "http" && port == "80") {
+	if port := u.Port(); port != "" && (scheme != "https" || port != "443") && (scheme != "http" || port != "80") {
 		host += ":" + port
 	}
 	// The escaped path, so an encoded slash stays distinct from a real one.
