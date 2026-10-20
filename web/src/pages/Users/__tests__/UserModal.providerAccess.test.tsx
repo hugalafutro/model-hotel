@@ -361,19 +361,26 @@ describe("UserModal form submit", () => {
 		expect(bodies[0].display_name).toBe("Bob Builder");
 	});
 
-	it("Regression pin: Enter in Reset password does not save the user", async () => {
-		// The reset-password row sits outside the form, so Enter there leaves
-		// the rest of the dialog's edits unsent.
+	it("Regression pin: Enter in Reset password resets it and does not save the user", async () => {
+		// The reset-password row sits inside the form grid, so Enter there is
+		// claimed by the reset and leaves the rest of the dialog's edits unsent.
 		mockCatalog();
 		const bodies = captureWrites();
+		const resets: string[] = [];
+		server.use(
+			http.post("/api/users/:id/password", async ({ request }) => {
+				const body = (await request.json()) as { password: string };
+				resets.push(body.password);
+				return HttpResponse.json({});
+			}),
+		);
 		const { user } = renderWithProviders(
 			<UserModal user={existing} onClose={onClose} onToast={onToast} />,
 		);
 
-		const reset = field("user-reset-password") as HTMLInputElement;
-		expect(reset.form).toBeNull();
-		await user.type(reset, "newpassword1{Enter}");
+		await user.type(field("user-reset-password"), "newpassword1{Enter}");
 
+		await waitFor(() => expect(resets).toEqual(["newpassword1"]));
 		expect(bodies).toHaveLength(0);
 		expect(onClose).not.toHaveBeenCalled();
 	});

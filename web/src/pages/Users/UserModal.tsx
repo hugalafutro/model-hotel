@@ -6,11 +6,7 @@ import { budgetText } from "../../components/budget";
 import { ConfirmDialog } from "../../components/ConfirmDialog";
 import { DeleteConfirmModal } from "../../components/DeleteConfirmModal";
 import { ErrorCallout } from "../../components/ErrorCallout";
-import {
-	FieldRow,
-	FORM_GRID,
-	FORM_GRID_PAIRS,
-} from "../../components/FieldRow";
+import { FieldRow, FORM_GRID_PAIRS } from "../../components/FieldRow";
 import { Modal } from "../../components/Modal";
 import { Toggle } from "../../components/Toggle";
 import { useUserForm } from "./useUserForm";
@@ -77,34 +73,57 @@ export function UserModal({
 		toggleGrant,
 	} = useUserForm({ user, onClose, onToast });
 	const formId = useId();
+	const submitReset = () => {
+		setError(null);
+		if (resetValue.length < 8) {
+			setError(t("users.validation.passwordShort"));
+			return;
+		}
+		resetMutation.mutate();
+	};
 
 	return (
 		<Modal
 			title={isEdit ? t("users.modal.editTitle") : t("users.modal.addTitle")}
 			onClose={onClose}
 			maxWidth="max-w-2xl"
+			scrollable
 			footer={
-				<div className="flex gap-3 justify-end">
-					<button type="button" onClick={onClose} className="ui-btn">
-						{t("users.modal.cancel")}
-					</button>
-					{!managed && (
+				<div className="flex gap-3 justify-between items-center">
+					{isEdit && !managed && !isSelf ? (
 						<button
-							type="submit"
-							form={formId}
-							disabled={saveMutation.isPending}
-							className="ui-btn ui-btn-primary"
-							data-testid="user-modal-save"
+							type="button"
+							onClick={() => setConfirmDelete(true)}
+							className="ui-btn ui-btn-danger"
+							data-testid="user-modal-delete"
 						>
-							{isEdit ? t("users.modal.save") : t("users.modal.create")}
+							{t("users.modal.deleteButton")}
 						</button>
+					) : (
+						<span />
 					)}
+					<div className="flex gap-3">
+						<button type="button" onClick={onClose} className="ui-btn">
+							{t("users.modal.cancel")}
+						</button>
+						{!managed && (
+							<button
+								type="submit"
+								form={formId}
+								disabled={saveMutation.isPending}
+								className="ui-btn ui-btn-primary"
+								data-testid="user-modal-save"
+							>
+								{isEdit ? t("users.modal.save") : t("users.modal.create")}
+							</button>
+						)}
+					</div>
 				</div>
 			}
 		>
 			{/* A form so Enter saves and the browser checks the email and the
-			   limit bounds; the reset-password section stays outside it, so
-			   Enter there does not save the whole user. */}
+			   limit bounds. Enter in the reset-password field resets the
+			   password instead of saving the whole user. */}
 			<form
 				id={formId}
 				onSubmit={(e) => {
@@ -200,6 +219,72 @@ export function UserModal({
 							: t("users.modal.roleUserHint")}
 					</p>
 				</FieldRow>
+
+				{isEdit && (
+					<FieldRow
+						label={t("users.modal.enabled")}
+						fieldClassName="sm:col-span-3 sm:pt-2"
+					>
+						<Toggle
+							checked={enabled}
+							onChange={setEnabled}
+							disabled={isSelf || managed}
+							ariaLabel={t("users.modal.enabled")}
+						/>
+					</FieldRow>
+				)}
+
+				{isEdit && !managed && (
+					<>
+						<FieldRow
+							label={t("users.modal.resetPassword")}
+							htmlFor="user-reset-password"
+							fieldClassName="sm:col-span-3"
+						>
+							<div className="flex flex-col gap-2 sm:flex-row">
+								<input
+									id="user-reset-password"
+									type="password"
+									value={resetValue}
+									onChange={(e) => setResetValue(e.target.value)}
+									onKeyDown={(e) => {
+										if (e.key === "Enter") {
+											e.preventDefault();
+											submitReset();
+										}
+									}}
+									className="ui-input flex-1 min-w-0"
+									autoComplete="new-password"
+									placeholder={t("users.modal.passwordPlaceholder")}
+								/>
+								<button
+									type="button"
+									onClick={submitReset}
+									disabled={resetMutation.isPending}
+									className="ui-btn"
+								>
+									{t("users.modal.resetButton")}
+								</button>
+							</div>
+							<p className="ui-hint mt-1">{t("users.modal.resetHint")}</p>
+						</FieldRow>
+
+						{user?.totp_enabled && (
+							<div className="sm:col-span-4">
+								<button
+									type="button"
+									onClick={() => setConfirmTotpReset(true)}
+									disabled={totpResetMutation.isPending}
+									className="ui-btn w-full"
+									data-testid="user-modal-totp-reset"
+								>
+									{t("users.modal.totpResetButton")}
+								</button>
+								<p className="ui-hint mt-1">{t("users.modal.totpResetHint")}</p>
+							</div>
+						)}
+					</>
+				)}
 
 				{role === "user" && (
 					<fieldset className="sm:col-span-4">
@@ -380,87 +465,12 @@ export function UserModal({
 					</div>
 				</fieldset>
 
-				{isEdit && (
-					<div className="sm:col-span-4 flex items-center justify-between">
-						<span className="ui-label">{t("users.modal.enabled")}</span>
-						<Toggle
-							checked={enabled}
-							onChange={setEnabled}
-							disabled={isSelf || managed}
-							ariaLabel={t("users.modal.enabled")}
-						/>
-					</div>
-				)}
-
 				{managed && isEdit && (
 					<p data-testid="managed-note" className="sm:col-span-4 ui-hint">
 						{t("settings.managed.sectionNote")}
 					</p>
 				)}
 			</form>
-
-			{isEdit && !managed && (
-				<div className={`mt-4 border-t border-gray-700 pt-4 ${FORM_GRID}`}>
-					<FieldRow
-						label={t("users.modal.resetPassword")}
-						htmlFor="user-reset-password"
-					>
-						<div className="flex flex-col gap-2 sm:flex-row">
-							<input
-								id="user-reset-password"
-								type="password"
-								value={resetValue}
-								onChange={(e) => setResetValue(e.target.value)}
-								className="ui-input flex-1 min-w-0"
-								autoComplete="new-password"
-								placeholder={t("users.modal.passwordPlaceholder")}
-							/>
-							<button
-								type="button"
-								onClick={() => {
-									setError(null);
-									if (resetValue.length < 8) {
-										setError(t("users.validation.passwordShort"));
-										return;
-									}
-									resetMutation.mutate();
-								}}
-								disabled={resetMutation.isPending}
-								className="ui-btn"
-							>
-								{t("users.modal.resetButton")}
-							</button>
-						</div>
-						<p className="ui-hint mt-1">{t("users.modal.resetHint")}</p>
-					</FieldRow>
-
-					{user?.totp_enabled && (
-						<div className="sm:col-span-2">
-							<button
-								type="button"
-								onClick={() => setConfirmTotpReset(true)}
-								disabled={totpResetMutation.isPending}
-								className="ui-btn w-full"
-								data-testid="user-modal-totp-reset"
-							>
-								{t("users.modal.totpResetButton")}
-							</button>
-							<p className="ui-hint mt-1">{t("users.modal.totpResetHint")}</p>
-						</div>
-					)}
-
-					{!isSelf && (
-						<button
-							type="button"
-							onClick={() => setConfirmDelete(true)}
-							className="sm:col-span-2 ui-btn ui-btn-danger w-full"
-							data-testid="user-modal-delete"
-						>
-							{t("users.modal.deleteButton")}
-						</button>
-					)}
-				</div>
-			)}
 
 			{confirmDelete && user && (
 				<DeleteConfirmModal
