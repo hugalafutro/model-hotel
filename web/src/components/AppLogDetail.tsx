@@ -140,7 +140,9 @@ export function AppLogDetail({
 					label={t("components.appLogDetail.message")}
 					labelExtra={
 						<CopyablePill
-							text={message}
+							// The stored line, not the decoded display form: "raw" means
+							// what the row holds, escapes and all.
+							text={log.message}
 							displayText={t("components.appLogDetail.copyRaw")}
 							tooltip={t("components.appLogDetail.copyMessage")}
 							textClassName="text-[11px] uppercase tracking-wider"

@@ -82,8 +82,11 @@ func (h *Handler) rejectDuplicateLocalServer(w http.ResponseWriter, r *http.Requ
 // key they are one account twice: the same models discovered again, an auto
 // failover group of twins, and both rows draining one upstream quota. Keyless
 // providers are left alone: with no key there is nothing to be the same. The
-// existing rows are compared by their decrypted key, so the check is exact. It
-// writes the error and reports false when the pair is taken.
+// existing rows are compared by their decrypted key, so the check is exact,
+// read through the key cache so a busy provider costs no Argon2id round. Two
+// creates racing each other can both pass: this is a usability guard like the
+// address one, not a uniqueness constraint. It writes the error and reports
+// false when the pair is taken.
 func (h *Handler) rejectDuplicateKey(w http.ResponseWriter, r *http.Request, baseURL, apiKey string, excludeID uuid.UUID) bool {
 	if apiKey == "" {
 		return true
@@ -99,7 +102,7 @@ func (h *Handler) rejectDuplicateKey(w http.ResponseWriter, r *http.Request, bas
 		if p.ID == excludeID || len(p.EncryptedKey) == 0 || !sameHostedAddress(p.BaseURL, baseURL) {
 			continue
 		}
-		stored, decErr := auth.Decrypt(p.EncryptedKey, p.KeyNonce, p.KeySalt, h.cfg.MasterKey)
+		stored, decErr := auth.DecryptCached(p.EncryptedKey, p.KeyNonce, p.KeySalt, h.cfg.MasterKey)
 		if decErr != nil {
 			// A key this master key cannot read is not one the new provider can
 			// duplicate in any way that matters here.

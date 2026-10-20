@@ -354,7 +354,7 @@ func (h *Handler) acceptProviderKeyPair(w http.ResponseWriter, r *http.Request, 
 	case req.APIKey != nil:
 		apiKey = *req.APIKey
 	case len(current.EncryptedKey) > 0:
-		plain, decErr := auth.Decrypt(current.EncryptedKey, current.KeyNonce, current.KeySalt, h.cfg.MasterKey)
+		plain, decErr := auth.DecryptCached(current.EncryptedKey, current.KeyNonce, current.KeySalt, h.cfg.MasterKey)
 		if decErr != nil {
 			// An unreadable stored key cannot be shown to duplicate anything.
 			debuglog.Warn("provider: could not decrypt key for the duplicate check", "provider_id", id, "error", decErr)
