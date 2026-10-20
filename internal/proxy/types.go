@@ -478,6 +478,14 @@ type requestState struct {
 	// per attempt and a later attempt that did not replace lastReqErr (a
 	// refusal) would otherwise leave the class default behind.
 	terminalRateLimit rateLimitVerdict
+	// routedFailure is the latest provider-side failure of a candidate that
+	// had a route for the body (see isRoutedFailure), with the 429 verdict that
+	// stood when it was recorded. A refusal of the caller's body never becomes
+	// the terminal verdict while one exists: busy skips recorded after the
+	// failure may have displaced it from lastReqErr, and the refusal would
+	// otherwise turn a 502 a retry could clear into a 400.
+	routedFailure          reqError
+	routedFailureRateLimit rateLimitVerdict
 	// attemptRefused marks the current attempt as one whose request was never
 	// built because the translation refused the caller's body: no provider
 	// was contacted, so the loop moves on without a backoff.
@@ -505,39 +513,6 @@ type requestState struct {
 	// a failure exit, or the saturated-429 handler gets there first.
 	inflightEnabled bool
 	attemptSlot     *attemptSlot
-}
-
-// setReqErr records a failed attempt's structured cause as the terminal
-// verdict so far and keeps the rendered lastErr string in sync. Every
-// failover-loop failure goes through here, so the exhaustion path always has a
-// structured error to render and classify.
-//
-// Underlying is the one field that can hold upstream text (an SSE error frame,
-// a provider's sentence, a transport error quoting what came off the wire), and
-// the exhaustion path renders it into the row's error_message, so it is masked
-// and then fenced here, once, before anything reads it. Masked first, the order
-// fencedFrameMessage uses: a provider is free to quote the operator's key back,
-// and the row reaches the dashboard. Kind,
-// Detail and Hint are written by this package and are never fenced, which is
-// what keeps a prompt quoting gateway wording from blanking the gateway's own
-// diagnosis of the failure.
-func (st *requestState) setReqErr(e reqError) {
-	// A refusal of the caller's body (a translation that cannot carry it) does
-	// not displace ANOTHER candidate's provider-side failure as the terminal
-	// verdict: that candidate had a route for the content and a retry may serve
-	// it, which a 400 would deny. The same candidate's earlier failure (a busy
-	// skip before the slot freed and the body was refused) and this gateway's
-	// own internal error say nothing about a route, so the refusal replaces
-	// them. A candidate is its provider AND its model: one provider can serve a
-	// model with a route for the body beside one without (OpenCode's GPT and
-	// Claude models). Sequential and hedged attempts both land here.
-	if prev := st.lastReqErr; e.Kind == KindValidation && prev.Kind != "" && prev.Kind != KindValidation && prev.Kind != KindInternal && (prev.Provider != e.Provider || prev.Model != e.Model) {
-		return
-	}
-	e.Underlying = st.logData.fence().fenceUpstream(string(st.logData.masks().mask([]byte(e.Underlying))))
-	st.lastReqErr = e
-	st.terminalRateLimit = st.rateLimit
-	st.lastErr = e.render()
 }
 
 // sentChatCompletionsBody reports whether the current attempt POSTed an OpenAI

@@ -513,7 +513,11 @@ func mediaPart(u string) (genPart, bool) {
 		if !found || data == "" || len(meta) < len(marker) || !strings.EqualFold(meta[len(meta)-len(marker):], marker) {
 			return genPart{}, false
 		}
-		return genPart{InlineData: &genBlob{MimeType: meta[:len(meta)-len(marker)], Data: data}}, true
+		mime := meta[:len(meta)-len(marker)]
+		if mime == "" {
+			mime = "text/plain" // RFC 2397's default for an omitted media type
+		}
+		return genPart{InlineData: &genBlob{MimeType: mime, Data: data}}, true
 	}
 	return genPart{FileData: &genFileData{FileURI: u}}, true
 }
