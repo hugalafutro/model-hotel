@@ -16,29 +16,58 @@ import { Audit } from "../index";
 
 // Scroll mode is a virtual table, and jsdom lays nothing out: give the scroll
 // box (the only tabIndex=-1 element) and each row a height, so the virtualizer
-// mounts rows the way a browser would.
+// mounts rows the way a browser would. The virtualizer reads the box through
+// clientHeight (virtual-core 3.19.6, borders and scrollbars excluded) and each
+// row through offsetHeight, so both answer. The box also reports a long list
+// (scrollHeight well past its height), so the hook's fill-on-mount does not
+// pull a second page under tests that are about something else; a test that
+// needs another geometry sets it on the box itself.
 function mockLayout() {
-	const original = Object.getOwnPropertyDescriptor(
-		HTMLElement.prototype,
-		"offsetHeight",
+	const props = ["offsetHeight", "clientHeight", "scrollHeight"] as const;
+	const originals = props.map(
+		(p) =>
+			[p, Object.getOwnPropertyDescriptor(HTMLElement.prototype, p)] as const,
 	);
-	Object.defineProperty(HTMLElement.prototype, "offsetHeight", {
-		configurable: true,
-		get(this: HTMLElement) {
-			if (this.getAttribute("tabindex") === "-1") return 600;
-			if (this.tagName === "TR") return 45;
-			return 0;
-		},
-	});
+	for (const p of props) {
+		Object.defineProperty(HTMLElement.prototype, p, {
+			configurable: true,
+			get(this: HTMLElement) {
+				if (this.getAttribute("tabindex") === "-1")
+					return p === "scrollHeight" ? 5000 : 600;
+				if (this.tagName === "TR" && p !== "scrollHeight") return 45;
+				return 0;
+			},
+		});
+	}
 	return () => {
-		if (original)
-			Object.defineProperty(HTMLElement.prototype, "offsetHeight", original);
+		for (const [p, original] of originals) {
+			// jsdom defines clientHeight and scrollHeight on Element.prototype, so
+			// HTMLElement has no descriptor of its own to put back: the mock is
+			// deleted, or it would leak into every later test in the worker.
+			if (original) Object.defineProperty(HTMLElement.prototype, p, original);
+			else
+				delete (HTMLElement.prototype as unknown as Record<string, unknown>)[p];
+		}
 	};
 }
 
 /** The scroll box holding the rows. */
 function scroller(rowText: string): HTMLElement {
 	return screen.getByText(rowText).closest('[tabindex="-1"]') as HTMLElement;
+}
+
+/** Scrolls the box to its foot (a 1350px list, 600px box, 750px down) and fires the scroll. */
+function scrollToFoot(box: HTMLElement) {
+	Object.defineProperty(box, "scrollHeight", {
+		configurable: true,
+		value: 1350,
+	});
+	Object.defineProperty(box, "clientHeight", {
+		configurable: true,
+		value: 600,
+	});
+	box.scrollTop = 750;
+	fireEvent.scroll(box);
 }
 
 /**
@@ -206,8 +235,8 @@ describe("Audit page", () => {
 		renderWithProviders(<Audit />);
 
 		expect(await screen.findByText("/first-page")).toBeInTheDocument();
-		// A scroll with the foot in view (jsdom: no scroll height) -> next page.
-		fireEvent.scroll(scroller("/first-page"));
+		// A scroll with the foot in view -> next page.
+		scrollToFoot(scroller("/first-page"));
 		expect(await screen.findByText("/second-page")).toBeInTheDocument();
 		// The first page stays appended above the second.
 		expect(screen.getByText("/first-page")).toBeInTheDocument();
@@ -322,7 +351,7 @@ describe("Audit page", () => {
 		renderWithProviders(<Audit />);
 
 		expect(await screen.findByText("/first-page")).toBeInTheDocument();
-		fireEvent.scroll(scroller("/first-page"));
+		scrollToFoot(scroller("/first-page"));
 		// Spinner is visible while the next page is in flight.
 		expect(
 			await screen.findByRole("status", { name: "Loading" }),

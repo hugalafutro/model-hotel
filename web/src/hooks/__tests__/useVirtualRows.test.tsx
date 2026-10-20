@@ -76,27 +76,37 @@ function Harness({
 }
 
 /**
- * TanStack Virtual sizes the scroller and each row from offsetHeight, which
- * jsdom leaves at 0; the getter below answers with the height `data-height`
- * declares (600 for the scroller), so the real measurement path runs.
+ * TanStack Virtual sizes the scroller from clientHeight (virtual-core 3.19.6)
+ * and each row from offsetHeight, both of which jsdom leaves at 0; the getters
+ * below answer with the height `data-height` declares (600 for the scroller),
+ * so the real measurement path runs.
  */
 function mockOffsetHeights() {
-	const original = Object.getOwnPropertyDescriptor(
-		HTMLElement.prototype,
-		"offsetHeight",
+	const props = ["offsetHeight", "clientHeight"] as const;
+	const originals = props.map(
+		(p) =>
+			[p, Object.getOwnPropertyDescriptor(HTMLElement.prototype, p)] as const,
 	);
-	Object.defineProperty(HTMLElement.prototype, "offsetHeight", {
-		configurable: true,
-		get(this: HTMLElement) {
-			if (this.hasAttribute("data-height"))
-				return Number(this.getAttribute("data-height"));
-			if (this.getAttribute("data-testid") === "scroller") return 600;
-			return 0;
-		},
-	});
+	for (const p of props) {
+		Object.defineProperty(HTMLElement.prototype, p, {
+			configurable: true,
+			get(this: HTMLElement) {
+				if (this.hasAttribute("data-height"))
+					return Number(this.getAttribute("data-height"));
+				if (this.getAttribute("data-testid") === "scroller") return 600;
+				return 0;
+			},
+		});
+	}
 	return () => {
-		if (original)
-			Object.defineProperty(HTMLElement.prototype, "offsetHeight", original);
+		for (const [p, original] of originals) {
+			// jsdom defines clientHeight on Element.prototype, so HTMLElement has
+			// no descriptor of its own to put back: the mock is deleted, or it
+			// would leak into every later test in the worker.
+			if (original) Object.defineProperty(HTMLElement.prototype, p, original);
+			else
+				delete (HTMLElement.prototype as unknown as Record<string, unknown>)[p];
+		}
 	};
 }
 
