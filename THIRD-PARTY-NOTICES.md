@@ -23,8 +23,8 @@ The web UI embeds the JetBrains Mono, Onest, and Schibsted Grotesk typefaces, an
 | [github.com/coreos/go-oidc/v3](https://github.com/coreos/go-oidc/v3) | v3.21.0 | Go | Apache-2.0 |
 | [github.com/dustin/go-humanize](https://github.com/dustin/go-humanize) | v1.0.1 | Go | MIT |
 | [github.com/fxamacker/cbor/v2](https://github.com/fxamacker/cbor/v2) | v2.9.6 | Go | MIT |
-| [github.com/go-chi/chi/v5](https://github.com/go-chi/chi/v5) | v5.3.2 | Go | MIT |
-| [github.com/go-jose/go-jose/v4](https://github.com/go-jose/go-jose/v4) | v4.1.5 | Go | Apache-2.0 |
+| [github.com/go-chi/chi/v5](https://github.com/go-chi/chi/v5) | v5.5.0 | Go | MIT |
+| [github.com/go-jose/go-jose/v4](https://github.com/go-jose/go-jose/v4) | v4.1.6 | Go | Apache-2.0 |
 | [github.com/go-logr/logr](https://github.com/go-logr/logr) | v1.4.4 | Go | Apache-2.0 |
 | [github.com/go-logr/stdr](https://github.com/go-logr/stdr) | v1.2.2 | Go | Apache-2.0 |
 | [github.com/go-viper/mapstructure/v2](https://github.com/go-viper/mapstructure/v2) | v2.5.0 | Go | MIT |
@@ -98,10 +98,10 @@ The web UI embeds the JetBrains Mono, Onest, and Schibsted Grotesk typefaces, an
 | [@simplewebauthn/browser](https://github.com/MasterKale/SimpleWebAuthn/tree/master/packages/browser#readme) | 14.0.0 | npm | MIT |
 | [@standard-schema/spec](https://standardschema.dev) | 1.1.0 | npm | MIT |
 | [@standard-schema/utils](https://github.com/standard-schema/standard-schema#readme) | 0.3.0 | npm | MIT |
-| [@tanstack/query-core](https://tanstack.com/query) | 5.104.1 | npm | MIT |
-| [@tanstack/react-query](https://tanstack.com/query) | 5.104.1 | npm | MIT |
-| [@tanstack/react-virtual](https://tanstack.com/virtual) | 3.14.14 | npm | MIT |
-| [@tanstack/virtual-core](https://tanstack.com/virtual) | 3.18.0 | npm | MIT |
+| [@tanstack/query-core](https://tanstack.com/query) | 5.104.3 | npm | MIT |
+| [@tanstack/react-query](https://tanstack.com/query) | 5.104.3 | npm | MIT |
+| [@tanstack/react-virtual](https://tanstack.com/virtual) | 3.14.21 | npm | MIT |
+| [@tanstack/virtual-core](https://tanstack.com/virtual) | 3.19.6 | npm | MIT |
 | [@types/d3-array](https://github.com/DefinitelyTyped/DefinitelyTyped/tree/master/types/d3-array) | 3.2.2 | npm | MIT |
 | [@types/d3-color](https://github.com/DefinitelyTyped/DefinitelyTyped/tree/master/types/d3-color) | 3.1.3 | npm | MIT |
 | [@types/d3-ease](https://github.com/DefinitelyTyped/DefinitelyTyped/tree/master/types/d3-ease) | 3.0.2 | npm | MIT |
@@ -181,7 +181,7 @@ The web UI embeds the JetBrains Mono, Onest, and Schibsted Grotesk typefaces, an
 | [html-parse-stringify](https://github.com/i18next/html-parse-stringify) | 4.0.1 | npm | MIT |
 | [html-url-attributes](https://github.com/rehypejs/rehype-minify/tree/main#readme) | 3.0.1 | npm | MIT |
 | [html-void-elements](https://github.com/wooorm/html-void-elements#readme) | 3.0.0 | npm | MIT |
-| [i18next](https://www.i18next.com) | 26.4.3 | npm | MIT |
+| [i18next](https://www.i18next.com) | 26.4.7 | npm | MIT |
 | [i18next-browser-languagedetector](https://github.com/i18next/i18next-browser-languageDetector) | 8.2.1 | npm | MIT |
 | [immer](https://github.com/immerjs/immer#readme) | 11.1.15 | npm | MIT |
 | [immer](https://github.com/immerjs/immer#readme) | 11.1.21 | npm | MIT |
@@ -254,10 +254,10 @@ The web UI embeds the JetBrains Mono, Onest, and Schibsted Grotesk typefaces, an
 | [pngjs](https://github.com/lukeapage/pngjs) | 5.0.0 | npm | MIT |
 | [property-information](https://github.com/wooorm/property-information#readme) | 7.2.0 | npm | MIT |
 | [qrcode](http://github.com/soldair/node-qrcode) | 1.5.4 | npm | MIT |
-| [react](https://react.dev/) | 19.3.0 | npm | MIT |
+| [react](https://react.dev/) | 19.3.1 | npm | MIT |
 | [react-colorful](https://omgovich.github.io/react-colorful) | 5.8.1 | npm | MIT |
-| [react-dom](https://react.dev/) | 19.3.0 | npm | MIT |
-| [react-i18next](https://github.com/i18next/react-i18next) | 17.0.16 | npm | MIT |
+| [react-dom](https://react.dev/) | 19.3.1 | npm | MIT |
+| [react-i18next](https://github.com/i18next/react-i18next) | 17.0.20 | npm | MIT |
 | [react-is](https://react.dev/) | 19.2.6 | npm | MIT |
 | [react-is](https://react.dev/) | 19.2.7 | npm | MIT |
 | [react-markdown](https://github.com/remarkjs/react-markdown#readme) | 10.1.0 | npm | MIT |
@@ -763,7 +763,7 @@ SOFTWARE.
 
 copyright notice that is included in or attached to the work
 
-Applies to: `github.com/go-jose/go-jose/v4@v4.1.5`, `github.com/go-logr/stdr@v1.2.2`, `github.com/google/go-tpm@v0.9.8`, `go.opentelemetry.io/auto/sdk@v1.2.1`, `go.opentelemetry.io/proto/otlp@v1.11.0`, `google.golang.org/genproto/googleapis/api@v0.0.0-20260928230214-8a89bd6388cc`, `google.golang.org/genproto/googleapis/rpc@v0.0.0-20260928230214-8a89bd6388cc`
+Applies to: `github.com/go-jose/go-jose/v4@v4.1.6`, `github.com/go-logr/stdr@v1.2.2`, `github.com/google/go-tpm@v0.9.8`, `go.opentelemetry.io/auto/sdk@v1.2.1`, `go.opentelemetry.io/proto/otlp@v1.11.0`, `google.golang.org/genproto/googleapis/api@v0.0.0-20260928230214-8a89bd6388cc`, `google.golang.org/genproto/googleapis/rpc@v0.0.0-20260928230214-8a89bd6388cc`
 
 ```
 Apache License
@@ -1009,7 +1009,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 Copyright (c) Meta Platforms, Inc. and affiliates.
 
-Applies to: `react@19.3.0`, `react-dom@19.3.0`, `react-is@19.2.6`, `react-is@19.2.7`, `scheduler@0.28.0`, `use-sync-external-store@1.7.0`
+Applies to: `react@19.3.1`, `react-dom@19.3.1`, `react-is@19.2.6`, `react-is@19.2.7`, `scheduler@0.28.0`, `use-sync-external-store@1.7.0`
 
 ```
 MIT License
@@ -1069,7 +1069,7 @@ SOFTWARE.
 
 Copyright (c) 2021-present Tanner Linsley
 
-Applies to: `@tanstack/query-core@5.104.1`, `@tanstack/react-query@5.104.1`, `@tanstack/react-virtual@3.14.14`, `@tanstack/virtual-core@3.18.0`
+Applies to: `@tanstack/query-core@5.104.3`, `@tanstack/react-query@5.104.3`, `@tanstack/react-virtual@3.14.21`, `@tanstack/virtual-core@3.19.6`
 
 ```
 MIT License
@@ -1824,7 +1824,7 @@ SOFTWARE.
 
 Copyright (c) 2015-present Peter Kieltyka (https://github.com/pkieltyka), Google Inc.
 
-Applies to: `github.com/go-chi/chi/v5@v5.3.2`
+Applies to: `github.com/go-chi/chi/v5@v5.5.0`
 
 ```
 Copyright (c) 2015-present Peter Kieltyka (https://github.com/pkieltyka), Google Inc.
@@ -7423,7 +7423,7 @@ THE SOFTWARE.
 
 Copyright (c) 2011-present i18next
 
-Applies to: `i18next@26.4.3`
+Applies to: `i18next@26.4.7`
 
 ```
 The MIT License (MIT)
@@ -7809,7 +7809,7 @@ SOFTWARE.
 
 Copyright (c) 2015-present i18next
 
-Applies to: `react-i18next@17.0.16`
+Applies to: `react-i18next@17.0.20`
 
 ```
 The MIT License (MIT)
