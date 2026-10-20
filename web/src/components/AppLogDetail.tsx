@@ -71,7 +71,9 @@ export function AppLogDetail({
 			label: t("components.appLogDetail.openProvider"),
 		});
 		if (a.key === "provider") {
-			return providerLink(providerName ?? a.value);
+			// A name next to an id the instance no longer holds is stale: a
+			// provider created since under that name is not this one.
+			return providerUnknown ? null : providerLink(providerName ?? a.value);
 		}
 		if (a.key === "provider_id") {
 			return providerName ? providerLink(providerName) : null;

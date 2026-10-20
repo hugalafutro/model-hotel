@@ -338,6 +338,34 @@ func TestRejectDuplicateKey(t *testing.T) {
 	}
 }
 
+// The address key behind the guard: what counts as one endpoint and what does
+// not, on the spellings the URL grammar allows.
+func TestHostedAddressKey(t *testing.T) {
+	same := [][2]string{
+		{"https://openrouter.ai/api/v1", "https://openrouter.ai/api/v1/"},
+		{"https://openrouter.ai/api/v1", "HTTPS://OpenRouter.ai:443/api/v1"},
+		{"http://host/v1", "http://host:80/v1"},
+		{"https://host/api%2fv1", "https://host/api%2Fv1"},
+	}
+	for _, p := range same {
+		if hostedAddressKey(p[0]) != hostedAddressKey(p[1]) {
+			t.Errorf("%q and %q should be one endpoint: %q vs %q", p[0], p[1], hostedAddressKey(p[0]), hostedAddressKey(p[1]))
+		}
+	}
+	distinct := [][2]string{
+		{"https://host/api/v1", "https://host/API/v1"},
+		{"https://host/api/v1", "https://host/api%2Fv1"},
+		{"https://host/v1", "https://host:8443/v1"},
+		{"https://[2606:4700::1111]:8443/v1", "https://[2606:4700::1111:8443]/v1"},
+		{"https://host/v1?a=1", "https://host/v1?a=2"},
+	}
+	for _, p := range distinct {
+		if hostedAddressKey(p[0]) == hostedAddressKey(p[1]) {
+			t.Errorf("%q and %q should be distinct endpoints, both %q", p[0], p[1], hostedAddressKey(p[0]))
+		}
+	}
+}
+
 // A stored key the current master key cannot read is skipped, not treated as a
 // match and not an error: the add proceeds.
 func TestRejectDuplicateKey_UndecryptableRowIsSkipped(t *testing.T) {

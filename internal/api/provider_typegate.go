@@ -3,8 +3,10 @@ package api
 import (
 	"crypto/subtle"
 	"errors"
+	"net"
 	"net/http"
 	"net/url"
+	"regexp"
 	"strings"
 
 	"github.com/google/uuid"
@@ -137,17 +139,25 @@ func hostedAddressKey(raw string) string {
 	}
 	scheme := strings.ToLower(u.Scheme)
 	host := strings.ToLower(u.Hostname())
-	// An explicit default port names the same endpoint as none.
-	if port := u.Port(); port != "" && (scheme != "https" || port != "443") && (scheme != "http" || port != "80") {
-		host += ":" + port
+	// An explicit default port names the same endpoint as none. An IPv6
+	// literal keeps its brackets, so its last group cannot read as a port.
+	switch port := u.Port(); {
+	case port != "" && (scheme != "https" || port != "443") && (scheme != "http" || port != "80"):
+		host = net.JoinHostPort(host, port)
+	case strings.Contains(host, ":"):
+		host = "[" + host + "]"
 	}
-	// The escaped path, so an encoded slash stays distinct from a real one.
-	key := scheme + "://" + host + strings.TrimRight(u.EscapedPath(), "/")
+	// The escaped path, so an encoded slash stays distinct from a real one,
+	// with the escapes' hex digits in one case so %2f and %2F are one path.
+	path := percentEscape.ReplaceAllStringFunc(u.EscapedPath(), strings.ToUpper)
+	key := scheme + "://" + host + strings.TrimRight(path, "/")
 	if u.RawQuery != "" {
 		key += "?" + u.RawQuery
 	}
 	return key
 }
+
+var percentEscape = regexp.MustCompile(`%[0-9a-fA-F]{2}`)
 
 func writeProviderTypeGateError(w http.ResponseWriter, body providerTypeGateResponse) {
 	writeJSONStatus(w, http.StatusBadRequest, body)

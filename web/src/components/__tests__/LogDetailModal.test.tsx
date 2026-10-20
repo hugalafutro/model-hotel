@@ -1366,6 +1366,41 @@ describe("AppLogDetail attributes", () => {
 		});
 	});
 
+	it("links neither name nor model when the line's provider_id is gone", async () => {
+		renderWithProviders(
+			<LogDetailModal
+				log={{
+					...line,
+					message:
+						'probe failed provider_id=gone-000 provider="Old Name" model=gpt-4o',
+					attrs_at: 12,
+				}}
+				type="app"
+				onClose={vi.fn()}
+			/>,
+		);
+		// The providers list has answered once the id tile is up without a link.
+		await screen.findByText("gone-000");
+		await waitFor(() => {
+			expect(screen.getByText("Old Name")).toBeInTheDocument();
+		});
+		expect(screen.queryByTestId("app-log-link-provider")).toBeNull();
+		expect(screen.queryByTestId("app-log-link-provider_id")).toBeNull();
+		expect(screen.queryByTestId("app-log-link-model")).toBeNull();
+	});
+
+	it("offers no source filter for a line with an empty source", () => {
+		renderWithProviders(
+			<LogDetailModal
+				log={{ ...line, source: "" }}
+				type="app"
+				onClose={vi.fn()}
+				onFilterSource={vi.fn()}
+			/>,
+		);
+		expect(screen.queryByTestId("app-log-filter-source")).toBeNull();
+	});
+
 	it("shows a line without attributes whole", () => {
 		renderWithProviders(
 			<LogDetailModal
