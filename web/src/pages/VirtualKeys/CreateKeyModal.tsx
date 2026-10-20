@@ -4,9 +4,12 @@ import { useTranslation } from "react-i18next";
 import {
 	BrainSlashIcon,
 	ChevronRight,
+	DollarSign,
+	Gauge,
 	KeyRound,
 	RotateCcw,
 	ShieldCheck,
+	Zap,
 } from "@/lib/icons";
 import { api } from "../../api/client";
 import type { BudgetPeriod, VirtualKey } from "../../api/types";
@@ -253,6 +256,7 @@ export function CreateKeyModal({
 							[
 								{
 									field: "rps",
+									icon: Gauge,
 									label: "virtualkeys.modal.rateLimitRpsLabel",
 									tooltip: "virtualkeys.tooltip.rps",
 									draft: rateLimitRps,
@@ -260,6 +264,7 @@ export function CreateKeyModal({
 								},
 								{
 									field: "burst",
+									icon: Zap,
 									label: "virtualkeys.modal.rateLimitBurstLabel",
 									tooltip: "virtualkeys.tooltip.burst",
 									draft: rateLimitBurst,
@@ -267,6 +272,7 @@ export function CreateKeyModal({
 								},
 								{
 									field: "tpm",
+									icon: Gauge,
 									label: "virtualkeys.modal.rateLimitTpmLabel",
 									tooltip: "virtualkeys.tooltip.tpm",
 									draft: rateLimitTpm,
@@ -277,6 +283,7 @@ export function CreateKeyModal({
 							<DetailItem
 								key={l.field}
 								emphasis="stat"
+								icon={l.icon}
 								label={breakUnit(t(l.label))}
 								labelExtra={<InfoHint tooltip={t(l.tooltip)} />}
 								htmlFor={`vk-rate-limit-${l.field}`}
@@ -295,6 +302,7 @@ export function CreateKeyModal({
 					</div>
 					<DetailItem
 						emphasis="stat"
+						icon={DollarSign}
 						label={t("budget.label")}
 						labelExtra={<InfoHint tooltip={t("budget.tooltip")} />}
 						className="sm:col-span-2"
