@@ -82,8 +82,27 @@ export function AppLogDetail({
 			// A model named by a provider this instance no longer has would open
 			// another provider's model of the same id; link nothing.
 			if (providerUnknown) return null;
-			const params = new URLSearchParams({ model: a.value });
-			if (providerName) params.set("provider", providerName);
+			// The logged value can be the request's own spelling: a failover
+			// alias (hotel/group) names no stored model, and Provider/model-id
+			// names one through its provider. A model id may itself contain a
+			// slash (anthropic/claude-x on OpenRouter), so the first segment is a
+			// provider only when a provider of that name exists.
+			if (a.value.startsWith("hotel/")) return null;
+			let modelID = a.value;
+			let scope = providerName;
+			const slash = a.value.indexOf("/");
+			if (slash > 0) {
+				const head = a.value.slice(0, slash);
+				const owner = providers?.find(
+					(p) => p.name.toLowerCase() === head.toLowerCase(),
+				);
+				if (owner) {
+					modelID = a.value.slice(slash + 1);
+					scope = owner.name;
+				}
+			}
+			const params = new URLSearchParams({ model: modelID });
+			if (scope) params.set("provider", scope);
 			return {
 				to: `/models?${params}`,
 				label: t("components.appLogDetail.openModel"),

@@ -87,8 +87,9 @@ export function Models() {
 	const [searchParams, setSearchParams] = useSearchParams();
 	const linkedModel = searchParams.get("model");
 	const linkedProvider = searchParams.get("provider");
+	// One cache entry for the whole list, whichever model the link names.
 	const { data: linkedModels } = useQuery({
-		queryKey: ["models", "linked", linkedModel],
+		queryKey: ["models", "linked"],
 		queryFn: () => api.models.list(),
 		enabled: linkedModel !== null,
 	});

@@ -1389,6 +1389,47 @@ describe("AppLogDetail attributes", () => {
 		expect(screen.queryByTestId("app-log-link-model")).toBeNull();
 	});
 
+	it("resolves a Provider/model spelling through the provider list and skips a hotel/ alias", async () => {
+		const open = (model: string) =>
+			renderWithProviders(
+				<LogDetailModal
+					log={{
+						...line,
+						message: `request start model=${model}`,
+						attrs_at: 13,
+					}}
+					type="app"
+					onClose={vi.fn()}
+				/>,
+			);
+
+		// A known provider's name ahead of the slash scopes the link to it.
+		const first = open('"Test Provider/gpt-4o"');
+		await waitFor(() => {
+			expect(screen.getByTestId("app-log-link-model")).toHaveAttribute(
+				"href",
+				"/models?model=gpt-4o&provider=Test+Provider",
+			);
+		});
+		first.unmount();
+
+		// An unknown prefix is part of the model id (OpenRouter spells ids so).
+		const second = open("anthropic/claude-x");
+		await screen.findByText("anthropic/claude-x");
+		await waitFor(() => {
+			expect(screen.getByTestId("app-log-link-model")).toHaveAttribute(
+				"href",
+				"/models?model=anthropic%2Fclaude-x",
+			);
+		});
+		second.unmount();
+
+		// A failover alias names no stored model.
+		open("hotel/primary");
+		expect(screen.getByText("hotel/primary")).toBeInTheDocument();
+		expect(screen.queryByTestId("app-log-link-model")).toBeNull();
+	});
+
 	it("offers no source filter for a line with an empty source", () => {
 		renderWithProviders(
 			<LogDetailModal
