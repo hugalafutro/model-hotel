@@ -934,7 +934,7 @@ func TestTranslateRequest_AdaptiveThinkingRespectsExplicitMaxTokens(t *testing.T
 		{name: "tiny explicit allowance is kept, thinking off", maxTokens: `,"max_tokens":30`, want: 30, wantThinking: false},
 		{name: "tiny explicit max_completion_tokens is kept, thinking off", maxTokens: `,"max_completion_tokens":30`, want: 30, wantThinking: false},
 		{name: "small explicit allowance above the minimum budget thinks", maxTokens: `,"max_tokens":1024`, want: 1024, wantThinking: true},
-		{name: "absent allowance gets the default", maxTokens: "", want: minAdaptiveMaxTokens, wantThinking: true},
+		{name: "absent allowance gets the default", maxTokens: "", want: DefaultMaxTokens, wantThinking: true},
 		{name: "generous allowance is left alone", maxTokens: `,"max_tokens":50000`, want: 50000, wantThinking: true},
 	}
 
@@ -1039,7 +1039,10 @@ func TestTranslateRequest_EmptyPartsAreDropped(t *testing.T) {
 		{"type":"image_url","image_url":{"url":"data:image/png;base64,"}},
 		{"type":"image_url","image_url":{"url":"DATA:image/png;base64,"}},
 		{"type":"refusal","refusal":""},
-		{"text":""}]}]}`)
+		{"text":""},
+		{"image_url":{"url":""}},
+		{"file":{}},
+		{"file":{"file_data":"data:text/plain,"}}]}]}`)
 	if blocks := blocksOf(t, req.Messages[0]); len(blocks) != 1 {
 		t.Fatalf("got %d blocks, want the text alone: %+v", len(blocks), blocks)
 	}

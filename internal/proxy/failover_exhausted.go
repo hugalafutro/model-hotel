@@ -53,7 +53,7 @@ func (h *Handler) failAllExhausted(w http.ResponseWriter, st *requestState, numC
 	// Switching failover_exhaustion_status_429 off restores the 502.
 	if last.Kind == KindProviderSaturated && h.settingsRepo.GetBool(context.Background(), "failover_exhaustion_status_429", true) {
 		status = http.StatusTooManyRequests
-		w.Header().Set("Retry-After", strconv.Itoa(retryAfterSeconds(st.rateLimit.retryAfter)))
+		w.Header().Set("Retry-After", strconv.Itoa(retryAfterSeconds(st.terminalRateLimit.retryAfter)))
 	}
 	st.logData.providerID = uuid.Nil
 	h.failRequest(st.logData, status, last.Kind, logMsg, numCandidates-1, st.startTime, st.parseMs, st.timings, st.cacheHits, st.proxyOverhead)

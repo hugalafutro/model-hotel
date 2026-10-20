@@ -226,13 +226,13 @@ func (h *Handler) runHedgedStreaming(w http.ResponseWriter, r *http.Request, st 
 				h.serveHedgeWinner(w, r, st, candidates[res.idx], res, stallTimeout)
 				return
 			}
+			// The loser's 429 verdict goes onto the shared state first, so
+			// setReqErr records it beside the reqError and a terminal all-busy
+			// exhaustion answers with the provider's own Retry-After.
+			st.rateLimit = res.rateLimit
 			st.setReqErr(res.reqErr)
 			st.logData.appendAttemptRecord(hedgeLoserRecord(res, candidates[res.idx], launchedAt[res.idx], st.logData.fence()))
 			charges.charge(st.logData, candidates, res.idx)
-			// Carry the loser's 429 verdict onto the shared state beside its
-			// reqError, so a terminal all-busy exhaustion answers with the
-			// provider's own Retry-After rather than the class default.
-			st.rateLimit = res.rateLimit
 			if res.busy {
 				busyCandidates = append(busyCandidates, candidates[res.idx])
 			}

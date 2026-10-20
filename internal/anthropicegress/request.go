@@ -444,8 +444,9 @@ func foldResponseFormat(system string, raw json.RawMessage) string {
 // max_tokens is the other shared rule. A limit the caller set explicitly is a
 // spending cap and is never raised: the budget is capped at half of it so the
 // answer keeps the other half, and thinking stays off when that half is below
-// minThinkingBudget. A defaulted limit is the gateway's own number and grows
-// to make room.
+// minThinkingBudget. A defaulted limit (DefaultMaxTokens) is the gateway's own
+// number: the budget dialect grows it to hold the budget and a full answer, the
+// adaptive dialect finds it large enough as it is.
 func applyThinking(out *antRequest, reasoningEffort string, dialect ThinkingDialect, explicitLimit bool) {
 	effort := strings.ToLower(strings.TrimSpace(reasoningEffort))
 
@@ -484,16 +485,13 @@ func applyThinking(out *antRequest, reasoningEffort string, dialect ThinkingDial
 		// budget to keep max_tokens clear of. It still needs room for thinking AND
 		// an answer: a small allowance with a big effort gets a stream of pure
 		// thinking cut off before any text (observed live: max_tokens 30 spent 29
-		// thinking tokens and returned no content). A defaulted allowance is
-		// raised; an explicit one below the smallest budget leaves thinking off.
+		// thinking tokens and returned no content), so an explicit allowance
+		// below the smallest budget leaves thinking off.
 		if explicitLimit && out.MaxTokens < minThinkingBudget {
 			return
 		}
 		out.Thinking = &antThinking{Type: "adaptive"}
 		out.OutputConfig = &antOutputConfig{Effort: level}
-		if !explicitLimit && out.MaxTokens < minAdaptiveMaxTokens {
-			out.MaxTokens = minAdaptiveMaxTokens
-		}
 	}
 	out.Temperature, out.TopP, out.TopK = nil, nil, nil
 }
@@ -503,12 +501,6 @@ func applyThinking(out *antRequest, reasoningEffort string, dialect ThinkingDial
 func forcesToolUse(c *antToolChoice) bool {
 	return c != nil && (c.Type == "any" || c.Type == "tool")
 }
-
-// minAdaptiveMaxTokens is the allowance an adaptive-thinking request is raised
-// to when the caller asked for less. It is DefaultMaxTokens, the same figure a
-// caller who named no budget gets: enough that thinking cannot consume the whole
-// allowance before the answer starts.
-const minAdaptiveMaxTokens = DefaultMaxTokens
 
 // translateMessages converts the OpenAI message list into the Anthropic system
 // prompt plus the conversation turns. system/developer messages lift out of the

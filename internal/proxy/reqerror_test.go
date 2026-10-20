@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"strings"
 	"testing"
+	"time"
 )
 
 func TestCancelOriginToKind(t *testing.T) {
@@ -167,6 +168,9 @@ func TestReqErrorValidationMessages(t *testing.T) {
 	if got := e.render(); got != "invalid request: "+e.Underlying {
 		t.Errorf("render = %q", got)
 	}
+	if got := e.terminalLogMessage(true, 3); got != "invalid request: "+e.Underlying {
+		t.Errorf("log message = %q, want the refusal without an all-providers-failed wrap", got)
+	}
 	if got := (reqError{Kind: KindValidation}).terminalClientMessage("m", false); got != "invalid request for model m" {
 		t.Errorf("client message without a reason = %q", got)
 	}
@@ -197,6 +201,36 @@ func TestSetReqErr_ValidationDoesNotDisplaceProviderFailure(t *testing.T) {
 	st.setReqErr(reqError{Kind: KindProviderError, Attempt: 2, Provider: "OpenAI", Underlying: "HTTP 500"})
 	if st.lastReqErr.Kind != KindProviderError {
 		t.Fatalf("lastReqErr = %+v, want the provider failure to replace a refusal", st.lastReqErr)
+	}
+
+	// The same candidate's earlier busy skip says nothing about a route: its
+	// refusal, once the slot freed and the body was built, is the verdict.
+	st = &requestState{logData: &requestLogData{}}
+	st.setReqErr(reqError{Kind: KindProviderSaturated, Attempt: 0, Provider: "Anthropic"})
+	st.setReqErr(reqError{Kind: KindValidation, Attempt: 1, Provider: "Anthropic", Underlying: "refused"})
+	if st.lastReqErr.Kind != KindValidation {
+		t.Fatalf("lastReqErr = %+v, want the same candidate's refusal", st.lastReqErr)
+	}
+	// This gateway's own internal error is not a route either.
+	st = &requestState{logData: &requestLogData{}}
+	st.setReqErr(reqError{Kind: KindInternal, Attempt: 0, Provider: "OpenAI", Underlying: "boom"})
+	st.setReqErr(reqError{Kind: KindValidation, Attempt: 1, Provider: "Anthropic", Underlying: "refused"})
+	if st.lastReqErr.Kind != KindValidation {
+		t.Fatalf("lastReqErr = %+v, want the refusal over an internal error", st.lastReqErr)
+	}
+}
+
+// The Retry-After the exhaustion path sends belongs to the verdict it renders:
+// a 429 verdict recorded with a provider failure survives a later attempt that
+// reset the per-attempt verdict and did not replace the error.
+func TestSetReqErr_KeepsTheRateLimitVerdictOfTheRecordedError(t *testing.T) {
+	st := &requestState{logData: &requestLogData{}}
+	st.rateLimit = rateLimitVerdict{classified: true, class: rateLimitSaturated, retryAfter: 42 * time.Second}
+	st.setReqErr(reqError{Kind: KindProviderSaturated, Attempt: 0, Provider: "OpenAI"})
+	st.rateLimit = rateLimitVerdict{}
+	st.setReqErr(reqError{Kind: KindValidation, Attempt: 1, Provider: "Anthropic", Underlying: "refused"})
+	if st.terminalRateLimit.retryAfter != 42*time.Second {
+		t.Fatalf("terminalRateLimit = %+v, want the 42s verdict of the kept error", st.terminalRateLimit)
 	}
 }
 

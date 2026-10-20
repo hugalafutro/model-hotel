@@ -79,7 +79,7 @@ func translateBlocks(raw json.RawMessage) ([]antBlock, error) {
 			// for the system and tool roles, unless it carries an image or file
 			// slot, which would be dropped unseen. An empty text block marshals as
 			// {"type":"text"}, which Anthropic rejects — drop it.
-			if p.Type == "" && (p.ImageURL != nil || p.File != nil) {
+			if p.Type == "" && partCarriesMedia(p) {
 				return nil, fmt.Errorf("%w: part %d has no type and carries an image or file", ErrUnsupportedContent, i)
 			}
 			if p.Text == "" {
@@ -124,6 +124,23 @@ func translateBlocks(raw json.RawMessage) ([]antBlock, error) {
 		}
 	}
 	return blocks, nil
+}
+
+// partCarriesMedia reports whether a part's image or file slot holds
+// something: a URL, inline data, a file_url or a file_id. An empty slot
+// carries nothing, like an empty text part.
+func partCarriesMedia(p oaiContentPart) bool {
+	if p.ImageURL != nil && p.ImageURL.URL != "" && !emptyDataURI(p.ImageURL.URL) {
+		return true
+	}
+	if p.File != nil {
+		f := *p.File
+		if emptyDataURI(f.FileData) {
+			f.FileData = ""
+		}
+		return f != (oaiFile{})
+	}
+	return false
 }
 
 // emptyDataURI reports a well-formed data: URI with nothing in it

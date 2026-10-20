@@ -83,9 +83,11 @@ type reqError struct {
 	Kind     ErrorKind
 	Attempt  int
 	Provider string
-	// Underlying holds upstream text, so setReqErr fences it in place. That is
-	// safe because nothing client-facing reads it: terminalClientMessage names
-	// the model and the class of failure only, and no classifier re-parses it
+	// Underlying holds upstream text, so setReqErr fences it in place. Nothing
+	// client-facing reads it but one case: terminalClientMessage names the
+	// model and the class of failure only, except for KindValidation, whose
+	// Underlying is this gateway's own refusal reason (a part index and type,
+	// fenced like the rest, never request content). No classifier re-parses it
 	// (the 400/429 classifiers read the response body, not this field). Its
 	// readers are the rendered log message (render, withUnderlying), the trail
 	// detail, and app-log attributes, all of which must carry the fenced text.
@@ -282,7 +284,8 @@ func (e reqError) terminalStatus() int {
 func (e reqError) terminalLogMessage(isFailover bool, numCandidates int) string {
 	last := e.render()
 	switch e.Kind {
-	case KindClientDisconnect, KindFailoverTimeout, KindRetryTimeout, KindHedgeSuperseded:
+	case KindClientDisconnect, KindFailoverTimeout, KindRetryTimeout, KindHedgeSuperseded, KindValidation:
+		// A refusal of the caller's body is nobody's outage.
 		return last
 	case KindProviderSaturated:
 		// Busy, not broken: every provider is alive and at capacity, and "all

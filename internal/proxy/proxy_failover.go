@@ -123,6 +123,12 @@ func (h *Handler) attemptCandidate(w http.ResponseWriter, r *http.Request, st *r
 		return outcomeBusy
 	}
 	if !ok {
+		// A body the translation refused contacted nothing: the next candidate
+		// is tried at once, without the backoff a provider failure earns.
+		if st.attemptRefused {
+			st.attemptRefused = false
+			return outcomeSkipped
+		}
 		return outcomeFailover
 	}
 
@@ -525,6 +531,7 @@ func (h *Handler) beginAttempt(failoverCtx context.Context, st *requestState, ca
 		st.attemptSlot.settle(slotOutcomeFor(kind))
 		st.setReqErr(reqError{Kind: kind, Attempt: attempt, Provider: candidate.provider.Name, Underlying: errString(err)})
 		logData.closeAttemptRecord(0, kind, errString(err), "", 0)
+		st.attemptRefused = kind == KindValidation
 		return nil, providerType, targetURL, false, false
 	}
 

@@ -465,12 +465,23 @@ type requestState struct {
 	hedgeBilled *atomic.Bool
 
 	// Accumulated across failover attempts (phase D / E). lastReqErr is the
-	// structured cause of the most recent attempt's failure; lastErr is its
+	// structured terminal verdict so far: the most recent attempt's failure,
+	// except that a refusal of the caller's body does not displace an earlier
+	// candidate's provider-side failure (see setReqErr); lastErr is its
 	// rendered string, kept in sync by setReqErr for the debug-log "error"
 	// field. The exhaustion path renders the terminal message/status from
 	// lastReqErr.
 	lastErr    string
 	lastReqErr reqError
+	// terminalRateLimit is the 429 verdict that stood when lastReqErr was
+	// recorded, for the exhaustion path's Retry-After: rateLimit itself is reset
+	// per attempt and a later attempt that did not replace lastReqErr (a
+	// refusal) would otherwise leave the class default behind.
+	terminalRateLimit rateLimitVerdict
+	// attemptRefused marks the current attempt as one whose request was never
+	// built because the translation refused the caller's body: no provider
+	// was contacted, so the loop moves on without a backoff.
+	attemptRefused bool
 
 	// rateLimit is the current attempt's 429 verdict, reset at attempt start by
 	// beginAttempt. The terminal paths read it for the Retry-After they hand the
@@ -495,10 +506,10 @@ type requestState struct {
 	attemptSlot     *attemptSlot
 }
 
-// setReqErr records the structured cause of the most recent failed attempt and
-// keeps the rendered lastErr string in sync. Every failover-loop failure goes
-// through here, so the exhaustion path always has a structured error to render
-// and classify.
+// setReqErr records a failed attempt's structured cause as the terminal
+// verdict so far and keeps the rendered lastErr string in sync. Every
+// failover-loop failure goes through here, so the exhaustion path always has a
+// structured error to render and classify.
 //
 // Underlying is the one field that can hold upstream text (an SSE error frame,
 // a provider's sentence, a transport error quoting what came off the wire), and
@@ -511,14 +522,18 @@ type requestState struct {
 // diagnosis of the failure.
 func (st *requestState) setReqErr(e reqError) {
 	// A refusal of the caller's body (a translation that cannot carry it) does
-	// not displace an earlier candidate's provider-side failure as the terminal
+	// not displace ANOTHER candidate's provider-side failure as the terminal
 	// verdict: that candidate had a route for the content and a retry may serve
-	// it, which a 400 would deny. Sequential and hedged attempts both land here.
-	if e.Kind == KindValidation && st.lastReqErr.Kind != "" && st.lastReqErr.Kind != KindValidation {
+	// it, which a 400 would deny. The same candidate's earlier failure (a busy
+	// skip before the slot freed and the body was refused) and this gateway's
+	// own internal error say nothing about a route, so the refusal replaces
+	// them. Sequential and hedged attempts both land here.
+	if prev := st.lastReqErr; e.Kind == KindValidation && prev.Kind != "" && prev.Kind != KindValidation && prev.Kind != KindInternal && prev.Provider != e.Provider {
 		return
 	}
 	e.Underlying = st.logData.fence().fenceUpstream(string(st.logData.masks().mask([]byte(e.Underlying))))
 	st.lastReqErr = e
+	st.terminalRateLimit = st.rateLimit
 	st.lastErr = e.render()
 }
 
