@@ -46,8 +46,8 @@ describe("normalizeToProviderType", () => {
 		expect(normalizeToProviderType("z.ai Coding")).toBe("zai-coding");
 	});
 
-	// Regression pin: the Messages type is not folded into "anthropic", whose
-	// table hides reasoning_effort.
+	// Regression pin: the Messages type is not folded into "anthropic"; the two
+	// tables agree today, but a name must still resolve to its own type.
 	it("keeps Anthropic Messages apart from Anthropic", () => {
 		expect(normalizeToProviderType("anthropic-messages")).toBe(
 			"anthropic-messages",
@@ -67,7 +67,7 @@ describe("normalizeToProviderType", () => {
 		expect(isParamHidden("custom", "reasoning_effort")).toBe(false);
 		expect(isParamHidden("Anthropic Messages", "reasoning_effort")).toBe(false);
 		expect(isParamHidden("Anthropic Messages", "top_p")).toBe(true);
-		expect(isParamHidden("Anthropic", "reasoning_effort")).toBe(true);
+		expect(isParamHidden("Anthropic", "reasoning_effort")).toBe(false);
 	});
 
 	it("handles Ollama Cloud (matches ollama-cloud directly)", () => {
@@ -336,7 +336,6 @@ describe("isParamHidden", () => {
 
 describe("reasoning_effort incompatibility", () => {
 	const providersWithReasoningEffortIncompatible = [
-		"anthropic",
 		"google",
 		"cohere",
 		"deepseek",
@@ -351,7 +350,13 @@ describe("reasoning_effort incompatibility", () => {
 		"opencode-go",
 	];
 
-	const providersWithReasoningEffortCompatible = ["openai", "xai"];
+	// Both Anthropic types translate reasoning_effort into a thinking request.
+	const providersWithReasoningEffortCompatible = [
+		"openai",
+		"xai",
+		"anthropic",
+		"anthropic-messages",
+	];
 
 	it.each(providersWithReasoningEffortIncompatible)(
 		"reasoning_effort is incompatible for %s",

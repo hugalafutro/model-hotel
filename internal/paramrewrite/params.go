@@ -17,40 +17,26 @@ import (
 )
 
 // anthropicUnsupportedParams are the params no Anthropic endpoint accepts as
-// itself, over the OpenAI-compat route or as a translated Messages body.
+// itself. reasoning_effort is not among them: every chat request to either
+// Anthropic type is translated to a Messages body (internal/anthropicegress),
+// and the translator turns the param into an Anthropic thinking request, asking
+// in the shape the model wants (learned from a 400 the first time; see
+// proxy/anthropic_thinking_retry.go). The param never reaches an upstream as
+// itself.
 var anthropicUnsupportedParams = []string{
 	"top_p",             // deprecated on all current Anthropic models
 	"frequency_penalty", // Anthropic uses a single penalties param, not separate freq/presence
 	"presence_penalty",  // Anthropic uses a single penalties param, not separate freq/presence
 	"min_p",             // not part of Anthropic API
-	"reasoning_effort",  // not supported by Anthropic API
 }
-
-// anthropicMessagesUnsupportedParams is the same list without reasoning_effort,
-// which the Messages type translates rather than forwards. Derived from the list
-// above rather than restated, so a param added there is stripped from both.
-var anthropicMessagesUnsupportedParams = slices.DeleteFunc(slices.Clone(anthropicUnsupportedParams), func(p string) bool {
-	return p == "reasoning_effort"
-})
 
 // ProviderUnsupportedParams lists OpenAI Chat Completions parameters that are
 // universally unsupported (cause 400 errors) per provider type. These are
 // preemptively stripped from requests to avoid a wasted round-trip.
 // Sources: official provider docs + empirical testing.
 var ProviderUnsupportedParams = map[string][]string{
-	"anthropic": anthropicUnsupportedParams,
-	// The Messages type strips one param fewer: reasoning_effort survives, for
-	// internal/anthropicegress to turn into an Anthropic thinking request. Every
-	// chat request to this type is translated, so the param never reaches an
-	// upstream as itself, and the translator asks in the shape the model wants
-	// (learned from a 400 the first time; see proxy/anthropic_thinking_retry.go).
-	//
-	// "anthropic" keeps stripping it, deliberately. Its default route is
-	// Anthropic's OpenAI-compat endpoint, which has no thinking control at all,
-	// and honouring the param only on the rarer document-egress requests would
-	// make one provider reason and the next not, for a difference the caller
-	// cannot see. That type reasons by model default, uniformly.
-	"anthropic-messages": anthropicMessagesUnsupportedParams,
+	"anthropic":          anthropicUnsupportedParams,
+	"anthropic-messages": anthropicUnsupportedParams,
 	"google": {
 		"frequency_penalty", // not supported on Gemini OpenAI-compat endpoint
 		"presence_penalty",  // not supported on Gemini OpenAI-compat endpoint

@@ -3199,8 +3199,7 @@
 			"topP": "top_p on vanhentunut nykyisissä Anthropic-malleissa; käytä sen sijaan top_k",
 			"frequencyPenalty": "Anthropic käyttää yhtä penalty-parametria eikä erottele frequency- ja presence-arvoja",
 			"presencePenalty": "Anthropic käyttää yhtä penalty-parametria eikä erottele frequency- ja presence-arvoja",
-			"minP": "Anthropic-API ei tue tätä",
-			"reasoningEffort": "Anthropic-API ei tue tätä"
+			"minP": "Anthropic-API ei tue tätä"
 		},
 		"google": {
 			"frequencyPenalty": "Gemini ei tue taajuus / läsnäolo seuraamuksia",

@@ -3503,8 +3503,7 @@
 			"topP": "top_p مهمل في نماذج Anthropic الحالية؛ استخدم top_k بدلاً من ذلك",
 			"frequencyPenalty": "تستخدم Anthropic معامل عقوبات واحدًا، وليس معاملين منفصلين للتكرار/التواجد.",
 			"presencePenalty": "تستخدم Anthropic معامل عقوبات واحدًا، وليس معاملين منفصلين للتكرار/التواجد.",
-			"minP": "غير مدعوم من قبل API Anthropic",
-			"reasoningEffort": "غير مدعوم من قبل API Anthropic"
+			"minP": "غير مدعوم من قبل API Anthropic"
 		},
 		"google": {
 			"frequencyPenalty": "لا يدعم Gemini عقوبات التكرار/التواجد",

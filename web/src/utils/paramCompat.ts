@@ -12,15 +12,14 @@ export const PROVIDER_PARAM_INCOMPATIBILITY: Record<
 	string,
 	Partial<Record<keyof GenerationParams, string>>
 > = {
+	// Both Anthropic types keep reasoning_effort and turn it into a thinking
+	// request, so the reasoning control (None included) stays visible there.
 	anthropic: {
 		top_p: "paramCompat.anthropic.topP",
 		frequency_penalty: "paramCompat.anthropic.frequencyPenalty",
 		presence_penalty: "paramCompat.anthropic.presencePenalty",
 		min_p: "paramCompat.anthropic.minP",
-		reasoning_effort: "paramCompat.anthropic.reasoningEffort",
 	},
-	// The Messages type keeps reasoning_effort and turns it into a thinking
-	// request, so the reasoning control (None included) stays visible there.
 	"anthropic-messages": {
 		top_p: "paramCompat.anthropic.topP",
 		frequency_penalty: "paramCompat.anthropic.frequencyPenalty",

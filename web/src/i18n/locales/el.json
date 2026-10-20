@@ -3199,8 +3199,7 @@
 			"topP": "Το top_p έχει καταργηθεί στα τρέχοντα μοντέλα Anthropic· χρησιμοποιήστε top_k",
 			"frequencyPenalty": "Η Anthropic χρησιμοποιεί μία μόνο παράμετρο ποινών, όχι ξεχωριστή συχνότητα/παρουσία",
 			"presencePenalty": "Η Anthropic χρησιμοποιεί μία μόνο παράμετρο ποινών, όχι ξεχωριστή συχνότητα/παρουσία",
-			"minP": "Δεν υποστηρίζεται από το Anthropic API",
-			"reasoningEffort": "Δεν υποστηρίζεται από το Anthropic API"
+			"minP": "Δεν υποστηρίζεται από το Anthropic API"
 		},
 		"google": {
 			"frequencyPenalty": "Το Gemini δεν υποστηρίζει ποινές συχνότητας/παρουσίας",

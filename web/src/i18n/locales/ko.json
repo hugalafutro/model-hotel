@@ -3199,8 +3199,7 @@
 			"topP": "현재 Anthropic 모델에서는 top_p가 더 이상 권장되지 않으므로, 대신 top_k를 사용하십시오.",
 			"frequencyPenalty": "Anthropic은 빈도/존재 페널티를 따로 두지 않고 단일 페널티 매개변수를 사용합니다.",
 			"presencePenalty": "Anthropic은 빈도/존재 페널티를 따로 두지 않고 단일 페널티 매개변수를 사용합니다.",
-			"minP": "Anthropic API에서 지원되지 않습니다",
-			"reasoningEffort": "Anthropic API에서 지원되지 않습니다"
+			"minP": "Anthropic API에서 지원되지 않습니다"
 		},
 		"google": {
 			"frequencyPenalty": "Gemini는 빈도/존재 페널티를 지원하지 않습니다.",

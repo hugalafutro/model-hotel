@@ -375,15 +375,14 @@ func TestLearnAndRebuildMessages400_DecidesWhatIsWorthRetrying(t *testing.T) {
 			wantOK:       true,
 		},
 		{
-			// The whole scoping rule: an `anthropic` provider's default route is
-			// the compat endpoint, and the learned strip is keyed by
-			// provider+model, so a name read out of a Messages 400 here would
-			// remove a param from compat traffic that accepts it.
-			name:         "a rejected param on an anthropic provider is NOT learned",
+			// Messages is the only chat route of an `anthropic` provider too, so
+			// the strip keyed by provider+model cannot reach traffic that accepts
+			// the param.
+			name:         "a rejected param on an anthropic provider is learned",
 			providerType: "anthropic",
 			chatBody:     plainBody,
 			errBody:      "{\"type\":\"error\",\"error\":{\"type\":\"invalid_request_error\",\"message\":\"`temperature` is deprecated for this model.\"}}",
-			wantOK:       false,
+			wantOK:       true,
 		},
 		{
 			name:         "a 400 naming nothing learnable is left alone",

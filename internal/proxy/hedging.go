@@ -435,19 +435,18 @@ func (h *Handler) probeStreamingCandidate(ctx context.Context, st *requestState,
 		h.learnFromHedgedResponsesRefusal(st, candidate, resp.StatusCode, errBody)
 		if resp.StatusCode == http.StatusBadRequest && st.anthropicEgressAttempt {
 			// The Messages route's own learnable 400s, gated the opposite way: they
-			// only arrive on an egress attempt. A thinking-dialect complaint is
-			// learned for every Messages speaker; a rejected parameter only for the
-			// candidates whose sole chat route is Messages, the same gate as the
-			// sequential retry. Learning here spares every later request to this
-			// model the refusal, even though this race slot cannot re-issue to
-			// recover the current one.
+			// only arrive on an egress attempt. A thinking-dialect complaint, a
+			// cache_control refusal and a rejected parameter are each learned for
+			// the candidate, as the sequential retry learns them. Learning here
+			// spares every later request to this model the refusal, even though
+			// this race slot cannot re-issue to recover the current one.
 			// Same order as learnAndRebuildMessages400, so the two learners can
 			// never read one body two ways.
 			if dialect, ok := anthropicegress.DialectFromError(errBody); ok {
 				h.learnThinkingDialect(candidate, dialect)
 			} else if anthropicegress.CacheControlRefused(errBody) {
 				h.learnCacheRefusal(candidate)
-			} else if learnsMessagesParams(providerType, candidate.model.ModelID) {
+			} else {
 				h.learnRejectedParams(st, candidate, errBody)
 			}
 		}

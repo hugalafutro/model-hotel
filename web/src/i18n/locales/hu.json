@@ -3199,8 +3199,7 @@
 			"topP": "A top_p használata az aktuális Anthropic-modellekben már nem ajánlott; helyette a top_k-t használja",
 			"frequencyPenalty": "Az Anthropic egyetlen büntetési paramétert használ, nem pedig külön frekvencia- és jelenlét-paramétereket",
 			"presencePenalty": "Az Anthropic egyetlen büntetési paramétert használ, nem pedig külön frekvencia- és jelenlét-paramétereket",
-			"minP": "Az Anthropic API nem támogatja",
-			"reasoningEffort": "Az Anthropic API nem támogatja"
+			"minP": "Az Anthropic API nem támogatja"
 		},
 		"google": {
 			"frequencyPenalty": "A Gemini nem alkalmaz frekvencia- vagy jelenléti büntetéseket",

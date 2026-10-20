@@ -640,10 +640,9 @@ func (h *Handler) buildCandidateRequest(ctx context.Context, st *requestState, c
 
 	// Anthropic egress adapter: a chat request is translated to Anthropic's
 	// native Messages shape on the way out and back on the response side. Every
-	// chat request to an anthropic-messages provider or to a Claude model on
-	// OpenCode takes this route; for anthropic, only one carrying a document
-	// does, and text and image requests stay on the cheaper compat endpoint
-	// below.
+	// chat request to an Anthropic-family provider or to a Claude model on
+	// OpenCode takes this route; the Messages body carries the prompt-cache
+	// breakpoints the compat endpoint below cannot.
 	if isAnthropicEgressAttempt(st, providerType, candidate.model.ModelID) {
 		st.anthropicEgressAttempt = true
 		return h.buildAnthropicEgressRequest(ctx, st, candidate, providerType)

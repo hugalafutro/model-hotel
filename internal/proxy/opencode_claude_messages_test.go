@@ -297,12 +297,11 @@ func TestProbeStreamingCandidate_OpenCodeClaudeLearnsRejectedParam(t *testing.T)
 	}
 }
 
-// TestProbeStreamingCandidate_AnthropicDocumentDoesNotLearnParams: the hedged
-// learner keeps the sequential gate. An "anthropic" provider takes the Messages
-// route only for a document, and its default route is the compat endpoint that
-// accepts the parameter, so a Messages 400 naming one must not be learned
-// there: the strip would reach compat traffic too.
-func TestProbeStreamingCandidate_AnthropicDocumentDoesNotLearnParams(t *testing.T) {
+// TestProbeStreamingCandidate_AnthropicLearnsParams: the hedged learner reads
+// a rejected parameter for an "anthropic" provider like for every other
+// Messages speaker. Messages is that type's only chat route, so the strip keyed
+// by provider+model cannot reach traffic that accepts the parameter.
+func TestProbeStreamingCandidate_AnthropicLearnsParams(t *testing.T) {
 	h := newIntegrationHandler()
 	defer stopUnitHandler(h)
 
@@ -314,7 +313,7 @@ func TestProbeStreamingCandidate_AnthropicDocumentDoesNotLearnParams(t *testing.
 	defer srv.Close()
 
 	st, cand := probeStateForServer(srv.URL)
-	st.bodyBytes = []byte(`{"model":"orig-model","stream":true,"temperature":0.7,"max_tokens":200,"messages":[{"role":"user","content":[{"type":"file","file":{"file_data":"` + pdfDataURI + `"}}]}]}`)
+	st.bodyBytes = []byte(`{"model":"orig-model","stream":true,"temperature":0.7,"max_tokens":200,"messages":[{"role":"user","content":"hi"}]}`)
 	cand.provider.ProviderType = "anthropic"
 	cand.model.ModelID = "claude-sonnet-5"
 
@@ -322,9 +321,9 @@ func TestProbeStreamingCandidate_AnthropicDocumentDoesNotLearnParams(t *testing.
 		t.Fatal("a 400 must not win the race")
 	}
 	if !st.anthropicEgressAttempt {
-		t.Fatal("a document to anthropic must take the Messages route for this test to mean anything")
+		t.Fatal("text to anthropic must take the Messages route")
 	}
-	if h.learnedStrip(learnedScopeFor(cand), cand.model.ModelID, "temperature") {
-		t.Error("temperature was learned for an anthropic provider, whose compat route accepts it")
+	if !h.learnedStrip(learnedScopeFor(cand), cand.model.ModelID, "temperature") {
+		t.Error("temperature was not learned for an anthropic provider from the hedged 400")
 	}
 }

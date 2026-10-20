@@ -3199,8 +3199,7 @@
 			"topP": "top_p is verouderd op die huidige Anthropic-modelle; gebruik eerder top_k.",
 			"frequencyPenalty": "Anthropic gebruik 'n enkele boete-parameter, nie 'n aparte frekwensie/aanwesigheidsparameter nie.",
 			"presencePenalty": "Anthropic gebruik 'n enkele boete-parameter, nie 'n aparte frekwensie/aanwesigheidsparameter nie.",
-			"minP": "Nie deur die Anthropic API ondersteun nie",
-			"reasoningEffort": "Nie deur die Anthropic API ondersteun nie"
+			"minP": "Nie deur die Anthropic API ondersteun nie"
 		},
 		"google": {
 			"frequencyPenalty": "Gemini ondersteun nie frekwensie-/aanwesigheidsboetes nie.",

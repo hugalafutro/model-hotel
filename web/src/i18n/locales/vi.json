@@ -3199,8 +3199,7 @@
 			"topP": "top_p hiện đã không còn được khuyến nghị sử dụng trên các mô hình Anthropic hiện tại; hãy sử dụng top_k thay thế",
 			"frequencyPenalty": "Anthropic sử dụng một tham số phạt duy nhất, chứ không phải các tham số tần suất/sự hiện diện riêng biệt",
 			"presencePenalty": "Anthropic sử dụng một tham số phạt duy nhất, chứ không phải các tham số tần suất/sự hiện diện riêng biệt",
-			"minP": "Không được hỗ trợ bởi API Anthropic",
-			"reasoningEffort": "Không được hỗ trợ bởi API Anthropic"
+			"minP": "Không được hỗ trợ bởi API Anthropic"
 		},
 		"google": {
 			"frequencyPenalty": "Gemini không áp dụng các hình phạt liên quan đến tần suất hoặc sự hiện diện",

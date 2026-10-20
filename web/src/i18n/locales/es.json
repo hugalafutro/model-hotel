@@ -3275,8 +3275,7 @@
 			"topP": "top_p está obsoleto en los modelos actuales de Anthropic; usa top_k en su lugar",
 			"frequencyPenalty": "Anthropic utiliza un único parámetro de penalizaciones, no frecuencia y presencia por separado",
 			"presencePenalty": "Anthropic utiliza un único parámetro de penalizaciones, no frecuencia y presencia por separado",
-			"minP": "No soportado por la API de Anthropic",
-			"reasoningEffort": "No soportado por la API de Anthropic"
+			"minP": "No soportado por la API de Anthropic"
 		},
 		"google": {
 			"frequencyPenalty": "Gemini no soporta penalizaciones de frecuencia/presencia",

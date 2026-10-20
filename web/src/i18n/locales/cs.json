@@ -3351,8 +3351,7 @@
 			"topP": "Funkce top_p je u aktuálních modelů Anthropic zastaralá; místo ní použijte top_k",
 			"frequencyPenalty": "Anthropic používá jediný parametr penalizace, nikoli samostatné parametry pro frekvenci a přítomnost",
 			"presencePenalty": "Anthropic používá jediný parametr penalizace, nikoli samostatné parametry pro frekvenci a přítomnost",
-			"minP": "Není podporováno rozhraním API Anthropic",
-			"reasoningEffort": "Není podporováno rozhraním API Anthropic"
+			"minP": "Není podporováno rozhraním API Anthropic"
 		},
 		"google": {
 			"frequencyPenalty": "Gemini nepodporuje penalizace za frekvenci/přítomnost",
