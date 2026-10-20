@@ -435,11 +435,16 @@ func (h *Handler) finishAttemptAdmission(st *requestState, candidate modelCandid
 	resp.Body = &inflightRelease{ReadCloser: resp.Body, slot: st.attemptSlot, clean: servedSuccessStatus(resp.StatusCode), onEOF: true}
 }
 
-// remainingBudgetZero reports whether the provider's OpenAI-style rate-limit
-// headers say a budget is exactly spent. Only a literal "0" counts: any other
-// value, malformed or generous, is no signal.
+// remainingBudgetZero reports whether the provider's rate-limit headers (the
+// OpenAI-style names, or the anthropic-ratelimit-* names the Messages route
+// answers with) say a budget is exactly spent. Only a literal "0" counts: any
+// other value, malformed or generous, is no signal.
 func remainingBudgetZero(hdr http.Header) bool {
-	for _, key := range []string{"X-RateLimit-Remaining-Requests", "X-RateLimit-Remaining-Tokens", "X-RateLimit-Remaining"} {
+	for _, key := range []string{
+		"X-RateLimit-Remaining-Requests", "X-RateLimit-Remaining-Tokens", "X-RateLimit-Remaining",
+		"anthropic-ratelimit-requests-remaining", "anthropic-ratelimit-tokens-remaining",
+		"anthropic-ratelimit-input-tokens-remaining", "anthropic-ratelimit-output-tokens-remaining",
+	} {
 		if hdr.Get(key) == "0" {
 			return true
 		}

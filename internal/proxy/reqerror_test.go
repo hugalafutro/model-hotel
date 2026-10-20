@@ -147,6 +147,7 @@ func TestReqErrorTerminalStatus(t *testing.T) {
 		KindProviderError:    http.StatusBadGateway,
 		KindProviderTimeout:  http.StatusBadGateway,
 		KindInternal:         http.StatusBadGateway,
+		KindValidation:       http.StatusBadRequest,
 	}
 	for kind, want := range cases {
 		if got := (reqError{Kind: kind}).terminalStatus(); got != want {

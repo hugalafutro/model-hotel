@@ -419,8 +419,9 @@ func plausibleWait(d time.Duration) (time.Duration, bool) {
 }
 
 // rateLimitResetHint reads how long the provider asked us to wait: Retry-After
-// when present, else the largest of the OpenAI-style X-RateLimit-Reset*
-// headers (the binding budget is the one that resets last). ok is false when
+// when present, else the largest of the X-RateLimit-Reset* headers (OpenAI
+// style) or anthropic-ratelimit-*-reset headers (the Messages route; RFC 3339
+// times), the binding budget being the one that resets last. ok is false when
 // no header parses to a positive duration.
 func rateLimitResetHint(hdr http.Header) (time.Duration, bool) {
 	if d, ok := parseRetryAfter(hdr.Get("Retry-After")); ok {
@@ -430,7 +431,11 @@ func rateLimitResetHint(hdr http.Header) (time.Duration, bool) {
 		longest time.Duration
 		found   bool
 	)
-	for _, key := range []string{"X-RateLimit-Reset-Requests", "X-RateLimit-Reset-Tokens", "X-RateLimit-Reset"} {
+	for _, key := range []string{
+		"X-RateLimit-Reset-Requests", "X-RateLimit-Reset-Tokens", "X-RateLimit-Reset",
+		"anthropic-ratelimit-requests-reset", "anthropic-ratelimit-tokens-reset",
+		"anthropic-ratelimit-input-tokens-reset", "anthropic-ratelimit-output-tokens-reset",
+	} {
 		if d, ok := parseResetValue(hdr.Get(key)); ok && d > longest {
 			longest, found = d, true
 		}
@@ -485,6 +490,11 @@ func parseResetValue(v string) (time.Duration, bool) {
 	}
 	if d, err := time.ParseDuration(v); err == nil && d > 0 {
 		return d, true
+	}
+	// Anthropic's reset headers are RFC 3339 times.
+	if at, err := time.Parse(time.RFC3339, v); err == nil {
+		d := time.Until(at)
+		return d, d > 0
 	}
 	return 0, false
 }

@@ -22,9 +22,9 @@ import (
 // route carries no cache_control: a multi-turn agent re-sending its whole
 // context there pays full input price on every turn, where the Messages route
 // with the breakpoints TranslateRequest places (caching.go) bills the repeated
-// prefix at a tenth. The compat route also has no thinking control. So the
-// translated route is the one every Messages speaker gets, the Test button and
-// the retirement probe included, and the compat endpoint goes unused.
+// prefix at a tenth. So the translated route is the one every Messages speaker
+// gets, the Test button and the retirement probe included, and the compat
+// endpoint goes unused.
 
 // isAnthropicFamily reports whether a provider type speaks Anthropic's native
 // Messages API. Both members serve /v1/messages with x-api-key. "anthropic" is

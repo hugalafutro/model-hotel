@@ -261,6 +261,10 @@ func (e reqError) terminalStatus() int {
 		return statusClientClosedRequest
 	case KindFailoverTimeout, KindRetryTimeout:
 		return http.StatusGatewayTimeout
+	case KindValidation:
+		// The caller's body, not a provider: a Messages translation refused
+		// a content part no candidate could carry.
+		return http.StatusBadRequest
 	default:
 		return http.StatusBadGateway
 	}

@@ -678,19 +678,19 @@ func buildTestModelRequest(m *model.Model, prov *provider.Provider) (baseBody []
 		// doTestModelRequest translates the probe body to match.
 		targetURL = util.BuildProviderTargetURL(prov.BaseURL, providerType,
 			"/publishers/google/models/"+url.PathEscape(m.ModelID)+":generateContent")
-	case speaksMessagesOnly(providerType, m.ModelID):
-		// The Messages API is the only chat route these serve.
+	case speaksMessages(providerType, m.ModelID):
+		// The route the proxy serves these on.
 		targetURL = util.BuildProviderTargetURL(prov.BaseURL, providerType, "/messages")
 	}
 
 	return baseBody, providerType, targetURL, reqHash
 }
 
-// speaksMessagesOnly reports a candidate whose chat route is Anthropic
-// Messages: an Anthropic-family provider, or a Claude model on OpenCode. The
-// proxy routes all of them through the Anthropic egress adapter, so the Test
-// button must too (see doTestModelEgressRequest).
-func speaksMessagesOnly(providerType, modelID string) bool {
+// speaksMessages reports a candidate the proxy serves over Anthropic Messages
+// through the Anthropic egress adapter: an Anthropic-family provider, or a
+// Claude model on OpenCode. The Test button must probe the same route (see
+// doTestModelEgressRequest).
+func speaksMessages(providerType, modelID string) bool {
 	return providerType == "anthropic" || providerType == "anthropic-messages" || util.IsOpenCodeClaude(providerType, modelID)
 }
 
@@ -717,7 +717,7 @@ func (h *Handler) doTestModelRequest(ctx context.Context, providerType, targetUR
 	case providerType == "vertex-express":
 		return h.doTestModelEgressRequest(ctx, testClient, targetURL, providerType, modelID, apiKey, baseBody,
 			gemini.TranslateRequest, gemini.BuildChatCompletion)
-	case speaksMessagesOnly(providerType, modelID):
+	case speaksMessages(providerType, modelID):
 		return h.doTestModelEgressRequest(ctx, testClient, targetURL, providerType, modelID, apiKey, baseBody,
 			anthropicegress.TranslateRequest, anthropicegress.BuildChatCompletion)
 	}

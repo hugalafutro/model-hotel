@@ -234,7 +234,11 @@ func TestInflightLimiter_NilIsInert(t *testing.T) {
 // Only a literal "0" in one of the OpenAI-style remaining headers is a spent
 // budget; anything else, malformed or generous, is no signal.
 func TestRemainingBudgetZero(t *testing.T) {
-	for _, key := range []string{"X-RateLimit-Remaining-Requests", "X-RateLimit-Remaining-Tokens", "X-RateLimit-Remaining"} {
+	for _, key := range []string{
+		"X-RateLimit-Remaining-Requests", "X-RateLimit-Remaining-Tokens", "X-RateLimit-Remaining",
+		"anthropic-ratelimit-requests-remaining", "anthropic-ratelimit-tokens-remaining",
+		"anthropic-ratelimit-input-tokens-remaining", "anthropic-ratelimit-output-tokens-remaining",
+	} {
 		hdr := http.Header{}
 		hdr.Set(key, "0")
 		if !remainingBudgetZero(hdr) {

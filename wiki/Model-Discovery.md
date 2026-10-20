@@ -392,6 +392,8 @@ Routing is the same as for `anthropic`: **every chat request is translated** thr
 
 Because everything is translated, `reasoning_effort` is honoured on both Anthropic types. See **Extended thinking** below.
 
+What the translation does with the OpenAI fields the compat endpoint used to take as-is: `temperature` above 1 is capped at 1 (Messages rejects it; the compat endpoint capped it too), whitespace-only `stop` sequences are dropped, `tool_choice: "none"` becomes Anthropic's `{"type":"none"}` with the tools kept (so the cache prefix survives a turn that forbids tool use), `parallel_tool_calls: false` becomes `disable_parallel_tool_use` on the tool choice, `response_format` is folded into the system prompt, and `n`, `logprobs`, `seed` and the penalty params are dropped. A content part Messages cannot be given (a `file_id`, an undecodable data URI, an `input_audio` part) is refused with a `400` instead of being dropped from the turn; another candidate in the group with a route for it still gets its attempt. A raw `thinking` object passed through `extra_body` (the compat endpoint's own extension) is not forwarded; ask with `reasoning_effort` instead.
+
 Discovery fails loudly if the endpoint does not serve the listing, rather than adding a provider whose models were never confirmed to exist.
 
 #### Extended thinking

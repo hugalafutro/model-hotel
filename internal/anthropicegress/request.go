@@ -1,10 +1,10 @@
 // Package anthropicegress translates between the OpenAI chat-completions wire
 // shape and Anthropic's native Messages shape. It is an *egress* dialect
 // adapter (the mirror image of internal/anthropic, which translates on
-// ingress): Anthropic's OpenAI-compat /v1/chat/completions endpoint cannot
-// carry a document — a request holding an OpenAI file content part comes back
-// as "messages.0.user.content.str: Input should be a valid string" — so a
-// request carrying one is rewritten here and sent to /v1/messages instead.
+// ingress): every chat request the proxy sends to a Messages speaker (an
+// Anthropic-family provider, a Claude model on OpenCode) is rewritten here and
+// sent to /v1/messages, carrying the prompt-cache breakpoints (caching.go) that
+// Anthropic's OpenAI-compat /v1/chat/completions cannot.
 package anthropicegress
 
 import (
@@ -25,6 +25,19 @@ import (
 // Anthropic requires the field, and a request that omits it 400s rather than
 // falling back to a model default.
 const DefaultMaxTokens = 4096
+
+// ErrUnsupportedContent marks a request whose message content carries a part
+// the Messages API cannot be given: a file part naming a file_id (no bytes to
+// send), a malformed data: URI or payload, or a part type with no Anthropic
+// block (input_audio). The request is refused rather than sent without the
+// part: a confident answer about a document the model never saw is worse than
+// a 400, and the compat route this adapter replaced answered it with one.
+var ErrUnsupportedContent = errors.New("anthropicegress: content part cannot be sent to Anthropic Messages")
+
+// maxTemperature is the top of Anthropic's temperature range. OpenAI's runs to
+// 2; the compat endpoint capped a larger value at 1 and Messages rejects it, so
+// the translation caps it the same way.
+const maxTemperature = 1.0
 
 // documentMediaType is the media type stamped on a base64 document source.
 // Anthropic's base64 document source accepts application/pdf only, and the
@@ -113,6 +126,7 @@ type oaiRequest struct {
 	Stop                json.RawMessage `json:"stop"` // string OR []string
 	Tools               []oaiTool       `json:"tools"`
 	ToolChoice          json.RawMessage `json:"tool_choice"`
+	ParallelToolCalls   *bool           `json:"parallel_tool_calls"`
 	ReasoningEffort     string          `json:"reasoning_effort"`
 	ResponseFormat      json.RawMessage `json:"response_format"`
 }
@@ -136,6 +150,9 @@ type oaiContentPart struct {
 type oaiFile struct {
 	FileData string `json:"file_data"` // data: URI
 	FileURL  string `json:"file_url"`
+	// FileID names an upload on the caller's provider. Decoded only so an
+	// otherwise empty file object that carries one is refused, not dropped.
+	FileID string `json:"file_id"`
 }
 
 type oaiToolCall struct {
@@ -242,8 +259,10 @@ type antTool struct {
 }
 
 type antToolChoice struct {
-	Type string `json:"type"` // "auto" | "any" | "tool"
+	Type string `json:"type"` // "auto" | "any" | "tool" | "none"
 	Name string `json:"name,omitempty"`
+	// DisableParallelToolUse is OpenAI's parallel_tool_calls:false.
+	DisableParallelToolUse bool `json:"disable_parallel_tool_use,omitempty"`
 }
 
 type antThinking struct {
@@ -297,10 +316,10 @@ func TranslateRequestWithOptions(chatBody []byte, opts Options) (body []byte, mo
 	out := antRequest{
 		Model:         req.Model,
 		Stream:        req.Stream,
-		Temperature:   req.Temperature,
+		Temperature:   capTemperature(req.Temperature),
 		TopP:          req.TopP,
 		TopK:          req.TopK,
-		StopSequences: egress.DecodeStop(req.Stop),
+		StopSequences: nonBlankStops(egress.DecodeStop(req.Stop)),
 	}
 
 	system, messages, err := translateMessages(req.Messages)
@@ -317,13 +336,16 @@ func TranslateRequestWithOptions(chatBody []byte, opts Options) (body []byte, mo
 	}
 	out.Messages = messages
 
-	// tool_choice "none" has no Anthropic equivalent; the tools array goes with
-	// it, or the model would treat the request as tools-with-auto and call one
-	// against the caller's intent.
-	choice, keepTools := translateToolChoice(req.ToolChoice)
-	out.ToolChoice = choice
-	if keepTools {
-		out.Tools = translateTools(req.Tools)
+	out.Tools = translateTools(req.Tools)
+	out.ToolChoice = translateToolChoice(req.ToolChoice)
+	// parallel_tool_calls:false is a flag on Anthropic's tool_choice, so a
+	// request that set it without naming a choice gets the default "auto" to
+	// hang it on. Meaningless without tools; Anthropic rejects tool_choice then.
+	if req.ParallelToolCalls != nil && !*req.ParallelToolCalls && len(out.Tools) > 0 {
+		if out.ToolChoice == nil {
+			out.ToolChoice = &antToolChoice{Type: "auto"}
+		}
+		out.ToolChoice.DisableParallelToolUse = true
 	}
 
 	// max_completion_tokens is the modern OpenAI field and wins over the
@@ -549,8 +571,11 @@ func translateTurn(role string, m oaiMessage) (*antMessage, error) {
 }
 
 // translateBlocks converts an OpenAI message content field (string, part array
-// or null) into Anthropic content blocks. Part types with no Anthropic
-// equivalent are dropped rather than forwarded raw.
+// or null) into Anthropic content blocks. An empty text part and an empty
+// image or file part are dropped: they carry nothing. A part that carries
+// something Anthropic cannot be given (ErrUnsupportedContent) fails the
+// translation, so the caller gets a refusal instead of an answer about content
+// the model never saw.
 func translateBlocks(raw json.RawMessage) ([]antBlock, error) {
 	if !util.JSONMemberSet(raw) {
 		return nil, nil
@@ -568,7 +593,7 @@ func translateBlocks(raw json.RawMessage) ([]antBlock, error) {
 	}
 
 	var blocks []antBlock
-	for _, p := range parts {
+	for i, p := range parts {
 		switch p.Type {
 		case "text":
 			// An empty text block marshals as {"type":"text"}, which Anthropic
@@ -581,19 +606,50 @@ func translateBlocks(raw json.RawMessage) ([]antBlock, error) {
 			if p.ImageURL == nil || p.ImageURL.URL == "" {
 				continue
 			}
-			if b, ok := imageBlock(p.ImageURL.URL); ok {
-				blocks = append(blocks, b)
+			b, ok := imageBlock(p.ImageURL.URL)
+			if !ok {
+				return nil, fmt.Errorf("%w: part %d image_url holds an undecodable data: URI", ErrUnsupportedContent, i)
 			}
+			blocks = append(blocks, b)
 		case "file":
-			if p.File == nil {
+			if p.File == nil || *p.File == (oaiFile{}) {
 				continue
 			}
-			if b, ok := fileBlock(p.File); ok {
-				blocks = append(blocks, b)
+			b, ok := fileBlock(p.File)
+			if !ok {
+				return nil, fmt.Errorf("%w: part %d file carries no inline data or URL (a file_id cannot be fetched)", ErrUnsupportedContent, i)
 			}
+			blocks = append(blocks, b)
+		default:
+			return nil, fmt.Errorf("%w: part %d has type %q", ErrUnsupportedContent, i, p.Type)
 		}
 	}
 	return blocks, nil
+}
+
+// capTemperature folds OpenAI's 0-2 temperature range into Anthropic's 0-1, as
+// the compat endpoint did.
+func capTemperature(t *float64) *float64 {
+	if t == nil || *t <= maxTemperature {
+		return t
+	}
+	capped := maxTemperature
+	return &capped
+}
+
+// nonBlankStops drops whitespace-only stop sequences, which Messages refuses
+// and the compat endpoint ignored ("all non-whitespace stop sequences work").
+func nonBlankStops(stops []string) []string {
+	out := stops[:0]
+	for _, s := range stops {
+		if strings.TrimSpace(s) != "" {
+			out = append(out, s)
+		}
+	}
+	if len(out) == 0 {
+		return nil
+	}
+	return out
 }
 
 // imageBlock maps an OpenAI image_url value onto an Anthropic block: a base64
@@ -716,24 +772,24 @@ func translateTools(in []oaiTool) []antTool {
 	return out
 }
 
-// translateToolChoice maps the OpenAI tool_choice union onto Anthropic's. The
-// second return reports whether tools may be sent at all: it is false only for
-// "none", which Anthropic cannot express and which therefore drops the tools
-// array along with the choice.
-func translateToolChoice(raw json.RawMessage) (*antToolChoice, bool) {
+// translateToolChoice maps the OpenAI tool_choice union onto Anthropic's, which
+// has a value for each: "none" is {"type":"none"}, with the tools array kept so
+// the prompt prefix (and the cache breakpoint on its last tool) stays the same
+// across a turn that forbids tool use.
+func translateToolChoice(raw json.RawMessage) *antToolChoice {
 	switch mode, name, ok := egress.DecodeToolChoice(raw); {
 	case !ok:
-		return nil, true
+		return nil
 	case mode == "auto":
-		return &antToolChoice{Type: "auto"}, true
+		return &antToolChoice{Type: "auto"}
 	case mode == "required":
-		return &antToolChoice{Type: "any"}, true
+		return &antToolChoice{Type: "any"}
 	case mode == "none":
-		return nil, false
+		return &antToolChoice{Type: "none"}
 	case mode == "function":
-		return &antToolChoice{Type: "tool", Name: name}, true
+		return &antToolChoice{Type: "tool", Name: name}
 	}
-	return nil, true
+	return nil
 }
 
 // flattenText reduces a content field (string or part array) to plain text, for

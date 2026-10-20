@@ -521,9 +521,17 @@ func (h *Handler) beginAttempt(failoverCtx context.Context, st *requestState, ca
 
 	proxyReq, providerType, targetURL, err := h.buildCandidateRequest(failoverCtx, st, candidate)
 	if err != nil {
-		st.attemptSlot.settle(slotOutcomeFor(KindInternal))
-		st.setReqErr(reqError{Kind: KindInternal, Attempt: attempt, Provider: candidate.provider.Name, Underlying: errString(err)})
-		logData.closeAttemptRecord(0, KindInternal, errString(err), "", 0)
+		// A body the Messages translation refuses (a file_id, an audio part) is
+		// the caller's doing, not this gateway's: the attempt fails as a bad
+		// request so another candidate with a route for it still gets its turn
+		// and the terminal answer, if none has one, is a 400 and not a 500.
+		kind := KindInternal
+		if errors.Is(err, anthropicegress.ErrUnsupportedContent) {
+			kind = KindValidation
+		}
+		st.attemptSlot.settle(slotOutcomeFor(kind))
+		st.setReqErr(reqError{Kind: kind, Attempt: attempt, Provider: candidate.provider.Name, Underlying: errString(err)})
+		logData.closeAttemptRecord(0, kind, errString(err), "", 0)
 		return nil, providerType, targetURL, false, false
 	}
 

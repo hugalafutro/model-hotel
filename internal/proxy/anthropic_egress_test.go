@@ -331,6 +331,17 @@ func TestChatCompletions_AnthropicEgress(t *testing.T) {
 		t.Errorf("text-only content = %v", choice["message"])
 	}
 
+	// A part Messages cannot be given (a file_id: no bytes to send) is refused
+	// as the caller's error, before anything reaches the upstream, instead of
+	// being dropped from a turn the model then answers about.
+	w = send(false, `[{"type":"text","text":"summarise"},{"type":"file","file":{"file_id":"file-abc"}}]`)
+	if w.Code != http.StatusBadRequest {
+		t.Fatalf("file_id request: %d, want 400\n%s", w.Code, w.Body.String())
+	}
+	if calls := log.takeAll(); len(calls) != 0 {
+		t.Errorf("file_id request reached the upstream: %+v", calls)
+	}
+
 	// Streaming document: translated chunk stream ending in [DONE].
 	w = send(true, documentContent)
 	if w.Code != http.StatusOK {

@@ -515,6 +515,13 @@ func TestParseResetValue(t *testing.T) {
 	if got, ok := parseResetValue(strconv.FormatInt(future, 10)); !ok || got <= 80*time.Second || got > 91*time.Second {
 		t.Errorf("epoch-seconds reset parsed to (%v, %v), want ~90s", got, ok)
 	}
+	// Anthropic's anthropic-ratelimit-*-reset headers are RFC 3339 times.
+	if got, ok := parseResetValue(time.Now().Add(90 * time.Second).UTC().Format(time.RFC3339)); !ok || got <= 80*time.Second || got > 91*time.Second {
+		t.Errorf("RFC 3339 reset parsed to (%v, %v), want ~90s", got, ok)
+	}
+	if _, ok := parseResetValue(time.Now().Add(-time.Minute).UTC().Format(time.RFC3339)); ok {
+		t.Error("a past RFC 3339 reset parsed as a wait")
+	}
 }
 
 // googleDailyQuota429 is Google AI Studio's per-day quota refusal for
