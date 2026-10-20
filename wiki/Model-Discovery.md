@@ -400,7 +400,7 @@ Discovery fails loudly if the endpoint does not serve the listing, rather than a
 
 #### Extended thinking
 
-This is proxy behaviour rather than discovery, kept here because it is specific to this provider type.
+This is proxy behaviour rather than discovery, kept here because it is specific to the two Anthropic types (`anthropic`, `anthropic-messages`) and the Claude models OpenCode serves over Messages.
 
 An OpenAI client asks for reasoning with `reasoning_effort`, and Anthropic takes that request in one of two mutually exclusive shapes:
 
