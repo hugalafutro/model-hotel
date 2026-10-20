@@ -599,9 +599,11 @@ describe("AppLogs", () => {
 		await waitFor(() => {
 			expect(getByDialogName("Log Entry Details")).toBeInTheDocument();
 		});
-		// Copy button should be present in the modal (aria-label="Copy message")
+		// The pill copies the whole stored line; its name says so.
 		expect(
-			screen.getByRole("button", { name: "Copy message" }),
+			screen.getByRole("button", {
+				name: "Copy the whole line as stored, attributes included",
+			}),
 		).toBeInTheDocument();
 	});
 
