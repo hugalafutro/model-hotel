@@ -1,4 +1,4 @@
-import { fireEvent, screen, waitFor } from "@testing-library/react";
+import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { AppLogEntry, LogEntry } from "../../api/types";
@@ -736,7 +736,9 @@ describe("LogDetailModal", () => {
 				<LogDetailModal log={mockAppLog} type="app" onClose={onClose} />,
 			);
 
-			const copyButton = screen.getByLabelText("Copy message");
+			const copyButton = screen.getByLabelText(
+				"Copy the whole line as stored, attributes included",
+			);
 			await user.click(copyButton);
 
 			const clipboardText = await navigator.clipboard.readText();
@@ -1235,5 +1237,81 @@ describe("LogDetailModal", () => {
 
 			expect(screen.queryByText("Token Usage")).not.toBeInTheDocument();
 		});
+	});
+});
+
+describe("AppLogDetail attributes", () => {
+	const line: AppLogEntry = {
+		timestamp: "2025-05-12T10:30:00Z",
+		level: "warning",
+		source: "proxy",
+		message:
+			'upstream refused provider="Open Router" model=gpt-4o status=503 path=/v1/chat/completions',
+		attrs_at: "upstream refused".length,
+	};
+
+	it("splits the message head from the attribute tiles", () => {
+		renderWithProviders(
+			<LogDetailModal log={line} type="app" onClose={vi.fn()} />,
+		);
+		const dialog = screen.getByRole("dialog");
+		expect(within(dialog).getByText("upstream refused")).toBeInTheDocument();
+		expect(within(dialog).getByText("Open Router")).toBeInTheDocument();
+		expect(within(dialog).getByText("gpt-4o")).toBeInTheDocument();
+		expect(
+			within(dialog).getByText("/v1/chat/completions"),
+		).toBeInTheDocument();
+		// The status is a coloured badge, not copyable text.
+		const status = within(dialog)
+			.getByText("503")
+			.closest("[data-test-variant]");
+		expect(status).toHaveAttribute("data-test-variant", "error");
+	});
+
+	it("links a provider and a model to their pages, scoped to the line's provider", () => {
+		renderWithProviders(
+			<LogDetailModal log={line} type="app" onClose={vi.fn()} />,
+		);
+		expect(screen.getByTestId("app-log-link-provider")).toHaveAttribute(
+			"href",
+			"/providers?name=Open+Router",
+		);
+		expect(screen.getByTestId("app-log-link-model")).toHaveAttribute(
+			"href",
+			"/models?model=gpt-4o&provider=Open+Router",
+		);
+	});
+
+	it("offers the source filter only when the list has one to narrow", async () => {
+		const onFilterSource = vi.fn();
+		const close = vi.fn();
+		const { user, unmount } = renderWithProviders(
+			<LogDetailModal
+				log={line}
+				type="app"
+				onClose={close}
+				onFilterSource={onFilterSource}
+			/>,
+		);
+		await user.click(screen.getByTestId("app-log-filter-source"));
+		expect(onFilterSource).toHaveBeenCalledWith("proxy");
+		expect(close).toHaveBeenCalled();
+		unmount();
+
+		renderWithProviders(
+			<LogDetailModal log={line} type="app" onClose={vi.fn()} />,
+		);
+		expect(screen.queryByTestId("app-log-filter-source")).toBeNull();
+	});
+
+	it("shows a line without attributes whole", () => {
+		renderWithProviders(
+			<LogDetailModal
+				log={{ ...line, message: "plain line", attrs_at: 0 }}
+				type="app"
+				onClose={vi.fn()}
+			/>,
+		);
+		expect(screen.getByText("plain line")).toBeInTheDocument();
 	});
 });

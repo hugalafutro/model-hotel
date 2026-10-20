@@ -460,7 +460,7 @@ func TestDiscoverProviderModels_RenameScenario(t *testing.T) {
 	// provider 1's rename with two members (updated, not deleted).
 	for i, name := range []string{"rename-scenario-p2", "rename-scenario-p3"} {
 		req = httptest.NewRequest(http.MethodPost, "/providers",
-			strings.NewReader(fmt.Sprintf(`{"name":"%s","base_url":"%s/v1","api_key":"sk-test"}`, name, mockB.URL)))
+			strings.NewReader(fmt.Sprintf(`{"name":"%s","base_url":"%s/v1","api_key":"sk-test-%s"}`, name, mockB.URL, name)))
 		req.Header.Set("Authorization", "Bearer test-admin-token")
 		req.Header.Set("Content-Type", "application/json")
 		w = httptest.NewRecorder()

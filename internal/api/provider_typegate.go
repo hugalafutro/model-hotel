@@ -1,11 +1,14 @@
 package api
 
 import (
+	"crypto/subtle"
 	"errors"
 	"net/http"
+	"strings"
 
 	"github.com/google/uuid"
 
+	"github.com/hugalafutro/model-hotel/internal/auth"
 	"github.com/hugalafutro/model-hotel/internal/debuglog"
 	"github.com/hugalafutro/model-hotel/internal/provider"
 )
@@ -23,6 +26,9 @@ const (
 	// codeProviderDuplicateAddress refuses a second provider for a self-hosted
 	// server that is already configured.
 	codeProviderDuplicateAddress = "provider_duplicate_address"
+	// codeProviderDuplicateKey refuses a second provider that would carry the
+	// same key to the same address as one already configured.
+	codeProviderDuplicateKey = "provider_duplicate_key"
 )
 
 // providerTypeGateResponse is the body behind the three codes above. The extra
@@ -67,6 +73,56 @@ func (h *Handler) rejectDuplicateLocalServer(w http.ResponseWriter, r *http.Requ
 		}
 	}
 	return true
+}
+
+// rejectDuplicateKey blocks a provider that would send the same key to the same
+// address as one already configured. Two providers on one hosted address are
+// legitimate when each carries its own key (two accounts, two quotas); with one
+// key they are one account twice: the same models discovered again, an auto
+// failover group of twins, and both rows draining one upstream quota. Keyless
+// providers are left alone: with no key there is nothing to be the same. The
+// existing rows are compared by their decrypted key, so the check is exact. It
+// writes the error and reports false when the pair is taken.
+func (h *Handler) rejectDuplicateKey(w http.ResponseWriter, r *http.Request, baseURL, apiKey string, excludeID uuid.UUID) bool {
+	if apiKey == "" {
+		return true
+	}
+	existing, err := h.providerRepo.List(r.Context())
+	if err != nil {
+		// As for the address guard: a usability check must not block an add
+		// over an unrelated failure.
+		debuglog.Warn("provider: duplicate-key check failed", "error", err)
+		return true
+	}
+	for _, p := range existing {
+		if p.ID == excludeID || len(p.EncryptedKey) == 0 || !sameHostedAddress(p.BaseURL, baseURL) {
+			continue
+		}
+		stored, decErr := auth.Decrypt(p.EncryptedKey, p.KeyNonce, p.KeySalt, h.cfg.MasterKey)
+		if decErr != nil {
+			// A key this master key cannot read is not one the new provider can
+			// duplicate in any way that matters here.
+			debuglog.Warn("provider: duplicate-key check could not read a stored key", "provider_id", p.ID, "error", decErr)
+			continue
+		}
+		if subtle.ConstantTimeCompare([]byte(stored), []byte(apiKey)) == 1 {
+			writeJSONStatus(w, http.StatusConflict, map[string]string{
+				"code":     codeProviderDuplicateKey,
+				"error":    "a provider with this key for this address already exists: " + p.Name,
+				"existing": p.Name,
+			})
+			return false
+		}
+	}
+	return true
+}
+
+// sameHostedAddress reports whether two base URLs name the same endpoint,
+// ignoring a trailing slash and letter case. The path is kept: on OpenCode the
+// path decides which balance a key is billed to, so one key on two paths is
+// two providers on purpose.
+func sameHostedAddress(a, b string) bool {
+	return strings.EqualFold(strings.TrimRight(a, "/"), strings.TrimRight(b, "/"))
 }
 
 func writeProviderTypeGateError(w http.ResponseWriter, body providerTypeGateResponse) {

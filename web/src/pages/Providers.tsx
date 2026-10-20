@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
+import { useSearchParams } from "react-router";
 import { ArrowDownAZ, ArrowUpZA, PlugZap } from "@/lib/icons";
 import { api } from "../api/client";
 import type { Model, Provider } from "../api/types";
@@ -58,7 +59,12 @@ export function Providers() {
 		DiscoverySummaryEntry[] | null
 	>(null);
 	const [typeFilter, setTypeFilter] = useState("");
-	const [nameFilter, setNameFilter] = useState("");
+	// ?name= seeds the filter, for a link from elsewhere (an app-log line's
+	// provider) that lands on this provider's card.
+	const [searchParams] = useSearchParams();
+	const [nameFilter, setNameFilter] = useState(
+		() => searchParams.get("name") ?? "",
+	);
 	const [sortAsc, setSortAsc] = useState(true);
 
 	const { data: providers, isLoading } = useQuery({

@@ -210,13 +210,14 @@ describe("UserModal provider access", () => {
 
 	it("preselects the stored cap when editing", async () => {
 		mockCatalog();
-		renderWithProviders(
+		const { user } = renderWithProviders(
 			<UserModal
 				user={{ ...existing, allowed_providers: ["p1"] }}
 				onClose={onClose}
 				onToast={onToast}
 			/>,
 		);
+		await user.click(await screen.findByRole("button", { name: "Edit" }));
 
 		expect(modeRadio("selected").checked).toBe(true);
 		expect(modeRadio("all").checked).toBe(false);
@@ -228,13 +229,14 @@ describe("UserModal provider access", () => {
 
 	it("shows the uncapped mode when the stored cap is null", async () => {
 		mockCatalog();
-		renderWithProviders(
+		const { user } = renderWithProviders(
 			<UserModal
 				user={{ ...existing, allowed_providers: null }}
 				onClose={onClose}
 				onToast={onToast}
 			/>,
 		);
+		await user.click(await screen.findByRole("button", { name: "Edit" }));
 
 		expect(modeRadio("all").checked).toBe(true);
 		expect(modeRadio("selected").checked).toBe(false);
@@ -256,6 +258,7 @@ describe("UserModal provider access", () => {
 				onToast={onToast}
 			/>,
 		);
+		await user.click(await screen.findByRole("button", { name: "Edit" }));
 
 		expect(modeRadio("selected").checked).toBe(true);
 		await user.type(field("user-display-name"), " renamed");
@@ -279,6 +282,7 @@ describe("UserModal provider access", () => {
 				onToast={onToast}
 			/>,
 		);
+		await user.click(await screen.findByRole("button", { name: "Edit" }));
 
 		await user.click(screen.getByTestId("user-modal-save"));
 		await waitFor(() => expect(bodies).toHaveLength(1));
@@ -301,6 +305,7 @@ describe("UserModal provider access", () => {
 				onToast={onToast}
 			/>,
 		);
+		await user.click(await screen.findByRole("button", { name: "Edit" }));
 
 		await user.click(modeRadio("all"));
 		await user.click(screen.getByTestId("user-modal-save"));
@@ -320,11 +325,13 @@ describe("UserModal provider access", () => {
 			/>,
 		);
 
-		expect(modeRadio("all")).toBeDisabled();
-		expect(modeRadio("selected")).toBeDisabled();
+		// A managed user is read-only: the card shows the cap by name and the
+		// form, radios included, is never offered.
+		expect(await screen.findByText("openai")).toBeInTheDocument();
+		expect(screen.queryByTestId("user-modal-edit")).not.toBeInTheDocument();
 		expect(
-			await screen.findByTestId("provider-access-option-p1"),
-		).toBeDisabled();
+			screen.queryByTestId("provider-access-mode"),
+		).not.toBeInTheDocument();
 	});
 });
 
@@ -347,6 +354,7 @@ describe("UserModal form submit", () => {
 		const { user } = renderWithProviders(
 			<UserModal user={existing} onClose={onClose} onToast={onToast} />,
 		);
+		await user.click(await screen.findByRole("button", { name: "Edit" }));
 
 		const save = screen.getByTestId("user-modal-save") as HTMLButtonElement;
 		const name = field("user-display-name") as HTMLInputElement;
@@ -377,6 +385,7 @@ describe("UserModal form submit", () => {
 		const { user } = renderWithProviders(
 			<UserModal user={existing} onClose={onClose} onToast={onToast} />,
 		);
+		await user.click(await screen.findByRole("button", { name: "Edit" }));
 
 		await user.type(field("user-reset-password"), "newpassword1{Enter}");
 

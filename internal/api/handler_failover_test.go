@@ -221,7 +221,7 @@ func TestSyncFailoverGroups_WithModels(t *testing.T) {
 
 	// Create providers and models
 	for i := range 3 {
-		providerData := fmt.Sprintf(`{"name": "test-failover-provider-%d", "base_url": "https://api.openai.com", "api_key": "test-api-key"}`, i)
+		providerData := fmt.Sprintf(`{"name": "test-failover-provider-%d", "base_url": "https://api.openai.com", "api_key": "test-api-key-%d"}`, i, i)
 		rec = httptest.NewRecorder()
 		req = httptest.NewRequest("POST", "/providers", strings.NewReader(providerData))
 		req.Header.Set("Authorization", "Bearer test-admin-token")
@@ -1751,7 +1751,7 @@ func TestFailoverGroupResponse_EffectiveState(t *testing.T) {
 
 	providerIDs := make([]string, 2)
 	for i := range providerIDs {
-		providerData := fmt.Sprintf(`{"name":"test-effective-state-p%d","base_url":"https://api.example.com/v1","api_key":"sk-test"}`, i+1)
+		providerData := fmt.Sprintf(`{"name":"test-effective-state-p%d","base_url":"https://api.example.com/v1","api_key":"sk-test-%d"}`, i+1, i+1)
 		rec := httptest.NewRecorder()
 		req := httptest.NewRequest(http.MethodPost, "/providers", strings.NewReader(providerData))
 		req.Header.Set("Authorization", "Bearer test-admin-token")

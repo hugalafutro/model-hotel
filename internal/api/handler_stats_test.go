@@ -235,7 +235,7 @@ func TestGetProviderDistribution_WithLogs(t *testing.T) {
 	providerIDs := make(map[string]string)
 
 	for _, name := range providers {
-		providerData := fmt.Sprintf(`{"name": %q, "base_url": "https://api.openai.com", "api_key": "test-api-key"}`, name)
+		providerData := fmt.Sprintf(`{"name": %q, "base_url": "https://api.openai.com", "api_key": %q}`, name, "key-"+name)
 		rec = httptest.NewRecorder()
 		req = httptest.NewRequest("POST", "/providers", strings.NewReader(providerData))
 		req.Header.Set("Authorization", "Bearer test-admin-token")
@@ -976,7 +976,7 @@ func TestGetStats_ProviderLatency(t *testing.T) {
 	// Create multiple providers
 	providerIDs := make([]uuid.UUID, 3)
 	for i := range 3 {
-		provBody := fmt.Sprintf(`{"name":"provider-latency-%d-%s","base_url":"https://api.example.com/v1","api_key":"sk-test"}`, i, uuid.New().String()[:8])
+		provBody := fmt.Sprintf(`{"name":"provider-latency-%d-%s","base_url":"https://api.example.com/v1","api_key":"sk-test-%d"}`, i, uuid.New().String()[:8], i)
 		req := httptest.NewRequest("POST", "/providers", strings.NewReader(provBody))
 		req.Header.Set("Content-Type", "application/json")
 		req.Header.Set("Authorization", "Bearer test-admin-token")

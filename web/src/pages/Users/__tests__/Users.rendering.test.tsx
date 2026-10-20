@@ -1,4 +1,4 @@
-import { screen, waitFor } from "@testing-library/react";
+import { screen, waitFor, within } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { DashboardUser } from "../../../api/types";
 import { serveUsersApi } from "../../../test/helpers";
@@ -79,6 +79,13 @@ describe("Users page", () => {
 			expect(screen.getByText("alice")).toBeInTheDocument();
 		});
 		await user.click(screen.getByText("alice"));
+		// A row opens the read-only card first; Edit turns it into the form.
+		const card = screen.getByRole("dialog", { name: "alice" });
+		expect(
+			within(card).getByText("Two-factor authentication"),
+		).toBeInTheDocument();
+		expect(within(card).queryByDisplayValue("alice")).not.toBeInTheDocument();
+		await user.click(screen.getByTestId("user-modal-edit"));
 		expect(screen.getByText("Edit user")).toBeInTheDocument();
 		expect(screen.getByDisplayValue("alice")).toBeInTheDocument();
 		expect(screen.getByTestId("user-modal-delete")).toBeInTheDocument();

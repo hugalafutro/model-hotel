@@ -837,7 +837,8 @@
 			"apiKey": "API-nøkkel",
 			"baseUrlHelperAnthropicMessages": "Basis-URL for et endepunkt som snakker Anthropic Messages API. Forespørsler går til \"<base_url>\"/v1/messages, og modeller oppdages fra \"<base_url>\"/v1/models",
 			"nameHasSlash": "Et leverandørnavn kan ikke inneholde \"/\". Modeller kalles som leverandør/modell, så navnet ville blitt kuttet ved første \"/\", og leverandøren kunne aldri nås.",
-			"nameReserved": "\"hotel\" er reservert: modellnavn som starter med hotel/ går til failover-grupper, så en leverandør med dette navnet kunne aldri kalles direkte."
+			"nameReserved": "\"hotel\" er reservert: modellnavn som starter med hotel/ går til failover-grupper, så en leverandør med dette navnet kunne aldri kalles direkte.",
+			"duplicateKeyBlocked": "Det finnes allerede en leverandør med denne API-nøkkelen for denne adressen (\"{{name}}\"). Samme nøkkel to ganger er samme konto to ganger: den oppdager de samme modellene igjen, og begge radene tømmer én kvote."
 		},
 		"edit": {
 			"typeHelper": "Endre dette bare for å rette en type som ble gjettet feil ved import eller oppgradering. En selvhostet type sjekkes mot serveren før den lagres.",
@@ -1283,7 +1284,8 @@
 			"tpm": "Tak på antall tokens per minutt; forespørsler avvises med 429 når minuttbudsjettet er brukt opp",
 			"id": "Klikk for å kopiere nøkkel-ID",
 			"owner": "Eid av {{name}}",
-			"providerDenyAll": "Nøkkelen tillater ingen leverandører"
+			"providerDenyAll": "Nøkkelen tillater ingen leverandører",
+			"idMeaning": "Stabil identifikator for denne nøkkelen. Forespørselslogger og API-et viser til nøkkelen med den."
 		},
 		"emptyState": "Ingen virtuelle nøkler. Opprett en for å begynne å bruke proxyen.",
 		"steps": {
@@ -2518,7 +2520,12 @@
 			"level": "Nivå",
 			"source": "Kilde",
 			"message": "Melding",
-			"copyMessage": "Kopier melding"
+			"copyMessage": "Kopier hele linjen som lagret, med attributter",
+			"filterBySource": "Vis bare \"{{source}}\"",
+			"openProvider": "Åpne leverandør",
+			"openModel": "Åpne modell",
+			"copyValue": "Kopier verdi",
+			"copyRaw": "Kopier råmelding"
 		},
 		"auditDetail": {
 			"title": "Revisjonsoppføring",
@@ -3283,7 +3290,8 @@
 			"lastLogin": "Siste pålogging",
 			"allGrants": "Alt",
 			"noGrants": "Ingen",
-			"totpEnabled": "Totrinnsverifisering aktivert"
+			"totpEnabled": "Totrinnsverifisering aktivert",
+			"created": "Opprettet"
 		},
 		"role": {
 			"admin": "Admin",
@@ -3334,7 +3342,10 @@
 			"totpResetHint": "Fjerner brukerens autentiseringsapp og gjenopprettingskoder, slik at de kan logge inn med bare passordet.",
 			"totpResetConfirmTitle": "Tilbakestill totrinnsverifisering",
 			"totpResetConfirmMessage": "Dette fjerner koblingen til autentiseringsappen og alle gjenopprettingskoder for denne brukeren. Passordet forblir uendret.",
-			"totpResetConfirmLabel": "Nullstill"
+			"totpResetConfirmLabel": "Nullstill",
+			"created": "Opprettet",
+			"lastEdited": "Sist redigert",
+			"twoFactor": "Tofaktorautentisering"
 		},
 		"toast": {
 			"created": "Bruker opprettet",

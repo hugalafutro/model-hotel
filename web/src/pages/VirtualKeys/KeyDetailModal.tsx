@@ -257,6 +257,9 @@ export function KeyDetailModal({
 							<DetailItem
 								icon={Fingerprint}
 								label={t("virtualkeys.modal.labels.id")}
+								labelExtra={
+									<InfoHint tooltip={t("virtualkeys.tooltip.idMeaning")} />
+								}
 							>
 								<CopyablePill
 									text={vk.id}

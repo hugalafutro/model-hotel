@@ -837,7 +837,8 @@
 			"apiKey": "Khóa API",
 			"baseUrlHelperAnthropicMessages": "URL cơ sở của một điểm cuối nói Anthropic Messages API. Yêu cầu được gửi tới \"<base_url>\"/v1/messages và các mô hình được phát hiện từ \"<base_url>\"/v1/models",
 			"nameHasSlash": "Tên nhà cung cấp không được chứa \"/\". Mô hình được gọi theo dạng nhà-cung-cấp/mô-hình, nên tên sẽ bị cắt tại dấu \"/\" đầu tiên và không bao giờ truy cập được nhà cung cấp này.",
-			"nameReserved": "\"hotel\" là tên dành riêng: các tên mô hình bắt đầu bằng hotel/ được chuyển đến nhóm failover, nên nhà cung cấp mang tên này không bao giờ gọi trực tiếp được."
+			"nameReserved": "\"hotel\" là tên dành riêng: các tên mô hình bắt đầu bằng hotel/ được chuyển đến nhóm failover, nên nhà cung cấp mang tên này không bao giờ gọi trực tiếp được.",
+			"duplicateKeyBlocked": "Đã có nhà cung cấp dùng khóa API này cho địa chỉ này (\"{{name}}\"). Cùng một khóa hai lần là cùng một tài khoản hai lần: nó phát hiện lại cùng các mô hình và cả hai hàng cùng tiêu hao một hạn mức."
 		},
 		"edit": {
 			"typeHelper": "Chỉ thay đổi để sửa loại bị đoán sai khi nhập hoặc nâng cấp. Loại máy chủ tự vận hành sẽ được đối chiếu với máy chủ trước khi lưu.",
@@ -1283,7 +1284,8 @@
 			"tpm": "Giới hạn số token mỗi phút; các yêu cầu sẽ bị từ chối với mã trạng thái 429 khi ngân sách phút đã hết.",
 			"id": "Nhấp để sao chép ID khóa",
 			"owner": "Thuộc sở hữu của {{name}}",
-			"providerDenyAll": "Khóa không cho phép nhà cung cấp nào"
+			"providerDenyAll": "Khóa không cho phép nhà cung cấp nào",
+			"idMeaning": "Mã định danh cố định của khóa này. Nhật ký yêu cầu và API tham chiếu đến khóa bằng mã này."
 		},
 		"emptyState": "Chưa có khóa ảo nào. Hãy tạo một khóa để bắt đầu sử dụng proxy.",
 		"steps": {
@@ -2518,7 +2520,12 @@
 			"level": "Cấp độ",
 			"source": "Nguồn",
 			"message": "Thông điệp",
-			"copyMessage": "Sao chép tin nhắn"
+			"copyMessage": "Sao chép toàn bộ dòng như đã lưu, gồm cả thuộc tính",
+			"filterBySource": "Chỉ hiển thị \"{{source}}\"",
+			"openProvider": "Mở nhà cung cấp",
+			"openModel": "Mở mô hình",
+			"copyValue": "Sao chép giá trị",
+			"copyRaw": "Sao chép thông điệp thô"
 		},
 		"auditDetail": {
 			"title": "Mục kiểm toán",
@@ -3283,7 +3290,8 @@
 			"lastLogin": "Lần đăng nhập cuối",
 			"allGrants": "Tất cả",
 			"noGrants": "Không có",
-			"totpEnabled": "Đã bật xác thực hai yếu tố"
+			"totpEnabled": "Đã bật xác thực hai yếu tố",
+			"created": "Đã tạo"
 		},
 		"role": {
 			"admin": "Quản trị viên",
@@ -3334,7 +3342,10 @@
 			"totpResetHint": "Xóa ứng dụng xác thực và mã khôi phục của người dùng để họ đăng nhập chỉ bằng mật khẩu.",
 			"totpResetConfirmTitle": "Đặt lại xác thực hai yếu tố",
 			"totpResetConfirmMessage": "Thao tác này xóa liên kết ứng dụng xác thực và tất cả mã khôi phục của người dùng này. Mật khẩu không thay đổi.",
-			"totpResetConfirmLabel": "Đặt lại"
+			"totpResetConfirmLabel": "Đặt lại",
+			"created": "Đã tạo",
+			"lastEdited": "Chỉnh sửa lần cuối",
+			"twoFactor": "Xác thực hai yếu tố"
 		},
 		"toast": {
 			"created": "Đã tạo người dùng",

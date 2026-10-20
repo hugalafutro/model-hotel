@@ -14,10 +14,10 @@ import { PageHeader } from "../../components/PageHeader";
 import { useToast } from "../../context/ToastContext";
 import { useManaged } from "../../hooks/useManaged";
 import { useReadOnly } from "../../hooks/useReadOnly";
-import { formatRelativeTime } from "../../utils/format";
+import { formatDateTime, formatRelativeTime } from "../../utils/format";
 import { UserModal } from "./UserModal";
 
-type UserSortField = "username" | "role" | "enabled" | "last_login";
+type UserSortField = "username" | "role" | "enabled" | "last_login" | "created";
 
 export function Users() {
 	const { t } = useTranslation();
@@ -98,6 +98,12 @@ export function Users() {
 					const bT = b.last_login_at ? new Date(b.last_login_at).getTime() : 0;
 					return dir * (aT - bT);
 				}
+				case "created":
+					return (
+						dir *
+						(new Date(a.created_at).getTime() -
+							new Date(b.created_at).getTime())
+					);
 				default:
 					return 0;
 			}
@@ -134,14 +140,15 @@ export function Users() {
 				<div className="ui-card overflow-hidden">
 					<table className="w-full table-fixed ui-table">
 						<colgroup>
-							<col className="w-[16%]" />
 							<col className="w-[14%]" />
-							<col className="w-[18%]" />
+							<col className="w-[12%]" />
+							<col className="w-[16%]" />
 							<col className="w-[8%]" />
 							<col className="w-[12%]" />
 							<col className="w-[12%]" />
 							<col className="w-[8%]" />
-							<col className="w-[12%]" />
+							<col className="w-[9%]" />
+							<col className="w-[9%]" />
 						</colgroup>
 						<thead>
 							<tr>
@@ -174,6 +181,12 @@ export function Users() {
 								<SortableHeader
 									label={t("users.table.lastLogin")}
 									field="last_login"
+									sort={sort}
+									onSort={handleSort}
+								/>
+								<SortableHeader
+									label={t("users.table.created")}
+									field="created"
 									sort={sort}
 									onSort={handleSort}
 								/>
@@ -237,6 +250,12 @@ export function Users() {
 									</td>
 									<td className="px-4 py-3 text-sm text-gray-400">
 										{formatRelativeTime(u.last_login_at)}
+									</td>
+									<td
+										className="px-4 py-3 text-sm text-gray-400"
+										title={formatDateTime(u.created_at)}
+									>
+										{formatRelativeTime(u.created_at)}
 									</td>
 								</Row>
 							))}

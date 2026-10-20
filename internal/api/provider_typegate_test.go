@@ -6,10 +6,13 @@ import (
 	"errors"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
 	"github.com/google/uuid"
 
+	"github.com/hugalafutro/model-hotel/internal/auth"
+	"github.com/hugalafutro/model-hotel/internal/config"
 	"github.com/hugalafutro/model-hotel/internal/provider"
 )
 
@@ -245,6 +248,112 @@ func TestRejectDuplicateLocalServer(t *testing.T) {
 				t.Errorf("existing = %q, want %q", body["existing"], existing.Name)
 			}
 		})
+	}
+}
+
+func TestRejectDuplicateKey(t *testing.T) {
+	masterKey := "test-master-key"
+	enc, err := auth.Encrypt("sk-or-v1-abc", masterKey)
+	if err != nil {
+		t.Fatal(err)
+	}
+	existing := &provider.Provider{
+		ID:           uuid.New(),
+		Name:         "OpenRouter",
+		BaseURL:      "https://openrouter.ai/api/v1",
+		ProviderType: "openrouter",
+		EncryptedKey: enc.Ciphertext,
+		KeyNonce:     enc.Nonce,
+		KeySalt:      enc.Salt,
+	}
+	keyless := &provider.Provider{
+		ID:           uuid.New(),
+		Name:         "Zen",
+		BaseURL:      "https://opencode.ai/zen/v1",
+		ProviderType: "opencode",
+	}
+	h := &Handler{
+		providerRepo: &stubProviderList{rows: []*provider.Provider{existing, keyless}},
+		cfg:          &config.Config{MasterKey: masterKey},
+	}
+
+	tests := []struct {
+		name     string
+		url      string
+		key      string
+		exclude  uuid.UUID
+		accepted bool
+	}{
+		// One account twice, however the address is spelled.
+		{"same address, same key", "https://openrouter.ai/api/v1", "sk-or-v1-abc", uuid.Nil, false},
+		{"same address with a slash, same key", "https://openrouter.ai/api/v1/", "sk-or-v1-abc", uuid.Nil, false},
+		{"same address in another case, same key", "https://OpenRouter.ai/api/v1", "sk-or-v1-abc", uuid.Nil, false},
+		// A second account on the same API is the supported case.
+		{"same address, other key", "https://openrouter.ai/api/v1", "sk-or-v1-xyz", uuid.Nil, true},
+		// The same key on another path is billed differently (OpenCode), so it
+		// is a different provider on purpose.
+		{"other path, same key", "https://openrouter.ai/api/v2", "sk-or-v1-abc", uuid.Nil, true},
+		// Nothing to duplicate without a key, on either side.
+		{"keyless add", "https://openrouter.ai/api/v1", "", uuid.Nil, true},
+		{"same address as a keyless row", "https://opencode.ai/zen/v1", "sk-or-v1-abc", uuid.Nil, true},
+		// Re-saving the provider's own key must not collide with itself.
+		{"the row being edited", "https://openrouter.ai/api/v1", "sk-or-v1-abc", existing.ID, true},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			rec := httptest.NewRecorder()
+			req := httptest.NewRequest(http.MethodPost, "/providers", http.NoBody)
+			got := h.rejectDuplicateKey(rec, req, tc.url, tc.key, tc.exclude)
+			if got != tc.accepted {
+				t.Fatalf("accepted = %v, want %v (body %s)", got, tc.accepted, rec.Body.String())
+			}
+			if tc.accepted {
+				return
+			}
+			if rec.Code != http.StatusConflict {
+				t.Errorf("status = %d, want 409", rec.Code)
+			}
+			var body map[string]string
+			if err := json.Unmarshal(rec.Body.Bytes(), &body); err != nil {
+				t.Fatalf("decode %q: %v", rec.Body.String(), err)
+			}
+			if body["code"] != codeProviderDuplicateKey {
+				t.Errorf("code = %q, want %q", body["code"], codeProviderDuplicateKey)
+			}
+			if body["existing"] != existing.Name {
+				t.Errorf("existing = %q, want %q", body["existing"], existing.Name)
+			}
+			// The refusal must never echo the key back.
+			if strings.Contains(rec.Body.String(), tc.key) {
+				t.Errorf("body echoes the key: %s", rec.Body.String())
+			}
+		})
+	}
+}
+
+// A stored key the current master key cannot read is skipped, not treated as a
+// match and not an error: the add proceeds.
+func TestRejectDuplicateKey_UndecryptableRowIsSkipped(t *testing.T) {
+	enc, err := auth.Encrypt("sk-or-v1-abc", "other-master-key")
+	if err != nil {
+		t.Fatal(err)
+	}
+	existing := &provider.Provider{
+		ID:           uuid.New(),
+		Name:         "OpenRouter",
+		BaseURL:      "https://openrouter.ai/api/v1",
+		EncryptedKey: enc.Ciphertext,
+		KeyNonce:     enc.Nonce,
+		KeySalt:      enc.Salt,
+	}
+	h := &Handler{
+		providerRepo: &stubProviderList{rows: []*provider.Provider{existing}},
+		cfg:          &config.Config{MasterKey: "test-master-key"},
+	}
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodPost, "/providers", http.NoBody)
+	if !h.rejectDuplicateKey(rec, req, "https://openrouter.ai/api/v1", "sk-or-v1-abc", uuid.Nil) {
+		t.Fatalf("expected the add to proceed, got %d %s", rec.Code, rec.Body.String())
 	}
 }
 

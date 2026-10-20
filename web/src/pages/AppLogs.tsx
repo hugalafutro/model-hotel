@@ -235,6 +235,14 @@ export function AppLogs() {
 					log={selectedLog}
 					type="app"
 					nav={logNav}
+					onFilterSource={
+						sources.length > 1
+							? (source) => {
+									setSourceFilter(source);
+									setPage(1);
+								}
+							: undefined
+					}
 					onClose={() => setSelectedLog(null)}
 				/>
 			)}

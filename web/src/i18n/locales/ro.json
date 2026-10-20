@@ -861,7 +861,8 @@
 			"apiKey": "Cheie API",
 			"baseUrlHelperAnthropicMessages": "URL-ul de bază al unui endpoint care vorbește API-ul Anthropic Messages. Cererile merg către \"<base_url>\"/v1/messages, iar modelele sunt descoperite din \"<base_url>\"/v1/models",
 			"nameHasSlash": "Numele unui furnizor nu poate conține „/”. Modelele sunt apelate ca furnizor/model, așa că numele ar fi tăiat la primul „/” și furnizorul nu ar putea fi accesat niciodată.",
-			"nameReserved": "„hotel” este rezervat: numele de model care încep cu hotel/ merg la grupurile de failover, așa că un furnizor cu acest nume nu ar putea fi apelat niciodată direct."
+			"nameReserved": "„hotel” este rezervat: numele de model care încep cu hotel/ merg la grupurile de failover, așa că un furnizor cu acest nume nu ar putea fi apelat niciodată direct.",
+			"duplicateKeyBlocked": "Există deja un furnizor cu această cheie API pentru această adresă („{{name}}”). Aceeași cheie de două ori este același cont de două ori: descoperă din nou aceleași modele și ambele rânduri consumă o singură cotă."
 		},
 		"edit": {
 			"typeHelper": "Modificați doar pentru a corecta un tip ghicit greșit la import sau la actualizare. Un tip găzduit local este verificat pe server înainte de salvare.",
@@ -1338,7 +1339,8 @@
 			"tpm": "Limită de tokenuri pe minut; cererile sunt respinse cu codul 429 odată ce bugetul pe minut este epuizat",
 			"id": "Faceți clic pentru a copia ID-ul cheii",
 			"owner": "Deținută de {{name}}",
-			"providerDenyAll": "Cheia nu permite niciun furnizor"
+			"providerDenyAll": "Cheia nu permite niciun furnizor",
+			"idMeaning": "Identificator stabil al acestei chei. Jurnalele de cereri și API-ul se referă la cheie prin el."
 		},
 		"emptyState": "Nu există chei virtuale. Creează una pentru a începe să folosești proxy.",
 		"steps": {
@@ -2584,7 +2586,12 @@
 			"level": "Nivel",
 			"source": "Sursa",
 			"message": "Mesaj",
-			"copyMessage": "Copiază mesajul"
+			"copyMessage": "Copiază întreaga linie așa cum a fost stocată, cu atribute",
+			"filterBySource": "Afișează doar „{{source}}”",
+			"openProvider": "Deschide furnizorul",
+			"openModel": "Deschide modelul",
+			"copyValue": "Copiază valoarea",
+			"copyRaw": "Copiază mesajul brut"
 		},
 		"auditDetail": {
 			"title": "Înregistrare de audit",
@@ -3359,7 +3366,8 @@
 			"lastLogin": "Ultima autentificare",
 			"allGrants": "Tot",
 			"noGrants": "Niciunul",
-			"totpEnabled": "Autentificare în doi pași activată"
+			"totpEnabled": "Autentificare în doi pași activată",
+			"created": "Creat"
 		},
 		"role": {
 			"admin": "Admin",
@@ -3410,7 +3418,10 @@
 			"totpResetHint": "Elimină aplicația de autentificare și codurile de recuperare ale utilizatorului, astfel încât să se poată conecta doar cu parola.",
 			"totpResetConfirmTitle": "Resetați autentificarea în doi pași",
 			"totpResetConfirmMessage": "Aceasta elimină asocierea cu aplicația de autentificare și toate codurile de recuperare ale acestui utilizator. Parola rămâne neschimbată.",
-			"totpResetConfirmLabel": "Resetează"
+			"totpResetConfirmLabel": "Resetează",
+			"created": "Creat",
+			"lastEdited": "Ultima editare",
+			"twoFactor": "Autentificare cu doi factori"
 		},
 		"toast": {
 			"created": "Utilizator creat",

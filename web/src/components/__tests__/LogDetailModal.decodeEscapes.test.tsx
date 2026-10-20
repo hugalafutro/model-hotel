@@ -7,6 +7,8 @@ import { LogDetailModal } from "../LogDetailModal";
 // App-log attribute values escape their spaces as \x20 in the stored line
 // (log-injection defense); the dashboard shows the human form, but only for
 // rows the backend marked as using the flattened encoding (escaped=true).
+// The modal shows the message head as text and each attribute as its own
+// tile, so a decoded value is looked up on its own.
 
 const baseLog: AppLogEntry = {
 	timestamp: "2026-08-23T10:00:00Z",
@@ -25,9 +27,8 @@ describe("LogDetailModal app-log escape decoding", () => {
 				onClose={() => {}}
 			/>,
 		);
-		expect(
-			screen.getByText('account fetched provider="Ollama Cloud" plan=pro'),
-		).toBeInTheDocument();
+		expect(screen.getByText("account fetched")).toBeInTheDocument();
+		expect(screen.getByText("Ollama Cloud")).toBeInTheDocument();
 		expect(screen.queryByText(/Ollama\\x20Cloud/)).not.toBeInTheDocument();
 	});
 
@@ -49,10 +50,9 @@ describe("LogDetailModal app-log escape decoding", () => {
 			/>,
 		);
 		expect(
-			screen.getByText(
-				'literal path="\\x20evidence" in text provider="Ollama Cloud"',
-			),
+			screen.getByText('literal path="\\x20evidence" in text'),
 		).toBeInTheDocument();
+		expect(screen.getByText("Ollama Cloud")).toBeInTheDocument();
 	});
 
 	it("renders unflagged (legacy/raw) rows verbatim", () => {

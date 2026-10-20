@@ -15,7 +15,7 @@ import (
 // assert on either the created row or the refusal.
 func createTwinProvider(t *testing.T, r chi.Router, name string) *httptest.ResponseRecorder {
 	t.Helper()
-	body := `{"name":` + strconv.Quote(name) + `,"base_url":"https://api.example.com/v1","api_key":"sk-twin"}`
+	body := `{"name":` + strconv.Quote(name) + `,"base_url":"https://api.example.com/v1","api_key":` + strconv.Quote("sk-twin-"+name) + `}`
 	req := httptest.NewRequest(http.MethodPost, "/providers", strings.NewReader(body))
 	req.Header.Set("Authorization", "Bearer test-admin-token")
 	req.Header.Set("Content-Type", "application/json")

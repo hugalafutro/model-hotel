@@ -998,7 +998,7 @@ func TestListLogsCursor_Filters(t *testing.T) {
 	h, r := newTestHandlerWithRouter(t)
 
 	// Create providers
-	providerData1 := fmt.Sprintf(`{"name": "test-filter-provider1-%s", "base_url": "https://api.example.com", "api_key": "test-key"}`, uuid.New().String()[:8])
+	providerData1 := fmt.Sprintf(`{"name": "test-filter-provider1-%s", "base_url": "https://api.example.com", "api_key": "test-key-1"}`, uuid.New().String()[:8])
 	rec := httptest.NewRecorder()
 	req := httptest.NewRequest(http.MethodPost, "/providers", strings.NewReader(providerData1))
 	req.Header.Set("Authorization", "Bearer test-admin-token")
@@ -1012,7 +1012,7 @@ func TestListLogsCursor_Filters(t *testing.T) {
 		t.Fatalf("Failed to parse provider response: %v", err)
 	}
 
-	providerData2 := fmt.Sprintf(`{"name": "test-filter-provider2-%s", "base_url": "https://api.example.com", "api_key": "test-key"}`, uuid.New().String()[:8])
+	providerData2 := fmt.Sprintf(`{"name": "test-filter-provider2-%s", "base_url": "https://api.example.com", "api_key": "test-key-2"}`, uuid.New().String()[:8])
 	rec = httptest.NewRecorder()
 	req = httptest.NewRequest(http.MethodPost, "/providers", strings.NewReader(providerData2))
 	req.Header.Set("Authorization", "Bearer test-admin-token")

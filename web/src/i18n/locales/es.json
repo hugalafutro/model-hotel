@@ -861,7 +861,8 @@
 			"apiKey": "Clave API",
 			"baseUrlHelperAnthropicMessages": "URL base de un endpoint que habla la API Anthropic Messages. Las solicitudes van a \"<base_url>\"/v1/messages y los modelos se descubren desde \"<base_url>\"/v1/models",
 			"nameHasSlash": "El nombre de un proveedor no puede contener \"/\". Los modelos se llaman como proveedor/modelo, así que el nombre se cortaría en la primera \"/\" y el proveedor nunca sería accesible.",
-			"nameReserved": "\"hotel\" está reservado: los nombres de modelo que empiezan por hotel/ van a los grupos de failover, así que un proveedor con este nombre nunca podría llamarse directamente."
+			"nameReserved": "\"hotel\" está reservado: los nombres de modelo que empiezan por hotel/ van a los grupos de failover, así que un proveedor con este nombre nunca podría llamarse directamente.",
+			"duplicateKeyBlocked": "Ya existe un proveedor con esta clave de API para esta dirección (\"{{name}}\"). La misma clave dos veces es la misma cuenta dos veces: vuelve a descubrir los mismos modelos y ambas filas consumen una sola cuota."
 		},
 		"edit": {
 			"typeHelper": "Cámbialo solo para corregir un tipo que se dedujo mal al importar o actualizar el proveedor. Un tipo autoalojado se comprueba con el servidor antes de guardarlo.",
@@ -1338,7 +1339,8 @@
 			"tpm": "Límite de tokens por minuto; las solicitudes se rechazan con un 429 una vez agotado el presupuesto por minuto",
 			"id": "Haga clic para copiar el ID de clave",
 			"owner": "Propiedad de {{name}}",
-			"providerDenyAll": "La clave no permite ningún proveedor"
+			"providerDenyAll": "La clave no permite ningún proveedor",
+			"idMeaning": "Identificador estable de esta clave. Los registros de solicitudes y la API se refieren a la clave con él."
 		},
 		"emptyState": "No hay claves virtuales. Crea una para empezar a usar el proxy.",
 		"steps": {
@@ -2584,7 +2586,12 @@
 			"level": "Nivel",
 			"source": "Fuente",
 			"message": "Mensaje",
-			"copyMessage": "Copiar mensaje"
+			"copyMessage": "Copia la línea completa tal como se guardó, atributos incluidos",
+			"filterBySource": "Mostrar solo \"{{source}}\"",
+			"openProvider": "Abrir proveedor",
+			"openModel": "Abrir modelo",
+			"copyValue": "Copiar valor",
+			"copyRaw": "Copiar mensaje sin procesar"
 		},
 		"auditDetail": {
 			"title": "Entrada de auditoría",
@@ -3359,7 +3366,8 @@
 			"lastLogin": "Último acceso",
 			"allGrants": "Todo",
 			"noGrants": "Ninguno",
-			"totpEnabled": "Autenticación en dos pasos activada"
+			"totpEnabled": "Autenticación en dos pasos activada",
+			"created": "Creado"
 		},
 		"role": {
 			"admin": "Admin",
@@ -3410,7 +3418,10 @@
 			"totpResetHint": "Elimina la aplicación de autenticación y los códigos de recuperación del usuario para que pueda iniciar sesión solo con su contraseña.",
 			"totpResetConfirmTitle": "Restablecer la autenticación en dos pasos",
 			"totpResetConfirmMessage": "Esto elimina la vinculación con la aplicación de autenticación y todos los códigos de recuperación de este usuario. La contraseña no cambia.",
-			"totpResetConfirmLabel": "Restablecer"
+			"totpResetConfirmLabel": "Restablecer",
+			"created": "Creado",
+			"lastEdited": "Última edición",
+			"twoFactor": "Autenticación de dos factores"
 		},
 		"toast": {
 			"created": "Usuario creado",

@@ -128,6 +128,58 @@ func TestCreateProvider_DuplicateName(t *testing.T) {
 	}
 }
 
+// One key for one address is one account: a second provider carrying it is
+// refused, a second key for the same address is a second account and goes in,
+// and an update that would move a provider onto a held pair is refused too.
+func TestProvider_DuplicateKeySameAddress(t *testing.T) {
+	h := newTestHandler(t)
+	r := chi.NewRouter()
+	r.Use(h.AuthMiddleware)
+	h.Register(r)
+	do := func(method, path, body string) *httptest.ResponseRecorder {
+		req := httptest.NewRequest(method, path, strings.NewReader(body))
+		req.Header.Set("Authorization", "Bearer test-admin-token")
+		w := httptest.NewRecorder()
+		r.ServeHTTP(w, req)
+		return w
+	}
+	code := func(w *httptest.ResponseRecorder) string {
+		var body map[string]string
+		_ = json.Unmarshal(w.Body.Bytes(), &body)
+		return body["code"]
+	}
+
+	first := do(http.MethodPost, "/providers", `{"name":"dupkey-a","base_url":"https://api.example.com/v1","provider_type":"openai","api_key":"sk-dupkey-same-1234567890"}`)
+	if first.Code != http.StatusCreated {
+		t.Fatalf("first create: %d %s", first.Code, first.Body.String())
+	}
+
+	twin := do(http.MethodPost, "/providers", `{"name":"dupkey-b","base_url":"https://api.example.com/v1/","provider_type":"openai","api_key":"sk-dupkey-same-1234567890"}`)
+	if twin.Code != http.StatusConflict || code(twin) != codeProviderDuplicateKey {
+		t.Fatalf("same key, same address: %d %s", twin.Code, twin.Body.String())
+	}
+
+	second := do(http.MethodPost, "/providers", `{"name":"dupkey-c","base_url":"https://api.example.com/v1","provider_type":"openai","api_key":"sk-dupkey-other-1234567890"}`)
+	if second.Code != http.StatusCreated {
+		t.Fatalf("other key, same address: %d %s", second.Code, second.Body.String())
+	}
+	var created provider.ProviderResponse
+	if err := json.Unmarshal(second.Body.Bytes(), &created); err != nil {
+		t.Fatal(err)
+	}
+
+	moved := do(http.MethodPut, "/providers/"+created.ID.String(), `{"api_key":"sk-dupkey-same-1234567890"}`)
+	if moved.Code != http.StatusConflict || code(moved) != codeProviderDuplicateKey {
+		t.Fatalf("update onto a held key: %d %s", moved.Code, moved.Body.String())
+	}
+
+	// Re-saving its own key is not a collision.
+	kept := do(http.MethodPut, "/providers/"+created.ID.String(), `{"api_key":"sk-dupkey-other-1234567890"}`)
+	if kept.Code != http.StatusOK {
+		t.Fatalf("re-saving own key: %d %s", kept.Code, kept.Body.String())
+	}
+}
+
 func TestListProviders_RepoError(t *testing.T) {
 	mockProv := &mockProviderStore{
 		listFn: func(_ context.Context) ([]*provider.Provider, error) {

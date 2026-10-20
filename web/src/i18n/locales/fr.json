@@ -861,7 +861,8 @@
 			"apiKey": "Clé API",
 			"baseUrlHelperAnthropicMessages": "URL de base d'un point de terminaison qui parle l'API Anthropic Messages. Les requêtes vont vers \"<base_url>\"/v1/messages et les modèles sont découverts depuis \"<base_url>\"/v1/models",
 			"nameHasSlash": "Le nom d'un fournisseur ne peut pas contenir « / ». Les modèles sont appelés sous la forme fournisseur/modèle : le nom serait coupé au premier « / » et le fournisseur serait injoignable.",
-			"nameReserved": "« hotel » est réservé : les noms de modèle commençant par hotel/ vont aux groupes de failover, un fournisseur portant ce nom ne pourrait donc jamais être appelé directement."
+			"nameReserved": "« hotel » est réservé : les noms de modèle commençant par hotel/ vont aux groupes de failover, un fournisseur portant ce nom ne pourrait donc jamais être appelé directement.",
+			"duplicateKeyBlocked": "Un fournisseur avec cette clé API pour cette adresse existe déjà (« {{name}} »). La même clé deux fois, c'est le même compte deux fois : elle redécouvre les mêmes modèles et les deux lignes épuisent un seul quota."
 		},
 		"edit": {
 			"typeHelper": "Ne le modifiez que pour corriger un type mal deviné lors de l'import ou de la mise à niveau. Un type auto-hébergé est vérifié auprès du serveur avant d'être enregistré.",
@@ -1338,7 +1339,8 @@
 			"tpm": "Limite de jetons par minute ; les requêtes sont rejetées avec un code 429 une fois le budget de la minute épuisé",
 			"id": "Cliquez pour copier l'ID de clé",
 			"owner": "Appartient à {{name}}",
-			"providerDenyAll": "La clé n'autorise aucun fournisseur"
+			"providerDenyAll": "La clé n'autorise aucun fournisseur",
+			"idMeaning": "Identifiant stable de cette clé. Les journaux de requêtes et l'API désignent la clé par celui-ci."
 		},
 		"emptyState": "Aucune clé virtuelle. Créez-en une pour commencer à utiliser le proxy.",
 		"steps": {
@@ -2584,7 +2586,12 @@
 			"level": "Niveau",
 			"source": "Source",
 			"message": "Message",
-			"copyMessage": "Copier le message"
+			"copyMessage": "Copier la ligne entière telle qu'enregistrée, attributs compris",
+			"filterBySource": "Afficher uniquement « {{source}} »",
+			"openProvider": "Ouvrir le fournisseur",
+			"openModel": "Ouvrir le modèle",
+			"copyValue": "Copier la valeur",
+			"copyRaw": "Copier le message brut"
 		},
 		"auditDetail": {
 			"title": "Entrée d'audit",
@@ -3359,7 +3366,8 @@
 			"lastLogin": "Dernière connexion",
 			"allGrants": "Tout",
 			"noGrants": "Aucun",
-			"totpEnabled": "Authentification à deux facteurs activée"
+			"totpEnabled": "Authentification à deux facteurs activée",
+			"created": "Créé"
 		},
 		"role": {
 			"admin": "Admin",
@@ -3410,7 +3418,10 @@
 			"totpResetHint": "Supprime l'application d'authentification et les codes de récupération de l'utilisateur, qui pourra se connecter avec son seul mot de passe.",
 			"totpResetConfirmTitle": "Réinitialiser l'authentification à deux facteurs",
 			"totpResetConfirmMessage": "Ceci supprime la liaison avec l'application d'authentification et tous les codes de récupération de cet utilisateur. Le mot de passe reste inchangé.",
-			"totpResetConfirmLabel": "Réinitialiser"
+			"totpResetConfirmLabel": "Réinitialiser",
+			"created": "Créé",
+			"lastEdited": "Dernière modification",
+			"twoFactor": "Authentification à deux facteurs"
 		},
 		"toast": {
 			"created": "Utilisateur créé",

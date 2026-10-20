@@ -843,7 +843,8 @@
 			"apiKey": "API Key",
 			"baseUrlHelperAnthropicMessages": "Base URL of an endpoint that speaks the Anthropic Messages API. Requests go to \"<base_url>\"/v1/messages and models are discovered from \"<base_url>\"/v1/models",
 			"nameHasSlash": "A provider name cannot contain \"/\". Models are called as provider/model, so the name would be cut at the first \"/\" and the provider could never be reached.",
-			"nameReserved": "\"hotel\" is reserved: model names starting with hotel/ go to failover groups, so a provider with this name could never be called directly."
+			"nameReserved": "\"hotel\" is reserved: model names starting with hotel/ go to failover groups, so a provider with this name could never be called directly.",
+			"duplicateKeyBlocked": "A provider with this API key for this address already exists (\"{{name}}\"). The same key twice is one account twice: it discovers the same models again and both rows drain one quota."
 		},
 		"edit": {
 			"typeHelper": "Change this only to correct a type that was guessed wrong when the provider was imported or upgraded. A self-hosted type is checked against the server before it is saved.",
@@ -1283,7 +1284,8 @@
 			"reasoningStripped": "Reasoning stripped",
 			"keyHashed": "Key is hashed and cannot be recovered",
 			"owner": "Owned by {{name}}",
-			"providerDenyAll": "Key allows no providers"
+			"providerDenyAll": "Key allows no providers",
+			"idMeaning": "Stable identifier of this key. Request logs and the API refer to the key by it."
 		},
 		"emptyState": "No virtual keys. Create one to start using the proxy.",
 		"steps": {
@@ -2518,7 +2520,12 @@
 			"level": "Level",
 			"source": "Source",
 			"message": "Message",
-			"copyMessage": "Copy message"
+			"copyMessage": "Copy the whole line as stored, attributes included",
+			"filterBySource": "Show only \"{{source}}\"",
+			"openProvider": "Open provider",
+			"openModel": "Open model",
+			"copyValue": "Copy value",
+			"copyRaw": "Copy raw message"
 		},
 		"auditDetail": {
 			"title": "Audit Entry",
@@ -3283,7 +3290,8 @@
 			"lastLogin": "Last login",
 			"allGrants": "Everything",
 			"noGrants": "None",
-			"totpEnabled": "Two-factor authentication enabled"
+			"totpEnabled": "Two-factor authentication enabled",
+			"created": "Created"
 		},
 		"role": {
 			"admin": "Admin",
@@ -3334,7 +3342,10 @@
 			"totpResetHint": "Removes the user's authenticator app and recovery codes so they can sign in with their password alone.",
 			"totpResetConfirmTitle": "Reset two-factor authentication",
 			"totpResetConfirmMessage": "This removes the authenticator app binding and all recovery codes for this user. Their password stays unchanged.",
-			"totpResetConfirmLabel": "Reset"
+			"totpResetConfirmLabel": "Reset",
+			"created": "Created",
+			"lastEdited": "Last edited",
+			"twoFactor": "Two-factor authentication"
 		},
 		"toast": {
 			"created": "User created",

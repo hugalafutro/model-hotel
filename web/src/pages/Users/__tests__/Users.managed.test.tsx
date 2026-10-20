@@ -43,10 +43,12 @@ describe("Users managed (fleet member) mode", () => {
 		const { user } = renderWithProviders(<Users />);
 
 		await user.click(await screen.findByText("alice"));
-		const dialog = await screen.findByRole("dialog", {
-			name: "Edit user",
-		});
+		// Managed users open as the read-only card and stay there: no Edit.
+		const dialog = await screen.findByRole("dialog", { name: "alice" });
 		expect(within(dialog).getByTestId("managed-note")).toBeInTheDocument();
+		expect(
+			within(dialog).queryByTestId("user-modal-edit"),
+		).not.toBeInTheDocument();
 		expect(
 			within(dialog).queryByTestId("user-modal-save"),
 		).not.toBeInTheDocument();

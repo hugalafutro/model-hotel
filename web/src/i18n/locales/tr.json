@@ -837,7 +837,8 @@
 			"apiKey": "API Anahtarı",
 			"baseUrlHelperAnthropicMessages": "Anthropic Messages API konuşan bir uç noktanın temel URL'si. İstekler \"<base_url>\"/v1/messages adresine gider ve modeller \"<base_url>\"/v1/models adresinden keşfedilir",
 			"nameHasSlash": "Sağlayıcı adı \"/\" içeremez. Modeller sağlayıcı/model biçiminde çağrılır; bu yüzden ad ilk \"/\" işaretinde kesilir ve sağlayıcıya asla ulaşılamaz.",
-			"nameReserved": "\"hotel\" ayrılmıştır: hotel/ ile başlayan model adları failover gruplarına gider, bu yüzden bu adı taşıyan bir sağlayıcı asla doğrudan çağrılamaz."
+			"nameReserved": "\"hotel\" ayrılmıştır: hotel/ ile başlayan model adları failover gruplarına gider, bu yüzden bu adı taşıyan bir sağlayıcı asla doğrudan çağrılamaz.",
+			"duplicateKeyBlocked": "Bu adres için bu API anahtarına sahip bir sağlayıcı zaten var (\"{{name}}\"). Aynı anahtarı iki kez eklemek aynı hesabı iki kez eklemektir: aynı modelleri yeniden bulur ve iki satır tek bir kotayı tüketir."
 		},
 		"edit": {
 			"typeHelper": "Bunu yalnızca içe aktarma veya yükseltme sırasında yanlış tahmin edilen bir türü düzeltmek için değiştirin. Kendi sunucunuzun türü kaydedilmeden önce sunucuya karşı doğrulanır.",
@@ -1283,7 +1284,8 @@
 			"tpm": "Dakika başına token sınırı; dakika bütçesi tükendiğinde istekler 429 ile reddedilir",
 			"id": "Anahtar kimliğini kopyalamak için tıklayın",
 			"owner": "Sahibi: {{name}}",
-			"providerDenyAll": "Anahtar hiçbir sağlayıcıya izin vermez"
+			"providerDenyAll": "Anahtar hiçbir sağlayıcıya izin vermez",
+			"idMeaning": "Bu anahtarın sabit tanımlayıcısı. İstek günlükleri ve API anahtara bununla başvurur."
 		},
 		"emptyState": "Sanal anahtar yok. Proxy'yi kullanmaya başlamak için bir tane oluşturun.",
 		"steps": {
@@ -2518,7 +2520,12 @@
 			"level": "Seviye",
 			"source": "Kaynak",
 			"message": "Mesaj",
-			"copyMessage": "Mesajı kopyala"
+			"copyMessage": "Satırın tamamını kaydedildiği gibi, öznitelikleriyle kopyalar",
+			"filterBySource": "Yalnızca \"{{source}}\" göster",
+			"openProvider": "Sağlayıcıyı aç",
+			"openModel": "Modeli aç",
+			"copyValue": "Değeri kopyala",
+			"copyRaw": "Ham mesajı kopyala"
 		},
 		"auditDetail": {
 			"title": "Denetim kaydı",
@@ -3283,7 +3290,8 @@
 			"lastLogin": "Son giriş",
 			"allGrants": "Her şey",
 			"noGrants": "Yok",
-			"totpEnabled": "İki adımlı doğrulama etkin"
+			"totpEnabled": "İki adımlı doğrulama etkin",
+			"created": "Oluşturulma"
 		},
 		"role": {
 			"admin": "Yönetici",
@@ -3334,7 +3342,10 @@
 			"totpResetHint": "Kullanıcının doğrulama uygulamasını ve kurtarma kodlarını kaldırır; yalnızca parolayla giriş yapabilir.",
 			"totpResetConfirmTitle": "İki adımlı doğrulamayı sıfırla",
 			"totpResetConfirmMessage": "Bu işlem, bu kullanıcının doğrulama uygulaması bağlantısını ve tüm kurtarma kodlarını kaldırır. Parola değişmez.",
-			"totpResetConfirmLabel": "Sıfırla"
+			"totpResetConfirmLabel": "Sıfırla",
+			"created": "Oluşturulma",
+			"lastEdited": "Son düzenleme",
+			"twoFactor": "İki faktörlü kimlik doğrulama"
 		},
 		"toast": {
 			"created": "Kullanıcı oluşturuldu",

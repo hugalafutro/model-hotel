@@ -104,9 +104,10 @@ export function ProviderFilter({
 				aria-haspopup="listbox"
 				aria-expanded={open}
 				className="ui-input text-xs py-1.5 px-2.5 h-9 w-full flex items-center justify-between gap-2"
-				// Room for the clear control, which sits beside the trigger rather
-				// than inside it (a button cannot contain a button).
-				style={selected.size > 0 ? { paddingRight: 48 } : undefined}
+				// Room for the count badge, which sits beside the trigger rather
+				// than inside it (a button cannot contain a button): the badge's
+				// 32px inset plus its width and a gap before the chevron.
+				style={selected.size > 0 ? { paddingRight: 56 } : undefined}
 			>
 				<span
 					className={`truncate ${selected.size === 0 ? "text-(--text-tertiary)" : "text-(--text-primary)"}`}
@@ -121,7 +122,9 @@ export function ProviderFilter({
 			{selected.size > 0 && (
 				<button
 					type="button"
-					className="ui-badge absolute end-8 top-1/2 -translate-y-1/2 inline-flex items-center justify-center w-4 h-4 text-[10px] font-medium bg-(--accent-light) text-(--accent)"
+					// .ui-badge pads 10px a side, more than the 16px box, so the digit
+					// would spill into the chevron; the badge pads itself here.
+					className="ui-badge absolute end-8 top-1/2 -translate-y-1/2 inline-flex items-center justify-center min-w-4 h-4 px-1! py-0! text-[10px] leading-none font-medium bg-(--accent-light) text-(--accent)"
 					onClick={clear}
 					aria-label={t("components.providerFilter.clearFilter")}
 					title={t("components.providerFilter.clearFilter")}

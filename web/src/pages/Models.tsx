@@ -6,6 +6,7 @@ import {
 } from "@tanstack/react-query";
 import { useCallback, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
+import { useSearchParams } from "react-router";
 import { Bot } from "@/lib/icons";
 import { api } from "../api/client";
 import type { Model } from "../api/types";
@@ -78,6 +79,27 @@ export function Models() {
 		queryKey: ["providers"],
 		queryFn: () => api.providers.list(),
 	});
+
+	// ?model= (and ?provider= to pick between same-named rows) opens that
+	// model's detail, for a link from elsewhere such as an app-log line. The
+	// full list is read once for it: the table's own query is cursor-paged and
+	// off in scroll mode, so it cannot be relied on to hold the row.
+	const [searchParams, setSearchParams] = useSearchParams();
+	const linkedModel = searchParams.get("model");
+	const linkedProvider = searchParams.get("provider");
+	const { data: linkedModels } = useQuery({
+		queryKey: ["models", "linked", linkedModel],
+		queryFn: () => api.models.list(),
+		enabled: linkedModel !== null,
+	});
+	const linkedHit = useMemo(() => {
+		if (linkedModel === null || !linkedModels) return null;
+		const byId = linkedModels.filter((m) => m.model_id === linkedModel);
+		return (
+			byId.find((m) => m.provider_name === linkedProvider) ?? byId[0] ?? null
+		);
+	}, [linkedModel, linkedProvider, linkedModels]);
+	const shownModel = detailModel ?? linkedHit;
 
 	// The provider dropdown follows the scope so it cannot offer a provider
 	// whose rows the scope hides (an "active" view listing a disabled provider
@@ -336,10 +358,15 @@ export function Models() {
 				/>
 			)}
 
-			{detailModel && (
+			{shownModel && (
 				<ModelDetailModal
-					model={detailModel}
-					onClose={() => setDetailModel(null)}
+					model={shownModel}
+					onClose={() => {
+						setDetailModel(null);
+						// Closing the linked detail also drops the link from the URL,
+						// so the next render does not reopen it.
+						if (linkedModel !== null) setSearchParams({}, { replace: true });
+					}}
 					onToggle={handleToggleModel}
 					onDiscover={handleDiscover}
 					onTest={handleTest}

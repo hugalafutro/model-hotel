@@ -837,7 +837,8 @@
 			"apiKey": "API 키",
 			"baseUrlHelperAnthropicMessages": "Anthropic Messages API를 사용하는 엔드포인트의 기본 URL입니다. 요청은 \"<base_url>\"/v1/messages로 전송되고 모델은 \"<base_url>\"/v1/models에서 검색됩니다",
 			"nameHasSlash": "공급자 이름에는 \"/\"를 쓸 수 없습니다. 모델은 공급자/모델 형식으로 호출되므로 이름이 첫 번째 \"/\"에서 잘려 이 공급자에 절대 도달할 수 없습니다.",
-			"nameReserved": "\"hotel\"은 예약된 이름입니다. hotel/로 시작하는 모델 이름은 페일오버 그룹으로 가므로 이 이름의 공급자는 직접 호출할 수 없습니다."
+			"nameReserved": "\"hotel\"은 예약된 이름입니다. hotel/로 시작하는 모델 이름은 페일오버 그룹으로 가므로 이 이름의 공급자는 직접 호출할 수 없습니다.",
+			"duplicateKeyBlocked": "이 주소에 이 API 키를 사용하는 제공업체가 이미 있습니다(\"{{name}}\"). 같은 키를 두 번 등록하면 같은 계정을 두 번 등록하는 것입니다. 같은 모델을 다시 검색하고 두 행이 하나의 할당량을 소모합니다."
 		},
 		"edit": {
 			"typeHelper": "가져오기나 업그레이드 과정에서 잘못 추정된 종류를 바로잡을 때만 변경하세요. 자체 호스팅 종류는 저장 전에 서버와 대조합니다.",
@@ -1283,7 +1284,8 @@
 			"tpm": "분당 토큰 제한; 분당 할당량이 소진되면 요청은 429 오류로 거부됩니다",
 			"id": "키 ID 복사",
 			"owner": "{{name}} 소유",
-			"providerDenyAll": "키가 제공자를 허용하지 않음"
+			"providerDenyAll": "키가 제공자를 허용하지 않음",
+			"idMeaning": "이 키의 고정 식별자입니다. 요청 로그와 API는 이 ID로 키를 참조합니다."
 		},
 		"emptyState": "가상 키가 없습니다. 프록시를 사용하려면 키를 생성하세요.",
 		"steps": {
@@ -2518,7 +2520,12 @@
 			"level": "레벨",
 			"source": "출처",
 			"message": "메시지",
-			"copyMessage": "메시지 복사"
+			"copyMessage": "저장된 전체 줄을 속성까지 복사합니다",
+			"filterBySource": "\"{{source}}\"만 표시",
+			"openProvider": "제공업체 열기",
+			"openModel": "모델 열기",
+			"copyValue": "값 복사",
+			"copyRaw": "원본 메시지 복사"
 		},
 		"auditDetail": {
 			"title": "감사 항목",
@@ -3283,7 +3290,8 @@
 			"lastLogin": "마지막 로그인",
 			"allGrants": "전체",
 			"noGrants": "없음",
-			"totpEnabled": "2단계 인증 사용 중"
+			"totpEnabled": "2단계 인증 사용 중",
+			"created": "생성일"
 		},
 		"role": {
 			"admin": "관리자",
@@ -3334,7 +3342,10 @@
 			"totpResetHint": "사용자의 인증 앱과 복구 코드를 제거하여 비밀번호만으로 로그인할 수 있게 합니다.",
 			"totpResetConfirmTitle": "2단계 인증 재설정",
 			"totpResetConfirmMessage": "이 사용자의 인증 앱 연결과 모든 복구 코드가 제거됩니다. 비밀번호는 변경되지 않습니다.",
-			"totpResetConfirmLabel": "재설정"
+			"totpResetConfirmLabel": "재설정",
+			"created": "생성일",
+			"lastEdited": "마지막 수정",
+			"twoFactor": "2단계 인증"
 		},
 		"toast": {
 			"created": "사용자가 생성되었습니다",

@@ -30,7 +30,7 @@ func TestDiscoverAllModels_AllDisabled(t *testing.T) {
 	// Create providers and then disable them (CreateProviderRequest doesn't have enabled field)
 	var providerIDs []string
 	for i := range 3 {
-		providerData := fmt.Sprintf(`{"name": "test-disabled-all-%d", "base_url": "https://api.openai.com", "api_key": "sk-test123"}`, i)
+		providerData := fmt.Sprintf(`{"name": "test-disabled-all-%d", "base_url": "https://api.openai.com", "api_key": "sk-test123-%d"}`, i, i)
 		rec := httptest.NewRecorder()
 		req := httptest.NewRequest(http.MethodPost, "/providers", strings.NewReader(providerData))
 		req.Header.Set("Authorization", "Bearer test-admin-token")

@@ -23,7 +23,7 @@ func TestProviders_LastCapOverlay(t *testing.T) {
 	h.Register(r)
 	create := func(name string) string {
 		rec := httptest.NewRecorder()
-		req := httptest.NewRequest("POST", "/providers", strings.NewReader(`{"name": "`+name+`", "base_url": "https://ollama.com", "api_key": "test-api-key"}`))
+		req := httptest.NewRequest("POST", "/providers", strings.NewReader(`{"name": "`+name+`", "base_url": "https://ollama.com", "api_key": "test-api-key-`+name+`"}`))
 		req.Header.Set("Authorization", "Bearer test-admin-token")
 		req.Header.Set("Content-Type", "application/json")
 		r.ServeHTTP(rec, req)
