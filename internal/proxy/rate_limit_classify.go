@@ -466,8 +466,9 @@ func parseRetryAfter(v string) (time.Duration, bool) {
 	return 0, false
 }
 
-// parseResetValue reads the shapes X-RateLimit-Reset* arrives in: a Go-style
-// duration ("6m0s", OpenAI), a bare number of seconds, or a unix epoch in
+// parseResetValue reads the shapes a reset header arrives in: a Go-style
+// duration ("6m0s", OpenAI), an RFC 3339 time (anthropic-ratelimit-*-reset),
+// a bare number of seconds, or a unix epoch in
 // seconds or milliseconds (heuristic on magnitude; a wait is never years).
 func parseResetValue(v string) (time.Duration, bool) {
 	v = strings.TrimSpace(v)

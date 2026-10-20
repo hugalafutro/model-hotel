@@ -225,7 +225,7 @@ func (e reqError) render() string {
 		}
 		return fmt.Sprintf("internal error on attempt %d", n)
 	case KindValidation:
-		return "invalid request"
+		return e.withUnderlying("invalid request")
 	case KindAuth:
 		return "authorization failed"
 	case KindProviderModelGone:
@@ -316,6 +316,13 @@ func (e reqError) terminalClientMessage(reqModel string, isFailover bool) string
 			return fmt.Sprintf("all providers busy for model %s, retry shortly", reqModel)
 		}
 		return fmt.Sprintf("provider busy for model %s, retry shortly", reqModel)
+	case KindValidation:
+		// The caller's body was refused before any upstream call; the reason
+		// names a part index and type, never request content, so it travels.
+		if e.Underlying != "" {
+			return fmt.Sprintf("invalid request for model %s: %s", reqModel, e.Underlying)
+		}
+		return fmt.Sprintf("invalid request for model %s", reqModel)
 	default:
 		if isFailover {
 			return fmt.Sprintf("all providers failed for model %s", reqModel)

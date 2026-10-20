@@ -231,8 +231,9 @@ func TestInflightLimiter_NilIsInert(t *testing.T) {
 	slot.settle(slotClean)
 }
 
-// Only a literal "0" in one of the OpenAI-style remaining headers is a spent
-// budget; anything else, malformed or generous, is no signal.
+// Only a literal "0" in one of the remaining headers (OpenAI style or
+// anthropic-ratelimit-*) is a spent budget; anything else, malformed or
+// generous, is no signal.
 func TestRemainingBudgetZero(t *testing.T) {
 	for _, key := range []string{
 		"X-RateLimit-Remaining-Requests", "X-RateLimit-Remaining-Tokens", "X-RateLimit-Remaining",

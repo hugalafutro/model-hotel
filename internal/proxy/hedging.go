@@ -392,8 +392,9 @@ func (h *Handler) probeStreamingCandidate(ctx context.Context, st *requestState,
 	var dialMs float64
 	proxyReq, providerType, _, err := h.buildCandidateRequest(ctx, st, candidate)
 	if err != nil {
-		st.attemptSlot.settle(slotOutcomeFor(KindInternal))
-		res.reqErr = reqError{Kind: KindInternal, Attempt: attempt, Provider: candidate.provider.Name, Underlying: errString(err)}
+		kind := buildErrorKind(err)
+		st.attemptSlot.settle(slotOutcomeFor(kind))
+		res.reqErr = reqError{Kind: kind, Attempt: attempt, Provider: candidate.provider.Name, Underlying: errString(err)}
 		return res
 	}
 

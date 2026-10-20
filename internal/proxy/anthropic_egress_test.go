@@ -46,8 +46,7 @@ func TestIsAnthropicEgressAttempt(t *testing.T) {
 		{"text to opencode-go claude", &requestState{bodyBytes: textBody}, "opencode-go", true},
 		{"text to opencode-zen claude", &requestState{bodyBytes: textBody}, "opencode-zen", true},
 		{"anthropic-in to opencode-go claude", &requestState{bodyBytes: textBody, anthropicIn: true}, "opencode-go", false},
-		// Anthropic's own type is translated for text and documents alike: the
-		// compat endpoint it also serves carries no prompt-cache breakpoints.
+		// Anthropic's own type is translated for text and documents alike.
 		{"document to anthropic", &requestState{bodyBytes: docBody}, "anthropic", true},
 		{"text to anthropic", &requestState{bodyBytes: textBody}, "anthropic", true},
 		{"document to another provider", &requestState{bodyBytes: docBody}, "openai", false},
@@ -210,8 +209,8 @@ func (l *upstreamCallLog) takeOne(t *testing.T, phase string) anthropicUpstreamC
 // ChatCompletions pipeline against a fake Anthropic upstream. It proves the
 // whole adapter chain: a document-bearing request and a text-only one are both
 // translated to a Messages body on /v1/messages and translated back to a
-// chat.completion (streaming: to chunks ending in [DONE]); the compat route the
-// upstream also serves is never called.
+// chat.completion (streaming: to chunks ending in [DONE]); nothing reaches the
+// upstream's /v1/chat/completions.
 func TestChatCompletions_AnthropicEgress(t *testing.T) {
 	var log upstreamCallLog
 	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

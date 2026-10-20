@@ -698,8 +698,7 @@ func TestTranslateRequest_Stop(t *testing.T) {
 		{name: "array", stop: `["A","B"]`, want: []string{"A", "B"}},
 		{name: "string", stop: `"END"`, want: []string{"END"}},
 		{name: "empty string", stop: `""`, want: nil},
-		// Messages refuses a whitespace-only stop sequence; the compat endpoint
-		// ignored it ("all non-whitespace stop sequences work").
+		// Messages refuses a whitespace-only stop sequence.
 		{name: "whitespace-only entries dropped", stop: `["\n"," ","END"]`, want: []string{"END"}},
 		{name: "whitespace-only string", stop: `" "`, want: nil},
 		{name: "null", stop: `null`, want: nil},
@@ -870,15 +869,24 @@ func TestTranslateRequest_DefaultsToAdaptive(t *testing.T) {
 	}
 }
 
-func TestTranslateRequest_ThinkingRaisesMaxTokensAboveTheBudget(t *testing.T) {
+// The budget dialect needs max_tokens above the budget. A defaulted allowance
+// is the gateway's own number and grows; an explicit one is the caller's
+// spending cap and never does: the budget shrinks to half of it instead, and
+// below Anthropic's minimum budget thinking stays off.
+func TestTranslateRequest_ThinkingBudgetFitsUnderMaxTokens(t *testing.T) {
 	tests := []struct {
-		name      string
-		maxTokens string
-		want      int
+		name          string
+		maxTokens     string
+		wantMaxTokens int
+		wantBudget    int // 0 = thinking off
 	}{
-		{name: "default is below the budget", maxTokens: "", want: 8192 + DefaultMaxTokens},
-		{name: "equal to the budget", maxTokens: `,"max_tokens":8192`, want: 8192 + DefaultMaxTokens},
-		{name: "already above the budget", maxTokens: `,"max_tokens":9000`, want: 9000},
+		{name: "default is below the budget and is raised", maxTokens: "", wantMaxTokens: 8192 + DefaultMaxTokens, wantBudget: 8192},
+		{name: "explicit limit equal to the budget halves the budget", maxTokens: `,"max_tokens":8192`, wantMaxTokens: 8192, wantBudget: 4096},
+		{name: "explicit limit above the budget is left alone", maxTokens: `,"max_tokens":9000`, wantMaxTokens: 9000, wantBudget: 8192},
+		{name: "explicit limit that fits half the minimum budget", maxTokens: `,"max_tokens":2048`, wantMaxTokens: 2048, wantBudget: 1024},
+		{name: "explicit limit too small for any budget keeps thinking off", maxTokens: `,"max_tokens":2000`, wantMaxTokens: 2000, wantBudget: 0},
+		{name: "tiny explicit limit keeps thinking off", maxTokens: `,"max_tokens":30`, wantMaxTokens: 30, wantBudget: 0},
+		{name: "explicit max_completion_tokens is a limit too", maxTokens: `,"max_completion_tokens":30`, wantMaxTokens: 30, wantBudget: 0},
 	}
 
 	for _, tt := range tests {
@@ -886,13 +894,19 @@ func TestTranslateRequest_ThinkingRaisesMaxTokensAboveTheBudget(t *testing.T) {
 			req := translateWith(t, `{"model":"m","messages":[{"role":"user","content":"hi"}],
 				"reasoning_effort":"high"`+tt.maxTokens+`}`, ThinkingBudget)
 
-			if req.MaxTokens != tt.want {
-				t.Errorf("max_tokens = %d, want %d", req.MaxTokens, tt.want)
+			if req.MaxTokens != tt.wantMaxTokens {
+				t.Errorf("max_tokens = %d, want %d", req.MaxTokens, tt.wantMaxTokens)
 			}
-			if req.Thinking == nil {
+			switch {
+			case tt.wantBudget == 0:
+				if req.Thinking != nil {
+					t.Errorf("thinking = %+v, want it off under a limit that cannot hold it", req.Thinking)
+				}
+			case req.Thinking == nil:
 				t.Fatal("thinking omitted, want it enabled for reasoning_effort high")
-			}
-			if req.MaxTokens <= req.Thinking.BudgetTokens {
+			case req.Thinking.BudgetTokens != tt.wantBudget:
+				t.Errorf("budget_tokens = %d, want %d", req.Thinking.BudgetTokens, tt.wantBudget)
+			case req.MaxTokens <= req.Thinking.BudgetTokens:
 				t.Errorf("max_tokens %d is not above the thinking budget %d", req.MaxTokens, req.Thinking.BudgetTokens)
 			}
 		})
@@ -900,18 +914,22 @@ func TestTranslateRequest_ThinkingRaisesMaxTokensAboveTheBudget(t *testing.T) {
 }
 
 // An adaptive request has no budget to clear, but it still needs room for
-// thinking AND an answer. A small max_tokens is raised, because the alternative
-// is what a live claude-sonnet-5 did with max_tokens 30: spend 29 tokens
-// thinking, hit the cap, and return no text at all.
-func TestTranslateRequest_AdaptiveThinkingRaisesASmallMaxTokens(t *testing.T) {
+// thinking AND an answer: a live claude-sonnet-5 with max_tokens 30 spent 29
+// tokens thinking, hit the cap, and returned no text. A defaulted allowance is
+// raised; an explicit one is the caller's cap and is kept, with thinking off
+// when it is below the smallest budget.
+func TestTranslateRequest_AdaptiveThinkingRespectsExplicitMaxTokens(t *testing.T) {
 	tests := []struct {
-		name      string
-		maxTokens string
-		want      int
+		name         string
+		maxTokens    string
+		want         int
+		wantThinking bool
 	}{
-		{name: "tiny allowance is raised", maxTokens: `,"max_tokens":30`, want: minAdaptiveMaxTokens},
-		{name: "absent allowance gets the default", maxTokens: "", want: minAdaptiveMaxTokens},
-		{name: "generous allowance is left alone", maxTokens: `,"max_tokens":50000`, want: 50000},
+		{name: "tiny explicit allowance is kept, thinking off", maxTokens: `,"max_tokens":30`, want: 30, wantThinking: false},
+		{name: "tiny explicit max_completion_tokens is kept, thinking off", maxTokens: `,"max_completion_tokens":30`, want: 30, wantThinking: false},
+		{name: "small explicit allowance above the minimum budget thinks", maxTokens: `,"max_tokens":1024`, want: 1024, wantThinking: true},
+		{name: "absent allowance gets the default", maxTokens: "", want: minAdaptiveMaxTokens, wantThinking: true},
+		{name: "generous allowance is left alone", maxTokens: `,"max_tokens":50000`, want: 50000, wantThinking: true},
 	}
 
 	for _, tt := range tests {
@@ -921,7 +939,38 @@ func TestTranslateRequest_AdaptiveThinkingRaisesASmallMaxTokens(t *testing.T) {
 			if req.MaxTokens != tt.want {
 				t.Errorf("max_tokens = %d, want %d", req.MaxTokens, tt.want)
 			}
+			if (req.Thinking != nil) != tt.wantThinking {
+				t.Errorf("thinking = %+v, want on = %v", req.Thinking, tt.wantThinking)
+			}
 		})
+	}
+}
+
+// The model's own output ceiling stands in for an absent max_tokens when the
+// caller knows it; an explicit limit wins over it.
+func TestTranslateRequest_DefaultMaxTokensOption(t *testing.T) {
+	decode := func(t *testing.T, body string, opts Options) translatedRequest {
+		t.Helper()
+		out, _, _, err := TranslateRequestWithOptions([]byte(body), opts)
+		if err != nil {
+			t.Fatalf("TranslateRequestWithOptions: %v", err)
+		}
+		var req translatedRequest
+		if err := json.Unmarshal(out, &req); err != nil {
+			t.Fatalf("decode: %v", err)
+		}
+		return req
+	}
+	plain := `{"model":"m","messages":[{"role":"user","content":"hi"}]}`
+	if got := decode(t, plain, Options{DefaultMaxTokens: 64000}).MaxTokens; got != 64000 {
+		t.Errorf("max_tokens = %d, want the model ceiling 64000", got)
+	}
+	if got := decode(t, plain, Options{}).MaxTokens; got != DefaultMaxTokens {
+		t.Errorf("max_tokens = %d, want the package default without a ceiling", got)
+	}
+	explicit := `{"model":"m","messages":[{"role":"user","content":"hi"}],"max_tokens":100}`
+	if got := decode(t, explicit, Options{DefaultMaxTokens: 64000}).MaxTokens; got != 100 {
+		t.Errorf("max_tokens = %d, want the caller's 100", got)
 	}
 }
 
@@ -954,6 +1003,11 @@ func TestTranslateRequest_Errors(t *testing.T) {
 			if !strings.HasPrefix(err.Error(), "anthropicegress: ") {
 				t.Errorf("error = %q, want an anthropicegress: prefix", err)
 			}
+			// Every one of these is the caller's body, which the proxy books as a
+			// validation error rather than a gateway fault.
+			if !errors.Is(err, ErrInvalidRequest) {
+				t.Errorf("error = %q, want ErrInvalidRequest", err)
+			}
 		})
 	}
 }
@@ -972,6 +1026,7 @@ func TestTranslateRequest_UnsupportedContent(t *testing.T) {
 		// Malformed percent-encoding is unrecoverable: "%PD" and "%ZZ" are not
 		// escapes, so there are no bytes to re-encode as base64.
 		{name: "malformed percent-encoded image payload", part: `{"type":"image_url","image_url":{"url":"data:image/png,%ZZ"}}`},
+		{name: "data uri image without a payload separator", part: `{"type":"image_url","image_url":{"url":"data:image/png;base64"}}`},
 		{name: "malformed percent-encoded pdf in the image slot", part: `{"type":"image_url","image_url":{"url":"data:application/pdf,%PDF-1.4"}}`},
 		{name: "malformed percent-encoded pdf file part", part: `{"type":"file","file":{"file_data":"data:application/pdf,%PDF-1.4"}}`},
 		{name: "input_audio", part: `{"type":"input_audio","input_audio":{"data":"AAAA","format":"wav"}}`},
@@ -998,15 +1053,36 @@ func TestTranslateRequest_EmptyPartsAreDropped(t *testing.T) {
 		{"type":"image_url","image_url":{"url":""}},
 		{"type":"image_url"},
 		{"type":"file"},
-		{"type":"file","file":{}}]}]}`)
+		{"type":"file","file":{}},
+		{"type":"file","file":{"file_data":"data:text/plain,"}},
+		{"type":"image_url","image_url":{"url":"data:image/png;base64,"}},
+		{"type":"refusal","refusal":""},
+		{"text":""}]}]}`)
 	if blocks := blocksOf(t, req.Messages[0]); len(blocks) != 1 {
 		t.Fatalf("got %d blocks, want the text alone: %+v", len(blocks), blocks)
 	}
 }
 
-// Anthropic's temperature range ends at 1 where OpenAI's ends at 2; the compat
-// endpoint capped a larger value and Messages rejects it, so the translation
-// caps it the same way.
+// OpenAI's assistant refusal part and a part with no type (read as text, as
+// FlattenText reads it for the other roles) both translate to text.
+func TestTranslateRequest_RefusalAndUntypedPartsAreText(t *testing.T) {
+	req := translate(t, `{"model":"m","messages":[
+		{"role":"user","content":[{"text":"untyped question"}]},
+		{"role":"assistant","content":[{"type":"refusal","refusal":"I cannot help with that."}]},
+		{"role":"user","content":"ok"}]}`)
+	if len(req.Messages) != 3 {
+		t.Fatalf("got %d messages, want 3", len(req.Messages))
+	}
+	for i, want := range []string{"untyped question", "I cannot help with that."} {
+		blocks := blocksOf(t, req.Messages[i])
+		if len(blocks) != 1 || blocks[0].Type != "text" || blocks[0].Text != want {
+			t.Errorf("message %d blocks = %+v, want one text block %q", i, blocks, want)
+		}
+	}
+}
+
+// Anthropic's temperature range ends at 1 where OpenAI's ends at 2, and
+// Messages rejects a larger value, so the translation caps it.
 func TestTranslateRequest_TemperatureCap(t *testing.T) {
 	for _, tc := range []struct {
 		in, want float64
@@ -1018,6 +1094,38 @@ func TestTranslateRequest_TemperatureCap(t *testing.T) {
 	}
 	if req := translate(t, `{"model":"m","messages":[{"role":"user","content":"hi"}]}`); req.Temperature != nil {
 		t.Errorf("absent temperature translated to %v, want omitted", *req.Temperature)
+	}
+}
+
+// tool_choice "none" keeps the tools so the cache breakpoint on the last tool
+// survives the no-tool turn: the prompt prefix Anthropic caches stays the same.
+func TestTranslateRequest_ToolChoiceNoneKeepsTheToolBreakpoint(t *testing.T) {
+	body := `{"model":"m","messages":[{"role":"user","content":"hi"}],"tool_choice":"none",
+		"tools":[{"type":"function","function":{"name":"get_weather"}},{"type":"function","function":{"name":"get_time"}}]}`
+	out, _, _, err := TranslateRequestWithOptions([]byte(body), Options{Caching: true})
+	if err != nil {
+		t.Fatalf("TranslateRequestWithOptions: %v", err)
+	}
+	var req struct {
+		ToolChoice *struct {
+			Type string `json:"type"`
+		} `json:"tool_choice"`
+		Tools []struct {
+			Name         string          `json:"name"`
+			CacheControl json.RawMessage `json:"cache_control"`
+		} `json:"tools"`
+	}
+	if err := json.Unmarshal(out, &req); err != nil {
+		t.Fatalf("decode: %v", err)
+	}
+	if req.ToolChoice == nil || req.ToolChoice.Type != "none" {
+		t.Fatalf("tool_choice = %+v, want type none", req.ToolChoice)
+	}
+	if len(req.Tools) != 2 {
+		t.Fatalf("tools = %+v, want both kept", req.Tools)
+	}
+	if len(req.Tools[1].CacheControl) == 0 || len(req.Tools[0].CacheControl) != 0 {
+		t.Errorf("cache_control on tools = [%s, %s], want it on the last tool only", req.Tools[0].CacheControl, req.Tools[1].CacheControl)
 	}
 }
 
@@ -1035,6 +1143,10 @@ func TestTranslateRequest_ParallelToolCalls(t *testing.T) {
 		{name: "false with a named choice", extra: tools + `,"parallel_tool_calls":false,"tool_choice":{"type":"function","function":{"name":"get_weather"}}`, wantType: "tool", wantDisable: true},
 		{name: "true", extra: tools + `,"parallel_tool_calls":true,"tool_choice":"auto"`, wantType: "auto", wantDisable: false},
 		{name: "false without tools", extra: `"parallel_tool_calls":false`, wantType: "", wantDisable: false},
+		// Anthropic's none choice takes no flags.
+		{name: "false with none", extra: tools + `,"parallel_tool_calls":false,"tool_choice":"none"`, wantType: "none", wantDisable: false},
+		// A choice without tools is dropped: Anthropic rejects the pair.
+		{name: "none without tools", extra: `"tool_choice":"none"`, wantType: "", wantDisable: false},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

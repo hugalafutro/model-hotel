@@ -111,12 +111,17 @@ func TestMetricModelLabel(t *testing.T) {
 		"llama-3.2-1b":  "llama-3.2-1b",
 		"HOTEL/glm-5.3": "HOTEL/glm-5.3", // not the prefix the router matches
 	} {
-		if got := metricModelLabel(in, ""); got != want {
+		if got := metricModelLabel(in, "", true); got != want {
 			t.Errorf("metricModelLabel(%q) = %q, want %q", in, got, want)
 		}
 	}
-	if got := metricModelLabel("hotel/whatever the client typed", KindValidation); got != "unresolved" {
+	if got := metricModelLabel("hotel/whatever the client typed", KindValidation, false); got != "unresolved" {
 		t.Errorf("validation failure label = %q, want unresolved", got)
+	}
+	// A request that resolved and was then refused by a translation names a
+	// real model and keeps it.
+	if got := metricModelLabel("hotel/GLM-5.3", KindValidation, true); got != "hotel/glm-5.3" {
+		t.Errorf("resolved validation failure label = %q, want hotel/glm-5.3", got)
 	}
 }
 

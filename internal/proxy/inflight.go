@@ -123,14 +123,15 @@ const (
 
 // slotOutcomeFor maps a failed attempt's error kind to its settlement: the
 // causes the provider did not produce (the client leaving, a lost hedge race,
-// an internal failure) are neutral, every other failure is unclean. A failover
+// an internal failure, a body this gateway refused before any upstream call)
+// are neutral, every other failure is unclean. A failover
 // or retry deadline that expires before the headers is unclean: doUpstream
 // charges the breaker for it as a provider stall, and the window has to learn
 // from the same overload. (Mid-stream, streamSlotOutcome follows the breaker,
 // which does not charge those deadlines.)
 func slotOutcomeFor(kind ErrorKind) slotOutcome {
 	switch kind {
-	case KindClientDisconnect, KindHedgeSuperseded, KindInternal:
+	case KindClientDisconnect, KindHedgeSuperseded, KindInternal, KindValidation:
 		return slotNeutral
 	default:
 		return slotUnclean

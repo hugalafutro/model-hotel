@@ -2,6 +2,7 @@ package proxy
 
 import (
 	"context"
+	"errors"
 	"net/http"
 
 	"github.com/hugalafutro/model-hotel/internal/anthropicegress"
@@ -16,15 +17,12 @@ import (
 // as the gemini egress adapter and the /v1/responses re-route, so the TTFT
 // probe, stall watchdog, transforms and metering all run unchanged.
 //
-// Every chat request to a Messages speaker takes it. Anthropic's own API also
-// fronts an OpenAI-compat /v1/chat/completions, and that route used to be the
-// default for "anthropic" with only document requests translated, but the compat
-// route carries no cache_control: a multi-turn agent re-sending its whole
-// context there pays full input price on every turn, where the Messages route
-// with the breakpoints TranslateRequest places (caching.go) bills the repeated
-// prefix at a tenth. So the translated route is the one every Messages speaker
-// gets, the Test button and the retirement probe included, and the compat
-// endpoint goes unused.
+// Every chat request to a Messages speaker takes it, the Test button and the
+// retirement probe included. Anthropic's own API also fronts an OpenAI-compat
+// /v1/chat/completions, which the gateway does not use: that route carries no
+// cache_control, so a multi-turn agent re-sending its whole context there pays
+// full input price on every turn, where the Messages route with the breakpoints
+// TranslateRequest places (caching.go) bills the repeated prefix at a tenth.
 
 // isAnthropicFamily reports whether a provider type speaks Anthropic's native
 // Messages API. Both members serve /v1/messages with x-api-key. "anthropic" is
@@ -116,7 +114,24 @@ func (h *Handler) anthropicEgressBody(st *requestState, candidate modelCandidate
 	// The OpenCode types' own rule strips reasoning_effort because their chat
 	// route rejects it, which is a route this body never reaches.
 	cleaned := paramrewrite.BuildNativeUpstreamBody(st.bodyBytes, "anthropic-messages", candidate.model.ModelID, st.reqModel, &h.deprecationCache, &h.paramRenameCache, nil, learnedScopeFor(candidate))
-	return anthropicegress.TranslateRequestWithOptions(cleaned, anthropicegress.Options{Dialect: dialect, Caching: h.cachingFor(candidate)})
+	opts := anthropicegress.Options{Dialect: dialect, Caching: h.cachingFor(candidate)}
+	if candidate.model.MaxOutputTokens != nil {
+		opts.DefaultMaxTokens = *candidate.model.MaxOutputTokens
+	}
+	return anthropicegress.TranslateRequestWithOptions(cleaned, opts)
+}
+
+// buildErrorKind classifies a buildCandidateRequest failure: a body the
+// Messages translation refuses (a file_id, an audio part, no usable turn) is
+// the caller's doing and books as a validation error, so another candidate
+// with a route for it still gets its turn and the terminal answer, if none has
+// one, is a 400; anything else is this gateway's fault. The sequential loop
+// and the hedged probe share it so they can never disagree.
+func buildErrorKind(err error) ErrorKind {
+	if errors.Is(err, anthropicegress.ErrInvalidRequest) {
+		return KindValidation
+	}
+	return KindInternal
 }
 
 // cachingFor reports whether this candidate's Messages requests carry
