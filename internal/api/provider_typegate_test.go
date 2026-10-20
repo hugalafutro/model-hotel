@@ -338,6 +338,17 @@ func TestRejectDuplicateKey(t *testing.T) {
 	}
 }
 
+// As for the address guard: a provider list that cannot be read lets the add
+// proceed rather than blocking it over an unrelated failure.
+func TestRejectDuplicateKey_ListFailureDoesNotBlock(t *testing.T) {
+	h := &Handler{providerRepo: &erroringProviderList{}, cfg: &config.Config{MasterKey: "k"}}
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodPost, "/providers", http.NoBody)
+	if !h.rejectDuplicateKey(rec, req, "https://openrouter.ai/api/v1", "sk-or-v1-abc", uuid.Nil) {
+		t.Fatalf("expected the add to proceed, got %d %s", rec.Code, rec.Body.String())
+	}
+}
+
 // The address key behind the guard: what counts as one endpoint and what does
 // not, on the spellings the URL grammar allows.
 func TestHostedAddressKey(t *testing.T) {

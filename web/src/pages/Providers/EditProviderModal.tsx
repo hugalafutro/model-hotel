@@ -311,7 +311,10 @@ export function EditProviderModal({
 					</DetailItem>
 
 					{/* The two switches side by side, each with its hint under it. */}
-					<DetailItem label={t("providers.edit_enabled_label")}>
+					<DetailItem
+						label={t("providers.edit_enabled_label")}
+						htmlFor="edit-provider-enabled"
+					>
 						<div className="space-y-1" ref={scheduleRowRef}>
 							<div className="flex flex-wrap items-center gap-x-3 gap-y-1">
 								<Toggle
@@ -376,7 +379,10 @@ export function EditProviderModal({
 						</div>
 					</DetailItem>
 
-					<DetailItem label={t("providers.edit_autodiscovery_label")}>
+					<DetailItem
+						label={t("providers.edit_autodiscovery_label")}
+						htmlFor="edit-provider-autodiscovery"
+					>
 						<div
 							className={`space-y-1 ${!formData.enabled ? "opacity-40 pointer-events-none" : ""}`}
 						>

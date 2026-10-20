@@ -159,7 +159,11 @@ function decodeGoEscape(s: string, i: number): [string, number] {
 	if (width > 0) {
 		const hex = s.slice(i + 1, i + 1 + width);
 		if (hex.length === width && /^[0-9a-fA-F]+$/.test(hex)) {
-			return [String.fromCodePoint(Number.parseInt(hex, 16)), i + 1 + width];
+			const code = Number.parseInt(hex, 16);
+			// Past the last code point fromCodePoint throws; show it as written.
+			if (code <= 0x10ffff) {
+				return [String.fromCodePoint(code), i + 1 + width];
+			}
 		}
 	}
 	return [c, i + 1];

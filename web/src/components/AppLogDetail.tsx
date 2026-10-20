@@ -171,11 +171,16 @@ export function AppLogDetail({
 				</DetailItem>
 				{/* The line's structured attributes, one tile each. The keys are
 				   the logger's own and shown as written. */}
-				{attrs.map((a) => {
+				{attrs.map((a, i) => {
 					const link = linkFor(a);
+					// A pair can repeat in one line; the repeat count keeps React
+					// keys apart without leaning on the index alone.
+					const repeat = attrs
+						.slice(0, i)
+						.filter((b) => b.key === a.key && b.value === a.value).length;
 					return (
 						<DetailItem
-							key={`${a.key}=${a.value}`}
+							key={`${a.key}=${a.value}#${repeat}`}
 							label={a.key}
 							className={a.key === "path" ? "col-span-2" : undefined}
 							labelExtra={

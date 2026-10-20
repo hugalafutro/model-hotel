@@ -40,6 +40,12 @@ describe("parseLogAttrs", () => {
 		]);
 	});
 
+	it("keeps an out-of-range code point escape as text instead of throwing", () => {
+		expect(parseLogAttrs('v="\\U00110000 ok"')).toEqual([
+			{ key: "v", value: "U00110000 ok" },
+		]);
+	});
+
 	it("skips tokens that are not key=value and keeps the rest", () => {
 		expect(parseLogAttrs("loose words count=3")).toEqual([
 			{ key: "count", value: "3" },

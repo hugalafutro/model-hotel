@@ -485,7 +485,7 @@ export function UserModal({
 						emphasis="stat"
 						icon={DollarSign}
 						label={t("budget.label")}
-						labelExtra={<InfoHint tooltip={t("budget.hint")} />}
+						labelExtra={<InfoHint tooltip={t("budget.tooltip")} />}
 						className="sm:col-span-2"
 					>
 						<BudgetField
