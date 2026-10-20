@@ -327,6 +327,61 @@ func TestAttemptCandidate_RefusedBodyIsSkipped(t *testing.T) {
 	}
 }
 
+// retryAfterSlotFrees: a busy candidate whose freed slot refuses the body is
+// dropped from the wait, the others still waiting are tried, and the verdict
+// while they wait is their saturation, not the refusal. When the last one
+// refuses, the wait ends with the refusal as the verdict.
+func TestRetryAfterSlotFrees_RefusingCandidateLeavesTheWait(t *testing.T) {
+	h := newIntegrationHandler()
+	defer stopUnitHandler(h)
+
+	newState := func() (*requestState, []modelCandidate) {
+		st, a := probeStateForServer("http://unused.example")
+		st.overallDeadline = time.Now().Add(5 * time.Second)
+		_, b := probeStateForServer("http://unused.example")
+		b.provider.Name = "prov-B"
+		st.setReqErr(reqError{Kind: KindProviderSaturated, Attempt: 1, Provider: "prov-B", Model: b.model.ModelID, Detail: "at in-flight limit"})
+		return st, []modelCandidate{a, b}
+	}
+	refuse := func(st *requestState, c modelCandidate, attempt int) candidateOutcome {
+		st.setReqErr(reqError{Kind: KindValidation, Attempt: attempt, Provider: c.provider.Name, Model: c.model.ModelID, Underlying: "refused"})
+		return outcomeSkipped
+	}
+	w := httptest.NewRecorder()
+	r := httptest.NewRequest(http.MethodPost, "/v1/chat/completions", http.NoBody)
+
+	// A refuses, B serves.
+	st, busy := newState()
+	var tried []string
+	var verdictWhileWaiting ErrorKind
+	served := h.retryAfterSlotFrees(w, r, st, busy, 2, func(_ http.ResponseWriter, _ *http.Request, st *requestState, c modelCandidate, attempt, _ int) candidateOutcome {
+		tried = append(tried, c.provider.Name)
+		if c.provider.Name == "prov-A" {
+			return refuse(st, c, attempt)
+		}
+		verdictWhileWaiting = st.lastReqErr.Kind
+		return outcomeServed
+	})
+	if !served || len(tried) != 2 || tried[0] != "prov-A" || tried[1] != "prov-B" {
+		t.Fatalf("served = %v, tried = %v, want A refused then B served", served, tried)
+	}
+	if verdictWhileWaiting != KindProviderSaturated {
+		t.Errorf("verdict while B waited = %q, want the saturation, not A's refusal", verdictWhileWaiting)
+	}
+
+	// Both refuse: the wait ends, the last refusal is the verdict.
+	st, busy = newState()
+	served = h.retryAfterSlotFrees(w, r, st, busy, 2, func(_ http.ResponseWriter, _ *http.Request, st *requestState, c modelCandidate, attempt, _ int) candidateOutcome {
+		return refuse(st, c, attempt)
+	})
+	if served {
+		t.Fatal("two refusals must not count as served")
+	}
+	if st.lastReqErr.Kind != KindValidation {
+		t.Errorf("lastReqErr = %+v, want the refusal once no candidate waits", st.lastReqErr)
+	}
+}
+
 // TestProbeStreamingCandidate_AnthropicLearnsParams: the hedged learner reads
 // a rejected parameter for an "anthropic" provider like for every other
 // Messages speaker. Messages is that type's only chat route, so the strip keyed

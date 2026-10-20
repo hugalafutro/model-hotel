@@ -220,6 +220,14 @@ func TestSetReqErr_ValidationDoesNotDisplaceProviderFailure(t *testing.T) {
 	if st.lastReqErr.Kind != KindProviderError {
 		t.Fatalf("lastReqErr = %+v, want the other model's provider failure kept", st.lastReqErr)
 	}
+	// The hedged race's busy skip carries the model too, so the same
+	// candidate's later refusal replaces it.
+	st = &requestState{logData: &requestLogData{}}
+	st.setReqErr(reqError{Kind: KindProviderSaturated, Attempt: 0, Provider: "Anthropic", Model: "claude-haiku-5-5", Detail: "at in-flight limit"})
+	st.setReqErr(reqError{Kind: KindValidation, Attempt: 1, Provider: "Anthropic", Model: "claude-haiku-5-5", Underlying: "refused"})
+	if st.lastReqErr.Kind != KindValidation {
+		t.Fatalf("lastReqErr = %+v, want the refusal over the same candidate's busy skip", st.lastReqErr)
+	}
 	// This gateway's own internal error is not a route either.
 	st = &requestState{logData: &requestLogData{}}
 	st.setReqErr(reqError{Kind: KindInternal, Attempt: 0, Provider: "OpenAI", Underlying: "boom"})

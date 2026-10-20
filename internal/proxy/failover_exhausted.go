@@ -22,10 +22,11 @@ import (
 func (h *Handler) failAllExhausted(w http.ResponseWriter, st *requestState, numCandidates int) {
 	last := st.lastReqErr
 	status := last.terminalStatus()
-	// The row, the log lines and the metrics name the provider whose failure
-	// is the verdict, which is not always the last candidate tried: a
+	// The log lines, the SSE event and the metrics name the provider whose
+	// failure is the verdict, which is not always the last candidate tried: a
 	// refusal of the caller's body does not displace an earlier candidate's
-	// provider-side failure (see setReqErr).
+	// provider-side failure (see setReqErr). The row's resolved_model_id keeps
+	// the last candidate tried; the attempt trail holds every candidate.
 	if last.Provider != "" {
 		st.logData.providerName = last.Provider
 	}
@@ -37,9 +38,9 @@ func (h *Handler) failAllExhausted(w http.ResponseWriter, st *requestState, numC
 	clientMsg := last.terminalClientMessage(st.reqModel, st.isFailover)
 	if st.isFailover {
 		debuglog.Error("proxy: all providers exhausted", "model", st.logData.modelID, "provider", st.logData.providerName, "error", logMsg, "kind", string(last.Kind), "status", status, "candidates", numCandidates, "failover_timeout", st.failoverTimeout)
-		// all_busy means the last candidate was alive and at capacity;
-		// invalid_request that the caller's body was refused before any upstream
-		// call; any other cause, and the failover deadline, is all_failed.
+		// all_busy means the candidate whose verdict is rendered was alive and at
+		// capacity; invalid_request that the caller's body was refused before any
+		// upstream call; any other cause, and the failover deadline, is all_failed.
 		reason := "all_failed"
 		switch last.Kind {
 		case KindProviderSaturated:

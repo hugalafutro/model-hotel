@@ -196,6 +196,10 @@ func (h *Handler) retryAfterSlotFrees(w http.ResponseWriter, r *http.Request, st
 			return false
 		}
 		debuglog.Info("proxy: slot freed, retrying a busy candidate", "provider", busy[idx].provider.Name, "model", st.logData.modelID, "attempt", attempt+1)
+		// The verdict that stands before this attempt, restored if the freed
+		// slot refuses the body while others still wait: their saturation, not
+		// the refusal, is then what the request is about.
+		prevErr, prevLastErr, prevRateLimit := st.lastReqErr, st.lastErr, st.terminalRateLimit
 		outcome := attemptOne(w, r, st, busy[idx], attempt, attempt+1)
 		switch outcome {
 		case outcomeBusy:
@@ -208,11 +212,14 @@ func (h *Handler) retryAfterSlotFrees(w http.ResponseWriter, r *http.Request, st
 			return false
 		case outcomeSkipped:
 			// The freed slot refused the body before any request: that candidate
-			// is out, and the others still waiting may yet serve it.
+			// is out, and the others still waiting may yet serve it. Its refusal
+			// replaced its own busy skip as the verdict; while another candidate
+			// waits, the verdict goes back to the saturation that stood before.
 			busy = append(busy[:idx:idx], busy[idx+1:]...)
 			if len(busy) == 0 {
 				return false
 			}
+			st.lastReqErr, st.lastErr, st.terminalRateLimit = prevErr, prevLastErr, prevRateLimit
 			attempt++
 		case outcomeRetrySaturated, outcomeRetryServerError:
 			// The freed slot's answer earned one of the one-shot retries, whose
