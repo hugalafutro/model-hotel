@@ -506,11 +506,14 @@ func translateParts(raw json.RawMessage) ([]genPart, error) {
 // URIs) or fileData (plain URLs).
 func mediaPart(u string) (genPart, bool) {
 	if rest, ok := util.CutDataScheme(u); ok {
-		mime, data, found := strings.Cut(rest, ";base64,")
-		if !found || data == "" {
+		// The marker is matched in any case, like the scheme; the slice is
+		// taken on the original so the media type keeps its spelling.
+		const marker = ";base64,"
+		i := strings.Index(strings.ToLower(rest), marker)
+		if i < 0 || i+len(marker) >= len(rest) {
 			return genPart{}, false
 		}
-		return genPart{InlineData: &genBlob{MimeType: mime, Data: data}}, true
+		return genPart{InlineData: &genBlob{MimeType: rest[:i], Data: rest[i+len(marker):]}}, true
 	}
 	return genPart{FileData: &genFileData{FileURI: u}}, true
 }

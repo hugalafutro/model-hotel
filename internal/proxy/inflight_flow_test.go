@@ -163,8 +163,8 @@ func TestProbeStreamingCandidate_SlotOnEarlyExits(t *testing.T) {
 		if res.won || !res.busy {
 			t.Fatalf("result won=%v busy=%v, want a busy loss", res.won, res.busy)
 		}
-		if res.reqErr.Kind != KindProviderSaturated {
-			t.Errorf("reqErr.Kind = %s, want %s", res.reqErr.Kind, KindProviderSaturated)
+		if res.reqErr.Kind != KindProviderSaturated || res.reqErr.Model != cand.model.ModelID {
+			t.Errorf("reqErr = %+v, want a %s skip naming the candidate's model", res.reqErr, KindProviderSaturated)
 		}
 		if !res.rateLimit.classified || res.rateLimit.class != rateLimitSaturated {
 			t.Errorf("verdict = %+v, want the saturated skip the orchestrator waits on", res.rateLimit)

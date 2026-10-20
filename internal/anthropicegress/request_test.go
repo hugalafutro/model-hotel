@@ -187,14 +187,15 @@ func TestTranslateRequest_ContentParts(t *testing.T) {
 		{"type":"image_url","image_url":{"url":"data:IMAGE/JPEG;base64,/9j/4AAQ"}},
 		{"type":"image_url","image_url":{"url":"data:image/webp;charset=binary;base64,UklGRg=="}},
 		{"type":"file","file":{"file_data":"data:;base64,SGVsbG8="}},
-		{"type":"image_url","image_url":{"url":"DATA:image/gif;base64,R0lGODlh"}}]}]}`)
+		{"type":"image_url","image_url":{"url":"DATA:image/gif;base64,R0lGODlh"}},
+		{"type":"file","file":{"file_data":"data:application/pdf;name=base64.pdf,%25PDF"}}]}]}`)
 
 	if len(req.Messages) != 1 {
 		t.Fatalf("got %d messages, want 1", len(req.Messages))
 	}
 	blocks := blocksOf(t, req.Messages[0])
-	if len(blocks) != 12 {
-		t.Fatalf("got %d blocks, want 12 (the empty text is dropped): %+v", len(blocks), blocks)
+	if len(blocks) != 13 {
+		t.Fatalf("got %d blocks, want 13 (the empty text is dropped): %+v", len(blocks), blocks)
 	}
 
 	if blocks[0].Type != "text" || blocks[0].Text != "look" {
@@ -219,6 +220,9 @@ func TestTranslateRequest_ContentParts(t *testing.T) {
 		{"image", translatedSource{Type: "base64", MediaType: "image/webp", Data: "UklGRg=="}, "a media type with parameters before base64"},
 		{"document", translatedSource{Type: "text", MediaType: "text/plain", Data: "Hello"}, "an empty media type read as text/plain (RFC 2397)"},
 		{"image", translatedSource{Type: "base64", MediaType: "image/gif", Data: "R0lGODlh"}, "an upper-case data: scheme (RFC 2397 allows it)"},
+		// Only an exact ";base64" parameter marks a base64 payload: a parameter
+		// value that merely contains the word is percent-decoded and re-encoded.
+		{"document", translatedSource{Type: "base64", MediaType: "application/pdf", Data: "JVBERg=="}, "a percent-encoded payload beside a parameter named like base64"},
 	}
 	for i, w := range want {
 		b := blocks[i+1]

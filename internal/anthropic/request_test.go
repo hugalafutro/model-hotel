@@ -314,6 +314,30 @@ func TestTranslateRequest_ToolUseNullInputIsEmptyObject(t *testing.T) {
 	}
 }
 
+// A url-source document whose URL is itself a data: URI becomes a file part
+// whatever the case of the scheme (RFC 2397); a remote URL is dropped.
+func TestTranslateRequest_DocumentURLSourceSchemeCase(t *testing.T) {
+	body := []byte(`{"model":"p/m","max_tokens":10,"messages":[
+		{"role":"user","content":[
+			{"type":"document","source":{"type":"url","url":"DATA:application/pdf;base64,JVBER"}},
+			{"type":"document","source":{"type":"url","url":"https://example.com/report.pdf"}},
+			{"type":"text","text":"read it"}
+		]}
+	]}`)
+	out, _, _, err := TranslateRequest(body)
+	if err != nil {
+		t.Fatalf("TranslateRequest: %v", err)
+	}
+	parts := decodeOAI(t, out)["messages"].([]any)[0].(map[string]any)["content"].([]any)
+	if len(parts) != 2 {
+		t.Fatalf("parts = %d, want the file part and the text: %v", len(parts), parts)
+	}
+	file, _ := parts[0].(map[string]any)["file"].(map[string]any)
+	if parts[0].(map[string]any)["type"] != "file" || file["file_data"] != "DATA:application/pdf;base64,JVBER" {
+		t.Errorf("part 0 = %v, want a file part carrying the DATA: URI as sent", parts[0])
+	}
+}
+
 func TestTranslateRequest_DocumentBlocks(t *testing.T) {
 	// A base64 document becomes an OpenAI file part carrying a data: URI, named
 	// after the block's title (or document.pdf when it has none); a text

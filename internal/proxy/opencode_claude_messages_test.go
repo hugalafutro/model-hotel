@@ -329,8 +329,10 @@ func TestAttemptCandidate_RefusedBodyIsSkipped(t *testing.T) {
 
 // retryAfterSlotFrees: a busy candidate whose freed slot refuses the body is
 // dropped from the wait, the others still waiting are tried, and the verdict
-// while they wait is their saturation, not the refusal. When the last one
-// refuses, the wait ends with the refusal as the verdict.
+// while they wait is one of their saturations, not the refusal. When the last
+// one refuses, the wait ends with the refusal as the verdict. The standing skip
+// belongs to the candidate admitted first, the ordering in which a refusal
+// replaces it.
 func TestRetryAfterSlotFrees_RefusingCandidateLeavesTheWait(t *testing.T) {
 	h := newIntegrationHandler()
 	defer stopUnitHandler(h)
@@ -340,7 +342,7 @@ func TestRetryAfterSlotFrees_RefusingCandidateLeavesTheWait(t *testing.T) {
 		st.overallDeadline = time.Now().Add(5 * time.Second)
 		_, b := probeStateForServer("http://unused.example")
 		b.provider.Name = "prov-B"
-		st.setReqErr(reqError{Kind: KindProviderSaturated, Attempt: 1, Provider: "prov-B", Model: b.model.ModelID, Detail: "at in-flight limit"})
+		st.setReqErr(reqError{Kind: KindProviderSaturated, Attempt: 1, Provider: "prov-A", Model: a.model.ModelID, Detail: "at in-flight limit"})
 		return st, []modelCandidate{a, b}
 	}
 	refuse := func(st *requestState, c modelCandidate, attempt int) candidateOutcome {
@@ -353,20 +355,20 @@ func TestRetryAfterSlotFrees_RefusingCandidateLeavesTheWait(t *testing.T) {
 	// A refuses, B serves.
 	st, busy := newState()
 	var tried []string
-	var verdictWhileWaiting ErrorKind
+	var verdictWhileWaiting reqError
 	served := h.retryAfterSlotFrees(w, r, st, busy, 2, func(_ http.ResponseWriter, _ *http.Request, st *requestState, c modelCandidate, attempt, _ int) candidateOutcome {
 		tried = append(tried, c.provider.Name)
 		if c.provider.Name == "prov-A" {
 			return refuse(st, c, attempt)
 		}
-		verdictWhileWaiting = st.lastReqErr.Kind
+		verdictWhileWaiting = st.lastReqErr
 		return outcomeServed
 	})
 	if !served || len(tried) != 2 || tried[0] != "prov-A" || tried[1] != "prov-B" {
 		t.Fatalf("served = %v, tried = %v, want A refused then B served", served, tried)
 	}
-	if verdictWhileWaiting != KindProviderSaturated {
-		t.Errorf("verdict while B waited = %q, want the saturation, not A's refusal", verdictWhileWaiting)
+	if verdictWhileWaiting.Kind != KindProviderSaturated || verdictWhileWaiting.Provider != "prov-B" {
+		t.Errorf("verdict while B waited = %+v, want B's saturation, not A's refusal or A's skip", verdictWhileWaiting)
 	}
 
 	// Both refuse: the wait ends, the last refusal is the verdict.
@@ -377,8 +379,8 @@ func TestRetryAfterSlotFrees_RefusingCandidateLeavesTheWait(t *testing.T) {
 	if served {
 		t.Fatal("two refusals must not count as served")
 	}
-	if st.lastReqErr.Kind != KindValidation {
-		t.Errorf("lastReqErr = %+v, want the refusal once no candidate waits", st.lastReqErr)
+	if st.lastReqErr.Kind != KindValidation || st.lastReqErr.Provider != "prov-B" {
+		t.Errorf("lastReqErr = %+v, want B's refusal once no candidate waits", st.lastReqErr)
 	}
 }
 
