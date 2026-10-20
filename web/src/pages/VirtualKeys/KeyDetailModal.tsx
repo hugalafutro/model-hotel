@@ -8,6 +8,7 @@ import {
 	Fingerprint,
 	Gauge,
 	Key,
+	KeyRound,
 	RotateCcw,
 	ShieldCheck,
 	UserRound,
@@ -24,7 +25,7 @@ import { CopyablePill } from "../../components/CopyablePill";
 import { DeleteConfirmModal } from "../../components/DeleteConfirmModal";
 import { InfoHint } from "../../components/InfoHint";
 import { DetailItem } from "../../components/LogDetailItem";
-import { Modal } from "../../components/Modal";
+import { Modal, ModalIcon } from "../../components/Modal";
 import { Toggle } from "../../components/Toggle";
 import { formatDateTime, formatNumber, formatTokens } from "../../utils/format";
 import { ProviderAccessPicker } from "./ProviderAccessPicker";
@@ -114,6 +115,7 @@ export function KeyDetailModal({
 			<Modal
 				header={
 					<div className="flex flex-wrap items-center gap-3 mb-4">
+						<ModalIcon icon={KeyRound} />
 						{editing ? (
 							// The title becomes the name field: the dialog keeps its
 							// shape and its name, only the values turn editable.

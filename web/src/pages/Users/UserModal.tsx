@@ -1,5 +1,6 @@
 import { useId, useState } from "react";
 import { useTranslation } from "react-i18next";
+import { DollarSign, Gauge, Users as UsersIcon, Zap } from "@/lib/icons";
 import type { DashboardUser, UserRole } from "../../api/types";
 import { BudgetField } from "../../components/BudgetField";
 import { budgetText } from "../../components/budget";
@@ -96,6 +97,7 @@ export function UserModal({
 						? t("users.modal.editTitle")
 						: (user?.username ?? "")
 			}
+			icon={UsersIcon}
 			onClose={onClose}
 			maxWidth="max-w-2xl"
 			scrollable
@@ -424,6 +426,7 @@ export function UserModal({
 							[
 								{
 									field: "rps",
+									icon: Gauge,
 									label: "users.modal.limitRps",
 									min: "0",
 									max: "10000",
@@ -433,6 +436,7 @@ export function UserModal({
 								},
 								{
 									field: "burst",
+									icon: Zap,
 									label: "users.modal.limitBurst",
 									min: "1",
 									max: "10000",
@@ -442,6 +446,7 @@ export function UserModal({
 								},
 								{
 									field: "tpm",
+									icon: Gauge,
 									label: "users.modal.limitTpm",
 									min: "1",
 									max: "100000000",
@@ -454,6 +459,7 @@ export function UserModal({
 							<DetailItem
 								key={l.field}
 								emphasis="stat"
+								icon={l.icon}
 								label={t(l.label)}
 								labelExtra={<InfoHint tooltip={t("users.modal.limitsHint")} />}
 								htmlFor={`user-limit-${l.field}`}
@@ -477,6 +483,7 @@ export function UserModal({
 
 					<DetailItem
 						emphasis="stat"
+						icon={DollarSign}
 						label={t("budget.label")}
 						labelExtra={<InfoHint tooltip={t("budget.hint")} />}
 						className="sm:col-span-2"

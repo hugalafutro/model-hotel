@@ -4,6 +4,7 @@ import { useTranslation } from "react-i18next";
 import {
 	BrainSlashIcon,
 	ChevronRight,
+	KeyRound,
 	RotateCcw,
 	ShieldCheck,
 } from "@/lib/icons";
@@ -112,6 +113,7 @@ export function CreateKeyModal({
 					? t("virtualkeys.modal.createdTitle")
 					: t("virtualkeys.modal.createTitle")
 			}
+			icon={KeyRound}
 			// Not while the create is in flight: a dismissal then lands a key
 			// whose secret is never shown (the request still completes).
 			closeOnBackdrop={!createdKey && !createMutation.isPending}

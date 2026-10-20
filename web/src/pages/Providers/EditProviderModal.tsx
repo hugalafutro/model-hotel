@@ -1,7 +1,7 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useId, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { CalendarDays } from "@/lib/icons";
+import { CalendarDays, PlugZap } from "@/lib/icons";
 import { api } from "../../api/client";
 import type { Provider, UpdateProviderRequest } from "../../api/types";
 import { toISODate } from "../../components/AccentCalendar.utils";
@@ -178,6 +178,7 @@ export function EditProviderModal({
 		<>
 			<Modal
 				title={t("providers.edit_modal_title")}
+				icon={PlugZap}
 				maxWidth="max-w-2xl"
 				onCloseRequest={requestClose}
 				onClose={onClose}

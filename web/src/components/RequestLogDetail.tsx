@@ -10,6 +10,7 @@ import {
 	Globe,
 	Key,
 	Layers,
+	ScrollText,
 	Server,
 	Timer,
 	Zap,
@@ -28,7 +29,7 @@ import { StatusBadge } from "./LogDetailStatusBadge";
 import { DurationFigure } from "./logDetailUtils";
 import { EndpointTypeBadge } from "./logs";
 import { MaybeJsonBlock } from "./MaybeJsonBlock";
-import { Modal } from "./Modal";
+import { Modal, ModalIcon } from "./Modal";
 import type { ModalNavProps } from "./ModalNav";
 
 export interface LiveClock {
@@ -84,6 +85,7 @@ export function RequestLogDetail({
 			nav={withRowLabel(nav, t, requestLog.created_at, requestLog.model_id)}
 			header={
 				<div className="flex items-center gap-3 flex-wrap mb-4">
+					<ModalIcon icon={ScrollText} />
 					<h2 className="ui-modal-title">
 						{t("components.requestLogDetail.title")}
 					</h2>

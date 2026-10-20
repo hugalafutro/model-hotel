@@ -33,7 +33,7 @@ export function DetailItem({
 		value === null || value === undefined || value === "" ? "-" : value;
 	const tileClass = emphasis === "stat" ? "ui-stat-tile" : "ui-detail-tile";
 	const labelClass =
-		"flex items-center gap-2 text-[11px] uppercase tracking-wider text-(--text-tertiary) font-medium mb-1";
+		"flex items-center gap-2 h-4 text-[11px] leading-4 uppercase tracking-wider text-(--text-tertiary) font-medium mb-1";
 	const labelRow = (
 		<>
 			{label}
@@ -46,7 +46,9 @@ export function DetailItem({
 	return (
 		<div className={`flex items-start gap-3 p-3 ${tileClass} ${className}`}>
 			{Icon && (
-				<div className="shrink-0 mt-0.5">
+				// The same 16px box as the label's line, so the icon's centre and
+				// the label text's centre sit on one axis in every tile.
+				<div className="shrink-0 h-4 flex items-center">
 					<Icon size={16} className="text-(--accent)" />
 				</div>
 			)}

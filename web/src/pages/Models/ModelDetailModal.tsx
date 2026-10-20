@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Pin, RefreshCw, Sparkles } from "@/lib/icons";
+import { Bot, Pin, RefreshCw, Sparkles } from "@/lib/icons";
 import type { Model } from "../../api/types";
 import { CapBadge } from "../../components/CapBadge";
 import { ConfirmDialog } from "../../components/ConfirmDialog";
@@ -14,7 +14,7 @@ import {
 import { DeleteConfirmModal } from "../../components/DeleteConfirmModal";
 import { DetailSectionHeader } from "../../components/DetailSectionHeader";
 import type { LangIconKey } from "../../components/langIcons";
-import { Modal } from "../../components/Modal";
+import { Modal, ModalIcon } from "../../components/Modal";
 import { OutputBadges } from "../../components/OutputBadges";
 import {
 	nonTextOutputs,
@@ -114,7 +114,8 @@ export function ModelDetailModal({
 				<div>
 					<div className="flex justify-between items-start mb-0">
 						<div className="min-w-0">
-							<h2 className="ui-modal-title">
+							<h2 className="ui-modal-title flex items-center gap-2">
+								<ModalIcon icon={Bot} />
 								{model.display_name || model.name || pMid}
 							</h2>
 							<CopyablePill

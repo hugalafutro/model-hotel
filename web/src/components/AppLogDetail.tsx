@@ -18,7 +18,7 @@ import { Badge, type BadgeVariant } from "./Badge";
 import { CopyablePill } from "./CopyablePill";
 import { DetailItem } from "./LogDetailItem";
 import { MaybeJsonBlock } from "./MaybeJsonBlock";
-import { Modal } from "./Modal";
+import { Modal, ModalIcon } from "./Modal";
 import type { ModalNavProps } from "./ModalNav";
 
 /** The badge colour for an HTTP status in an access line. */
@@ -81,6 +81,7 @@ export function AppLogDetail({
 		<Modal
 			header={
 				<div className="flex flex-wrap items-center gap-3 mb-4">
+					<ModalIcon icon={FileText} />
 					<h2 id={titleId} className="ui-modal-title">
 						{t("components.appLogDetail.title")}
 					</h2>

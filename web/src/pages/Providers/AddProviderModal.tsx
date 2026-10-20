@@ -2,6 +2,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { deepseekUsd, isOpenCodeGoQuotaVisible } from "@web-shared/quota";
 import { type SubmitEvent, useId, useState } from "react";
 import { useTranslation } from "react-i18next";
+import { PlugZap } from "@/lib/icons";
 import { api } from "../../api/client";
 import type { Provider } from "../../api/types";
 import { ErrorCallout } from "../../components/ErrorCallout";
@@ -272,6 +273,7 @@ export function AddProviderModal({
 	return (
 		<Modal
 			title={t("providers.form_modal_title")}
+			icon={PlugZap}
 			maxWidth="max-w-2xl"
 			onClose={onClose}
 			footer={

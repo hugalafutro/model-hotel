@@ -1,4 +1,5 @@
 import { useTranslation } from "react-i18next";
+import { DollarSign, Gauge, Zap } from "@/lib/icons";
 import type { DashboardUser } from "../../api/types";
 import { budgetText } from "../../components/budget";
 import { InfoHint } from "../../components/InfoHint";
@@ -87,6 +88,7 @@ export function UserDetailCard({
 			<div className="sm:col-span-2 grid grid-cols-1 sm:grid-cols-3 gap-2">
 				<DetailItem
 					emphasis="stat"
+					icon={Gauge}
 					label={t("users.modal.limitRps")}
 					labelExtra={<InfoHint tooltip={t("users.modal.limitsHint")} />}
 					value={capText(user.rate_limit_rps)}
@@ -94,6 +96,7 @@ export function UserDetailCard({
 				/>
 				<DetailItem
 					emphasis="stat"
+					icon={Zap}
 					label={t("users.modal.limitBurst")}
 					labelExtra={<InfoHint tooltip={t("users.modal.limitsHint")} />}
 					value={capText(user.rate_limit_burst)}
@@ -101,6 +104,7 @@ export function UserDetailCard({
 				/>
 				<DetailItem
 					emphasis="stat"
+					icon={Gauge}
 					label={t("users.modal.limitTpm")}
 					labelExtra={<InfoHint tooltip={t("users.modal.limitsHint")} />}
 					value={capText(user.rate_limit_tpm)}
@@ -109,6 +113,7 @@ export function UserDetailCard({
 			</div>
 			<DetailItem
 				emphasis="stat"
+				icon={DollarSign}
 				label={t("budget.label")}
 				labelExtra={<InfoHint tooltip={t("budget.tooltip")} />}
 				className="sm:col-span-2"

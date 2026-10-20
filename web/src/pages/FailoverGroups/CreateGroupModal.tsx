@@ -1,6 +1,7 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useId, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
+import { Shuffle } from "@/lib/icons";
 import { api } from "../../api/client";
 import { isConflict } from "../../api/http";
 import type { CandidateModel, FailoverGroup } from "../../api/types";
@@ -334,6 +335,7 @@ export function CreateGroupModal({
 					? t("failoverGroups.create.editTitle")
 					: t("failoverGroups.create.createTitle")
 			}
+			icon={Shuffle}
 			onClose={onClose}
 			maxWidth="max-w-2xl"
 			footer={
