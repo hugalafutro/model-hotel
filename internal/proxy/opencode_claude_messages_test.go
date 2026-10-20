@@ -382,6 +382,20 @@ func TestRetryAfterSlotFrees_RefusingCandidateLeavesTheWait(t *testing.T) {
 	if st.lastReqErr.Kind != KindValidation || st.lastReqErr.Provider != "prov-B" {
 		t.Errorf("lastReqErr = %+v, want B's refusal once no candidate waits", st.lastReqErr)
 	}
+
+	// A third candidate with a route for the body failed provider-side and
+	// holds the verdict: two refusals during the wait leave it standing.
+	st, busy = newState()
+	st.setReqErr(reqError{Kind: KindProviderError, Attempt: 2, Provider: "prov-C", Model: "gpt", Underlying: "HTTP 502"})
+	served = h.retryAfterSlotFrees(w, r, st, busy, 3, func(_ http.ResponseWriter, _ *http.Request, st *requestState, c modelCandidate, attempt, _ int) candidateOutcome {
+		return refuse(st, c, attempt)
+	})
+	if served {
+		t.Fatal("two refusals must not count as served")
+	}
+	if st.lastReqErr.Kind != KindProviderError || st.lastReqErr.Provider != "prov-C" {
+		t.Errorf("lastReqErr = %+v, want the third candidate's provider failure kept through both refusals", st.lastReqErr)
+	}
 }
 
 // TestProbeStreamingCandidate_AnthropicLearnsParams: the hedged learner reads

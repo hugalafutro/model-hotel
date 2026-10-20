@@ -208,16 +208,21 @@ func (h *Handler) retryAfterSlotFrees(w http.ResponseWriter, r *http.Request, st
 			return false
 		case outcomeSkipped:
 			// The freed slot refused the body before any request: that candidate
-			// is out, and the others still waiting may yet serve it. While they
-			// wait, the verdict is one of their busy skips, named so that its own
-			// later refusal replaces it (see setReqErr); the refusal stands only
-			// once no candidate waits.
+			// is out, and the others still waiting may yet serve it. When the
+			// refusal replaced the refuser's own busy skip as the verdict (see
+			// setReqErr; another candidate's provider-side failure stands as it
+			// is), the verdict while the others wait is one of their busy skips,
+			// named so that its own later refusal replaces it. The refusal stands
+			// only once no candidate waits.
+			refused := busy[idx]
 			busy = append(busy[:idx:idx], busy[idx+1:]...)
 			if len(busy) == 0 {
 				return false
 			}
-			next := busy[0]
-			st.setReqErr(reqError{Kind: KindProviderSaturated, Attempt: attempt, Provider: next.provider.Name, Model: next.model.ModelID, Detail: "at in-flight limit"})
+			if last := st.lastReqErr; last.Kind == KindValidation && last.Provider == refused.provider.Name && last.Model == refused.model.ModelID {
+				next := busy[0]
+				st.setReqErr(reqError{Kind: KindProviderSaturated, Attempt: attempt, Provider: next.provider.Name, Model: next.model.ModelID, Detail: "at in-flight limit"})
+			}
 			attempt++
 		case outcomeRetrySaturated, outcomeRetryServerError:
 			// The freed slot's answer earned one of the one-shot retries, whose

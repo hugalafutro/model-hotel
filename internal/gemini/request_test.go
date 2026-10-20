@@ -672,6 +672,7 @@ func TestRequestCarriesFile(t *testing.T) {
 		"text parts only": {`{"messages":[{"role":"user","content":[{"type":"text","text":"hi"}]}]}`, false},
 		"inline file":     {`{"messages":[{"role":"user","content":[{"type":"file","file":{"file_data":"data:application/pdf;base64,JVBERi0="}}]}]}`, true},
 		"upper-case scheme and marker (RFC 2397)": {`{"messages":[{"role":"user","content":[{"type":"file","file":{"file_data":"DATA:application/pdf;BASE64,JVBERi0="}}]}]}`, true},
+		"non-ascii media type":                    {`{"messages":[{"role":"user","content":[{"type":"file","file":{"file_data":"data:image/K;base64,QUJD"}}]}]}`, true},
 		"file in later message":                   {`{"messages":[{"role":"user","content":"hi"},{"role":"user","content":[{"type":"file","file":{"file_data":"data:text/plain;base64,aGk="}}]}]}`, true},
 		"file_id only":                            {`{"messages":[{"role":"user","content":[{"type":"file","file":{"file_id":"file-1"}}]}]}`, false},
 		"remote file_data":                        {`{"messages":[{"role":"user","content":[{"type":"file","file":{"file_data":"https://x/y.pdf"}}]}]}`, false},

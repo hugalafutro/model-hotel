@@ -306,8 +306,7 @@ func TestChatCompletions_AnthropicEgress(t *testing.T) {
 		t.Errorf("usage = %v", resp["usage"])
 	}
 
-	// Text-only: translated too, with the prompt-cache breakpoint the compat
-	// route could not carry.
+	// Text-only: translated as well, carrying the prompt-cache breakpoint.
 	w = send(false, `"just text"`)
 	if w.Code != http.StatusOK {
 		t.Fatalf("text-only: %d\n%s", w.Code, w.Body.String())
