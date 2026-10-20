@@ -159,8 +159,8 @@ html[data-ui-style="clean-saas"].dark {
 	--border-subtle: rgba(255, 255, 255, 0.03);
 	--border-input: rgba(255, 255, 255, 0.1);
 
-	--radius-card: 14px;
-	--radius-button: 9999px;
+	--radius-card: 8px;
+	--radius-button: 6px;
 	/* Borderless cards: elevation comes from a soft long-throw shadow,
 	   not a 1px ring — hairline dividers carry structure instead. */
 	--shadow-card: 0 1px 2px rgb(0 0 0 / 0.3), 0 12px 32px -16px rgb(0 0 0 / 0.5);
@@ -179,8 +179,8 @@ html[data-ui-style="clean-saas"].light {
 	--border-subtle: rgba(0, 0, 0, 0.03);
 	--border-input: rgba(0, 0, 0, 0.1);
 
-	--radius-card: 14px;
-	--radius-button: 9999px;
+	--radius-card: 8px;
+	--radius-button: 6px;
 	--shadow-card:
 		0 1px 3px rgb(0 0 0 / 0.07), 0 12px 32px -18px rgb(0 0 0 / 0.18);
 	--shadow-md:
@@ -191,6 +191,7 @@ html[data-ui-style="clean-saas"].light {
 
 html[data-ui-style="clean-saas"] {
 	--nav-icon: var(--text-tertiary);
+	--radius-box: 6px;
 }
 
 html[data-ui-style="clean-saas"] h1,
@@ -291,7 +292,7 @@ html[data-ui-style="cyber-terminal"].light {
    ============================================= */
 
 html[data-ui-style="glassmorphism-lite"] {
-	--radius-box: 12px;
+	--radius-box: 10px;
 }
 
 html[data-ui-style="glassmorphism-lite"].dark {
@@ -323,8 +324,8 @@ html[data-ui-style="glassmorphism-lite"].dark {
 	--border-subtle: rgba(255, 255, 255, 0.04);
 	--border-input: rgba(255, 255, 255, 0.12);
 
-	--radius-card: 20px;
-	--radius-button: 12px;
+	--radius-card: 12px;
+	--radius-button: 8px;
 	--accent-lighter: rgba(129, 140, 248, 0.15);
 	--shadow-card:
 		0 8px 32px rgba(0, 0, 0, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.06);
@@ -347,8 +348,8 @@ html[data-ui-style="glassmorphism-lite"].light {
 	--border-subtle: rgba(100, 110, 180, 0.06);
 	--border-input: rgba(100, 110, 180, 0.15);
 
-	--radius-card: 20px;
-	--radius-button: 12px;
+	--radius-card: 12px;
+	--radius-button: 8px;
 	--accent-lighter: rgba(99, 102, 241, 0.08);
 	--shadow-card:
 		0 8px 32px rgba(60, 70, 140, 0.1), inset 0 1px 0 rgba(255, 255, 255, 0.7);
