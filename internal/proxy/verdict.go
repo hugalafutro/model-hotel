@@ -42,20 +42,28 @@ func (st *requestState) setReqErr(e reqError) {
 	e.Underlying = st.logData.fence().fenceUpstream(string(st.logData.masks().mask([]byte(e.Underlying))))
 	st.lastReqErr = e
 	st.terminalRateLimit = rl
-	if isRoutedFailure(e.Kind) {
+	if isRoutedFailure(e) {
 		st.routedFailure, st.routedFailureRateLimit = e, rl
 	}
 	st.lastErr = e.render()
 }
 
+// busySkipDetail is the Detail of the saturated reqError an attempt records
+// when its provider is at the learned in-flight window and no request is
+// made, which tells that skip apart from a 429 the provider answered.
+const busySkipDetail = "at in-flight limit"
+
 // isRoutedFailure reports a failure produced by a provider that was sent the
 // request: it had a route for the body, so a later refusal of that body by
-// another candidate says nothing against it. Skips without a request (busy,
-// refused), this gateway's own errors and the client leaving are not.
-func isRoutedFailure(kind ErrorKind) bool {
-	switch kind {
-	case KindProviderError, KindProviderTimeout, KindProviderModelGone, KindProviderNotEntitled, KindProviderBadRequest, KindProviderQuotaExhausted:
+// another candidate says nothing against it. A 429 the provider answered and
+// a retry that timed out count; a skip without a request (busy, refused),
+// this gateway's own errors and the client leaving do not.
+func isRoutedFailure(e reqError) bool {
+	switch e.Kind {
+	case KindProviderError, KindProviderTimeout, KindProviderModelGone, KindProviderNotEntitled, KindProviderBadRequest, KindProviderQuotaExhausted, KindRetryTimeout:
 		return true
+	case KindProviderSaturated:
+		return e.Detail != busySkipDetail
 	default:
 		return false
 	}

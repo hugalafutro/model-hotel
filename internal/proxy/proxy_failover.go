@@ -507,10 +507,10 @@ func (h *Handler) beginAttempt(failoverCtx context.Context, st *requestState, ca
 	// window is skipped exactly as a breaker-open one is, without a round
 	// trip. On admission a slot is held; every exit below settles it.
 	if !h.admitCandidate(st, candidate) {
-		st.setReqErr(reqError{Kind: KindProviderSaturated, Attempt: attempt, Provider: candidate.provider.Name, Model: candidate.model.ModelID, Detail: "at in-flight limit"})
+		st.setReqErr(reqError{Kind: KindProviderSaturated, Attempt: attempt, Provider: candidate.provider.Name, Model: candidate.model.ModelID, Detail: busySkipDetail})
 		logData.failoverAttempt = attempt
 		logData.noteBreaker(breakerNoop)
-		logData.closeAttemptRecord(0, KindProviderSaturated, "at in-flight limit", "", 0)
+		logData.closeAttemptRecord(0, KindProviderSaturated, busySkipDetail, "", 0)
 		return nil, "", "", true, false
 	}
 	// Stamped after admission: a candidate skipped at its in-flight limit was

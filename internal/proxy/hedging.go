@@ -376,7 +376,7 @@ func (h *Handler) probeStreamingCandidate(ctx context.Context, st *requestState,
 	// The same admission gate beginAttempt passes: a provider at its learned
 	// in-flight window loses this race slot without a request being made.
 	if !h.admitCandidate(st, candidate) {
-		res.reqErr = reqError{Kind: KindProviderSaturated, Attempt: attempt, Provider: candidate.provider.Name, Model: candidate.model.ModelID, Detail: "at in-flight limit"}
+		res.reqErr = reqError{Kind: KindProviderSaturated, Attempt: attempt, Provider: candidate.provider.Name, Model: candidate.model.ModelID, Detail: busySkipDetail}
 		res.rateLimit = st.rateLimit
 		res.busy = true
 		st.logData.noteBreaker(breakerNoop)

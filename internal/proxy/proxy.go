@@ -221,7 +221,7 @@ func (h *Handler) retryAfterSlotFrees(w http.ResponseWriter, r *http.Request, st
 			}
 			if last := st.lastReqErr; last.Kind == KindValidation && last.Provider == refused.provider.Name && last.Model == refused.model.ModelID {
 				next := busy[0]
-				st.setReqErr(reqError{Kind: KindProviderSaturated, Attempt: attempt, Provider: next.provider.Name, Model: next.model.ModelID, Detail: "at in-flight limit"})
+				st.setReqErr(reqError{Kind: KindProviderSaturated, Attempt: attempt, Provider: next.provider.Name, Model: next.model.ModelID, Detail: busySkipDetail})
 			}
 			attempt++
 		case outcomeRetrySaturated, outcomeRetryServerError:

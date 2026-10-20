@@ -206,8 +206,8 @@ func TestSetReqErr_ValidationDoesNotDisplaceProviderFailure(t *testing.T) {
 	// The same candidate's earlier busy skip says nothing about a route: its
 	// refusal, once the slot freed and the body was built, is the verdict.
 	st = &requestState{logData: &requestLogData{}}
-	st.setReqErr(reqError{Kind: KindProviderSaturated, Attempt: 0, Provider: "Anthropic"})
-	st.setReqErr(reqError{Kind: KindValidation, Attempt: 1, Provider: "Anthropic", Underlying: "refused"})
+	st.setReqErr(reqError{Kind: KindProviderSaturated, Attempt: 0, Provider: "Anthropic", Model: "claude-a", Detail: busySkipDetail})
+	st.setReqErr(reqError{Kind: KindValidation, Attempt: 1, Provider: "Anthropic", Model: "claude-a", Underlying: "refused"})
 	if st.lastReqErr.Kind != KindValidation {
 		t.Fatalf("lastReqErr = %+v, want the same candidate's refusal", st.lastReqErr)
 	}
@@ -227,8 +227,8 @@ func TestSetReqErr_ValidationDoesNotDisplaceProviderFailure(t *testing.T) {
 	st.rateLimit = rateLimitVerdict{classified: true, class: rateLimitSaturated, retryAfter: 7 * time.Second}
 	st.setReqErr(reqError{Kind: KindProviderError, Attempt: 0, Provider: "OpenAI", Model: "gpt", Underlying: "HTTP 502"})
 	st.rateLimit = rateLimitVerdict{}
-	st.setReqErr(reqError{Kind: KindProviderSaturated, Attempt: 1, Provider: "Anthropic", Model: "claude-a"})
-	st.setReqErr(reqError{Kind: KindProviderSaturated, Attempt: 2, Provider: "Anthropic Messages", Model: "claude-b"})
+	st.setReqErr(reqError{Kind: KindProviderSaturated, Attempt: 1, Provider: "Anthropic", Model: "claude-a", Detail: busySkipDetail})
+	st.setReqErr(reqError{Kind: KindProviderSaturated, Attempt: 2, Provider: "Anthropic Messages", Model: "claude-b", Detail: busySkipDetail})
 	st.setReqErr(reqError{Kind: KindValidation, Attempt: 3, Provider: "Anthropic", Model: "claude-a", Underlying: "refused"})
 	if st.lastReqErr.Kind != KindProviderSaturated || st.lastReqErr.Model != "claude-b" {
 		t.Fatalf("lastReqErr = %+v, want the other candidate's skip kept over the refusal", st.lastReqErr)
@@ -239,6 +239,26 @@ func TestSetReqErr_ValidationDoesNotDisplaceProviderFailure(t *testing.T) {
 	}
 	if st.lastErr != st.routedFailure.render() {
 		t.Errorf("lastErr = %q, want the routed failure rendered", st.lastErr)
+	}
+
+	// A 429 the provider answered is a routed failure too, unlike the busy skip
+	// recorded without a request: it comes back as the verdict with its own
+	// Retry-After when the refusal would otherwise stand.
+	st = &requestState{logData: &requestLogData{}}
+	st.rateLimit = rateLimitVerdict{classified: true, class: rateLimitSaturated, retryAfter: 9 * time.Second}
+	st.setReqErr(reqError{Kind: KindProviderSaturated, Attempt: 0, Provider: "OpenAI", Detail: "HTTP 429"})
+	st.rateLimit = rateLimitVerdict{}
+	st.setReqErr(reqError{Kind: KindProviderSaturated, Attempt: 1, Provider: "Anthropic", Model: "claude-a", Detail: busySkipDetail})
+	st.setReqErr(reqError{Kind: KindValidation, Attempt: 2, Provider: "Anthropic", Model: "claude-a", Underlying: "refused"})
+	if st.lastReqErr.Provider != "OpenAI" || st.lastReqErr.Kind != KindProviderSaturated || st.terminalRateLimit.retryAfter != 9*time.Second {
+		t.Fatalf("lastReqErr = %+v (retry-after %v), want the provider's 429 back with its Retry-After", st.lastReqErr, st.terminalRateLimit.retryAfter)
+	}
+	// Busy skips alone are no routed failure: two refusals end as a refusal.
+	st = &requestState{logData: &requestLogData{}}
+	st.setReqErr(reqError{Kind: KindProviderSaturated, Attempt: 0, Provider: "Anthropic", Model: "claude-a", Detail: busySkipDetail})
+	st.setReqErr(reqError{Kind: KindValidation, Attempt: 1, Provider: "Anthropic", Model: "claude-a", Underlying: "refused"})
+	if st.lastReqErr.Kind != KindValidation {
+		t.Fatalf("lastReqErr = %+v, want the refusal when only a busy skip preceded it", st.lastReqErr)
 	}
 
 	// The hedged race's busy skip carries the model too, so the same
