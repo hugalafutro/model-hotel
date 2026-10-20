@@ -1304,6 +1304,47 @@ describe("AppLogDetail attributes", () => {
 		expect(screen.queryByTestId("app-log-filter-source")).toBeNull();
 	});
 
+	it("colours the status badge by class and skips the badge for other keys", () => {
+		const variants: Array<[string, string]> = [
+			["200", "success"],
+			["302", "info"],
+			["404", "warning"],
+			["500", "error"],
+			["abc", "muted"],
+		];
+		for (const [code, variant] of variants) {
+			const { unmount } = renderWithProviders(
+				<LogDetailModal
+					log={{ ...line, message: `served status=${code}`, attrs_at: 6 }}
+					type="app"
+					onClose={vi.fn()}
+				/>,
+			);
+			expect(
+				screen.getByText(code).closest("[data-test-variant]"),
+			).toHaveAttribute("data-test-variant", variant);
+			unmount();
+		}
+	});
+
+	it("resolves a provider_id to the provider's name for its link, and links nothing empty", async () => {
+		renderWithProviders(
+			<LogDetailModal
+				log={{
+					...line,
+					message: "quota read provider_id=provider-001 model=",
+					attrs_at: 10,
+				}}
+				type="app"
+				onClose={vi.fn()}
+			/>,
+		);
+		expect(
+			await screen.findByTestId("app-log-link-provider_id"),
+		).toHaveAttribute("href", "/providers?name=Test+Provider");
+		expect(screen.queryByTestId("app-log-link-model")).toBeNull();
+	});
+
 	it("shows a line without attributes whole", () => {
 		renderWithProviders(
 			<LogDetailModal

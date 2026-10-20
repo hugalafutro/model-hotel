@@ -178,6 +178,21 @@ func TestProvider_DuplicateKeySameAddress(t *testing.T) {
 	if kept.Code != http.StatusOK {
 		t.Fatalf("re-saving own key: %d %s", kept.Code, kept.Body.String())
 	}
+
+	// The same key at another address is another provider; moving it onto the
+	// first provider's address with its stored key is the collision again.
+	elsewhere := do(http.MethodPost, "/providers", `{"name":"dupkey-d","base_url":"https://api.openai.com/v1","provider_type":"openai","api_key":"sk-dupkey-same-1234567890"}`)
+	if elsewhere.Code != http.StatusCreated {
+		t.Fatalf("same key, other address: %d %s", elsewhere.Code, elsewhere.Body.String())
+	}
+	var other provider.ProviderResponse
+	if err := json.Unmarshal(elsewhere.Body.Bytes(), &other); err != nil {
+		t.Fatal(err)
+	}
+	relocated := do(http.MethodPut, "/providers/"+other.ID.String(), `{"base_url":"https://api.example.com/v1"}`)
+	if relocated.Code != http.StatusConflict || code(relocated) != codeProviderDuplicateKey {
+		t.Fatalf("moving a stored key onto a held address: %d %s", relocated.Code, relocated.Body.String())
+	}
 }
 
 func TestListProviders_RepoError(t *testing.T) {

@@ -33,7 +33,7 @@ export function DetailItem({
 		value === null || value === undefined || value === "" ? "-" : value;
 	const tileClass = emphasis === "stat" ? "ui-stat-tile" : "ui-detail-tile";
 	const labelClass =
-		"flex items-center gap-2 h-4 text-[11px] leading-4 uppercase tracking-wider text-(--text-tertiary) font-medium mb-1";
+		"flex items-center gap-2 min-h-4 text-[11px] leading-4 uppercase tracking-wider text-(--text-tertiary) font-medium mb-1";
 	const labelRow = (
 		<>
 			{label}
