@@ -75,9 +75,13 @@ func translateBlocks(raw json.RawMessage) ([]antBlock, error) {
 	for i, p := range parts {
 		switch p.Type {
 		case "text", "":
-			// An empty text block marshals as {"type":"text"}, which Anthropic
-			// rejects — drop it. A part with no type is read as text, as
-			// egress.FlattenText reads it for the system and tool roles.
+			// A part with no type is read as text, as egress.FlattenText reads it
+			// for the system and tool roles, unless it carries an image or file
+			// slot, which would be dropped unseen. An empty text block marshals as
+			// {"type":"text"}, which Anthropic rejects — drop it.
+			if p.Type == "" && (p.ImageURL != nil || p.File != nil) {
+				return nil, fmt.Errorf("%w: part %d has no type and carries an image or file", ErrUnsupportedContent, i)
+			}
 			if p.Text == "" {
 				continue
 			}
@@ -99,10 +103,18 @@ func translateBlocks(raw json.RawMessage) ([]antBlock, error) {
 			}
 			blocks = append(blocks, b)
 		case "file":
-			if p.File == nil || *p.File == (oaiFile{}) || emptyDataURI(p.File.FileData) {
+			if p.File == nil {
 				continue
 			}
-			b, ok := fileBlock(p.File)
+			f := *p.File
+			if emptyDataURI(f.FileData) {
+				// Nothing inline; the part is judged on what else it names.
+				f.FileData = ""
+			}
+			if f == (oaiFile{}) {
+				continue
+			}
+			b, ok := fileBlock(&f)
 			if !ok {
 				return nil, fmt.Errorf("%w: part %d file carries no inline data or URL (a file_id cannot be fetched)", ErrUnsupportedContent, i)
 			}
@@ -118,7 +130,7 @@ func translateBlocks(raw json.RawMessage) ([]antBlock, error) {
 // ("data:text/plain,"): a part that carries nothing, dropped like an empty
 // text part rather than refused like a malformed one.
 func emptyDataURI(u string) bool {
-	rest, isData := strings.CutPrefix(u, "data:")
+	rest, isData := cutDataScheme(u)
 	if !isData {
 		return false
 	}
@@ -158,7 +170,7 @@ func imageBlock(u string) (antBlock, bool) {
 	if !ok {
 		// A data: URI that does not parse (no comma, no payload) is malformed,
 		// not a remote image: forwarded as a url source it would only 400.
-		if len(u) >= 5 && strings.EqualFold(u[:5], "data:") {
+		if _, isData := cutDataScheme(u); isData {
 			return antBlock{}, false
 		}
 		return antBlock{Type: "image", Source: &antSource{Type: "url", URL: u}}, true

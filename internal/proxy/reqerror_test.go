@@ -156,6 +156,50 @@ func TestReqErrorTerminalStatus(t *testing.T) {
 	}
 }
 
+// A validation refusal is this gateway's own: the reason (a part index and
+// type, never request content) reaches the client, and the log line does not
+// dress it as a provider's error.
+func TestReqErrorValidationMessages(t *testing.T) {
+	e := reqError{Kind: KindValidation, Attempt: 0, Provider: "Anthropic", Underlying: "anthropicegress: content part cannot be sent to Anthropic Messages: part 1 file carries no inline data or URL"}
+	if got := e.terminalClientMessage("hotel/claude", true); got != "invalid request for model hotel/claude: "+e.Underlying {
+		t.Errorf("client message = %q", got)
+	}
+	if got := e.render(); got != "invalid request: "+e.Underlying {
+		t.Errorf("render = %q", got)
+	}
+	if got := (reqError{Kind: KindValidation}).terminalClientMessage("m", false); got != "invalid request for model m" {
+		t.Errorf("client message without a reason = %q", got)
+	}
+}
+
+// A validation refusal recorded after a provider-side failure leaves that
+// failure as the terminal verdict: a retry may serve the request through the
+// candidate that had a route for it. The reverse order, and two refusals,
+// record normally.
+func TestSetReqErr_ValidationDoesNotDisplaceProviderFailure(t *testing.T) {
+	st := &requestState{logData: &requestLogData{}}
+	st.setReqErr(reqError{Kind: KindProviderError, Attempt: 0, Provider: "OpenAI", Underlying: "HTTP 502"})
+	st.setReqErr(reqError{Kind: KindValidation, Attempt: 1, Provider: "Anthropic", Underlying: "refused"})
+	if st.lastReqErr.Kind != KindProviderError || st.lastReqErr.Attempt != 0 {
+		t.Fatalf("lastReqErr = %+v, want the provider failure kept", st.lastReqErr)
+	}
+	st.setReqErr(reqError{Kind: KindProviderTimeout, Attempt: 2, Provider: "Groq"})
+	if st.lastReqErr.Kind != KindProviderTimeout {
+		t.Fatalf("lastReqErr = %+v, want the later provider failure", st.lastReqErr)
+	}
+
+	st = &requestState{logData: &requestLogData{}}
+	st.setReqErr(reqError{Kind: KindValidation, Attempt: 0, Provider: "Anthropic", Underlying: "refused"})
+	st.setReqErr(reqError{Kind: KindValidation, Attempt: 1, Provider: "Anthropic Messages", Underlying: "refused again"})
+	if st.lastReqErr.Attempt != 1 {
+		t.Fatalf("lastReqErr = %+v, want the second refusal", st.lastReqErr)
+	}
+	st.setReqErr(reqError{Kind: KindProviderError, Attempt: 2, Provider: "OpenAI", Underlying: "HTTP 500"})
+	if st.lastReqErr.Kind != KindProviderError {
+		t.Fatalf("lastReqErr = %+v, want the provider failure to replace a refusal", st.lastReqErr)
+	}
+}
+
 func TestReqErrorTerminalLogMessage(t *testing.T) {
 	// Provider error across multiple candidates wraps with the "all N" prefix.
 	provErr := reqError{Kind: KindProviderError, Attempt: 2, Provider: "groq", Detail: "HTTP 502"}

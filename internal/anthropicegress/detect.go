@@ -15,6 +15,14 @@ var imageMediaTypes = map[string]bool{
 	"image/webp": true,
 }
 
+// cutDataScheme strips a data: scheme, which RFC 2397 makes case-insensitive.
+func cutDataScheme(u string) (string, bool) {
+	if len(u) >= 5 && strings.EqualFold(u[:5], "data:") {
+		return u[5:], true
+	}
+	return "", false
+}
+
 // dataURI is a parsed data: URI.
 type dataURI struct {
 	mediaType string // lower-cased, parameters stripped ("application/pdf")
@@ -26,7 +34,7 @@ type dataURI struct {
 // for anything that is not a parseable data: URI — an http(s) URL, or a
 // truncated data: value with no comma or no payload.
 func parseDataURI(u string) (dataURI, bool) {
-	rest, isData := strings.CutPrefix(u, "data:")
+	rest, isData := cutDataScheme(u)
 	if !isData {
 		return dataURI{}, false
 	}

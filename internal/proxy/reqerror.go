@@ -225,7 +225,11 @@ func (e reqError) render() string {
 		}
 		return fmt.Sprintf("internal error on attempt %d", n)
 	case KindValidation:
-		return e.withUnderlying("invalid request")
+		// This gateway's own refusal, so the reason is not a provider's error.
+		if e.Underlying != "" {
+			return "invalid request: " + e.Underlying
+		}
+		return "invalid request"
 	case KindAuth:
 		return "authorization failed"
 	case KindProviderModelGone:

@@ -510,6 +510,13 @@ type requestState struct {
 // what keeps a prompt quoting gateway wording from blanking the gateway's own
 // diagnosis of the failure.
 func (st *requestState) setReqErr(e reqError) {
+	// A refusal of the caller's body (a translation that cannot carry it) does
+	// not displace an earlier candidate's provider-side failure as the terminal
+	// verdict: that candidate had a route for the content and a retry may serve
+	// it, which a 400 would deny. Sequential and hedged attempts both land here.
+	if e.Kind == KindValidation && st.lastReqErr.Kind != "" && st.lastReqErr.Kind != KindValidation {
+		return
+	}
 	e.Underlying = st.logData.fence().fenceUpstream(string(st.logData.masks().mask([]byte(e.Underlying))))
 	st.lastReqErr = e
 	st.lastErr = e.render()

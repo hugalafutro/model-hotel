@@ -523,12 +523,7 @@ func (h *Handler) beginAttempt(failoverCtx context.Context, st *requestState, ca
 	if err != nil {
 		kind := buildErrorKind(err)
 		st.attemptSlot.settle(slotOutcomeFor(kind))
-		// A refusal of the caller's body does not displace an earlier candidate's
-		// provider-side failure as the terminal verdict: that candidate had a
-		// route for the content and a retry may serve it, which a 400 would deny.
-		if kind != KindValidation || st.lastReqErr.Kind == "" || st.lastReqErr.Kind == KindValidation {
-			st.setReqErr(reqError{Kind: kind, Attempt: attempt, Provider: candidate.provider.Name, Underlying: errString(err)})
-		}
+		st.setReqErr(reqError{Kind: kind, Attempt: attempt, Provider: candidate.provider.Name, Underlying: errString(err)})
 		logData.closeAttemptRecord(0, kind, errString(err), "", 0)
 		return nil, providerType, targetURL, false, false
 	}

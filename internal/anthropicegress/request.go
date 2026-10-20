@@ -321,10 +321,6 @@ type Options struct {
 	// the dashboard Test button, which calls TranslateRequest. Bodies below a
 	// model's minimum cacheable length are accepted and simply not cached.
 	Caching bool
-	// DefaultMaxTokens is the max_tokens a request that names none gets: the
-	// model's own output ceiling when the caller knows it. 0 falls back to the
-	// package DefaultMaxTokens.
-	DefaultMaxTokens int
 }
 
 // TranslateRequestWithOptions is TranslateRequest with every per-candidate
@@ -383,18 +379,18 @@ func TranslateRequestWithOptions(chatBody []byte, opts Options) (body []byte, mo
 
 	// max_completion_tokens is the modern OpenAI field and wins over the
 	// deprecated max_tokens when both are present. A non-positive value is no
-	// budget at all — Anthropic 400s on it — so it falls through to the default:
-	// the model's own output ceiling when the caller knows it (Options), else
-	// DefaultMaxTokens. An explicit limit is the caller's and is never raised.
+	// budget at all — Anthropic 400s on it — so it falls through to the default.
+	// The default is DefaultMaxTokens and not the model's output ceiling:
+	// Anthropic counts max_tokens against the output rate limit when the request
+	// starts, so a large allowance on every plain request would spend that limit
+	// on answers never written. An explicit limit is the caller's and is never
+	// raised.
 	out.MaxTokens = req.MaxCompletionTokens
 	if out.MaxTokens <= 0 {
 		out.MaxTokens = req.MaxTokens
 	}
 	explicitLimit := out.MaxTokens > 0
 	if !explicitLimit {
-		out.MaxTokens = opts.DefaultMaxTokens
-	}
-	if out.MaxTokens <= 0 {
 		out.MaxTokens = DefaultMaxTokens
 	}
 
@@ -446,9 +442,10 @@ func foldResponseFormat(system string, raw json.RawMessage) string {
 // think is asking about reasoning depth, not sampling.
 //
 // max_tokens is the other shared rule. A limit the caller set explicitly is a
-// spending cap and is never raised: thinking fits under it (a budget halved to
-// leave the answer room) or stays off when even minThinkingBudget would not.
-// A defaulted limit is the gateway's own number and grows to make room.
+// spending cap and is never raised: the budget is capped at half of it so the
+// answer keeps the other half, and thinking stays off when that half is below
+// minThinkingBudget. A defaulted limit is the gateway's own number and grows
+// to make room.
 func applyThinking(out *antRequest, reasoningEffort string, dialect ThinkingDialect, explicitLimit bool) {
 	effort := strings.ToLower(strings.TrimSpace(reasoningEffort))
 
@@ -469,15 +466,13 @@ func applyThinking(out *antRequest, reasoningEffort string, dialect ThinkingDial
 		}
 		// Anthropic requires max_tokens strictly greater than the budget: the
 		// remainder is the visible answer's allowance.
-		if out.MaxTokens <= budget {
-			if explicitLimit {
-				budget = out.MaxTokens / 2
-				if budget < minThinkingBudget {
-					return
-				}
-			} else {
-				out.MaxTokens = budget + DefaultMaxTokens
+		if explicitLimit {
+			budget = min(budget, out.MaxTokens/2)
+			if budget < minThinkingBudget {
+				return
 			}
+		} else if out.MaxTokens <= budget {
+			out.MaxTokens = budget + DefaultMaxTokens
 		}
 		out.Thinking = &antThinking{Type: "enabled", BudgetTokens: budget}
 	default: // ThinkingAdaptive

@@ -114,11 +114,7 @@ func (h *Handler) anthropicEgressBody(st *requestState, candidate modelCandidate
 	// The OpenCode types' own rule strips reasoning_effort because their chat
 	// route rejects it, which is a route this body never reaches.
 	cleaned := paramrewrite.BuildNativeUpstreamBody(st.bodyBytes, "anthropic-messages", candidate.model.ModelID, st.reqModel, &h.deprecationCache, &h.paramRenameCache, nil, learnedScopeFor(candidate))
-	opts := anthropicegress.Options{Dialect: dialect, Caching: h.cachingFor(candidate)}
-	if candidate.model.MaxOutputTokens != nil {
-		opts.DefaultMaxTokens = *candidate.model.MaxOutputTokens
-	}
-	return anthropicegress.TranslateRequestWithOptions(cleaned, opts)
+	return anthropicegress.TranslateRequestWithOptions(cleaned, anthropicegress.Options{Dialect: dialect, Caching: h.cachingFor(candidate)})
 }
 
 // buildErrorKind classifies a buildCandidateRequest failure: a body the

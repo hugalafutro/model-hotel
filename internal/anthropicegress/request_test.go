@@ -183,16 +183,18 @@ func TestTranslateRequest_ContentParts(t *testing.T) {
 		{"type":"file","file":{"file_data":"data:application/pdf;base64,SGVsbG8="}},
 		{"type":"file","file":{"file_data":"data:text/plain;base64,aGVsbG8gd29ybGQ="}},
 		{"type":"file","file":{"file_url":"https://example.com/report.pdf"}},
+		{"type":"file","file":{"file_data":"data:text/plain,","file_url":"https://example.com/beside.pdf"}},
 		{"type":"image_url","image_url":{"url":"data:IMAGE/JPEG;base64,/9j/4AAQ"}},
 		{"type":"image_url","image_url":{"url":"data:image/webp;charset=binary;base64,UklGRg=="}},
-		{"type":"file","file":{"file_data":"data:;base64,SGVsbG8="}}]}]}`)
+		{"type":"file","file":{"file_data":"data:;base64,SGVsbG8="}},
+		{"type":"image_url","image_url":{"url":"DATA:image/gif;base64,R0lGODlh"}}]}]}`)
 
 	if len(req.Messages) != 1 {
 		t.Fatalf("got %d messages, want 1", len(req.Messages))
 	}
 	blocks := blocksOf(t, req.Messages[0])
-	if len(blocks) != 10 {
-		t.Fatalf("got %d blocks, want 10 (the empty text is dropped): %+v", len(blocks), blocks)
+	if len(blocks) != 12 {
+		t.Fatalf("got %d blocks, want 12 (the empty text is dropped): %+v", len(blocks), blocks)
 	}
 
 	if blocks[0].Type != "text" || blocks[0].Text != "look" {
@@ -210,11 +212,13 @@ func TestTranslateRequest_ContentParts(t *testing.T) {
 		{"document", translatedSource{Type: "base64", MediaType: "application/pdf", Data: "SGVsbG8="}, "a base64 document source"},
 		{"document", translatedSource{Type: "text", MediaType: "text/plain", Data: "hello world"}, "a text document source carrying the decoded text"},
 		{"document", translatedSource{Type: "url", URL: "https://example.com/report.pdf"}, "a url document source"},
+		{"document", translatedSource{Type: "url", URL: "https://example.com/beside.pdf"}, "a url document beside an empty file_data"},
 		// parseDataURI normalises the media type: case, parameters before
 		// ";base64", and an empty type (a document, not an image).
 		{"image", translatedSource{Type: "base64", MediaType: "image/jpeg", Data: "/9j/4AAQ"}, "an upper-case media type lower-cased"},
 		{"image", translatedSource{Type: "base64", MediaType: "image/webp", Data: "UklGRg=="}, "a media type with parameters before base64"},
 		{"document", translatedSource{Type: "base64", MediaType: "application/pdf", Data: "SGVsbG8="}, "an empty media type as a PDF document"},
+		{"image", translatedSource{Type: "base64", MediaType: "image/gif", Data: "R0lGODlh"}, "an upper-case data: scheme (RFC 2397 allows it)"},
 	}
 	for i, w := range want {
 		b := blocks[i+1]
@@ -757,7 +761,7 @@ func TestTranslateRequest_ThinkingBudgetDialect(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			body := `{"model":"m","messages":[{"role":"user","content":"hi"}],
-				"max_tokens":16000,"temperature":0.5,"top_p":0.9,"top_k":40`
+				"max_tokens":32000,"temperature":0.5,"top_p":0.9,"top_k":40`
 			if tt.effort != "" {
 				body += `,"reasoning_effort":"` + tt.effort + `"`
 			}
@@ -817,7 +821,7 @@ func TestTranslateRequest_ThinkingAdaptiveDialect(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			body := `{"model":"m","messages":[{"role":"user","content":"hi"}],
-				"max_tokens":16000,"temperature":0.5,"top_p":0.9,"top_k":40`
+				"max_tokens":32000,"temperature":0.5,"top_p":0.9,"top_k":40`
 			if tt.effort != "" {
 				body += `,"reasoning_effort":"` + tt.effort + `"`
 			}
@@ -871,8 +875,9 @@ func TestTranslateRequest_DefaultsToAdaptive(t *testing.T) {
 
 // The budget dialect needs max_tokens above the budget. A defaulted allowance
 // is the gateway's own number and grows; an explicit one is the caller's
-// spending cap and never does: the budget shrinks to half of it instead, and
-// below Anthropic's minimum budget thinking stays off.
+// spending cap and never does: the budget is capped at half of it so the
+// answer keeps the other half, and below Anthropic's minimum budget thinking
+// stays off.
 func TestTranslateRequest_ThinkingBudgetFitsUnderMaxTokens(t *testing.T) {
 	tests := []struct {
 		name          string
@@ -882,7 +887,8 @@ func TestTranslateRequest_ThinkingBudgetFitsUnderMaxTokens(t *testing.T) {
 	}{
 		{name: "default is below the budget and is raised", maxTokens: "", wantMaxTokens: 8192 + DefaultMaxTokens, wantBudget: 8192},
 		{name: "explicit limit equal to the budget halves the budget", maxTokens: `,"max_tokens":8192`, wantMaxTokens: 8192, wantBudget: 4096},
-		{name: "explicit limit above the budget is left alone", maxTokens: `,"max_tokens":9000`, wantMaxTokens: 9000, wantBudget: 8192},
+		{name: "explicit limit above the budget still caps it at half", maxTokens: `,"max_tokens":9000`, wantMaxTokens: 9000, wantBudget: 4500},
+		{name: "explicit limit above twice the budget is left alone", maxTokens: `,"max_tokens":20000`, wantMaxTokens: 20000, wantBudget: 8192},
 		{name: "explicit limit that fits half the minimum budget", maxTokens: `,"max_tokens":2048`, wantMaxTokens: 2048, wantBudget: 1024},
 		{name: "explicit limit too small for any budget keeps thinking off", maxTokens: `,"max_tokens":2000`, wantMaxTokens: 2000, wantBudget: 0},
 		{name: "tiny explicit limit keeps thinking off", maxTokens: `,"max_tokens":30`, wantMaxTokens: 30, wantBudget: 0},
@@ -946,34 +952,6 @@ func TestTranslateRequest_AdaptiveThinkingRespectsExplicitMaxTokens(t *testing.T
 	}
 }
 
-// The model's own output ceiling stands in for an absent max_tokens when the
-// caller knows it; an explicit limit wins over it.
-func TestTranslateRequest_DefaultMaxTokensOption(t *testing.T) {
-	decode := func(t *testing.T, body string, opts Options) translatedRequest {
-		t.Helper()
-		out, _, _, err := TranslateRequestWithOptions([]byte(body), opts)
-		if err != nil {
-			t.Fatalf("TranslateRequestWithOptions: %v", err)
-		}
-		var req translatedRequest
-		if err := json.Unmarshal(out, &req); err != nil {
-			t.Fatalf("decode: %v", err)
-		}
-		return req
-	}
-	plain := `{"model":"m","messages":[{"role":"user","content":"hi"}]}`
-	if got := decode(t, plain, Options{DefaultMaxTokens: 64000}).MaxTokens; got != 64000 {
-		t.Errorf("max_tokens = %d, want the model ceiling 64000", got)
-	}
-	if got := decode(t, plain, Options{}).MaxTokens; got != DefaultMaxTokens {
-		t.Errorf("max_tokens = %d, want the package default without a ceiling", got)
-	}
-	explicit := `{"model":"m","messages":[{"role":"user","content":"hi"}],"max_tokens":100}`
-	if got := decode(t, explicit, Options{DefaultMaxTokens: 64000}).MaxTokens; got != 100 {
-		t.Errorf("max_tokens = %d, want the caller's 100", got)
-	}
-}
-
 // Without a thinking request, a small max_tokens is the caller's business and
 // stays exactly as sent.
 func TestTranslateRequest_MaxTokensUntouchedWithoutThinking(t *testing.T) {
@@ -1027,6 +1005,9 @@ func TestTranslateRequest_UnsupportedContent(t *testing.T) {
 		// escapes, so there are no bytes to re-encode as base64.
 		{name: "malformed percent-encoded image payload", part: `{"type":"image_url","image_url":{"url":"data:image/png,%ZZ"}}`},
 		{name: "data uri image without a payload separator", part: `{"type":"image_url","image_url":{"url":"data:image/png;base64"}}`},
+		{name: "untyped part carrying an image", part: `{"image_url":{"url":"https://example.com/cat.png"}}`},
+		{name: "untyped part carrying a file", part: `{"file":{"file_id":"file-abc"}}`},
+		{name: "empty file_data beside a file_id", part: `{"type":"file","file":{"file_data":"data:text/plain,","file_id":"file-abc"}}`},
 		{name: "malformed percent-encoded pdf in the image slot", part: `{"type":"image_url","image_url":{"url":"data:application/pdf,%PDF-1.4"}}`},
 		{name: "malformed percent-encoded pdf file part", part: `{"type":"file","file":{"file_data":"data:application/pdf,%PDF-1.4"}}`},
 		{name: "input_audio", part: `{"type":"input_audio","input_audio":{"data":"AAAA","format":"wav"}}`},
@@ -1036,8 +1017,8 @@ func TestTranslateRequest_UnsupportedContent(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			body := `{"model":"m","messages":[{"role":"user","content":[{"type":"text","text":"look"},` + tt.part + `]}]}`
 			_, _, _, err := TranslateRequest([]byte(body))
-			if !errors.Is(err, ErrUnsupportedContent) {
-				t.Fatalf("err = %v, want ErrUnsupportedContent", err)
+			if !errors.Is(err, ErrUnsupportedContent) || !errors.Is(err, ErrInvalidRequest) {
+				t.Fatalf("err = %v, want ErrUnsupportedContent (an ErrInvalidRequest)", err)
 			}
 			if strings.Contains(err.Error(), "file-abc") || strings.Contains(err.Error(), "AAAA") {
 				t.Errorf("error carries request content: %q", err)
@@ -1056,6 +1037,7 @@ func TestTranslateRequest_EmptyPartsAreDropped(t *testing.T) {
 		{"type":"file","file":{}},
 		{"type":"file","file":{"file_data":"data:text/plain,"}},
 		{"type":"image_url","image_url":{"url":"data:image/png;base64,"}},
+		{"type":"image_url","image_url":{"url":"DATA:image/png;base64,"}},
 		{"type":"refusal","refusal":""},
 		{"text":""}]}]}`)
 	if blocks := blocksOf(t, req.Messages[0]); len(blocks) != 1 {
