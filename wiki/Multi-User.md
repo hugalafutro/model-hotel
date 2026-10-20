@@ -42,10 +42,16 @@ The edit modal renders its checkboxes from the backend grant catalog (`internal/
 Admins manage accounts from the Users page:
 
 - **Create**: choose a username, display name, email, role, and grants, then set an initial password. Share that password with the user out of band; the user signs in with it and the flow proceeds as normal.
-- **Edit**: change profile fields, role, or grants, and enable or disable the account. Disabling revokes the account's live sessions immediately. An admin cannot disable or demote their own account, so nobody saws off the branch they sit on.
+- **View**: clicking a row opens the account's detail card: profile, role, status, access grants, provider access, two-factor state, login and edit times, proxy limits and budget.
+- **Edit**: the card's Edit button turns it into the form. Change profile fields, role, or grants, and enable or disable the account. Disabling revokes the account's live sessions immediately. An admin cannot disable or demote their own account, so nobody saws off the branch they sit on.
 - **Reset password**: set a new password for the user. This signs them out everywhere, so a reset always forces a fresh login.
 - **Reset two-factor authentication**: clear a user's TOTP enrollment if they lose their authenticator. It removes the authenticator binding **and all of that user's recovery codes**; their password is untouched.
 - **Delete**: remove the account and its sessions. Virtual keys the account owned are kept and become unowned, not deleted.
+
+<p align="center">
+<img src="screenshots/userdetailmodal.png" alt="User detail card" width="600"><br>
+<em>The detail card a row click opens: every account setting read-only, with Delete user and Edit at the bottom</em>
+</p>
 
 <p align="center">
 <img src="screenshots/usereditmodal.png" alt="Edit user modal" width="600"><br>
