@@ -318,6 +318,9 @@ func TestContentFence_DenseTextIsContent(t *testing.T) {
 	if got := newContentFence(chatBody(long)).fenceUpstream("无法处理：" + long[:120]); got != contentWithheld {
 		t.Fatalf("a long CJK prompt was not fenced: %q", got)
 	}
+	if !isEncodedPayload("DATA:image/png;base64,iVBORw0KGgo=") {
+		t.Error("an upper-case data: URL must be judged a blob, or it spends index budget ahead of the prose behind it")
+	}
 	if !isEncodedPayload(strings.Repeat("QUJDREVGR0hJSktMTU5PUA", 400)) {
 		t.Fatal("base64 not judged a blob")
 	}

@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/hugalafutro/model-hotel/internal/metrics"
+	"github.com/hugalafutro/model-hotel/internal/model"
 )
 
 // metricValue reads one series off a fresh scrape: the sample whose line starts
@@ -122,6 +123,22 @@ func TestMetricModelLabel(t *testing.T) {
 	// real model and keeps it.
 	if got := metricModelLabel("hotel/GLM-5.3", KindValidation, true); got != "hotel/glm-5.3" {
 		t.Errorf("resolved validation failure label = %q, want hotel/glm-5.3", got)
+	}
+}
+
+// attempted is what decides "resolved" above: an attempt trail entry, which
+// both the sequential loop (closeAttemptRecord) and the hedged race
+// (appendAttemptRecord) write for a candidate whose request was never built,
+// or a served model.
+func TestRequestLogDataAttempted(t *testing.T) {
+	if (&requestLogData{}).attempted() {
+		t.Error("an untouched row counts as attempted")
+	}
+	if !(&requestLogData{attempts: []attemptRecord{{}}}).attempted() {
+		t.Error("a row with an attempt record does not count as attempted")
+	}
+	if !(&requestLogData{servedModel: &model.Model{}}).attempted() {
+		t.Error("a served row does not count as attempted")
 	}
 }
 

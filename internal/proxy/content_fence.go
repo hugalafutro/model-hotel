@@ -254,7 +254,7 @@ func orderedKeys(m map[string]any) []string {
 }
 
 // isEncodedPayload reports a string that is an encoded blob rather than
-// text: a data: URL, or a long run whose first contentBlobProbe runes are all
+// text: a data: URL (any case, as RFC 2397 allows), or a long run whose first contentBlobProbe runes are all
 // from the base64 / URL-safe alphabet (base64 audio, an image without the
 // data: prefix). Prose in any script fails that test at its first space or
 // punctuation mark, CJK included, so it is indexed. Two edges are accepted:
@@ -262,7 +262,7 @@ func orderedKeys(m map[string]any) []string {
 // long run that happens to be all letters (a nucleotide sequence) is judged
 // a blob and not indexed.
 func isEncodedPayload(s string) bool {
-	if strings.HasPrefix(s, "data:") {
+	if len(s) >= 5 && strings.EqualFold(s[:5], "data:") {
 		return true
 	}
 	if utf8.RuneCountInString(s) <= contentBlobProbe {

@@ -22,6 +22,13 @@ import (
 func (h *Handler) failAllExhausted(w http.ResponseWriter, st *requestState, numCandidates int) {
 	last := st.lastReqErr
 	status := last.terminalStatus()
+	// The row, the log lines and the metrics name the provider whose failure
+	// is the verdict, which is not always the last candidate tried: a
+	// refusal of the caller's body does not displace an earlier candidate's
+	// provider-side failure (see setReqErr).
+	if last.Provider != "" {
+		st.logData.providerName = last.Provider
+	}
 	// Not fenced here: this message is the gateway's own account of the
 	// failure, and the one fragment of provider text it can carry (Underlying)
 	// was fenced when setReqErr recorded it. Fencing the whole sentence would
