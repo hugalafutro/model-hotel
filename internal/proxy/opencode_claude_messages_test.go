@@ -342,7 +342,7 @@ func TestRetryAfterSlotFrees_RefusingCandidateLeavesTheWait(t *testing.T) {
 		st.overallDeadline = time.Now().Add(5 * time.Second)
 		_, b := probeStateForServer("http://unused.example")
 		b.provider.Name = "prov-B"
-		st.setReqErr(reqError{Kind: KindProviderSaturated, Attempt: 1, Provider: "prov-A", Model: a.model.ModelID, Detail: "at in-flight limit"})
+		st.setReqErr(reqError{Kind: KindProviderSaturated, Attempt: 1, Provider: "prov-A", Model: a.model.ModelID, Detail: busySkipDetail})
 		return st, []modelCandidate{a, b}
 	}
 	refuse := func(st *requestState, c modelCandidate, attempt int) candidateOutcome {

@@ -56,11 +56,11 @@ const busySkipDetail = "at in-flight limit"
 // isRoutedFailure reports a failure produced by a provider that was sent the
 // request: it had a route for the body, so a later refusal of that body by
 // another candidate says nothing against it. A 429 the provider answered and
-// a retry that timed out count; a skip without a request (busy, refused),
-// this gateway's own errors and the client leaving do not.
+// an attempt or retry that timed out on it count; a skip without a request
+// (busy, refused), this gateway's own errors and the client leaving do not.
 func isRoutedFailure(e reqError) bool {
 	switch e.Kind {
-	case KindProviderError, KindProviderTimeout, KindProviderModelGone, KindProviderNotEntitled, KindProviderBadRequest, KindProviderQuotaExhausted, KindRetryTimeout:
+	case KindProviderError, KindProviderTimeout, KindProviderModelGone, KindProviderNotEntitled, KindProviderBadRequest, KindProviderQuotaExhausted, KindRetryTimeout, KindFailoverTimeout:
 		return true
 	case KindProviderSaturated:
 		return e.Detail != busySkipDetail

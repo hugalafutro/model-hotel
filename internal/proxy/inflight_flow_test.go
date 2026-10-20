@@ -472,8 +472,8 @@ func TestRunHedgedStreaming_AllBusyWaitsForASlot(t *testing.T) {
 
 	// Every probe reports busy, as the real probe does at a full window.
 	hh := newHedgeHarness([]fakeProbeSpec{
-		{reqErr: reqError{Kind: KindProviderSaturated, Attempt: 0, Provider: "a", Detail: "at in-flight limit"}, busy: true},
-		{reqErr: reqError{Kind: KindProviderSaturated, Attempt: 1, Provider: "b", Detail: "at in-flight limit"}, busy: true},
+		{reqErr: reqError{Kind: KindProviderSaturated, Attempt: 0, Provider: "a", Model: "m", Detail: busySkipDetail}, busy: true},
+		{reqErr: reqError{Kind: KindProviderSaturated, Attempt: 1, Provider: "b", Model: "m", Detail: busySkipDetail}, busy: true},
 	})
 	st, _ := newHedgeState(5 * time.Millisecond)
 	st.inflightEnabled = true

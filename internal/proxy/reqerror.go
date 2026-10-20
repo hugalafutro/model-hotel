@@ -53,7 +53,8 @@ const (
 	KindProviderTimeout ErrorKind = "provider_timeout"
 	// KindFailoverTimeout means the overall failover deadline expired.
 	KindFailoverTimeout ErrorKind = "failover_timeout"
-	// KindRetryTimeout means the param-strip retry's deadline expired.
+	// KindRetryTimeout means a self-heal retry's deadline expired (the
+	// param-strip retry, the Messages thinking-dialect or cache_control retry).
 	KindRetryTimeout ErrorKind = "retry_timeout"
 	// KindHedgeSuperseded means the gateway itself abandoned this attempt because
 	// another hedged candidate won the race. It is not a provider failure and
@@ -226,7 +227,7 @@ func (e reqError) render() string {
 	case KindFailoverTimeout:
 		return e.withUnderlying(fmt.Sprintf("request timed out while waiting on %s (attempt %d)", e.providerLabel(), n))
 	case KindRetryTimeout:
-		return e.withUnderlying(fmt.Sprintf("retry without unsupported parameters timed out on %s (attempt %d)", e.providerLabel(), n))
+		return e.withUnderlying(fmt.Sprintf("self-heal retry timed out on %s (attempt %d)", e.providerLabel(), n))
 	case KindInternal:
 		if e.Underlying != "" {
 			return fmt.Sprintf("internal error on attempt %d: %s", n, e.Underlying)

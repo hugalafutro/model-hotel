@@ -78,7 +78,7 @@ func TestReqErrorRender(t *testing.T) {
 		{
 			name: "retry timeout",
 			err:  reqError{Kind: KindRetryTimeout, Attempt: 0, Provider: "groq"},
-			want: `retry without unsupported parameters timed out on provider "groq" (attempt 1)`,
+			want: `self-heal retry timed out on provider "groq" (attempt 1)`,
 		},
 		{
 			name: "internal with underlying",
@@ -253,6 +253,14 @@ func TestSetReqErr_ValidationDoesNotDisplaceProviderFailure(t *testing.T) {
 	if st.lastReqErr.Provider != "OpenAI" || st.lastReqErr.Kind != KindProviderSaturated || st.terminalRateLimit.retryAfter != 9*time.Second {
 		t.Fatalf("lastReqErr = %+v (retry-after %v), want the provider's 429 back with its Retry-After", st.lastReqErr, st.terminalRateLimit.retryAfter)
 	}
+	// An attempt that timed out on its provider is a routed failure as well.
+	st = &requestState{logData: &requestLogData{}}
+	st.setReqErr(reqError{Kind: KindFailoverTimeout, Attempt: 0, Provider: "OpenAI", Underlying: "context deadline exceeded"})
+	st.setReqErr(reqError{Kind: KindProviderSaturated, Attempt: 1, Provider: "Anthropic", Model: "claude-a", Detail: busySkipDetail})
+	st.setReqErr(reqError{Kind: KindValidation, Attempt: 2, Provider: "Anthropic", Model: "claude-a", Underlying: "refused"})
+	if st.lastReqErr.Kind != KindFailoverTimeout || st.lastReqErr.Provider != "OpenAI" {
+		t.Fatalf("lastReqErr = %+v, want the timed-out attempt back as the verdict", st.lastReqErr)
+	}
 	// Busy skips alone are no routed failure: two refusals end as a refusal.
 	st = &requestState{logData: &requestLogData{}}
 	st.setReqErr(reqError{Kind: KindProviderSaturated, Attempt: 0, Provider: "Anthropic", Model: "claude-a", Detail: busySkipDetail})
@@ -261,14 +269,6 @@ func TestSetReqErr_ValidationDoesNotDisplaceProviderFailure(t *testing.T) {
 		t.Fatalf("lastReqErr = %+v, want the refusal when only a busy skip preceded it", st.lastReqErr)
 	}
 
-	// The hedged race's busy skip carries the model too, so the same
-	// candidate's later refusal replaces it.
-	st = &requestState{logData: &requestLogData{}}
-	st.setReqErr(reqError{Kind: KindProviderSaturated, Attempt: 0, Provider: "Anthropic", Model: "claude-haiku-5-5", Detail: "at in-flight limit"})
-	st.setReqErr(reqError{Kind: KindValidation, Attempt: 1, Provider: "Anthropic", Model: "claude-haiku-5-5", Underlying: "refused"})
-	if st.lastReqErr.Kind != KindValidation {
-		t.Fatalf("lastReqErr = %+v, want the refusal over the same candidate's busy skip", st.lastReqErr)
-	}
 	// This gateway's own internal error is not a route either.
 	st = &requestState{logData: &requestLogData{}}
 	st.setReqErr(reqError{Kind: KindInternal, Attempt: 0, Provider: "OpenAI", Underlying: "boom"})
