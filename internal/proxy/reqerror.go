@@ -83,6 +83,12 @@ type reqError struct {
 	Kind     ErrorKind
 	Attempt  int
 	Provider string
+	// Model is the candidate's upstream model id, set by the attempts that
+	// never contacted the provider (a busy skip, a refused build): with
+	// Provider it identifies the candidate, so setReqErr can tell the same
+	// candidate's earlier skip from another candidate's failure on a provider
+	// that serves several models.
+	Model string
 	// Underlying holds upstream text, so setReqErr fences it in place. Nothing
 	// client-facing reads it but one case: terminalClientMessage names the
 	// model and the class of failure only, except for KindValidation, whose

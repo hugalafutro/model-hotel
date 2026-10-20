@@ -211,6 +211,15 @@ func TestSetReqErr_ValidationDoesNotDisplaceProviderFailure(t *testing.T) {
 	if st.lastReqErr.Kind != KindValidation {
 		t.Fatalf("lastReqErr = %+v, want the same candidate's refusal", st.lastReqErr)
 	}
+	// One provider, two models: the model with a route for the body (a GPT on
+	// OpenCode) failed provider-side, the Claude model beside it refused the
+	// body. The failure stands.
+	st = &requestState{logData: &requestLogData{}}
+	st.setReqErr(reqError{Kind: KindProviderError, Attempt: 0, Provider: "OpenCode Go", Model: "gpt-6-luna", Underlying: "HTTP 502"})
+	st.setReqErr(reqError{Kind: KindValidation, Attempt: 1, Provider: "OpenCode Go", Model: "claude-haiku-5-5", Underlying: "refused"})
+	if st.lastReqErr.Kind != KindProviderError {
+		t.Fatalf("lastReqErr = %+v, want the other model's provider failure kept", st.lastReqErr)
+	}
 	// This gateway's own internal error is not a route either.
 	st = &requestState{logData: &requestLogData{}}
 	st.setReqErr(reqError{Kind: KindInternal, Attempt: 0, Provider: "OpenAI", Underlying: "boom"})

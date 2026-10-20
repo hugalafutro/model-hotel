@@ -445,8 +445,9 @@ func foldResponseFormat(system string, raw json.RawMessage) string {
 // spending cap and is never raised: the budget is capped at half of it so the
 // answer keeps the other half, and thinking stays off when that half is below
 // minThinkingBudget. A defaulted limit (DefaultMaxTokens) is the gateway's own
-// number: the budget dialect grows it to hold the budget and a full answer, the
-// adaptive dialect finds it large enough as it is.
+// number: a budget that does not fit under it (medium, high) grows it to the
+// budget plus a full answer; a smaller budget and the adaptive dialect leave
+// it as it is.
 func applyThinking(out *antRequest, reasoningEffort string, dialect ThinkingDialect, explicitLimit bool) {
 	effort := strings.ToLower(strings.TrimSpace(reasoningEffort))
 

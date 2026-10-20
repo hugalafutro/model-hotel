@@ -484,9 +484,10 @@ type requestState struct {
 	attemptRefused bool
 
 	// rateLimit is the current attempt's 429 verdict, reset at attempt start by
-	// beginAttempt. The terminal paths read it for the Retry-After they hand the
-	// client, and only a terminal whose own status is a classified 429 does, so
-	// a stale verdict from an earlier attempt can never label a later failure.
+	// beginAttempt. The forward path reads it for the Retry-After it hands the
+	// client with a forwarded 429; the exhaustion path reads terminalRateLimit,
+	// the verdict recorded beside the error it renders, so a stale verdict from
+	// an earlier attempt can never label a later failure.
 	// saturationRetried marks that this request has already spent its one
 	// wait-and-retry on a saturated last candidate; serverErrorRetried the one
 	// backoff-and-retry on a last candidate that answered a retryable 5xx.
@@ -527,8 +528,10 @@ func (st *requestState) setReqErr(e reqError) {
 	// it, which a 400 would deny. The same candidate's earlier failure (a busy
 	// skip before the slot freed and the body was refused) and this gateway's
 	// own internal error say nothing about a route, so the refusal replaces
-	// them. Sequential and hedged attempts both land here.
-	if prev := st.lastReqErr; e.Kind == KindValidation && prev.Kind != "" && prev.Kind != KindValidation && prev.Kind != KindInternal && prev.Provider != e.Provider {
+	// them. A candidate is its provider AND its model: one provider can serve a
+	// model with a route for the body beside one without (OpenCode's GPT and
+	// Claude models). Sequential and hedged attempts both land here.
+	if prev := st.lastReqErr; e.Kind == KindValidation && prev.Kind != "" && prev.Kind != KindValidation && prev.Kind != KindInternal && (prev.Provider != e.Provider || prev.Model != e.Model) {
 		return
 	}
 	e.Underlying = st.logData.fence().fenceUpstream(string(st.logData.masks().mask([]byte(e.Underlying))))
@@ -617,9 +620,10 @@ const (
 	// slot to free on any of them.
 	outcomeBusy
 	// outcomeSkipped: the candidate cannot serve this request as asked (a Gemini
-	// TTS candidate and a response format it does not produce), so the attempt
-	// was skipped without a request. The loop moves on; unlike a busy skip
-	// nothing frees up later, so it is not retried.
+	// TTS candidate and a response format it does not produce; an Anthropic
+	// egress candidate and a content part the Messages translation refuses), so
+	// the attempt was skipped without a request. The loop moves on; unlike a
+	// busy skip nothing frees up later, so it is not retried.
 	outcomeSkipped
 )
 

@@ -394,7 +394,7 @@ func (h *Handler) probeStreamingCandidate(ctx context.Context, st *requestState,
 	if err != nil {
 		kind := buildErrorKind(err)
 		st.attemptSlot.settle(slotOutcomeFor(kind))
-		res.reqErr = reqError{Kind: kind, Attempt: attempt, Provider: candidate.provider.Name, Underlying: errString(err)}
+		res.reqErr = reqError{Kind: kind, Attempt: attempt, Provider: candidate.provider.Name, Model: candidate.model.ModelID, Underlying: errString(err)}
 		return res
 	}
 

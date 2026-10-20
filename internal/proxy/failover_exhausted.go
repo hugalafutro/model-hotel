@@ -55,8 +55,9 @@ func (h *Handler) failAllExhausted(w http.ResponseWriter, st *requestState, numC
 	}
 	// An all-busy exhaustion answers 429 rather than 502: every provider is
 	// alive and at capacity, and OpenAI SDKs back off and retry on a 429.
-	// Retry-After carries the last provider's own ask, or the class default, so
-	// the client's backoff lines up with a slot actually freeing.
+	// Retry-After carries the ask of the provider whose verdict is rendered, or
+	// the class default, so the client's backoff lines up with a slot actually
+	// freeing.
 	// Switching failover_exhaustion_status_429 off restores the 502.
 	if last.Kind == KindProviderSaturated && h.settingsRepo.GetBool(context.Background(), "failover_exhaustion_status_429", true) {
 		status = http.StatusTooManyRequests

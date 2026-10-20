@@ -297,6 +297,36 @@ func TestProbeStreamingCandidate_OpenCodeClaudeLearnsRejectedParam(t *testing.T)
 	}
 }
 
+// A body the Messages translation refuses is skipped, not failed over: no
+// provider was contacted, so the loop pays no backoff before the next
+// candidate, and the refusal is the recorded verdict.
+func TestAttemptCandidate_RefusedBodyIsSkipped(t *testing.T) {
+	h := newIntegrationHandler()
+	defer stopUnitHandler(h)
+
+	st, cand := probeStateForServer("http://unused.example")
+	st.isStreaming = false
+	st.logData.streaming = false
+	st.bodyBytes = []byte(`{"model":"orig-model","messages":[{"role":"user","content":[{"type":"text","text":"summarise"},{"type":"file","file":{"file_id":"file-abc"}}]}]}`)
+	cand.provider.ProviderType = "anthropic"
+	cand.model.ModelID = "claude-haiku-5-5"
+
+	w := httptest.NewRecorder()
+	r := httptest.NewRequest(http.MethodPost, "/v1/chat/completions", http.NoBody)
+	if got := h.attemptCandidate(w, r, st, cand, 0, 2); got != outcomeSkipped {
+		t.Fatalf("outcome = %v, want outcomeSkipped", got)
+	}
+	if st.attemptRefused {
+		t.Error("attemptRefused was not cleared for the next attempt")
+	}
+	if st.lastReqErr.Kind != KindValidation || st.lastReqErr.Model != "claude-haiku-5-5" {
+		t.Errorf("lastReqErr = %+v, want a validation error naming the candidate", st.lastReqErr)
+	}
+	if w.Code != http.StatusOK || w.Body.Len() != 0 {
+		t.Errorf("a skipped attempt wrote to the client: %d %q", w.Code, w.Body.String())
+	}
+}
+
 // TestProbeStreamingCandidate_AnthropicLearnsParams: the hedged learner reads
 // a rejected parameter for an "anthropic" provider like for every other
 // Messages speaker. Messages is that type's only chat route, so the strip keyed

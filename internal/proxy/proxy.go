@@ -202,10 +202,18 @@ func (h *Handler) retryAfterSlotFrees(w http.ResponseWriter, r *http.Request, st
 			// Lost the acquisition race to a concurrent request; keep waiting
 			// inside the same bounded window.
 			attempt++
-		case outcomeFailover, outcomeSkipped:
+		case outcomeFailover:
 			// The freed slot answered with a real failure; that verdict stands
 			// and the exhaustion path renders it.
 			return false
+		case outcomeSkipped:
+			// The freed slot refused the body before any request: that candidate
+			// is out, and the others still waiting may yet serve it.
+			busy = append(busy[:idx:idx], busy[idx+1:]...)
+			if len(busy) == 0 {
+				return false
+			}
+			attempt++
 		case outcomeRetrySaturated, outcomeRetryServerError:
 			// The freed slot's answer earned one of the one-shot retries, whose
 			// attempt has already been closed on the trail; the retry runs
