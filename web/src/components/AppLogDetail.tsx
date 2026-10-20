@@ -51,10 +51,16 @@ export function AppLogDetail({
 	// Only to turn a provider_id attribute into the name the Providers page
 	// filters by; the list is cached app-wide, so this costs nothing extra.
 	const { data: providers } = useProviders();
+	// The id is stable across renames, so its current name wins over the name
+	// the line was logged with. An id the list no longer holds (a deleted
+	// provider) leaves the line's provider unknown rather than guessed.
 	const providerID = attrs.find((a) => a.key === "provider_id")?.value;
-	const providerName =
-		attrs.find((a) => a.key === "provider")?.value ??
-		providers?.find((p) => p.id === providerID)?.name;
+	const loggedName = attrs.find((a) => a.key === "provider")?.value;
+	const providerName = providerID
+		? providers?.find((p) => p.id === providerID)?.name
+		: loggedName;
+	const providerUnknown =
+		providerID !== undefined && providerName === undefined;
 
 	// The page an attribute names, when it names one: a provider by name or
 	// id, a model by its id (narrowed to the line's provider when it has one).
@@ -64,11 +70,16 @@ export function AppLogDetail({
 			to: `/providers?${new URLSearchParams({ name })}`,
 			label: t("components.appLogDetail.openProvider"),
 		});
-		if (a.key === "provider") return providerLink(a.value);
+		if (a.key === "provider") {
+			return providerLink(providerName ?? a.value);
+		}
 		if (a.key === "provider_id") {
 			return providerName ? providerLink(providerName) : null;
 		}
 		if (a.key === "model") {
+			// A model named by a provider this instance no longer has would open
+			// another provider's model of the same id; link nothing.
+			if (providerUnknown) return null;
 			const params = new URLSearchParams({ model: a.value });
 			if (providerName) params.set("provider", providerName);
 			return {
@@ -104,7 +115,8 @@ export function AppLogDetail({
 			maxWidth="max-w-lg"
 			scrollable
 			footer={
-				onFilterSource ? (
+				// An empty source filters nothing: the API reads "" as no filter.
+				onFilterSource && log.source !== "" ? (
 					<div className="flex justify-end">
 						<button
 							type="button"

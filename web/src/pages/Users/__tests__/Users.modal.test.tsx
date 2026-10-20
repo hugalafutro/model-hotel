@@ -247,6 +247,28 @@ describe("UserModal", () => {
 		expect(deleted).toBe(true);
 	});
 
+	it("shows a failed delete from the card, where there is no form", async () => {
+		mockGrants();
+		server.use(
+			http.delete("/api/users/:id", () =>
+				HttpResponse.text("still owns keys", { status: 409 }),
+			),
+		);
+		const { user } = renderWithProviders(
+			<UserModal user={existing} onClose={onClose} onToast={onToast} />,
+		);
+
+		// Delete straight from the card, without entering the form.
+		await user.click(screen.getByTestId("user-modal-delete"));
+		await user.type(screen.getByTestId("delete-confirm-input"), "bob");
+		await user.click(screen.getByTestId("user-delete-confirm"));
+
+		expect(await screen.findByTestId("user-modal-error")).toHaveTextContent(
+			"still owns keys",
+		);
+		expect(onClose).not.toHaveBeenCalled();
+	});
+
 	it("resets the password and reports success", async () => {
 		mockGrants();
 		let newPassword = "";

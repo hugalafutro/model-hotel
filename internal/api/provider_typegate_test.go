@@ -291,6 +291,10 @@ func TestRejectDuplicateKey(t *testing.T) {
 		// Paths are case-sensitive on the wire, so a differently cased path is
 		// a different endpoint.
 		{"other path case, same key", "https://openrouter.ai/API/v1", "sk-or-v1-abc", uuid.Nil, true},
+		// An explicit default port is the same endpoint; an encoded slash in
+		// the path is not the same path.
+		{"explicit default port, same key", "https://openrouter.ai:443/api/v1", "sk-or-v1-abc", uuid.Nil, false},
+		{"encoded slash in the path, same key", "https://openrouter.ai/api%2Fv1", "sk-or-v1-abc", uuid.Nil, true},
 		// A second account on the same API is the supported case.
 		{"same address, other key", "https://openrouter.ai/api/v1", "sk-or-v1-xyz", uuid.Nil, true},
 		// The same key on another path is billed differently (OpenCode), so it
