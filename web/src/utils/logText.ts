@@ -115,8 +115,9 @@ export function parseLogAttrs(tail: string): LogAttr[] {
 			i++;
 			while (i < n && tail[i] !== '"') {
 				if (tail[i] === "\\" && i + 1 < n) {
-					value += tail[i + 1];
-					i += 2;
+					const [decoded, next] = decodeGoEscape(tail, i + 1);
+					value += decoded;
+					i = next;
 					continue;
 				}
 				value += tail[i];
@@ -132,6 +133,36 @@ export function parseLogAttrs(tail: string): LogAttr[] {
 		attrs.push({ key, value });
 	}
 	return attrs;
+}
+
+/** One escape of Go's strconv.Quote grammar, starting after the backslash:
+ * the single-letter escapes, \xHH, \uHHHH and \UHHHHHHHH. Returns the
+ * decoded text and the index after the escape. An unknown escape keeps the
+ * character after the backslash, which is what a reader expects of a stray
+ * one. */
+function decodeGoEscape(s: string, i: number): [string, number] {
+	const simple: Record<string, string> = {
+		a: "\x07",
+		b: "\b",
+		f: "\f",
+		n: "\n",
+		r: "\r",
+		t: "\t",
+		v: "\v",
+		"\\": "\\",
+		"'": "'",
+		'"': '"',
+	};
+	const c = s[i];
+	if (c in simple) return [simple[c], i + 1];
+	const width = c === "x" ? 2 : c === "u" ? 4 : c === "U" ? 8 : 0;
+	if (width > 0) {
+		const hex = s.slice(i + 1, i + 1 + width);
+		if (hex.length === width && /^[0-9a-fA-F]+$/.test(hex)) {
+			return [String.fromCodePoint(Number.parseInt(hex, 16)), i + 1 + width];
+		}
+	}
+	return [c, i + 1];
 }
 
 /** An app-log message split at the recorded attribute boundary: the

@@ -28,6 +28,18 @@ describe("parseLogAttrs", () => {
 		]);
 	});
 
+	it("decodes Go quoted-string escapes, not just the next character", () => {
+		expect(
+			parseLogAttrs(
+				'error="line one\\nline two\\ttab" path="\\x00nul \\u00e9 \\U0001F600" odd="\\q"',
+			),
+		).toEqual([
+			{ key: "error", value: "line one\nline two\ttab" },
+			{ key: "path", value: "\x00nul é 😀" },
+			{ key: "odd", value: "q" },
+		]);
+	});
+
 	it("skips tokens that are not key=value and keeps the rest", () => {
 		expect(parseLogAttrs("loose words count=3")).toEqual([
 			{ key: "count", value: "3" },

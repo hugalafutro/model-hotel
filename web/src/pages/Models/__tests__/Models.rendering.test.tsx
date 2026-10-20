@@ -32,6 +32,24 @@ describe("Models", () => {
 				expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
 			});
 		});
+
+		it("opens nothing when the named provider has no such model", async () => {
+			let listed = false;
+			server.use(
+				// First wins in msw, so this sits ahead of the defaults.
+				http.get("/api/models", () => {
+					listed = true;
+					return HttpResponse.json([mockModel]);
+				}),
+				...mockAllDefaults(),
+			);
+			renderWithProviders(<Models />, {
+				initialEntries: [`/models?model=${mockModel.model_id}&provider=Gone`],
+			});
+			// The link's own list read has answered, and still no dialog.
+			await waitFor(() => expect(listed).toBe(true));
+			expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+		});
 	});
 
 	describe("View Mode Toggle", () => {

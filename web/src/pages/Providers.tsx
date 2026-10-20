@@ -61,10 +61,16 @@ export function Providers() {
 	const [typeFilter, setTypeFilter] = useState("");
 	// ?name= seeds the filter, for a link from elsewhere (an app-log line's
 	// provider) that lands on this provider's card.
-	const [searchParams] = useSearchParams();
-	const [nameFilter, setNameFilter] = useState(
+	const [searchParams, setSearchParams] = useSearchParams();
+	const [nameFilter, setNameFilterState] = useState(
 		() => searchParams.get("name") ?? "",
 	);
+	// Typing in the filter takes over from the link, so the URL stops
+	// claiming a filter the box no longer shows.
+	const setNameFilter = (value: string) => {
+		setNameFilterState(value);
+		if (searchParams.has("name")) setSearchParams({}, { replace: true });
+	};
 	const [sortAsc, setSortAsc] = useState(true);
 
 	const { data: providers, isLoading } = useQuery({

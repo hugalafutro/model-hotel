@@ -156,6 +156,12 @@ export function UserModal({
 				</div>
 			}
 		>
+			{error && (
+				<ErrorCallout className="mb-2" testId="user-modal-error">
+					{error}
+				</ErrorCallout>
+			)}
+
 			{user && !editing && (
 				<UserDetailCard
 					user={user}
@@ -176,12 +182,6 @@ export function UserModal({
 					}}
 					className="grid grid-cols-1 sm:grid-cols-2 gap-2"
 				>
-					{error && (
-						<ErrorCallout className="sm:col-span-2" testId="user-modal-error">
-							{error}
-						</ErrorCallout>
-					)}
-
 					<DetailItem label={t("users.modal.username")} htmlFor="user-username">
 						<input
 							id="user-username"

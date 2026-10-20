@@ -4,6 +4,7 @@ import (
 	"crypto/subtle"
 	"errors"
 	"net/http"
+	"net/url"
 	"strings"
 
 	"github.com/google/uuid"
@@ -117,12 +118,25 @@ func (h *Handler) rejectDuplicateKey(w http.ResponseWriter, r *http.Request, bas
 	return true
 }
 
-// sameHostedAddress reports whether two base URLs name the same endpoint,
-// ignoring a trailing slash and letter case. The path is kept: on OpenCode the
-// path decides which balance a key is billed to, so one key on two paths is
-// two providers on purpose.
+// sameHostedAddress reports whether two base URLs name the same endpoint:
+// scheme and host compared without regard to case, the path with its case and
+// without a trailing slash. The path is kept: on OpenCode the path decides
+// which balance a key is billed to, so one key on two paths is two providers
+// on purpose. An address that does not parse is compared as written.
 func sameHostedAddress(a, b string) bool {
-	return strings.EqualFold(strings.TrimRight(a, "/"), strings.TrimRight(b, "/"))
+	return hostedAddressKey(a) == hostedAddressKey(b)
+}
+
+func hostedAddressKey(raw string) string {
+	u, err := url.Parse(strings.TrimSpace(raw))
+	if err != nil || u.Host == "" {
+		return strings.TrimRight(strings.TrimSpace(raw), "/")
+	}
+	key := strings.ToLower(u.Scheme) + "://" + strings.ToLower(u.Host) + strings.TrimRight(u.Path, "/")
+	if u.RawQuery != "" {
+		key += "?" + u.RawQuery
+	}
+	return key
 }
 
 func writeProviderTypeGateError(w http.ResponseWriter, body providerTypeGateResponse) {

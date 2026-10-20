@@ -1345,6 +1345,27 @@ describe("AppLogDetail attributes", () => {
 		expect(screen.queryByTestId("app-log-link-model")).toBeNull();
 	});
 
+	it("scopes a model link by the provider a provider_id resolves to", async () => {
+		renderWithProviders(
+			<LogDetailModal
+				log={{
+					...line,
+					message: "probe failed provider_id=provider-001 model=gpt-4o",
+					attrs_at: 12,
+				}}
+				type="app"
+				onClose={vi.fn()}
+			/>,
+		);
+		// The provider name arrives with the providers query, after first paint.
+		await waitFor(() => {
+			expect(screen.getByTestId("app-log-link-model")).toHaveAttribute(
+				"href",
+				"/models?model=gpt-4o&provider=Test+Provider",
+			);
+		});
+	});
+
 	it("shows a line without attributes whole", () => {
 		renderWithProviders(
 			<LogDetailModal

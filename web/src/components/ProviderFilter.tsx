@@ -106,8 +106,8 @@ export function ProviderFilter({
 				className="ui-input text-xs py-1.5 px-2.5 h-9 w-full flex items-center justify-between gap-2"
 				// Room for the count badge, which sits beside the trigger rather
 				// than inside it (a button cannot contain a button): the badge's
-				// 32px inset plus its width and a gap before the chevron.
-				style={selected.size > 0 ? { paddingRight: 56 } : undefined}
+				// 32px inset plus a three-digit width and a gap before the chevron.
+				style={selected.size > 0 ? { paddingRight: 64 } : undefined}
 			>
 				<span
 					className={`truncate ${selected.size === 0 ? "text-(--text-tertiary)" : "text-(--text-primary)"}`}

@@ -95,9 +95,12 @@ export function Models() {
 	const linkedHit = useMemo(() => {
 		if (linkedModel === null || !linkedModels) return null;
 		const byId = linkedModels.filter((m) => m.model_id === linkedModel);
-		return (
-			byId.find((m) => m.provider_name === linkedProvider) ?? byId[0] ?? null
-		);
+		// A link that names a provider means that provider: a stale name opens
+		// nothing rather than another provider's model of the same id.
+		if (linkedProvider !== null) {
+			return byId.find((m) => m.provider_name === linkedProvider) ?? null;
+		}
+		return byId[0] ?? null;
 	}, [linkedModel, linkedProvider, linkedModels]);
 	const shownModel = detailModel ?? linkedHit;
 

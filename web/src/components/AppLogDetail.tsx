@@ -51,7 +51,10 @@ export function AppLogDetail({
 	// Only to turn a provider_id attribute into the name the Providers page
 	// filters by; the list is cached app-wide, so this costs nothing extra.
 	const { data: providers } = useProviders();
-	const providerName = attrs.find((a) => a.key === "provider")?.value;
+	const providerID = attrs.find((a) => a.key === "provider_id")?.value;
+	const providerName =
+		attrs.find((a) => a.key === "provider")?.value ??
+		providers?.find((p) => p.id === providerID)?.name;
 
 	// The page an attribute names, when it names one: a provider by name or
 	// id, a model by its id (narrowed to the line's provider when it has one).
@@ -63,8 +66,7 @@ export function AppLogDetail({
 		});
 		if (a.key === "provider") return providerLink(a.value);
 		if (a.key === "provider_id") {
-			const name = providers?.find((p) => p.id === a.value)?.name;
-			return name ? providerLink(name) : null;
+			return providerName ? providerLink(providerName) : null;
 		}
 		if (a.key === "model") {
 			const params = new URLSearchParams({ model: a.value });

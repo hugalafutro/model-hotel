@@ -288,6 +288,9 @@ func TestRejectDuplicateKey(t *testing.T) {
 		{"same address, same key", "https://openrouter.ai/api/v1", "sk-or-v1-abc", uuid.Nil, false},
 		{"same address with a slash, same key", "https://openrouter.ai/api/v1/", "sk-or-v1-abc", uuid.Nil, false},
 		{"same address in another case, same key", "https://OpenRouter.ai/api/v1", "sk-or-v1-abc", uuid.Nil, false},
+		// Paths are case-sensitive on the wire, so a differently cased path is
+		// a different endpoint.
+		{"other path case, same key", "https://openrouter.ai/API/v1", "sk-or-v1-abc", uuid.Nil, true},
 		// A second account on the same API is the supported case.
 		{"same address, other key", "https://openrouter.ai/api/v1", "sk-or-v1-xyz", uuid.Nil, true},
 		// The same key on another path is billed differently (OpenCode), so it

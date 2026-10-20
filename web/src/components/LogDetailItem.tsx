@@ -34,14 +34,6 @@ export function DetailItem({
 	const tileClass = emphasis === "stat" ? "ui-stat-tile" : "ui-detail-tile";
 	const labelClass =
 		"flex items-center gap-2 min-h-4 text-[11px] leading-4 uppercase tracking-wider text-(--text-tertiary) font-medium mb-1";
-	const labelRow = (
-		<>
-			{label}
-			{/* Pushed to the row's end edge so actions (e.g. the Message
-			   copy pill) don't read as part of the label text. */}
-			{labelExtra && <span className="ms-auto">{labelExtra}</span>}
-		</>
-	);
 
 	return (
 		<div className={`flex items-start gap-3 p-3 ${tileClass} ${className}`}>
@@ -53,13 +45,15 @@ export function DetailItem({
 				</div>
 			)}
 			<div className="flex-1 min-w-0">
-				{htmlFor ? (
-					<label htmlFor={htmlFor} className={labelClass}>
-						{labelRow}
-					</label>
-				) : (
-					<div className={labelClass}>{labelRow}</div>
-				)}
+				<div className={labelClass}>
+					{/* Only the label text names the control: an info hint or an
+					   action in labelExtra must not join the accessible name, and a
+					   click on it must not land in the input. */}
+					{htmlFor ? <label htmlFor={htmlFor}>{label}</label> : label}
+					{/* Pushed to the row's end edge so actions (e.g. the Message
+					   copy pill) don't read as part of the label text. */}
+					{labelExtra && <span className="ms-auto">{labelExtra}</span>}
+				</div>
 				{children ? (
 					children
 				) : (
