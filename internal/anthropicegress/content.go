@@ -147,7 +147,7 @@ func partCarriesMedia(p oaiContentPart) bool {
 // ("data:text/plain,"): a part that carries nothing, dropped like an empty
 // text part rather than refused like a malformed one.
 func emptyDataURI(u string) bool {
-	rest, isData := cutDataScheme(u)
+	rest, isData := util.CutDataScheme(u)
 	if !isData {
 		return false
 	}
@@ -187,7 +187,7 @@ func imageBlock(u string) (antBlock, bool) {
 	if !ok {
 		// A data: URI that does not parse (no comma, no payload) is malformed,
 		// not a remote image: forwarded as a url source it would only 400.
-		if _, isData := cutDataScheme(u); isData {
+		if _, isData := util.CutDataScheme(u); isData {
 			return antBlock{}, false
 		}
 		return antBlock{Type: "image", Source: &antSource{Type: "url", URL: u}}, true

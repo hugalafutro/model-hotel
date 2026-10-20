@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"maps"
 	"slices"
-	"strings"
 	"sync"
 	"unicode/utf8"
 
@@ -262,7 +261,7 @@ func orderedKeys(m map[string]any) []string {
 // long run that happens to be all letters (a nucleotide sequence) is judged
 // a blob and not indexed.
 func isEncodedPayload(s string) bool {
-	if len(s) >= 5 && strings.EqualFold(s[:5], "data:") {
+	if _, isData := util.CutDataScheme(s); isData {
 		return true
 	}
 	if utf8.RuneCountInString(s) <= contentBlobProbe {

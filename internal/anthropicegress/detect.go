@@ -2,6 +2,8 @@ package anthropicegress
 
 import (
 	"strings"
+
+	"github.com/hugalafutro/model-hotel/internal/util"
 )
 
 // imageMediaTypes are the media types Anthropic accepts in an image source.
@@ -15,18 +17,10 @@ var imageMediaTypes = map[string]bool{
 	"image/webp": true,
 }
 
-// cutDataScheme strips a data: scheme, which RFC 2397 makes case-insensitive.
-func cutDataScheme(u string) (string, bool) {
-	if len(u) >= 5 && strings.EqualFold(u[:5], "data:") {
-		return u[5:], true
-	}
-	return "", false
-}
-
 // dataURI is a parsed data: URI.
 type dataURI struct {
-	mediaType string // lower-cased, parameters stripped ("application/pdf")
-	base64    bool   // the payload carries the ";base64" marker
+	mediaType string // lower-cased, parameters stripped ("application/pdf"); text/plain when omitted (RFC 2397)
+	base64    bool   // the payload carries the ";base64" parameter
 	payload   string // everything after the comma, undecoded
 }
 
@@ -34,7 +28,7 @@ type dataURI struct {
 // for anything that is not a parseable data: URI — an http(s) URL, or a
 // truncated data: value with no comma or no payload.
 func parseDataURI(u string) (dataURI, bool) {
-	rest, isData := cutDataScheme(u)
+	rest, isData := util.CutDataScheme(u)
 	if !isData {
 		return dataURI{}, false
 	}
@@ -43,9 +37,15 @@ func parseDataURI(u string) (dataURI, bool) {
 		return dataURI{}, false
 	}
 	mediaType, params, _ := strings.Cut(meta, ";")
-	return dataURI{
-		mediaType: strings.ToLower(strings.TrimSpace(mediaType)),
-		base64:    strings.Contains(strings.ToLower(params), "base64"),
-		payload:   payload,
-	}, true
+	mediaType = strings.ToLower(strings.TrimSpace(mediaType))
+	if mediaType == "" {
+		mediaType = "text/plain"
+	}
+	du := dataURI{mediaType: mediaType, payload: payload}
+	for _, param := range strings.Split(params, ";") {
+		if strings.EqualFold(strings.TrimSpace(param), "base64") {
+			du.base64 = true
+		}
+	}
+	return du, true
 }

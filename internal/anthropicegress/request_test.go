@@ -214,10 +214,10 @@ func TestTranslateRequest_ContentParts(t *testing.T) {
 		{"document", translatedSource{Type: "url", URL: "https://example.com/report.pdf"}, "a url document source"},
 		{"document", translatedSource{Type: "url", URL: "https://example.com/beside.pdf"}, "a url document beside an empty file_data"},
 		// parseDataURI normalises the media type: case, parameters before
-		// ";base64", and an empty type (a document, not an image).
+		// ";base64", and an empty type (text/plain, as RFC 2397 defaults it).
 		{"image", translatedSource{Type: "base64", MediaType: "image/jpeg", Data: "/9j/4AAQ"}, "an upper-case media type lower-cased"},
 		{"image", translatedSource{Type: "base64", MediaType: "image/webp", Data: "UklGRg=="}, "a media type with parameters before base64"},
-		{"document", translatedSource{Type: "base64", MediaType: "application/pdf", Data: "SGVsbG8="}, "an empty media type as a PDF document"},
+		{"document", translatedSource{Type: "text", MediaType: "text/plain", Data: "Hello"}, "an empty media type read as text/plain (RFC 2397)"},
 		{"image", translatedSource{Type: "base64", MediaType: "image/gif", Data: "R0lGODlh"}, "an upper-case data: scheme (RFC 2397 allows it)"},
 	}
 	for i, w := range want {

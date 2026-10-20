@@ -8,6 +8,7 @@ import (
 
 	"github.com/hugalafutro/model-hotel/internal/egress"
 	"github.com/hugalafutro/model-hotel/internal/jsonfault"
+	"github.com/hugalafutro/model-hotel/internal/util"
 )
 
 // --- Incoming Anthropic Messages request shape ---
@@ -404,7 +405,10 @@ func documentPart(b reqBlock) (oaiContentPart, bool) {
 		return oaiContentPart{Type: "text", Text: b.Source.Data}, true
 	}
 	uri, ok := imageURL(b.Source)
-	if !ok || !strings.HasPrefix(uri, "data:") {
+	if !ok {
+		return oaiContentPart{}, false
+	}
+	if _, isData := util.CutDataScheme(uri); !isData {
 		return oaiContentPart{}, false
 	}
 	filename := b.Title
