@@ -49,6 +49,10 @@ export function providerTypeGateMessage(
 			return t("providers.add.duplicateAddressBlocked", {
 				name: stringField(err.details, "existing"),
 			});
+		case "provider_duplicate_key":
+			return t("providers.add.duplicateKeyBlocked", {
+				name: stringField(err.details, "existing"),
+			});
 		case "provider_url_rejected":
 			// The backend's reason names the rule that refused the address
 			// (allowlist, loopback, private range), which is what tells the

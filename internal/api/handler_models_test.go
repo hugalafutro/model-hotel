@@ -1583,7 +1583,7 @@ func TestListModels_ProviderEnabledFilter(t *testing.T) {
 
 	createProvider := func(suffix string) string {
 		t.Helper()
-		body := fmt.Sprintf(`{"name":"pe-filter-%s-%s","base_url":"https://api.openai.com","api_key":"test-api-key"}`, suffix, uuid.New().String()[:8])
+		body := fmt.Sprintf(`{"name":"pe-filter-%s-%s","base_url":"https://api.openai.com","api_key":"test-api-key-%s"}`, suffix, uuid.New().String()[:8], suffix)
 		rec := httptest.NewRecorder()
 		req := httptest.NewRequest("POST", "/providers", strings.NewReader(body))
 		req.Header.Set("Authorization", "Bearer test-admin-token")

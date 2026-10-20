@@ -30,7 +30,7 @@ func TestRefreshAllQuotas_AllDisabled(t *testing.T) {
 
 	// Create multiple disabled providers
 	for i := range 2 {
-		providerData := fmt.Sprintf(`{"name": "test-quota-disabled-%d", "base_url": "https://api.nanogpt.com", "api_key": "test-key", "enabled": false}`, i)
+		providerData := fmt.Sprintf(`{"name": "test-quota-disabled-%d", "base_url": "https://api.nanogpt.com", "api_key": "test-key-%d", "enabled": false}`, i, i)
 		rec := httptest.NewRecorder()
 		req := httptest.NewRequest(http.MethodPost, "/providers", strings.NewReader(providerData))
 		req.Header.Set("Authorization", "Bearer test-admin-token")

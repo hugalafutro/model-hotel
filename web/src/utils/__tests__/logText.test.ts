@@ -1,114 +1,86 @@
 import { describe, expect, it } from "vitest";
-import { decodeLogEscapes } from "../logText";
+import { parseLogAttrs, splitLogMessage } from "../logText";
 
-describe("decodeLogEscapes", () => {
-	it("turns the \\x20 space escaping back into spaces for display", () => {
+describe("parseLogAttrs", () => {
+	it("reads an access line into ordered pairs", () => {
 		expect(
-			decodeLogEscapes('account fetched provider="Ollama\\x20Cloud" plan=pro'),
-		).toBe('account fetched provider="Ollama Cloud" plan=pro');
+			parseLogAttrs(
+				"method=GET host=mh.example remote=192.168.1.141 status=200 bytes=1704 duration=331.127816ms path=/api/logs/app",
+			),
+		).toEqual([
+			{ key: "method", value: "GET" },
+			{ key: "host", value: "mh.example" },
+			{ key: "remote", value: "192.168.1.141" },
+			{ key: "status", value: "200" },
+			{ key: "bytes", value: "1704" },
+			{ key: "duration", value: "331.127816ms" },
+			{ key: "path", value: "/api/logs/app" },
+		]);
 	});
 
-	it("decodes multiple escaped spaces in one value", () => {
-		expect(decodeLogEscapes('model="My\\x20Great\\x20Model"')).toBe(
-			'model="My Great Model"',
-		);
+	it("unquotes a value with spaces and escaped quotes", () => {
+		expect(
+			parseLogAttrs('provider="Open Router" error="said \\"no\\" twice" n=2'),
+		).toEqual([
+			{ key: "provider", value: "Open Router" },
+			{ key: "error", value: 'said "no" twice' },
+			{ key: "n", value: "2" },
+		]);
 	});
 
-	it("leaves a raw \\x20 outside quotes alone", () => {
-		// The encoder only ever writes the space escape inside a quoted value;
-		// a bare one is raw text from a legacy line and must survive verbatim.
-		expect(decodeLogEscapes("legacy path=\\x20evidence")).toBe(
-			"legacy path=\\x20evidence",
-		);
+	it("decodes Go quoted-string escapes, not just the next character", () => {
+		expect(
+			parseLogAttrs(
+				'error="line one\\nline two\\ttab" path="\\x00nul \\u00e9 \\U0001F600" odd="\\q"',
+			),
+		).toEqual([
+			{ key: "error", value: "line one\nline two\ttab" },
+			{ key: "path", value: "\x00nul é 😀" },
+			{ key: "odd", value: "q" },
+		]);
 	});
 
-	it("preserves a literal \\x20 whose backslash is itself escaped", () => {
-		// The original value contained a literal `\x20`; the encoder escaped
-		// its backslash to `\\`, so the line shows `\\x20` and must stay put.
-		expect(decodeLogEscapes('path="C:\\\\x20dir"')).toBe('path="C:\\\\x20dir"');
+	it("keeps an out-of-range code point escape as text instead of throwing", () => {
+		expect(parseLogAttrs('v="\\U00110000 ok"')).toEqual([
+			{ key: "v", value: "U00110000 ok" },
+		]);
 	});
 
-	it("decodes an escaped space after a literal backslash", () => {
-		// `\\` (a literal backslash) followed by our `\x20` space escape.
-		expect(decodeLogEscapes('v="a\\\\\\x20b"')).toBe('v="a\\\\ b"');
+	it("skips tokens that are not key=value and keeps the rest", () => {
+		expect(parseLogAttrs("loose words count=3")).toEqual([
+			{ key: "count", value: "3" },
+		]);
+		expect(parseLogAttrs("nothing here")).toEqual([]);
 	});
 
-	it("does not treat an escaped quote as the end of the quoted value", () => {
-		expect(decodeLogEscapes('v="say\\x20\\"hi\\"\\x20now" next=\\x20raw')).toBe(
-			'v="say \\"hi\\" now" next=\\x20raw',
-		);
-	});
-
-	it("leaves messages without escapes untouched", () => {
-		expect(decodeLogEscapes("request start client_ip=10.0.0.1")).toBe(
-			"request start client_ip=10.0.0.1",
-		);
+	it("keeps an empty value", () => {
+		expect(parseLogAttrs('a= b=""')).toEqual([
+			{ key: "a", value: "" },
+			{ key: "b", value: "" },
+		]);
 	});
 });
 
-describe("displayLogMessage", () => {
-	it("decodes only rows the backend marked as flattened-encoded", async () => {
-		const { displayLogMessage } = await import("../logText");
-		const msg = 'fetched provider="Ollama\\x20Cloud"';
-		expect(displayLogMessage(msg, true, 7)).toBe(
-			'fetched provider="Ollama Cloud"',
-		);
-		expect(displayLogMessage(msg, false, 7)).toBe(msg);
-		expect(displayLogMessage(msg, undefined, 7)).toBe(msg);
+describe("splitLogMessage", () => {
+	it("splits at the recorded boundary", () => {
+		const msg = "request served method=GET status=200";
+		expect(splitLogMessage(msg, "request served".length)).toEqual({
+			head: "request served",
+			attrs: [
+				{ key: "method", value: "GET" },
+				{ key: "status", value: "200" },
+			],
+		});
 	});
 
-	it("never decodes before the attribute boundary", async () => {
-		const { displayLogMessage } = await import("../logText");
-		// The message portion is an attribute-shaped literal; only the real
-		// attribute suffix decodes.
-		const msg = 'literal path="\\x20raw" provider="Ollama\\x20Cloud"';
-		expect(displayLogMessage(msg, true, 22)).toBe(
-			'literal path="\\x20raw" provider="Ollama Cloud"',
-		);
-	});
-
-	it("slices the boundary in UTF-16 code units, matching the backend", async () => {
-		const { displayLogMessage } = await import("../logText");
-		// "\u{1F680}\u6A21\u578B ready" is 10 UTF-16 code units (the emoji is a
-		// surrogate pair); the backend counts attrs_at in the same units, so
-		// slice(10) lands exactly on the attribute suffix.
-		const msg = '\u{1F680}\u6A21\u578B ready v="\\x20a"';
-		expect(displayLogMessage(msg, true, 10)).toBe(
-			'\u{1F680}\u6A21\u578B ready v=" a"',
-		);
-	});
-
-	it("clamps an out-of-range boundary", async () => {
-		const { displayLogMessage } = await import("../logText");
-		const msg = 'a="b\\x20c"';
-		expect(displayLogMessage(msg, true, 9999)).toBe(msg);
-		expect(displayLogMessage(msg, true, -5)).toBe('a="b c"');
-	});
-});
-
-describe("appLogKey", () => {
-	it("uses the row id when the backend sent one", async () => {
-		const { appLogKey } = await import("../logText");
-		expect(
-			appLogKey({
-				id: "row-7",
-				timestamp: "2026-09-09T12:00:00Z",
-				source: "proxy",
-				message: "anything",
-			}),
-		).toBe("row-7");
-	});
-
-	it("falls back to the fields that identify an id-less row", async () => {
-		const { appLogKey } = await import("../logText");
-		// Raw io.Writer lines arrive without an id, and the message is cut to
-		// its opening 20 characters so a long line cannot bloat the key.
-		expect(
-			appLogKey({
-				timestamp: "2026-09-09T12:00:00Z",
-				source: "access",
-				message: "request method=GET path=/api/logs status=200",
-			}),
-		).toBe("2026-09-09T12:00:00Z-access-request method=GET p");
+	it("keeps the whole message without a boundary or without attributes", () => {
+		expect(splitLogMessage("plain line", 0)).toEqual({
+			head: "plain line",
+			attrs: [],
+		});
+		expect(splitLogMessage("head and tail", 4)).toEqual({
+			head: "head and tail",
+			attrs: [],
+		});
 	});
 });

@@ -885,7 +885,8 @@
 			"apiKey": "Kľúč API",
 			"baseUrlHelperAnthropicMessages": "Základná URL koncového bodu, ktorý hovorí Anthropic Messages API. Požiadavky smerujú na \"<base_url>\"/v1/messages a modely sa zisťujú z \"<base_url>\"/v1/models",
 			"nameHasSlash": "Názov poskytovateľa nesmie obsahovať „/“. Modely sa volajú ako poskytovateľ/model, takže by sa názov pri prvom „/“ odrezal a poskytovateľ by nikdy nebol dosiahnuteľný.",
-			"nameReserved": "Názov „hotel“ je rezervovaný: názvy modelov začínajúce hotel/ patria failover skupinám, takže poskytovateľa s týmto názvom by nikdy nebolo možné zavolať priamo."
+			"nameReserved": "Názov „hotel“ je rezervovaný: názvy modelov začínajúce hotel/ patria failover skupinám, takže poskytovateľa s týmto názvom by nikdy nebolo možné zavolať priamo.",
+			"duplicateKeyBlocked": "Poskytovateľ s týmto API kľúčom pre túto adresu už existuje („{{name}}“). Rovnaký kľúč dvakrát je rovnaký účet dvakrát: znova objaví rovnaké modely a oba riadky čerpajú jednu kvótu."
 		},
 		"edit": {
 			"typeHelper": "Meňte len kvôli oprave typu, ktorý bol pri importe alebo aktualizácii odhadnutý zle. Typ vlastného servera sa pred uložením overí voči serveru.",
@@ -1393,7 +1394,8 @@
 			"tpm": "Limit tokenov za minútu; po vyčerpaní minútového limitu sú požiadavky odmietnuté s kódom 429.",
 			"id": "Kliknutím skopírujte ID kľúča",
 			"owner": "Vlastní {{name}}",
-			"providerDenyAll": "Kľúč nepovoľuje žiadnych poskytovateľov"
+			"providerDenyAll": "Kľúč nepovoľuje žiadnych poskytovateľov",
+			"idMeaning": "Stály identifikátor tohto kľúča. Záznamy požiadaviek a API na kľúč odkazujú práve ním."
 		},
 		"emptyState": "Žiadne virtuálne kľúče. Vytvorte si jeden, aby ste mohli začať používať proxy.",
 		"steps": {
@@ -2650,7 +2652,12 @@
 			"level": "Úroveň",
 			"source": "Zdroj",
 			"message": "Správa",
-			"copyMessage": "Kopírovať správu"
+			"copyMessage": "Skopíruje celý riadok, ako je uložený, vrátane atribútov",
+			"filterBySource": "Zobraziť len „{{source}}“",
+			"openProvider": "Otvoriť poskytovateľa",
+			"openModel": "Otvoriť model",
+			"copyValue": "Kopírovať hodnotu",
+			"copyRaw": "Kopírovať surovú správu"
 		},
 		"auditDetail": {
 			"title": "Záznam auditu",
@@ -3435,7 +3442,8 @@
 			"lastLogin": "Posledné prihlásenie",
 			"allGrants": "Všetko",
 			"noGrants": "Žiadne",
-			"totpEnabled": "Dvojfaktorové overenie zapnuté"
+			"totpEnabled": "Dvojfaktorové overenie zapnuté",
+			"created": "Vytvorený"
 		},
 		"role": {
 			"admin": "Admin",
@@ -3486,7 +3494,10 @@
 			"totpResetHint": "Odstráni používateľovi overovaciu aplikáciu a záložné kódy, takže sa prihlási len heslom.",
 			"totpResetConfirmTitle": "Obnoviť dvojfaktorové overenie",
 			"totpResetConfirmMessage": "Týmto sa odstráni väzba na overovaciu aplikáciu a všetky záložné kódy tohto používateľa. Heslo zostáva bez zmeny.",
-			"totpResetConfirmLabel": "Resetovať"
+			"totpResetConfirmLabel": "Resetovať",
+			"created": "Vytvorený",
+			"lastEdited": "Naposledy upravený",
+			"twoFactor": "Dvojfaktorové overenie"
 		},
 		"toast": {
 			"created": "Používateľ vytvorený",

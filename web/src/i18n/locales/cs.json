@@ -885,7 +885,8 @@
 			"apiKey": "API klíč",
 			"baseUrlHelperAnthropicMessages": "Základní URL koncového bodu, který mluví Anthropic Messages API. Požadavky míří na \"<base_url>\"/v1/messages a modely se zjišťují z \"<base_url>\"/v1/models",
 			"nameHasSlash": "Název poskytovatele nesmí obsahovat „/“. Modely se volají jako poskytovatel/model, takže by se název u prvního „/“ uřízl a poskytovatel by nikdy nebyl dosažitelný.",
-			"nameReserved": "Název „hotel“ je rezervovaný: názvy modelů začínající hotel/ patří failover skupinám, takže poskytovatele s tímto názvem by nikdy nešlo zavolat přímo."
+			"nameReserved": "Název „hotel“ je rezervovaný: názvy modelů začínající hotel/ patří failover skupinám, takže poskytovatele s tímto názvem by nikdy nešlo zavolat přímo.",
+			"duplicateKeyBlocked": "Poskytovatel s tímto API klíčem pro tuto adresu už existuje („{{name}}“). Stejný klíč dvakrát je stejný účet dvakrát: znovu objeví stejné modely a oba řádky čerpají jednu kvótu."
 		},
 		"edit": {
 			"typeHelper": "Měňte jen kvůli opravě typu, který byl při importu nebo upgradu odhadnut špatně. Typ vlastního serveru se před uložením ověří proti serveru.",
@@ -1393,7 +1394,8 @@
 			"tpm": "Limit tokenů za minutu; jakmile je minutový limit vyčerpán, jsou požadavky odmítnuty s kódem 429.",
 			"id": "Kliknutím zkopírujte ID klíče",
 			"owner": "Vlastní {{name}}",
-			"providerDenyAll": "Klíč nepovoluje žádné poskytovatele"
+			"providerDenyAll": "Klíč nepovoluje žádné poskytovatele",
+			"idMeaning": "Stálý identifikátor tohoto klíče. Záznamy požadavků a API na klíč odkazují právě jím."
 		},
 		"emptyState": "Žádné virtuální klíče. Vytvořte si jeden, abyste mohli začít používat proxy.",
 		"steps": {
@@ -2650,7 +2652,12 @@
 			"level": "Úroveň",
 			"source": "Zdroj",
 			"message": "Zpráva",
-			"copyMessage": "Kopírovat zprávu"
+			"copyMessage": "Zkopíruje celý řádek, jak je uložen, včetně atributů",
+			"filterBySource": "Zobrazit jen „{{source}}“",
+			"openProvider": "Otevřít poskytovatele",
+			"openModel": "Otevřít model",
+			"copyValue": "Kopírovat hodnotu",
+			"copyRaw": "Kopírovat surovou zprávu"
 		},
 		"auditDetail": {
 			"title": "Záznam auditu",
@@ -3435,7 +3442,8 @@
 			"lastLogin": "Poslední přihlášení",
 			"allGrants": "Vše",
 			"noGrants": "Žádné",
-			"totpEnabled": "Dvoufaktorové ověření zapnuto"
+			"totpEnabled": "Dvoufaktorové ověření zapnuto",
+			"created": "Vytvořen"
 		},
 		"role": {
 			"admin": "Admin",
@@ -3486,7 +3494,10 @@
 			"totpResetHint": "Odebere uživateli ověřovací aplikaci a záložní kódy, takže se přihlásí jen heslem.",
 			"totpResetConfirmTitle": "Obnovit dvoufaktorové ověření",
 			"totpResetConfirmMessage": "Tímto se odebere vazba na ověřovací aplikaci a všechny záložní kódy tohoto uživatele. Heslo zůstává beze změny.",
-			"totpResetConfirmLabel": "Resetovat"
+			"totpResetConfirmLabel": "Resetovat",
+			"created": "Vytvořen",
+			"lastEdited": "Naposledy upraven",
+			"twoFactor": "Dvoufázové ověření"
 		},
 		"toast": {
 			"created": "Uživatel vytvořen",

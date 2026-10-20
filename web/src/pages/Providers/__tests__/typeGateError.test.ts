@@ -7,6 +7,15 @@ const t = (key: string, opts?: Record<string, string>): string =>
 	opts ? `${key}(${JSON.stringify(opts)})` : key;
 
 describe("providerTypeGateMessage", () => {
+	it("names the provider that already holds the same key and address", () => {
+		const err = new ApiError("boom", 409, "provider_duplicate_key", {
+			existing: "OpenRouter",
+		});
+		expect(providerTypeGateMessage(err, t)).toBe(
+			'providers.add.duplicateKeyBlocked({"name":"OpenRouter"})',
+		);
+	});
+
 	it("names the detected server and its version on a mismatch", () => {
 		const err = new ApiError("boom", 400, "provider_type_mismatch", {
 			expected: "lmstudio",

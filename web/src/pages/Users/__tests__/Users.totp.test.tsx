@@ -49,6 +49,7 @@ describe("UserModal TOTP reset", () => {
 		const { user } = renderWithProviders(
 			<UserModal user={withTotp} onClose={onClose} onToast={onToast} />,
 		);
+		await user.click(await screen.findByRole("button", { name: "Edit" }));
 
 		await user.click(screen.getByTestId("user-modal-totp-reset"));
 		await user.click(await screen.findByTestId("user-totp-reset-confirm"));
@@ -61,13 +62,14 @@ describe("UserModal TOTP reset", () => {
 
 	it("hides the reset button when the user has no TOTP", async () => {
 		mockGrants();
-		renderWithProviders(
+		const { user } = renderWithProviders(
 			<UserModal
 				user={{ ...withTotp, totp_enabled: false }}
 				onClose={onClose}
 				onToast={onToast}
 			/>,
 		);
+		await user.click(await screen.findByRole("button", { name: "Edit" }));
 		expect(
 			screen.queryByTestId("user-modal-totp-reset"),
 		).not.toBeInTheDocument();
@@ -83,6 +85,7 @@ describe("UserModal TOTP reset", () => {
 		const { user } = renderWithProviders(
 			<UserModal user={withTotp} onClose={onClose} onToast={onToast} />,
 		);
+		await user.click(await screen.findByRole("button", { name: "Edit" }));
 
 		await user.click(screen.getByTestId("user-modal-totp-reset"));
 		await user.click(await screen.findByTestId("user-totp-reset-confirm"));

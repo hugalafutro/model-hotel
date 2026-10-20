@@ -837,7 +837,8 @@
 			"apiKey": "API 密钥",
 			"baseUrlHelperAnthropicMessages": "使用 Anthropic Messages API 的端点的基础 URL。请求将发送到 \"<base_url>\"/v1/messages，模型将从 \"<base_url>\"/v1/models 中发现",
 			"nameHasSlash": "提供商名称不能包含“/”。模型以 提供商/模型 的形式调用，名称会在第一个“/”处被截断，该提供商将永远无法访问。",
-			"nameReserved": "“hotel”为保留名称：以 hotel/ 开头的模型名会被路由到故障转移组，因此无法直接调用使用此名称的提供商。"
+			"nameReserved": "“hotel”为保留名称：以 hotel/ 开头的模型名会被路由到故障转移组，因此无法直接调用使用此名称的提供商。",
+			"duplicateKeyBlocked": "此地址已存在使用此 API 密钥的提供商（“{{name}}”）。同一密钥添加两次就是同一账户添加两次：会再次发现相同的模型，且两行共同消耗一个配额。"
 		},
 		"edit": {
 			"typeHelper": "仅在纠正导入或升级时推断错误的类型时才更改。自托管类型会在保存前与服务器核对。",
@@ -1283,7 +1284,8 @@
 			"tpm": "每分钟 Token 上限；当分钟预算用尽后，请求将返回 429 状态码",
 			"id": "点击复制密钥 ID",
 			"owner": "所有者：{{name}}",
-			"providerDenyAll": "此密钥不允许任何提供者"
+			"providerDenyAll": "此密钥不允许任何提供者",
+			"idMeaning": "此密钥的固定标识符。请求日志和 API 通过它引用该密钥。"
 		},
 		"emptyState": "没有虚拟密钥。创建一个要开始使用代理的密钥。",
 		"steps": {
@@ -2518,7 +2520,12 @@
 			"level": "级别",
 			"source": "来源",
 			"message": "消息",
-			"copyMessage": "复制消息"
+			"copyMessage": "复制存储的整行内容，包括属性",
+			"filterBySource": "仅显示“{{source}}”",
+			"openProvider": "打开提供商",
+			"openModel": "打开模型",
+			"copyValue": "复制值",
+			"copyRaw": "复制原始消息"
 		},
 		"auditDetail": {
 			"title": "审计条目",
@@ -3283,7 +3290,8 @@
 			"lastLogin": "上次登录",
 			"allGrants": "全部",
 			"noGrants": "无",
-			"totpEnabled": "已启用两步验证"
+			"totpEnabled": "已启用两步验证",
+			"created": "创建时间"
 		},
 		"role": {
 			"admin": "管理员",
@@ -3334,7 +3342,10 @@
 			"totpResetHint": "移除该用户的验证器应用和恢复代码，之后仅凭密码即可登录。",
 			"totpResetConfirmTitle": "重置两步验证",
 			"totpResetConfirmMessage": "这将移除该用户的验证器应用绑定和所有恢复代码。密码保持不变。",
-			"totpResetConfirmLabel": "重置"
+			"totpResetConfirmLabel": "重置",
+			"created": "创建时间",
+			"lastEdited": "最后编辑",
+			"twoFactor": "双因素认证"
 		},
 		"toast": {
 			"created": "用户已创建",

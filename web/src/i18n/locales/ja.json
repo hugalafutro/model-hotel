@@ -837,7 +837,8 @@
 			"apiKey": "API キー",
 			"baseUrlHelperAnthropicMessages": "Anthropic Messages API を話すエンドポイントのベース URL。リクエストは \"<base_url>\"/v1/messages に送信され、モデルは \"<base_url>\"/v1/models から検出されます",
 			"nameHasSlash": "プロバイダー名に「/」は使えません。モデルは プロバイダー/モデル の形式で呼び出されるため、名前が最初の「/」で切れてしまい、このプロバイダーには到達できません。",
-			"nameReserved": "「hotel」は予約済みです。hotel/ で始まるモデル名はフェイルオーバーグループに送られるため、この名前のプロバイダーを直接呼び出すことはできません。"
+			"nameReserved": "「hotel」は予約済みです。hotel/ で始まるモデル名はフェイルオーバーグループに送られるため、この名前のプロバイダーを直接呼び出すことはできません。",
+			"duplicateKeyBlocked": "このアドレスにこの API キーを使うプロバイダーはすでに存在します（「{{name}}」）。同じキーを 2 回登録するのは同じアカウントを 2 回登録することです。同じモデルを再び検出し、2 つの行が 1 つのクォータを消費します。"
 		},
 		"edit": {
 			"typeHelper": "インポートやアップグレードの際に誤って推測された種類を修正する場合にのみ変更してください。セルフホストの種類は保存前にサーバーと照合されます。",
@@ -1283,7 +1284,8 @@
 			"tpm": "1分あたりのトークン上限。1分間の割り当てを使い切ると、リクエストは429エラーで拒否されます",
 			"id": "クリックしてキーIDをコピー",
 			"owner": "{{name}} が所有",
-			"providerDenyAll": "このキーはどのプロバイダーも許可しません"
+			"providerDenyAll": "このキーはどのプロバイダーも許可しません",
+			"idMeaning": "このキーの不変の識別子です。リクエストログと API はこの ID でキーを参照します。"
 		},
 		"emptyState": "仮想キーはありません。プロキシを使用するには、仮想キーを作成してください。",
 		"steps": {
@@ -2518,7 +2520,12 @@
 			"level": "レベル",
 			"source": "ソース",
 			"message": "メッセージ",
-			"copyMessage": "メッセージをコピー"
+			"copyMessage": "保存された行全体を属性ごとコピーします",
+			"filterBySource": "「{{source}}」のみ表示",
+			"openProvider": "プロバイダーを開く",
+			"openModel": "モデルを開く",
+			"copyValue": "値をコピー",
+			"copyRaw": "生のメッセージをコピー"
 		},
 		"auditDetail": {
 			"title": "監査エントリ",
@@ -3283,7 +3290,8 @@
 			"lastLogin": "最終ログイン",
 			"allGrants": "すべて",
 			"noGrants": "なし",
-			"totpEnabled": "2要素認証が有効"
+			"totpEnabled": "2要素認証が有効",
+			"created": "作成日時"
 		},
 		"role": {
 			"admin": "管理者",
@@ -3334,7 +3342,10 @@
 			"totpResetHint": "このユーザーの認証アプリとリカバリーコードを削除し、パスワードのみでログインできるようにします。",
 			"totpResetConfirmTitle": "2要素認証をリセット",
 			"totpResetConfirmMessage": "このユーザーの認証アプリの紐付けとすべてのリカバリーコードを削除します。パスワードは変更されません。",
-			"totpResetConfirmLabel": "リセット"
+			"totpResetConfirmLabel": "リセット",
+			"created": "作成日時",
+			"lastEdited": "最終編集",
+			"twoFactor": "二要素認証"
 		},
 		"toast": {
 			"created": "ユーザーを作成しました",

@@ -861,7 +861,8 @@
 			"apiKey": "Chiave API",
 			"baseUrlHelperAnthropicMessages": "URL di base di un endpoint che parla l'API Anthropic Messages. Le richieste vanno a \"<base_url>\"/v1/messages e i modelli vengono rilevati da \"<base_url>\"/v1/models",
 			"nameHasSlash": "Il nome di un provider non può contenere \"/\". I modelli vengono chiamati come provider/modello, quindi il nome verrebbe tagliato al primo \"/\" e il provider non sarebbe mai raggiungibile.",
-			"nameReserved": "\"hotel\" è riservato: i nomi di modello che iniziano con hotel/ vanno ai gruppi di failover, quindi un provider con questo nome non potrebbe mai essere chiamato direttamente."
+			"nameReserved": "\"hotel\" è riservato: i nomi di modello che iniziano con hotel/ vanno ai gruppi di failover, quindi un provider con questo nome non potrebbe mai essere chiamato direttamente.",
+			"duplicateKeyBlocked": "Esiste già un provider con questa chiave API per questo indirizzo (\"{{name}}\"). La stessa chiave due volte è lo stesso account due volte: riscopre gli stessi modelli ed entrambe le righe consumano una sola quota."
 		},
 		"edit": {
 			"typeHelper": "Modificalo solo per correggere un tipo dedotto male durante l'importazione o l'aggiornamento. Un tipo self-hosted viene verificato con il server prima del salvataggio.",
@@ -1338,7 +1339,8 @@
 			"tpm": "Limite di token al minuto; le richieste vengono respinte con codice 429 una volta esaurito il budget del minuto",
 			"id": "Clicca per copiare l'ID chiave",
 			"owner": "Di proprietà di {{name}}",
-			"providerDenyAll": "La chiave non consente alcun provider"
+			"providerDenyAll": "La chiave non consente alcun provider",
+			"idMeaning": "Identificatore stabile di questa chiave. I log delle richieste e l'API fanno riferimento alla chiave tramite esso."
 		},
 		"emptyState": "Nessuna chiave virtuale. Creane una per iniziare a usare il proxy.",
 		"steps": {
@@ -2584,7 +2586,12 @@
 			"level": "Livello",
 			"source": "Fonte",
 			"message": "Messaggio",
-			"copyMessage": "Copia messaggio"
+			"copyMessage": "Copia l'intera riga come salvata, attributi inclusi",
+			"filterBySource": "Mostra solo \"{{source}}\"",
+			"openProvider": "Apri provider",
+			"openModel": "Apri modello",
+			"copyValue": "Copia valore",
+			"copyRaw": "Copia messaggio grezzo"
 		},
 		"auditDetail": {
 			"title": "Voce di audit",
@@ -3359,7 +3366,8 @@
 			"lastLogin": "Ultimo accesso",
 			"allGrants": "Tutto",
 			"noGrants": "Nessuno",
-			"totpEnabled": "Autenticazione a due fattori attiva"
+			"totpEnabled": "Autenticazione a due fattori attiva",
+			"created": "Creato"
 		},
 		"role": {
 			"admin": "Admin",
@@ -3410,7 +3418,10 @@
 			"totpResetHint": "Rimuove l'app di autenticazione e i codici di recupero dell'utente, che potrà accedere con la sola password.",
 			"totpResetConfirmTitle": "Reimposta l'autenticazione a due fattori",
 			"totpResetConfirmMessage": "Questo rimuove l'associazione con l'app di autenticazione e tutti i codici di recupero di questo utente. La password resta invariata.",
-			"totpResetConfirmLabel": "Reimposta"
+			"totpResetConfirmLabel": "Reimposta",
+			"created": "Creato",
+			"lastEdited": "Ultima modifica",
+			"twoFactor": "Autenticazione a due fattori"
 		},
 		"toast": {
 			"created": "Utente creato",

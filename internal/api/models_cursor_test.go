@@ -1394,7 +1394,7 @@ func TestListModelsCursor_ProviderEnabledFilter(t *testing.T) {
 
 	createProvider := func(suffix string) string {
 		t.Helper()
-		body := fmt.Sprintf(`{"name":"cursor-pe-%s-%s","base_url":"https://api.example.com","api_key":"test-key"}`, suffix, uuid.New().String()[:8])
+		body := fmt.Sprintf(`{"name":"cursor-pe-%s-%s","base_url":"https://api.example.com","api_key":"test-key-%s"}`, suffix, uuid.New().String()[:8], suffix)
 		rec := httptest.NewRecorder()
 		req := httptest.NewRequest(http.MethodPost, "/providers", strings.NewReader(body))
 		req.Header.Set("Authorization", "Bearer test-admin-token")

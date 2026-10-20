@@ -1,11 +1,17 @@
 package api
 
 import (
+	"crypto/subtle"
 	"errors"
+	"net"
 	"net/http"
+	"net/url"
+	"regexp"
+	"strings"
 
 	"github.com/google/uuid"
 
+	"github.com/hugalafutro/model-hotel/internal/auth"
 	"github.com/hugalafutro/model-hotel/internal/debuglog"
 	"github.com/hugalafutro/model-hotel/internal/provider"
 )
@@ -23,6 +29,9 @@ const (
 	// codeProviderDuplicateAddress refuses a second provider for a self-hosted
 	// server that is already configured.
 	codeProviderDuplicateAddress = "provider_duplicate_address"
+	// codeProviderDuplicateKey refuses a second provider that would carry the
+	// same key to the same address as one already configured.
+	codeProviderDuplicateKey = "provider_duplicate_key"
 )
 
 // providerTypeGateResponse is the body behind the three codes above. The extra
@@ -68,6 +77,87 @@ func (h *Handler) rejectDuplicateLocalServer(w http.ResponseWriter, r *http.Requ
 	}
 	return true
 }
+
+// rejectDuplicateKey blocks a provider that would send the same key to the same
+// address as one already configured. Two providers on one hosted address are
+// legitimate when each carries its own key (two accounts, two quotas); with one
+// key they are one account twice: the same models discovered again, an auto
+// failover group of twins, and both rows draining one upstream quota. Keyless
+// providers are left alone: with no key there is nothing to be the same. The
+// existing rows are compared by their decrypted key, so the check is exact,
+// read through the key cache so a busy provider costs no Argon2id round. Two
+// creates racing each other can both pass: this is a usability guard like the
+// address one, not a uniqueness constraint. It writes the error and reports
+// false when the pair is taken.
+func (h *Handler) rejectDuplicateKey(w http.ResponseWriter, r *http.Request, baseURL, apiKey string, excludeID uuid.UUID) bool {
+	if apiKey == "" {
+		return true
+	}
+	existing, err := h.providerRepo.List(r.Context())
+	if err != nil {
+		// As for the address guard: a usability check must not block an add
+		// over an unrelated failure.
+		debuglog.Warn("provider: duplicate-key check failed", "error", err)
+		return true
+	}
+	for _, p := range existing {
+		if p.ID == excludeID || len(p.EncryptedKey) == 0 || !sameHostedAddress(p.BaseURL, baseURL) {
+			continue
+		}
+		stored, decErr := auth.DecryptCached(p.EncryptedKey, p.KeyNonce, p.KeySalt, h.cfg.MasterKey)
+		if decErr != nil {
+			// A key this master key cannot read is not one the new provider can
+			// duplicate in any way that matters here.
+			debuglog.Warn("provider: duplicate-key check could not read a stored key", "provider_id", p.ID, "error", decErr)
+			continue
+		}
+		if subtle.ConstantTimeCompare([]byte(stored), []byte(apiKey)) == 1 {
+			writeJSONStatus(w, http.StatusConflict, map[string]string{
+				"code":     codeProviderDuplicateKey,
+				"error":    "a provider with this key for this address already exists: " + p.Name,
+				"existing": p.Name,
+			})
+			return false
+		}
+	}
+	return true
+}
+
+// sameHostedAddress reports whether two base URLs name the same endpoint:
+// scheme and host compared without regard to case, the path with its case and
+// without a trailing slash. The path is kept: on OpenCode the path decides
+// which balance a key is billed to, so one key on two paths is two providers
+// on purpose. An address that does not parse is compared as written.
+func sameHostedAddress(a, b string) bool {
+	return hostedAddressKey(a) == hostedAddressKey(b)
+}
+
+func hostedAddressKey(raw string) string {
+	u, err := url.Parse(strings.TrimSpace(raw))
+	if err != nil || u.Host == "" {
+		return strings.TrimRight(strings.TrimSpace(raw), "/")
+	}
+	scheme := strings.ToLower(u.Scheme)
+	host := strings.ToLower(u.Hostname())
+	// An explicit default port names the same endpoint as none. An IPv6
+	// literal keeps its brackets, so its last group cannot read as a port.
+	switch port := u.Port(); {
+	case port != "" && (scheme != "https" || port != "443") && (scheme != "http" || port != "80"):
+		host = net.JoinHostPort(host, port)
+	case strings.Contains(host, ":"):
+		host = "[" + host + "]"
+	}
+	// The escaped path, so an encoded slash stays distinct from a real one,
+	// with the escapes' hex digits in one case so %2f and %2F are one path.
+	path := percentEscape.ReplaceAllStringFunc(u.EscapedPath(), strings.ToUpper)
+	key := scheme + "://" + host + strings.TrimRight(path, "/")
+	if u.RawQuery != "" {
+		key += "?" + u.RawQuery
+	}
+	return key
+}
+
+var percentEscape = regexp.MustCompile(`%[0-9a-fA-F]{2}`)
 
 func writeProviderTypeGateError(w http.ResponseWriter, body providerTypeGateResponse) {
 	writeJSONStatus(w, http.StatusBadRequest, body)

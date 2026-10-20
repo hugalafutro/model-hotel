@@ -82,3 +82,103 @@ export function appLogKey(entry: {
 		`${entry.timestamp}-${entry.source}-${entry.message.slice(0, 20)}`
 	);
 }
+
+export interface LogAttr {
+	key: string;
+	value: string;
+}
+
+/** The logfmt attribute tail of an app-log line as key/value pairs, in
+ * order. A value is bare up to the next space, or double-quoted with `\"` and
+ * `\\` escapes inside. Anything that is not `key=value` is skipped, so a tail
+ * the encoder did not write (an older raw io.Writer line) yields nothing and
+ * the caller shows the message whole. */
+export function parseLogAttrs(tail: string): LogAttr[] {
+	const attrs: LogAttr[] = [];
+	let i = 0;
+	const n = tail.length;
+	while (i < n) {
+		while (i < n && tail[i] === " ") i++;
+		const eq = tail.indexOf("=", i);
+		if (eq === -1) break;
+		const key = tail.slice(i, eq);
+		if (key === "" || key.includes(" ")) {
+			// Not a key: skip this token and carry on from the next space.
+			const sp = tail.indexOf(" ", i);
+			if (sp === -1) break;
+			i = sp + 1;
+			continue;
+		}
+		i = eq + 1;
+		let value = "";
+		if (tail[i] === '"') {
+			i++;
+			while (i < n && tail[i] !== '"') {
+				if (tail[i] === "\\" && i + 1 < n) {
+					const [decoded, next] = decodeGoEscape(tail, i + 1);
+					value += decoded;
+					i = next;
+					continue;
+				}
+				value += tail[i];
+				i++;
+			}
+			i++; // closing quote
+		} else {
+			const sp = tail.indexOf(" ", i);
+			const end = sp === -1 ? n : sp;
+			value = tail.slice(i, end);
+			i = end;
+		}
+		attrs.push({ key, value });
+	}
+	return attrs;
+}
+
+/** One escape of Go's strconv.Quote grammar, starting after the backslash:
+ * the single-letter escapes, \xHH, \uHHHH and \UHHHHHHHH. Returns the
+ * decoded text and the index after the escape. An unknown escape keeps the
+ * character after the backslash, which is what a reader expects of a stray
+ * one. */
+function decodeGoEscape(s: string, i: number): [string, number] {
+	const simple: Record<string, string> = {
+		a: "\x07",
+		b: "\b",
+		f: "\f",
+		n: "\n",
+		r: "\r",
+		t: "\t",
+		v: "\v",
+		"\\": "\\",
+		"'": "'",
+		'"': '"',
+	};
+	const c = s[i];
+	if (c in simple) return [simple[c], i + 1];
+	const width = c === "x" ? 2 : c === "u" ? 4 : c === "U" ? 8 : 0;
+	if (width > 0) {
+		const hex = s.slice(i + 1, i + 1 + width);
+		if (hex.length === width && /^[0-9a-fA-F]+$/.test(hex)) {
+			const code = Number.parseInt(hex, 16);
+			// Past the last code point fromCodePoint throws; show it as written.
+			if (code <= 0x10ffff) {
+				return [String.fromCodePoint(code), i + 1 + width];
+			}
+		}
+	}
+	return [c, i + 1];
+}
+
+/** An app-log message split at the recorded attribute boundary: the
+ * developer-written head, and the attributes parsed from the tail. With no
+ * boundary, or a tail that parses to nothing, the head is the whole message. */
+export function splitLogMessage(
+	message: string,
+	attrsAt?: number,
+): { head: string; attrs: LogAttr[] } {
+	const at = clamp(attrsAt ?? 0, 0, message.length);
+	if (at === 0) return { head: message, attrs: [] };
+	const attrs = parseLogAttrs(message.slice(at));
+	if (attrs.length === 0) return { head: message, attrs: [] };
+	return { head: message.slice(0, at).trimEnd(), attrs };
+}

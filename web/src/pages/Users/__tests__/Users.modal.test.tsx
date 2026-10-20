@@ -116,7 +116,7 @@ describe("UserModal", () => {
 
 	it("shows an existing account's spend against its budget", async () => {
 		mockGrants();
-		renderWithProviders(
+		const { user } = renderWithProviders(
 			<UserModal
 				user={{
 					...existing,
@@ -128,6 +128,7 @@ describe("UserModal", () => {
 				onToast={onToast}
 			/>,
 		);
+		await user.click(await screen.findByRole("button", { name: "Edit" }));
 		expect(screen.getByTestId("user-budget")).toHaveValue(20);
 		expect(screen.getByTestId("user-budget-period")).toHaveValue("month");
 		expect(screen.getByTestId("user-budget-spent")).toHaveTextContent(
@@ -189,6 +190,7 @@ describe("UserModal", () => {
 		const { user } = renderWithProviders(
 			<UserModal user={existing} onClose={onClose} onToast={onToast} />,
 		);
+		await user.click(await screen.findByRole("button", { name: "Edit" }));
 
 		await user.type(screen.getByLabelText("Reset password"), "password123");
 		await user.click(screen.getByRole("button", { name: "Reset" }));
@@ -210,6 +212,7 @@ describe("UserModal", () => {
 		const { user } = renderWithProviders(
 			<UserModal user={existing} onClose={onClose} onToast={onToast} />,
 		);
+		await user.click(await screen.findByRole("button", { name: "Edit" }));
 
 		await user.selectOptions(screen.getByLabelText("Role"), "admin");
 		await user.click(screen.getByTestId("user-modal-save"));
@@ -232,6 +235,7 @@ describe("UserModal", () => {
 		const { user } = renderWithProviders(
 			<UserModal user={existing} onClose={onClose} onToast={onToast} />,
 		);
+		await user.click(await screen.findByRole("button", { name: "Edit" }));
 
 		await user.click(screen.getByTestId("user-modal-delete"));
 		await user.type(screen.getByTestId("delete-confirm-input"), "bob");
@@ -241,6 +245,28 @@ describe("UserModal", () => {
 			expect(onToast).toHaveBeenCalledWith("User deleted", "success");
 		});
 		expect(deleted).toBe(true);
+	});
+
+	it("shows a failed delete from the card, where there is no form", async () => {
+		mockGrants();
+		server.use(
+			http.delete("/api/users/:id", () =>
+				HttpResponse.text("still owns keys", { status: 409 }),
+			),
+		);
+		const { user } = renderWithProviders(
+			<UserModal user={existing} onClose={onClose} onToast={onToast} />,
+		);
+
+		// Delete straight from the card, without entering the form.
+		await user.click(screen.getByTestId("user-modal-delete"));
+		await user.type(screen.getByTestId("delete-confirm-input"), "bob");
+		await user.click(screen.getByTestId("user-delete-confirm"));
+
+		expect(await screen.findByTestId("user-modal-error")).toHaveTextContent(
+			"still owns keys",
+		);
+		expect(onClose).not.toHaveBeenCalled();
 	});
 
 	it("resets the password and reports success", async () => {
@@ -255,6 +281,7 @@ describe("UserModal", () => {
 		const { user } = renderWithProviders(
 			<UserModal user={existing} onClose={onClose} onToast={onToast} />,
 		);
+		await user.click(await screen.findByRole("button", { name: "Edit" }));
 
 		await user.type(screen.getByLabelText("Reset password"), "newpassword1");
 		await user.click(screen.getByRole("button", { name: "Reset" }));
@@ -281,6 +308,7 @@ describe("UserModal", () => {
 				onToast={onToast}
 			/>,
 		);
+		await user.click(await screen.findByRole("button", { name: "Edit" }));
 
 		// Prefilled from the user row.
 		expect(screen.getByTestId("user-limit-rps")).toHaveValue(2.5);

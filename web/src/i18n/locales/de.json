@@ -837,7 +837,8 @@
 			"apiKey": "API-Schlüssel",
 			"baseUrlHelperAnthropicMessages": "Basis-URL eines Endpunkts, der die Anthropic Messages API spricht. Anfragen gehen an \"<base_url>\"/v1/messages und Modelle werden über \"<base_url>\"/v1/models erkannt",
 			"nameHasSlash": "Ein Anbietername darf kein „/“ enthalten. Modelle werden als Anbieter/Modell aufgerufen, daher würde der Name am ersten „/“ abgeschnitten und der Anbieter wäre nie erreichbar.",
-			"nameReserved": "„hotel“ ist reserviert: Modellnamen, die mit hotel/ beginnen, gehen an Failover-Gruppen, daher könnte ein Anbieter mit diesem Namen nie direkt aufgerufen werden."
+			"nameReserved": "„hotel“ ist reserviert: Modellnamen, die mit hotel/ beginnen, gehen an Failover-Gruppen, daher könnte ein Anbieter mit diesem Namen nie direkt aufgerufen werden.",
+			"duplicateKeyBlocked": "Ein Anbieter mit diesem API-Schlüssel für diese Adresse existiert bereits („{{name}}“). Derselbe Schlüssel zweimal ist dasselbe Konto zweimal: Er entdeckt dieselben Modelle erneut und beide Zeilen verbrauchen ein Kontingent."
 		},
 		"edit": {
 			"typeHelper": "Ändern Sie das nur, um einen Typ zu korrigieren, der beim Import oder Upgrade falsch geraten wurde. Ein selbst gehosteter Typ wird vor dem Speichern gegen den Server geprüft.",
@@ -1283,7 +1284,8 @@
 			"tpm": "Obergrenze für Tokens pro Minute; Anfragen werden mit dem Status 429 abgelehnt, sobald das Minutenbudget aufgebraucht ist",
 			"id": "Zum Kopieren der Schlüssel-ID hier klicken",
 			"owner": "Gehört {{name}}",
-			"providerDenyAll": "Schlüssel erlaubt keine Anbieter"
+			"providerDenyAll": "Schlüssel erlaubt keine Anbieter",
+			"idMeaning": "Stabile Kennung dieses Schlüssels. Anfrageprotokolle und die API verweisen damit auf den Schlüssel."
 		},
 		"emptyState": "Keine virtuellen Schlüssel. Erstellen Sie einen, um den Proxy zu verwenden.",
 		"steps": {
@@ -2518,7 +2520,12 @@
 			"level": "Level",
 			"source": "Quelle",
 			"message": "Nachricht",
-			"copyMessage": "Nachricht kopieren"
+			"copyMessage": "Die ganze Zeile wie gespeichert kopieren, Attribute inklusive",
+			"filterBySource": "Nur „{{source}}“ anzeigen",
+			"openProvider": "Anbieter öffnen",
+			"openModel": "Modell öffnen",
+			"copyValue": "Wert kopieren",
+			"copyRaw": "Rohnachricht kopieren"
 		},
 		"auditDetail": {
 			"title": "Audit-Eintrag",
@@ -3283,7 +3290,8 @@
 			"lastLogin": "Letzte Anmeldung",
 			"allGrants": "Alles",
 			"noGrants": "Keine",
-			"totpEnabled": "Zwei-Faktor-Authentifizierung aktiviert"
+			"totpEnabled": "Zwei-Faktor-Authentifizierung aktiviert",
+			"created": "Erstellt"
 		},
 		"role": {
 			"admin": "Admin",
@@ -3334,7 +3342,10 @@
 			"totpResetHint": "Entfernt die Authenticator-App und die Wiederherstellungscodes des Benutzers, sodass die Anmeldung nur mit dem Passwort möglich ist.",
 			"totpResetConfirmTitle": "Zwei-Faktor-Authentifizierung zurücksetzen",
 			"totpResetConfirmMessage": "Dies entfernt die Authenticator-App-Bindung und alle Wiederherstellungscodes dieses Benutzers. Das Passwort bleibt unverändert.",
-			"totpResetConfirmLabel": "Zurücksetzen"
+			"totpResetConfirmLabel": "Zurücksetzen",
+			"created": "Erstellt",
+			"lastEdited": "Zuletzt bearbeitet",
+			"twoFactor": "Zwei-Faktor-Authentifizierung"
 		},
 		"toast": {
 			"created": "Benutzer angelegt",

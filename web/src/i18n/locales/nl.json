@@ -837,7 +837,8 @@
 			"apiKey": "API Sleutel",
 			"baseUrlHelperAnthropicMessages": "Basis-URL van een endpoint dat de Anthropic Messages API spreekt. Verzoeken gaan naar \"<base_url>\"/v1/messages en modellen worden ontdekt via \"<base_url>\"/v1/models",
 			"nameHasSlash": "Een providernaam mag geen \"/\" bevatten. Modellen worden aangeroepen als provider/model, dus de naam zou bij de eerste \"/\" worden afgekapt en de provider zou nooit bereikbaar zijn.",
-			"nameReserved": "\"hotel\" is gereserveerd: modelnamen die met hotel/ beginnen gaan naar failover-groepen, dus een provider met deze naam zou nooit rechtstreeks aangeroepen kunnen worden."
+			"nameReserved": "\"hotel\" is gereserveerd: modelnamen die met hotel/ beginnen gaan naar failover-groepen, dus een provider met deze naam zou nooit rechtstreeks aangeroepen kunnen worden.",
+			"duplicateKeyBlocked": "Er bestaat al een provider met deze API-sleutel voor dit adres (\"{{name}}\"). Dezelfde sleutel twee keer is hetzelfde account twee keer: hij ontdekt dezelfde modellen opnieuw en beide rijen verbruiken één quotum."
 		},
 		"edit": {
 			"typeHelper": "Wijzig dit alleen om een type te corrigeren dat bij import of upgrade verkeerd is geraden. Een zelfgehost type wordt vóór het opslaan bij de server gecontroleerd.",
@@ -1283,7 +1284,8 @@
 			"tpm": "Limiet op tokens per minuut; verzoeken worden afgewezen met 429 zodra het budget voor die minuut is opgebruikt",
 			"id": "Klik om de sleutel-ID te kopiëren",
 			"owner": "Eigendom van {{name}}",
-			"providerDenyAll": "Sleutel staat geen providers toe"
+			"providerDenyAll": "Sleutel staat geen providers toe",
+			"idMeaning": "Vaste identificatie van deze sleutel. Aanvraaglogs en de API verwijzen ermee naar de sleutel."
 		},
 		"emptyState": "Geen virtuele sleutels. Maak er een aan om de proxy te gebruiken.",
 		"steps": {
@@ -2518,7 +2520,12 @@
 			"level": "Niveau",
 			"source": "Bron",
 			"message": "bericht",
-			"copyMessage": "Bericht kopiëren"
+			"copyMessage": "Kopieer de hele regel zoals opgeslagen, inclusief attributen",
+			"filterBySource": "Alleen \"{{source}}\" tonen",
+			"openProvider": "Provider openen",
+			"openModel": "Model openen",
+			"copyValue": "Waarde kopiëren",
+			"copyRaw": "Ruw bericht kopiëren"
 		},
 		"auditDetail": {
 			"title": "Auditvermelding",
@@ -3283,7 +3290,8 @@
 			"lastLogin": "Laatste aanmelding",
 			"allGrants": "Alles",
 			"noGrants": "Geen",
-			"totpEnabled": "Tweestapsverificatie ingeschakeld"
+			"totpEnabled": "Tweestapsverificatie ingeschakeld",
+			"created": "Aangemaakt"
 		},
 		"role": {
 			"admin": "Admin",
@@ -3334,7 +3342,10 @@
 			"totpResetHint": "Verwijdert de authenticator-app en herstelcodes van de gebruiker, zodat inloggen weer met alleen het wachtwoord kan.",
 			"totpResetConfirmTitle": "Tweestapsverificatie opnieuw instellen",
 			"totpResetConfirmMessage": "Dit verwijdert de koppeling met de authenticator-app en alle herstelcodes van deze gebruiker. Het wachtwoord blijft ongewijzigd.",
-			"totpResetConfirmLabel": "Resetten"
+			"totpResetConfirmLabel": "Resetten",
+			"created": "Aangemaakt",
+			"lastEdited": "Laatst bewerkt",
+			"twoFactor": "Tweestapsverificatie"
 		},
 		"toast": {
 			"created": "Gebruiker aangemaakt",

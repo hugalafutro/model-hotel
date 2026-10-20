@@ -861,7 +861,8 @@
 			"apiKey": "Clau de l'API",
 			"baseUrlHelperAnthropicMessages": "URL base d'un extrem que parla l'API Anthropic Messages. Les sol·licituds van a \"<base_url>\"/v1/messages i els models es descobreixen des de \"<base_url>\"/v1/models",
 			"nameHasSlash": "El nom d'un proveïdor no pot contenir \"/\". Els models es criden com a proveïdor/model, així que el nom es tallaria al primer \"/\" i el proveïdor mai no es podria assolir.",
-			"nameReserved": "\"hotel\" està reservat: els noms de model que comencen per hotel/ van als grups de failover, així que un proveïdor amb aquest nom mai no es podria cridar directament."
+			"nameReserved": "\"hotel\" està reservat: els noms de model que comencen per hotel/ van als grups de failover, així que un proveïdor amb aquest nom mai no es podria cridar directament.",
+			"duplicateKeyBlocked": "Ja existeix un proveïdor amb aquesta clau d'API per a aquesta adreça (\"{{name}}\"). La mateixa clau dues vegades és el mateix compte dues vegades: torna a descobrir els mateixos models i les dues files consumeixen una sola quota."
 		},
 		"edit": {
 			"typeHelper": "Canvia-ho només per corregir un tipus que es va deduir malament en importar o actualitzar el proveïdor. Un tipus autoallotjat es comprova amb el servidor abans de desar-lo.",
@@ -1338,7 +1339,8 @@
 			"tpm": "Límit de tokens per minut; les sol·licituds es rebutgen amb un 429 un cop s'ha esgotat el pressupost per minut",
 			"id": "Feu clic per copiar l'ID de la clau",
 			"owner": "Propietat de {{name}}",
-			"providerDenyAll": "La clau no permet cap proveïdor"
+			"providerDenyAll": "La clau no permet cap proveïdor",
+			"idMeaning": "Identificador estable d'aquesta clau. Els registres de peticions i l'API s'hi refereixen amb ell."
 		},
 		"emptyState": "No hi ha claus virtuals. Crea'n una per començar a utilitzar el proxy.",
 		"steps": {
@@ -2584,7 +2586,12 @@
 			"level": "Nivell",
 			"source": "Font",
 			"message": "Missatge",
-			"copyMessage": "Copiar missatge"
+			"copyMessage": "Copia tota la línia tal com s'ha desat, atributs inclosos",
+			"filterBySource": "Mostra només \"{{source}}\"",
+			"openProvider": "Obre el proveïdor",
+			"openModel": "Obre el model",
+			"copyValue": "Copia el valor",
+			"copyRaw": "Copia el missatge en brut"
 		},
 		"auditDetail": {
 			"title": "Entrada d'auditoria",
@@ -3359,7 +3366,8 @@
 			"lastLogin": "Últim accés",
 			"allGrants": "Tot",
 			"noGrants": "Cap",
-			"totpEnabled": "Autenticació de dos factors activada"
+			"totpEnabled": "Autenticació de dos factors activada",
+			"created": "Creat"
 		},
 		"role": {
 			"admin": "Admin",
@@ -3410,7 +3418,10 @@
 			"totpResetHint": "Elimina l'aplicació d'autenticació i els codis de recuperació de l'usuari perquè pugui iniciar sessió només amb la contrasenya.",
 			"totpResetConfirmTitle": "Restableix l'autenticació de dos factors",
 			"totpResetConfirmMessage": "Això elimina la vinculació de l'aplicació d'autenticació i tots els codis de recuperació d'aquest usuari. La contrasenya no canvia.",
-			"totpResetConfirmLabel": "Restableix"
+			"totpResetConfirmLabel": "Restableix",
+			"created": "Creat",
+			"lastEdited": "Última edició",
+			"twoFactor": "Autenticació de dos factors"
 		},
 		"toast": {
 			"created": "Usuari creat",

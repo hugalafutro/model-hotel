@@ -101,6 +101,10 @@ func (h *Handler) CreateProvider(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if !h.rejectDuplicateKey(w, r, req.BaseURL, req.APIKey, uuid.Nil) {
+		return
+	}
+
 	// Last, because it is the only check that waits on the network: a bad name
 	// or URL should fail immediately rather than after a probe timeout.
 	if !h.confirmLocalServerType(w, r, req.ProviderType, req.BaseURL, req.APIKey) {
@@ -327,6 +331,40 @@ func (h *Handler) acceptProviderIdentity(w http.ResponseWriter, r *http.Request,
 	return h.confirmLocalServerType(w, r, effectiveType, normalized, apiKey)
 }
 
+// acceptProviderKeyPair runs the duplicate-key guard for an update that changes
+// the key or the address, with the key and address the provider will have once
+// the update lands. A blank key clears the key, so there is nothing to compare.
+// It writes the error response and reports false when the change must not be
+// saved.
+func (h *Handler) acceptProviderKeyPair(w http.ResponseWriter, r *http.Request, id uuid.UUID, req *provider.UpdateProviderRequest) bool {
+	if req.APIKey == nil && req.BaseURL == nil {
+		return true
+	}
+	current, err := h.providerRepo.Get(r.Context(), id)
+	if err != nil {
+		respondLookupError(w, err, pgx.ErrNoRows, "provider not found", fmt.Sprintf("failed to load provider %s", id))
+		return false
+	}
+	address := current.BaseURL
+	if req.BaseURL != nil {
+		address = *req.BaseURL
+	}
+	apiKey := ""
+	switch {
+	case req.APIKey != nil:
+		apiKey = *req.APIKey
+	case len(current.EncryptedKey) > 0:
+		plain, decErr := auth.DecryptCached(current.EncryptedKey, current.KeyNonce, current.KeySalt, h.cfg.MasterKey)
+		if decErr != nil {
+			// An unreadable stored key cannot be shown to duplicate anything.
+			debuglog.Warn("provider: could not decrypt key for the duplicate check", "provider_id", id, "error", decErr)
+			return true
+		}
+		apiKey = plain
+	}
+	return h.rejectDuplicateKey(w, r, address, apiKey, id)
+}
+
 // acceptProviderURLShape applies the scheme and SSRF rules a base URL must
 // satisfy before anything is done with it.
 func (h *Handler) acceptProviderURLShape(w http.ResponseWriter, baseURL string) bool {
@@ -450,6 +488,12 @@ func (h *Handler) UpdateProvider(w http.ResponseWriter, r *http.Request) {
 	// Validate the address and the type together: either one changing has to
 	// be confirmed against the server that answers.
 	if !h.acceptProviderIdentity(w, r, id, &req) {
+		return
+	}
+
+	// A new key, or a new address for the stored key, must not land on a pair
+	// another provider already holds.
+	if !h.acceptProviderKeyPair(w, r, id, &req) {
 		return
 	}
 

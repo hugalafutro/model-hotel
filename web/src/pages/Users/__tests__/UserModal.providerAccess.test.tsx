@@ -210,13 +210,14 @@ describe("UserModal provider access", () => {
 
 	it("preselects the stored cap when editing", async () => {
 		mockCatalog();
-		renderWithProviders(
+		const { user } = renderWithProviders(
 			<UserModal
 				user={{ ...existing, allowed_providers: ["p1"] }}
 				onClose={onClose}
 				onToast={onToast}
 			/>,
 		);
+		await user.click(await screen.findByRole("button", { name: "Edit" }));
 
 		expect(modeRadio("selected").checked).toBe(true);
 		expect(modeRadio("all").checked).toBe(false);
@@ -228,13 +229,14 @@ describe("UserModal provider access", () => {
 
 	it("shows the uncapped mode when the stored cap is null", async () => {
 		mockCatalog();
-		renderWithProviders(
+		const { user } = renderWithProviders(
 			<UserModal
 				user={{ ...existing, allowed_providers: null }}
 				onClose={onClose}
 				onToast={onToast}
 			/>,
 		);
+		await user.click(await screen.findByRole("button", { name: "Edit" }));
 
 		expect(modeRadio("all").checked).toBe(true);
 		expect(modeRadio("selected").checked).toBe(false);
@@ -256,6 +258,7 @@ describe("UserModal provider access", () => {
 				onToast={onToast}
 			/>,
 		);
+		await user.click(await screen.findByRole("button", { name: "Edit" }));
 
 		expect(modeRadio("selected").checked).toBe(true);
 		await user.type(field("user-display-name"), " renamed");
@@ -279,6 +282,7 @@ describe("UserModal provider access", () => {
 				onToast={onToast}
 			/>,
 		);
+		await user.click(await screen.findByRole("button", { name: "Edit" }));
 
 		await user.click(screen.getByTestId("user-modal-save"));
 		await waitFor(() => expect(bodies).toHaveLength(1));
@@ -301,6 +305,7 @@ describe("UserModal provider access", () => {
 				onToast={onToast}
 			/>,
 		);
+		await user.click(await screen.findByRole("button", { name: "Edit" }));
 
 		await user.click(modeRadio("all"));
 		await user.click(screen.getByTestId("user-modal-save"));
@@ -320,11 +325,13 @@ describe("UserModal provider access", () => {
 			/>,
 		);
 
-		expect(modeRadio("all")).toBeDisabled();
-		expect(modeRadio("selected")).toBeDisabled();
+		// A managed user is read-only: the card shows the cap by name and the
+		// form, radios included, is never offered.
+		expect(await screen.findByText("openai")).toBeInTheDocument();
+		expect(screen.queryByTestId("user-modal-edit")).not.toBeInTheDocument();
 		expect(
-			await screen.findByTestId("provider-access-option-p1"),
-		).toBeDisabled();
+			screen.queryByTestId("provider-access-mode"),
+		).not.toBeInTheDocument();
 	});
 });
 
@@ -347,6 +354,7 @@ describe("UserModal form submit", () => {
 		const { user } = renderWithProviders(
 			<UserModal user={existing} onClose={onClose} onToast={onToast} />,
 		);
+		await user.click(await screen.findByRole("button", { name: "Edit" }));
 
 		const save = screen.getByTestId("user-modal-save") as HTMLButtonElement;
 		const name = field("user-display-name") as HTMLInputElement;
@@ -361,19 +369,27 @@ describe("UserModal form submit", () => {
 		expect(bodies[0].display_name).toBe("Bob Builder");
 	});
 
-	it("Regression pin: Enter in Reset password does not save the user", async () => {
-		// The reset-password row sits outside the form, so Enter there leaves
-		// the rest of the dialog's edits unsent.
+	it("Regression pin: Enter in Reset password resets it and does not save the user", async () => {
+		// The reset-password row sits inside the form grid, so Enter there is
+		// claimed by the reset and leaves the rest of the dialog's edits unsent.
 		mockCatalog();
 		const bodies = captureWrites();
+		const resets: string[] = [];
+		server.use(
+			http.post("/api/users/:id/password", async ({ request }) => {
+				const body = (await request.json()) as { password: string };
+				resets.push(body.password);
+				return HttpResponse.json({});
+			}),
+		);
 		const { user } = renderWithProviders(
 			<UserModal user={existing} onClose={onClose} onToast={onToast} />,
 		);
+		await user.click(await screen.findByRole("button", { name: "Edit" }));
 
-		const reset = field("user-reset-password") as HTMLInputElement;
-		expect(reset.form).toBeNull();
-		await user.type(reset, "newpassword1{Enter}");
+		await user.type(field("user-reset-password"), "newpassword1{Enter}");
 
+		await waitFor(() => expect(resets).toEqual(["newpassword1"]));
 		expect(bodies).toHaveLength(0);
 		expect(onClose).not.toHaveBeenCalled();
 	});

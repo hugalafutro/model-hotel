@@ -14,6 +14,44 @@ describe("Models", () => {
 		localStorage.setItem("modelsViewMode", "paginate");
 	});
 
+	describe("deep link", () => {
+		it("opens the linked model's detail and closes it cleanly", async () => {
+			server.use(...mockAllDefaults());
+			const { user } = renderWithProviders(<Models />, {
+				initialEntries: [
+					`/models?model=${mockModel.model_id}&provider=${encodeURIComponent(mockModel.provider_name)}`,
+				],
+			});
+			const dialog = await screen.findByRole("dialog");
+			expect(
+				within(dialog).getByText(mockModel.display_name),
+			).toBeInTheDocument();
+
+			await user.click(within(dialog).getByRole("button", { name: "Close" }));
+			await waitFor(() => {
+				expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+			});
+		});
+
+		it("opens nothing when the named provider has no such model", async () => {
+			let listed = false;
+			server.use(
+				// First wins in msw, so this sits ahead of the defaults.
+				http.get("/api/models", () => {
+					listed = true;
+					return HttpResponse.json([mockModel]);
+				}),
+				...mockAllDefaults(),
+			);
+			renderWithProviders(<Models />, {
+				initialEntries: [`/models?model=${mockModel.model_id}&provider=Gone`],
+			});
+			// The link's own list read has answered, and still no dialog.
+			await waitFor(() => expect(listed).toBe(true));
+			expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+		});
+	});
+
 	describe("View Mode Toggle", () => {
 		it("starts in scroll mode by default and shows VirtualModelTable", async () => {
 			localStorage.removeItem("modelsViewMode");

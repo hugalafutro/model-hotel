@@ -837,7 +837,8 @@
 			"apiKey": "API Nøgle",
 			"baseUrlHelperAnthropicMessages": "Basis-URL for et endpoint, der taler Anthropic Messages API. Forespørgsler går til \"<base_url>\"/v1/messages, og modeller opdages fra \"<base_url>\"/v1/models",
 			"nameHasSlash": "Et udbydernavn må ikke indeholde \"/\". Modeller kaldes som udbyder/model, så navnet ville blive afskåret ved første \"/\", og udbyderen kunne aldrig nås.",
-			"nameReserved": "\"hotel\" er reserveret: modelnavne, der starter med hotel/, går til failover-grupper, så en udbyder med dette navn kunne aldrig kaldes direkte."
+			"nameReserved": "\"hotel\" er reserveret: modelnavne, der starter med hotel/, går til failover-grupper, så en udbyder med dette navn kunne aldrig kaldes direkte.",
+			"duplicateKeyBlocked": "Der findes allerede en udbyder med denne API-nøgle til denne adresse (\"{{name}}\"). Den samme nøgle to gange er den samme konto to gange: den finder de samme modeller igen, og begge rækker tømmer én kvote."
 		},
 		"edit": {
 			"typeHelper": "Ret kun dette for at rette en type, der blev gættet forkert ved import eller opgradering. En selvhostet type kontrolleres mod serveren, før den gemmes.",
@@ -1283,7 +1284,8 @@
 			"tpm": "Begrænsning på tokens pr. minut; anmodninger afvises med 429, når minutsbudgettet er opbrugt",
 			"id": "Klik for at kopiere nøgle-ID",
 			"owner": "Ejet af {{name}}",
-			"providerDenyAll": "Nøglen tillader ingen udbydere"
+			"providerDenyAll": "Nøglen tillader ingen udbydere",
+			"idMeaning": "Stabil identifikator for denne nøgle. Anmodningslogs og API'et henviser til nøglen med den."
 		},
 		"emptyState": "Ingen virtuelle nøgler. Opret en for at begynde at bruge proxy.",
 		"steps": {
@@ -2518,7 +2520,12 @@
 			"level": "Niveau",
 			"source": "Kilde",
 			"message": "Besked",
-			"copyMessage": "Kopiér besked"
+			"copyMessage": "Kopiér hele linjen som gemt, inklusive attributter",
+			"filterBySource": "Vis kun \"{{source}}\"",
+			"openProvider": "Åbn udbyder",
+			"openModel": "Åbn model",
+			"copyValue": "Kopiér værdi",
+			"copyRaw": "Kopiér rå besked"
 		},
 		"auditDetail": {
 			"title": "Auditpost",
@@ -3283,7 +3290,8 @@
 			"lastLogin": "Seneste login",
 			"allGrants": "Alt",
 			"noGrants": "Ingen",
-			"totpEnabled": "Tofaktorgodkendelse aktiveret"
+			"totpEnabled": "Tofaktorgodkendelse aktiveret",
+			"created": "Oprettet"
 		},
 		"role": {
 			"admin": "Admin",
@@ -3334,7 +3342,10 @@
 			"totpResetHint": "Fjerner brugerens godkendelsesapp og gendannelseskoder, så de kan logge ind med adgangskoden alene.",
 			"totpResetConfirmTitle": "Nulstil tofaktorgodkendelse",
 			"totpResetConfirmMessage": "Dette fjerner tilknytningen til godkendelsesappen og alle gendannelseskoder for denne bruger. Adgangskoden forbliver uændret.",
-			"totpResetConfirmLabel": "Nulstil"
+			"totpResetConfirmLabel": "Nulstil",
+			"created": "Oprettet",
+			"lastEdited": "Sidst redigeret",
+			"twoFactor": "Tofaktorgodkendelse"
 		},
 		"toast": {
 			"created": "Bruger oprettet",

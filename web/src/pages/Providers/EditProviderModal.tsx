@@ -1,15 +1,15 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useId, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { CalendarDays } from "@/lib/icons";
+import { CalendarDays, PlugZap } from "@/lib/icons";
 import { api } from "../../api/client";
 import type { Provider, UpdateProviderRequest } from "../../api/types";
 import { toISODate } from "../../components/AccentCalendar.utils";
 import { ConfirmDialog } from "../../components/ConfirmDialog";
 import { DatePickerPopover } from "../../components/DatePickerPopover";
 import { ErrorCallout } from "../../components/ErrorCallout";
-import { FieldRow, FORM_GRID } from "../../components/FieldRow";
 import { FilterDropdown } from "../../components/FilterDropdown";
+import { DetailItem } from "../../components/LogDetailItem";
 import { Modal } from "../../components/Modal";
 import { RevealableInput } from "../../components/RevealableInput";
 import { Toggle } from "../../components/Toggle";
@@ -178,6 +178,7 @@ export function EditProviderModal({
 		<>
 			<Modal
 				title={t("providers.edit_modal_title")}
+				icon={PlugZap}
 				maxWidth="max-w-2xl"
 				onCloseRequest={requestClose}
 				onClose={onClose}
@@ -209,8 +210,12 @@ export function EditProviderModal({
 					</ErrorCallout>
 				)}
 
-				<form id={formId} onSubmit={handleSubmit} className={FORM_GRID}>
-					<FieldRow
+				<form
+					id={formId}
+					onSubmit={handleSubmit}
+					className="grid grid-cols-1 sm:grid-cols-2 gap-2"
+				>
+					<DetailItem
 						label={t("providers.form_name_label")}
 						htmlFor="edit-provider-name"
 					>
@@ -229,9 +234,9 @@ export function EditProviderModal({
 							className="ui-input"
 							placeholder={t("providers.form_name_placeholder")}
 						/>
-					</FieldRow>
+					</DetailItem>
 
-					<FieldRow label={t("providers.form_type_label")}>
+					<DetailItem label={t("providers.form_type_label")}>
 						<FilterDropdown
 							allowClear={false}
 							className="w-full"
@@ -243,11 +248,12 @@ export function EditProviderModal({
 							options={providerTypeOptions(t)}
 						/>
 						<p className="ui-hint mt-1">{t("providers.edit.typeHelper")}</p>
-					</FieldRow>
+					</DetailItem>
 
-					<FieldRow
+					<DetailItem
 						label={t("providers.form_base_url_label")}
 						htmlFor="edit-provider-base-url"
+						className="sm:col-span-2"
 					>
 						<input
 							id="edit-provider-base-url"
@@ -283,11 +289,12 @@ export function EditProviderModal({
 								})}
 							</p>
 						)}
-					</FieldRow>
+					</DetailItem>
 
-					<FieldRow
+					<DetailItem
 						label={t("providers.form_api_key_label")}
 						htmlFor="edit-provider-api-key"
+						className="sm:col-span-2"
 					>
 						<RevealableInput
 							id="edit-provider-api-key"
@@ -301,10 +308,13 @@ export function EditProviderModal({
 								key: provider.masked_key,
 							})}
 						</p>
-					</FieldRow>
+					</DetailItem>
 
 					{/* The two switches side by side, each with its hint under it. */}
-					<div className="sm:col-span-2 grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-3">
+					<DetailItem
+						label={t("providers.edit_enabled_label")}
+						htmlFor="edit-provider-enabled"
+					>
 						<div className="space-y-1" ref={scheduleRowRef}>
 							<div className="flex flex-wrap items-center gap-x-3 gap-y-1">
 								<Toggle
@@ -324,9 +334,11 @@ export function EditProviderModal({
 									showFocusRing
 									ariaLabel={t("providers.edit.enabledToggle")}
 								/>
-								<label htmlFor="edit-provider-enabled" className="ui-label">
-									{t("providers.edit_enabled_label")}
-								</label>
+								<span className="text-sm text-(--text-primary)">
+									{formData.enabled
+										? t("common.enabled")
+										: t("common.disabled")}
+								</span>
 								<button
 									type="button"
 									data-testid="schedule-disable-btn"
@@ -365,7 +377,12 @@ export function EditProviderModal({
 							</div>
 							<p className="ui-hint">{t("providers.edit.enabledHelper")}</p>
 						</div>
+					</DetailItem>
 
+					<DetailItem
+						label={t("providers.edit_autodiscovery_label")}
+						htmlFor="edit-provider-autodiscovery"
+					>
 						<div
 							className={`space-y-1 ${!formData.enabled ? "opacity-40 pointer-events-none" : ""}`}
 						>
@@ -383,18 +400,17 @@ export function EditProviderModal({
 									ariaLabel={t("providers.edit.autodiscoveryToggle")}
 									disabled={!formData.enabled}
 								/>
-								<label
-									htmlFor="edit-provider-autodiscovery"
-									className="ui-label"
-								>
-									{t("providers.edit_autodiscovery_label")}
-								</label>
+								<span className="text-sm text-(--text-primary)">
+									{formData.autodiscovery_enabled
+										? t("common.enabled")
+										: t("common.disabled")}
+								</span>
 							</div>
 							<p className="ui-hint">
 								{t("providers.edit.autodiscoveryHelper")}
 							</p>
 						</div>
-					</div>
+					</DetailItem>
 					{pickerOpen && (
 						<DatePickerPopover
 							value={pendingDate}
@@ -413,9 +429,10 @@ export function EditProviderModal({
 						/>
 					)}
 
-					<FieldRow
+					<DetailItem
 						label={t("providers.edit.maxInFlightLabel")}
 						htmlFor="edit-provider-max-in-flight"
+						className="sm:col-span-2"
 					>
 						{/* At most five digits, so from sm up the box is narrow and the
 						   hint sits beside it; on a phone the hint goes under it. */}
@@ -438,24 +455,23 @@ export function EditProviderModal({
 							</div>
 							<p className="ui-hint">{t("providers.edit.maxInFlightHelper")}</p>
 						</div>
-					</FieldRow>
+					</DetailItem>
 
 					{(QUOTA_RESERVE_TYPES.has(formData.provider_type) ||
 						provider.quota_reserve_percent > 0 ||
 						formData.quota_reserve_percent > 0) && (
-						<FieldRow
-							label={
-								<>
-									{t("providers.edit.quotaReserveLabel")}
-									<span
-										className="block text-yellow-400"
-										data-testid="quota-reserve-value"
-									>
-										{reserveText}
-									</span>
-								</>
+						<DetailItem
+							label={t("providers.edit.quotaReserveLabel")}
+							labelExtra={
+								<span
+									className="text-yellow-400 normal-case tracking-normal text-xs"
+									data-testid="quota-reserve-value"
+								>
+									{reserveText}
+								</span>
 							}
 							htmlFor="edit-provider-quota-reserve"
+							className="sm:col-span-2"
 						>
 							<input
 								id="edit-provider-quota-reserve"
@@ -471,7 +487,7 @@ export function EditProviderModal({
 										quota_reserve_percent: Number(e.target.value),
 									})
 								}
-								className="w-full accent-yellow-400 mt-2.5"
+								className="w-full accent-yellow-400 mt-1"
 							/>
 							<p className="ui-hint mt-1" data-testid="quota-reserve-helper">
 								{t("providers.edit.quotaReserveHelper", {
@@ -484,7 +500,7 @@ export function EditProviderModal({
 							>
 								{t("providers.edit.quotaReserveHelperScope")}
 							</p>
-						</FieldRow>
+						</DetailItem>
 					)}
 				</form>
 			</Modal>

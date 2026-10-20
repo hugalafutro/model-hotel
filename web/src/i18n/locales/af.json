@@ -837,7 +837,8 @@
 			"apiKey": "API-sleutel",
 			"baseUrlHelperAnthropicMessages": "Basis-URL van 'n eindpunt wat die Anthropic Messages API praat. Versoeke gaan na \"<base_url>\"/v1/messages en modelle word vanaf \"<base_url>\"/v1/models ontdek",
 			"nameHasSlash": "'n Verskaffernaam mag nie \"/\" bevat nie. Modelle word as verskaffer/model geroep, so die naam sou by die eerste \"/\" afgesny word en die verskaffer sou nooit bereik kon word nie.",
-			"nameReserved": "\"hotel\" is gereserveer: modelname wat met hotel/ begin, gaan na failover-groepe, so 'n verskaffer met hierdie naam kan nooit direk geroep word nie."
+			"nameReserved": "\"hotel\" is gereserveer: modelname wat met hotel/ begin, gaan na failover-groepe, so 'n verskaffer met hierdie naam kan nooit direk geroep word nie.",
+			"duplicateKeyBlocked": "Daar bestaan reeds 'n verskaffer met hierdie API-sleutel vir hierdie adres (\"{{name}}\"). Dieselfde sleutel twee keer is dieselfde rekening twee keer: dit ontdek dieselfde modelle weer en albei rye put een kwota uit."
 		},
 		"edit": {
 			"typeHelper": "Verander dit net om 'n tipe reg te stel wat verkeerd geraai is toe die verskaffer ingevoer of opgegradeer is. 'n Self-gehuisveste tipe word teen die bediener gekontroleer voordat dit gestoor word.",
@@ -1283,7 +1284,8 @@
 			"tpm": "Tokens-per-minuut-limiet; versoeke word met 429 verwerp sodra die minutebegroting opgebrui is",
 			"id": "Klik om die sleutel-ID te kopieer",
 			"owner": "Behoort aan {{name}}",
-			"providerDenyAll": "Sleutel laat geen verskaffers toe nie"
+			"providerDenyAll": "Sleutel laat geen verskaffers toe nie",
+			"idMeaning": "Stabiele identifiseerder van hierdie sleutel. Versoeklogboeke en die API verwys daarmee na die sleutel."
 		},
 		"emptyState": "Geen virtuele sleutels nie. Skep een om met die proxy te begin gebruik.",
 		"steps": {
@@ -2518,7 +2520,12 @@
 			"level": "Vlak",
 			"source": "Bron",
 			"message": "Boodskap",
-			"copyMessage": "Kopieer boodskap"
+			"copyMessage": "Kopieer die hele reël soos gestoor, met eienskappe",
+			"filterBySource": "Wys slegs \"{{source}}\"",
+			"openProvider": "Maak verskaffer oop",
+			"openModel": "Maak model oop",
+			"copyValue": "Kopieer waarde",
+			"copyRaw": "Kopieer rou boodskap"
 		},
 		"auditDetail": {
 			"title": "Ouditinskrywing",
@@ -3283,7 +3290,8 @@
 			"lastLogin": "Laaste aanmelding",
 			"allGrants": "Alles",
 			"noGrants": "Geen",
-			"totpEnabled": "Tweefaktor-verifikasie geaktiveer"
+			"totpEnabled": "Tweefaktor-verifikasie geaktiveer",
+			"created": "Geskep"
 		},
 		"role": {
 			"admin": "Admin",
@@ -3334,7 +3342,10 @@
 			"totpResetHint": "Verwyder die gebruiker se verifikasie-app en herstelkodes sodat hulle met net hul wagwoord kan aanmeld.",
 			"totpResetConfirmTitle": "Stel tweefaktor-verifikasie terug",
 			"totpResetConfirmMessage": "Dit verwyder die verifikasie-app-koppeling en alle herstelkodes vir hierdie gebruiker. Die wagwoord bly onveranderd.",
-			"totpResetConfirmLabel": "Herstel"
+			"totpResetConfirmLabel": "Herstel",
+			"created": "Geskep",
+			"lastEdited": "Laas gewysig",
+			"twoFactor": "Tweefaktor-verifikasie"
 		},
 		"toast": {
 			"created": "Gebruiker geskep",

@@ -885,7 +885,8 @@
 			"apiKey": "Klucz API",
 			"baseUrlHelperAnthropicMessages": "Bazowy adres URL punktu końcowego, który mówi w Anthropic Messages API. Żądania trafiają do \"<base_url>\"/v1/messages, a modele są wykrywane z \"<base_url>\"/v1/models",
 			"nameHasSlash": "Nazwa dostawcy nie może zawierać znaku „/”. Modele wywołuje się jako dostawca/model, więc nazwa zostałaby ucięta na pierwszym „/” i dostawca byłby nieosiągalny.",
-			"nameReserved": "Nazwa „hotel” jest zarezerwowana: nazwy modeli zaczynające się od hotel/ trafiają do grup failover, więc dostawcy o tej nazwie nie dałoby się wywołać bezpośrednio."
+			"nameReserved": "Nazwa „hotel” jest zarezerwowana: nazwy modeli zaczynające się od hotel/ trafiają do grup failover, więc dostawcy o tej nazwie nie dałoby się wywołać bezpośrednio.",
+			"duplicateKeyBlocked": "Dostawca z tym kluczem API dla tego adresu już istnieje („{{name}}”). Ten sam klucz dwa razy to to samo konto dwa razy: ponownie wykrywa te same modele, a oba wiersze zużywają jeden limit."
 		},
 		"edit": {
 			"typeHelper": "Zmieniaj to tylko po to, by poprawić typ błędnie odgadnięty przy imporcie lub aktualizacji. Typ własnego serwera jest przed zapisem sprawdzany na serwerze.",
@@ -1393,7 +1394,8 @@
 			"tpm": "Limit tokenów na minutę; żądania są odrzucane z kodem 429 po wyczerpaniu limitu minutowego",
 			"id": "Kliknij, aby skopiować identyfikator klucza",
 			"owner": "Należy do {{name}}",
-			"providerDenyAll": "Klucz nie zezwala na żadnych dostawców"
+			"providerDenyAll": "Klucz nie zezwala na żadnych dostawców",
+			"idMeaning": "Stały identyfikator tego klucza. Dzienniki żądań i API odwołują się do klucza właśnie nim."
 		},
 		"emptyState": "Brak kluczy wirtualnych. Utwórz jeden, aby rozpocząć korzystanie z proxy.",
 		"steps": {
@@ -2650,7 +2652,12 @@
 			"level": "Poziom",
 			"source": "Źródło",
 			"message": "Wiadomość",
-			"copyMessage": "Kopiuj wiadomość"
+			"copyMessage": "Kopiuje cały wiersz w zapisanej postaci, razem z atrybutami",
+			"filterBySource": "Pokaż tylko „{{source}}”",
+			"openProvider": "Otwórz dostawcę",
+			"openModel": "Otwórz model",
+			"copyValue": "Kopiuj wartość",
+			"copyRaw": "Kopiuj surową wiadomość"
 		},
 		"auditDetail": {
 			"title": "Wpis audytu",
@@ -3435,7 +3442,8 @@
 			"lastLogin": "Ostatnie logowanie",
 			"allGrants": "Wszystko",
 			"noGrants": "Brak",
-			"totpEnabled": "Uwierzytelnianie dwuskładnikowe włączone"
+			"totpEnabled": "Uwierzytelnianie dwuskładnikowe włączone",
+			"created": "Utworzono"
 		},
 		"role": {
 			"admin": "Admin",
@@ -3486,7 +3494,10 @@
 			"totpResetHint": "Usuwa aplikację uwierzytelniającą i kody odzyskiwania użytkownika, aby mógł logować się samym hasłem.",
 			"totpResetConfirmTitle": "Zresetuj uwierzytelnianie dwuskładnikowe",
 			"totpResetConfirmMessage": "Spowoduje to usunięcie powiązania z aplikacją uwierzytelniającą i wszystkich kodów odzyskiwania tego użytkownika. Hasło pozostaje bez zmian.",
-			"totpResetConfirmLabel": "Zresetuj"
+			"totpResetConfirmLabel": "Zresetuj",
+			"created": "Utworzono",
+			"lastEdited": "Ostatnia edycja",
+			"twoFactor": "Uwierzytelnianie dwuskładnikowe"
 		},
 		"toast": {
 			"created": "Użytkownik utworzony",

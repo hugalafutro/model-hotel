@@ -861,7 +861,8 @@
 			"apiKey": "Chave de API",
 			"baseUrlHelperAnthropicMessages": "URL base de um endpoint que fala a API Anthropic Messages. As requisições vão para \"<base_url>\"/v1/messages e os modelos são descobertos em \"<base_url>\"/v1/models",
 			"nameHasSlash": "O nome de um provedor não pode conter \"/\". Os modelos são chamados como provedor/modelo, então o nome seria cortado na primeira \"/\" e o provedor nunca poderia ser alcançado.",
-			"nameReserved": "\"hotel\" é reservado: nomes de modelo que começam com hotel/ vão para grupos de failover, então um provedor com este nome nunca poderia ser chamado diretamente."
+			"nameReserved": "\"hotel\" é reservado: nomes de modelo que começam com hotel/ vão para grupos de failover, então um provedor com este nome nunca poderia ser chamado diretamente.",
+			"duplicateKeyBlocked": "Já existe um provedor com esta chave de API para este endereço (\"{{name}}\"). A mesma chave duas vezes é a mesma conta duas vezes: descobre os mesmos modelos de novo e as duas linhas consomem uma única cota."
 		},
 		"edit": {
 			"typeHelper": "Altere isto apenas para corrigir um tipo que foi mal deduzido na importação ou na atualização. Um tipo auto-hospedado é verificado no servidor antes de ser guardado.",
@@ -1338,7 +1339,8 @@
 			"tpm": "Limite de tokens por minuto; as solicitações são rejeitadas com o código 429 assim que o limite de tokens por minuto for esgotado",
 			"id": "Clique para copiar o ID da chave",
 			"owner": "Propriedade de {{name}}",
-			"providerDenyAll": "A chave não permite nenhum provedor"
+			"providerDenyAll": "A chave não permite nenhum provedor",
+			"idMeaning": "Identificador estável desta chave. Os logs de requisições e a API se referem à chave por ele."
 		},
 		"emptyState": "Não há chaves virtuais. Crie uma para começar a usar o proxy.",
 		"steps": {
@@ -2584,7 +2586,12 @@
 			"level": "Nível",
 			"source": "fonte",
 			"message": "mensagem",
-			"copyMessage": "Copiar mensagem"
+			"copyMessage": "Copia a linha inteira como armazenada, atributos incluídos",
+			"filterBySource": "Mostrar apenas \"{{source}}\"",
+			"openProvider": "Abrir provedor",
+			"openModel": "Abrir modelo",
+			"copyValue": "Copiar valor",
+			"copyRaw": "Copiar mensagem bruta"
 		},
 		"auditDetail": {
 			"title": "Entrada de auditoria",
@@ -3359,7 +3366,8 @@
 			"lastLogin": "Último acesso",
 			"allGrants": "Tudo",
 			"noGrants": "Nenhum",
-			"totpEnabled": "Autenticação de dois fatores ativada"
+			"totpEnabled": "Autenticação de dois fatores ativada",
+			"created": "Criado"
 		},
 		"role": {
 			"admin": "Admin",
@@ -3410,7 +3418,10 @@
 			"totpResetHint": "Remove o aplicativo autenticador e os códigos de recuperação do usuário, permitindo entrar apenas com a senha.",
 			"totpResetConfirmTitle": "Redefinir autenticação de dois fatores",
 			"totpResetConfirmMessage": "Isso remove o vínculo com o aplicativo autenticador e todos os códigos de recuperação deste usuário. A senha permanece inalterada.",
-			"totpResetConfirmLabel": "Redefinir"
+			"totpResetConfirmLabel": "Redefinir",
+			"created": "Criado",
+			"lastEdited": "Última edição",
+			"twoFactor": "Autenticação de dois fatores"
 		},
 		"toast": {
 			"created": "Utilizador criado",

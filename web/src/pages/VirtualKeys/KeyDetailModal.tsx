@@ -8,6 +8,7 @@ import {
 	Fingerprint,
 	Gauge,
 	Key,
+	KeyRound,
 	RotateCcw,
 	ShieldCheck,
 	UserRound,
@@ -24,7 +25,7 @@ import { CopyablePill } from "../../components/CopyablePill";
 import { DeleteConfirmModal } from "../../components/DeleteConfirmModal";
 import { InfoHint } from "../../components/InfoHint";
 import { DetailItem } from "../../components/LogDetailItem";
-import { Modal } from "../../components/Modal";
+import { Modal, ModalIcon } from "../../components/Modal";
 import { Toggle } from "../../components/Toggle";
 import { formatDateTime, formatNumber, formatTokens } from "../../utils/format";
 import { ProviderAccessPicker } from "./ProviderAccessPicker";
@@ -114,6 +115,7 @@ export function KeyDetailModal({
 			<Modal
 				header={
 					<div className="flex flex-wrap items-center gap-3 mb-4">
+						<ModalIcon icon={KeyRound} />
 						{editing ? (
 							// The title becomes the name field: the dialog keeps its
 							// shape and its name, only the values turn editable.
@@ -121,6 +123,12 @@ export function KeyDetailModal({
 								<h2 id={nameId} className="sr-only">
 									{vk.name}
 								</h2>
+								<label
+									htmlFor="vk-detail-name"
+									className="ui-label after:content-[':']"
+								>
+									{t("virtualkeys.modal.form.name")}
+								</label>
 								<input
 									id="vk-detail-name"
 									type="text"
@@ -128,7 +136,6 @@ export function KeyDetailModal({
 									maxLength={100}
 									value={editName}
 									onChange={(e) => setEditName(e.target.value)}
-									aria-label={t("virtualkeys.modal.form.name")}
 									className="ui-input flex-1 min-w-0 text-lg font-semibold"
 								/>
 							</>
@@ -158,6 +165,58 @@ export function KeyDetailModal({
 				onClose={onClose}
 				maxWidth="max-w-2xl"
 				scrollable
+				footer={
+					!managed ? (
+						<div className="flex justify-between items-center">
+							<button
+								type="button"
+								onClick={() => setConfirmDelete(true)}
+								className="ui-btn ui-btn-danger"
+							>
+								{t("virtualKeys.detail.deleteKey")}
+							</button>
+							{editing ? (
+								<div className="flex space-x-3">
+									<button
+										type="button"
+										onClick={handleCancelEdit}
+										className="ui-btn ui-btn-secondary"
+									>
+										{t("common.cancel")}
+									</button>
+									<button
+										type="button"
+										onClick={handleSave}
+										disabled={!hasChanges || updateMutation.isPending}
+										className="ui-btn ui-btn-primary"
+									>
+										{updateMutation.isPending
+											? t("common.saving")
+											: t("common.saveChanges")}
+									</button>
+								</div>
+							) : (
+								<button
+									type="button"
+									onClick={startEditing}
+									className="ui-btn ui-btn-secondary"
+									// Same presence test as startEditing's guard, deliberately: an
+									// empty allowed_providers is still a restriction, and if this
+									// button stayed enabled for one the click would hit that guard
+									// and silently do nothing.
+									disabled={!!vk.allowed_providers && !providers}
+									title={
+										vk.allowed_providers && !providers
+											? t("virtualkeys.modal.loadingProviders")
+											: undefined
+									}
+								>
+									{t("common.edit")}
+								</button>
+							)}
+						</div>
+					) : undefined
+				}
 			>
 				{/* One tile grid for viewing and editing: Edit turns the values it
 				   can change into their controls in place, so the dialog reads as
@@ -193,64 +252,83 @@ export function KeyDetailModal({
 							</select>
 						) : undefined}
 					</DetailItem>
-					<DetailItem
-						icon={Fingerprint}
-						label={t("virtualkeys.modal.labels.id")}
-					>
-						<CopyablePill
-							text={vk.id}
-							textClassName="text-sm font-mono text-(--text-primary)"
-							tooltip={t("virtualkeys.tooltip.id")}
-						/>
-					</DetailItem>
-					<DetailItem
-						icon={CalendarPlus}
-						label={t("virtualkeys.modal.labels.created")}
-						value={formatDateTime(vk.created_at)}
-					/>
-					<DetailItem
-						icon={Clock}
-						label={t("virtualkeys.modal.labels.lastUsed")}
-						value={
-							vk.last_used_at
-								? formatDateTime(vk.last_used_at)
-								: t("common.never")
-						}
-					/>
-					<DetailItem icon={Key} label={t("virtualkeys.modal.labels.key")}>
-						<div
-							className="text-sm font-mono text-(--text-primary) truncate select-none"
-							title={t("virtualkeys.tooltip.keyHashed")}
-						>
-							{vk.key_preview}
-						</div>
-					</DetailItem>
+					{/* ID, created, last used and the key are not editable: while
+					   editing they would be the only tiles without a control. */}
+					{!editing && (
+						<>
+							<DetailItem
+								icon={Fingerprint}
+								label={t("virtualkeys.modal.labels.id")}
+								labelExtra={
+									<InfoHint tooltip={t("virtualkeys.tooltip.idMeaning")} />
+								}
+							>
+								<CopyablePill
+									text={vk.id}
+									textClassName="text-sm font-mono text-(--text-primary)"
+									tooltip={t("virtualkeys.tooltip.id")}
+								/>
+							</DetailItem>
+							<DetailItem
+								icon={CalendarPlus}
+								label={t("virtualkeys.modal.labels.created")}
+								value={formatDateTime(vk.created_at)}
+							/>
+							<DetailItem
+								icon={Clock}
+								label={t("virtualkeys.modal.labels.lastUsed")}
+								value={
+									vk.last_used_at
+										? formatDateTime(vk.last_used_at)
+										: t("common.never")
+								}
+							/>
+							<DetailItem icon={Key} label={t("virtualkeys.modal.labels.key")}>
+								<div
+									className="text-sm font-mono text-(--text-primary) truncate select-none"
+									title={t("virtualkeys.tooltip.keyHashed")}
+								>
+									{vk.key_preview}
+								</div>
+							</DetailItem>
+						</>
+					)}
 					<DetailItem
 						icon={BrainSlashIcon}
 						label={t("virtualkeys.modal.form.stripReasoning")}
 						labelExtra={
-							<InfoHint
-								tooltip={t("virtualkeys.modal.form.stripReasoningDescription")}
-							/>
+							// While editing the description sits under the toggle instead.
+							editing ? undefined : (
+								<InfoHint
+									tooltip={t(
+										"virtualkeys.modal.form.stripReasoningDescription",
+									)}
+								/>
+							)
 						}
 						value={
 							vk.strip_reasoning ? t("common.enabled") : t("common.disabled")
 						}
 					>
 						{editing ? (
-							<div className="flex items-center gap-3">
-								<Toggle
-									checked={editStripReasoning}
-									onChange={setEditStripReasoning}
-									size="sm"
-									ariaLabel={t("virtualkeys.modal.form.stripReasoning")}
-								/>
-								<span className="text-sm text-(--text-primary)">
-									{editStripReasoning
-										? t("common.enabled")
-										: t("common.disabled")}
-								</span>
-							</div>
+							<>
+								<div className="flex items-center gap-3">
+									<Toggle
+										checked={editStripReasoning}
+										onChange={setEditStripReasoning}
+										size="sm"
+										ariaLabel={t("virtualkeys.modal.form.stripReasoning")}
+									/>
+									<span className="text-sm text-(--text-primary)">
+										{editStripReasoning
+											? t("common.enabled")
+											: t("common.disabled")}
+									</span>
+								</div>
+								<p className="ui-hint mt-1">
+									{t("virtualkeys.modal.form.stripReasoningDescription")}
+								</p>
+							</>
 						) : undefined}
 					</DetailItem>
 					<DetailItem
@@ -260,6 +338,7 @@ export function KeyDetailModal({
 						labelExtra={<InfoHint tooltip={t("budget.tooltip")} />}
 						value={budgetText(t, vk)}
 						mono
+						className="sm:col-span-2"
 					>
 						{editing ? (
 							<div className="flex gap-2">
@@ -296,63 +375,65 @@ export function KeyDetailModal({
 							</div>
 						) : undefined}
 					</DetailItem>
-					{(
-						[
-							{
-								field: "burst",
-								icon: Zap,
-								label: "virtualKeys.detail.burst",
-								tooltip: "virtualkeys.tooltip.burst",
-								inputLabel: "virtualkeys.modal.form.rateLimitBurst",
-								stored: vk.rate_limit_burst,
-								draft: editBurst,
-								setDraft: setEditBurst,
-							},
-							{
-								field: "tpm",
-								icon: Gauge,
-								label: "virtualKeys.detail.tpm",
-								tooltip: "virtualkeys.tooltip.tpm",
-								inputLabel: "virtualkeys.modal.form.rateLimitTpm",
-								stored: vk.rate_limit_tpm,
-								draft: editTpm,
-								setDraft: setEditTpm,
-							},
-							{
-								field: "rps",
-								icon: Gauge,
-								label: "virtualKeys.detail.rps",
-								tooltip: "virtualkeys.tooltip.rps",
-								inputLabel: "virtualkeys.modal.form.rateLimitRps",
-								stored: vk.rate_limit_rps,
-								draft: editRps,
-								setDraft: setEditRps,
-							},
-						] as const
-					).map((l) => (
-						<DetailItem
-							key={l.field}
-							emphasis="stat"
-							icon={l.icon}
-							label={t(l.label)}
-							labelExtra={<InfoHint tooltip={t(l.tooltip)} />}
-							value={limitText(l.stored)}
-							mono
-						>
-							{editing ? (
-								<input
-									id={`vk-detail-${l.field}`}
-									type="number"
-									{...RATE_LIMIT_BOUNDS[l.field]}
-									value={l.draft}
-									onChange={(e) => l.setDraft(e.target.value)}
-									className="ui-input"
-									placeholder={t("virtualkeys.modal.form.placeholderGlobal")}
-									aria-label={t(l.inputLabel)}
-								/>
-							) : undefined}
-						</DetailItem>
-					))}
+					<div className="sm:col-span-2 grid grid-cols-1 sm:grid-cols-3 gap-2">
+						{(
+							[
+								{
+									field: "burst",
+									icon: Zap,
+									label: "virtualKeys.detail.burst",
+									tooltip: "virtualkeys.tooltip.burst",
+									inputLabel: "virtualkeys.modal.form.rateLimitBurst",
+									stored: vk.rate_limit_burst,
+									draft: editBurst,
+									setDraft: setEditBurst,
+								},
+								{
+									field: "tpm",
+									icon: Gauge,
+									label: "virtualKeys.detail.tpm",
+									tooltip: "virtualkeys.tooltip.tpm",
+									inputLabel: "virtualkeys.modal.form.rateLimitTpm",
+									stored: vk.rate_limit_tpm,
+									draft: editTpm,
+									setDraft: setEditTpm,
+								},
+								{
+									field: "rps",
+									icon: Gauge,
+									label: "virtualKeys.detail.rps",
+									tooltip: "virtualkeys.tooltip.rps",
+									inputLabel: "virtualkeys.modal.form.rateLimitRps",
+									stored: vk.rate_limit_rps,
+									draft: editRps,
+									setDraft: setEditRps,
+								},
+							] as const
+						).map((l) => (
+							<DetailItem
+								key={l.field}
+								emphasis="stat"
+								icon={l.icon}
+								label={t(l.label)}
+								labelExtra={<InfoHint tooltip={t(l.tooltip)} />}
+								value={limitText(l.stored)}
+								mono
+							>
+								{editing ? (
+									<input
+										id={`vk-detail-${l.field}`}
+										type="number"
+										{...RATE_LIMIT_BOUNDS[l.field]}
+										value={l.draft}
+										onChange={(e) => l.setDraft(e.target.value)}
+										className="ui-input"
+										placeholder={t("virtualkeys.modal.form.placeholderGlobal")}
+										aria-label={t(l.inputLabel)}
+									/>
+								) : undefined}
+							</DetailItem>
+						))}
+					</div>
 					<DetailItem
 						icon={ShieldCheck}
 						label={t("virtualkeys.modal.sections.providerAccess")}
@@ -440,57 +521,6 @@ export function KeyDetailModal({
 						)}
 					</DetailItem>
 				</div>
-
-				{!managed && (
-					<div className="flex justify-between items-center">
-						<button
-							type="button"
-							onClick={() => setConfirmDelete(true)}
-							className="ui-btn ui-btn-danger"
-						>
-							{t("virtualKeys.detail.deleteKey")}
-						</button>
-						{editing ? (
-							<div className="flex space-x-3">
-								<button
-									type="button"
-									onClick={handleCancelEdit}
-									className="ui-btn ui-btn-secondary"
-								>
-									{t("common.cancel")}
-								</button>
-								<button
-									type="button"
-									onClick={handleSave}
-									disabled={!hasChanges || updateMutation.isPending}
-									className="ui-btn ui-btn-primary"
-								>
-									{updateMutation.isPending
-										? t("common.saving")
-										: t("common.saveChanges")}
-								</button>
-							</div>
-						) : (
-							<button
-								type="button"
-								onClick={startEditing}
-								className="ui-btn ui-btn-secondary"
-								// Same presence test as startEditing's guard, deliberately: an
-								// empty allowed_providers is still a restriction, and if this
-								// button stayed enabled for one the click would hit that guard
-								// and silently do nothing.
-								disabled={!!vk.allowed_providers && !providers}
-								title={
-									vk.allowed_providers && !providers
-										? t("virtualkeys.modal.loadingProviders")
-										: undefined
-								}
-							>
-								{t("common.edit")}
-							</button>
-						)}
-					</div>
-				)}
 
 				{managed && (
 					// The page-level ManagedBanner sits behind this full-screen modal, so

@@ -476,7 +476,7 @@ func TestListProviders_WithPagination(t *testing.T) {
 	var rec *httptest.ResponseRecorder
 	var req *http.Request
 	for i := range 5 {
-		providerData := fmt.Sprintf(`{"name": "test-provider-%d", "base_url": "https://api.openai.com", "api_key": "test-api-key"}`, i)
+		providerData := fmt.Sprintf(`{"name": "test-provider-%d", "base_url": "https://api.openai.com", "api_key": "test-api-key-%d"}`, i, i)
 		rec = httptest.NewRecorder()
 		req = httptest.NewRequest("POST", "/providers", strings.NewReader(providerData))
 		req.Header.Set("Authorization", "Bearer test-admin-token")
@@ -1657,7 +1657,7 @@ func TestUpdateProvider_ScheduledDisable(t *testing.T) {
 
 	createProvider := func(t *testing.T, name string) string {
 		t.Helper()
-		body := fmt.Sprintf(`{"name": "%s", "base_url": "https://api.openai.com", "api_key": "test-api-key"}`, name)
+		body := fmt.Sprintf(`{"name": "%s", "base_url": "https://api.openai.com", "api_key": "test-api-key-%s"}`, name, name)
 		rec := httptest.NewRecorder()
 		req := httptest.NewRequest("POST", "/providers", strings.NewReader(body))
 		req.Header.Set("Authorization", "Bearer test-admin-token")

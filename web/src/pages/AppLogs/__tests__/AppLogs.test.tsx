@@ -599,9 +599,30 @@ describe("AppLogs", () => {
 		await waitFor(() => {
 			expect(getByDialogName("Log Entry Details")).toBeInTheDocument();
 		});
-		// Copy button should be present in the modal (aria-label="Copy message")
+		// The pill copies the whole stored line; its name says so.
 		expect(
-			screen.getByRole("button", { name: "Copy message" }),
+			screen.getByRole("button", {
+				name: "Copy the whole line as stored, attributes included",
+			}),
+		).toBeInTheDocument();
+	});
+
+	it("narrows the list to the opened line's source from the detail footer", async () => {
+		const user = userEvent.setup();
+		renderWithProviders(<AppLogs />);
+		const row = (
+			await screen.findByText("Request processed successfully")
+		).closest("tr");
+		// biome-ignore lint/style/noNonNullAssertion: test assertion
+		await user.click(row!);
+		await user.click(await screen.findByTestId("app-log-filter-source"));
+
+		// The modal closes and the source dropdown now carries the line's source.
+		await waitFor(() => {
+			expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+		});
+		expect(
+			screen.getByRole("button", { name: "Source: proxy" }),
 		).toBeInTheDocument();
 	});
 

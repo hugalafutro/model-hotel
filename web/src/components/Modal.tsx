@@ -11,7 +11,7 @@ import {
 } from "react";
 import { createPortal } from "react-dom";
 import { useTranslation } from "react-i18next";
-import { X } from "@/lib/icons";
+import { type LucideIcon, X } from "@/lib/icons";
 import {
 	ModalNav,
 	type ModalNavConfig,
@@ -25,6 +25,9 @@ export interface ModalHandle {
 
 interface ModalProps {
 	title?: string;
+	// Accent-coloured icon drawn before the title: the page's own icon for a
+	// dialog that belongs to a page (a key, a user, a provider).
+	icon?: LucideIcon;
 	header?: ReactNode;
 	// id of the element inside `header` that names the dialog, for a header
 	// that carries more than its title (a badge beside it, say) so the
@@ -115,9 +118,16 @@ const MODAL_TIER_REM: Record<string, number> = {
 const FOCUSABLE_SELECTOR =
 	'a[href], button, input, select, textarea, [tabindex]:not([tabindex="-1"])';
 
+/** The accent icon beside a dialog title, for a caller that draws its own
+ * header rather than passing `title`. */
+export function ModalIcon({ icon: Icon }: { icon: LucideIcon }) {
+	return <Icon size={20} className="text-(--accent) shrink-0" aria-hidden />;
+}
+
 export const Modal = forwardRef<ModalHandle, ModalProps>(function Modal(
 	{
 		title,
+		icon,
 		labelledBy,
 		header,
 		closeOnBackdrop = true,
@@ -435,8 +445,9 @@ export const Modal = forwardRef<ModalHandle, ModalProps>(function Modal(
 					title && (
 						<h2
 							id={headingId}
-							className={`shrink-0 ui-modal-title mb-4 ${headerPadding}`}
+							className={`shrink-0 ui-modal-title mb-4 flex items-center gap-2 ${headerPadding}`}
 						>
+							{icon && <ModalIcon icon={icon} />}
 							{title}
 						</h2>
 					)

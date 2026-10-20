@@ -21,6 +21,7 @@ const carol: DashboardUser = {
 	...mockDashboardUser,
 	id: "aaaaaaaa-1111-4111-8111-111111111111",
 	username: "carol",
+	created_at: "2026-02-01T00:00:00Z",
 	role: "user",
 	enabled: true,
 	last_login_at: "2026-01-05T10:00:00Z",
@@ -29,6 +30,7 @@ const alice: DashboardUser = {
 	...mockDashboardUser,
 	id: "bbbbbbbb-2222-4222-8222-222222222222",
 	username: "alice",
+	created_at: "2026-01-01T00:00:00Z",
 	role: "admin",
 	enabled: false,
 	last_login_at: null,
@@ -37,6 +39,7 @@ const bob: DashboardUser = {
 	...mockDashboardUser,
 	id: "cccccccc-3333-4333-8333-333333333333",
 	username: "bob",
+	created_at: "2026-03-01T00:00:00Z",
 	role: "user",
 	enabled: false,
 	last_login_at: "2026-08-20T10:00:00Z",
@@ -95,6 +98,20 @@ describe("Users page sorting", () => {
 
 		await sortBy(user, "users.table.role");
 		expect(renderedOrder(container)).toEqual(["carol", "bob", "alice"]);
+	});
+
+	it("sorts by creation date, oldest first, then reversed", async () => {
+		serveUsersApi([carol, alice, bob]);
+		const { container, user } = renderWithProviders(<Users />);
+		await waitFor(() => {
+			expect(screen.getByText("carol")).toBeInTheDocument();
+		});
+
+		await sortBy(user, "users.table.created");
+		expect(renderedOrder(container)).toEqual(["alice", "carol", "bob"]);
+
+		await sortBy(user, "users.table.created");
+		expect(renderedOrder(container)).toEqual(["bob", "carol", "alice"]);
 	});
 
 	it("sorts by status with the disabled accounts first, then reversed", async () => {

@@ -331,7 +331,7 @@ func TestUpdateModel_Success(t *testing.T) {
 	h, r := newTestHandlerWithRouter(t)
 
 	// Create a provider
-	providerData := fmt.Sprintf(`{"name": "test-provider-%s", "base_url": "https://api.openai.com", "api_key": "test-key"}`, uuid.New().String()[:8])
+	providerData := fmt.Sprintf(`{"name": "test-provider-%[1]s", "base_url": "https://api.openai.com", "api_key": "test-key-%[1]s"}`, uuid.New().String()[:8])
 	rec := httptest.NewRecorder()
 	req := httptest.NewRequest(http.MethodPost, "/providers", strings.NewReader(providerData))
 	req.Header.Set("Authorization", "Bearer test-admin-token")
@@ -388,7 +388,7 @@ func TestDeleteModel_Success(t *testing.T) {
 	h, r := newTestHandlerWithRouter(t)
 
 	// Create a provider
-	providerData := fmt.Sprintf(`{"name": "test-provider-%s", "base_url": "https://api.openai.com", "api_key": "test-key"}`, uuid.New().String()[:8])
+	providerData := fmt.Sprintf(`{"name": "test-provider-%[1]s", "base_url": "https://api.openai.com", "api_key": "test-key-%[1]s"}`, uuid.New().String()[:8])
 	rec := httptest.NewRecorder()
 	req := httptest.NewRequest(http.MethodPost, "/providers", strings.NewReader(providerData))
 	req.Header.Set("Authorization", "Bearer test-admin-token")
@@ -451,7 +451,7 @@ func TestDeleteModel_Success(t *testing.T) {
 // bulkDeleteTestProvider creates a provider and returns its ID for bulk-delete tests.
 func bulkDeleteTestProvider(t *testing.T, r chi.Router) string {
 	t.Helper()
-	providerData := fmt.Sprintf(`{"name": "test-provider-%s", "base_url": "https://api.openai.com", "api_key": "test-key"}`, uuid.New().String()[:8])
+	providerData := fmt.Sprintf(`{"name": "test-provider-%[1]s", "base_url": "https://api.openai.com", "api_key": "test-key-%[1]s"}`, uuid.New().String()[:8])
 	rec := httptest.NewRecorder()
 	req := httptest.NewRequest(http.MethodPost, "/providers", strings.NewReader(providerData))
 	req.Header.Set("Authorization", "Bearer test-admin-token")
@@ -749,7 +749,7 @@ func TestTestModel_DisabledModel(t *testing.T) {
 	h, r := newTestHandlerWithRouter(t)
 
 	// Create a provider
-	providerData := fmt.Sprintf(`{"name": "test-provider-%s", "base_url": "https://api.openai.com", "api_key": "test-key"}`, uuid.New().String()[:8])
+	providerData := fmt.Sprintf(`{"name": "test-provider-%[1]s", "base_url": "https://api.openai.com", "api_key": "test-key-%[1]s"}`, uuid.New().String()[:8])
 	rec := httptest.NewRecorder()
 	req := httptest.NewRequest(http.MethodPost, "/providers", strings.NewReader(providerData))
 	req.Header.Set("Authorization", "Bearer test-admin-token")
@@ -1208,7 +1208,7 @@ func TestDeleteModel_WithFailoverSync(t *testing.T) {
 	h, r := newTestHandlerWithRouter(t)
 
 	// Create a provider
-	providerData := fmt.Sprintf(`{"name": "test-provider-%s", "base_url": "https://api.openai.com", "api_key": "test-key"}`, uuid.New().String()[:8])
+	providerData := fmt.Sprintf(`{"name": "test-provider-%[1]s", "base_url": "https://api.openai.com", "api_key": "test-key-%[1]s"}`, uuid.New().String()[:8])
 	rec := httptest.NewRecorder()
 	req := httptest.NewRequest(http.MethodPost, "/providers", strings.NewReader(providerData))
 	req.Header.Set("Authorization", "Bearer test-admin-token")

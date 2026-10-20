@@ -837,7 +837,8 @@
 			"apiKey": "API nyckel",
 			"baseUrlHelperAnthropicMessages": "Bas-URL för en endpoint som talar Anthropic Messages API. Förfrågningar går till \"<base_url>\"/v1/messages och modeller upptäcks från \"<base_url>\"/v1/models",
 			"nameHasSlash": "Ett leverantörsnamn får inte innehålla \"/\". Modeller anropas som leverantör/modell, så namnet skulle kapas vid första \"/\" och leverantören skulle aldrig gå att nå.",
-			"nameReserved": "\"hotel\" är reserverat: modellnamn som börjar med hotel/ går till failover-grupper, så en leverantör med det här namnet skulle aldrig kunna anropas direkt."
+			"nameReserved": "\"hotel\" är reserverat: modellnamn som börjar med hotel/ går till failover-grupper, så en leverantör med det här namnet skulle aldrig kunna anropas direkt.",
+			"duplicateKeyBlocked": "Det finns redan en leverantör med den här API-nyckeln för den här adressen (\"{{name}}\"). Samma nyckel två gånger är samma konto två gånger: den hittar samma modeller igen och båda raderna tömmer en kvot."
 		},
 		"edit": {
 			"typeHelper": "Ändra bara detta för att rätta en typ som gissades fel vid import eller uppgradering. En egen servers typ kontrolleras mot servern innan den sparas.",
@@ -1283,7 +1284,8 @@
 			"tpm": "Tak för tokens per minut; förfrågningar avvisas med 429 när minutbudgeten är förbrukad",
 			"id": "Klicka för att kopiera nyckel-ID",
 			"owner": "Ägs av {{name}}",
-			"providerDenyAll": "Nyckeln tillåter inga leverantörer"
+			"providerDenyAll": "Nyckeln tillåter inga leverantörer",
+			"idMeaning": "Stabil identifierare för den här nyckeln. Förfrågningsloggar och API:et hänvisar till nyckeln med den."
 		},
 		"emptyState": "Inga virtuella nycklar. Skapa en för att börja använda proxy.",
 		"steps": {
@@ -2518,7 +2520,12 @@
 			"level": "Nivå",
 			"source": "Källa",
 			"message": "Meddelande",
-			"copyMessage": "Kopiera meddelande"
+			"copyMessage": "Kopiera hela raden som den lagrats, med attribut",
+			"filterBySource": "Visa bara \"{{source}}\"",
+			"openProvider": "Öppna leverantör",
+			"openModel": "Öppna modell",
+			"copyValue": "Kopiera värde",
+			"copyRaw": "Kopiera råmeddelande"
 		},
 		"auditDetail": {
 			"title": "Granskningspost",
@@ -3283,7 +3290,8 @@
 			"lastLogin": "Senaste inloggning",
 			"allGrants": "Allt",
 			"noGrants": "Ingen",
-			"totpEnabled": "Tvåfaktorsautentisering aktiverad"
+			"totpEnabled": "Tvåfaktorsautentisering aktiverad",
+			"created": "Skapad"
 		},
 		"role": {
 			"admin": "Admin",
@@ -3334,7 +3342,10 @@
 			"totpResetHint": "Tar bort användarens autentiseringsapp och återställningskoder så att inloggning sker med enbart lösenordet.",
 			"totpResetConfirmTitle": "Återställ tvåfaktorsautentisering",
 			"totpResetConfirmMessage": "Detta tar bort kopplingen till autentiseringsappen och alla återställningskoder för den här användaren. Lösenordet förblir oförändrat.",
-			"totpResetConfirmLabel": "Återställ"
+			"totpResetConfirmLabel": "Återställ",
+			"created": "Skapad",
+			"lastEdited": "Senast redigerad",
+			"twoFactor": "Tvåfaktorsautentisering"
 		},
 		"toast": {
 			"created": "Användare skapad",

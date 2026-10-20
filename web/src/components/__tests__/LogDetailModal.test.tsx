@@ -1,4 +1,4 @@
-import { fireEvent, screen, waitFor } from "@testing-library/react";
+import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { AppLogEntry, LogEntry } from "../../api/types";
@@ -736,7 +736,9 @@ describe("LogDetailModal", () => {
 				<LogDetailModal log={mockAppLog} type="app" onClose={onClose} />,
 			);
 
-			const copyButton = screen.getByLabelText("Copy message");
+			const copyButton = screen.getByLabelText(
+				"Copy the whole line as stored, attributes included",
+			);
 			await user.click(copyButton);
 
 			const clipboardText = await navigator.clipboard.readText();
@@ -1235,5 +1237,230 @@ describe("LogDetailModal", () => {
 
 			expect(screen.queryByText("Token Usage")).not.toBeInTheDocument();
 		});
+	});
+});
+
+describe("AppLogDetail attributes", () => {
+	const line: AppLogEntry = {
+		timestamp: "2025-05-12T10:30:00Z",
+		level: "warning",
+		source: "proxy",
+		message:
+			'upstream refused provider="Open Router" model=gpt-4o status=503 path=/v1/chat/completions',
+		attrs_at: "upstream refused".length,
+	};
+
+	it("splits the message head from the attribute tiles", () => {
+		renderWithProviders(
+			<LogDetailModal log={line} type="app" onClose={vi.fn()} />,
+		);
+		const dialog = screen.getByRole("dialog");
+		expect(within(dialog).getByText("upstream refused")).toBeInTheDocument();
+		expect(within(dialog).getByText("Open Router")).toBeInTheDocument();
+		expect(within(dialog).getByText("gpt-4o")).toBeInTheDocument();
+		expect(
+			within(dialog).getByText("/v1/chat/completions"),
+		).toBeInTheDocument();
+		// The status is a coloured badge, not copyable text.
+		const status = within(dialog)
+			.getByText("503")
+			.closest("[data-test-variant]");
+		expect(status).toHaveAttribute("data-test-variant", "error");
+	});
+
+	it("links a provider and a model to their pages, scoped to the line's provider", () => {
+		renderWithProviders(
+			<LogDetailModal log={line} type="app" onClose={vi.fn()} />,
+		);
+		expect(screen.getByTestId("app-log-link-provider")).toHaveAttribute(
+			"href",
+			"/providers?name=Open+Router",
+		);
+		expect(screen.getByTestId("app-log-link-model")).toHaveAttribute(
+			"href",
+			"/models?model=gpt-4o&provider=Open+Router",
+		);
+	});
+
+	it("offers the source filter only when the list has one to narrow", async () => {
+		const onFilterSource = vi.fn();
+		const close = vi.fn();
+		const { user, unmount } = renderWithProviders(
+			<LogDetailModal
+				log={line}
+				type="app"
+				onClose={close}
+				onFilterSource={onFilterSource}
+			/>,
+		);
+		await user.click(screen.getByTestId("app-log-filter-source"));
+		expect(onFilterSource).toHaveBeenCalledWith("proxy");
+		expect(close).toHaveBeenCalled();
+		unmount();
+
+		renderWithProviders(
+			<LogDetailModal log={line} type="app" onClose={vi.fn()} />,
+		);
+		expect(screen.queryByTestId("app-log-filter-source")).toBeNull();
+	});
+
+	it("colours the status badge by class and skips the badge for other keys", () => {
+		const variants: Array<[string, string]> = [
+			["200", "success"],
+			["302", "info"],
+			["404", "warning"],
+			["500", "error"],
+			["abc", "muted"],
+		];
+		for (const [code, variant] of variants) {
+			const { unmount } = renderWithProviders(
+				<LogDetailModal
+					log={{ ...line, message: `served status=${code}`, attrs_at: 6 }}
+					type="app"
+					onClose={vi.fn()}
+				/>,
+			);
+			expect(
+				screen.getByText(code).closest("[data-test-variant]"),
+			).toHaveAttribute("data-test-variant", variant);
+			unmount();
+		}
+	});
+
+	it("resolves a provider_id to the provider's name for its link, and links nothing empty", async () => {
+		renderWithProviders(
+			<LogDetailModal
+				log={{
+					...line,
+					message: "quota read provider_id=provider-001 model=",
+					attrs_at: 10,
+				}}
+				type="app"
+				onClose={vi.fn()}
+			/>,
+		);
+		expect(
+			await screen.findByTestId("app-log-link-provider_id"),
+		).toHaveAttribute("href", "/providers?name=Test+Provider");
+		expect(screen.queryByTestId("app-log-link-model")).toBeNull();
+	});
+
+	it("scopes a model link by the provider a provider_id resolves to", async () => {
+		renderWithProviders(
+			<LogDetailModal
+				log={{
+					...line,
+					message: "probe failed provider_id=provider-001 model=gpt-4o",
+					attrs_at: 12,
+				}}
+				type="app"
+				onClose={vi.fn()}
+			/>,
+		);
+		// The provider name arrives with the providers query, after first paint.
+		await waitFor(() => {
+			expect(screen.getByTestId("app-log-link-model")).toHaveAttribute(
+				"href",
+				"/models?model=gpt-4o&provider=Test+Provider",
+			);
+		});
+	});
+
+	it("links neither name nor model when the line's provider_id is gone", async () => {
+		renderWithProviders(
+			<LogDetailModal
+				log={{
+					...line,
+					message:
+						'probe failed provider_id=gone-000 provider="Old Name" model=gpt-4o',
+					attrs_at: 12,
+				}}
+				type="app"
+				onClose={vi.fn()}
+			/>,
+		);
+		// The providers list has answered once the id tile is up without a link.
+		await screen.findByText("gone-000");
+		await waitFor(() => {
+			expect(screen.getByText("Old Name")).toBeInTheDocument();
+		});
+		expect(screen.queryByTestId("app-log-link-provider")).toBeNull();
+		expect(screen.queryByTestId("app-log-link-provider_id")).toBeNull();
+		expect(screen.queryByTestId("app-log-link-model")).toBeNull();
+	});
+
+	it("resolves a Provider/model spelling through the provider list and skips a hotel/ alias", async () => {
+		const open = (model: string) =>
+			renderWithProviders(
+				<LogDetailModal
+					log={{
+						...line,
+						message: `request start model=${model}`,
+						attrs_at: 13,
+					}}
+					type="app"
+					onClose={vi.fn()}
+				/>,
+			);
+
+		// A known provider's name ahead of the slash scopes the link to it.
+		const first = open('"Test Provider/gpt-4o"');
+		await waitFor(() => {
+			expect(screen.getByTestId("app-log-link-model")).toHaveAttribute(
+				"href",
+				"/models?model=gpt-4o&provider=Test+Provider",
+			);
+		});
+		first.unmount();
+
+		// An unknown prefix is part of the model id (OpenRouter spells ids so).
+		const second = open("anthropic/claude-x");
+		await screen.findByText("anthropic/claude-x");
+		await waitFor(() => {
+			expect(screen.getByTestId("app-log-link-model")).toHaveAttribute(
+				"href",
+				"/models?model=anthropic%2Fclaude-x",
+			);
+		});
+		second.unmount();
+
+		// With the provider already on the line, a slash belongs to the model id
+		// even when its prefix happens to name another provider.
+		const third = open("provider-001/claude-x provider_id=provider-001");
+		await waitFor(() => {
+			expect(screen.getByTestId("app-log-link-model")).toHaveAttribute(
+				"href",
+				"/models?model=provider-001%2Fclaude-x&provider=Test+Provider",
+			);
+		});
+		third.unmount();
+
+		// A failover alias names no stored model.
+		open("hotel/primary");
+		expect(screen.getByText("hotel/primary")).toBeInTheDocument();
+		expect(screen.queryByTestId("app-log-link-model")).toBeNull();
+	});
+
+	it("offers no source filter for a line with an empty source", () => {
+		renderWithProviders(
+			<LogDetailModal
+				log={{ ...line, source: "" }}
+				type="app"
+				onClose={vi.fn()}
+				onFilterSource={vi.fn()}
+			/>,
+		);
+		expect(screen.queryByTestId("app-log-filter-source")).toBeNull();
+	});
+
+	it("shows a line without attributes whole", () => {
+		renderWithProviders(
+			<LogDetailModal
+				log={{ ...line, message: "plain line", attrs_at: 0 }}
+				type="app"
+				onClose={vi.fn()}
+			/>,
+		);
+		expect(screen.getByText("plain line")).toBeInTheDocument();
 	});
 });
