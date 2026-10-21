@@ -144,14 +144,33 @@ function Shell() {
 				<QuotaStrip />
 			</ErrorBoundary>
 			<main className="fd-main">
-				<Suspense
-					fallback={<div className="fd-empty">{t("common.loading")}</div>}
+				{/* A tab that fails to load (a lazy chunk gone after a redeploy) or
+				    to render shows a reload prompt instead of blanking the shell;
+				    switching tabs clears it. */}
+				<ErrorBoundary
+					resetKeys={[tab]}
+					fallback={
+						<div role="alert" className="fd-empty">
+							<p>{t("common.pageError")}</p>
+							<button
+								type="button"
+								className="ui-btn"
+								onClick={() => window.location.reload()}
+							>
+								{t("common.reloadPage")}
+							</button>
+						</div>
+					}
 				>
-					{tab === "members" && <MembersPage />}
-					{tab === "traffic" && <TrafficPage />}
-					{tab === "events" && <EventsPage />}
-					{tab === "settings" && <SettingsPage />}
-				</Suspense>
+					<Suspense
+						fallback={<div className="fd-empty">{t("common.loading")}</div>}
+					>
+						{tab === "members" && <MembersPage />}
+						{tab === "traffic" && <TrafficPage />}
+						{tab === "events" && <EventsPage />}
+						{tab === "settings" && <SettingsPage />}
+					</Suspense>
+				</ErrorBoundary>
 			</main>
 			<VersionFooter />
 		</div>

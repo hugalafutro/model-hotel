@@ -1,3 +1,4 @@
+import { installStaleChunkReload } from "@web-shared/stale-chunk-reload";
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import App from "./App.tsx";
@@ -7,6 +8,7 @@ import { initTheme } from "./theme";
 
 // Before React mounts, so the login screen comes up in the persisted theme.
 initTheme();
+installStaleChunkReload();
 
 const rootElement = document.getElementById("root");
 if (!rootElement) throw new Error("Root element not found");

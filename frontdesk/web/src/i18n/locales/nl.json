@@ -17,7 +17,9 @@
 		"yes": "Ja",
 		"no": "Nee",
 		"none": "Geen",
-		"unknown": "Onbekend"
+		"unknown": "Onbekend",
+		"pageError": "Deze pagina kon niet worden geladen.",
+		"reloadPage": "Pagina opnieuw laden"
 	},
 	"app": {
 		"title": "Front Desk",

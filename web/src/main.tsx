@@ -11,7 +11,7 @@ import "@fontsource-variable/schibsted-grotesk/index.css";
 import "@fontsource-variable/onest/index.css";
 import "@fontsource-variable/jetbrains-mono/index.css";
 import "./index.css";
-import { installStaleChunkReload } from "./utils/staleChunkReload";
+import { installStaleChunkReload } from "@web-shared/stale-chunk-reload";
 
 installStaleChunkReload();
 

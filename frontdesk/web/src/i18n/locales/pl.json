@@ -17,7 +17,9 @@
 		"yes": "Tak",
 		"no": "Nie",
 		"none": "Brak",
-		"unknown": "Nieznany"
+		"unknown": "Nieznany",
+		"pageError": "Nie udało się załadować tej strony.",
+		"reloadPage": "Załaduj stronę ponownie"
 	},
 	"app": {
 		"title": "Front Desk",

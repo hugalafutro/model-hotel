@@ -1,5 +1,5 @@
+import { installStaleChunkReload } from "@web-shared/stale-chunk-reload";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { installStaleChunkReload } from "../staleChunkReload";
 
 function fakeWindow(storage: Pick<Storage, "getItem" | "setItem">) {
 	const target = new EventTarget();

@@ -17,7 +17,9 @@
 		"yes": "Yes",
 		"no": "No",
 		"none": "None",
-		"unknown": "Unknown"
+		"unknown": "Unknown",
+		"pageError": "This page could not be loaded.",
+		"reloadPage": "Reload page"
 	},
 	"app": {
 		"title": "Front Desk",
