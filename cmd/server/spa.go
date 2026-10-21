@@ -69,6 +69,13 @@ func (h *SPAHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	// A missing build asset (a chunk from before a redeploy) must 404, not
+	// return index.html: no client route lives under /assets/.
+	if strings.HasPrefix(path, "/assets/") {
+		http.NotFound(w, r)
+		return
+	}
+
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	w.Header().Set("Cache-Control", "no-cache")
 	// #nosec G705 -- content-type set to text/html; template output is sanitized

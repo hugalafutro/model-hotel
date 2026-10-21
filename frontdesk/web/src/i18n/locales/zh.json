@@ -17,7 +17,9 @@
 		"yes": "是",
 		"no": "否",
 		"none": "无",
-		"unknown": "未知"
+		"unknown": "未知",
+		"pageError": "无法加载此页面。",
+		"reloadPage": "重新加载页面"
 	},
 	"app": {
 		"title": "Front Desk",

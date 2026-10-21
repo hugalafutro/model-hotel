@@ -305,6 +305,13 @@ func TestSPAHandlerServesAssetsAndIndex(t *testing.T) {
 	if rec.Code != http.StatusOK || !strings.Contains(rec.Body.String(), "<title>fd</title>") {
 		t.Errorf("spa fallback = %d body=%q", rec.Code, rec.Body.String())
 	}
+
+	// A chunk from before a redeploy must 404, not come back as index.html.
+	rec = httptest.NewRecorder()
+	h.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/assets/gone-deadbeef.js", http.NoBody))
+	if rec.Code != http.StatusNotFound {
+		t.Errorf("missing asset = %d, want 404", rec.Code)
+	}
 }
 
 // TestWithRefusalReason covers the shared refusal-message helper: a member's own

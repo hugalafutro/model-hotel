@@ -84,7 +84,9 @@
 		"rowStepFirst": "{{row}}, први ред",
 		"rowStepLast": "{{row}}, последњи ред",
 		"discard": "Одбаци",
-		"overwrite": "Препиши"
+		"overwrite": "Препиши",
+		"pageError": "Ова страница није могла да се учита.",
+		"reloadPage": "Поново учитај страницу"
 	},
 	"layout": {
 		"title": "Model Hotel",

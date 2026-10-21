@@ -17,7 +17,9 @@
 		"yes": "Ano",
 		"no": "Ne",
 		"none": "Žádné",
-		"unknown": "Neznámé"
+		"unknown": "Neznámé",
+		"pageError": "Tuto stránku se nepodařilo načíst.",
+		"reloadPage": "Znovu načíst stránku"
 	},
 	"app": {
 		"title": "Front Desk",

@@ -17,7 +17,9 @@
 		"yes": "はい",
 		"no": "いいえ",
 		"none": "なし",
-		"unknown": "不明"
+		"unknown": "不明",
+		"pageError": "このページを読み込めませんでした。",
+		"reloadPage": "ページを再読み込み"
 	},
 	"app": {
 		"title": "Front Desk",

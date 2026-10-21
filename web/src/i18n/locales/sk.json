@@ -84,7 +84,9 @@
 		"rowStepFirst": "{{row}}, prvý riadok",
 		"rowStepLast": "{{row}}, posledný riadok",
 		"discard": "Zahodiť",
-		"overwrite": "Prepísať"
+		"overwrite": "Prepísať",
+		"pageError": "Túto stránku sa nepodarilo načítať.",
+		"reloadPage": "Znova načítať stránku"
 	},
 	"layout": {
 		"title": "Model Hotel",

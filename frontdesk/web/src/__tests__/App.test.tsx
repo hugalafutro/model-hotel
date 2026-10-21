@@ -25,6 +25,14 @@ vi.mock("../components/QuotaStrip", () => ({
 	},
 }));
 
+// The Traffic tab is a lazy chunk. A tab opened before a redeploy can fail to
+// load it, so this stands in for that failure to pin the page-level boundary.
+vi.mock("../pages/TrafficPage", () => ({
+	TrafficPage: () => {
+		throw new Error("chunk gone after a redeploy");
+	},
+}));
+
 // The session itself rides an HttpOnly cookie the page cannot see; the readable
 // fd_csrf half is what the SPA reads as "logged in", so these two stand in for
 // the server's Set-Cookie pair on login and logout.
@@ -280,6 +288,35 @@ describe("App auth gating", () => {
 			});
 		} finally {
 			quotaStripThrows.current = false;
+			consoleErrorSpy.mockRestore();
+		}
+	});
+
+	it("shows a reload prompt for a tab that fails and clears it on a tab switch", async () => {
+		const consoleErrorSpy = vi
+			.spyOn(console, "error")
+			.mockImplementation(() => {});
+		try {
+			server.use(...authHandlers("good"));
+			setSessionCookie();
+			render(<App />);
+			await userEvent.click(
+				await screen.findByRole("tab", { name: /traffic/i }),
+			);
+			// Without the boundary around the tab pages this throw would unmount
+			// the whole shell, tabs included.
+			const alert = await screen.findByRole("alert");
+			expect(alert).toHaveTextContent("This page could not be loaded.");
+			expect(
+				screen.getByRole("button", { name: "Reload page" }),
+			).toBeInTheDocument();
+			expect(screen.getByRole("tab", { name: /members/i })).toBeInTheDocument();
+
+			await userEvent.click(screen.getByRole("tab", { name: /members/i }));
+			await waitFor(() => {
+				expect(screen.queryByText("This page could not be loaded.")).toBeNull();
+			});
+		} finally {
 			consoleErrorSpy.mockRestore();
 		}
 	});

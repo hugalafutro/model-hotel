@@ -84,7 +84,9 @@
 		"rowStepFirst": "{{row}}, első sor",
 		"rowStepLast": "{{row}}, utolsó sor",
 		"discard": "Elvetés",
-		"overwrite": "Felülírás"
+		"overwrite": "Felülírás",
+		"pageError": "Az oldalt nem sikerült betölteni.",
+		"reloadPage": "Oldal újratöltése"
 	},
 	"layout": {
 		"title": "Model Hotel",
