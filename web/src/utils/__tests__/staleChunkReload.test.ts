@@ -48,18 +48,16 @@ describe("installStaleChunkReload", () => {
 		expect(reload).toHaveBeenCalledTimes(2);
 	});
 
-	it("still reloads when session storage is blocked", () => {
-		const blocked = {
-			getItem: () => {
-				throw new Error("denied");
-			},
+	it("does not reload when the loop guard cannot be saved", () => {
+		const blockedWrite = {
+			...memoryStorage(),
 			setItem: () => {
 				throw new Error("denied");
 			},
 		};
-		const { win, reload, fire } = fakeWindow(blocked);
+		const { win, reload, fire } = fakeWindow(blockedWrite);
 		installStaleChunkReload(win);
-		fire();
-		expect(reload).toHaveBeenCalledOnce();
+		expect(fire().defaultPrevented).toBe(false);
+		expect(reload).not.toHaveBeenCalled();
 	});
 });
