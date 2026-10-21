@@ -84,7 +84,9 @@
 		"rowStepFirst": "{{row}}, перший рядок",
 		"rowStepLast": "{{row}}, останній рядок",
 		"discard": "Відхилити",
-		"overwrite": "Перезаписати"
+		"overwrite": "Перезаписати",
+		"pageError": "Не вдалося завантажити цю сторінку.",
+		"reloadPage": "Перезавантажити сторінку"
 	},
 	"layout": {
 		"title": "Model Hotel",

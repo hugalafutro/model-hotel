@@ -84,7 +84,9 @@
 		"rowStepFirst": "{{row}}, primera fila",
 		"rowStepLast": "{{row}}, darrera fila",
 		"discard": "Descarta",
-		"overwrite": "Sobreescriu"
+		"overwrite": "Sobreescriu",
+		"pageError": "No s'ha pogut carregar aquesta pàgina.",
+		"reloadPage": "Torna a carregar la pàgina"
 	},
 	"layout": {
 		"title": "Model Hotel",

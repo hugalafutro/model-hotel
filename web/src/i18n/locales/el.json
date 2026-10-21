@@ -84,7 +84,9 @@
 		"rowStepFirst": "{{row}}, πρώτη γραμμή",
 		"rowStepLast": "{{row}}, τελευταία γραμμή",
 		"discard": "Απόρριψη",
-		"overwrite": "Αντικατάσταση"
+		"overwrite": "Αντικατάσταση",
+		"pageError": "Δεν ήταν δυνατή η φόρτωση αυτής της σελίδας.",
+		"reloadPage": "Επαναφόρτωση σελίδας"
 	},
 	"layout": {
 		"title": "Model Hotel",

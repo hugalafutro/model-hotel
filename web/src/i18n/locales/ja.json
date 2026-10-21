@@ -84,7 +84,9 @@
 		"rowStepFirst": "{{row}}、最初の行",
 		"rowStepLast": "{{row}}、最後の行",
 		"discard": "破棄",
-		"overwrite": "上書き"
+		"overwrite": "上書き",
+		"pageError": "このページを読み込めませんでした。",
+		"reloadPage": "ページを再読み込み"
 	},
 	"layout": {
 		"title": "Model Hotel",

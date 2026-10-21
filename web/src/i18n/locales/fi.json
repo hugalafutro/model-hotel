@@ -84,7 +84,9 @@
 		"rowStepFirst": "{{row}}, ensimmäinen rivi",
 		"rowStepLast": "{{row}}, viimeinen rivi",
 		"discard": "Hylkää",
-		"overwrite": "Korvaa"
+		"overwrite": "Korvaa",
+		"pageError": "Tätä sivua ei voitu ladata.",
+		"reloadPage": "Lataa sivu uudelleen"
 	},
 	"layout": {
 		"title": "Model Hotel",

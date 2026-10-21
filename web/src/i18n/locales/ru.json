@@ -84,7 +84,9 @@
 		"rowStepFirst": "{{row}}, первая строка",
 		"rowStepLast": "{{row}}, последняя строка",
 		"discard": "Отменить изменения",
-		"overwrite": "Перезаписать"
+		"overwrite": "Перезаписать",
+		"pageError": "Не удалось загрузить эту страницу.",
+		"reloadPage": "Перезагрузить страницу"
 	},
 	"layout": {
 		"title": "Model Hotel",

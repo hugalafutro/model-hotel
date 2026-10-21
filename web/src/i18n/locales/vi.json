@@ -84,7 +84,9 @@
 		"rowStepFirst": "{{row}}, hàng đầu tiên",
 		"rowStepLast": "{{row}}, hàng cuối cùng",
 		"discard": "Loại bỏ",
-		"overwrite": "Ghi đè"
+		"overwrite": "Ghi đè",
+		"pageError": "Không thể tải trang này.",
+		"reloadPage": "Tải lại trang"
 	},
 	"layout": {
 		"title": "Model Hotel",

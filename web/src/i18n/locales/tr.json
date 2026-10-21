@@ -84,7 +84,9 @@
 		"rowStepFirst": "{{row}}, ilk satır",
 		"rowStepLast": "{{row}}, son satır",
 		"discard": "Vazgeç",
-		"overwrite": "Üzerine yaz"
+		"overwrite": "Üzerine yaz",
+		"pageError": "Bu sayfa yüklenemedi.",
+		"reloadPage": "Sayfayı yeniden yükle"
 	},
 	"layout": {
 		"title": "Model Hotel",

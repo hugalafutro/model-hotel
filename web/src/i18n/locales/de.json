@@ -84,7 +84,9 @@
 		"rowStepFirst": "{{row}}, erste Zeile",
 		"rowStepLast": "{{row}}, letzte Zeile",
 		"discard": "Verwerfen",
-		"overwrite": "Überschreiben"
+		"overwrite": "Überschreiben",
+		"pageError": "Diese Seite konnte nicht geladen werden.",
+		"reloadPage": "Seite neu laden"
 	},
 	"layout": {
 		"title": "Model Hotel",

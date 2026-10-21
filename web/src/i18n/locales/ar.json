@@ -84,7 +84,9 @@
 		"rowStepFirst": "{{row}}، الصف الأول",
 		"rowStepLast": "{{row}}، الصف الأخير",
 		"discard": "تجاهل",
-		"overwrite": "استبدال"
+		"overwrite": "استبدال",
+		"pageError": "تعذّر تحميل هذه الصفحة.",
+		"reloadPage": "إعادة تحميل الصفحة"
 	},
 	"layout": {
 		"title": "Model Hotel",

@@ -2,7 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { consumeOidcError } from "@web-shared/oidc";
 import { lazy, Suspense, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Navigate, Route, Routes } from "react-router";
+import { Navigate, Route, Routes, useLocation } from "react-router";
 import { Eye, EyeOff, Fingerprint, GithubLogo, LogIn } from "@/lib/icons";
 import { api, isAuthenticated } from "./api/client";
 import { clearSessionCache } from "./api/http";
@@ -11,6 +11,7 @@ import { ErrorCallout } from "./components/ErrorCallout";
 import { Layout } from "./components/Layout";
 import { LoadingSpinner } from "./components/LoadingSpinner";
 import { Logo } from "./components/Logo";
+import { PageErrorBoundary } from "./components/PageErrorBoundary";
 import { Spinner } from "./components/Spinner";
 import { ThemedIconProvider } from "./components/ThemedIconProvider";
 import { EventProvider } from "./context/EventContext";
@@ -559,9 +560,15 @@ function RequireAccess({
 }
 
 // Every page is lazy, so a gate that lets the caller through always hands over
-// to a Suspense boundary.
+// to a Suspense boundary, inside an error boundary keyed by route so a page
+// that fails to load or render does not blank the whole app.
 function PageBody({ children }: { children: React.ReactNode }) {
-	return <Suspense fallback={<LoadingSpinner />}>{children}</Suspense>;
+	const { pathname } = useLocation();
+	return (
+		<PageErrorBoundary key={pathname}>
+			<Suspense fallback={<LoadingSpinner />}>{children}</Suspense>
+		</PageErrorBoundary>
+	);
 }
 
 // The routed pages, in sidebar order. Security is the one route gated on

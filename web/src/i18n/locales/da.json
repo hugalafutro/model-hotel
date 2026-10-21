@@ -84,7 +84,9 @@
 		"rowStepFirst": "{{row}}, første række",
 		"rowStepLast": "{{row}}, sidste række",
 		"discard": "Kassér",
-		"overwrite": "Overskriv"
+		"overwrite": "Overskriv",
+		"pageError": "Siden kunne ikke indlæses.",
+		"reloadPage": "Genindlæs siden"
 	},
 	"layout": {
 		"title": "Model Hotel",

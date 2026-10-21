@@ -86,7 +86,7 @@ func parseRFC3339(s string) time.Time {
 }
 
 // spaHandler serves the embedded single-page app, falling back to index.html for
-// client-side routes (any path without a file extension that is not found).
+// client-side routes. A missing build asset under /assets/ 404s instead.
 func spaHandler(ui fs.FS) http.Handler {
 	fileServer := http.FileServer(http.FS(ui))
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -100,6 +100,12 @@ func spaHandler(ui fs.FS) http.Handler {
 				fileServer.ServeHTTP(w, r)
 				return
 			}
+		}
+		// A chunk from before a redeploy must 404 so the browser sees a failed
+		// import, not HTML: no client route lives under /assets/.
+		if strings.HasPrefix(r.URL.Path, "/assets/") {
+			http.NotFound(w, r)
+			return
 		}
 		// Root, invalid, or unknown path: serve index.html so the SPA router can
 		// handle the route client-side.

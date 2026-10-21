@@ -84,7 +84,9 @@
 		"rowStepFirst": "{{row}}, första raden",
 		"rowStepLast": "{{row}}, sista raden",
 		"discard": "Kasta",
-		"overwrite": "Skriv över"
+		"overwrite": "Skriv över",
+		"pageError": "Sidan kunde inte läsas in.",
+		"reloadPage": "Läs in sidan igen"
 	},
 	"layout": {
 		"title": "Model Hotel",

@@ -84,7 +84,9 @@
 		"rowStepFirst": "{{row}}, primul rând",
 		"rowStepLast": "{{row}}, ultimul rând",
 		"discard": "Renunță",
-		"overwrite": "Suprascrie"
+		"overwrite": "Suprascrie",
+		"pageError": "Această pagină nu a putut fi încărcată.",
+		"reloadPage": "Reîncarcă pagina"
 	},
 	"layout": {
 		"title": "Model Hotel",

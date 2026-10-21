@@ -84,7 +84,9 @@
 		"rowStepFirst": "{{row}}, 첫 번째 행",
 		"rowStepLast": "{{row}}, 마지막 행",
 		"discard": "버리기",
-		"overwrite": "덮어쓰기"
+		"overwrite": "덮어쓰기",
+		"pageError": "이 페이지를 불러올 수 없습니다.",
+		"reloadPage": "페이지 새로고침"
 	},
 	"layout": {
 		"title": "Model Hotel",

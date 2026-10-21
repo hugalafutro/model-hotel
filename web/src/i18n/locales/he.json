@@ -84,7 +84,9 @@
 		"rowStepFirst": "{{row}}, שורה ראשונה",
 		"rowStepLast": "{{row}}, שורה אחרונה",
 		"discard": "השלך",
-		"overwrite": "החלף"
+		"overwrite": "החלף",
+		"pageError": "לא ניתן היה לטעון את הדף הזה.",
+		"reloadPage": "טען מחדש את הדף"
 	},
 	"layout": {
 		"title": "Model Hotel",

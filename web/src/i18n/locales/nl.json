@@ -84,7 +84,9 @@
 		"rowStepFirst": "{{row}}, eerste rij",
 		"rowStepLast": "{{row}}, laatste rij",
 		"discard": "Verwerpen",
-		"overwrite": "Overschrijven"
+		"overwrite": "Overschrijven",
+		"pageError": "Deze pagina kon niet worden geladen.",
+		"reloadPage": "Pagina opnieuw laden"
 	},
 	"layout": {
 		"title": "Model Hotel",

@@ -352,39 +352,6 @@ func TestSPAHandler_ServeHTTP_NonHashNamedFileNoImmutableCache(t *testing.T) {
 	}
 }
 
-// TestSPAHandler_ServeHTTP_CSSFileWithHash tests that a hash-named CSS file
-// served by the fileServer gets the long-lived cache header. This test
-// constructs the SPAHandler with a mock file server that simulates serving
-// a hash-named CSS file from the embedded FS.
-func TestSPAHandler_ServeHTTP_CSSFileWithHash_WithCustomFileServer(t *testing.T) {
-	// We test the cache-header logic by constructing an SPAHandler that has
-	// a custom fileServer. The staticFS FS.Stat check in ServeHTTP needs
-	// the real embedded FS, so this test verifies the fallback path when
-	// the file is not found (i.e., cleanPath doesn't match any file).
-	h := &SPAHandler{
-		fileServer: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			w.Header().Set("Content-Type", "text/css")
-			w.WriteHeader(http.StatusOK)
-			_, _ = w.Write([]byte("/* css */"))
-		}),
-		indexHTML: []byte("<!DOCTYPE html><html><body>fallback</body></html>"),
-	}
-
-	// Request a hash-named CSS file. Since our custom fileServer is used,
-	// but fs.Stat would check the real embedded FS (which may not have this file),
-	// the request falls through to indexHTML.
-	req := httptest.NewRequest(http.MethodGet, "/assets/test-abc123.css", http.NoBody)
-	w := httptest.NewRecorder()
-	h.ServeHTTP(w, req)
-
-	// When the embedded FS has the file, it should be served with cache headers.
-	// When not found, it falls through to the SPA fallback (indexHTML).
-	// Either way, no crash.
-	if w.Code != http.StatusOK {
-		t.Errorf("expected 200, got %d", w.Code)
-	}
-}
-
 // TestNewSPAHandler_CoversEmbedFSPath tests that NewSPAHandler handles the
 // case where the embedded FS is available (the "normal" production path at
 // L17-37). When the frontend has been built, this exercises the full
@@ -644,5 +611,23 @@ func TestNewSPAHandler_FSSubErrorPath(t *testing.T) {
 	}
 	if h.fileServer != nil {
 		t.Error("expected nil fileServer when fs.Sub fails")
+	}
+}
+
+// TestServeHTTP_MissingAssetReturns404 pins the stale-chunk case: a tab opened
+// before a redeploy asks for a chunk the new build no longer has, and the
+// browser must see a failed import, not index.html served as JavaScript.
+func TestServeHTTP_MissingAssetReturns404(t *testing.T) {
+	h := newSPAHandler(testStaticFS())
+
+	req := httptest.NewRequest(http.MethodGet, "/assets/Logs-deadbeef.js", http.NoBody)
+	w := httptest.NewRecorder()
+	h.ServeHTTP(w, req)
+
+	if w.Code != http.StatusNotFound {
+		t.Fatalf("expected 404 for a missing asset, got %d", w.Code)
+	}
+	if strings.Contains(w.Body.String(), "Test Index") {
+		t.Error("missing asset must not serve index.html")
 	}
 }
