@@ -7,7 +7,7 @@ services:
             args:
                 VERSION: ${VERSION:-dev}
                 COMMIT: ${COMMIT:-unknown}
-        # Prebuilt images (uncomment 1 image according to registry preference, comment out build above):
+        # Prebuilt image: comment out build above, then uncomment one of these:
         # image: ghcr.io/hugalafutro/model-hotel:latest
         # image: hugalafutro/model-hotel:latest
         labels:
@@ -35,8 +35,8 @@ services:
         volumes:
             - ./.data:/data
             # Docker socket (disabled by default for security).
-            # Enable to show container-level stats in the sidebar (CPU, memory per container).
-            # ⚠️  Granting Docker socket access allows the container to control the Docker daemon.
+            # Enable to show per-container CPU and memory stats in the sidebar.
+            # ⚠️  Socket access lets the container control the Docker daemon.
             #     Only enable if you trust the deployment environment.
             # - /var/run/docker.sock:/var/run/docker.sock:ro
         restart: unless-stopped
@@ -62,7 +62,8 @@ services:
         image: postgres:16-alpine
         labels:
             app.group: model-hotel
-        command: ["postgres", "-c", "log_min_error_statement=panic", "-c", "log_min_messages=error", "-c", "log_checkpoints=off"]
+        command: ["postgres", "-c", "log_min_error_statement=panic",
+                  "-c", "log_min_messages=error", "-c", "log_checkpoints=off"]
         environment:
             - POSTGRES_USER=${POSTGRES_USER:-modelhotel}
             - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set in .env}
@@ -80,10 +81,10 @@ services:
     # apprise-api container, then in Settings → Alerts switch alerting on and press
     # "Set up alerts": the wizard checks http://apprise:8000, builds the destination
     # URL for you (ntfy, Telegram, Discord, email, or a raw Apprise URL), tests it,
-    # and saves only at Finish. The same fields sit under "Manual configuration (advanced)" if you
-    # would rather paste tgram://<bot_token>/<chat_id> yourself. Model Hotel POSTs
-    # event summaries here and Apprise fans them out to your service. No request
-    # content is ever sent.
+    # and saves only at Finish. The same fields sit under "Manual configuration
+    # (advanced)" if you would rather paste tgram://<bot_token>/<chat_id>
+    # yourself. Model Hotel POSTs event summaries here and Apprise fans them out
+    # to your service. No request content is ever sent.
     # apprise:
     #     image: caronc/apprise:latest
     #     labels:

@@ -37,7 +37,9 @@ git clone https://github.com/hugalafutro/model-hotel.git
 cd model-hotel
 
 cp .env.example .env
-nano .env          # set a strong MASTER_KEY and POSTGRES_PASSWORD; change HOST_PORT if 8081 is taken
+# Set a strong MASTER_KEY and POSTGRES_PASSWORD;
+# change HOST_PORT if 8081 is taken
+nano .env
 
 docker compose up --build -d
 ```
@@ -101,7 +103,7 @@ services:
             args:
                 VERSION: ${VERSION:-dev}
                 COMMIT: ${COMMIT:-unknown}
-        # Prebuilt images (uncomment 1 image according to registry preference, comment out build above):
+        # Prebuilt image: comment out build above, then uncomment one of these:
         # image: ghcr.io/hugalafutro/model-hotel:latest
         # image: hugalafutro/model-hotel:latest
         labels:
@@ -129,8 +131,8 @@ services:
         volumes:
             - ./.data:/data
             # Docker socket (disabled by default for security).
-            # Enable to show container-level stats in the sidebar (CPU, memory per container).
-            # ⚠️  Granting Docker socket access allows the container to control the Docker daemon.
+            # Enable to show per-container CPU and memory stats in the sidebar.
+            # ⚠️  Socket access lets the container control the Docker daemon.
             #     Only enable if you trust the deployment environment.
             # - /var/run/docker.sock:/var/run/docker.sock:ro
         restart: unless-stopped
@@ -156,7 +158,8 @@ services:
         image: postgres:16-alpine
         labels:
             app.group: model-hotel
-        command: ["postgres", "-c", "log_min_error_statement=panic", "-c", "log_min_messages=error", "-c", "log_checkpoints=off"]
+        command: ["postgres", "-c", "log_min_error_statement=panic",
+                  "-c", "log_min_messages=error", "-c", "log_checkpoints=off"]
         environment:
             - POSTGRES_USER=${POSTGRES_USER:-modelhotel}
             - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set in .env}
@@ -174,10 +177,10 @@ services:
     # apprise-api container, then in Settings → Alerts switch alerting on and press
     # "Set up alerts": the wizard checks http://apprise:8000, builds the destination
     # URL for you (ntfy, Telegram, Discord, email, or a raw Apprise URL), tests it,
-    # and saves only at Finish. The same fields sit under "Manual configuration (advanced)" if you
-    # would rather paste tgram://<bot_token>/<chat_id> yourself. Model Hotel POSTs
-    # event summaries here and Apprise fans them out to your service. No request
-    # content is ever sent.
+    # and saves only at Finish. The same fields sit under "Manual configuration
+    # (advanced)" if you would rather paste tgram://<bot_token>/<chat_id>
+    # yourself. Model Hotel POSTs event summaries here and Apprise fans them out
+    # to your service. No request content is ever sent.
     # apprise:
     #     image: caronc/apprise:latest
     #     labels:
@@ -230,9 +233,11 @@ curl http://localhost:8081/v1/models \
 curl -X POST http://localhost:8081/v1/chat/completions \
   -H "Authorization: Bearer $VIRTUAL_KEY" \
   -H "Content-Type: application/json" \
-  -d '{"model": "hotel/glm-4.6", "messages": [{"role": "user", "content": "Hello!"}]}'
+  -d '{"model": "hotel/glm-4.6",
+       "messages": [{"role": "user", "content": "Hello!"}]}'
 
-# Speech-to-text (multimodal endpoints share the same provider/model and hotel/ routing)
+# Speech-to-text (multimodal endpoints share the same
+# provider/model and hotel/ routing)
 curl -X POST http://localhost:8081/v1/audio/transcriptions \
   -H "Authorization: Bearer $VIRTUAL_KEY" \
   -F model="OpenAI/whisper-1" -F file=@speech.mp3
@@ -265,7 +270,8 @@ The dumps are zstd-compressed, so restoring outside the app needs `pg_restore` 1
 pg_restore --clean --if-exists -d YOUR_DB backup_file.dump
 
 # Via Docker
-docker exec -i postgres-container pg_restore --clean --if-exists -U user -d dbname < backup_file.dump
+docker exec -i postgres-container \
+  pg_restore --clean --if-exists -U user -d dbname < backup_file.dump
 ```
 
 **Critical requirements:** `MASTER_KEY` must match (provider keys decrypt with it; a mismatch leaves every provider dead). The admin token lives in `DATA_DIR/admin-token` on the filesystem, not the database (lost → auto-regenerated on next boot). Virtual keys are SHA-256 hashes only - plaintext is never persisted, so lost keys are irrecoverable by design.
