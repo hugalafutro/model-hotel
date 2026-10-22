@@ -46,36 +46,9 @@ A single OpenAI-compatible endpoint in front of all your LLM providers, cloud or
 
 ### [<img src="docs/icons/quickstart.svg" width="20" height="20" style="vertical-align:middle;margin-right:6px;" alt=""> Quick Start](#-quick-start)
 
-Two ways in: clone and build from source (below), or skip the clone and run the published image from two files (see [Deploy without Git](#-deploy-without-git)).
-
-```bash
-git clone https://github.com/hugalafutro/model-hotel.git
-cd model-hotel
-
-cp .env.example .env
-nano .env          # set a strong MASTER_KEY and POSTGRES_PASSWORD; change HOST_PORT if 8081 is taken
-
-docker compose up --build -d
-```
-
-For local development, layer the `compose.dev.yml` override instead. It mounts the Docker socket, turns on `DEBUG_LOG`, and allows embedding, so use it only in a trusted environment:
-
-```bash
-# Development only:
-docker compose -f docker-compose.yml -f compose.dev.yml up --build -d
-```
-
-To run a prebuilt image instead of building from source, edit `docker-compose.yml`: comment out the `build:` block and uncomment one of the `image:` lines.
-
-On first run the admin token is printed once, in a boxed **ADMIN TOKEN** block in the startup banner, and never shown again:
-
-```bash
-docker compose logs app
-```
-
-If you lose it, delete `.data/admin-token` and restart to generate a new one. The `ADMIN_TOKEN` environment variable seeds the token on first boot only: once `.data/admin-token` exists the file wins and the variable is ignored.
-
-Open `http://localhost:8081` (or the `HOST_PORT` you set), log in with that token, add your first provider, and start proxying. To stop, update or remove the stack, see [Stop, Update, Remove](#-stop-update-remove).
+- [Deploy with Git](https://github.com/hugalafutro/model-hotel/wiki/Home#quick-start): clone, build, and log in for the first time; stop, update, or remove the stack
+- [Deploy without Git](https://github.com/hugalafutro/model-hotel/wiki/Deploy-without-Git): run the published image from two files, no clone, no build
+- [Development](https://github.com/hugalafutro/model-hotel/wiki/Development#quick-start): the dev stack with the `compose.dev.yml` overlay
 
 ### [<img src="docs/icons/providers.svg" width="20" height="20" style="vertical-align:middle;margin-right:6px;" alt=""> One Endpoint, Many Providers](#-one-endpoint-many-providers)
 **Hosted:** [Anthropic](https://www.anthropic.com), [AWS Bedrock](https://aws.amazon.com/bedrock/), [Azure AI Foundry](https://ai.azure.com/), [Cohere](https://cohere.com/), [DeepSeek](https://www.deepseek.com), [Google AI Studio](https://aistudio.google.com/), [Kimi Code](https://www.kimi.com/), [MiniMax](https://www.minimax.io/), [NanoGPT](https://nano-gpt.com), [NeuralWatt](https://neuralwatt.com/), [Ollama Cloud](https://ollama.com), [OpenAI](https://openai.com/), [OpenCode Go](https://opencode.ai), [OpenCode Zen](https://opencode.ai), [OpenRouter](https://openrouter.ai/), [Vertex AI](https://cloud.google.com/vertex-ai) (express keys), [xAI](https://x.ai/), [Z.AI](https://z.ai/). All but Anthropic and AWS Bedrock speak the OpenAI API; those two are native families, and a hand-entered endpoint that speaks Anthropic's native `/v1/messages` has its own type (`anthropic-messages`). Any other OpenAI-compatible API, hosted or local, can be added as a custom endpoint.
@@ -101,6 +74,21 @@ Requests that fail (server errors, rate limits, auth issues, request timeouts) a
 
 ### [<img src="docs/icons/hotel.svg" width="20" height="20" style="vertical-align:middle;margin-right:6px;" alt=""> Hotel Routing](#-hotel-routing)
 Prefix any model name with `hotel/` and you get the whole fleet behind it. `hotel/glm-4.6` reaches every provider that offers `glm-4.6`, in the order you set: a [failover group](https://github.com/hugalafutro/model-hotel/wiki/Failover-and-Hotel-Routing#failover-groups) forms on its own the moment two providers share a model name, follows discovery as models and providers come and go, and the request lands on the first healthy provider with no change on the client side. Behind it a per-model [circuit breaker](https://github.com/hugalafutro/model-hotel/wiki/Failover-and-Hotel-Routing#circuit-breaker) keeps track of who is failing: a provider that keeps erroring on one model is skipped for that model only, probed again after a cooldown that grows while it stays broken, and a provider that has run out of quota is [parked until its window resets](https://github.com/hugalafutro/model-hotel/wiki/Failover-and-Hotel-Routing#quota-pinned-cooldowns) and rejoins by itself. You set priorities and switch entries on or off from the dashboard; everything else is automatic. How groups are built, synced and ranked is in the [Failover and Hotel Routing wiki](https://github.com/hugalafutro/model-hotel/wiki/Failover-and-Hotel-Routing#hotel-routing).
+
+### [<img src="docs/icons/privacy.svg" width="20" height="20" style="vertical-align:middle;margin-right:6px;" alt=""> No Prompts Logged](#-no-prompts-logged)
+> [!NOTE]
+> **User prompts and request content are never captured, logged, or inspected.**
+> The proxy forwards requests to the provider exactly as received, without reading or modifying message contents.
+
+The only information recorded is what is strictly necessary to route and meter the request: timestamp, duration, latency, time-to-first-token (TTFT, measured during the streaming probe), token counts (including cache-hit/miss breakdown), tokens per second, HTTP status code, error messages (upstream provider failures only, never user content), proxy overhead breakdown (parse, model lookup, provider lookup, key decryption), streaming flag, failover attempt count, resolved model ID (the actual upstream model used, which may differ from the requested `hotel/` name), request state, virtual key identifier, and target provider/model identifiers.
+
+The optional **Arena History** feature (disabled by default, toggled under **Settings → Data Storage and Logging → Arena History**) can persist completed arena and compare session results in your browser's local storage. When enabled:
+
+- **Model-generated responses** (output text, thinking blocks, metrics) are stored locally so you can review past results.
+- **Preset prompts and personas** are saved by reference (e.g. "Dilemma preset", "Merlin persona"), storing only their built-in IDs, never the text content you didn't write yourself.
+- **Custom user-entered text is never logged.** If you type your own prompt or persona system prompt, it is intentionally excluded from history records. Only the fact that a custom prompt was used is recorded (shown as "Custom prompt" in the history UI), with no content retained.
+
+History data never leaves your browser. It can be cleared at any time from the Settings page.
 
 ### [<img src="docs/icons/health.svg" width="20" height="20" style="vertical-align:middle;margin-right:6px;" alt=""> High Availability](#-high-availability)
 Run several instances behind one client endpoint with no client-side change: a **Front Desk** control plane manages the fleet and replicates config to every member, while **Traefik** load-balances them with health checks and automatic failover. Members share one `MASTER_KEY` (so encrypted provider keys port across the fleet) and each keeps its own admin token.
@@ -140,21 +128,6 @@ Issue separate API keys for different users or services. Each key is SHA-256 has
  <br>
  <sub>Virtual keys management</sub>
 </p>
-
-### [<img src="docs/icons/privacy.svg" width="20" height="20" style="vertical-align:middle;margin-right:6px;" alt=""> No Prompts Logged](#-no-prompts-logged)
-> [!NOTE]
-> **User prompts and request content are never captured, logged, or inspected.**
-> The proxy forwards requests to the provider exactly as received, without reading or modifying message contents.
-
-The only information recorded is what is strictly necessary to route and meter the request: timestamp, duration, latency, time-to-first-token (TTFT, measured during the streaming probe), token counts (including cache-hit/miss breakdown), tokens per second, HTTP status code, error messages (upstream provider failures only, never user content), proxy overhead breakdown (parse, model lookup, provider lookup, key decryption), streaming flag, failover attempt count, resolved model ID (the actual upstream model used, which may differ from the requested `hotel/` name), request state, virtual key identifier, and target provider/model identifiers.
-
-The optional **Arena History** feature (disabled by default, toggled under **Settings → Data Storage and Logging → Arena History**) can persist completed arena and compare session results in your browser's local storage. When enabled:
-
-- **Model-generated responses** (output text, thinking blocks, metrics) are stored locally so you can review past results.
-- **Preset prompts and personas** are saved by reference (e.g. "Dilemma preset", "Merlin persona"), storing only their built-in IDs, never the text content you didn't write yourself.
-- **Custom user-entered text is never logged.** If you type your own prompt or persona system prompt, it is intentionally excluded from history records. Only the fact that a custom prompt was used is recorded (shown as "Custom prompt" in the history UI), with no content retained.
-
-History data never leaves your browser. It can be cleared at any time from the Settings page.
 
 ### [<img src="docs/icons/logging.svg" width="20" height="20" style="vertical-align:middle;margin-right:6px;" alt=""> Request Logging with Overhead Breakdown](#-request-logging-with-overhead-breakdown)
 Every request is logged with full latency decomposition:
@@ -295,162 +268,6 @@ Beyond the shared admin token, you can provision named dashboard accounts that s
 </p>
 
 Manage accounts from the Users page (admin only): create a user, assign grants, set an initial password, reset a password or second factor, enable or disable, and read last-login and TOTP status at a glance. The username/password form appears on the login screen only once at least one user exists, so a fresh install keeps the single admin-token flow, and local token login is never removed so you cannot lock yourself out. See the [Multi-User wiki page](https://github.com/hugalafutro/model-hotel/wiki/Multi-User) for roles, grants, and the per-user rate-limit model.
-
-### [<img src="docs/icons/quickstart.svg" width="20" height="20" style="vertical-align:middle;margin-right:6px;" alt=""> Deploy without Git](#-deploy-without-git)
-No `git clone` needed, and no build. Create two files and go:
-
-**1.** Create `.env` with your secrets:
-
-```bash
-# Generate strong secrets:
-#   MASTER_KEY:       openssl rand -base64 32
-#   POSTGRES_PASSWORD: openssl rand -hex 16
-#   ADMIN_TOKEN:      openssl rand -hex 16   (optional; auto-generated if empty)
-
-MASTER_KEY=<your-master-key>
-POSTGRES_PASSWORD=<your-postgres-password>
-ADMIN_TOKEN=
-
-# Optional: host port for the dashboard and API; change it if 8081 is taken
-# HOST_PORT=8081
-
-# Optional: WebAuthn/FIDO2 passkey login (only WEBAUTHN_RP_ID is required)
-# WEBAUTHN_RP_ID=your-domain.com
-# WEBAUTHN_RP_ORIGINS=https://your-domain.com
-```
-
-**2.** Create `docker-compose.yml`:
-
-<!-- AUTO-SYNC: docker-compose.yml start -->
-<details>
-<summary>docker-compose.yml (click to expand, then copy)</summary>
-
-```yaml
-name: model-hotel
-services:
-    app:
-        # Build from source (default):
-        build:
-            context: .
-            args:
-                VERSION: ${VERSION:-dev}
-                COMMIT: ${COMMIT:-unknown}
-        # Prebuilt images (uncomment 1 image according to registry preference, comment out build above):
-        # image: ghcr.io/hugalafutro/model-hotel:latest
-        # image: hugalafutro/model-hotel:latest
-        labels:
-            app.group: model-hotel
-        ports:
-            - "${HOST_PORT:-8081}:8080"
-        environment:
-            - MASTER_KEY=${MASTER_KEY:?MASTER_KEY must be set in .env}
-            - POSTGRES_USER=${POSTGRES_USER:-modelhotel}
-            - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set in .env}
-            - POSTGRES_HOST=db
-            - POSTGRES_DB=${POSTGRES_DB:-modelhotel}
-            - ADMIN_TOKEN=${ADMIN_TOKEN:-}
-            - ALLOW_HTTP_PROVIDERS=false
-            - ALLOW_EMBED=false
-            - DATA_DIR=/data
-            - RATE_LIMIT_ENABLED=true
-            - DEBUG_LOG=false
-            - CORS_ORIGINS=http://localhost:5173,http://localhost:${HOST_PORT:-8081}
-            - WEBAUTHN_RP_ID=${WEBAUTHN_RP_ID:-}
-            - WEBAUTHN_RP_ORIGINS=${WEBAUTHN_RP_ORIGINS:-}
-            - ALLOWED_PROVIDER_HOSTS=
-            - TRUSTED_PROXIES=
-            - KNOWN_PROXIES=
-        volumes:
-            - ./.data:/data
-            # Docker socket (disabled by default for security).
-            # Enable to show container-level stats in the sidebar (CPU, memory per container).
-            # ⚠️  Granting Docker socket access allows the container to control the Docker daemon.
-            #     Only enable if you trust the deployment environment.
-            # - /var/run/docker.sock:/var/run/docker.sock:ro
-        restart: unless-stopped
-        # Model Hotel winds down in stages on SIGTERM. Worst case, in order:
-        # 10s HTTP drain (open SSE tabs and proxied streams are ended first, so
-        # this is usually quick) + 35s background join (the 30s ceiling of the
-        # scheduled-disable sweep, which deliberately finishes the statement it
-        # has already started, plus a 5s margin; the retention and stale-log
-        # sweeps have no ceiling and the join cancels them instead of waiting)
-        # + 10s audit drain (one record's 5s insert plus the 5s retention prune
-        # it piggybacks) + 5s app-log writer stop + 5s OTLP flush = 65s. The
-        # closes around them (the event bus, the proxy handler, discovery, the
-        # docker client, the rate limiters and the database pool) carry no budget
-        # of their own, so this is a ceiling with headroom over the 65s, not the
-        # sum. Docker's default grace is 10s, which would SIGKILL partway through
-        # the drain and take the audit rows and the last log lines with it.
-        stop_grace_period: 75s
-        depends_on:
-            db:
-                condition: service_healthy
-
-    db:
-        image: postgres:16-alpine
-        labels:
-            app.group: model-hotel
-        command: ["postgres", "-c", "log_min_error_statement=panic", "-c", "log_min_messages=error", "-c", "log_checkpoints=off"]
-        environment:
-            - POSTGRES_USER=${POSTGRES_USER:-modelhotel}
-            - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set in .env}
-            - POSTGRES_DB=${POSTGRES_DB:-modelhotel}
-        volumes:
-            - ./.data/pgdata:/var/lib/postgresql/data
-        restart: unless-stopped
-        healthcheck:
-            test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-modelhotel}"]
-            interval: 5s
-            timeout: 5s
-            retries: 5
-
-    # Optional: outbound alerting via Apprise. Uncomment to run a stateless
-    # apprise-api container, then in Settings → Alerts switch alerting on and press
-    # "Set up alerts": the wizard checks http://apprise:8000, builds the destination
-    # URL for you (ntfy, Telegram, Discord, email, or a raw Apprise URL), tests it,
-    # and saves only at Finish. The same fields sit under "Manual configuration (advanced)" if you
-    # would rather paste tgram://<bot_token>/<chat_id> yourself. Model Hotel POSTs
-    # event summaries here and Apprise fans them out to your service. No request
-    # content is ever sent.
-    # apprise:
-    #     image: caronc/apprise:latest
-    #     labels:
-    #         app.group: model-hotel
-    #     restart: unless-stopped
-    #     # Not exposed to the host: only Model Hotel needs to reach it.
-    #     expose:
-    #         - "8000"
-```
-
-</details>
-<!-- AUTO-SYNC: docker-compose.yml end -->
-
-**3.** Switch to the prebuilt image. The file above builds from source, which needs the repository next to it, so in your copy comment out the `build:` block (the `build:` line and the four lines under it) and uncomment one of the two `image:` lines (GHCR or Docker Hub).
-
-**4.** Deploy:
-
-```bash
-docker compose up -d
-```
-
-Then read the admin token from `docker compose logs app` and open `http://localhost:8081` (or the `HOST_PORT` you set). The file sets `name: model-hotel`, so a second stack on the same host needs a different `name:` (or `-p <other>` on every compose command) and a different `HOST_PORT`.
-
-> [!NOTE]
-> The `docker-compose.yml` content above is the production compose (auto-synced by a GitHub Action). See [Quick Start](#-quick-start) for the development override.
-
-> [!NOTE]
-> `WEBAUTHN_RP_ID` enables FIDO2/WebAuthn passkey login (leave empty to disable); `WEBAUTHN_RP_ORIGINS` is optional and falls back to `CORS_ORIGINS`. `TRUSTED_PROXIES` is for trusting inbound `X-Forwarded-For` headers from reverse proxies (rate limiting/logging). `KNOWN_PROXIES` is for allowing outbound connections to internal LLM servers on private networks (bypasses SSRF protection). See [Configuration](https://github.com/hugalafutro/model-hotel/wiki/Configuration) for details.
-
-> [!NOTE]
-> The app only sees the variables listed under its `environment:` key; `.env` just fills their `${...}` placeholders. To use any other variable (for example `COOKIE_SECURE`, `METRICS_TOKEN` or `LOG_FORMAT`), add it to that list, e.g. `- COOKIE_SECURE=${COOKIE_SECURE:-always}`. `COOKIE_SECURE` sets the `Secure` attribute on the dashboard login cookies: `always` (the default) sends them only over HTTPS or to `http://localhost`, so logging in over plain HTTP from another machine (e.g. `http://192.168.1.10:8081`) fails until you set `auto` (follows the request: TLS or `X-Forwarded-Proto: https`) or `never` (plain-HTTP LAN).
-
-### [<img src="docs/icons/quickstart.svg" width="20" height="20" style="vertical-align:middle;margin-right:6px;" alt=""> Stop, Update, Remove](#-stop-update-remove)
-
-`docker compose down` stops the stack and keeps your data. Both services use bind mounts under `./.data` (PostgreSQL in `./.data/pgdata`). There are no named volumes, so `down -v` removes nothing more.
-
-To update a two-file deployment, run `docker compose pull && docker compose up -d`. Compose changes do not reach you on their own: diff the block in [Deploy without Git](#-deploy-without-git) against your file now and then, merge what changed by hand, keeping every local edit (the step 3 image switch, added `environment:` entries, an uncommented socket mount or apprise service), then run the same two commands. A clone that builds from source runs `git pull && docker compose pull --ignore-buildable && docker compose up --build -d` (the extra pull refreshes the PostgreSQL image, which `up --build` leaves alone). A clone switched to a prebuilt image has a local edit in `docker-compose.yml`, so run `git stash && git pull && git stash pop`; if the pop reports a conflict, remove the conflict markers in `docker-compose.yml`, keeping your `image:` line and upstream's other changes, then run `git restore --staged docker-compose.yml && git stash drop`. Finish with `docker compose pull && docker compose up -d`.
-
-To remove everything, run `docker compose down --rmi all` (containers, network and the images the services use) and delete `./.data`. `./.data/pgdata` belongs to PostgreSQL (uid 70), so this needs `sudo rm -rf .data`; the rest of `.data` belongs to uid 1000, which usually matches your host user. `.env` and `docker-compose.yml` are yours to delete.
 
 ### [<img src="docs/icons/api.svg" width="20" height="20" style="vertical-align:middle;margin-right:6px;" alt=""> API Endpoints](#-api-endpoints)
 One base URL, one virtual key, every endpoint. The core is the OpenAI-compatible [`/v1/chat/completions`](https://github.com/hugalafutro/model-hotel/wiki/API-Reference#post-v1chatcompletions) and [`/v1/models`](https://github.com/hugalafutro/model-hotel/wiki/API-Reference#get-v1models), and the same routing (`hotel/<model>` for failover, `<provider>/<model>` for a direct hit) carries [embeddings, rerank, image generation and edits, text-to-speech and speech-to-text](https://github.com/hugalafutro/model-hotel/wiki/API-Reference#multimodal-endpoints) as transparent pass-through. Two more client dialects are translated on the way in and out: the [Anthropic Messages API](https://github.com/hugalafutro/model-hotel/wiki/API-Reference#post-v1messages), so Claude Code and the Anthropic SDKs fail over across every provider in a group and are forwarded natively when the candidate is Anthropic itself, and the [OpenAI Responses API](https://github.com/hugalafutro/model-hotel/wiki/API-Reference#post-v1responses), so Codex CLI and other Responses-only clients do the same and are forwarded verbatim when the candidate is OpenAI. Models that OpenAI serves only over Responses are [re-routed there on the fly](https://github.com/hugalafutro/model-hotel/wiki/API-Reference#post-v1chatcompletions) while the client keeps speaking Chat Completions. Request and response bodies are never logged. Parameters, streaming formats and curl examples for every endpoint are in the [API Reference](https://github.com/hugalafutro/model-hotel/wiki/API-Reference).

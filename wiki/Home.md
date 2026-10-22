@@ -16,11 +16,21 @@ nano .env              # set MASTER_KEY and POSTGRES_PASSWORD; change HOST_PORT 
 docker compose up --build -d
 ```
 
-To run the published image instead of building, follow [Deploy without Git](https://github.com/hugalafutro/model-hotel#-deploy-without-git) in the README: two files, no clone.
+To run a prebuilt image instead of building from source, edit `docker-compose.yml`: comment out the `build:` block and uncomment one of the `image:` lines. To skip the clone altogether, follow [[Deploy without Git]]: two files, no clone, no build.
 
-On first start the server prints the admin token once, in a boxed `ADMIN TOKEN (save now ...)` panel. Read it with `docker compose logs app`, and save it: it is never shown again. To stop, update or remove the stack, see [Stop, Update, Remove](https://github.com/hugalafutro/model-hotel#-stop-update-remove) in the README.
+On first start the server prints the admin token once, in a boxed `ADMIN TOKEN (save now ...)` panel. Read it with `docker compose logs app`, and save it: it is never shown again. If you lose it, delete `.data/admin-token` and restart to generate a new one. The `ADMIN_TOKEN` environment variable seeds the token on first boot only: once `.data/admin-token` exists the file wins and the variable is ignored.
 
-See [[Development]] for local setup details.
+Open `http://localhost:8081` (or the `HOST_PORT` you set), log in with that token, add your first provider, and start proxying. To stop, update or remove the stack, see [Stop, Update, Remove](#stop-update-remove).
+
+For local development, use the dev stack with the `compose.dev.yml` overlay instead (Docker socket, `DEBUG_LOG`, embedding allowed; trusted environments only): see [Development](Development#quick-start).
+
+### Stop, Update, Remove
+
+`docker compose down` stops the stack and keeps your data. Both services use bind mounts under `./.data` (PostgreSQL in `./.data/pgdata`). There are no named volumes, so `down -v` removes nothing more.
+
+To update a two-file deployment, run `docker compose pull && docker compose up -d`. Compose changes do not reach you on their own: diff the block in [[Deploy without Git]] against your file now and then, merge what changed by hand, keeping every local edit (the step 3 image switch, added `environment:` entries, an uncommented socket mount or apprise service), then run the same two commands. A clone that builds from source runs `git pull && docker compose pull --ignore-buildable && docker compose up --build -d` (the extra pull refreshes the PostgreSQL image, which `up --build` leaves alone). A clone switched to a prebuilt image has a local edit in `docker-compose.yml`, so run `git stash && git pull && git stash pop`; if the pop reports a conflict, remove the conflict markers in `docker-compose.yml`, keeping your `image:` line and upstream's other changes, then run `git restore --staged docker-compose.yml && git stash drop`. Finish with `docker compose pull && docker compose up -d`.
+
+To remove everything, run `docker compose down --rmi all` (containers, network and the images the services use) and delete `./.data`. `./.data/pgdata` belongs to PostgreSQL (uid 70), so this needs `sudo rm -rf .data`; the rest of `.data` belongs to uid 1000, which usually matches your host user. `.env` and `docker-compose.yml` are yours to delete.
 
 ## Key Features
 
@@ -38,6 +48,7 @@ See [[Development]] for local setup details.
 
 ### Getting Started
 
+- [[Deploy without Git]] - Run the published image from two files, no clone, no build
 - [[Configuration]] - Environment variables, runtime settings, appearance
 - [[Development]] - Local setup, project structure, contributing
 
