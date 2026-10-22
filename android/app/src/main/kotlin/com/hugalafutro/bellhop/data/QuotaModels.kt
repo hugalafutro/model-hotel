@@ -479,7 +479,7 @@ private fun decodeQuotaPayload(
 
 // ── Badge label formatting ──────────────────────────────────────────────
 // Shared between the widget (this file feeds WidgetState.widgetQuotaOf) and
-// the future main-page badge composable (D2), so the two surfaces never
+// the dashboard's quota strip (QuotaBadges.kt), so the two surfaces never
 // drift on what a badge says. Shapes mirror web/src/components/QuotaBadge.tsx
 // (used-fraction / used-percent / dollars / plan name / kWh) -- data/shape
 // parity, not a code port. These are numeric or symbol fragments (not
@@ -599,7 +599,7 @@ fun quotaShortCode(type: QuotaType): String =
  * the widget, possibly through an unlock prompt -- would spend a screen to
  * repeat one word. The seven that do have a modal have genuinely more to say
  * (ZAI's 5-hour, weekly and MCP windows; OpenRouter's spend; Kimi's tiers;
- * OpenCode Go's monthly window and reset times).
+ * OpenCode Go's per-window bars and reset times).
  *
  * Keep this in step with `web/src/context/QuotaModalContext.tsx`: a type that
  * gains a modal there should gain a detail view here.

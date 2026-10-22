@@ -314,8 +314,8 @@ class QuotaSpentTest {
 
     @Test
     fun openCodeGoMonthlyWindowSpendsTheProviderToo() {
-        // The breaker is per provider, so the window the badge never prints
-        // still has to pin it.
+        // The breaker is per provider, so a spent monthly window pins it even
+        // while the rolling and weekly windows are untouched.
         val body =
             """{"usage":{"rolling":{"status":"ok","percent":0},"weekly":{"status":"ok","percent":0},
             "monthly":{"status":"ok","percent":100}}}"""
