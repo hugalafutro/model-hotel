@@ -1016,6 +1016,7 @@ func TestTranslateRequest_UnsupportedContent(t *testing.T) {
 		{name: "malformed percent-encoded pdf file part", part: `{"type":"file","file":{"file_data":"data:application/pdf,%PDF-1.4"}}`},
 		{name: "input_audio", part: `{"type":"input_audio","input_audio":{"data":"AAAA","format":"wav"}}`},
 		{name: "unknown type", part: `{"type":"video_url","video_url":{"url":"https://example.com/a.mp4"}}`},
+		{name: "caller text as the type", part: `{"type":"CALLER-TEXT-8f3a","text":"hi"}`},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -1024,7 +1025,8 @@ func TestTranslateRequest_UnsupportedContent(t *testing.T) {
 			if !errors.Is(err, ErrUnsupportedContent) || !errors.Is(err, ErrInvalidRequest) {
 				t.Fatalf("err = %v, want ErrUnsupportedContent (an ErrInvalidRequest)", err)
 			}
-			if strings.Contains(err.Error(), "file-abc") || strings.Contains(err.Error(), "AAAA") {
+			if msg := err.Error(); strings.Contains(msg, "file-abc") || strings.Contains(msg, "AAAA") ||
+				strings.Contains(msg, "video_url") || strings.Contains(msg, "CALLER-TEXT") {
 				t.Errorf("error carries request content: %q", err)
 			}
 		})

@@ -120,7 +120,10 @@ func translateBlocks(raw json.RawMessage) ([]antBlock, error) {
 			}
 			blocks = append(blocks, b)
 		default:
-			return nil, fmt.Errorf("%w: part %d has type %q", ErrUnsupportedContent, i, p.Type)
+			// The type is caller text: quoting it would put request content in
+			// the response and request_logs.error_message, which the content
+			// fence cannot catch because it skips "type" members.
+			return nil, fmt.Errorf("%w: part %d has a type Messages does not take", ErrUnsupportedContent, i)
 		}
 	}
 	return blocks, nil
