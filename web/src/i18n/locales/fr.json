@@ -2723,7 +2723,10 @@
 			"tokPerSec": "tok/s",
 			"tok": "tok",
 			"disableModelTooltip": "Cesser d'acheminer les requêtes vers ce modèle jusqu'à ce que vous le réactiviez.",
-			"elapsedSeconds": "{{seconds}}s"
+			"elapsedSeconds": "{{seconds}}s",
+			"tokensHintResponse": "Jetons d'entrée + jetons de sortie. Les jetons de sortie ne couvrent que la réponse.",
+			"tokensHintReasoning": "Jetons d'entrée + jetons de sortie. Les jetons de sortie incluent les jetons de raisonnement en plus de la réponse.",
+			"tokensHintUnknown": "Jetons d'entrée + jetons de sortie. Pour un modèle qui raisonne, les jetons de sortie incluent aussi ses jetons de raisonnement."
 		},
 		"providerFilter": {
 			"filterProviders": "Filtrer les fournisseurs",

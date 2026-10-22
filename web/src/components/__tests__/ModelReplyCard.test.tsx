@@ -103,6 +103,22 @@ describe("ModelReplyCard", () => {
 			expect(screen.getByText("🤖 Assistant")).toBeInTheDocument();
 		});
 
+		it("puts the persona in the header and the model name below the reply", () => {
+			renderWithProviders(
+				<ModelReplyCard {...defaultProps} personaName="🤖 Assistant" />,
+			);
+			const persona = screen.getByText("🤖 Assistant");
+			const reply = screen.getByText(defaultProps.content);
+			const model = screen.getByText("gemma3:4b");
+			expect(
+				persona.compareDocumentPosition(reply) &
+					Node.DOCUMENT_POSITION_FOLLOWING,
+			).toBeTruthy();
+			expect(
+				reply.compareDocumentPosition(model) & Node.DOCUMENT_POSITION_FOLLOWING,
+			).toBeTruthy();
+		});
+
 		it("renders turn number when provided", () => {
 			renderWithProviders(<ModelReplyCard {...defaultProps} turnNumber={3} />);
 			expect(screen.getByText("Turn 3")).toBeInTheDocument();
@@ -283,13 +299,24 @@ describe("ModelReplyCard", () => {
 			expect(maximizeButton).toBeInTheDocument();
 		});
 
-		// The maximised dialog is named after the model, off its own header.
+		// The maximised dialog is named by its title alone, not the metrics row.
 		it("opens a dialog named after the model", async () => {
 			const user = userEvent.setup();
 			renderWithProviders(<ModelReplyCard {...defaultProps} />);
 			await user.click(screen.getByRole("button", { name: "Maximize reply" }));
 			expect(
-				screen.getByRole("dialog", { name: /gemma3:4b/ }),
+				screen.getByRole("dialog", { name: "gemma3:4b" }),
+			).toBeInTheDocument();
+		});
+
+		it("names a persona dialog persona first, then model", async () => {
+			const user = userEvent.setup();
+			renderWithProviders(
+				<ModelReplyCard {...defaultProps} personaName="🤖 Assistant" />,
+			);
+			await user.click(screen.getByRole("button", { name: "Maximize reply" }));
+			expect(
+				screen.getByRole("dialog", { name: "🤖 Assistant gemma3:4b" }),
 			).toBeInTheDocument();
 		});
 
@@ -424,7 +451,7 @@ describe("ModelReplyCard", () => {
 			const card = document.querySelector(".ui-card");
 			const footer = Array.from(
 				card?.querySelectorAll("div.flex.items-center.justify-between") || [],
-			).find((el) => el.className.includes("text-[11px]"));
+			).find((el) => el.className.includes("text-[11.5px]"));
 			expect(footer?.className).toContain("footer-class");
 		});
 	});
@@ -500,6 +527,36 @@ describe("ModelReplyCard cost and token split", () => {
 	it("shows prompt and completion tokens separately", () => {
 		renderWithProviders(<ModelReplyCard {...props} />);
 		expect(screen.getByText("182 + 966 tok")).toBeInTheDocument();
+	});
+
+	it("explains the token count as response only for a plain model", () => {
+		renderWithProviders(<ModelReplyCard {...props} isReasoningModel={false} />);
+		expect(
+			screen.getByRole("img", { name: /response only/i }),
+		).toBeInTheDocument();
+	});
+
+	it("keeps the token hint neutral when the reasoning capability is unknown", () => {
+		renderWithProviders(<ModelReplyCard {...props} />);
+		expect(
+			screen.getByRole("img", { name: /for a model that reasons/i }),
+		).toBeInTheDocument();
+	});
+
+	it("explains the token count as reasoning plus response for a reasoning model", () => {
+		renderWithProviders(<ModelReplyCard {...props} isReasoningModel />);
+		expect(
+			screen.getByRole("img", { name: /reasoning tokens/i }),
+		).toBeInTheDocument();
+	});
+
+	it("counts streamed thinking as reasoning even when the model is not flagged", () => {
+		renderWithProviders(
+			<ModelReplyCard {...props} thinkingContent="weighing options" />,
+		);
+		expect(
+			screen.getByRole("img", { name: /reasoning tokens/i }),
+		).toBeInTheDocument();
 	});
 
 	it("shows the estimated price when given one and nothing when unpriced", () => {

@@ -123,8 +123,8 @@ export function ChatMessageList({
 								{(msg.content || (!msg.imageUrl && !msg.audioAttachment)) && (
 									<MarkdownContent>{msg.content}</MarkdownContent>
 								)}
-								<div className="flex items-center gap-3 text-[11px] mt-0.5 text-(--text-secondary)">
-									<span>{formatTime(msg.timestamp)}</span>
+								<div className="flex items-center gap-3 text-[11.5px] mt-0.5 text-(--text-secondary)">
+									<span>{formatTime(msg.timestamp, true)}</span>
 									<CopyButton
 										text={msg.content}
 										size={10}
@@ -201,7 +201,7 @@ export function ChatMessageList({
 										)
 									)
 								}
-								footerStart={<span>{formatTime(msg.timestamp)}</span>}
+								footerStart={<span>{formatTime(msg.timestamp, true)}</span>}
 								footerEnd={
 									<div className="flex items-center gap-2">
 										<CopyButton text={msg.content} size={10} />

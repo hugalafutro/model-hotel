@@ -2723,7 +2723,10 @@
 			"tokPerSec": "tok/s",
 			"tok": "טוק",
 			"disableModelTooltip": "הפסק לנתב בקשות למודל הזה עד שתפעיל אותו מחדש.",
-			"elapsedSeconds": "{{seconds}} שנ"
+			"elapsedSeconds": "{{seconds}} שנ",
+			"tokensHintResponse": "טוקני קלט + טוקני פלט. טוקני הפלט כוללים את התשובה בלבד.",
+			"tokensHintReasoning": "טוקני קלט + טוקני פלט. טוקני הפלט כוללים גם את טוקני החשיבה, בנוסף לתשובה.",
+			"tokensHintUnknown": "טוקני קלט + טוקני פלט. במודל שמבצע חשיבה, טוקני הפלט כוללים גם את טוקני החשיבה שלו."
 		},
 		"providerFilter": {
 			"filterProviders": "סינון ספקים",

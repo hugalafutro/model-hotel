@@ -2653,7 +2653,10 @@
 			"tokPerSec": "tok/s",
 			"tok": "tok",
 			"disableModelTooltip": "Stop med at sende anmodninger til denne model, indtil du aktiverer den igen.",
-			"elapsedSeconds": "{{seconds}}s"
+			"elapsedSeconds": "{{seconds}}s",
+			"tokensHintResponse": "Inputtokens + outputtokens. Outputtokens dækker kun svaret.",
+			"tokensHintReasoning": "Inputtokens + outputtokens. Outputtokens omfatter ræsonnementstokens ud over svaret.",
+			"tokensHintUnknown": "Inputtokens + outputtokens. For en model, der ræsonnerer, omfatter outputtokens også dens ræsonnementstokens."
 		},
 		"providerFilter": {
 			"filterProviders": "Filtrer Udbydere",

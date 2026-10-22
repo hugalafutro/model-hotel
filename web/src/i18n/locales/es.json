@@ -2723,7 +2723,10 @@
 			"tokPerSec": "tok/s",
 			"tok": "tok",
 			"disableModelTooltip": "Deja de enrutar solicitudes a este modelo hasta que lo vuelvas a habilitar.",
-			"elapsedSeconds": "{{seconds}}s"
+			"elapsedSeconds": "{{seconds}}s",
+			"tokensHintResponse": "Tokens de entrada + tokens de salida. Los tokens de salida cubren solo la respuesta.",
+			"tokensHintReasoning": "Tokens de entrada + tokens de salida. Los tokens de salida incluyen los de razonamiento además de la respuesta.",
+			"tokensHintUnknown": "Tokens de entrada + tokens de salida. En un modelo que razona, los tokens de salida también incluyen sus tokens de razonamiento."
 		},
 		"providerFilter": {
 			"filterProviders": "Filtrar proveedores",

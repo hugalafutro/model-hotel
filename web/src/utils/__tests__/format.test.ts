@@ -425,6 +425,13 @@ describe("formatTime", () => {
 		expect(result).toMatch(/12:00/);
 	});
 
+	it("adds seconds only when asked", () => {
+		const ts = new Date("2024-01-15T14:30:45Z").getTime();
+
+		expect(formatTime(ts, true)).toMatch(/\d{1,2}:\d{2}:45/);
+		expect(formatTime(ts)).not.toMatch(/:45/);
+	});
+
 	it("accepts a date string as well as a numeric timestamp", () => {
 		const result = formatTime("2024-01-15T14:30:00Z");
 

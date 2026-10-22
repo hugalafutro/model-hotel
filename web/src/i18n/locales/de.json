@@ -2653,7 +2653,10 @@
 			"tokPerSec": "tok/s",
 			"tok": "tok",
 			"disableModelTooltip": "Keine Anfragen mehr an dieses Modell leiten, bis Sie es wieder aktivieren.",
-			"elapsedSeconds": "{{seconds}}s"
+			"elapsedSeconds": "{{seconds}}s",
+			"tokensHintResponse": "Eingabe-Tokens + Ausgabe-Tokens. Die Ausgabe-Tokens umfassen nur die Antwort.",
+			"tokensHintReasoning": "Eingabe-Tokens + Ausgabe-Tokens. Die Ausgabe-Tokens umfassen neben der Antwort auch die Denk-Tokens.",
+			"tokensHintUnknown": "Eingabe-Tokens + Ausgabe-Tokens. Bei einem Modell, das nachdenkt, umfassen die Ausgabe-Tokens auch seine Denk-Tokens."
 		},
 		"providerFilter": {
 			"filterProviders": "Anbieter filtern",

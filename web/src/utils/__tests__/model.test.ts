@@ -421,7 +421,8 @@ describe("findChatModel / isReasoningModel / chatModelIdSet", () => {
 	it("reads the reasoning capability", () => {
 		expect(isReasoningModel(models, "Z-AI/glm-5")).toBe(true);
 		expect(isReasoningModel(models, "OpenAI/gpt-4o")).toBe(false);
-		expect(isReasoningModel(models, "OpenAI/missing")).toBe(false);
+		// A model gone from the catalog (disabled, deleted) is unknown, not false.
+		expect(isReasoningModel(models, "OpenAI/missing")).toBeUndefined();
 	});
 
 	it("collects the proxy ids", () => {

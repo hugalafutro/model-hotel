@@ -2653,7 +2653,10 @@
 			"tokPerSec": "tok/s",
 			"tok": "tok",
 			"disableModelTooltip": "Stuur geen verzoeken meer naar dit model totdat je het weer inschakelt.",
-			"elapsedSeconds": "{{seconds}}s"
+			"elapsedSeconds": "{{seconds}}s",
+			"tokensHintResponse": "Invoertokens + uitvoertokens. De uitvoertokens omvatten alleen het antwoord.",
+			"tokensHintReasoning": "Invoertokens + uitvoertokens. De uitvoertokens omvatten naast het antwoord ook de redeneertokens.",
+			"tokensHintUnknown": "Invoertokens + uitvoertokens. Bij een model dat redeneert, omvatten de uitvoertokens ook de redeneertokens."
 		},
 		"providerFilter": {
 			"filterProviders": "Providers filteren",

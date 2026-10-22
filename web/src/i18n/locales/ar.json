@@ -2933,7 +2933,10 @@
 			"tokPerSec": "tok/s",
 			"tok": "tok",
 			"disableModelTooltip": "إيقاف توجيه الطلبات إلى هذا النموذج حتى تعيد تمكينه.",
-			"elapsedSeconds": "{{seconds}} ث"
+			"elapsedSeconds": "{{seconds}} ث",
+			"tokensHintResponse": "رموز الإدخال + رموز الإخراج. تشمل رموز الإخراج الرد فقط.",
+			"tokensHintReasoning": "رموز الإدخال + رموز الإخراج. تشمل رموز الإخراج رموز الاستدلال إضافة إلى الرد.",
+			"tokensHintUnknown": "رموز الإدخال + رموز الإخراج. في النماذج التي تستدل، تشمل رموز الإخراج أيضًا رموز الاستدلال."
 		},
 		"providerFilter": {
 			"filterProviders": "تصفية المزودين",
