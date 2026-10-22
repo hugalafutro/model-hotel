@@ -70,6 +70,7 @@ class WidgetHeightsTest {
         val pre31 = heights(defaultLines, roundsSizes = false)
         assertTrue(pre31.eventFits(604, 4, 2))
         assertFalse(pre31.eventFits(603, 4, 2))
+        assertTrue(atDefaultFont.eventFits(606, 4, 2))
         assertFalse(atDefaultFont.eventFits(605, 4, 2))
     }
 

@@ -455,6 +455,7 @@ private fun WidgetContent(
                         Text(
                             "${c.up}/${state.members.size}",
                             style = TextStyle(color = badgeColor, fontSize = 10.sp, fontWeight = FontWeight.Bold),
+                            maxLines = 1,
                         )
                     }
                 }
