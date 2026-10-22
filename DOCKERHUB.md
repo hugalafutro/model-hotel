@@ -11,11 +11,11 @@
  <img class="inline" src="https://img.shields.io/badge/TypeScript-3178C6?logo=typescript&logoColor=white" alt="TypeScript">
  <img class="inline" src="https://img.shields.io/badge/React-61DAFB?logo=react&logoColor=black" alt="React">
  <img class="inline" src="https://img.shields.io/badge/PostgreSQL-4169E1?logo=postgresql&logoColor=white" alt="PostgreSQL">
+ <img class="inline" src="https://img.shields.io/github/stars/hugalafutro/model-hotel" alt="GitHub Stars">
  <br>
  <a href="https://github.com/hugalafutro/model-hotel/actions/workflows/ci.yml"><img class="inline" src="https://github.com/hugalafutro/model-hotel/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
  <a href="https://github.com/hugalafutro/model-hotel/actions/workflows/codeql.yml"><img class="inline" src="https://github.com/hugalafutro/model-hotel/actions/workflows/codeql.yml/badge.svg" alt="CodeQL"></a>
  <a href="https://github.com/hugalafutro/model-hotel/actions/workflows/ci.yml"><img class="inline" src="https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/hugalafutro/model-hotel/badges/coverage.json" alt="Coverage"></a>
- <img class="inline" src="https://img.shields.io/github/stars/hugalafutro/model-hotel" alt="GitHub Stars">
 </p>
 
 
