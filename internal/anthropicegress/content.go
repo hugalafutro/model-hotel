@@ -49,6 +49,13 @@ func translateTurn(role string, m oaiMessage) (*antMessage, error) {
 	return &antMessage{Role: role, Content: blocks}, nil
 }
 
+// unsupportedPartTypes are the documented OpenAI content part types Messages
+// has no block for. A refusal names the type only when it is one of these: the
+// type is caller text, and quoting anything else would put request content in
+// the response and request_logs.error_message, which the content fence cannot
+// catch because it skips "type" members.
+var unsupportedPartTypes = map[string]bool{"input_audio": true}
+
 // translateBlocks converts an OpenAI message content field (string, part array
 // or null) into Anthropic content blocks. An empty text part and an empty
 // image or file part are dropped: they carry nothing. A part that carries
@@ -120,10 +127,7 @@ func translateBlocks(raw json.RawMessage) ([]antBlock, error) {
 			}
 			blocks = append(blocks, b)
 		default:
-			// The type is caller text: quoting it would put request content in
-			// the response and request_logs.error_message, which the content
-			// fence cannot catch because it skips "type" members.
-			return nil, fmt.Errorf("%w: part %d has a type Messages does not take", ErrUnsupportedContent, i)
+			return nil, fmt.Errorf("%w: part %d has type %s", ErrUnsupportedContent, i, util.KnownToken(p.Type, unsupportedPartTypes))
 		}
 	}
 	return blocks, nil

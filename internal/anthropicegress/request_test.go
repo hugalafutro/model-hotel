@@ -1001,6 +1001,8 @@ func TestTranslateRequest_UnsupportedContent(t *testing.T) {
 	tests := []struct {
 		name string
 		part string
+		// says is the part's diagnosis, for the refusals that name a type.
+		says string
 	}{
 		{name: "file_id", part: `{"type":"file","file":{"file_id":"file-abc"}}`},
 		{name: "file_data that is not a data uri", part: `{"type":"file","file":{"file_data":"JVBERi0="}}`},
@@ -1014,9 +1016,10 @@ func TestTranslateRequest_UnsupportedContent(t *testing.T) {
 		{name: "empty file_data beside a file_id", part: `{"type":"file","file":{"file_data":"data:text/plain,","file_id":"file-abc"}}`},
 		{name: "malformed percent-encoded pdf in the image slot", part: `{"type":"image_url","image_url":{"url":"data:application/pdf,%PDF-1.4"}}`},
 		{name: "malformed percent-encoded pdf file part", part: `{"type":"file","file":{"file_data":"data:application/pdf,%PDF-1.4"}}`},
-		{name: "input_audio", part: `{"type":"input_audio","input_audio":{"data":"AAAA","format":"wav"}}`},
-		{name: "unknown type", part: `{"type":"video_url","video_url":{"url":"https://example.com/a.mp4"}}`},
-		{name: "caller text as the type", part: `{"type":"CALLER-TEXT-8f3a","text":"hi"}`},
+		// A documented type is named; any other type is caller text and is not.
+		{name: "input_audio", part: `{"type":"input_audio","input_audio":{"data":"AAAA","format":"wav"}}`, says: "part 1 has type input_audio"},
+		{name: "unknown type", part: `{"type":"video_url","video_url":{"url":"https://example.com/a.mp4"}}`, says: "part 1 has type unknown"},
+		{name: "caller text as the type", part: `{"type":"CALLER-TEXT-8f3a","text":"hi"}`, says: "part 1 has type unknown"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -1028,6 +1031,9 @@ func TestTranslateRequest_UnsupportedContent(t *testing.T) {
 			if msg := err.Error(); strings.Contains(msg, "file-abc") || strings.Contains(msg, "AAAA") ||
 				strings.Contains(msg, "video_url") || strings.Contains(msg, "CALLER-TEXT") {
 				t.Errorf("error carries request content: %q", err)
+			}
+			if !strings.HasSuffix(err.Error(), tt.says) {
+				t.Errorf("err = %q, want it to end %q", err, tt.says)
 			}
 		})
 	}
