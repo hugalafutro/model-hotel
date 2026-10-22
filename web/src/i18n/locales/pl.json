@@ -2793,7 +2793,9 @@
 			"tokPerSec": "tok/s",
 			"tok": "tok",
 			"disableModelTooltip": "Przestań kierować żądania do tego modelu, dopóki go ponownie nie włączysz.",
-			"elapsedSeconds": "{{seconds}}s"
+			"elapsedSeconds": "{{seconds}}s",
+			"tokensHintResponse": "Tokeny wejściowe + tokeny wyjściowe. Tokeny wyjściowe obejmują tylko odpowiedź.",
+			"tokensHintReasoning": "Tokeny wejściowe + tokeny wyjściowe. Tokeny wyjściowe obejmują oprócz odpowiedzi także tokeny rozumowania."
 		},
 		"providerFilter": {
 			"filterProviders": "Filtruj dostawców",

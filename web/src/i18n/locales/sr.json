@@ -2723,7 +2723,9 @@
 			"tokPerSec": "ток/с",
 			"tok": "ток",
 			"disableModelTooltip": "Заустави усмеравање захтева ка овом моделу док га поново не омогућиш.",
-			"elapsedSeconds": "{{seconds}} с"
+			"elapsedSeconds": "{{seconds}} с",
+			"tokensHintResponse": "Улазни токени + излазни токени. Излазни токени обухватају само одговор.",
+			"tokensHintReasoning": "Улазни токени + излазни токени. Излазни токени поред одговора обухватају и токене резоновања."
 		},
 		"providerFilter": {
 			"filterProviders": "Филтрирај провајдере",

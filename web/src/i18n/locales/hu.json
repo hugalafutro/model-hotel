@@ -2653,7 +2653,9 @@
 			"tokPerSec": "tok/mp",
 			"tok": "tok",
 			"disableModelTooltip": "Ne irányítson több kérést erre a modellre, amíg újra nem engedélyezi.",
-			"elapsedSeconds": "{{seconds}}s"
+			"elapsedSeconds": "{{seconds}}s",
+			"tokensHintResponse": "Bemeneti tokenek + kimeneti tokenek. A kimeneti tokenek csak a választ tartalmazzák.",
+			"tokensHintReasoning": "Bemeneti tokenek + kimeneti tokenek. A kimeneti tokenek a válasz mellett az érvelési tokeneket is tartalmazzák."
 		},
 		"providerFilter": {
 			"filterProviders": "Szolgáltatók szűrése",

@@ -2653,7 +2653,9 @@
 			"tokPerSec": "tok/giây",
 			"tok": "tok",
 			"disableModelTooltip": "Ngừng định tuyến yêu cầu đến mô hình này cho đến khi bạn bật lại.",
-			"elapsedSeconds": "{{seconds}}s"
+			"elapsedSeconds": "{{seconds}}s",
+			"tokensHintResponse": "Token đầu vào + token đầu ra. Token đầu ra chỉ bao gồm câu trả lời.",
+			"tokensHintReasoning": "Token đầu vào + token đầu ra. Token đầu ra bao gồm cả token suy luận lẫn câu trả lời."
 		},
 		"providerFilter": {
 			"filterProviders": "Lọc nhà cung cấp",

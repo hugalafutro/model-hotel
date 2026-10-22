@@ -2723,7 +2723,9 @@
 			"tokPerSec": "tok/s",
 			"tok": "tok",
 			"disableModelTooltip": "Parar de encaminhar pedidos para este modelo até o reativar.",
-			"elapsedSeconds": "{{seconds}}s"
+			"elapsedSeconds": "{{seconds}}s",
+			"tokensHintResponse": "Tokens de entrada + tokens de saída. Os tokens de saída cobrem apenas a resposta.",
+			"tokensHintReasoning": "Tokens de entrada + tokens de saída. Os tokens de saída incluem os tokens de raciocínio, além da resposta."
 		},
 		"providerFilter": {
 			"filterProviders": "Filtrar provedores",

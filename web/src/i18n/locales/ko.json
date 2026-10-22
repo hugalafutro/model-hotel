@@ -2653,7 +2653,9 @@
 			"tokPerSec": "토큰/초",
 			"tok": "tok",
 			"disableModelTooltip": "다시 활성화할 때까지 이 모델로 요청을 라우팅하지 않습니다.",
-			"elapsedSeconds": "{{seconds}}초"
+			"elapsedSeconds": "{{seconds}}초",
+			"tokensHintResponse": "입력 토큰 + 출력 토큰. 출력 토큰은 응답만 포함합니다.",
+			"tokensHintReasoning": "입력 토큰 + 출력 토큰. 출력 토큰에는 응답과 함께 추론 토큰도 포함됩니다."
 		},
 		"providerFilter": {
 			"filterProviders": "제공업체 필터",

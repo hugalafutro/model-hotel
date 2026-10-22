@@ -73,7 +73,7 @@ interface ModelReplyCardProps {
 	params?: GenerationParams;
 	/** Whether this model has reasoning capability - shows "Thinking…" instead of "Waiting…" during empty streaming */
 	isReasoningModel?: boolean;
-	/** Persona name to display in the footer/status bar */
+	/** Persona name; when set it heads the card and the model name moves to the footer */
 	personaName?: string;
 	/** Tooltip text for the persona badge (e.g. full persona prompt) */
 	personaTooltip?: string;
@@ -196,6 +196,22 @@ export const ModelReplyCard = memo(function ModelReplyCard({
 			</button>
 		) : null;
 
+	// The completion count includes reasoning tokens for a reasoning model, and
+	// for any reply that streamed thinking (a blind Arena card hides the model's
+	// capabilities but still shows its thinking block).
+	const reasoningTokens = isReasoningModel || hasThinking;
+
+	// A persona, when set, takes the header and the model name drops to the
+	// footer (and to the right side of the maximised header).
+	const personaLabel = (className: string) => (
+		<span
+			className={`text-(--accent) cursor-help truncate ${className}`}
+			title={personaTooltip || personaName}
+		>
+			{personaName}
+		</span>
+	);
+
 	// Duration, tokens per second, prompt + completion tokens and the estimated
 	// price, in the card footer and again in the maximised header.
 	const metricsSummary = (size: "sm" | "md") => {
@@ -216,10 +232,18 @@ export const ModelReplyCard = memo(function ModelReplyCard({
 					</span>
 				)}
 				{metrics.promptTokens + metrics.completionTokens > 0 && (
-					<span className={cell.trimEnd()}>
+					<span className={`${cell}flex items-center gap-1`}>
 						{formatNumber(metrics.promptTokens)} +{" "}
 						{formatNumber(metrics.completionTokens)}{" "}
 						{t("components.modelReplyCard.tok")}
+						<InfoHint
+							size={iconSize}
+							tooltip={t(
+								reasoningTokens
+									? "components.modelReplyCard.tokensHintReasoning"
+									: "components.modelReplyCard.tokensHintResponse",
+							)}
+						/>
 					</span>
 				)}
 				{costUsd !== null && (
@@ -240,30 +264,38 @@ export const ModelReplyCard = memo(function ModelReplyCard({
 						className={`flex items-center justify-between gap-2 ${headerClassName || ""}`}
 					>
 						<div className="flex items-center gap-2 min-w-0">
-							<Bot size={14} className="text-(--accent) shrink-0" />
-							{/* biome-ignore lint/a11y/noStaticElementInteractions: conditionally interactive - role/tabIndex/keyboard handler are only set when onModelNameClick is provided */}
-							<div
-								role={onModelNameClick ? "button" : undefined}
-								tabIndex={onModelNameClick ? 0 : undefined}
-								className={`group/button flex items-center gap-1 min-w-0 ${onModelNameClick ? "cursor-pointer" : ""}`}
-								onClick={onModelNameClick}
-								onKeyDown={
-									onModelNameClick ? onActivateKey(onModelNameClick) : undefined
-								}
-							>
-								<span
-									className={`text-sm font-medium truncate ${onModelNameClick ? "ui-link-accent ui-link-accent-in-group " : ""}${modelMaxWidth} ${accentText ? "text-(--accent)" : "text-(--text-primary)"}`}
-									title={model}
-								>
-									{displayName}
-								</span>
-								{showInfoIcon && onModelNameClick && (
-									<InfoHint
-										tooltip={t("components.modelReplyCard.modelDetails")}
-										className="ui-icon-btn-in-group shrink-0"
-									/>
-								)}
-							</div>
+							{personaName ? (
+								personaLabel("text-sm font-medium min-w-0")
+							) : (
+								<>
+									<Bot size={14} className="text-(--accent) shrink-0" />
+									{/* biome-ignore lint/a11y/noStaticElementInteractions: conditionally interactive - role/tabIndex/keyboard handler are only set when onModelNameClick is provided */}
+									<div
+										role={onModelNameClick ? "button" : undefined}
+										tabIndex={onModelNameClick ? 0 : undefined}
+										className={`group/button flex items-center gap-1 min-w-0 ${onModelNameClick ? "cursor-pointer" : ""}`}
+										onClick={onModelNameClick}
+										onKeyDown={
+											onModelNameClick
+												? onActivateKey(onModelNameClick)
+												: undefined
+										}
+									>
+										<span
+											className={`text-sm font-medium truncate ${onModelNameClick ? "ui-link-accent ui-link-accent-in-group " : ""}${modelMaxWidth} ${accentText ? "text-(--accent)" : "text-(--text-primary)"}`}
+											title={model}
+										>
+											{displayName}
+										</span>
+										{showInfoIcon && onModelNameClick && (
+											<InfoHint
+												tooltip={t("components.modelReplyCard.modelDetails")}
+												className="ui-icon-btn-in-group shrink-0"
+											/>
+										)}
+									</div>
+								</>
+							)}
 							<ParamsTooltip params={params} />
 							{afterModel}
 						</div>
@@ -331,16 +363,13 @@ export const ModelReplyCard = memo(function ModelReplyCard({
 
 				{/* ── Footer ── */}
 				<div
-					className={`flex items-center justify-between text-[11px] text-(--text-tertiary) shrink-0 py-0.5 ${footerClassName || ""}`}
+					className={`flex items-center justify-between text-[11.5px] text-(--text-tertiary) shrink-0 py-0.5 ${footerClassName || ""}`}
 				>
-					<div className="flex items-center gap-3">
+					<div className="flex items-center gap-3 min-w-0">
 						{footerStart}
 						{personaName && (
-							<span
-								className="text-[11px] text-(--accent) cursor-help truncate max-w-30"
-								title={personaTooltip || personaName}
-							>
-								{personaName}
+							<span className="truncate min-w-0 max-w-60" title={model}>
+								{displayName}
 							</span>
 						)}
 						{isStreaming && startTimeMs && startTimeMs !== 0 ? (
@@ -369,23 +398,29 @@ export const ModelReplyCard = memo(function ModelReplyCard({
 					header={
 						<div className="flex items-center justify-between mb-4 -mt-2">
 							<div className="flex items-center gap-2 min-w-0">
-								<Bot size={18} className="text-(--accent) shrink-0" />
-								<span
-									className="text-base font-medium text-(--text-primary) truncate"
-									title={model}
-								>
-									{displayName}
-								</span>
+								{personaName ? (
+									personaLabel("text-base font-medium")
+								) : (
+									<>
+										<Bot size={18} className="text-(--accent) shrink-0" />
+										<span
+											className="text-base font-medium text-(--text-primary) truncate"
+											title={model}
+										>
+											{displayName}
+										</span>
+									</>
+								)}
 								<ParamsTooltip params={params} size={12} />
 								{afterModel}
 							</div>
 							<div className="flex items-center gap-3 shrink-0 pr-8">
 								{personaName && (
 									<span
-										className="text-xs text-(--accent) cursor-help truncate max-w-40"
-										title={personaTooltip || personaName}
+										className="text-xs text-(--text-tertiary) truncate max-w-60"
+										title={model}
 									>
-										{personaName}
+										{displayName}
 									</span>
 								)}
 								{metricsSummary("md")}

@@ -2653,7 +2653,9 @@
 			"tokPerSec": "tok/s",
 			"tok": "tok",
 			"disableModelTooltip": "Stop routing requests to this model until you re-enable it.",
-			"elapsedSeconds": "{{seconds}}s"
+			"elapsedSeconds": "{{seconds}}s",
+			"tokensHintResponse": "Input + output tokens. The output count covers the response only.",
+			"tokensHintReasoning": "Input + output tokens. The output count includes reasoning tokens as well as the response."
 		},
 		"providerFilter": {
 			"filterProviders": "Filter Providers",

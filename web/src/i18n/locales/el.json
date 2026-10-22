@@ -2653,7 +2653,9 @@
 			"tokPerSec": "tok/s",
 			"tok": "tok",
 			"disableModelTooltip": "Διακοπή δρομολόγησης αιτημάτων προς αυτό το μοντέλο μέχρι να το ενεργοποιήσετε ξανά.",
-			"elapsedSeconds": "{{seconds}}δ"
+			"elapsedSeconds": "{{seconds}}δ",
+			"tokensHintResponse": "Tokens εισόδου + tokens εξόδου. Τα tokens εξόδου καλύπτουν μόνο την απάντηση.",
+			"tokensHintReasoning": "Tokens εισόδου + tokens εξόδου. Τα tokens εξόδου περιλαμβάνουν, εκτός από την απάντηση, και τα tokens συλλογισμού."
 		},
 		"providerFilter": {
 			"filterProviders": "Φιλτράρισμα παρόχων",

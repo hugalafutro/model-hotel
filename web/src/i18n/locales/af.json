@@ -2653,7 +2653,9 @@
 			"tokPerSec": "tok/s",
 			"tok": "token",
 			"disableModelTooltip": "Stop om versoeke na hierdie model te stuur totdat jy dit weer aanskakel.",
-			"elapsedSeconds": "{{seconds}}s"
+			"elapsedSeconds": "{{seconds}}s",
+			"tokensHintResponse": "Invoertokens + uitvoertokens. Die uitvoertelling dek slegs die antwoord.",
+			"tokensHintReasoning": "Invoertokens + uitvoertokens. Die uitvoertelling sluit redenasietokens in, benewens die antwoord."
 		},
 		"providerFilter": {
 			"filterProviders": "Filter verskaffers",

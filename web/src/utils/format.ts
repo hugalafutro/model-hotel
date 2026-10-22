@@ -101,11 +101,12 @@ export function formatDate(ts: number | string): string {
 	});
 }
 
-/** Clock time alone, in formatLocale() and its 12/24-hour convention. */
-export function formatTime(ts: number | string): string {
+/** Clock time alone, in formatLocale() and its 12/24-hour convention; seconds on request. */
+export function formatTime(ts: number | string, withSeconds = false): string {
 	return new Date(ts).toLocaleTimeString(formatLocale(), {
 		hour: "2-digit",
 		minute: "2-digit",
+		...(withSeconds && { second: "2-digit" }),
 	});
 }
 

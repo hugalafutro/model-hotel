@@ -2653,7 +2653,9 @@
 			"tokPerSec": "tok/s",
 			"tok": "tok",
 			"disableModelTooltip": "再度有効にするまで、このモデルへのリクエスト転送を停止します。",
-			"elapsedSeconds": "{{seconds}}秒"
+			"elapsedSeconds": "{{seconds}}秒",
+			"tokensHintResponse": "入力トークン + 出力トークン。出力トークンは応答のみを含みます。",
+			"tokensHintReasoning": "入力トークン + 出力トークン。出力トークンには応答に加えて推論トークンも含まれます。"
 		},
 		"providerFilter": {
 			"filterProviders": "プロバイダーを絞り込む",

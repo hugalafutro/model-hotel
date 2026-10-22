@@ -2793,7 +2793,9 @@
 			"tokPerSec": "tok/s",
 			"tok": "tok",
 			"disableModelTooltip": "Prestať smerovať požiadavky na tento model, kým ho znova nepovolíte.",
-			"elapsedSeconds": "{{seconds}}s"
+			"elapsedSeconds": "{{seconds}}s",
+			"tokensHintResponse": "Vstupné tokeny + výstupné tokeny. Výstupné tokeny zahŕňajú iba odpoveď.",
+			"tokensHintReasoning": "Vstupné tokeny + výstupné tokeny. Výstupné tokeny zahŕňajú okrem odpovede aj tokeny uvažovania."
 		},
 		"providerFilter": {
 			"filterProviders": "Filtrovať poskytovateľov",
