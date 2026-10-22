@@ -147,4 +147,4 @@ Then read the admin token from `docker compose logs app` and open `http://localh
 > [!NOTE]
 > The app only sees the variables listed under its `environment:` key; `.env` just fills their `${...}` placeholders. To use any other variable (for example `COOKIE_SECURE`, `METRICS_TOKEN` or `LOG_FORMAT`), add it to that list, e.g. `- COOKIE_SECURE=${COOKIE_SECURE:-always}`. `COOKIE_SECURE` sets the `Secure` attribute on the dashboard login cookies: `always` (the default) sends them only over HTTPS or to `http://localhost`, so logging in over plain HTTP from another machine (e.g. `http://192.168.1.10:8081`) fails until you set `auto` (follows the request: TLS or `X-Forwarded-Proto: https`) or `never` (plain-HTTP LAN).
 
-To stop, update or remove the stack, see [Stop, Update, Remove](https://github.com/hugalafutro/model-hotel#-stop-update-remove) in the README.
+To stop, update or remove the stack, see [Stop, Update, Remove](Home#stop-update-remove).
