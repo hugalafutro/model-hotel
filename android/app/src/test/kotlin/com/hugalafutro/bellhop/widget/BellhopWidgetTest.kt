@@ -6,14 +6,18 @@ import androidx.glance.action.actionParametersOf
 import androidx.glance.layout.Alignment
 import com.hugalafutro.bellhop.MainActivity
 import com.hugalafutro.bellhop.data.QuotaBadgeAlign
+import com.hugalafutro.bellhop.data.WidgetQuotaBadge
+import com.hugalafutro.bellhop.data.quotaBadgeRows
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.RuntimeEnvironment
 import org.robolectric.annotation.Config
+import org.robolectric.annotation.GraphicsMode
 import org.robolectric.shadows.ShadowToast
 
 /**
@@ -73,5 +77,25 @@ class BellhopWidgetTest {
         assertEquals(Alignment.Start, quotaRowAlignment(QuotaBadgeAlign.LEFT))
         assertEquals(Alignment.CenterHorizontally, quotaRowAlignment(QuotaBadgeAlign.CENTER))
         assertEquals(Alignment.End, quotaRowAlignment(QuotaBadgeAlign.RIGHT))
+    }
+
+    @Test
+    @GraphicsMode(GraphicsMode.Mode.NATIVE)
+    fun overflowMarkerWidensWithTheFontScaleAndTheLastRowMakesRoomForIt() {
+        // NATIVE graphics so the paint really measures; the legacy shadow
+        // ignores text size. "+12" is 9sp text, so doubling the font setting
+        // must widen it well past half again, and the packer must hand the
+        // last row's second badge to the overflow once it does.
+        val normal = overflowMarkerDp(app, 12)
+        RuntimeEnvironment.setFontScale(2f)
+        val large = overflowMarkerDp(RuntimeEnvironment.getApplication(), 12)
+        assertTrue("$normal -> $large", large * 2 > normal * 3)
+
+        // Two 81dp estimate-width badges per row; a budget midway between the
+        // two markers keeps both badges beside the normal marker only.
+        val badges = (1..12).map { WidgetQuotaBadge(providerName = "P$it", type = "NANOGPT", label = "NANO 1.9M/3M") }
+        val budget = 162 + (normal + large) / 2
+        assertEquals(2, quotaBadgeRows(badges, budget, markerDp = normal).last().size)
+        assertEquals(1, quotaBadgeRows(badges, budget, markerDp = large).last().size)
     }
 }
