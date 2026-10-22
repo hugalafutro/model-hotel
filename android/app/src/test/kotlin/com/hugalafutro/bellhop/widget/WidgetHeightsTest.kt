@@ -57,9 +57,32 @@ class WidgetHeightsTest {
         // Five 77px rows under the 186px of padding, header and footer need
         // 571px; a pixel less and the fleet reads as one counts line, which
         // frees room for a badge row again.
-        assertFalse(atLargeFont.membersCollapse(571, 5))
-        assertTrue(atLargeFont.membersCollapse(570, 5))
+        assertEquals(MemberForm.ROWS, atLargeFont.memberForm(571, 5))
+        assertEquals(MemberForm.ONE_LINE, atLargeFont.memberForm(570, 5))
         assertEquals(4, atLargeFont.quotaRowsThatFit(570, 5))
+    }
+
+    @Test
+    fun theMinimumWidgetAtTheLargestFontHidesTheMembersToKeepTheFooter() {
+        // 110dp (289px) at roughly twice the default line heights: padding,
+        // header and footer take 232px, so not even the 130px counts line fits
+        // and the members give way, then the strip; the header's up/total
+        // pill still reads the fleet. One pixel past chrome plus the counts
+        // line and it returns.
+        val atLargestFont = heights(mapOf(9f to 64, 10f to 71, 11f to 78, 13f to 94))
+        assertEquals(MemberForm.HIDDEN, atLargestFont.memberForm(289, 4))
+        assertEquals(0, atLargestFont.quotaRowsThatFit(289, 4))
+        assertFalse(atLargestFont.eventFits(289, 4, 0))
+        assertEquals(MemberForm.ONE_LINE, atLargestFont.memberForm(362, 4))
+        assertEquals(MemberForm.HIDDEN, atLargestFont.memberForm(361, 4))
+    }
+
+    @Test
+    fun anEmptyFleetIsPricedAsItsBareNoMembersLine() {
+        // A 47px line, no padding and no header pill (header 39 + 15): 62 +
+        // 54 + 47 + footer 47 = 210px.
+        assertEquals(MemberForm.ONE_LINE, atDefaultFont.memberForm(210, 0))
+        assertEquals(MemberForm.HIDDEN, atDefaultFont.memberForm(209, 0))
     }
 
     @Test

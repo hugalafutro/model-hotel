@@ -9,6 +9,9 @@ import com.hugalafutro.bellhop.data.WIDGET_QUOTA_MAX_ROWS
 import com.hugalafutro.bellhop.data.WidgetQuotaBadge
 import kotlin.math.ceil
 
+/** MemberForm is how the fleet renders at a given widget size; see [WidgetHeights.memberForm]. */
+internal enum class MemberForm { ROWS, ONE_LINE, HIDDEN }
+
 /**
  * WidgetHeights prices WidgetContent's vertical stack in pixels, so the widget
  * can decide what to leave out before RemoteViews clips the footer off its
@@ -25,8 +28,9 @@ import kotlin.math.ceil
  * of one line of text at the given sp, font scale included.
  *
  * What gives way, in order: the event block, then quota badge rows (down to
- * none), then the member rows, which collapse to the one-line counts row. The
- * header and footer always render.
+ * none), then the member rows, which collapse to the one-line counts row and,
+ * if even that cannot fit, disappear (the header's up/total pill still reads
+ * the fleet). The header and footer always render.
  */
 internal class WidgetHeights(
     private val density: Float,
@@ -38,14 +42,21 @@ internal class WidgetHeights(
     private fun size(dp: Int) = if (roundsSizes) (dp * density + 0.5f).toInt() else (dp * density).toInt()
 
     /**
-     * membersCollapse reports whether the fleet renders as the one-line counts
-     * row: past [BellhopWidget.MAX_MEMBER_ROWS], or when its rows would not fit
-     * between the header and footer at this height and font scale.
+     * memberForm picks how the fleet renders between the header and footer:
+     * a row per member while they fit (up to [BellhopWidget.MAX_MEMBER_ROWS]),
+     * else one line (the counts row, or the no-members text for an empty
+     * fleet), else nothing.
      */
-    fun membersCollapse(
+    fun memberForm(
         heightPx: Int,
         members: Int,
-    ): Boolean = members > BellhopWidget.MAX_MEMBER_ROWS || chrome(members) + memberRows(members) > heightPx
+    ): MemberForm =
+        when {
+            members in 1..BellhopWidget.MAX_MEMBER_ROWS && chrome(members) + memberRows(members) <= heightPx ->
+                MemberForm.ROWS
+            chrome(members) + oneLine(members) <= heightPx -> MemberForm.ONE_LINE
+            else -> MemberForm.HIDDEN
+        }
 
     /**
      * quotaRowsThatFit is how many badge rows the strip may use: whatever the
@@ -68,7 +79,13 @@ internal class WidgetHeights(
     private fun fixed(
         heightPx: Int,
         members: Int,
-    ): Int = chrome(members) + if (membersCollapse(heightPx, members)) countsRow() else memberRows(members)
+    ): Int =
+        chrome(members) +
+            when (memberForm(heightPx, members)) {
+                MemberForm.ROWS -> memberRows(members)
+                MemberForm.ONE_LINE -> oneLine(members)
+                MemberForm.HIDDEN -> 0
+            }
 
     /** chrome is root padding, header and footer. */
     private fun chrome(members: Int): Int = 2 * pad(ROOT_PADDING_DP) + header(members > 0) + footer()
@@ -79,13 +96,12 @@ internal class WidgetHeights(
         return maxOf(size(14), linePx(11f), pill) + pad(6)
     }
 
-    // Each row is 13sp in 3dp padding plus a 1dp gap; no members is one 13sp
-    // line.
-    private fun memberRows(count: Int): Int =
-        if (count == 0) linePx(13f) else count * (linePx(13f) + 2 * pad(3) + pad(1))
+    // Each row is 13sp in 3dp padding plus a 1dp gap.
+    private fun memberRows(count: Int): Int = count * (linePx(13f) + 2 * pad(3) + pad(1))
 
-    // The counts row: one 13sp line in 7dp padding.
-    private fun countsRow(): Int = linePx(13f) + 2 * pad(7)
+    // The counts row is one 13sp line in 7dp padding; the no-members text is a
+    // bare 13sp line.
+    private fun oneLine(members: Int): Int = if (members == 0) linePx(13f) else linePx(13f) + 2 * pad(7)
 
     // A 9sp pill in 2dp padding plus a 1dp gap; 4dp above the strip.
     private fun quotaRow(): Int = linePx(9f) + 2 * pad(2) + pad(1)

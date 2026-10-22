@@ -467,6 +467,8 @@ private fun WidgetContent(
                     context.getString(R.string.widget_unpaired),
                     style = TextStyle(color = TextMuted, fontSize = 13.sp),
                 )
+            // No room for even one line: the header's up/total pill reads the fleet.
+            heights.memberForm(heightPx, memberCount) == MemberForm.HIDDEN -> {}
             state.members.isEmpty() ->
                 Text(
                     context.getString(R.string.widget_no_members),
@@ -474,7 +476,7 @@ private fun WidgetContent(
                     maxLines = 1,
                 )
             // Past the row cap, or rows too tall for this widget: one counts line.
-            heights.membersCollapse(heightPx, memberCount) -> {
+            heights.memberForm(heightPx, memberCount) == MemberForm.ONE_LINE -> {
                 val c = countsOf(state)
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
