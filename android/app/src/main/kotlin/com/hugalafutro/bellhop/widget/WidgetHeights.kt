@@ -139,7 +139,7 @@ private val BADGE_TEXT_TYPEFACE: Typeface = Typeface.create("sans-serif-medium",
 // to the next badge. Same figure WIDGET_QUOTA_PILL_CHROME_DP estimates with.
 private const val BADGE_CHROME_DP = 9
 
-// One dp of slack per badge on top of the measured width. Rounding up is not
+// One dp of slack per measured label on top of its width. Rounding up is not
 // quite enough on its own: the measurement is of the same string in the same
 // font at the same size, but it is not the RemoteViews layout pass, and these
 // pills cannot shrink to fit -- a dp too generous costs nothing visible, a dp
@@ -159,14 +159,27 @@ private const val BADGE_MEASURE_SLACK_DP = 1
  * [badgeWidthDp] for callers with no Context.
  */
 internal fun badgeMeasurer(context: Context): (WidgetQuotaBadge) -> Int {
+    val textDp = badgeTextDp(context)
+    return { badge -> textDp(badge.label) + BADGE_CHROME_DP }
+}
+
+/**
+ * overflowMarkerDp is what the strip's "+N" takes at the device's font size,
+ * measured like a badge label: "+" and the badge count, which N can never
+ * exceed. It shares the badges' 9sp, so a large font widens both alike.
+ */
+internal fun overflowMarkerDp(
+    context: Context,
+    badges: Int,
+): Int = badgeTextDp(context)("+$badges")
+
+// The rendered width of [text] in the badge font, slack included.
+private fun badgeTextDp(context: Context): (String) -> Int {
     val metrics = context.resources.displayMetrics
     val paint =
         TextPaint().apply {
             typeface = BADGE_TEXT_TYPEFACE
             textSize = TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_SP, BADGE_TEXT_SP, metrics)
         }
-    return { badge ->
-        val labelDp = ceil(paint.measureText(badge.label) / metrics.density).toInt()
-        labelDp + BADGE_CHROME_DP + BADGE_MEASURE_SLACK_DP
-    }
+    return { text -> ceil(paint.measureText(text) / metrics.density).toInt() + BADGE_MEASURE_SLACK_DP }
 }

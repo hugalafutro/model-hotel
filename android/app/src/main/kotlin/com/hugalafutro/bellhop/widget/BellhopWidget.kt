@@ -399,6 +399,7 @@ private fun WidgetContent(
                 (LocalSize.current.width - ROOT_PADDING * 2).value.toInt(),
                 badgeMeasurer(context),
                 heights.quotaRowsThatFit(heightPx, memberCount),
+                overflowMarkerDp(context, state.quota.size),
             )
         } else {
             emptyList()

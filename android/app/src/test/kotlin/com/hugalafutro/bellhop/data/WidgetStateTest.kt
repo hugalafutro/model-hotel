@@ -317,6 +317,20 @@ class WidgetStateTest {
     }
 
     @Test
+    fun aWiderOverflowMarkerTakesMoreFromTheLastRow() {
+        // At a large font the "+N" is wider than the default reserve, and the
+        // widget passes its measured width. At 200dp two 81dp badges fit beside
+        // the default 28dp marker (162 <= 172) but not beside a 40dp one.
+        val badges = (1..12).map { badge("P$it", "NANO 1.9M/3M") }
+        val atDefault = quotaBadgeRows(badges, 200)
+        val widened = quotaBadgeRows(badges, 200, markerDp = 40)
+
+        assertEquals(2, atDefault.last().size)
+        assertEquals(1, widened.last().size)
+        assertEquals(quotaBadgeOverflow(badges, atDefault) + 1, quotaBadgeOverflow(badges, widened))
+    }
+
+    @Test
     fun quotaBadgeRowsLeaveTheOverflowMarkerItsWidth() {
         // The "+N" shares the last row with its badges, so they have only what
         // it doesn't take. A last row fitted against the full width would push
