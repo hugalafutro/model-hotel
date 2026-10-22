@@ -142,7 +142,8 @@ internal const val WIDGET_QUOTA_OVERFLOW_MARKER_DP = 28
  *
  * Rows past [maxRows] are still dropped -- the strip must not eat the fleet
  * rows the widget exists for, and the widget lowers [maxRows] below
- * [WIDGET_QUOTA_MAX_ROWS] when its height has less room -- so the caller asks
+ * [WIDGET_QUOTA_MAX_ROWS], to zero if need be, when its height has less room --
+ * so the caller asks
  * [quotaBadgeOverflow] how many were left out and says so rather than dropping
  * them silently. When that happens the last visible row also gives up whatever
  * it must to leave room for the "+N" marker it will carry.
@@ -153,6 +154,7 @@ fun quotaBadgeRows(
     widthDp: (WidgetQuotaBadge) -> Int = ::badgeWidthDp,
     maxRows: Int = WIDGET_QUOTA_MAX_ROWS,
 ): List<List<WidgetQuotaBadge>> {
+    if (maxRows <= 0) return emptyList()
     val packed = packRows(badges, budgetDp, widthDp)
     if (packed.size <= maxRows) return packed
     val kept = packed.take(maxRows).toMutableList()

@@ -16,9 +16,14 @@ class WidgetHeightsTest {
     private val density = 2.625f
     private val widgetPx = 610
 
-    private fun heights(lines: Map<Float, Int>) = WidgetHeights(density) { sp -> lines.getValue(sp) }
+    private val defaultLines = mapOf(9f to 32, 10f to 36, 11f to 39, 13f to 47)
 
-    private val atDefaultFont = heights(mapOf(9f to 32, 10f to 36, 11f to 39, 13f to 47))
+    private fun heights(
+        lines: Map<Float, Int>,
+        roundsSizes: Boolean = true,
+    ) = WidgetHeights(density, roundsSizes) { sp -> lines.getValue(sp) }
+
+    private val atDefaultFont = heights(defaultLines)
     private val atLargeFont = heights(mapOf(9f to 42, 10f to 47, 11f to 51, 13f to 61))
 
     @Test
@@ -40,8 +45,32 @@ class WidgetHeightsTest {
     }
 
     @Test
-    fun aWidgetTooShortForAnyRowStillGetsOneForTheOverflowMarker() {
-        assertEquals(1, atLargeFont.quotaRowsThatFit(200, 4))
+    fun aWidgetTooShortForOneBadgeRowHidesTheStripRatherThanClipTheFooter() {
+        // 540px leaves 46 under the fixed 494, short of the 10px gap plus one
+        // 54px row.
+        assertEquals(0, atLargeFont.quotaRowsThatFit(540, 4))
+        assertFalse(atLargeFont.eventFits(540, 4, 0))
+    }
+
+    @Test
+    fun memberRowsCollapseToTheCountsLineWhenTheyDoNotFit() {
+        // Five 77px rows under the 186px of padding, header and footer need
+        // 571px; a pixel less and the fleet reads as one counts line, which
+        // frees room for a badge row again.
+        assertFalse(atLargeFont.membersCollapse(571, 5))
+        assertTrue(atLargeFont.membersCollapse(570, 5))
+        assertEquals(4, atLargeFont.quotaRowsThatFit(570, 5))
+    }
+
+    @Test
+    fun fixedSizesTruncateBelowApi31() {
+        // Below API 31 Glance converts the 1dp rule and the 14dp refresh icon
+        // itself and truncates (2px, 36px) where the framework rounds (3px,
+        // 37px): the footer is 45px, not 47, so the same widget needs 604px.
+        val pre31 = heights(defaultLines, roundsSizes = false)
+        assertTrue(pre31.eventFits(604, 4, 2))
+        assertFalse(pre31.eventFits(603, 4, 2))
+        assertFalse(atDefaultFont.eventFits(605, 4, 2))
     }
 
     @Test

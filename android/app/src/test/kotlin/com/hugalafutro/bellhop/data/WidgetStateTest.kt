@@ -312,6 +312,8 @@ class WidgetStateTest {
 
         assertEquals(listOf(listOf("P1")), rows.map { row -> row.map { it.providerName } })
         assertEquals(2, quotaBadgeOverflow(badges, rows))
+        // Zero rows is a widget with no room for the strip at all.
+        assertEquals(emptyList<List<WidgetQuotaBadge>>(), quotaBadgeRows(badges, maxRows = 0))
     }
 
     @Test

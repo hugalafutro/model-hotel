@@ -2,9 +2,6 @@ package com.hugalafutro.bellhop.widget
 
 import android.content.Context
 import android.content.Intent
-import android.graphics.Typeface
-import android.text.TextPaint
-import android.util.TypedValue
 import android.widget.Toast
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
@@ -56,7 +53,6 @@ import com.hugalafutro.bellhop.data.QuotaBadgeAlign
 import com.hugalafutro.bellhop.data.QuotaType
 import com.hugalafutro.bellhop.data.TRAFFIC_BUCKETS
 import com.hugalafutro.bellhop.data.TimeFormat
-import com.hugalafutro.bellhop.data.WidgetQuotaBadge
 import com.hugalafutro.bellhop.data.WidgetState
 import com.hugalafutro.bellhop.data.WidgetStore
 import com.hugalafutro.bellhop.data.countsOf
@@ -90,7 +86,6 @@ import java.time.Instant
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.util.Locale
-import kotlin.math.ceil
 import androidx.glance.appwidget.action.actionStartActivity as actionStartActivityIntent
 
 /** BellhopWidgetReceiver is the manifest entry point; all logic is in [BellhopWidget]. */
@@ -344,48 +339,6 @@ private fun eventStamp(
     return timeAndDate(context, format, instant.toEpochMilli())
 }
 
-// The badge pill's own text: 9sp Medium in the platform's sans, matching the
-// Text below it. Named here because the packer needs the same numbers to know
-// how wide a label comes out.
-private const val BADGE_TEXT_SP = 9f
-private val BADGE_TEXT_TYPEFACE: Typeface = Typeface.create("sans-serif-medium", Typeface.NORMAL)
-
-// The pill's chrome around its label: 4dp of padding each side plus the 1dp gap
-// to the next badge. Same figure WIDGET_QUOTA_PILL_CHROME_DP estimates with.
-private const val BADGE_CHROME_DP = 9
-
-// One dp of slack per badge on top of the measured width. Rounding up is not
-// quite enough on its own: the measurement is of the same string in the same
-// font at the same size, but it is not the RemoteViews layout pass, and these
-// pills cannot shrink to fit -- a dp too generous costs nothing visible, a dp
-// too tight clips a label.
-private const val BADGE_MEASURE_SLACK_DP = 1
-
-/**
- * badgeMeasurer returns the width function [quotaBadgeRows] packs with: the
- * label's real rendered width rather than a per-character guess. Glance can't
- * measure text, but this code runs in the app's own process, so a [TextPaint]
- * set up like the pill's Text can -- through [TypedValue], so the device's own
- * text-size setting is already in the answer.
- *
- * This is what lets the strip fill its rows: the estimate it replaces ran some
- * 30% wide on a typical label ("KIMI 0%/0%" measures 53dp against a 69dp guess),
- * which cost most rows a badge or two they had room for. The estimate stays as
- * [badgeWidthDp] for callers with no Context.
- */
-private fun badgeMeasurer(context: Context): (WidgetQuotaBadge) -> Int {
-    val metrics = context.resources.displayMetrics
-    val paint =
-        TextPaint().apply {
-            typeface = BADGE_TEXT_TYPEFACE
-            textSize = TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_SP, BADGE_TEXT_SP, metrics)
-        }
-    return { badge ->
-        val labelDp = ceil(paint.measureText(badge.label) / metrics.density).toInt()
-        labelDp + BADGE_CHROME_DP + BADGE_MEASURE_SLACK_DP
-    }
-}
-
 /**
  * MemberBars is the opt-in traffic overlay: the member's last-hour request
  * buckets as bottom-aligned bars behind the row text, split into two
@@ -517,8 +470,10 @@ private fun WidgetContent(
                 Text(
                     context.getString(R.string.widget_no_members),
                     style = TextStyle(color = TextMuted, fontSize = 13.sp),
+                    maxLines = 1,
                 )
-            state.members.size > BellhopWidget.MAX_MEMBER_ROWS -> {
+            // Past the row cap, or rows too tall for this widget: one counts line.
+            heights.membersCollapse(heightPx, memberCount) -> {
                 val c = countsOf(state)
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
@@ -531,6 +486,7 @@ private fun WidgetContent(
                     Text(
                         context.getString(R.string.widget_counts, c.up, c.down, c.drained),
                         style = TextStyle(color = TextPrimary, fontSize = 13.sp, fontWeight = FontWeight.Medium),
+                        maxLines = 1,
                     )
                 }
             }
@@ -589,6 +545,7 @@ private fun WidgetContent(
                                 Text(
                                     stateLabel(context, member.healthState),
                                     style = TextStyle(color = dotColor(member.healthState), fontSize = 11.sp),
+                                    maxLines = 1,
                                 )
                             }
                         }
@@ -716,6 +673,7 @@ private fun WidgetContent(
                         Text(
                             eventStamp(context, timeFormat, event.createdAt),
                             style = TextStyle(color = TextMuted, fontSize = 9.sp),
+                            maxLines = 1,
                         )
                     }
                 }
@@ -735,19 +693,24 @@ private fun WidgetContent(
                     Text(
                         context.getString(R.string.widget_as_of, stamp),
                         style = TextStyle(color = TextMuted, fontSize = 9.sp),
+                        maxLines = 1,
+                        // Takes the slack, so at a large font the stamp is what
+                        // shortens and the status and refresh keep their place.
+                        modifier = GlanceModifier.defaultWeight().padding(end = 6.dp),
                     )
                 }
-                Spacer(GlanceModifier.defaultWeight())
                 when {
                     state?.autosyncStale == true ->
                         Text(
                             context.getString(R.string.widget_stale),
                             style = TextStyle(color = DotDrained, fontSize = 9.sp),
+                            maxLines = 1,
                         )
                     !monitoringActive && state != null ->
                         Text(
                             context.getString(R.string.widget_monitoring_off),
                             style = TextStyle(color = TextMuted, fontSize = 9.sp),
+                            maxLines = 1,
                         )
                 }
                 if (state != null) {
