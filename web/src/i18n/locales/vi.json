@@ -2655,7 +2655,8 @@
 			"disableModelTooltip": "Ngừng định tuyến yêu cầu đến mô hình này cho đến khi bạn bật lại.",
 			"elapsedSeconds": "{{seconds}}s",
 			"tokensHintResponse": "Token đầu vào + token đầu ra. Token đầu ra chỉ bao gồm câu trả lời.",
-			"tokensHintReasoning": "Token đầu vào + token đầu ra. Token đầu ra bao gồm cả token suy luận lẫn câu trả lời."
+			"tokensHintReasoning": "Token đầu vào + token đầu ra. Token đầu ra bao gồm cả token suy luận lẫn câu trả lời.",
+			"tokensHintUnknown": "Token đầu vào + token đầu ra. Với mô hình có suy luận, token đầu ra còn bao gồm cả token suy luận của nó."
 		},
 		"providerFilter": {
 			"filterProviders": "Lọc nhà cung cấp",

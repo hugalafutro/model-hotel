@@ -2655,7 +2655,8 @@
 			"disableModelTooltip": "Διακοπή δρομολόγησης αιτημάτων προς αυτό το μοντέλο μέχρι να το ενεργοποιήσετε ξανά.",
 			"elapsedSeconds": "{{seconds}}δ",
 			"tokensHintResponse": "Tokens εισόδου + tokens εξόδου. Τα tokens εξόδου καλύπτουν μόνο την απάντηση.",
-			"tokensHintReasoning": "Tokens εισόδου + tokens εξόδου. Τα tokens εξόδου περιλαμβάνουν, εκτός από την απάντηση, και τα tokens συλλογισμού."
+			"tokensHintReasoning": "Tokens εισόδου + tokens εξόδου. Τα tokens εξόδου περιλαμβάνουν, εκτός από την απάντηση, και τα tokens συλλογισμού.",
+			"tokensHintUnknown": "Tokens εισόδου + tokens εξόδου. Σε μοντέλο που συλλογίζεται, τα tokens εξόδου περιλαμβάνουν και τα tokens συλλογισμού του."
 		},
 		"providerFilter": {
 			"filterProviders": "Φιλτράρισμα παρόχων",

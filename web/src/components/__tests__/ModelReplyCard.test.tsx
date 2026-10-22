@@ -299,13 +299,24 @@ describe("ModelReplyCard", () => {
 			expect(maximizeButton).toBeInTheDocument();
 		});
 
-		// The maximised dialog is named after the model, off its own header.
+		// The maximised dialog is named by its title alone, not the metrics row.
 		it("opens a dialog named after the model", async () => {
 			const user = userEvent.setup();
 			renderWithProviders(<ModelReplyCard {...defaultProps} />);
 			await user.click(screen.getByRole("button", { name: "Maximize reply" }));
 			expect(
-				screen.getByRole("dialog", { name: /gemma3:4b/ }),
+				screen.getByRole("dialog", { name: "gemma3:4b" }),
+			).toBeInTheDocument();
+		});
+
+		it("names a persona dialog persona first, then model", async () => {
+			const user = userEvent.setup();
+			renderWithProviders(
+				<ModelReplyCard {...defaultProps} personaName="🤖 Assistant" />,
+			);
+			await user.click(screen.getByRole("button", { name: "Maximize reply" }));
+			expect(
+				screen.getByRole("dialog", { name: "🤖 Assistant gemma3:4b" }),
 			).toBeInTheDocument();
 		});
 
@@ -519,9 +530,16 @@ describe("ModelReplyCard cost and token split", () => {
 	});
 
 	it("explains the token count as response only for a plain model", () => {
-		renderWithProviders(<ModelReplyCard {...props} />);
+		renderWithProviders(<ModelReplyCard {...props} isReasoningModel={false} />);
 		expect(
 			screen.getByRole("img", { name: /response only/i }),
+		).toBeInTheDocument();
+	});
+
+	it("keeps the token hint neutral when the reasoning capability is unknown", () => {
+		renderWithProviders(<ModelReplyCard {...props} />);
+		expect(
+			screen.getByRole("img", { name: /for a model that reasons/i }),
 		).toBeInTheDocument();
 	});
 

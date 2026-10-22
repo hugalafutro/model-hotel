@@ -2655,7 +2655,8 @@
 			"disableModelTooltip": "Lopeta pyyntöjen ohjaaminen tähän malliin, kunnes otat sen uudelleen käyttöön.",
 			"elapsedSeconds": "{{seconds}}s",
 			"tokensHintResponse": "Syötetokenit + tulostetokenit. Tulostetokenit kattavat vain vastauksen.",
-			"tokensHintReasoning": "Syötetokenit + tulostetokenit. Tulostetokeneihin sisältyvät vastauksen lisäksi päättelytokenit."
+			"tokensHintReasoning": "Syötetokenit + tulostetokenit. Tulostetokeneihin sisältyvät vastauksen lisäksi päättelytokenit.",
+			"tokensHintUnknown": "Syötetokenit + tulostetokenit. Päättelevällä mallilla tulostetokeneihin sisältyvät myös sen päättelytokenit."
 		},
 		"providerFilter": {
 			"filterProviders": "Suodata tarjoajia",

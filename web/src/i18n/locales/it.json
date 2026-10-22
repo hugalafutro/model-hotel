@@ -2725,7 +2725,8 @@
 			"disableModelTooltip": "Interrompe l'instradamento delle richieste a questo modello finché non lo riattivi.",
 			"elapsedSeconds": "{{seconds}}s",
 			"tokensHintResponse": "Token di input + token di output. I token di output coprono solo la risposta.",
-			"tokensHintReasoning": "Token di input + token di output. I token di output includono i token di ragionamento oltre alla risposta."
+			"tokensHintReasoning": "Token di input + token di output. I token di output includono i token di ragionamento oltre alla risposta.",
+			"tokensHintUnknown": "Token di input + token di output. Per un modello che ragiona, i token di output includono anche i suoi token di ragionamento."
 		},
 		"providerFilter": {
 			"filterProviders": "Filtro Fornitori",

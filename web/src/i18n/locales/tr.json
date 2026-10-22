@@ -2655,7 +2655,8 @@
 			"disableModelTooltip": "Yeniden etkinleştirene kadar bu modele istek yönlendirmeyi durdurur.",
 			"elapsedSeconds": "{{seconds}}s",
 			"tokensHintResponse": "Girdi token'ları + çıktı token'ları. Çıktı token'ları yalnızca yanıtı kapsar.",
-			"tokensHintReasoning": "Girdi token'ları + çıktı token'ları. Çıktı token'ları yanıtın yanı sıra akıl yürütme token'larını da içerir."
+			"tokensHintReasoning": "Girdi token'ları + çıktı token'ları. Çıktı token'ları yanıtın yanı sıra akıl yürütme token'larını da içerir.",
+			"tokensHintUnknown": "Girdi token'ları + çıktı token'ları. Akıl yürüten bir modelde çıktı token'ları akıl yürütme token'larını da içerir."
 		},
 		"providerFilter": {
 			"filterProviders": "Sağlayıcıları Filtrele",

@@ -2655,7 +2655,8 @@
 			"disableModelTooltip": "停止将请求路由到此模型，直到您重新启用它。",
 			"elapsedSeconds": "{{seconds}}秒",
 			"tokensHintResponse": "输入 token + 输出 token。输出 token 仅包含回复。",
-			"tokensHintReasoning": "输入 token + 输出 token。输出 token 除回复外还包含推理 token。"
+			"tokensHintReasoning": "输入 token + 输出 token。输出 token 除回复外还包含推理 token。",
+			"tokensHintUnknown": "输入 token + 输出 token。对于会推理的模型，输出 token 还包含其推理 token。"
 		},
 		"providerFilter": {
 			"filterProviders": "筛选提供商",

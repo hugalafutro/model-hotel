@@ -2655,7 +2655,8 @@
 			"disableModelTooltip": "Sluta dirigera förfrågningar till den här modellen tills du aktiverar den igen.",
 			"elapsedSeconds": "{{seconds}}s",
 			"tokensHintResponse": "Indatatoken + utdatatoken. Utdatatoken omfattar bara svaret.",
-			"tokensHintReasoning": "Indatatoken + utdatatoken. Utdatatoken omfattar resonemangstoken utöver svaret."
+			"tokensHintReasoning": "Indatatoken + utdatatoken. Utdatatoken omfattar resonemangstoken utöver svaret.",
+			"tokensHintUnknown": "Indatatoken + utdatatoken. För en modell som resonerar omfattar utdatatoken även dess resonemangstoken."
 		},
 		"providerFilter": {
 			"filterProviders": "Filtrera leverantörer",

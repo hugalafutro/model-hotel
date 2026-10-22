@@ -2655,7 +2655,8 @@
 			"disableModelTooltip": "Stop om versoeke na hierdie model te stuur totdat jy dit weer aanskakel.",
 			"elapsedSeconds": "{{seconds}}s",
 			"tokensHintResponse": "Invoertokens + uitvoertokens. Die uitvoertelling dek slegs die antwoord.",
-			"tokensHintReasoning": "Invoertokens + uitvoertokens. Die uitvoertelling sluit redenasietokens in, benewens die antwoord."
+			"tokensHintReasoning": "Invoertokens + uitvoertokens. Die uitvoertelling sluit redenasietokens in, benewens die antwoord.",
+			"tokensHintUnknown": "Invoertokens + uitvoertokens. Vir 'n model wat redeneer, sluit die uitvoertelling ook sy redenasietokens in."
 		},
 		"providerFilter": {
 			"filterProviders": "Filter verskaffers",

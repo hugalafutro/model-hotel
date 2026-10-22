@@ -2655,7 +2655,8 @@
 			"disableModelTooltip": "Stop routing requests to this model until you re-enable it.",
 			"elapsedSeconds": "{{seconds}}s",
 			"tokensHintResponse": "Input + output tokens. The output count covers the response only.",
-			"tokensHintReasoning": "Input + output tokens. The output count includes reasoning tokens as well as the response."
+			"tokensHintReasoning": "Input + output tokens. The output count includes reasoning tokens as well as the response.",
+			"tokensHintUnknown": "Input + output tokens. For a model that reasons, the output count also includes its reasoning tokens."
 		},
 		"providerFilter": {
 			"filterProviders": "Filter Providers",

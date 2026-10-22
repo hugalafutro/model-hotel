@@ -2725,7 +2725,8 @@
 			"disableModelTooltip": "Deixa d'encaminar sol·licituds a aquest model fins que el tornis a activar.",
 			"elapsedSeconds": "{{seconds}}s",
 			"tokensHintResponse": "Tokens d'entrada + tokens de sortida. Els tokens de sortida només cobreixen la resposta.",
-			"tokensHintReasoning": "Tokens d'entrada + tokens de sortida. Els tokens de sortida inclouen els tokens de raonament a més de la resposta."
+			"tokensHintReasoning": "Tokens d'entrada + tokens de sortida. Els tokens de sortida inclouen els tokens de raonament a més de la resposta.",
+			"tokensHintUnknown": "Tokens d'entrada + tokens de sortida. Per a un model que raona, els tokens de sortida també inclouen els seus tokens de raonament."
 		},
 		"providerFilter": {
 			"filterProviders": "Filtra els proveïdors",

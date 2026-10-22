@@ -2725,7 +2725,8 @@
 			"disableModelTooltip": "Oprește direcționarea cererilor către acest model până când îl reactivezi.",
 			"elapsedSeconds": "{{seconds}}s",
 			"tokensHintResponse": "Tokeni de intrare + tokeni de ieșire. Tokenii de ieșire acoperă doar răspunsul.",
-			"tokensHintReasoning": "Tokeni de intrare + tokeni de ieșire. Tokenii de ieșire includ și tokenii de raționament, pe lângă răspuns."
+			"tokensHintReasoning": "Tokeni de intrare + tokeni de ieșire. Tokenii de ieșire includ și tokenii de raționament, pe lângă răspuns.",
+			"tokensHintUnknown": "Tokeni de intrare + tokeni de ieșire. La un model care raționează, tokenii de ieșire includ și tokenii săi de raționament."
 		},
 		"providerFilter": {
 			"filterProviders": "Filtrează furnizorii",

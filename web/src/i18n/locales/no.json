@@ -2655,7 +2655,8 @@
 			"disableModelTooltip": "Slutt å rute forespørsler til denne modellen til du aktiverer den igjen.",
 			"elapsedSeconds": "{{seconds}}s",
 			"tokensHintResponse": "Inndatatokener + utdatatokener. Utdatatokenene dekker bare svaret.",
-			"tokensHintReasoning": "Inndatatokener + utdatatokener. Utdatatokenene omfatter resonneringstokener i tillegg til svaret."
+			"tokensHintReasoning": "Inndatatokener + utdatatokener. Utdatatokenene omfatter resonneringstokener i tillegg til svaret.",
+			"tokensHintUnknown": "Inndatatokener + utdatatokener. For en modell som resonnerer, omfatter utdatatokenene også resonneringstokenene."
 		},
 		"providerFilter": {
 			"filterProviders": "Filtrer leverandører",

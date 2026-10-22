@@ -1,4 +1,11 @@
-import { memo, type ReactNode, useEffect, useRef, useState } from "react";
+import {
+	memo,
+	type ReactNode,
+	useEffect,
+	useId,
+	useRef,
+	useState,
+} from "react";
 import { useTranslation } from "react-i18next";
 import { Bot, Clock, Copy, Maximize2, PowerOff, Zap } from "@/lib/icons";
 import type { GenerationParams } from "../api/types";
@@ -71,7 +78,8 @@ interface ModelReplyCardProps {
 	showInfoIcon?: boolean;
 	/** Generation params used for this response - shown as tooltip on a settings indicator */
 	params?: GenerationParams;
-	/** Whether this model has reasoning capability - shows "Thinking…" instead of "Waiting…" during empty streaming */
+	/** Whether this model has reasoning capability - shows "Thinking…" instead of "Waiting…" during empty streaming.
+	 *  Left undefined when unknown or withheld (blind Arena): the token hint then uses neutral wording. */
 	isReasoningModel?: boolean;
 	/** Persona name; when set it heads the card and the model name moves to the footer */
 	personaName?: string;
@@ -123,7 +131,7 @@ export const ModelReplyCard = memo(function ModelReplyCard({
 	shortenModelName = true,
 	showInfoIcon = false,
 	params,
-	isReasoningModel = false,
+	isReasoningModel,
 	personaName,
 	personaTooltip,
 	turnNumber,
@@ -196,15 +204,28 @@ export const ModelReplyCard = memo(function ModelReplyCard({
 			</button>
 		) : null;
 
-	// The completion count includes reasoning tokens for a reasoning model, and
-	// for any reply that streamed thinking (a blind Arena card hides the model's
-	// capabilities but still shows its thinking block).
-	const reasoningTokens = isReasoningModel || hasThinking;
+	// The completion count includes reasoning tokens for a reasoning model and
+	// for any reply that streamed thinking. With the capability unknown or
+	// withheld (blind Arena) and no thinking shown, the hint stays neutral: a
+	// model can reason without streaming it.
+	const tokensHintKey =
+		isReasoningModel || hasThinking
+			? "components.modelReplyCard.tokensHintReasoning"
+			: isReasoningModel === false
+				? "components.modelReplyCard.tokensHintResponse"
+				: "components.modelReplyCard.tokensHintUnknown";
+
+	// The maximised dialog is named by its title alone (persona, then model),
+	// not by the whole header row with its metrics and hint text.
+	const dialogTitleId = useId();
+	const dialogPersonaId = `${dialogTitleId}-persona`;
+	const dialogModelId = `${dialogTitleId}-model`;
 
 	// A persona, when set, takes the header and the model name drops to the
 	// footer (and to the right side of the maximised header).
-	const personaLabel = (className: string) => (
+	const personaLabel = (className: string, id?: string) => (
 		<span
+			id={id}
 			className={`text-(--accent) cursor-help truncate ${className}`}
 			title={personaTooltip || personaName}
 		>
@@ -236,14 +257,7 @@ export const ModelReplyCard = memo(function ModelReplyCard({
 						{formatNumber(metrics.promptTokens)} +{" "}
 						{formatNumber(metrics.completionTokens)}{" "}
 						{t("components.modelReplyCard.tok")}
-						<InfoHint
-							size={iconSize}
-							tooltip={t(
-								reasoningTokens
-									? "components.modelReplyCard.tokensHintReasoning"
-									: "components.modelReplyCard.tokensHintResponse",
-							)}
-						/>
+						<InfoHint size={iconSize} tooltip={t(tokensHintKey)} />
 					</span>
 				)}
 				{costUsd !== null && (
@@ -393,17 +407,19 @@ export const ModelReplyCard = memo(function ModelReplyCard({
 					onClose={() => setMaximized(false)}
 					maxWidth="max-w-5xl"
 					zIndex="z-50"
-					// The dialog's accessible name: the model, read off this header.
-					title={displayName}
+					labelledBy={
+						personaName ? `${dialogPersonaId} ${dialogModelId}` : dialogModelId
+					}
 					header={
 						<div className="flex items-center justify-between mb-4 -mt-2">
 							<div className="flex items-center gap-2 min-w-0">
 								{personaName ? (
-									personaLabel("text-base font-medium")
+									personaLabel("text-base font-medium min-w-0", dialogPersonaId)
 								) : (
 									<>
 										<Bot size={18} className="text-(--accent) shrink-0" />
 										<span
+											id={dialogModelId}
 											className="text-base font-medium text-(--text-primary) truncate"
 											title={model}
 										>
@@ -414,10 +430,11 @@ export const ModelReplyCard = memo(function ModelReplyCard({
 								<ParamsTooltip params={params} size={12} />
 								{afterModel}
 							</div>
-							<div className="flex items-center gap-3 shrink-0 pr-8">
+							<div className="flex items-center gap-3 min-w-0 whitespace-nowrap pr-8">
 								{personaName && (
 									<span
-										className="text-xs text-(--text-tertiary) truncate max-w-60"
+										id={dialogModelId}
+										className="text-xs text-(--text-tertiary) truncate min-w-0 max-w-60"
 										title={model}
 									>
 										{displayName}

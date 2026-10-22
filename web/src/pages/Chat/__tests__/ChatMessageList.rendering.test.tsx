@@ -126,10 +126,10 @@ describe("ChatMessageList", () => {
 			).toBeInTheDocument();
 		});
 
-		it("renders message timestamps", () => {
+		it("renders message timestamps with seconds", () => {
 			renderWithProviders(<ChatMessageList {...defaultProps} />);
-			// Timestamps are rendered via formatTime
-			const timestamps = screen.getAllByText(/\d{1,2}:\d{2}/);
+			// User and assistant bubbles both carry hours, minutes and seconds.
+			const timestamps = screen.getAllByText(/\d{1,2}:\d{2}:\d{2}/);
 			expect(timestamps.length).toBeGreaterThanOrEqual(2);
 		});
 

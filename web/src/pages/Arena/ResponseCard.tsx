@@ -65,12 +65,13 @@ export function ResponseCard({
 				shortenModelName={true}
 				showInfoIcon={!blind}
 				params={blind ? undefined : params}
-				// The amber "Thinking" cue comes from the catalog, so it would name
-				// the reasoning side of a blind pair.
+				// The amber "Thinking" cue and the token hint come from the catalog,
+				// so a blind pair leaves the capability unknown rather than naming
+				// its reasoning side.
 				isReasoningModel={
-					!blind &&
-					!!modelObj &&
-					!!parseCapabilities(modelObj.capabilities).reasoning
+					blind
+						? undefined
+						: !!modelObj && !!parseCapabilities(modelObj.capabilities).reasoning
 				}
 				onModelNameClick={
 					modelObj && !blind ? () => setDetailModel(modelObj) : undefined

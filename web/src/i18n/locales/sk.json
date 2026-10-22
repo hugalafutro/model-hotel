@@ -2795,7 +2795,8 @@
 			"disableModelTooltip": "Prestať smerovať požiadavky na tento model, kým ho znova nepovolíte.",
 			"elapsedSeconds": "{{seconds}}s",
 			"tokensHintResponse": "Vstupné tokeny + výstupné tokeny. Výstupné tokeny zahŕňajú iba odpoveď.",
-			"tokensHintReasoning": "Vstupné tokeny + výstupné tokeny. Výstupné tokeny zahŕňajú okrem odpovede aj tokeny uvažovania."
+			"tokensHintReasoning": "Vstupné tokeny + výstupné tokeny. Výstupné tokeny zahŕňajú okrem odpovede aj tokeny uvažovania.",
+			"tokensHintUnknown": "Vstupné tokeny + výstupné tokeny. Pri modeli, ktorý uvažuje, zahŕňajú výstupné tokeny aj jeho tokeny uvažovania."
 		},
 		"providerFilter": {
 			"filterProviders": "Filtrovať poskytovateľov",
