@@ -140,8 +140,9 @@ internal const val WIDGET_QUOTA_OVERFLOW_MARKER_DP = 28
  * at its own width, so rows carried a badge or two fewer than they had room for
  * and a row left holding one badge stretched it across the full width.
  *
- * Rows past [WIDGET_QUOTA_MAX_ROWS] are still dropped -- the strip must not eat
- * the fleet rows the widget exists for -- so the caller asks
+ * Rows past [maxRows] are still dropped -- the strip must not eat the fleet
+ * rows the widget exists for, and the widget lowers [maxRows] below
+ * [WIDGET_QUOTA_MAX_ROWS] when its height has less room -- so the caller asks
  * [quotaBadgeOverflow] how many were left out and says so rather than dropping
  * them silently. When that happens the last visible row also gives up whatever
  * it must to leave room for the "+N" marker it will carry.
@@ -150,10 +151,11 @@ fun quotaBadgeRows(
     badges: List<WidgetQuotaBadge>,
     budgetDp: Int = WIDGET_QUOTA_DEFAULT_ROW_BUDGET_DP,
     widthDp: (WidgetQuotaBadge) -> Int = ::badgeWidthDp,
+    maxRows: Int = WIDGET_QUOTA_MAX_ROWS,
 ): List<List<WidgetQuotaBadge>> {
     val packed = packRows(badges, budgetDp, widthDp)
-    if (packed.size <= WIDGET_QUOTA_MAX_ROWS) return packed
-    val kept = packed.take(WIDGET_QUOTA_MAX_ROWS).toMutableList()
+    if (packed.size <= maxRows) return packed
+    val kept = packed.take(maxRows).toMutableList()
     kept[kept.lastIndex] = fitAroundMarker(kept.last(), budgetDp, widthDp)
     return kept
 }
@@ -209,7 +211,7 @@ private fun packRows(
 
 /**
  * quotaBadgeOverflow counts the badges [rows] left out of [badges] -- what the
- * [WIDGET_QUOTA_MAX_ROWS] cap dropped. Zero when everything fit.
+ * row cap dropped. Zero when everything fit.
  */
 fun quotaBadgeOverflow(
     badges: List<WidgetQuotaBadge>,

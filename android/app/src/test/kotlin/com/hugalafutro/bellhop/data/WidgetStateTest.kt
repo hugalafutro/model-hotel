@@ -304,6 +304,17 @@ class WidgetStateTest {
     }
 
     @Test
+    fun quotaBadgeRowsHonourALowerRowCapFromTheWidgetsHeight() {
+        // A short widget passes fewer rows than the default cap; what it cuts
+        // still counts toward the "+N" rather than vanishing.
+        val badges = (1..3).map { badge("P$it", "x".repeat(40)) }
+        val rows = quotaBadgeRows(badges, maxRows = 1)
+
+        assertEquals(listOf(listOf("P1")), rows.map { row -> row.map { it.providerName } })
+        assertEquals(2, quotaBadgeOverflow(badges, rows))
+    }
+
+    @Test
     fun quotaBadgeRowsLeaveTheOverflowMarkerItsWidth() {
         // The "+N" shares the last row with its badges, so they have only what
         // it doesn't take. A last row fitted against the full width would push
