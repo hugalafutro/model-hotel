@@ -46,9 +46,9 @@ A single OpenAI-compatible endpoint in front of all your LLM providers, cloud or
 
 ### [<img src="docs/icons/quickstart.svg" width="20" height="20" style="vertical-align:middle;margin-right:6px;" alt=""> Quick Start](#-quick-start)
 
-- [Quick Start](https://github.com/hugalafutro/model-hotel/wiki/Home#quick-start): clone, build, and log in for the first time
-- [Development](https://github.com/hugalafutro/model-hotel/wiki/Development#quick-start): the dev stack with the `compose.dev.yml` overlay
+- [Deploy with Git](https://github.com/hugalafutro/model-hotel/wiki/Home#quick-start): clone, build, and log in for the first time
 - [Deploy without Git](https://github.com/hugalafutro/model-hotel/wiki/Deploy-without-Git): run the published image from two files, no clone, no build
+- [Development](https://github.com/hugalafutro/model-hotel/wiki/Development#quick-start): the dev stack with the `compose.dev.yml` overlay
 
 ### [<img src="docs/icons/providers.svg" width="20" height="20" style="vertical-align:middle;margin-right:6px;" alt=""> One Endpoint, Many Providers](#-one-endpoint-many-providers)
 **Hosted:** [Anthropic](https://www.anthropic.com), [AWS Bedrock](https://aws.amazon.com/bedrock/), [Azure AI Foundry](https://ai.azure.com/), [Cohere](https://cohere.com/), [DeepSeek](https://www.deepseek.com), [Google AI Studio](https://aistudio.google.com/), [Kimi Code](https://www.kimi.com/), [MiniMax](https://www.minimax.io/), [NanoGPT](https://nano-gpt.com), [NeuralWatt](https://neuralwatt.com/), [Ollama Cloud](https://ollama.com), [OpenAI](https://openai.com/), [OpenCode Go](https://opencode.ai), [OpenCode Zen](https://opencode.ai), [OpenRouter](https://openrouter.ai/), [Vertex AI](https://cloud.google.com/vertex-ai) (express keys), [xAI](https://x.ai/), [Z.AI](https://z.ai/). All but Anthropic and AWS Bedrock speak the OpenAI API; those two are native families, and a hand-entered endpoint that speaks Anthropic's native `/v1/messages` has its own type (`anthropic-messages`). Any other OpenAI-compatible API, hosted or local, can be added as a custom endpoint.
