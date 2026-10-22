@@ -411,7 +411,7 @@ export const ModelReplyCard = memo(function ModelReplyCard({
 						personaName ? `${dialogPersonaId} ${dialogModelId}` : dialogModelId
 					}
 					header={
-						<div className="flex items-center justify-between mb-4 -mt-2">
+						<div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 mb-4 -mt-2">
 							<div className="flex items-center gap-2 min-w-0">
 								{personaName ? (
 									personaLabel("text-base font-medium min-w-0", dialogPersonaId)
@@ -430,7 +430,7 @@ export const ModelReplyCard = memo(function ModelReplyCard({
 								<ParamsTooltip params={params} size={12} />
 								{afterModel}
 							</div>
-							<div className="flex items-center gap-3 min-w-0 whitespace-nowrap pr-8">
+							<div className="flex flex-wrap items-center gap-x-3 gap-y-1 min-w-0 whitespace-nowrap pr-8">
 								{personaName && (
 									<span
 										id={dialogModelId}

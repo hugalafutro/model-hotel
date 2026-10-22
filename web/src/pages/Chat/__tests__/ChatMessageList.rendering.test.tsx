@@ -1,20 +1,23 @@
 import { screen } from "@testing-library/react";
 import type { ChatMessage, Model } from "../../../api/types";
 import { renderWithProviders } from "../../../test/utils";
+import { formatTime } from "../../../utils/format";
 import { ChatMessageList } from "../ChatMessageList";
 
 describe("ChatMessageList", () => {
+	// Fixed local times with distinct seconds, so each bubble's clock is checkable.
+	const baseTs = new Date(2026, 0, 15, 14, 30, 15).getTime();
 	const mockMessages: ChatMessage[] = [
 		{
 			role: "user",
 			content: "Hello, how are you?",
-			timestamp: Date.now(),
+			timestamp: baseTs,
 		},
 		{
 			role: "assistant",
 			content: "I'm doing well, thank you!",
 			model: "Ollama Cloud/gemma3:4b",
-			timestamp: Date.now() + 1000,
+			timestamp: baseTs + 10_000,
 			metrics: {
 				durationMs: 500,
 				promptTokens: 10,
@@ -26,7 +29,7 @@ describe("ChatMessageList", () => {
 			role: "assistant",
 			content: "This is model B's response.",
 			model: "Ollama Cloud/glm-5",
-			timestamp: Date.now() + 2000,
+			timestamp: baseTs + 20_000,
 			metrics: {
 				durationMs: 600,
 				promptTokens: 12,
@@ -128,9 +131,10 @@ describe("ChatMessageList", () => {
 
 		it("renders message timestamps with seconds", () => {
 			renderWithProviders(<ChatMessageList {...defaultProps} />);
-			// User and assistant bubbles both carry hours, minutes and seconds.
-			const timestamps = screen.getAllByText(/\d{1,2}:\d{2}:\d{2}/);
-			expect(timestamps.length).toBeGreaterThanOrEqual(2);
+			// The user bubble and both assistant bubbles carry hours, minutes and seconds.
+			for (const ts of [baseTs, baseTs + 10_000, baseTs + 20_000]) {
+				expect(screen.getByText(formatTime(ts, true))).toBeInTheDocument();
+			}
 		});
 
 		it("renders metrics for assistant messages", () => {

@@ -71,7 +71,9 @@ export function ResponseCard({
 				isReasoningModel={
 					blind
 						? undefined
-						: !!modelObj && !!parseCapabilities(modelObj.capabilities).reasoning
+						: modelObj
+							? !!parseCapabilities(modelObj.capabilities).reasoning
+							: undefined
 				}
 				onModelNameClick={
 					modelObj && !blind ? () => setDetailModel(modelObj) : undefined

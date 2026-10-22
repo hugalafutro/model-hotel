@@ -211,11 +211,11 @@ export function isReasoningModel(
 		capabilities: string;
 	}[],
 	proxyId: string,
-): boolean {
+): boolean | undefined {
 	const model = findChatModel(models, proxyId);
 	return model
 		? parseCapabilities(model.capabilities).reasoning === true
-		: false;
+		: undefined;
 }
 
 /** The proxy model ids of a model list, for membership tests. */
