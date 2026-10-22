@@ -553,12 +553,12 @@ fun quotaBadgeLabel(
                 "${formatKwhAmount(used)} kWh"
             }
         }
-        // Rolling (5h) over weekly, the two windows a session actually runs
-        // into; monthly is a bar and a row in the detail sheet.
+        // Rolling (5h), weekly and monthly, the order the web pill reads.
         is QuotaData.OpenCodeGo -> {
             val rolling = applyBarMode(data.usage.rolling.usedPercent(), mode)
             val weekly = applyBarMode(data.usage.weekly.usedPercent(), mode)
-            "${formatPercent(rolling)}/${formatPercent(weekly)}"
+            val monthly = applyBarMode(data.usage.monthly.usedPercent(), mode)
+            "${formatPercent(rolling)}/${formatPercent(weekly)}/${formatPercent(monthly)}"
         }
     }
 }

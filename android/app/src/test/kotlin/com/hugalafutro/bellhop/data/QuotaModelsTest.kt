@@ -500,8 +500,7 @@ class QuotaModelsTest {
 
     @Test
     fun openCodeGoUsedAndRemainingPercentages() {
-        // Rolling over weekly; the monthly window is a detail-sheet bar and
-        // must not reach the badge, which is what the third percentage tests.
+        // Rolling, weekly, monthly: distinct percentages pin the order.
         val data =
             QuotaData.OpenCodeGo(
                 usage =
@@ -513,8 +512,8 @@ class QuotaModelsTest {
             )
         val wrapped = pq(data, QuotaType.OPENCODE_GO)
 
-        assertEquals("42%/15%", quotaBadgeLabel(wrapped, QuotaBarMode.USED))
-        assertEquals("58%/85%", quotaBadgeLabel(wrapped, QuotaBarMode.REMAINING))
+        assertEquals("42%/15%/90%", quotaBadgeLabel(wrapped, QuotaBarMode.USED))
+        assertEquals("58%/85%/10%", quotaBadgeLabel(wrapped, QuotaBarMode.REMAINING))
     }
 
     @Test
@@ -532,8 +531,8 @@ class QuotaModelsTest {
             )
         val wrapped = pq(data, QuotaType.OPENCODE_GO)
 
-        assertEquals("100%/15%", quotaBadgeLabel(wrapped, QuotaBarMode.USED))
-        assertEquals("0%/85%", quotaBadgeLabel(wrapped, QuotaBarMode.REMAINING))
+        assertEquals("100%/15%/0%", quotaBadgeLabel(wrapped, QuotaBarMode.USED))
+        assertEquals("0%/85%/100%", quotaBadgeLabel(wrapped, QuotaBarMode.REMAINING))
     }
 
     @Test
