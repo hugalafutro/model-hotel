@@ -98,4 +98,19 @@ class BellhopWidgetTest {
         assertEquals(2, quotaBadgeRows(badges, budget, markerDp = normal).last().size)
         assertEquals(1, quotaBadgeRows(badges, budget, markerDp = large).last().size)
     }
+
+    @Test
+    @GraphicsMode(GraphicsMode.Mode.NATIVE)
+    fun theHeightBudgetFollowsTheFontScale() {
+        // The smallest widget that holds four member rows at 100% font cannot
+        // hold them at 200%: WidgetHeights.of must measure lines in sp, or a
+        // large font clips the footer again. (Member rows are the decision that
+        // only ever tightens with the font; collapsing them frees room for the
+        // badges and the event block, so those can go either way.)
+        val normal = WidgetHeights.of(app)
+        val height = (1..4000).first { normal.memberForm(it, 4) == MemberForm.ROWS }
+        RuntimeEnvironment.setFontScale(2f)
+        val large = WidgetHeights.of(RuntimeEnvironment.getApplication())
+        assertEquals(MemberForm.ONE_LINE, large.memberForm(height, 4))
+    }
 }
