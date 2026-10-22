@@ -6,7 +6,18 @@
 
 **Multi-Provider AI Gateway**
 
-![Github CI](https://github.com/hugalafutro/model-hotel/actions/workflows/ci.yml/badge.svg) [![CodeQL](https://github.com/hugalafutro/model-hotel/actions/workflows/codeql.yml/badge.svg)](https://github.com/hugalafutro/model-hotel/actions/workflows/codeql.yml) ![Go Version](https://img.shields.io/github/go-mod/go-version/hugalafutro/model-hotel) ![TypeScript](https://img.shields.io/badge/TypeScript-3178C6?logo=typescript&logoColor=white) ![React](https://img.shields.io/badge/React-61DAFB?logo=react&logoColor=black) ![PostgreSQL](https://img.shields.io/badge/PostgreSQL-4169E1?logo=postgresql&logoColor=white)  ![Coverage](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/hugalafutro/model-hotel/badges/coverage.json) ![GitHub Repo stars](https://img.shields.io/github/stars/hugalafutro/model-hotel)
+<p align="center">
+ <a href="https://github.com/hugalafutro/model-hotel/blob/master/go.mod"><img src="https://img.shields.io/github/go-mod/go-version/hugalafutro/model-hotel" alt="Go Version"></a>
+ <img src="https://img.shields.io/badge/TypeScript-3178C6?logo=typescript&logoColor=white" alt="TypeScript">
+ <img src="https://img.shields.io/badge/React-61DAFB?logo=react&logoColor=black" alt="React">
+ <img src="https://img.shields.io/badge/PostgreSQL-4169E1?logo=postgresql&logoColor=white" alt="PostgreSQL">
+ <a href="https://hub.docker.com/r/hugalafutro/model-hotel"><img src="https://img.shields.io/docker/pulls/hugalafutro/model-hotel.svg" alt="Docker Pulls"></a>
+ <br>
+ <a href="https://github.com/hugalafutro/model-hotel/actions/workflows/ci.yml"><img src="https://github.com/hugalafutro/model-hotel/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
+ <a href="https://github.com/hugalafutro/model-hotel/actions/workflows/codeql.yml"><img src="https://github.com/hugalafutro/model-hotel/actions/workflows/codeql.yml/badge.svg" alt="CodeQL"></a>
+ <a href="https://github.com/hugalafutro/model-hotel/actions/workflows/ci.yml"><img src="https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/hugalafutro/model-hotel/badges/coverage.json" alt="Coverage"></a>
+ <img src="https://img.shields.io/github/stars/hugalafutro/model-hotel" alt="GitHub Stars">
+</p>
 
 
 > **AI-Assisted Project Disclaimer:**

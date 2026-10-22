@@ -16,11 +16,13 @@ nano .env              # set MASTER_KEY and POSTGRES_PASSWORD; change HOST_PORT 
 docker compose up --build -d
 ```
 
-To run the published image instead of building, follow [Deploy without Git](https://github.com/hugalafutro/model-hotel#-deploy-without-git) in the README: two files, no clone.
+To run a prebuilt image instead of building from source, edit `docker-compose.yml`: comment out the `build:` block and uncomment one of the `image:` lines. To skip the clone altogether, follow [[Deploy without Git]]: two files, no clone, no build.
 
-On first start the server prints the admin token once, in a boxed `ADMIN TOKEN (save now ...)` panel. Read it with `docker compose logs app`, and save it: it is never shown again. To stop, update or remove the stack, see [Stop, Update, Remove](https://github.com/hugalafutro/model-hotel#-stop-update-remove) in the README.
+On first start the server prints the admin token once, in a boxed `ADMIN TOKEN (save now ...)` panel. Read it with `docker compose logs app`, and save it: it is never shown again. If you lose it, delete `.data/admin-token` and restart to generate a new one. The `ADMIN_TOKEN` environment variable seeds the token on first boot only: once `.data/admin-token` exists the file wins and the variable is ignored.
 
-See [[Development]] for local setup details.
+Open `http://localhost:8081` (or the `HOST_PORT` you set), log in with that token, add your first provider, and start proxying. To stop, update or remove the stack, see [Stop, Update, Remove](https://github.com/hugalafutro/model-hotel#-stop-update-remove) in the README.
+
+For local development, use the dev stack with the `compose.dev.yml` overlay instead (Docker socket, `DEBUG_LOG`, embedding allowed; trusted environments only): see [Development](Development#quick-start).
 
 ## Key Features
 
@@ -38,6 +40,7 @@ See [[Development]] for local setup details.
 
 ### Getting Started
 
+- [[Deploy without Git]] - Run the published image from two files, no clone, no build
 - [[Configuration]] - Environment variables, runtime settings, appearance
 - [[Development]] - Local setup, project structure, contributing
 

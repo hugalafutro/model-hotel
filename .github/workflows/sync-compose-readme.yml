@@ -1,4 +1,4 @@
-name: Sync docker-compose.yml to README
+name: Sync docker-compose.yml to DOCKERHUB and the wiki
 
 on:
   push:
@@ -8,6 +8,7 @@ on:
 
 permissions:
   contents: write
+  actions: write # dispatches sync-wiki.yml; a GITHUB_TOKEN push triggers no workflow on its own
 
 jobs:
   sync:
@@ -15,7 +16,7 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
-      - name: Sync docker-compose.yml into README and DOCKERHUB
+      - name: Sync docker-compose.yml into DOCKERHUB and the Deploy without Git wiki page
         run: |
           # The compose file goes into the fenced block verbatim, so a copy needs no re-indenting
           COMPOSE_CONTENT=$(cat docker-compose.yml)
@@ -28,7 +29,7 @@ jobs:
           # - a copy of an AUTO-SYNC marker would cut the next sync's replacement short.
           if printf '%s\n' "$COMPOSE_CONTENT" | LC_ALL=C grep -Eq \
               -e '^ {0,3}```+[[:blank:]]*$' -e $'\r' -e 'AUTO-SYNC: docker-compose\.yml'; then
-            echo "::error::docker-compose.yml contains a code fence, a CR, or an AUTO-SYNC marker that would break the block in README/DOCKERHUB; refusing to sync" >&2
+            echo "::error::docker-compose.yml contains a code fence, a CR, or an AUTO-SYNC marker that would break the block in DOCKERHUB/the wiki; refusing to sync" >&2
             exit 1
           fi
 
@@ -60,11 +61,11 @@ jobs:
           end_marker = "<!-- AUTO-SYNC: docker-compose.yml end -->"
           pattern = re.escape(start_marker) + r".*?" + re.escape(end_marker)
 
-          # Read the replacement from stdin; apply to both README surfaces
-          # (GitHub README and DockerHub) so the collapsible compose block
-          # never drifts between them.
+          # Read the replacement from stdin; apply to both surfaces that embed
+          # the compose file (DockerHub and the wiki page) so the collapsible
+          # compose block never drifts between them.
           replacement = sys.stdin.read().strip()
-          for path in ("README.md", "DOCKERHUB.md"):
+          for path in ("DOCKERHUB.md", "wiki/Deploy-without-Git.md"):
               with open(path, "r") as f:
                   txt = f.read()
               # A callable replacement is inserted literally: a backslash in the
@@ -75,10 +76,16 @@ jobs:
           ' <<< "$REPLACEMENT"
 
       - name: Commit if changed
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
-          git diff --quiet README.md DOCKERHUB.md && echo "No changes" && exit 0
+          git diff --quiet DOCKERHUB.md wiki/Deploy-without-Git.md && echo "No changes" && exit 0
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add README.md DOCKERHUB.md
-          git commit -m "docs: sync docker-compose.yml to README and DOCKERHUB"
+          git add DOCKERHUB.md wiki/Deploy-without-Git.md
+          git commit -m "docs: sync docker-compose.yml to DOCKERHUB and the wiki"
           git push
+          # The wiki page changed on master: publish it now rather than on the next wiki edit.
+          if [ "$GITHUB_REF" = "refs/heads/master" ]; then
+            gh workflow run sync-wiki.yml --ref master
+          fi

@@ -3,6 +3,7 @@
 ### Getting Started
 
 - 🏨 [[Home]]
+- 📦 [[Deploy without Git]]
 - ⚙️ [[Configuration]]
 - 🚀 [[Development]]
 
