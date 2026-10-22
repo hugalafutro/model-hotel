@@ -2,14 +2,10 @@ package com.hugalafutro.bellhop.widget
 
 import android.content.Context
 import android.content.Intent
-import android.graphics.Typeface
-import android.text.TextPaint
-import android.util.TypedValue
 import android.widget.Toast
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.glance.ColorFilter
@@ -57,7 +53,6 @@ import com.hugalafutro.bellhop.data.QuotaBadgeAlign
 import com.hugalafutro.bellhop.data.QuotaType
 import com.hugalafutro.bellhop.data.TRAFFIC_BUCKETS
 import com.hugalafutro.bellhop.data.TimeFormat
-import com.hugalafutro.bellhop.data.WidgetQuotaBadge
 import com.hugalafutro.bellhop.data.WidgetState
 import com.hugalafutro.bellhop.data.WidgetStore
 import com.hugalafutro.bellhop.data.countsOf
@@ -91,7 +86,6 @@ import java.time.Instant
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.util.Locale
-import kotlin.math.ceil
 import androidx.glance.appwidget.action.actionStartActivity as actionStartActivityIntent
 
 /** BellhopWidgetReceiver is the manifest entry point; all logic is in [BellhopWidget]. */
@@ -121,8 +115,8 @@ class BellhopWidgetReceiver : GlanceAppWidgetReceiver() {
 class BellhopWidget : GlanceAppWidget() {
     // Exact, not Responsive: the badge strip packs its rows against the widget's
     // real inner width, and Responsive reports whichever breakpoint matched, so
-    // a 4-column widget would still be laid out as if it were 180dp wide. TALL
-    // below stays on as a plain height threshold.
+    // a 4-column widget would still be laid out as if it were 180dp wide. The
+    // height is used exactly too: WidgetHeights prices the stack against it.
     override val sizeMode: SizeMode = SizeMode.Exact
 
     override suspend fun provideGlance(
@@ -160,10 +154,6 @@ class BellhopWidget : GlanceAppWidget() {
     }
 
     companion object {
-        // The height at which the widget is tall enough to spend a block on the
-        // latest event as well as the member rows and the footer.
-        val TALL = DpSize(180.dp, 180.dp)
-
         // Per-member rows up to here; larger fleets collapse to counts.
         const val MAX_MEMBER_ROWS = 5
 
@@ -266,7 +256,7 @@ private val RuleTint = ColorProvider(day = Paper200, night = Ink700)
 
 // The root Column's inset. Named because the badge strip has to subtract it
 // from the reported widget width to know how much room a row really has.
-private val ROOT_PADDING = 12.dp
+private val ROOT_PADDING = WidgetHeights.ROOT_PADDING_DP.dp
 private val DotUp = ColorProvider(day = Moss600, night = Moss300)
 private val DotDown = ColorProvider(day = Ember600, night = Ember300)
 private val DotDrained = ColorProvider(day = Brass600, night = Brass300)
@@ -349,48 +339,6 @@ private fun eventStamp(
     return timeAndDate(context, format, instant.toEpochMilli())
 }
 
-// The badge pill's own text: 9sp Medium in the platform's sans, matching the
-// Text below it. Named here because the packer needs the same numbers to know
-// how wide a label comes out.
-private const val BADGE_TEXT_SP = 9f
-private val BADGE_TEXT_TYPEFACE: Typeface = Typeface.create("sans-serif-medium", Typeface.NORMAL)
-
-// The pill's chrome around its label: 4dp of padding each side plus the 1dp gap
-// to the next badge. Same figure WIDGET_QUOTA_PILL_CHROME_DP estimates with.
-private const val BADGE_CHROME_DP = 9
-
-// One dp of slack per badge on top of the measured width. Rounding up is not
-// quite enough on its own: the measurement is of the same string in the same
-// font at the same size, but it is not the RemoteViews layout pass, and these
-// pills cannot shrink to fit -- a dp too generous costs nothing visible, a dp
-// too tight clips a label.
-private const val BADGE_MEASURE_SLACK_DP = 1
-
-/**
- * badgeMeasurer returns the width function [quotaBadgeRows] packs with: the
- * label's real rendered width rather than a per-character guess. Glance can't
- * measure text, but this code runs in the app's own process, so a [TextPaint]
- * set up like the pill's Text can -- through [TypedValue], so the device's own
- * text-size setting is already in the answer.
- *
- * This is what lets the strip fill its rows: the estimate it replaces ran some
- * 30% wide on a typical label ("KIMI 0%/0%" measures 53dp against a 69dp guess),
- * which cost most rows a badge or two they had room for. The estimate stays as
- * [badgeWidthDp] for callers with no Context.
- */
-private fun badgeMeasurer(context: Context): (WidgetQuotaBadge) -> Int {
-    val metrics = context.resources.displayMetrics
-    val paint =
-        TextPaint().apply {
-            typeface = BADGE_TEXT_TYPEFACE
-            textSize = TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_SP, BADGE_TEXT_SP, metrics)
-        }
-    return { badge ->
-        val labelDp = ceil(paint.measureText(badge.label) / metrics.density).toInt()
-        labelDp + BADGE_CHROME_DP + BADGE_MEASURE_SLACK_DP
-    }
-}
-
 /**
  * MemberBars is the opt-in traffic overlay: the member's last-hour request
  * buckets as bottom-aligned bars behind the row text, split into two
@@ -437,6 +385,25 @@ private fun WidgetContent(
     timeFormat: TimeFormat,
 ) {
     val context = LocalContext.current
+    val heights = WidgetHeights.of(context)
+    val heightPx = (LocalSize.current.height.value * context.resources.displayMetrics.density).toInt()
+    val memberCount = state?.members?.size ?: 0
+    // Packed against the widget's real inner width (its own width less the root
+    // Column's side padding), so a wide widget fits a wide row instead of the
+    // two the narrowest breakpoint allowed, and capped at the rows its height
+    // has room for once the member rows and footer are paid for.
+    val quotaRows =
+        if (state != null && quotaStrip && state.quota.isNotEmpty()) {
+            quotaBadgeRows(
+                state.quota,
+                (LocalSize.current.width - ROOT_PADDING * 2).value.toInt(),
+                badgeMeasurer(context),
+                heights.quotaRowsThatFit(heightPx, memberCount),
+                overflowMarkerDp(context, state.quota.size),
+            )
+        } else {
+            emptyList()
+        }
     Column(
         modifier =
             GlanceModifier
@@ -446,9 +413,10 @@ private fun WidgetContent(
                 .clickable(actionStartActivity<MainActivity>()),
     ) {
         if (state != null) {
-            // Header carries the always-present chrome: FD name on the left,
-            // freshness stamp + refresh on the right. Living up here means the
-            // row cards and event pill can never push them off the bottom.
+            // Header: FD name on the left, the fleet's up/total badge on the
+            // right. The freshness stamp and refresh live in the footer, which
+            // WidgetHeights keeps on screen by trimming the quota strip and the
+            // event block to the room left.
             Row(
                 verticalAlignment = Alignment.CenterVertically,
                 modifier = GlanceModifier.fillMaxWidth().padding(bottom = 6.dp),
@@ -488,6 +456,7 @@ private fun WidgetContent(
                         Text(
                             "${c.up}/${state.members.size}",
                             style = TextStyle(color = badgeColor, fontSize = 10.sp, fontWeight = FontWeight.Bold),
+                            maxLines = 1,
                         )
                     }
                 }
@@ -499,12 +468,16 @@ private fun WidgetContent(
                     context.getString(R.string.widget_unpaired),
                     style = TextStyle(color = TextMuted, fontSize = 13.sp),
                 )
+            // No room for even one line: the header's up/total pill reads the fleet.
+            heights.memberForm(heightPx, memberCount) == MemberForm.HIDDEN -> {}
             state.members.isEmpty() ->
                 Text(
                     context.getString(R.string.widget_no_members),
                     style = TextStyle(color = TextMuted, fontSize = 13.sp),
+                    maxLines = 1,
                 )
-            state.members.size > BellhopWidget.MAX_MEMBER_ROWS -> {
+            // Past the row cap, or rows too tall for this widget: one counts line.
+            heights.memberForm(heightPx, memberCount) == MemberForm.ONE_LINE -> {
                 val c = countsOf(state)
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
@@ -517,6 +490,7 @@ private fun WidgetContent(
                     Text(
                         context.getString(R.string.widget_counts, c.up, c.down, c.drained),
                         style = TextStyle(color = TextPrimary, fontSize = 13.sp, fontWeight = FontWeight.Medium),
+                        maxLines = 1,
                     )
                 }
             }
@@ -575,6 +549,7 @@ private fun WidgetContent(
                                 Text(
                                     stateLabel(context, member.healthState),
                                     style = TextStyle(color = dotColor(member.healthState), fontSize = 11.sp),
+                                    maxLines = 1,
                                 )
                             }
                         }
@@ -589,13 +564,9 @@ private fun WidgetContent(
         // of this nested Column, which has its own 10-child budget that
         // WIDGET_QUOTA_MAX_ROWS keeps it well inside), so it stays cheap
         // against the 10-child cap the member rows already have to mind.
-        if (state != null && quotaStrip && state.quota.isNotEmpty()) {
+        if (state != null && quotaRows.isNotEmpty()) {
             Column(modifier = GlanceModifier.fillMaxWidth().padding(top = 4.dp)) {
-                // Packed against the widget's real inner width (its own width
-                // less the root Column's side padding), so a wide widget fits a
-                // wide row instead of the two the narrowest breakpoint allowed.
-                val budgetDp = (LocalSize.current.width - ROOT_PADDING * 2).value.toInt()
-                val rows = quotaBadgeRows(state.quota, budgetDp, badgeMeasurer(context))
+                val rows = quotaRows
                 // What the row cap left out. Said out loud on the last row: the
                 // operator picked these badges, so a strip too short to hold
                 // them all has to admit it rather than quietly showing fewer.
@@ -685,8 +656,10 @@ private fun WidgetContent(
         // fleet doesn't render the event glued on like an n+1th member. It reads
         // as a titled section now instead of a filled panel: a centred caption
         // with a rule running out to both edges, the line itself, and a closing
-        // rule that doubles as the footer's separator.
-        if (state != null && LocalSize.current.height >= BellhopWidget.TALL.height) {
+        // rule that doubles as the footer's separator. Shown only when it fits
+        // under everything else at this size and font scale; the footer below
+        // outranks it.
+        if (state != null && heights.eventFits(heightPx, memberCount, quotaRows.size)) {
             state.newestEvent?.let { event ->
                 Column(modifier = GlanceModifier.fillMaxWidth().padding(bottom = 2.dp)) {
                     CaptionRule(context.getString(R.string.widget_event_header))
@@ -704,6 +677,7 @@ private fun WidgetContent(
                         Text(
                             eventStamp(context, timeFormat, event.createdAt),
                             style = TextStyle(color = TextMuted, fontSize = 9.sp),
+                            maxLines = 1,
                         )
                     }
                 }
@@ -723,19 +697,24 @@ private fun WidgetContent(
                     Text(
                         context.getString(R.string.widget_as_of, stamp),
                         style = TextStyle(color = TextMuted, fontSize = 9.sp),
+                        maxLines = 1,
+                        // Takes the slack, so at a large font the stamp is what
+                        // shortens and the status and refresh keep their place.
+                        modifier = GlanceModifier.defaultWeight().padding(end = 6.dp),
                     )
                 }
-                Spacer(GlanceModifier.defaultWeight())
                 when {
                     state?.autosyncStale == true ->
                         Text(
                             context.getString(R.string.widget_stale),
                             style = TextStyle(color = DotDrained, fontSize = 9.sp),
+                            maxLines = 1,
                         )
                     !monitoringActive && state != null ->
                         Text(
                             context.getString(R.string.widget_monitoring_off),
                             style = TextStyle(color = TextMuted, fontSize = 9.sp),
+                            maxLines = 1,
                         )
                 }
                 if (state != null) {

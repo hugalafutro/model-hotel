@@ -304,6 +304,33 @@ class WidgetStateTest {
     }
 
     @Test
+    fun quotaBadgeRowsHonourALowerRowCapFromTheWidgetsHeight() {
+        // A short widget passes fewer rows than the default cap; what it cuts
+        // still counts toward the "+N" rather than vanishing.
+        val badges = (1..3).map { badge("P$it", "x".repeat(40)) }
+        val rows = quotaBadgeRows(badges, maxRows = 1)
+
+        assertEquals(listOf(listOf("P1")), rows.map { row -> row.map { it.providerName } })
+        assertEquals(2, quotaBadgeOverflow(badges, rows))
+        // Zero rows is a widget with no room for the strip at all.
+        assertEquals(emptyList<List<WidgetQuotaBadge>>(), quotaBadgeRows(badges, maxRows = 0))
+    }
+
+    @Test
+    fun aWiderOverflowMarkerTakesMoreFromTheLastRow() {
+        // At a large font the "+N" is wider than the default reserve, and the
+        // widget passes its measured width. At 200dp two 81dp badges fit beside
+        // the default 28dp marker (162 <= 172) but not beside a 40dp one.
+        val badges = (1..12).map { badge("P$it", "NANO 1.9M/3M") }
+        val atDefault = quotaBadgeRows(badges, 200)
+        val widened = quotaBadgeRows(badges, 200, markerDp = 40)
+
+        assertEquals(2, atDefault.last().size)
+        assertEquals(1, widened.last().size)
+        assertEquals(quotaBadgeOverflow(badges, atDefault) + 1, quotaBadgeOverflow(badges, widened))
+    }
+
+    @Test
     fun quotaBadgeRowsLeaveTheOverflowMarkerItsWidth() {
         // The "+N" shares the last row with its badges, so they have only what
         // it doesn't take. A last row fitted against the full width would push
