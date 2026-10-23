@@ -398,7 +398,7 @@ export function AppLogs() {
 					<div ref={wheelPagingRef} className="ui-card overflow-x-auto">
 						<table className="w-full table-fixed ui-table">
 							<colgroup>
-								<col className="w-44" />
+								<col className="w-52" />
 								<col className="w-20" />
 								<col className="w-24" />
 								<col />

@@ -46,8 +46,10 @@ import com.hugalafutro.bellhop.ui.common.loadMoreSentinel
 import com.hugalafutro.bellhop.ui.common.rememberCopyText
 import com.hugalafutro.bellhop.ui.theme.BellhopTheme
 import com.hugalafutro.bellhop.ui.theme.MonoFamily
+import java.text.DecimalFormatSymbols
 import java.time.Instant
 import java.time.OffsetDateTime
+import java.time.Year
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.time.format.DateTimeParseException
@@ -262,7 +264,7 @@ private fun EventRow(
             )
             // Time in the brand mono so the column aligns and reads as a metric.
             Text(
-                text = formatEventTime(event.createdAt, LocalTimePattern.current),
+                text = formatEventStamp(event.createdAt, LocalTimePattern.current),
                 style = MaterialTheme.typography.labelSmall,
                 fontFamily = MonoFamily,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -315,9 +317,49 @@ private fun severityLabel(severity: String): String =
 internal fun formatEventTime(
     createdAt: String,
     timePattern: String,
+): String = formatOffsetTime(createdAt, "MMM d, yyyy · $timePattern")
+
+// formatEventStamp is [formatEventTime] down to the hundredth of a second, for
+// event-log rows, where several events often land in the same second. The
+// fraction always shows two digits (".10", never ".1") and the day and hour are
+// zero-padded, so stamps of the same shape line up in the mono column (an
+// old-year row is longer by its year). The decimal mark is the locale's
+// ("45.15", "45,15"); any other mark (Arabic U+066B) falls back to ".", since
+// the formatter prints ASCII digits and CLDR's mark for Arabic in Latin digits
+// is ".", which is also what the dashboard shows for Arabic (formatLocale
+// forces latn). DateTimeFormatter truncates the fraction, so .159 reads .15
+// and never rolls into the next second. [timePattern] is one of the two shapes
+// [com.hugalafutro.bellhop.data.timePattern] returns ("HH:mm", "h:mm a").
+//
+// A row names the year only for an event from another year than the device's
+// current one, so the common row stays within a character or two of the old
+// minute-precision stamp and the event title keeps its room on a small screen
+// with large text. An old-year row is longer by its year.
+// [fullDate] always names it, for text that leaves the screen (the clipboard).
+internal fun formatEventStamp(
+    createdAt: String,
+    timePattern: String,
+    fullDate: Boolean = false,
+): String {
+    val locale = Locale.getDefault()
+    val mark = DecimalFormatSymbols.getInstance(locale).decimalSeparator.takeIf { it == '.' || it == ',' } ?: '.'
+    val clock = timePattern.replace(Regex("^h:"), "hh:").replace("mm", "mm:ss${mark}SS")
+    return try {
+        val zone = ZoneId.systemDefault()
+        val moment = OffsetDateTime.parse(createdAt).atZoneSameInstant(zone)
+        val date = if (fullDate || moment.year != Year.now(zone).value) "MMM dd, yyyy" else "MMM dd"
+        moment.format(DateTimeFormatter.ofPattern("$date · $clock", locale))
+    } catch (e: Exception) {
+        createdAt
+    }
+}
+
+private fun formatOffsetTime(
+    createdAt: String,
+    pattern: String,
 ): String =
     try {
-        val format = DateTimeFormatter.ofPattern("MMM d, yyyy · $timePattern", Locale.getDefault())
+        val format = DateTimeFormatter.ofPattern(pattern, Locale.getDefault())
         OffsetDateTime.parse(createdAt).atZoneSameInstant(ZoneId.systemDefault()).format(format)
     } catch (e: Exception) {
         createdAt
@@ -343,7 +385,8 @@ internal fun eventClipboardText(
     memberName: String?,
     timePattern: String,
 ): String {
-    val header = "${formatEventTime(event.createdAt, timePattern)} · [${event.severity}] ${event.type}"
+    val stamp = formatEventStamp(event.createdAt, timePattern, fullDate = true)
+    val header = "$stamp · [${event.severity}] ${event.type}"
     val who =
         listOfNotNull(
             event.source.ifEmpty { null },

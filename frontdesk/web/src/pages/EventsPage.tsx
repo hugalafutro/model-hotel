@@ -6,7 +6,7 @@ import type { FdEvent } from "../api/types";
 import { useLatestRequest } from "../hooks/useLatestRequest";
 import { useMembers } from "../hooks/useMembers";
 import { useWheelPaging } from "../hooks/useWheelPaging";
-import { formatAbsolute } from "../utils/time";
+import { formatEventStamp } from "../utils/time";
 
 const PAGE_SIZE = 25;
 
@@ -241,7 +241,15 @@ export function EventsPage() {
 				</div>
 			</div>
 
-			<div ref={wheelPagingRef} className="ui-card">
+			{/* The card is both the horizontal scroller (a phone scrolls the table,
+			    not the page) and the wheel-paging target: useWheelPaging pages only
+			    once the element it holds has no room left to scroll sideways, so the
+			    two must be the same element. */}
+			<div
+				ref={wheelPagingRef}
+				className="ui-card"
+				style={{ overflowX: "auto" }}
+			>
 				{loading ? (
 					<div className="fd-empty">{t("common.loading")}</div>
 				) : error ? (
@@ -262,7 +270,7 @@ export function EventsPage() {
 							{events.map((e) => (
 								<tr key={e.id}>
 									<td className="fd-faint" style={{ whiteSpace: "nowrap" }}>
-										{formatAbsolute(e.created_at)}
+										{formatEventStamp(e.created_at)}
 									</td>
 									<td>
 										<span className={severityBadgeClass(e.severity)}>

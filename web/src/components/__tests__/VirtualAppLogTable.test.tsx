@@ -1121,7 +1121,7 @@ describe("VirtualAppLogTable", () => {
 			);
 
 			// The timestamp cell should contain formatted date
-			// formatLogTimestamp returns locale string like "05/23/2026, 10:00:00"
+			// formatLogTimestamp returns locale string like "05/23/2026, 10:00:00.00"
 			const timestampCell = container.querySelector(
 				'td[class*="whitespace-nowrap"]',
 			);
