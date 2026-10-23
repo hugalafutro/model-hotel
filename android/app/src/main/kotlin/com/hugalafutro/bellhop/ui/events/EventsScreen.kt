@@ -49,6 +49,7 @@ import com.hugalafutro.bellhop.ui.theme.MonoFamily
 import java.text.DecimalFormatSymbols
 import java.time.Instant
 import java.time.OffsetDateTime
+import java.time.Year
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.time.format.DateTimeParseException
@@ -327,14 +328,27 @@ internal fun formatEventTime(
 // it. DateTimeFormatter truncates the fraction, so .159 reads .15 and never
 // rolls into the next second. [timePattern] is one of the two shapes
 // [com.hugalafutro.bellhop.data.timePattern] returns ("HH:mm", "h:mm a").
+//
+// A row names the year only for an event from another year than the device's
+// current one, so the common row stays as narrow as the old minute-precision
+// stamp and the event title keeps its room on a small screen with large text.
+// [fullDate] always names it, for text that leaves the screen (the clipboard).
 internal fun formatEventStamp(
     createdAt: String,
     timePattern: String,
+    fullDate: Boolean = false,
 ): String {
     val locale = Locale.getDefault()
     val mark = DecimalFormatSymbols.getInstance(locale).decimalSeparator.takeIf { it == '.' || it == ',' } ?: '.'
     val clock = timePattern.replace(Regex("^h:"), "hh:").replace("mm", "mm:ss${mark}SS")
-    return formatOffsetTime(createdAt, "MMM dd, yyyy · $clock")
+    return try {
+        val zone = ZoneId.systemDefault()
+        val moment = OffsetDateTime.parse(createdAt).atZoneSameInstant(zone)
+        val date = if (fullDate || moment.year != Year.now(zone).value) "MMM dd, yyyy" else "MMM dd"
+        moment.format(DateTimeFormatter.ofPattern("$date · $clock", locale))
+    } catch (e: Exception) {
+        createdAt
+    }
 }
 
 private fun formatOffsetTime(
@@ -368,7 +382,8 @@ internal fun eventClipboardText(
     memberName: String?,
     timePattern: String,
 ): String {
-    val header = "${formatEventStamp(event.createdAt, timePattern)} · [${event.severity}] ${event.type}"
+    val stamp = formatEventStamp(event.createdAt, timePattern, fullDate = true)
+    val header = "$stamp · [${event.severity}] ${event.type}"
     val who =
         listOfNotNull(
             event.source.ifEmpty { null },
