@@ -247,9 +247,9 @@ describe("formatLogTimestamp", () => {
 	it("keeps Latin digits for Arabic", async () => {
 		await i18next.changeLanguage("ar");
 		try {
-			expect(formatLogTimestamp("2024-01-15T22:05:09.15Z")).toMatch(
-				/22:05:09[.,٫]15/,
-			);
+			const out = formatLogTimestamp("2024-01-15T22:05:09.15Z");
+			expect(out).not.toBe("2024-01-15T22:05:09.15Z");
+			expect(out).toMatch(/22:05:09[.,٫]15$/);
 		} finally {
 			await i18next.changeLanguage("en");
 		}

@@ -249,40 +249,42 @@ export function EventsPage() {
 				) : events.length === 0 ? (
 					<div className="fd-empty">{t("events.empty")}</div>
 				) : (
-					<table className="ui-table">
-						<thead>
-							<tr>
-								<th>{t("events.colTime")}</th>
-								<th>{t("events.colSeverity")}</th>
-								<th>{t("events.colSource")}</th>
-								<th>{t("events.colMessage")}</th>
-							</tr>
-						</thead>
-						<tbody>
-							{events.map((e) => (
-								<tr key={e.id}>
-									<td className="fd-faint" style={{ whiteSpace: "nowrap" }}>
-										{formatEventStamp(e.created_at)}
-									</td>
-									<td>
-										<span className={severityBadgeClass(e.severity)}>
-											{sevLabel(t, e.severity)}
-										</span>
-									</td>
-									<td className="fd-mono fd-faint">{e.source}</td>
-									<td>
-										{e.message}
-										{e.member_id && (
-											<span className="fd-faint">
-												{" "}
-												· {memberName(e.member_id)}
-											</span>
-										)}
-									</td>
+					<div style={{ overflowX: "auto" }}>
+						<table className="ui-table">
+							<thead>
+								<tr>
+									<th>{t("events.colTime")}</th>
+									<th>{t("events.colSeverity")}</th>
+									<th>{t("events.colSource")}</th>
+									<th>{t("events.colMessage")}</th>
 								</tr>
-							))}
-						</tbody>
-					</table>
+							</thead>
+							<tbody>
+								{events.map((e) => (
+									<tr key={e.id}>
+										<td className="fd-faint" style={{ whiteSpace: "nowrap" }}>
+											{formatEventStamp(e.created_at)}
+										</td>
+										<td>
+											<span className={severityBadgeClass(e.severity)}>
+												{sevLabel(t, e.severity)}
+											</span>
+										</td>
+										<td className="fd-mono fd-faint">{e.source}</td>
+										<td>
+											{e.message}
+											{e.member_id && (
+												<span className="fd-faint">
+													{" "}
+													· {memberName(e.member_id)}
+												</span>
+											)}
+										</td>
+									</tr>
+								))}
+							</tbody>
+						</table>
+					</div>
 				)}
 			</div>
 
