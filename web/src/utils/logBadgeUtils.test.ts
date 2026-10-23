@@ -210,10 +210,24 @@ describe("formatLogTimestamp", () => {
 	// log tables line up on.
 	it("formats a valid ISO string as a zero-padded 24-hour stamp", () => {
 		const result = formatLogTimestamp("2024-01-15T22:05:09Z");
-		expect(result).toMatch(/(^|\D)22:05:09$/);
+		expect(result).toMatch(/(^|\D)22:05:09[.,]00$/);
 		expect(result).toMatch(/\b2024\b/);
 		expect(result).toMatch(/\b01\b/);
 		expect(result).toMatch(/\b15\b/);
+	});
+
+	// ".1" and ".10" are the same value; the stamp always shows two digits so
+	// the column never changes width, and truncates so .159 cannot round up.
+	it("shows hundredths with a fixed two-digit, truncated fraction", () => {
+		expect(formatLogTimestamp("2024-01-15T22:05:09.1Z")).toMatch(
+			/22:05:09[.,]10$/,
+		);
+		expect(formatLogTimestamp("2024-01-15T22:05:09.159Z")).toMatch(
+			/22:05:09[.,]15$/,
+		);
+		expect(formatLogTimestamp("2024-01-15T22:05:09.999Z")).toMatch(
+			/22:05:09[.,]99$/,
+		);
 	});
 
 	it("returns original string for invalid date", () => {

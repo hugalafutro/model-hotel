@@ -81,10 +81,13 @@ export const getSourceBadgeClasses = (source: string) => {
 	}
 };
 
-// Log-row stamp: fixed-width 24-hour date and time down to the second, so rows
-// line up in the log tables. The explicit 2-digit fields and hour12:false give
-// that fixed width in any locale, so the stamp reads in the operator's own date
-// order. An unparsable value is passed through as it came. Distinct from
+// Log-row stamp: fixed-width 24-hour date and time down to the hundredth of a
+// second, so rows line up in the log tables and events within one second still
+// read in order. The explicit 2-digit fields, the always-two fraction digits
+// (".10", never ".1") and hour12:false give that fixed width in any locale, so
+// the stamp reads in the operator's own date order and decimal mark ("45.15",
+// "45,15"). Intl truncates the fraction, so .159 reads .15 and never rolls into
+// the next second. An unparsable value is passed through as it came. Distinct from
 // utils/format's formatTimestamp, which is the locale-short form used
 // everywhere else.
 export const formatLogTimestamp = (ts: string) => {
@@ -100,6 +103,7 @@ export const formatLogTimestamp = (ts: string) => {
 			hour: "2-digit",
 			minute: "2-digit",
 			second: "2-digit",
+			fractionalSecondDigits: 2,
 			hour12: false,
 		});
 	} catch {

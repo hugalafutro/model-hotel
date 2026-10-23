@@ -1,6 +1,7 @@
 import { useTranslation } from "react-i18next";
 import type { LogEntry } from "../../api/types";
-import { formatDateTime, formatNumber, formatSpend } from "../../utils/format";
+import { formatNumber, formatSpend } from "../../utils/format";
+import { formatLogTimestamp } from "../../utils/logBadgeUtils";
 import {
 	formatDurationCell,
 	formatMs,
@@ -42,7 +43,7 @@ export function RequestLogCells({
 	return (
 		<>
 			<td className="px-2 py-1 whitespace-nowrap text-xs text-gray-400 font-mono">
-				{log.created_at ? formatDateTime(log.created_at) : "-"}
+				{log.created_at ? formatLogTimestamp(log.created_at) : "-"}
 			</td>
 			<td
 				className="px-2 py-1 whitespace-nowrap text-xs text-gray-200 truncate"

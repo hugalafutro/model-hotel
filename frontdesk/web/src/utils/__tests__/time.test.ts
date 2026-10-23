@@ -2,6 +2,7 @@ import i18next from "i18next";
 import { describe, expect, it } from "vitest";
 import {
 	formatAbsolute,
+	formatEventStamp,
 	formatHourTick,
 	formatRelative,
 	formatTimeOfDay,
@@ -66,5 +67,27 @@ describe("formatAbsolute", () => {
 		const out = formatAbsolute("2026-06-01T14:00:00Z");
 		expect(out).not.toBe(NEVER);
 		expect(out.length).toBeGreaterThan(0);
+	});
+});
+
+describe("formatEventStamp", () => {
+	it("returns the never sentinel for undefined and unparseable input", () => {
+		expect(formatEventStamp(undefined)).toBe(NEVER);
+		expect(formatEventStamp("garbage")).toBe(NEVER);
+	});
+
+	// The decimal mark is the locale's, so either is accepted; the digits are
+	// always two (".1" reads ".10") and truncated (.159 reads .15). Only the
+	// minute and later are asserted: the hour and date follow the runner's zone.
+	it("shows seconds with a fixed two-digit, truncated fraction", () => {
+		expect(formatEventStamp("2026-06-01T14:07:09.1Z")).toMatch(
+			/07:09[.,]10(\s|$)/,
+		);
+		expect(formatEventStamp("2026-06-01T14:07:09.159Z")).toMatch(
+			/07:09[.,]15(\s|$)/,
+		);
+		expect(formatEventStamp("2026-06-01T14:07:09Z")).toMatch(
+			/07:09[.,]00(\s|$)/,
+		);
 	});
 });

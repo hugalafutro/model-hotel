@@ -78,6 +78,7 @@ import com.hugalafutro.bellhop.ui.common.relativeAgo
 import com.hugalafutro.bellhop.ui.common.rememberCopyText
 import com.hugalafutro.bellhop.ui.common.withoutMemberName
 import com.hugalafutro.bellhop.ui.events.eventClipboardText
+import com.hugalafutro.bellhop.ui.events.formatEventStamp
 import com.hugalafutro.bellhop.ui.events.formatEventTime
 import com.hugalafutro.bellhop.ui.theme.BellhopTheme
 import com.hugalafutro.bellhop.ui.theme.MonoFamily
@@ -1061,7 +1062,7 @@ private fun MemberEventRow(
                 modifier = Modifier.weight(1f),
             )
             Text(
-                text = formatEventTime(event.createdAt, LocalTimePattern.current),
+                text = formatEventStamp(event.createdAt, LocalTimePattern.current),
                 style = MaterialTheme.typography.labelSmall,
                 fontFamily = MonoFamily,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,

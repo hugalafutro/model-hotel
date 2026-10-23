@@ -63,3 +63,26 @@ export function formatAbsolute(iso: string | undefined): string {
 		i18next.t("common.never"),
 	);
 }
+
+// formatEventStamp is formatAbsolute down to the hundredth of a second, for the
+// event log, where several events often land in the same second. The fraction
+// always shows two digits (".10", never ".1") and the day and hour are 2-digit,
+// so rows keep one width; the decimal mark is the locale's ("45.15", "45,15").
+// Intl truncates the fraction, so .159 reads .15 and never rolls into the next
+// second. dateStyle/timeStyle cannot be combined with a fraction, hence the
+// explicit fields.
+export function formatEventStamp(iso: string | undefined): string {
+	return fmt(
+		iso,
+		{
+			year: "numeric",
+			month: "short",
+			day: "2-digit",
+			hour: "2-digit",
+			minute: "2-digit",
+			second: "2-digit",
+			fractionalSecondDigits: 2,
+		},
+		i18next.t("common.never"),
+	);
+}

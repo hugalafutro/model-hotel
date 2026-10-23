@@ -46,6 +46,7 @@ import com.hugalafutro.bellhop.ui.common.loadMoreSentinel
 import com.hugalafutro.bellhop.ui.common.rememberCopyText
 import com.hugalafutro.bellhop.ui.theme.BellhopTheme
 import com.hugalafutro.bellhop.ui.theme.MonoFamily
+import java.text.DecimalFormatSymbols
 import java.time.Instant
 import java.time.OffsetDateTime
 import java.time.ZoneId
@@ -262,7 +263,7 @@ private fun EventRow(
             )
             // Time in the brand mono so the column aligns and reads as a metric.
             Text(
-                text = formatEventTime(event.createdAt, LocalTimePattern.current),
+                text = formatEventStamp(event.createdAt, LocalTimePattern.current),
                 style = MaterialTheme.typography.labelSmall,
                 fontFamily = MonoFamily,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -315,9 +316,30 @@ private fun severityLabel(severity: String): String =
 internal fun formatEventTime(
     createdAt: String,
     timePattern: String,
+): String = formatOffsetTime(createdAt, "MMM d, yyyy · $timePattern")
+
+// formatEventStamp is [formatEventTime] down to the hundredth of a second, for
+// event-log rows, where several events often land in the same second. The
+// fraction always shows two digits (".10", never ".1") and the day and hour are
+// zero-padded, so the mono time column keeps one width; the decimal mark is the
+// locale's ("45.15", "45,15"). DateTimeFormatter truncates the fraction, so .159
+// reads .15 and never rolls into the next second.
+internal fun formatEventStamp(
+    createdAt: String,
+    timePattern: String,
+): String {
+    val locale = Locale.getDefault()
+    val mark = DecimalFormatSymbols.getInstance(locale).decimalSeparator
+    val clock = timePattern.replace(Regex("^h:"), "hh:").replace("mm", "mm:ss${mark}SS")
+    return formatOffsetTime(createdAt, "MMM dd, yyyy · $clock")
+}
+
+private fun formatOffsetTime(
+    createdAt: String,
+    pattern: String,
 ): String =
     try {
-        val format = DateTimeFormatter.ofPattern("MMM d, yyyy · $timePattern", Locale.getDefault())
+        val format = DateTimeFormatter.ofPattern(pattern, Locale.getDefault())
         OffsetDateTime.parse(createdAt).atZoneSameInstant(ZoneId.systemDefault()).format(format)
     } catch (e: Exception) {
         createdAt
@@ -343,7 +365,7 @@ internal fun eventClipboardText(
     memberName: String?,
     timePattern: String,
 ): String {
-    val header = "${formatEventTime(event.createdAt, timePattern)} · [${event.severity}] ${event.type}"
+    val header = "${formatEventStamp(event.createdAt, timePattern)} · [${event.severity}] ${event.type}"
     val who =
         listOfNotNull(
             event.source.ifEmpty { null },

@@ -6,7 +6,7 @@ import type { FdEvent } from "../api/types";
 import { useLatestRequest } from "../hooks/useLatestRequest";
 import { useMembers } from "../hooks/useMembers";
 import { useWheelPaging } from "../hooks/useWheelPaging";
-import { formatAbsolute } from "../utils/time";
+import { formatEventStamp } from "../utils/time";
 
 const PAGE_SIZE = 25;
 
@@ -262,7 +262,7 @@ export function EventsPage() {
 							{events.map((e) => (
 								<tr key={e.id}>
 									<td className="fd-faint" style={{ whiteSpace: "nowrap" }}>
-										{formatAbsolute(e.created_at)}
+										{formatEventStamp(e.created_at)}
 									</td>
 									<td>
 										<span className={severityBadgeClass(e.severity)}>
