@@ -80,9 +80,7 @@ describe("formatEventStamp", () => {
 	// .15). Only the seconds are asserted: every real zone offset is whole
 	// minutes, so the hour, minute and date follow the runner's zone.
 	it("shows seconds with a fixed two-digit, truncated fraction", () => {
-		expect(formatEventStamp("2026-06-01T14:07:09.1Z")).toMatch(
-			/:09\.10(\s|$)/,
-		);
+		expect(formatEventStamp("2026-06-01T14:07:09.1Z")).toMatch(/:09\.10(\s|$)/);
 		expect(formatEventStamp("2026-06-01T14:07:09.159Z")).toMatch(
 			/:09\.15(\s|$)/,
 		);
