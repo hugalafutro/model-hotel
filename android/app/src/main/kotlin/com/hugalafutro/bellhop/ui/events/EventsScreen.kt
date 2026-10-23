@@ -322,7 +322,8 @@ internal fun formatEventTime(
 // formatEventStamp is [formatEventTime] down to the hundredth of a second, for
 // event-log rows, where several events often land in the same second. The
 // fraction always shows two digits (".10", never ".1") and the day and hour are
-// zero-padded, so the mono time column keeps one width; the decimal mark is the
+// zero-padded, so stamps of the same shape line up in the mono column (an
+// old-year row is longer by its year); the decimal mark is the
 // locale's ("45.15", "45,15"). Any other mark (Arabic U+066B) falls back to "."
 // because the formatter prints ASCII digits and the mono font has no glyph for
 // it. DateTimeFormatter truncates the fraction, so .159 reads .15 and never
