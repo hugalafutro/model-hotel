@@ -49,7 +49,7 @@ class EventStampFormatTest {
         }
 
     // ".1" and ".10" are the same value; the row always shows two digits so the
-    // mono column never changes width, and a whole second reads ".00".
+    // fraction never changes width between rows, and a whole second reads ".00".
     @Test
     fun alwaysShowsTwoFractionDigits() =
         inPrague(Locale.US) {

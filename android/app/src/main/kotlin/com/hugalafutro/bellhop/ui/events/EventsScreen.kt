@@ -331,8 +331,9 @@ internal fun formatEventTime(
 // [com.hugalafutro.bellhop.data.timePattern] returns ("HH:mm", "h:mm a").
 //
 // A row names the year only for an event from another year than the device's
-// current one, so the common row stays as narrow as the old minute-precision
-// stamp and the event title keeps its room on a small screen with large text.
+// current one, so the common row stays within a character or two of the old
+// minute-precision stamp and the event title keeps its room on a small screen
+// with large text. An old-year row is longer by its year.
 // [fullDate] always names it, for text that leaves the screen (the clipboard).
 internal fun formatEventStamp(
     createdAt: String,
