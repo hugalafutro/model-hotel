@@ -323,11 +323,12 @@ internal fun formatEventTime(
 // event-log rows, where several events often land in the same second. The
 // fraction always shows two digits (".10", never ".1") and the day and hour are
 // zero-padded, so stamps of the same shape line up in the mono column (an
-// old-year row is longer by its year); the decimal mark is the
-// locale's ("45.15", "45,15"). Any other mark (Arabic U+066B) falls back to "."
-// because the formatter prints ASCII digits and the mono font has no glyph for
-// it. DateTimeFormatter truncates the fraction, so .159 reads .15 and never
-// rolls into the next second. [timePattern] is one of the two shapes
+// old-year row is longer by its year). The decimal mark is the locale's
+// ("45.15", "45,15"); any other mark (Arabic U+066B) falls back to ".", since
+// the formatter prints ASCII digits and CLDR's mark for Arabic in Latin digits
+// is ".", which is also what the dashboard shows for Arabic (formatLocale
+// forces latn). DateTimeFormatter truncates the fraction, so .159 reads .15
+// and never rolls into the next second. [timePattern] is one of the two shapes
 // [com.hugalafutro.bellhop.data.timePattern] returns ("HH:mm", "h:mm a").
 //
 // A row names the year only for an event from another year than the device's

@@ -74,8 +74,8 @@ class EventStampFormatTest {
             assertTrue(formatEventStamp("$pastYear.15Z", "HH:mm").endsWith("20:25:46,15"))
         }
 
-    // Arabic's own decimal mark (U+066B) would sit between ASCII digits in a
-    // mono font with no glyph for it, so the stamp falls back to ".".
+    // The stamp prints ASCII digits, and CLDR's decimal mark for Arabic in
+    // Latin digits is ".", not Arabic's own U+066B; the dashboard agrees.
     @Test
     fun fallsBackToADotForAnArabicDecimalMark() =
         inPrague(Locale.forLanguageTag("ar-EG")) {
