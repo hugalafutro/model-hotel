@@ -57,6 +57,14 @@ class EventStampFormatTest {
             assertTrue(formatEventStamp("2026-09-08T18:25:46.15Z", "HH:mm").endsWith("20:25:46,15"))
         }
 
+    // Arabic's own decimal mark (U+066B) would sit between ASCII digits in a
+    // mono font with no glyph for it, so the stamp falls back to ".".
+    @Test
+    fun fallsBackToADotForAnArabicDecimalMark() =
+        inPrague(Locale.forLanguageTag("ar-EG")) {
+            assertTrue(formatEventStamp("2026-09-08T18:25:46.15Z", "HH:mm").endsWith("20:25:46.15"))
+        }
+
     @Test
     fun fallsBackToRawOnGarbage() {
         assertEquals("not-a-time", formatEventStamp("not-a-time", "HH:mm"))

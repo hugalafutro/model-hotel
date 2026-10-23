@@ -76,18 +76,27 @@ describe("formatEventStamp", () => {
 		expect(formatEventStamp("garbage")).toBe(NEVER);
 	});
 
-	// The decimal mark is the locale's, so either is accepted; the digits are
-	// always two (".1" reads ".10") and truncated (.159 reads .15). Only the
-	// minute and later are asserted: the hour and date follow the runner's zone.
+	// The digits are always two (".1" reads ".10") and truncated (.159 reads
+	// .15). Only the seconds are asserted: every real zone offset is whole
+	// minutes, so the hour, minute and date follow the runner's zone.
 	it("shows seconds with a fixed two-digit, truncated fraction", () => {
 		expect(formatEventStamp("2026-06-01T14:07:09.1Z")).toMatch(
-			/07:09[.,]10(\s|$)/,
+			/:09\.10(\s|$)/,
 		);
 		expect(formatEventStamp("2026-06-01T14:07:09.159Z")).toMatch(
-			/07:09[.,]15(\s|$)/,
+			/:09\.15(\s|$)/,
 		);
-		expect(formatEventStamp("2026-06-01T14:07:09Z")).toMatch(
-			/07:09[.,]00(\s|$)/,
-		);
+		expect(formatEventStamp("2026-06-01T14:07:09Z")).toMatch(/:09\.00(\s|$)/);
+	});
+
+	it("uses the app language's decimal mark and clock", async () => {
+		await i18next.changeLanguage("de");
+		try {
+			expect(formatEventStamp("2026-06-01T14:07:09.15Z")).toMatch(
+				/:\d{2}:09,15$/,
+			);
+		} finally {
+			await i18next.changeLanguage("en");
+		}
 	});
 });

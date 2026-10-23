@@ -322,14 +322,17 @@ internal fun formatEventTime(
 // event-log rows, where several events often land in the same second. The
 // fraction always shows two digits (".10", never ".1") and the day and hour are
 // zero-padded, so the mono time column keeps one width; the decimal mark is the
-// locale's ("45.15", "45,15"). DateTimeFormatter truncates the fraction, so .159
-// reads .15 and never rolls into the next second.
+// locale's ("45.15", "45,15"). Any other mark (Arabic U+066B) falls back to "."
+// because the formatter prints ASCII digits and the mono font has no glyph for
+// it. DateTimeFormatter truncates the fraction, so .159 reads .15 and never
+// rolls into the next second. [timePattern] is one of the two shapes
+// [com.hugalafutro.bellhop.data.timePattern] returns ("HH:mm", "h:mm a").
 internal fun formatEventStamp(
     createdAt: String,
     timePattern: String,
 ): String {
     val locale = Locale.getDefault()
-    val mark = DecimalFormatSymbols.getInstance(locale).decimalSeparator
+    val mark = DecimalFormatSymbols.getInstance(locale).decimalSeparator.takeIf { it == '.' || it == ',' } ?: '.'
     val clock = timePattern.replace(Regex("^h:"), "hh:").replace("mm", "mm:ss${mark}SS")
     return formatOffsetTime(createdAt, "MMM dd, yyyy · $clock")
 }

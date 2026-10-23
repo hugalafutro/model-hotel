@@ -1,3 +1,4 @@
+import i18next from "i18next";
 import { describe, expect, it } from "vitest";
 import {
 	formatLogTimestamp,
@@ -220,14 +221,38 @@ describe("formatLogTimestamp", () => {
 	// the column never changes width, and truncates so .159 cannot round up.
 	it("shows hundredths with a fixed two-digit, truncated fraction", () => {
 		expect(formatLogTimestamp("2024-01-15T22:05:09.1Z")).toMatch(
-			/22:05:09[.,]10$/,
+			/22:05:09\.10$/,
 		);
 		expect(formatLogTimestamp("2024-01-15T22:05:09.159Z")).toMatch(
-			/22:05:09[.,]15$/,
+			/22:05:09\.15$/,
 		);
 		expect(formatLogTimestamp("2024-01-15T22:05:09.999Z")).toMatch(
-			/22:05:09[.,]99$/,
+			/22:05:09\.99$/,
 		);
+	});
+
+	it("uses the app language's decimal mark", async () => {
+		await i18next.changeLanguage("de");
+		try {
+			expect(formatLogTimestamp("2024-01-15T22:05:09.15Z")).toMatch(
+				/22:05:09,15$/,
+			);
+		} finally {
+			await i18next.changeLanguage("en");
+		}
+	});
+
+	// Arabic keeps Latin digits (formatLocale forces latn), so the stamp still
+	// lines up with the other rows' digits.
+	it("keeps Latin digits for Arabic", async () => {
+		await i18next.changeLanguage("ar");
+		try {
+			expect(formatLogTimestamp("2024-01-15T22:05:09.15Z")).toMatch(
+				/22:05:09[.,٫]15/,
+			);
+		} finally {
+			await i18next.changeLanguage("en");
+		}
 	});
 
 	it("returns original string for invalid date", () => {
