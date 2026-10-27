@@ -52,6 +52,7 @@ pnpm exec tsc -b                          # typecheck alone (what the pre-push h
 pnpm lint                                 # ESLint over web/ and web-shared/
 pnpm format                               # Biome check, no writes (what CI runs)
 pnpm format:fix src/components/Foo.tsx    # Biome format + lint, writing fixes
+pnpm format:shared:fix                    # same for web-shared/ (Biome must run from inside it)
 pnpm test                                 # Vitest, single run
 pnpm test:watch
 pnpm vitest run --coverage                # full suite, about 85 seconds; run it once

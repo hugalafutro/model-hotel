@@ -13,6 +13,7 @@
 		"lint:shared": "cd ../web-shared && ../web/node_modules/.bin/eslint --no-warn-ignored .",
 		"format": "biome check . && pnpm format:shared",
 		"format:shared": "cd ../web-shared && ../web/node_modules/.bin/biome check .",
+		"format:shared:fix": "cd ../web-shared && ../web/node_modules/.bin/biome check --write .",
 		"format:fix": "biome check --write",
 		"preview": "vite preview",
 		"test": "NODE_OPTIONS='--disable-warning=ExperimentalWarning --disable-warning=DEP0205' vitest run",
