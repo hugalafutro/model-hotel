@@ -37,7 +37,7 @@ func AccessLogger(isNoisy func(method, path string) bool) func(http.Handler) htt
 				// written, and a handler that wrote nothing still answered 200.
 				status = http.StatusOK
 			}
-			if isStaticAsset(r.URL.Path) && status < 400 {
+			if IsStaticAsset(r.URL.Path) && status < 400 {
 				return
 			}
 
@@ -80,10 +80,10 @@ func NormalizePath(path string) string {
 	return path
 }
 
-// isStaticAsset reports whether path serves an embedded SPA bundle. A
-// successful asset fetch is not traffic anyone reads, and a page load pulls a
-// dozen of them.
-func isStaticAsset(path string) bool {
+// IsStaticAsset reports whether path serves an embedded SPA bundle (the
+// dashboard's or Front Desk's). The access loggers drop a successful asset
+// fetch: it is not traffic anyone reads, and a page load pulls a dozen of them.
+func IsStaticAsset(path string) bool {
 	return strings.HasPrefix(path, "/assets/") || strings.HasPrefix(path, "/favicon")
 }
 

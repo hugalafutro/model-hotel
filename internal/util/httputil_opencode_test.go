@@ -129,6 +129,31 @@ func TestIsOpenCodeClaude(t *testing.T) {
 	}
 }
 
+// IsAnthropicFamily names the two native Messages provider types, and
+// SpeaksMessages adds a Claude model on OpenCode to them: the candidates the
+// proxy and the Test button send to the /messages route.
+func TestSpeaksMessages(t *testing.T) {
+	t.Parallel()
+	tests := []struct {
+		providerType, modelID string
+		family, messages      bool
+	}{
+		{"anthropic", "claude-haiku-5-5", true, true},
+		{"anthropic-messages", "any-model", true, true},
+		{"opencode-go", "claude-haiku-5-5", false, true},
+		{"opencode-zen", "gpt-6-luna", false, false},
+		{"openai", "claude-haiku-5-5", false, false},
+	}
+	for _, tc := range tests {
+		if got := IsAnthropicFamily(tc.providerType); got != tc.family {
+			t.Errorf("IsAnthropicFamily(%q) = %v, want %v", tc.providerType, got, tc.family)
+		}
+		if got := SpeaksMessages(tc.providerType, tc.modelID); got != tc.messages {
+			t.Errorf("SpeaksMessages(%q, %q) = %v, want %v", tc.providerType, tc.modelID, got, tc.messages)
+		}
+	}
+}
+
 // SetMessagesAuthHeaders adds what a /messages route reads on top of the type's
 // own headers: for an OpenCode type the Anthropic pair joins the Bearer, for an
 // Anthropic type nothing changes, and every other type keeps only its own.

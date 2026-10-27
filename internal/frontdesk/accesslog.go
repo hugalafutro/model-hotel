@@ -9,6 +9,7 @@ import (
 
 	"github.com/hugalafutro/model-hotel/internal/clientip"
 	"github.com/hugalafutro/model-hotel/internal/debuglog"
+	"github.com/hugalafutro/model-hotel/internal/httpx"
 )
 
 // accessLogger writes one line per request, in the same shape and with the same
@@ -36,7 +37,7 @@ func accessLogger(next http.Handler) http.Handler {
 			// handler that wrote nothing at all still answered 200.
 			status = http.StatusOK
 		}
-		if isStaticAsset(r.URL.Path) && status < 400 {
+		if httpx.IsStaticAsset(r.URL.Path) && status < 400 {
 			return
 		}
 
@@ -66,13 +67,6 @@ func accessLogger(next http.Handler) http.Handler {
 			debuglog.Info("access: request", args...)
 		}
 	})
-}
-
-// isStaticAsset reports whether path serves the embedded SPA bundle. A
-// successful asset fetch is not traffic anyone reads, and the SPA pulls a
-// dozen of them per page load.
-func isStaticAsset(path string) bool {
-	return strings.HasPrefix(path, "/assets/") || strings.HasPrefix(path, "/favicon")
 }
 
 // isPollingEndpoint reports whether the request is machine-to-machine liveness

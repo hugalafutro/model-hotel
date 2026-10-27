@@ -60,6 +60,23 @@ func TestNormalizePath(t *testing.T) {
 	}
 }
 
+// IsStaticAsset names the embedded SPA bundle paths and nothing that merely
+// resembles one.
+func TestIsStaticAsset(t *testing.T) {
+	for path, want := range map[string]bool{
+		"/assets/index-abc123.js": true,
+		"/favicon.ico":            true,
+		"/favicon.svg":            true,
+		"/api/assets/x":           false,
+		"/assets":                 false,
+		"/":                       false,
+	} {
+		if got := IsStaticAsset(path); got != want {
+			t.Errorf("IsStaticAsset(%q) = %v, want %v", path, got, want)
+		}
+	}
+}
+
 func TestAccessLoggerLevels(t *testing.T) {
 	noisy := func(_, path string) bool { return path == "/healthz" }
 	tests := []struct {
