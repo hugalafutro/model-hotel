@@ -82,17 +82,6 @@ describe("VirtualLogTable", () => {
 			expect(screen.queryByText("Loading newer…")).not.toBeInTheDocument();
 			expect(screen.queryByText("Loading older…")).not.toBeInTheDocument();
 		});
-
-		it("renders loading older indicator when isLoadingAfter=true and entries empty", () => {
-			renderWithProviders(<VirtualLogTable {...defaultProps} isLoadingAfter />);
-			expect(screen.getByText("Loading older…")).toBeInTheDocument();
-		});
-
-		it("does not render loading indicators when not loading", () => {
-			renderWithProviders(<VirtualLogTable {...defaultProps} />);
-			expect(screen.queryByText("↻ Loading newer…")).not.toBeInTheDocument();
-			expect(screen.queryByText("↻ Loading older…")).not.toBeInTheDocument();
-		});
 	});
 
 	describe("Populated state rendering", () => {

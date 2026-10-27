@@ -1,0 +1,10 @@
+{
+	"$schema": "https://biomejs.dev/schemas/2.6.2/schema.json",
+	"extends": ["../web/biome.json"],
+	"vcs": {
+		"enabled": true,
+		"clientKind": "git",
+		"useIgnoreFile": true,
+		"root": ".."
+	}
+}

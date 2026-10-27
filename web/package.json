@@ -11,7 +11,8 @@
 		"typecheck:tests": "tsc --noEmit -p tsconfig.test.json",
 		"lint": "eslint --cache --cache-location node_modules/.cache/eslint/ --cache-strategy content --no-warn-ignored ${@:-.} && pnpm lint:shared",
 		"lint:shared": "cd ../web-shared && ../web/node_modules/.bin/eslint --no-warn-ignored .",
-		"format": "biome check . ../web-shared",
+		"format": "biome check . && pnpm format:shared",
+		"format:shared": "cd ../web-shared && ../web/node_modules/.bin/biome check .",
 		"format:fix": "biome check --write",
 		"preview": "vite preview",
 		"test": "NODE_OPTIONS='--disable-warning=ExperimentalWarning --disable-warning=DEP0205' vitest run",
@@ -48,7 +49,7 @@
 		"shiki": "^4.5.0"
 	},
 	"devDependencies": {
-		"@biomejs/biome": "2.6.2",
+		"@biomejs/biome": "^2.6.2",
 		"@eslint/js": "^10.0.1",
 		"@tailwindcss/postcss": "^4.3.3",
 		"@testing-library/jest-dom": "^7.0.1",

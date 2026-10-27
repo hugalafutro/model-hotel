@@ -15,13 +15,6 @@ updates:
     groups:
       npm-deps:
         patterns: ["*"]
-    ignore:
-      # Biome 2.5.15 panics ("path is expected to be under the root") when
-      # `biome check . ../web-shared` evaluates .gitignore for a path outside
-      # the project root (biomejs/biome#12158, fixed for the next release).
-      # package.json pins 2.5.14; only this one version is skipped.
-      - dependency-name: "@biomejs/biome"
-        versions: ["2.5.15"]
 
   # Front Desk's UI is its own pnpm workspace root, so it needs its own entry;
   # the /web one does not reach it.
