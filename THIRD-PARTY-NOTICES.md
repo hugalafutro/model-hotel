@@ -6,7 +6,7 @@ Model Hotel is distributed under the MIT License (see [LICENSE](./LICENSE)).
 It bundles the third-party open-source components listed below; each is the
 property of its respective authors and is used under the terms reproduced here.
 
-_59 Go modules, 236 npm packages (regenerate with `make notices`)._
+_59 Go modules, 235 npm packages (regenerate with `make notices`)._
 
 ## Fonts
 
@@ -21,7 +21,7 @@ The web UI embeds the JetBrains Mono, Onest, and Schibsted Grotesk typefaces, an
 | [github.com/cenkalti/backoff/v5](https://github.com/cenkalti/backoff/v5) | v5.0.3 | Go | MIT |
 | [github.com/cespare/xxhash/v2](https://github.com/cespare/xxhash/v2) | v2.3.0 | Go | MIT |
 | [github.com/coreos/go-oidc/v3](https://github.com/coreos/go-oidc/v3) | v3.21.0 | Go | Apache-2.0 |
-| [github.com/dustin/go-humanize](https://github.com/dustin/go-humanize) | v1.0.1 | Go | MIT |
+| [github.com/dustin/go-humanize](https://github.com/dustin/go-humanize) | v1.1.0 | Go | MIT |
 | [github.com/fxamacker/cbor/v2](https://github.com/fxamacker/cbor/v2) | v2.9.6 | Go | MIT |
 | [github.com/go-chi/chi/v5](https://github.com/go-chi/chi/v5) | v5.5.0 | Go | MIT |
 | [github.com/go-jose/go-jose/v4](https://github.com/go-jose/go-jose/v4) | v4.1.6 | Go | Apache-2.0 |
@@ -71,12 +71,11 @@ The web UI embeds the JetBrains Mono, Onest, and Schibsted Grotesk typefaces, an
 | [google.golang.org/genproto/googleapis/rpc](https://google.golang.org/genproto/googleapis/rpc) | v0.0.0-20260928230214-8a89bd6388cc | Go | Apache-2.0 |
 | [google.golang.org/grpc](https://google.golang.org/grpc) | v1.83.2 | Go | Apache-2.0 |
 | [google.golang.org/protobuf](https://google.golang.org/protobuf) | v1.36.12 | Go | BSD-3-Clause |
-| [modernc.org/libc](https://modernc.org/libc) | v1.77.1 | Go | BSD-3-Clause |
+| [modernc.org/libc](https://modernc.org/libc) | v1.79.0 | Go | BSD-3-Clause |
 | [modernc.org/mathutil](https://modernc.org/mathutil) | v1.7.1 | Go | BSD-3-Clause |
 | [modernc.org/memory](https://modernc.org/memory) | v1.12.1 | Go | BSD-3-Clause |
-| [modernc.org/sqlite](https://modernc.org/sqlite) | v1.60.1 | Go | Apache-2.0 |
+| [modernc.org/sqlite](https://modernc.org/sqlite) | v1.61.0 | Go | Apache-2.0 |
 | [@babel/runtime](https://babel.dev/docs/en/next/babel-runtime) | 7.29.10 | npm | MIT |
-| [@babel/runtime](https://babel.dev/docs/en/next/babel-runtime) | 7.29.7 | npm | MIT |
 | [@dnd-kit/accessibility](https://github.com/clauderic/dnd-kit#readme) | 3.1.1 | npm | MIT |
 | [@dnd-kit/core](https://github.com/clauderic/dnd-kit#readme) | 6.3.1 | npm | MIT |
 | [@dnd-kit/sortable](https://github.com/clauderic/dnd-kit#readme) | 10.0.0 | npm | MIT |
@@ -98,10 +97,10 @@ The web UI embeds the JetBrains Mono, Onest, and Schibsted Grotesk typefaces, an
 | [@simplewebauthn/browser](https://github.com/MasterKale/SimpleWebAuthn/tree/master/packages/browser#readme) | 14.0.0 | npm | MIT |
 | [@standard-schema/spec](https://standardschema.dev) | 1.1.0 | npm | MIT |
 | [@standard-schema/utils](https://github.com/standard-schema/standard-schema#readme) | 0.3.0 | npm | MIT |
-| [@tanstack/query-core](https://tanstack.com/query) | 5.104.3 | npm | MIT |
-| [@tanstack/react-query](https://tanstack.com/query) | 5.104.3 | npm | MIT |
-| [@tanstack/react-virtual](https://tanstack.com/virtual) | 3.14.21 | npm | MIT |
-| [@tanstack/virtual-core](https://tanstack.com/virtual) | 3.19.6 | npm | MIT |
+| [@tanstack/query-core](https://tanstack.com/query) | 5.104.5 | npm | MIT |
+| [@tanstack/react-query](https://tanstack.com/query) | 5.104.5 | npm | MIT |
+| [@tanstack/react-virtual](https://tanstack.com/virtual) | 3.14.22 | npm | MIT |
+| [@tanstack/virtual-core](https://tanstack.com/virtual) | 3.19.7 | npm | MIT |
 | [@types/d3-array](https://github.com/DefinitelyTyped/DefinitelyTyped/tree/master/types/d3-array) | 3.2.2 | npm | MIT |
 | [@types/d3-color](https://github.com/DefinitelyTyped/DefinitelyTyped/tree/master/types/d3-color) | 3.1.3 | npm | MIT |
 | [@types/d3-ease](https://github.com/DefinitelyTyped/DefinitelyTyped/tree/master/types/d3-ease) | 3.0.2 | npm | MIT |
@@ -181,10 +180,10 @@ The web UI embeds the JetBrains Mono, Onest, and Schibsted Grotesk typefaces, an
 | [html-parse-stringify](https://github.com/i18next/html-parse-stringify) | 4.0.1 | npm | MIT |
 | [html-url-attributes](https://github.com/rehypejs/rehype-minify/tree/main#readme) | 3.0.1 | npm | MIT |
 | [html-void-elements](https://github.com/wooorm/html-void-elements#readme) | 3.0.0 | npm | MIT |
-| [i18next](https://www.i18next.com) | 26.4.7 | npm | MIT |
-| [i18next-browser-languagedetector](https://github.com/i18next/i18next-browser-languageDetector) | 8.2.1 | npm | MIT |
+| [i18next](https://www.i18next.com) | 26.5.7 | npm | MIT |
+| [i18next-browser-languagedetector](https://github.com/i18next/i18next-browser-languageDetector) | 8.2.2 | npm | MIT |
 | [immer](https://github.com/immerjs/immer#readme) | 11.1.15 | npm | MIT |
-| [immer](https://github.com/immerjs/immer#readme) | 11.1.21 | npm | MIT |
+| [immer](https://github.com/immerjs/immer#readme) | 11.2.9 | npm | MIT |
 | [inline-style-parser](https://github.com/remarkablemark/inline-style-parser#readme) | 0.2.7 | npm | MIT |
 | [internmap](https://github.com/mbostock/internmap/) | 2.0.3 | npm | ISC |
 | [is-alphabetical](https://github.com/wooorm/is-alphabetical#readme) | 2.0.1 | npm | MIT |
@@ -193,7 +192,7 @@ The web UI embeds the JetBrains Mono, Onest, and Schibsted Grotesk typefaces, an
 | [is-fullwidth-code-point](https://github.com/sindresorhus/is-fullwidth-code-point#readme) | 3.0.0 | npm | MIT |
 | [is-hexadecimal](https://github.com/wooorm/is-hexadecimal#readme) | 2.0.1 | npm | MIT |
 | [is-plain-obj](https://github.com/sindresorhus/is-plain-obj#readme) | 4.1.0 | npm | MIT |
-| [katex](https://katex.org) | 0.19.0 | npm | MIT |
+| [katex](https://katex.org) | 0.19.1 | npm | MIT |
 | [locate-path](https://github.com/sindresorhus/locate-path#readme) | 5.0.0 | npm | MIT |
 | [longest-streak](https://github.com/wooorm/longest-streak#readme) | 3.1.0 | npm | MIT |
 | [markdown-table](https://github.com/wooorm/markdown-table#readme) | 3.0.4 | npm | MIT |
@@ -257,12 +256,12 @@ The web UI embeds the JetBrains Mono, Onest, and Schibsted Grotesk typefaces, an
 | [react](https://react.dev/) | 19.3.1 | npm | MIT |
 | [react-colorful](https://omgovich.github.io/react-colorful) | 5.8.1 | npm | MIT |
 | [react-dom](https://react.dev/) | 19.3.1 | npm | MIT |
-| [react-i18next](https://github.com/i18next/react-i18next) | 17.0.20 | npm | MIT |
+| [react-i18next](https://github.com/i18next/react-i18next) | 17.1.5 | npm | MIT |
 | [react-is](https://react.dev/) | 19.2.6 | npm | MIT |
 | [react-is](https://react.dev/) | 19.2.7 | npm | MIT |
 | [react-markdown](https://github.com/remarkjs/react-markdown#readme) | 10.1.0 | npm | MIT |
 | [react-redux](https://github.com/reduxjs/react-redux) | 9.3.0 | npm | MIT |
-| [react-router](https://github.com/remix-run/react-router#readme) | 8.4.0 | npm | MIT |
+| [react-router](https://github.com/remix-run/react-router#readme) | 8.5.0 | npm | MIT |
 | [recharts](https://github.com/recharts/recharts) | 3.10.1 | npm | MIT |
 | [redux](http://redux.js.org) | 5.0.1 | npm | MIT |
 | [redux-thunk](https://github.com/reduxjs/redux-thunk) | 3.1.0 | npm | MIT |
@@ -1069,7 +1068,7 @@ SOFTWARE.
 
 Copyright (c) 2021-present Tanner Linsley
 
-Applies to: `@tanstack/query-core@5.104.3`, `@tanstack/react-query@5.104.3`, `@tanstack/react-virtual@3.14.21`, `@tanstack/virtual-core@3.19.6`
+Applies to: `@tanstack/query-core@5.104.5`, `@tanstack/react-query@5.104.5`, `@tanstack/react-virtual@3.14.22`, `@tanstack/virtual-core@3.19.7`
 
 ```
 MIT License
@@ -1195,37 +1194,6 @@ ARISING OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 
 ### MIT
 
-Copyright (c) 2014-present Sebastian McKenzie and other contributors
-
-Applies to: `@babel/runtime@7.29.10`, `@babel/runtime@7.29.7`
-
-```
-MIT License
-
-Copyright (c) 2014-present Sebastian McKenzie and other contributors
-
-Permission is hereby granted, free of charge, to any person obtaining
-a copy of this software and associated documentation files (the
-"Software"), to deal in the Software without restriction, including
-without limitation the rights to use, copy, modify, merge, publish,
-distribute, sublicense, and/or sell copies of the Software, and to
-permit persons to whom the Software is furnished to do so, subject to
-the following conditions:
-
-The above copyright notice and this permission notice shall be
-included in all copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
-EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
-MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
-NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE
-LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION
-OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
-WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
-```
-
-### MIT
-
 Copyright (c) Sindre Sorhus <sindresorhus@gmail.com> (https://sindresorhus.com)
 
 Applies to: `escape-string-regexp@5.0.0`, `is-plain-obj@4.1.0`
@@ -1244,9 +1212,39 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
 
 ### MIT
 
+Copyright (c) 2015-present i18next
+
+Applies to: `i18next-browser-languagedetector@8.2.2`, `react-i18next@17.1.5`
+
+```
+The MIT License (MIT)
+
+Copyright (c) 2015-present i18next
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+```
+
+### MIT
+
 Copyright (c) 2017 Michel Weststrate
 
-Applies to: `immer@11.1.15`, `immer@11.1.21`
+Applies to: `immer@11.1.15`, `immer@11.2.9`
 
 ```
 MIT License
@@ -1764,7 +1762,7 @@ This product includes software developed at CoreOS, Inc.
 
 Copyright (c) 2005-2008  Dustin Sallings <dustin@spy.net>
 
-Applies to: `github.com/dustin/go-humanize@v1.0.1`
+Applies to: `github.com/dustin/go-humanize@v1.1.0`
 
 ```
 Copyright (c) 2005-2008  Dustin Sallings <dustin@spy.net>
@@ -3908,7 +3906,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 Copyright (c) 2017 The Libc Authors. All rights reserved.
 
-Applies to: `modernc.org/libc@v1.77.1`
+Applies to: `modernc.org/libc@v1.79.0`
 
 ```
 Copyright (c) 2017 The Libc Authors. All rights reserved.
@@ -4385,7 +4383,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 Copyright (c) 2017 The Sqlite Authors. All rights reserved.
 
-Applies to: `modernc.org/sqlite@v1.60.1`
+Applies to: `modernc.org/sqlite@v1.61.0`
 
 ```
 Copyright (c) 2017 The Sqlite Authors. All rights reserved.
@@ -4456,18 +4454,18 @@ and license texts it points at are the ones you have to carry with you.
 
 | Component | Version | License | Reached via | Text |
 | --- | --- | --- | --- | --- |
-| [github.com/dustin/go-humanize](https://pkg.go.dev/github.com/dustin/go-humanize) | v1.0.1 | MIT | modernc.org/libc, `go.mod` | [L1](#L1) |
+| [github.com/dustin/go-humanize](https://pkg.go.dev/github.com/dustin/go-humanize) | v1.1.0 | MIT | modernc.org/libc, `go.mod` | [L1](#L1) |
 | [github.com/google/uuid](https://pkg.go.dev/github.com/google/uuid) | v1.6.0 | BSD-3-Clause | modernc.org/libc, `go.mod` | [L2](#L2) |
 | [github.com/remyoudompheng/bigfft](https://pkg.go.dev/github.com/remyoudompheng/bigfft) | v0.0.0-20230129092748-24d4a6f8daec | BSD-3-Clause | modernc.org/fileutil, modernc.org/libc, modernc.org/mathutil, modernc.org/memory, `go.mod` | [L2](#L2) |
 | [Go](https://github.com/golang/go) | -- | BSD-3-Clause | modernc.org/libc | [N1](#N1) |
 | [go-netdb](https://github.com/dominikh/go-netdb) | -- | MIT | modernc.org/libc | [N1](#N1) |
-| [golang.org/x/sys](https://pkg.go.dev/golang.org/x/sys) | v0.48.0 | BSD-3-Clause | github.com/google/pprof, github.com/mattn/go-isatty, modernc.org/libc, modernc.org/memory, `go.mod` | [L3](#L3) |
-| [modernc.org/libc](https://pkg.go.dev/modernc.org/libc) | v1.77.1 | BSD-3-Clause | `go.mod` | [L4](#L4) |
+| [golang.org/x/sys](https://pkg.go.dev/golang.org/x/sys) | v0.49.0 | BSD-3-Clause | github.com/google/pprof, github.com/mattn/go-isatty, modernc.org/libc, modernc.org/memory, `go.mod` | [L3](#L3) |
+| [modernc.org/libc](https://pkg.go.dev/modernc.org/libc) | v1.79.0 | BSD-3-Clause | `go.mod` | [L4](#L4) |
 | [modernc.org/mathutil](https://pkg.go.dev/modernc.org/mathutil) | v1.7.1 | BSD-3-Clause | modernc.org/fileutil, modernc.org/libc, modernc.org/memory, `go.mod` | [L4](#L4) |
 | [modernc.org/memory](https://pkg.go.dev/modernc.org/memory) | v1.12.1 | BSD-3-Clause, attribution reference | modernc.org/libc, `go.mod` | [L4](#L4), [L2](#L2), [L5](#L5), [L6](#L6) |
 | [musl libc](https://musl.libc.org/) | -- | MIT | modernc.org/libc | [N1](#N1) |
 | [NixOS/nixpkgs](https://github.com/NixOS/nixpkgs) | -- | MIT | modernc.org/libc | [N1](#N1) |
-| [SQLite](https://sqlite.org/) | 3.53.4 | public domain | transpiled into `lib/` | [L7](#L7) |
+| [SQLite](https://sqlite.org/) | 3.54.1 | public domain | transpiled into `lib/` | [L7](#L7) |
 | [sqlite-vec](https://github.com/asg017/sqlite-vec) | v0.1.9 | MIT | transpiled into `vec/` | [L8](#L8) |
 | [SQLite `test_demovfs.c`](https://www.sqlite.org/src/doc/trunk/src/test_demovfs.c) | -- | public domain | `vfs/c/vfs.c`, transpiled into `vfs/` | [L7](#L7) |
 
@@ -4482,7 +4480,7 @@ not reach a program that imports `modernc.org/sqlite`.
 
 | Component | Version | License | Reached via | Text |
 | --- | --- | --- | --- | --- |
-| [github.com/google/pprof](https://pkg.go.dev/github.com/google/pprof) | v0.0.0-20260802141513-ef3492d7dac3 | Apache-2.0, BSD-3-Clause | `go.mod` | [L9](#L9), [L10](#L10) |
+| [github.com/google/pprof](https://pkg.go.dev/github.com/google/pprof) | v0.0.0-20261016150608-1facf8f91b50 | Apache-2.0, BSD-3-Clause | `go.mod` | [L9](#L9), [L10](#L10) |
 | [modernc.org/fileutil](https://pkg.go.dev/modernc.org/fileutil) | v1.4.0 | BSD-3-Clause | modernc.org/libc, `go.mod` | [L4](#L4), [L11](#L11) |
 
 ## 3. Components in the module graph, not compiled into anything
@@ -4503,14 +4501,14 @@ this one.
 | [github.com/hashicorp/golang-lru/v2](https://pkg.go.dev/github.com/hashicorp/golang-lru/v2) | v2.0.7 | MPL-2.0, BSD-3-Clause | modernc.org/libc | [L13](#L13), [L14](#L14) |
 | [github.com/ianlancetaylor/demangle](https://pkg.go.dev/github.com/ianlancetaylor/demangle) | v0.0.0-20250417193237-f615e6bd150b | BSD-3-Clause | github.com/google/pprof | [L2](#L2) |
 | [github.com/mattn/go-isatty](https://pkg.go.dev/github.com/mattn/go-isatty) | v0.0.24 | MIT | modernc.org/libc, `go.mod` | [L15](#L15) |
-| [github.com/ncruces/go-strftime](https://pkg.go.dev/github.com/ncruces/go-strftime) | v1.0.0 | MIT | modernc.org/libc, `go.mod` | [L8](#L8) |
-| [golang.org/x/mod](https://pkg.go.dev/golang.org/x/mod) | v0.41.0 | BSD-3-Clause | modernc.org/libc | [L3](#L3) |
-| [golang.org/x/sync](https://pkg.go.dev/golang.org/x/sync) | v0.23.0 | BSD-3-Clause | modernc.org/libc | [L3](#L3) |
-| [golang.org/x/tools](https://pkg.go.dev/golang.org/x/tools) | v0.50.0 | BSD-3-Clause | modernc.org/libc | [L3](#L3) |
-| [modernc.org/cc/v4](https://pkg.go.dev/modernc.org/cc/v4) | v4.29.7 | BSD-3-Clause | modernc.org/libc | [L4](#L4) |
-| [modernc.org/ccgo/v4](https://pkg.go.dev/modernc.org/ccgo/v4) | v4.36.1 | BSD-3-Clause | modernc.org/libc | [L4](#L4) |
+| [github.com/ncruces/go-strftime](https://pkg.go.dev/github.com/ncruces/go-strftime) | v1.1.0 | MIT | modernc.org/libc, `go.mod` | [L8](#L8) |
+| [golang.org/x/mod](https://pkg.go.dev/golang.org/x/mod) | v0.42.0 | BSD-3-Clause | modernc.org/libc | [L3](#L3) |
+| [golang.org/x/sync](https://pkg.go.dev/golang.org/x/sync) | v0.24.0 | BSD-3-Clause | modernc.org/libc | [L3](#L3) |
+| [golang.org/x/tools](https://pkg.go.dev/golang.org/x/tools) | v0.52.0 | BSD-3-Clause | modernc.org/libc | [L3](#L3) |
+| [modernc.org/cc/v4](https://pkg.go.dev/modernc.org/cc/v4) | v4.30.3 | BSD-3-Clause | modernc.org/libc | [L4](#L4) |
+| [modernc.org/ccgo/v4](https://pkg.go.dev/modernc.org/ccgo/v4) | v4.37.0 | BSD-3-Clause | modernc.org/libc | [L4](#L4) |
 | [modernc.org/gc/v2](https://pkg.go.dev/modernc.org/gc/v2) | v2.6.5 | BSD-3-Clause | modernc.org/libc | [L16](#L16) |
-| [modernc.org/gc/v3](https://pkg.go.dev/modernc.org/gc/v3) | v3.1.5 | BSD-3-Clause | modernc.org/libc | [L16](#L16) |
+| [modernc.org/gc/v3](https://pkg.go.dev/modernc.org/gc/v3) | v3.2.0 | BSD-3-Clause | modernc.org/libc | [L16](#L16) |
 | [modernc.org/goabi0](https://pkg.go.dev/modernc.org/goabi0) | v0.2.0 | BSD-3-Clause | modernc.org/libc | [L17](#L17) |
 | [modernc.org/opt](https://pkg.go.dev/modernc.org/opt) | v0.2.0 | BSD-3-Clause | modernc.org/libc | [L4](#L4) |
 | [modernc.org/sortutil](https://pkg.go.dev/modernc.org/sortutil) | v1.2.1 | BSD-3-Clause | modernc.org/libc | [L4](#L4) |
@@ -4769,7 +4767,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 Applies to:
 
-- SQLite 3.53.4 (`LICENSE-SQLITE`)
+- SQLite 3.54.1 (`LICENSE-SQLITE`)
 - SQLite `test_demovfs.c`
 - SQLite test suite (`testdata/`)
 
@@ -6083,6 +6081,37 @@ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
+```
+
+### MIT
+
+Copyright (c) 2014-present Sebastian McKenzie and other contributors
+
+Applies to: `@babel/runtime@7.29.10`
+
+```
+MIT License
+
+Copyright (c) 2014-present Sebastian McKenzie and other contributors
+
+Permission is hereby granted, free of charge, to any person obtaining
+a copy of this software and associated documentation files (the
+"Software"), to deal in the Software without restriction, including
+without limitation the rights to use, copy, modify, merge, publish,
+distribute, sublicense, and/or sell copies of the Software, and to
+permit persons to whom the Software is furnished to do so, subject to
+the following conditions:
+
+The above copyright notice and this permission notice shall be
+included in all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
+NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE
+LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION
+OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
+WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 ```
 
 ### OFL-1.1
@@ -7423,42 +7452,12 @@ THE SOFTWARE.
 
 Copyright (c) 2011-present i18next
 
-Applies to: `i18next@26.4.7`
+Applies to: `i18next@26.5.7`
 
 ```
 The MIT License (MIT)
 
 Copyright (c) 2011-present i18next
-
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
-
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-SOFTWARE.
-```
-
-### MIT
-
-Copyright (c) 2025 i18next
-
-Applies to: `i18next-browser-languagedetector@8.2.1`
-
-```
-The MIT License (MIT)
-
-Copyright (c) 2025 i18next
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -7523,7 +7522,7 @@ THIS SOFTWARE.
 
 Copyright (c) 2013-2020 Khan Academy and other contributors
 
-Applies to: `katex@0.19.0`
+Applies to: `katex@0.19.1`
 
 ```
 The MIT License (MIT)
@@ -7807,36 +7806,6 @@ SOFTWARE.
 
 ### MIT
 
-Copyright (c) 2015-present i18next
-
-Applies to: `react-i18next@17.0.20`
-
-```
-The MIT License (MIT)
-
-Copyright (c) 2015-present i18next
-
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
-
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-SOFTWARE.
-```
-
-### MIT
-
 Copyright (c) Espen Hovlandsdal
 
 Applies to: `react-markdown@10.1.0`
@@ -7869,7 +7838,7 @@ SOFTWARE.
 
 Copyright (c) React Training LLC 2015-2019
 
-Applies to: `react-router@8.4.0`
+Applies to: `react-router@8.5.0`
 
 ```
 MIT License

@@ -1677,7 +1677,7 @@ html[data-ui-style="cyber-terminal"] .ui-bar {
    dropdown can overflow the card boundary. Absolute cards (dropdowns)
    get solid backgrounds. */
 html[data-ui-style="glassmorphism-lite"]
-.ui-card:not(.absolute, .has-dropdown, :has(> .absolute)) {
+	.ui-card:not(.absolute, .has-dropdown, :has(> .absolute)) {
 	clip-path: inset(0 round var(--radius-card));
 }
 html[data-ui-style="glassmorphism-lite"]
@@ -2031,7 +2031,7 @@ html[data-ui-style="glassmorphism-lite"] .ui-btn-secondary {
 /* brightness() on a 5%-alpha background is imperceptible — hover must
    raise the alpha instead */
 html[data-ui-style="glassmorphism-lite"]
-.ui-btn-secondary:hover:not(:disabled) {
+	.ui-btn-secondary:hover:not(:disabled) {
 	background-color: rgba(255, 255, 255, 0.14);
 	border-color: rgba(255, 255, 255, 0.22);
 	filter: none;
