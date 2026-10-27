@@ -4,7 +4,7 @@ import (
 	"context"
 	"testing"
 
-	"github.com/hugalafutro/model-hotel/internal/db"
+	"github.com/hugalafutro/model-hotel/internal/dbtest"
 )
 
 func TestGetByName_EvictionDuringQueryIsNotReinstalled(t *testing.T) {
@@ -19,7 +19,7 @@ func TestGetByName_EvictionDuringQueryIsNotReinstalled(t *testing.T) {
 	t.Cleanup(func() { _ = newTestRepo(t).Delete(ctx, p.ID) })
 
 	// A discovery stamp evicts this provider while the SELECT is in flight.
-	racing := NewRepository(db.TracedPool(t, testDBURL, func() { EvictProviderCacheByID(p.ID) }))
+	racing := NewRepository(dbtest.TracedPool(t, testDBURL, func() { EvictProviderCacheByID(p.ID) }))
 	if _, err := racing.GetByName(ctx, p.Name); err != nil {
 		t.Fatalf("GetByName: %v", err)
 	}

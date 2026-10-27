@@ -6,7 +6,7 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/hugalafutro/model-hotel/internal/db"
+	"github.com/hugalafutro/model-hotel/internal/dbtest"
 )
 
 func TestGetByModel_InvalidationDuringQueryIsNotReinstalled(t *testing.T) {
@@ -22,7 +22,7 @@ func TestGetByModel_InvalidationDuringQueryIsNotReinstalled(t *testing.T) {
 		t.Fatal("a write path must not install its RETURNING row")
 	}
 
-	racing := NewRepository(db.TracedPool(t, testDBURL, func() { InvalidateFailoverCacheKey(displayModel) }))
+	racing := NewRepository(dbtest.TracedPool(t, testDBURL, func() { InvalidateFailoverCacheKey(displayModel) }))
 	if _, err := racing.GetByModel(ctx, displayModel); err != nil {
 		t.Fatalf("GetByModel: %v", err)
 	}

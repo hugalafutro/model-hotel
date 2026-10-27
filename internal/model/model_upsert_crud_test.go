@@ -7,7 +7,7 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/hugalafutro/model-hotel/internal/db"
+	"github.com/hugalafutro/model-hotel/internal/dbtest"
 )
 
 // Upsert: what it preserves (a customised display name, a pinned price) and
@@ -17,7 +17,7 @@ func TestUpsert_InsertNewModel(t *testing.T) {
 	ctx := context.Background()
 	repo := NewRepository(testPool)
 
-	providerID := db.InsertTestProvider(ctx, t, testPool, "test-upsert-insert")
+	providerID := dbtest.InsertTestProvider(ctx, t, testPool, "test-upsert-insert")
 	t.Cleanup(func() { cleanupProvider(ctx, t, providerID) })
 
 	modelID := uuid.New()
@@ -60,7 +60,7 @@ func TestUpsert_UpdateExistingModel(t *testing.T) {
 	ctx := context.Background()
 	repo := NewRepository(testPool)
 
-	providerID := db.InsertTestProvider(ctx, t, testPool, "test-upsert-update")
+	providerID := dbtest.InsertTestProvider(ctx, t, testPool, "test-upsert-update")
 	t.Cleanup(func() { cleanupProvider(ctx, t, providerID) })
 
 	// Insert initial model using basic columns only
@@ -101,7 +101,7 @@ func TestUpsert_OverwriteExisting(t *testing.T) {
 	ctx := context.Background()
 	repo := NewRepository(testPool)
 
-	providerID := db.InsertTestProvider(ctx, t, testPool, "test-upsert-overwrite")
+	providerID := dbtest.InsertTestProvider(ctx, t, testPool, "test-upsert-overwrite")
 	t.Cleanup(func() { cleanupProvider(ctx, t, providerID) })
 
 	// Insert first version
@@ -158,7 +158,7 @@ func TestUpsert_OverwriteExisting(t *testing.T) {
 func TestUpsert_PreserveCapabilitiesKeepsTheStoredReading(t *testing.T) {
 	ctx := context.Background()
 	repo := NewRepository(testPool)
-	providerID := db.InsertTestProvider(ctx, t, testPool, "test-upsert-keepcaps")
+	providerID := dbtest.InsertTestProvider(ctx, t, testPool, "test-upsert-keepcaps")
 	t.Cleanup(func() { cleanupProvider(ctx, t, providerID) })
 
 	probed, _ := json.Marshal(Capability{Streaming: true, Vision: true, ToolCalling: true})
@@ -206,7 +206,7 @@ func TestUpsert_PreservesCustomDisplayName(t *testing.T) {
 	ctx := context.Background()
 	repo := NewRepository(testPool)
 
-	providerID := db.InsertTestProvider(ctx, t, testPool, "test-upsert-preserve-dn")
+	providerID := dbtest.InsertTestProvider(ctx, t, testPool, "test-upsert-preserve-dn")
 	t.Cleanup(func() { cleanupProvider(ctx, t, providerID) })
 
 	// Insert model with name = display_name (provider default)
@@ -286,7 +286,7 @@ func TestUpsert_UpdatesDisplayNameWhenNotCustom(t *testing.T) {
 	ctx := context.Background()
 	repo := NewRepository(testPool)
 
-	providerID := db.InsertTestProvider(ctx, t, testPool, "test-upsert-update-dn")
+	providerID := dbtest.InsertTestProvider(ctx, t, testPool, "test-upsert-update-dn")
 	t.Cleanup(func() { cleanupProvider(ctx, t, providerID) })
 
 	// Insert model with name = display_name (not customized)
@@ -361,7 +361,7 @@ func TestUpsert_CatalogProviderDoesNotSetCustomizedFlag(t *testing.T) {
 	ctx := context.Background()
 	repo := NewRepository(testPool)
 
-	providerID := db.InsertTestProvider(ctx, t, testPool, "test-upsert-catalog")
+	providerID := dbtest.InsertTestProvider(ctx, t, testPool, "test-upsert-catalog")
 	t.Cleanup(func() { cleanupProvider(ctx, t, providerID) })
 
 	// Simulate catalog provider (like OpenAI) that sets DisplayName != Name on first upsert
@@ -450,7 +450,7 @@ func TestRepository_Upsert_NewModel(t *testing.T) {
 	ctx := context.Background()
 	repo := NewRepository(testPool)
 
-	providerID := db.InsertTestProvider(ctx, t, testPool, "test-upsert-new")
+	providerID := dbtest.InsertTestProvider(ctx, t, testPool, "test-upsert-new")
 	t.Cleanup(func() { cleanupProvider(ctx, t, providerID) })
 
 	modelID := uuid.New()
@@ -492,7 +492,7 @@ func TestUpsert_CancelledContext(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
 
-	providerID := db.InsertTestProvider(context.Background(), t, testPool, "test-upsert-cancel")
+	providerID := dbtest.InsertTestProvider(context.Background(), t, testPool, "test-upsert-cancel")
 	t.Cleanup(func() { cleanupProvider(context.Background(), t, providerID) })
 
 	m := &Model{

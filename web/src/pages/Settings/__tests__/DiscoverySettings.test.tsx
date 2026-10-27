@@ -275,7 +275,7 @@ describe("DiscoverySettings", () => {
 		// The reset control sits in the slider's label row; the prune slider is
 		// the second slider in the section, so its reset button is the second.
 		const resets = screen.getAllByRole("button", {
-			name: "Reset this setting to default",
+			name: i18n.t("settings.common.resetSetting"),
 		});
 		await user.click(resets[resets.length - 1]);
 

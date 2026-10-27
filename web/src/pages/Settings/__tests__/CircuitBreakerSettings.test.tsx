@@ -1091,7 +1091,7 @@ describe("CircuitBreakerSettings", () => {
 			// the Hedge Delay slider) are the last two in DOM order there, after
 			// the seven Failover controls.
 			const resets = within(column).getAllByRole("button", {
-				name: /reset this setting to default/i,
+				name: i18n.t("settings.common.resetSetting"),
 			});
 			expect(resets).toHaveLength(9);
 			await user.click(resets[resets.length - 2]);
@@ -1343,7 +1343,7 @@ describe("CircuitBreakerSettings", () => {
 			);
 			const row = await screen.findByTestId("classify-429-row");
 			const reset = within(row).getByRole("button", {
-				name: /reset this setting to default/i,
+				name: i18n.t("settings.common.resetSetting"),
 			});
 			await user.click(reset);
 			await waitFor(() =>
@@ -1470,7 +1470,7 @@ describe("CircuitBreakerSettings", () => {
 			const row = await screen.findByTestId("inflight-limiter-row");
 			await user.click(
 				within(row).getByRole("button", {
-					name: /reset this setting to default/i,
+					name: i18n.t("settings.common.resetSetting"),
 				}),
 			);
 			await waitFor(() =>
@@ -1480,7 +1480,7 @@ describe("CircuitBreakerSettings", () => {
 			// column: the group renders below the 429 controls there.
 			const column = await screen.findByTestId("limits-column");
 			const resets = within(column).getAllByRole("button", {
-				name: /reset this setting to default/i,
+				name: i18n.t("settings.common.resetSetting"),
 			});
 			await user.click(resets[resets.length - 2]);
 			await waitFor(() =>

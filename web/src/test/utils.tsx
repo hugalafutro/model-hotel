@@ -137,7 +137,7 @@ export async function expectResetButtonCallsReset(ui: ReactElement) {
 	try {
 		const { user } = renderWithProviders(ui);
 		const [resetBtn] = await screen.findAllByRole("button", {
-			name: /reset this setting to default/i,
+			name: i18next.t("settings.common.resetSetting"),
 		});
 		await user.click(resetBtn);
 		await waitFor(() => {

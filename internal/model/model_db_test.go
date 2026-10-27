@@ -11,6 +11,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/hugalafutro/model-hotel/internal/db"
+	"github.com/hugalafutro/model-hotel/internal/dbtest"
 )
 
 var (
@@ -141,7 +142,7 @@ func TestRecordMissingModels_FirstMissIsPendingOnly(t *testing.T) {
 	ctx := context.Background()
 	repo := NewRepository(testPool)
 
-	providerID := db.InsertTestProvider(ctx, t, testPool, "test-record-missing-pending")
+	providerID := dbtest.InsertTestProvider(ctx, t, testPool, "test-record-missing-pending")
 	t.Cleanup(func() { cleanupProvider(ctx, t, providerID) })
 
 	insertTestModel(ctx, t, providerID, "model-a")
@@ -182,7 +183,7 @@ func TestRecordMissingModels_SecondConsecutiveMissDisables(t *testing.T) {
 	ctx := context.Background()
 	repo := NewRepository(testPool)
 
-	providerID := db.InsertTestProvider(ctx, t, testPool, "test-record-missing-disables")
+	providerID := dbtest.InsertTestProvider(ctx, t, testPool, "test-record-missing-disables")
 	t.Cleanup(func() { cleanupProvider(ctx, t, providerID) })
 
 	insertTestModel(ctx, t, providerID, "model-a")
@@ -221,7 +222,7 @@ func TestRecordMissingModels_SightingResetsStreak(t *testing.T) {
 	ctx := context.Background()
 	repo := NewRepository(testPool)
 
-	providerID := db.InsertTestProvider(ctx, t, testPool, "test-record-missing-reset")
+	providerID := dbtest.InsertTestProvider(ctx, t, testPool, "test-record-missing-reset")
 	t.Cleanup(func() { cleanupProvider(ctx, t, providerID) })
 
 	insertTestModel(ctx, t, providerID, "flappy-model")
@@ -255,7 +256,7 @@ func TestRecordMissingModels_AllPresent(t *testing.T) {
 	ctx := context.Background()
 	repo := NewRepository(testPool)
 
-	providerID := db.InsertTestProvider(ctx, t, testPool, "test-record-missing-all-present")
+	providerID := dbtest.InsertTestProvider(ctx, t, testPool, "test-record-missing-all-present")
 	t.Cleanup(func() { cleanupProvider(ctx, t, providerID) })
 
 	insertTestModel(ctx, t, providerID, "model-a")
@@ -278,8 +279,8 @@ func TestRecordMissingModels_IgnoresOtherProviders(t *testing.T) {
 	ctx := context.Background()
 	repo := NewRepository(testPool)
 
-	providerA := db.InsertTestProvider(ctx, t, testPool, "test-record-missing-provider-a")
-	providerB := db.InsertTestProvider(ctx, t, testPool, "test-record-missing-provider-b")
+	providerA := dbtest.InsertTestProvider(ctx, t, testPool, "test-record-missing-provider-a")
+	providerB := dbtest.InsertTestProvider(ctx, t, testPool, "test-record-missing-provider-b")
 	t.Cleanup(func() {
 		cleanupProvider(ctx, t, providerA)
 		cleanupProvider(ctx, t, providerB)
@@ -312,7 +313,7 @@ func TestRecordMissingModels_AlreadyDisabledUnaffected(t *testing.T) {
 	ctx := context.Background()
 	repo := NewRepository(testPool)
 
-	providerID := db.InsertTestProvider(ctx, t, testPool, "test-record-missing-already-disabled")
+	providerID := dbtest.InsertTestProvider(ctx, t, testPool, "test-record-missing-already-disabled")
 	t.Cleanup(func() { cleanupProvider(ctx, t, providerID) })
 
 	insertTestModel(ctx, t, providerID, "active-1")
@@ -340,7 +341,7 @@ func TestRecordMissingModels_DisabledModelNotReturnedAgain(t *testing.T) {
 	ctx := context.Background()
 	repo := NewRepository(testPool)
 
-	providerID := db.InsertTestProvider(ctx, t, testPool, "test-record-missing-third-scan")
+	providerID := dbtest.InsertTestProvider(ctx, t, testPool, "test-record-missing-third-scan")
 	t.Cleanup(func() { cleanupProvider(ctx, t, providerID) })
 
 	insertTestModel(ctx, t, providerID, "kept-model")
@@ -376,7 +377,7 @@ func TestRecordMissingModels_PinnedModelNeverDisabled(t *testing.T) {
 	ctx := context.Background()
 	repo := NewRepository(testPool)
 
-	providerID := db.InsertTestProvider(ctx, t, testPool, "test-record-missing-pinned")
+	providerID := dbtest.InsertTestProvider(ctx, t, testPool, "test-record-missing-pinned")
 	t.Cleanup(func() { cleanupProvider(ctx, t, providerID) })
 
 	pinnedID := insertTestModel(ctx, t, providerID, "pinned-model")
@@ -414,7 +415,7 @@ func TestRecordMissingModels_UnpinnedRowStillDisables(t *testing.T) {
 	ctx := context.Background()
 	repo := NewRepository(testPool)
 
-	providerID := db.InsertTestProvider(ctx, t, testPool, "test-record-missing-unpinned-control")
+	providerID := dbtest.InsertTestProvider(ctx, t, testPool, "test-record-missing-unpinned-control")
 	t.Cleanup(func() { cleanupProvider(ctx, t, providerID) })
 
 	pinnedID := insertTestModel(ctx, t, providerID, "pinned-model")
@@ -465,7 +466,7 @@ func TestRecordMissingModels_InvalidatesCache(t *testing.T) {
 	ctx := context.Background()
 	repo := NewRepository(testPool)
 
-	providerID := db.InsertTestProvider(ctx, t, testPool, "test-record-missing-cache")
+	providerID := dbtest.InsertTestProvider(ctx, t, testPool, "test-record-missing-cache")
 	t.Cleanup(func() { cleanupProvider(ctx, t, providerID) })
 
 	insertTestModel(ctx, t, providerID, "cache-model-a")
@@ -503,7 +504,7 @@ func TestSetEnabled_EnableStampsPin(t *testing.T) {
 	ctx := context.Background()
 	repo := NewRepository(testPool)
 
-	providerID := db.InsertTestProvider(ctx, t, testPool, "test-setenabled-pin")
+	providerID := dbtest.InsertTestProvider(ctx, t, testPool, "test-setenabled-pin")
 	t.Cleanup(func() { cleanupProvider(ctx, t, providerID) })
 	modelID := insertTestModel(ctx, t, providerID, "hand-enabled")
 
@@ -529,7 +530,7 @@ func TestUpdate_EnableStampsPin(t *testing.T) {
 	ctx := context.Background()
 	repo := NewRepository(testPool)
 
-	providerID := db.InsertTestProvider(ctx, t, testPool, "test-update-pin")
+	providerID := dbtest.InsertTestProvider(ctx, t, testPool, "test-update-pin")
 	t.Cleanup(func() { cleanupProvider(ctx, t, providerID) })
 	modelID := insertTestModel(ctx, t, providerID, "hand-updated")
 
@@ -567,7 +568,7 @@ func TestUpsertClearsDiscoveryDismissal(t *testing.T) {
 	ctx := context.Background()
 	repo := NewRepository(testPool)
 
-	providerID := db.InsertTestProvider(ctx, t, testPool, "test-dismiss-clear")
+	providerID := dbtest.InsertTestProvider(ctx, t, testPool, "test-dismiss-clear")
 	t.Cleanup(func() { cleanupProvider(ctx, t, providerID) })
 	insertTestModel(ctx, t, providerID, "vanishing-model")
 
@@ -606,9 +607,9 @@ func TestPinnedModelIDs(t *testing.T) {
 	ctx := context.Background()
 	repo := NewRepository(testPool)
 
-	providerID := db.InsertTestProvider(ctx, t, testPool, "test-pinned-ids")
+	providerID := dbtest.InsertTestProvider(ctx, t, testPool, "test-pinned-ids")
 	t.Cleanup(func() { cleanupProvider(ctx, t, providerID) })
-	otherProviderID := db.InsertTestProvider(ctx, t, testPool, "test-pinned-ids-other")
+	otherProviderID := dbtest.InsertTestProvider(ctx, t, testPool, "test-pinned-ids-other")
 	t.Cleanup(func() { cleanupProvider(ctx, t, otherProviderID) })
 
 	pinnedID := insertTestModel(ctx, t, providerID, "pinned-model")
@@ -629,7 +630,7 @@ func TestPinnedModelIDs(t *testing.T) {
 
 	// A provider with no pinned rows must still get a non-nil, empty map: the
 	// caller does a bare map lookup with no nil guard.
-	unpinnedProviderID := db.InsertTestProvider(ctx, t, testPool, "test-pinned-ids-none")
+	unpinnedProviderID := dbtest.InsertTestProvider(ctx, t, testPool, "test-pinned-ids-none")
 	t.Cleanup(func() { cleanupProvider(ctx, t, unpinnedProviderID) })
 	insertTestModel(ctx, t, unpinnedProviderID, "never-pinned")
 

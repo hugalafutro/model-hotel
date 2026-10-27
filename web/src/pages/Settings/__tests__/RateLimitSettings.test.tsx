@@ -903,13 +903,13 @@ describe("per-setting reset", () => {
 		await waitFor(() => {
 			expect(
 				screen.getAllByRole("button", {
-					name: /reset this setting to default/i,
+					name: i18n.t("settings.common.resetSetting"),
 				}).length,
 			).toBeGreaterThanOrEqual(1);
 		});
 
 		const resetBtn = screen.getAllByRole("button", {
-			name: /reset this setting to default/i,
+			name: i18n.t("settings.common.resetSetting"),
 		})[0];
 		await user.click(resetBtn);
 

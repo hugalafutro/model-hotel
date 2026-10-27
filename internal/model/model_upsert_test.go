@@ -8,7 +8,7 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/hugalafutro/model-hotel/internal/db"
+	"github.com/hugalafutro/model-hotel/internal/dbtest"
 )
 
 // newBareModel builds a Model with valid-JSON defaults for the JSON columns
@@ -33,7 +33,7 @@ func TestUpsert_PreservesMetadataOnNullRescan(t *testing.T) {
 	ctx := context.Background()
 	repo := NewRepository(testPool)
 
-	providerID := db.InsertTestProvider(ctx, t, testPool, "test-upsert-preserve")
+	providerID := dbtest.InsertTestProvider(ctx, t, testPool, "test-upsert-preserve")
 	t.Cleanup(func() { cleanupProvider(ctx, t, providerID) })
 
 	base := newBareModel(providerID, "preserve-me")
@@ -106,7 +106,7 @@ func TestUpsert_PricePinBlocksAllSources(t *testing.T) {
 	ctx := context.Background()
 	repo := NewRepository(testPool)
 
-	providerID := db.InsertTestProvider(ctx, t, testPool, "test-upsert-price-pin")
+	providerID := dbtest.InsertTestProvider(ctx, t, testPool, "test-upsert-price-pin")
 	t.Cleanup(func() { cleanupProvider(ctx, t, providerID) })
 
 	base := newBareModel(providerID, "pinned-price")
@@ -174,7 +174,7 @@ func TestUpsert_SightingClearsPin(t *testing.T) {
 	ctx := context.Background()
 	repo := NewRepository(testPool)
 
-	providerID := db.InsertTestProvider(ctx, t, testPool, "test-upsert-pin-clear")
+	providerID := dbtest.InsertTestProvider(ctx, t, testPool, "test-upsert-pin-clear")
 	t.Cleanup(func() { cleanupProvider(ctx, t, providerID) })
 
 	pinnedID := insertTestModel(ctx, t, providerID, "pinned-model")
@@ -239,7 +239,7 @@ func assertFloatPtr(t *testing.T, field string, got *float64, want float64) {
 func TestUpsert_PriceSourcesFollowThePrices(t *testing.T) {
 	ctx := context.Background()
 	repo := NewRepository(testPool)
-	providerID := db.InsertTestProvider(ctx, t, testPool, "test-upsert-price-sources")
+	providerID := dbtest.InsertTestProvider(ctx, t, testPool, "test-upsert-price-sources")
 	t.Cleanup(func() { cleanupProvider(ctx, t, providerID) })
 
 	base := newBareModel(providerID, "sourced")
@@ -341,7 +341,7 @@ func TestStampPriceSources_OnlyPricedAndUnsourced(t *testing.T) {
 func TestUpdate_CacheHitEditStampsOnlyItself(t *testing.T) {
 	ctx := context.Background()
 	repo := NewRepository(testPool)
-	providerID := db.InsertTestProvider(ctx, t, testPool, "test-update-cache-hit-source")
+	providerID := dbtest.InsertTestProvider(ctx, t, testPool, "test-update-cache-hit-source")
 	t.Cleanup(func() { cleanupProvider(ctx, t, providerID) })
 
 	base := newBareModel(providerID, "cache-edit")
@@ -368,7 +368,7 @@ func TestUpsert_LimitsPinBlocksLiveMeta(t *testing.T) {
 	ctx := context.Background()
 	repo := NewRepository(testPool)
 
-	providerID := db.InsertTestProvider(ctx, t, testPool, "test-upsert-limits-pin")
+	providerID := dbtest.InsertTestProvider(ctx, t, testPool, "test-upsert-limits-pin")
 	t.Cleanup(func() { cleanupProvider(ctx, t, providerID) })
 
 	base := newBareModel(providerID, "pinned-limits")
@@ -435,7 +435,7 @@ func TestUpsert_CapabilitiesPinBlocksScan(t *testing.T) {
 	ctx := context.Background()
 	repo := NewRepository(testPool)
 
-	providerID := db.InsertTestProvider(ctx, t, testPool, "test-upsert-caps-pin")
+	providerID := dbtest.InsertTestProvider(ctx, t, testPool, "test-upsert-caps-pin")
 	t.Cleanup(func() { cleanupProvider(ctx, t, providerID) })
 
 	base := newBareModel(providerID, "pinned-caps")

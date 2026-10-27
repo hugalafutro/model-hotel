@@ -3,6 +3,7 @@ import userEvent from "@testing-library/user-event";
 import { HttpResponse, http } from "msw";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { api } from "../../../api/client";
+import i18n from "../../../i18n";
 import { server } from "../../../test/mocks/server";
 import {
 	expectResetButtonCallsReset,
@@ -137,7 +138,7 @@ describe("Settings reset flows", { timeout: SETTINGS_PAGE_TIMEOUT_MS }, () => {
 		renderWithProviders(<Settings />);
 		await waitFor(() => {
 			const resetButtons = screen.getAllByRole("button", {
-				name: /reset this setting to default/i,
+				name: i18n.t("settings.common.resetSetting"),
 			});
 			expect(resetButtons.length).toBeGreaterThanOrEqual(3);
 		});

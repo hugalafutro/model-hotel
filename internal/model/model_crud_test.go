@@ -8,7 +8,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 
-	"github.com/hugalafutro/model-hotel/internal/db"
+	"github.com/hugalafutro/model-hotel/internal/dbtest"
 )
 
 // ---------------------------------------------------------------------------
@@ -34,7 +34,7 @@ func TestList_OneProvider(t *testing.T) {
 	ctx := context.Background()
 	repo := NewRepository(testPool)
 
-	providerID := db.InsertTestProvider(ctx, t, testPool, "test-list-one-provider")
+	providerID := dbtest.InsertTestProvider(ctx, t, testPool, "test-list-one-provider")
 	t.Cleanup(func() { cleanupProvider(ctx, t, providerID) })
 
 	// Create multiple models for this provider
@@ -68,8 +68,8 @@ func TestList_ByProviderID(t *testing.T) {
 	ctx := context.Background()
 	repo := NewRepository(testPool)
 
-	providerA := db.InsertTestProvider(ctx, t, testPool, "test-list-by-provider-a")
-	providerB := db.InsertTestProvider(ctx, t, testPool, "test-list-by-provider-b")
+	providerA := dbtest.InsertTestProvider(ctx, t, testPool, "test-list-by-provider-a")
+	providerB := dbtest.InsertTestProvider(ctx, t, testPool, "test-list-by-provider-b")
 	t.Cleanup(func() {
 		cleanupProvider(ctx, t, providerA)
 		cleanupProvider(ctx, t, providerB)
@@ -149,7 +149,7 @@ func TestListEnabled_OnlyEnabledModels(t *testing.T) {
 	ctx := context.Background()
 	repo := NewRepository(testPool)
 
-	providerID := db.InsertTestProvider(ctx, t, testPool, "test-list-enabled-only")
+	providerID := dbtest.InsertTestProvider(ctx, t, testPool, "test-list-enabled-only")
 	t.Cleanup(func() { cleanupProvider(ctx, t, providerID) })
 
 	// Create models with different enabled states
@@ -207,7 +207,7 @@ func TestGet_Found(t *testing.T) {
 	ctx := context.Background()
 	repo := NewRepository(testPool)
 
-	providerID := db.InsertTestProvider(ctx, t, testPool, "test-get-found")
+	providerID := dbtest.InsertTestProvider(ctx, t, testPool, "test-get-found")
 	t.Cleanup(func() { cleanupProvider(ctx, t, providerID) })
 
 	// Use insertTestModel which uses only basic fields (no last_seen_at in original schema)
@@ -229,7 +229,7 @@ func TestGet_CacheHit(t *testing.T) {
 	ctx := context.Background()
 	repo := NewRepository(testPool)
 
-	providerID := db.InsertTestProvider(ctx, t, testPool, "test-get-cache-hit")
+	providerID := dbtest.InsertTestProvider(ctx, t, testPool, "test-get-cache-hit")
 	t.Cleanup(func() { cleanupProvider(ctx, t, providerID) })
 
 	modelID := insertTestModel(ctx, t, providerID, "cache-hit-model")
@@ -284,7 +284,7 @@ func TestGetByIDs_Found(t *testing.T) {
 	ctx := context.Background()
 	repo := NewRepository(testPool)
 
-	providerID := db.InsertTestProvider(ctx, t, testPool, "test-getbyids-found")
+	providerID := dbtest.InsertTestProvider(ctx, t, testPool, "test-getbyids-found")
 	t.Cleanup(func() { cleanupProvider(ctx, t, providerID) })
 
 	id1 := uuid.New()
@@ -324,7 +324,7 @@ func TestGetByIDs_CacheHit(t *testing.T) {
 	ctx := context.Background()
 	repo := NewRepository(testPool)
 
-	providerID := db.InsertTestProvider(ctx, t, testPool, "test-getbyids-cache")
+	providerID := dbtest.InsertTestProvider(ctx, t, testPool, "test-getbyids-cache")
 	t.Cleanup(func() { cleanupProvider(ctx, t, providerID) })
 
 	modelID := insertTestModel(ctx, t, providerID, "cache-model")
@@ -348,7 +348,7 @@ func TestUpdate_AllFields(t *testing.T) {
 	ctx := context.Background()
 	repo := NewRepository(testPool)
 
-	providerID := db.InsertTestProvider(ctx, t, testPool, "test-update-all")
+	providerID := dbtest.InsertTestProvider(ctx, t, testPool, "test-update-all")
 	t.Cleanup(func() { cleanupProvider(ctx, t, providerID) })
 
 	// Insert initial model
@@ -418,7 +418,7 @@ func TestUpdate_NoFields(t *testing.T) {
 	ctx := context.Background()
 	repo := NewRepository(testPool)
 
-	providerID := db.InsertTestProvider(ctx, t, testPool, "test-update-none")
+	providerID := dbtest.InsertTestProvider(ctx, t, testPool, "test-update-none")
 	t.Cleanup(func() { cleanupProvider(ctx, t, providerID) })
 
 	// Insert initial model
@@ -449,7 +449,7 @@ func TestUpdate_SingleField_DisplayName(t *testing.T) {
 	ctx := context.Background()
 	repo := NewRepository(testPool)
 
-	providerID := db.InsertTestProvider(ctx, t, testPool, "test-update-single")
+	providerID := dbtest.InsertTestProvider(ctx, t, testPool, "test-update-single")
 	t.Cleanup(func() { cleanupProvider(ctx, t, providerID) })
 
 	// Insert initial model
@@ -476,7 +476,7 @@ func TestUpdate_EnabledFalse(t *testing.T) {
 	ctx := context.Background()
 	repo := NewRepository(testPool)
 
-	providerID := db.InsertTestProvider(ctx, t, testPool, "test-update-disabled")
+	providerID := dbtest.InsertTestProvider(ctx, t, testPool, "test-update-disabled")
 	t.Cleanup(func() { cleanupProvider(ctx, t, providerID) })
 
 	// Insert initial model with enabled=true
@@ -550,7 +550,7 @@ func TestGetByProviderAndModelID_Found(t *testing.T) {
 	ctx := context.Background()
 	repo := NewRepository(testPool)
 
-	providerID := db.InsertTestProvider(ctx, t, testPool, "test-getby-provider-and-model")
+	providerID := dbtest.InsertTestProvider(ctx, t, testPool, "test-getby-provider-and-model")
 	t.Cleanup(func() { cleanupProvider(ctx, t, providerID) })
 
 	modelID := "specific-model"
@@ -580,7 +580,7 @@ func TestGetByProviderAndModelID_CacheHit(t *testing.T) {
 	ctx := context.Background()
 	repo := NewRepository(testPool)
 
-	providerID := db.InsertTestProvider(ctx, t, testPool, "test-getby-cached")
+	providerID := dbtest.InsertTestProvider(ctx, t, testPool, "test-getby-cached")
 	t.Cleanup(func() { cleanupProvider(ctx, t, providerID) })
 
 	modelID := "cached-composite"
@@ -611,7 +611,7 @@ func TestDeleteByID_Success(t *testing.T) {
 	ctx := context.Background()
 	repo := NewRepository(testPool)
 
-	providerID := db.InsertTestProvider(ctx, t, testPool, "test-delete-success")
+	providerID := dbtest.InsertTestProvider(ctx, t, testPool, "test-delete-success")
 	t.Cleanup(func() { cleanupProvider(ctx, t, providerID) })
 
 	modelID := uuid.New()
@@ -644,7 +644,7 @@ func TestDeleteByIDs_Success(t *testing.T) {
 	ctx := context.Background()
 	repo := NewRepository(testPool)
 
-	providerID := db.InsertTestProvider(ctx, t, testPool, "test-delete-ids-success")
+	providerID := dbtest.InsertTestProvider(ctx, t, testPool, "test-delete-ids-success")
 	t.Cleanup(func() { cleanupProvider(ctx, t, providerID) })
 
 	ids := []uuid.UUID{uuid.New(), uuid.New(), uuid.New()}
@@ -691,7 +691,7 @@ func TestDeleteByIDs_Idempotent(t *testing.T) {
 	ctx := context.Background()
 	repo := NewRepository(testPool)
 
-	providerID := db.InsertTestProvider(ctx, t, testPool, "test-delete-ids-idempotent")
+	providerID := dbtest.InsertTestProvider(ctx, t, testPool, "test-delete-ids-idempotent")
 	t.Cleanup(func() { cleanupProvider(ctx, t, providerID) })
 
 	realID := uuid.New()
@@ -717,7 +717,7 @@ func TestDeleteByID_CacheInvalidated(t *testing.T) {
 	ctx := context.Background()
 	repo := NewRepository(testPool)
 
-	providerID := db.InsertTestProvider(ctx, t, testPool, "test-delete-cache")
+	providerID := dbtest.InsertTestProvider(ctx, t, testPool, "test-delete-cache")
 	t.Cleanup(func() { cleanupProvider(ctx, t, providerID) })
 
 	modelID := uuid.New()
@@ -755,7 +755,7 @@ func TestGetIncludesProviderName(t *testing.T) {
 	ctx := context.Background()
 	repo := NewRepository(testPool)
 
-	providerID := db.InsertTestProvider(ctx, t, testPool, "test-provider-name-resolution")
+	providerID := dbtest.InsertTestProvider(ctx, t, testPool, "test-provider-name-resolution")
 	t.Cleanup(func() { cleanupProvider(ctx, t, providerID) })
 
 	modelID := uuid.New()
@@ -781,7 +781,7 @@ func TestList_WithProviderFilter(t *testing.T) {
 	ctx := context.Background()
 	repo := NewRepository(testPool)
 
-	providerID := db.InsertTestProvider(ctx, t, testPool, "test-list-filter")
+	providerID := dbtest.InsertTestProvider(ctx, t, testPool, "test-list-filter")
 	t.Cleanup(func() { cleanupProvider(ctx, t, providerID) })
 
 	_ = insertTestModel(ctx, t, providerID, "filtered-model-a")
@@ -800,7 +800,7 @@ func TestGetByIDs(t *testing.T) {
 	ctx := context.Background()
 	repo := NewRepository(testPool)
 
-	providerID := db.InsertTestProvider(ctx, t, testPool, "test-getbyids")
+	providerID := dbtest.InsertTestProvider(ctx, t, testPool, "test-getbyids")
 	t.Cleanup(func() { cleanupProvider(ctx, t, providerID) })
 
 	id1 := insertTestModel(ctx, t, providerID, "getbyids-model-a")
@@ -905,7 +905,7 @@ func TestGetByIDs_CacheHitOnly(t *testing.T) {
 	repo := NewRepository(testPool)
 	ctx := context.Background()
 
-	providerID := db.InsertTestProvider(ctx, t, testPool, "test-getbyids-cache")
+	providerID := dbtest.InsertTestProvider(ctx, t, testPool, "test-getbyids-cache")
 	t.Cleanup(func() { cleanupProvider(ctx, t, providerID) })
 
 	// Insert a model so it gets cached
@@ -991,7 +991,7 @@ func TestGetByIDs_AfterCacheInvalidation(t *testing.T) {
 	repo := NewRepository(testPool)
 	InvalidateModelCache()
 
-	providerID := db.InsertTestProvider(ctx, t, testPool, "test-getbyids-after-invalidate")
+	providerID := dbtest.InsertTestProvider(ctx, t, testPool, "test-getbyids-after-invalidate")
 	t.Cleanup(func() { cleanupProvider(ctx, t, providerID) })
 
 	id1 := insertTestModel(ctx, t, providerID, "post-invalidate-a")
@@ -1051,7 +1051,7 @@ func TestGetByIDs_MixedCacheAndDB(t *testing.T) {
 	repo := NewRepository(testPool)
 	InvalidateModelCache()
 
-	providerID := db.InsertTestProvider(ctx, t, testPool, "test-getbyids-mixed")
+	providerID := dbtest.InsertTestProvider(ctx, t, testPool, "test-getbyids-mixed")
 	t.Cleanup(func() { cleanupProvider(ctx, t, providerID) })
 
 	id1 := insertTestModel(ctx, t, providerID, "mixed-cached")
@@ -1110,7 +1110,7 @@ func TestGetByIDs_PartiallyNonExistent(t *testing.T) {
 	repo := NewRepository(testPool)
 	InvalidateModelCache()
 
-	providerID := db.InsertTestProvider(ctx, t, testPool, "test-getbyids-partial")
+	providerID := dbtest.InsertTestProvider(ctx, t, testPool, "test-getbyids-partial")
 	t.Cleanup(func() { cleanupProvider(ctx, t, providerID) })
 
 	id1 := insertTestModel(ctx, t, providerID, "partial-exists")

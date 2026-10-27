@@ -8,7 +8,7 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/hugalafutro/model-hotel/internal/db"
+	"github.com/hugalafutro/model-hotel/internal/dbtest"
 	"github.com/hugalafutro/model-hotel/internal/provider"
 )
 
@@ -69,7 +69,7 @@ func TestProviderPrune_KeyKeepsSurvivingProviders(t *testing.T) {
 
 	deleteProviderViaRepo(t, doomed)
 
-	isNull, card, members := db.ReadAllowList(t, apiTestDB.Pool(), db.KeyAllowListQuery, "hash-prune-multi")
+	isNull, card, members := dbtest.ReadAllowList(t, apiTestDB.Pool(), dbtest.KeyAllowListQuery, "hash-prune-multi")
 	if isNull {
 		t.Fatal("ESCALATION: the key's allow-list is now NULL, i.e. unrestricted")
 	}
@@ -91,7 +91,7 @@ func TestProviderPrune_EmptiedKeyAllowListIsEmptyNotNull(t *testing.T) {
 
 	deleteProviderViaRepo(t, doomed)
 
-	isNull, card, _ := db.ReadAllowList(t, apiTestDB.Pool(), db.KeyAllowListQuery, "hash-prune-solo")
+	isNull, card, _ := dbtest.ReadAllowList(t, apiTestDB.Pool(), dbtest.KeyAllowListQuery, "hash-prune-solo")
 	if isNull {
 		t.Fatal("ESCALATION: pruning the last entry produced NULL; the key is now unrestricted")
 	}
@@ -110,7 +110,7 @@ func TestProviderPrune_UserCapKeepsSurvivingProviders(t *testing.T) {
 
 	deleteProviderViaRepo(t, doomed)
 
-	isNull, card, members := db.ReadAllowList(t, apiTestDB.Pool(), db.UserAllowListQuery, "capped-multi")
+	isNull, card, members := dbtest.ReadAllowList(t, apiTestDB.Pool(), dbtest.UserAllowListQuery, "capped-multi")
 	if isNull {
 		t.Fatal("ESCALATION: the account cap is now NULL, i.e. uncapped")
 	}
@@ -128,7 +128,7 @@ func TestProviderPrune_EmptiedUserCapIsEmptyNotNull(t *testing.T) {
 
 	deleteProviderViaRepo(t, doomed)
 
-	isNull, card, _ := db.ReadAllowList(t, apiTestDB.Pool(), db.UserAllowListQuery, "capped-solo")
+	isNull, card, _ := dbtest.ReadAllowList(t, apiTestDB.Pool(), dbtest.UserAllowListQuery, "capped-solo")
 	if isNull {
 		t.Fatal("ESCALATION: pruning the last entry produced NULL; the account is now uncapped")
 	}
@@ -152,11 +152,11 @@ func TestProviderPrune_UnrestrictedRowsStayNull(t *testing.T) {
 
 	deleteProviderViaRepo(t, doomed)
 
-	keyNull, keyCard, _ := db.ReadAllowList(t, apiTestDB.Pool(), db.KeyAllowListQuery, "hash-prune-open")
+	keyNull, keyCard, _ := dbtest.ReadAllowList(t, apiTestDB.Pool(), dbtest.KeyAllowListQuery, "hash-prune-open")
 	if !keyNull {
 		t.Fatalf("LOCKOUT: an unrestricted key was given an allow-list (cardinality %d)", keyCard)
 	}
-	userNull, userCard, _ := db.ReadAllowList(t, apiTestDB.Pool(), db.UserAllowListQuery, "uncapped")
+	userNull, userCard, _ := dbtest.ReadAllowList(t, apiTestDB.Pool(), dbtest.UserAllowListQuery, "uncapped")
 	if !userNull {
 		t.Fatalf("LOCKOUT: an uncapped account was given a cap (cardinality %d)", userCard)
 	}
@@ -214,7 +214,7 @@ func TestProviderPrune_ConfigSyncBulkDeletePrunes(t *testing.T) {
 		t.Fatal("the declarative replace did not delete the provider")
 	}
 
-	isNull, card, members := db.ReadAllowList(t, apiTestDB.Pool(), db.KeyAllowListQuery, "hash-sync-both")
+	isNull, card, members := dbtest.ReadAllowList(t, apiTestDB.Pool(), dbtest.KeyAllowListQuery, "hash-sync-both")
 	if isNull {
 		t.Fatal("ESCALATION: the multi-provider key became unrestricted")
 	}
@@ -222,7 +222,7 @@ func TestProviderPrune_ConfigSyncBulkDeletePrunes(t *testing.T) {
 		t.Fatalf("multi-provider key allow-list = %v (cardinality %d), want just [%s]", members, card, keep)
 	}
 
-	isNull, card, members = db.ReadAllowList(t, apiTestDB.Pool(), db.KeyAllowListQuery, "hash-sync-solo")
+	isNull, card, members = dbtest.ReadAllowList(t, apiTestDB.Pool(), dbtest.KeyAllowListQuery, "hash-sync-solo")
 	if isNull {
 		t.Fatal("ESCALATION: the single-provider key became unrestricted")
 	}

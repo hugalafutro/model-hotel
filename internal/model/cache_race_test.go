@@ -6,17 +6,17 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/hugalafutro/model-hotel/internal/db"
+	"github.com/hugalafutro/model-hotel/internal/dbtest"
 )
 
 func TestGet_InvalidationDuringQueryIsNotReinstalled(t *testing.T) {
 	InvalidateModelCache()
 	ctx := context.Background()
-	providerID := db.InsertTestProvider(ctx, t, testPool, "race-"+uuid.NewString())
+	providerID := dbtest.InsertTestProvider(ctx, t, testPool, "race-"+uuid.NewString())
 	t.Cleanup(func() { cleanupProvider(ctx, t, providerID) })
 	modelID := insertTestModel(ctx, t, providerID, "race-model")
 
-	racing := NewRepository(db.TracedPool(t, testDBURL, InvalidateModelCache))
+	racing := NewRepository(dbtest.TracedPool(t, testDBURL, InvalidateModelCache))
 	if _, err := racing.Get(ctx, modelID); err != nil {
 		t.Fatalf("Get: %v", err)
 	}
