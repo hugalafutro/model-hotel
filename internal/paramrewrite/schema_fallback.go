@@ -91,9 +91,9 @@ func refusesJSONSchema(msg string) bool {
 	return false
 }
 
-// RequestsJSONSchema reports whether a chat-completions body asks for
+// requestsJSONSchema reports whether a chat-completions body asks for
 // response_format type json_schema.
-func RequestsJSONSchema(body []byte) bool {
+func requestsJSONSchema(body []byte) bool {
 	var req struct {
 		ResponseFormat struct {
 			Type string `json:"type"`
@@ -109,7 +109,7 @@ func RequestsJSONSchema(body []byte) bool {
 // a retry would only repeat. The parser reads the 400 alone, so the request
 // side of the judgement lives here, at the callers that hold both.
 func DropSchemaFallbackUnlessRequested(rejected map[string]bool, requestBody []byte) map[string]bool {
-	if !rejected[SchemaFallbackKey] || RequestsJSONSchema(requestBody) {
+	if !rejected[SchemaFallbackKey] || requestsJSONSchema(requestBody) {
 		return rejected
 	}
 	return WithoutParams(rejected, SchemaFallbackKey)

@@ -88,9 +88,9 @@ type genSpeechConfig struct {
 	} `json:"speechConfig"`
 }
 
-// SpeechVoice resolves an OpenAI speech request's voice to a Gemini prebuilt
+// speechVoice resolves an OpenAI speech request's voice to a Gemini prebuilt
 // voice name.
-func SpeechVoice(voice string) string {
+func speechVoice(voice string) string {
 	if voice == "" {
 		return defaultSpeechVoice
 	}
@@ -136,7 +136,7 @@ func TranslateSpeechRequest(body []byte) (geminiBody []byte, model, format strin
 	}
 	out := genSpeechRequest{Contents: []genContent{{Role: "user", Parts: []genPart{{Text: req.Input}}}}}
 	out.GenerationConfig.ResponseModalities = []string{"AUDIO"}
-	out.GenerationConfig.SpeechConfig.VoiceConfig.PrebuiltVoiceConfig.VoiceName = SpeechVoice(req.Voice)
+	out.GenerationConfig.SpeechConfig.VoiceConfig.PrebuiltVoiceConfig.VoiceName = speechVoice(req.Voice)
 	geminiBody, err = json.Marshal(out)
 	if err != nil {
 		return nil, "", "", fmt.Errorf("gemini: marshal speech request: %w", err)

@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -442,7 +443,7 @@ func TestDiscoverProviderModels_DiscoveryError(t *testing.T) {
 // TestDiscoverProviderModels_WithModelsDevCache tests that model discovery
 // successfully enriches models with data from the models.dev cache.
 func TestDiscoverProviderModels_WithModelsDevCache(t *testing.T) {
-	defer provider.ResetModelsDevCache()
+	t.Cleanup(func() { emptyModelsDevCache(t) })
 
 	// Create mock models.dev server
 	modelsDevResponse := `{
@@ -608,6 +609,19 @@ func (m *mockTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 		return m.roundTripFunc(req)
 	}
 	return nil, fmt.Errorf("unexpected request to %s", req.URL.String())
+}
+
+// emptyModelsDevCache loads an empty catalogue into the process-wide
+// models.dev cache, so a test that loaded one leaves no enrichment data behind
+// for the tests that follow.
+func emptyModelsDevCache(t *testing.T) {
+	t.Helper()
+	client := &http.Client{Transport: &mockTransport{roundTripFunc: func(*http.Request) (*http.Response, error) {
+		return &http.Response{StatusCode: http.StatusOK, Header: http.Header{}, Body: io.NopCloser(strings.NewReader("{}"))}, nil
+	}}}
+	if err := provider.LoadModelsDevWithClient(context.Background(), client); err != nil {
+		t.Errorf("emptying the models.dev cache: %v", err)
+	}
 }
 
 // ---------------------------------------------------------------------------
@@ -985,7 +999,7 @@ func TestDiscoverAllModels_ListError(t *testing.T) {
 }
 
 func TestDiscoverAllModels_ModelsDevCacheEnrichment(t *testing.T) {
-	defer provider.ResetModelsDevCache()
+	t.Cleanup(func() { emptyModelsDevCache(t) })
 
 	// Create mock models.dev server
 	modelsDevResponse := `{

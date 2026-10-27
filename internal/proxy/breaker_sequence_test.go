@@ -128,7 +128,7 @@ func TestChatCompletions_CircuitBreakerSequence_FailoverThen200(t *testing.T) {
 		failoverRepo:   failoverRepo,
 		modelRepo:      modelRepo,
 		providerRepo:   providerRepo,
-		virtualKeyRepo: WrapVirtualKeyRepo(virtualKeyRepo),
+		virtualKeyRepo: &virtualKeyRepoAdapter{repo: virtualKeyRepo},
 		rateLimiter:    limiter,
 		tpmLimiter:     ratelimit.NewTPMLimiter(settingsRepo),
 		ipLimiter:      ipLimiter,

@@ -8,10 +8,10 @@ import "time"
 // re-spelled per site: a site that reaches for Duration.Milliseconds() instead
 // silently rounds away the fraction the rest of the columns carry.
 func MillisSince(start time.Time) float64 {
-	return Ms(time.Since(start))
+	return ms(time.Since(start))
 }
 
-// Ms is MillisSince for a duration that has already been measured.
-func Ms(d time.Duration) float64 {
+// ms is MillisSince for a duration that has already been measured.
+func ms(d time.Duration) float64 {
 	return float64(d.Microseconds()) / 1000.0
 }
