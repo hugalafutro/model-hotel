@@ -5,6 +5,9 @@ import { defineConfig } from "vitest/config";
 export default defineConfig({
 	plugins: [react()],
 	resolve: {
+		// web-shared/*.tsx imports react bare and has no node_modules of its own;
+		// dedupe resolves it from this app's root, so one React loads.
+		dedupe: ["react"],
 		alias: {
 			"@": path.resolve(import.meta.dirname, "./src"),
 			// Same prefix alias as vite.config.ts: a vitest config replaces the vite

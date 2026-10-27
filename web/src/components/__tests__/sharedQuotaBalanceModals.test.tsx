@@ -1,22 +1,16 @@
 import { render, screen } from "@testing-library/react";
-import { describe, expect, it, vi } from "vitest";
 import type {
 	NanoGPTUsage,
 	NeuralWattQuotaResponse,
 	OpenRouterBalance,
-} from "../../../api/types";
-import { NanoGPTQuotaModal } from "../NanoGPTQuotaModal";
-import { NeuralWattQuotaModal } from "../NeuralWattQuotaModal";
-import { OpenRouterQuotaModal } from "../OpenRouterQuotaModal";
-
-const chrome = {
-	providerName: "acct",
-	fetchedAt: "2026-07-26T10:00:00Z",
-	onToggleBarMode: vi.fn(),
-	onRefresh: vi.fn(),
-	isRefreshing: false,
-	onClose: vi.fn(),
-};
+} from "@web-shared/quota";
+import {
+	NanoGPTQuotaModal,
+	NeuralWattQuotaModal,
+	OpenRouterQuotaModal,
+} from "@web-shared/quota/modals";
+import i18n from "../../i18n";
+import { quotaBodyChrome as chrome } from "../../test/quotaKit";
 
 describe("NanoGPTQuotaModal", () => {
 	const payload: NanoGPTUsage = {
@@ -72,7 +66,7 @@ describe("NanoGPTQuotaModal", () => {
 		};
 		render(<NanoGPTQuotaModal {...chrome} payload={big} barMode="used" />);
 		expect(
-			screen.getByTestId("nano-images-bar").closest(".fd-quota-bar-block"),
+			screen.getByTestId("nano-images-bar").closest(".ui-quota-bar-block"),
 		).toHaveTextContent("1,200 / 15,000");
 	});
 
@@ -92,9 +86,59 @@ describe("NanoGPTQuotaModal", () => {
 		render(<NanoGPTQuotaModal {...chrome} payload={big} barMode="used" />);
 		const text = screen
 			.getByTestId("nano-images-bar")
-			.closest(".fd-quota-bar-block")?.textContent;
+			.closest(".ui-quota-bar-block")?.textContent;
 		expect(text).toContain("1,249");
 		expect(text).not.toContain("1.2K");
+	});
+
+	// NanoGPT documents percentUsed as a fraction that may exceed 1
+	// (docs.nano-gpt.com, subscription usage endpoint), so 0.2 is 20% used and
+	// 1.3 is an allowance overrun that draws as a full bar.
+	it("reads percentUsed as a fraction, capping an overrun at a full bar", () => {
+		render(
+			<NanoGPTQuotaModal
+				{...chrome}
+				payload={{
+					...payload,
+					dailyImages: {
+						used: 65,
+						remaining: 0,
+						percentUsed: 1.3,
+						resetAt: 1_800_000_000_000,
+					},
+				}}
+				barMode="used"
+			/>,
+		);
+		expect(screen.getByTestId("nano-images-fill")).toHaveStyle({
+			width: "100%",
+		});
+	});
+
+	it("labels an unconfigured daily limit as unlimited", () => {
+		render(
+			<NanoGPTQuotaModal
+				{...chrome}
+				payload={{
+					...payload,
+					limits: {
+						...payload.limits,
+						dailyImages: null,
+						dailyInputTokens: null,
+					},
+				}}
+				barMode="used"
+			/>,
+		);
+		const unlimited = i18n.t("components.providerModals.unlimited");
+		expect(
+			screen.getByTestId("nano-images-bar").closest(".ui-quota-bar-block"),
+		).toHaveTextContent(`10 / ${unlimited}`);
+		expect(
+			screen
+				.getByTestId("nano-daily-tokens-bar")
+				.closest(".ui-quota-bar-block"),
+		).toHaveTextContent(unlimited);
 	});
 
 	it("scales the fractional percentUsed to a percentage", () => {
@@ -185,7 +229,7 @@ describe("NanoGPTQuotaModal", () => {
 		// zero, not a blank "-" placeholder. The testid sits on the bar track,
 		// not the header, so walk up to the block to reach the rightText.
 		expect(
-			screen.getByTestId("nano-weekly-bar").closest(".fd-quota-bar-block"),
+			screen.getByTestId("nano-weekly-bar").closest(".ui-quota-bar-block"),
 		).toHaveTextContent("0 / 0");
 		expect(screen.getByTestId("nano-weekly-fill")).toHaveStyle({ width: "0%" });
 		// The optional bars still render even though their configured limit is null.
@@ -194,20 +238,20 @@ describe("NanoGPTQuotaModal", () => {
 
 		const sparseImagesText = screen
 			.getByTestId("nano-images-bar")
-			.closest(".fd-quota-bar-block")?.textContent;
+			.closest(".ui-quota-bar-block")?.textContent;
 		const sparseTokensText = screen
 			.getByTestId("nano-daily-tokens-bar")
-			.closest(".fd-quota-bar-block")?.textContent;
+			.closest(".ui-quota-bar-block")?.textContent;
 		const sparseOverage = screen.getByTestId("nano-allow-overage").textContent;
 		unmount();
 
 		render(<NanoGPTQuotaModal {...chrome} payload={payload} barMode="used" />);
 		const baseImagesText = screen
 			.getByTestId("nano-images-bar")
-			.closest(".fd-quota-bar-block")?.textContent;
+			.closest(".ui-quota-bar-block")?.textContent;
 		const baseTokensText = screen
 			.getByTestId("nano-daily-tokens-bar")
-			.closest(".fd-quota-bar-block")?.textContent;
+			.closest(".ui-quota-bar-block")?.textContent;
 		const baseOverage = screen.getByTestId("nano-allow-overage").textContent;
 
 		// Locale-independent: compares two live renders rather than asserting on
@@ -269,6 +313,15 @@ describe("OpenRouterQuotaModal", () => {
 			/>,
 		);
 		expect(screen.queryByTestId("or-limit-fill")).toBeNull();
+	});
+
+	it("says the usage tiles are this key's spend, not the account's", () => {
+		render(
+			<OpenRouterQuotaModal {...chrome} payload={payload} barMode="used" />,
+		);
+		expect(screen.getByTestId("or-key-usage-hint")).toHaveTextContent(
+			i18n.t("components.providerModals.spendingByThisKey"),
+		);
 	});
 
 	it("renders the four spending tiles", () => {
@@ -451,6 +504,22 @@ describe("NeuralWattQuotaModal", () => {
 		expect(screen.getByTestId("nw-kwh-fill")).toHaveStyle({ width: "25%" });
 	});
 
+	it("draws the remaining bar from the reported kWh left, not the complement of used", () => {
+		// 5 used and 10 remaining of 20 included: the provider's two figures do
+		// not add up, and remaining mode must show its own 50%, not 100 - 25.
+		render(
+			<NeuralWattQuotaModal
+				{...chrome}
+				payload={{
+					...payload,
+					subscription: { ...subscription, kwh_remaining: 10 },
+				}}
+				barMode="remaining"
+			/>,
+		);
+		expect(screen.getByTestId("nw-kwh-fill")).toHaveStyle({ width: "50%" });
+	});
+
 	it("omits the energy bar when the plan includes no kWh", () => {
 		render(
 			<NeuralWattQuotaModal
@@ -621,8 +690,8 @@ describe("NeuralWattQuotaModal", () => {
 		expect(screen.queryByTestId("nw-allowance")).toBeNull();
 		// Their containers go with them: an empty row block or an empty
 		// three-column grid would still occupy layout in the dialog.
-		expect(document.querySelector(".fd-quota-rows")).toBeNull();
-		expect(document.querySelector(".fd-quota-detail-grid-3")).toBeNull();
+		expect(document.querySelector(".ui-quota-rows")).toBeNull();
+		expect(document.querySelector(".ui-quota-detail-grid-3")).toBeNull();
 	});
 
 	it("renders on balance alone, with no subscription block", () => {

@@ -18,7 +18,8 @@ import { QuotaStrip } from "../QuotaStrip";
 // unchanged. Lives in its own file because vi.mock applies to the whole
 // module graph of the file it is written in, and QuotaStrip.test.tsx opens
 // this same modal for real.
-vi.mock("../quota/ZAICodingQuotaModal", () => ({
+vi.mock("../quota/modals", async (importOriginal) => ({
+	...(await importOriginal<typeof import("../quota/modals")>()),
 	ZAICodingQuotaModal: ({
 		payload,
 	}: {

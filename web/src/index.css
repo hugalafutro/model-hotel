@@ -1671,6 +1671,142 @@ html[data-ui-style="cyber-terminal"] .ui-bar {
 	border-radius: 0;
 }
 
+/* Quota modal bodies, shared with Front Desk (web-shared/quota/modals), which
+   styles the same classes in its own index.css. Bar colours follow the bar
+   mode: indigo/amber/red for what is left, amber/orange/red for what is used. */
+.ui-quota-bar-block {
+	display: flex;
+	flex-direction: column;
+	gap: 0.25rem;
+}
+.ui-quota-bar-head {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 0.5rem;
+}
+.ui-quota-bar-label,
+.ui-quota-class-label {
+	margin: 0;
+	font-size: var(--text-sm);
+	line-height: var(--text-sm--line-height);
+	font-weight: var(--font-weight-medium);
+	color: var(--text-secondary);
+}
+.ui-quota-bar-right {
+	font-size: var(--text-sm);
+	line-height: var(--text-sm--line-height);
+	color: var(--text-tertiary);
+}
+.ui-quota-bar-track {
+	width: 100%;
+	height: 0.75rem;
+	overflow: hidden;
+	background-color: var(--surface-input);
+}
+.ui-quota-bar-fill {
+	height: 100%;
+	transition: width 0.15s ease;
+}
+/* Same corners as .ui-bar: pill, square in the terminal theme. */
+.ui-quota-bar-track,
+.ui-quota-bar-fill {
+	border-radius: 9999px;
+}
+html[data-ui-style="cyber-terminal"] .ui-quota-bar-track,
+html[data-ui-style="cyber-terminal"] .ui-quota-bar-fill {
+	border-radius: 0;
+}
+.ui-quota-fill-ok {
+	background-color: #6366f1;
+}
+.ui-quota-fill-warn {
+	background-color: #f59e0b;
+}
+.ui-quota-fill-high {
+	background-color: #f97316;
+}
+.ui-quota-fill-danger {
+	background-color: #ef4444;
+}
+.ui-quota-bar-sub {
+	margin: 0;
+	white-space: pre-line;
+	font-size: var(--text-xs);
+	line-height: var(--text-xs--line-height);
+	color: var(--text-muted);
+}
+.ui-quota-detail-grid {
+	display: grid;
+	gap: 0.5rem;
+}
+.ui-quota-detail-grid-2 {
+	grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+.ui-quota-detail-grid-3 {
+	grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+.ui-quota-detail-item {
+	display: flex;
+	flex-direction: column;
+	gap: 0.25rem;
+	min-width: 0;
+	padding: 0.75rem;
+	background-color: var(--surface-bg);
+	border: 1px solid var(--border-default);
+	border-radius: var(--radius-box);
+}
+.ui-quota-detail-span {
+	grid-column: 1 / -1;
+}
+.ui-quota-detail-label {
+	font-size: 11px;
+	line-height: 1rem;
+	font-weight: var(--font-weight-medium);
+	letter-spacing: var(--tracking-wider);
+	text-transform: uppercase;
+	color: var(--text-tertiary);
+}
+.ui-quota-detail-value {
+	overflow-wrap: anywhere;
+	font-size: var(--text-sm);
+	line-height: var(--text-sm--line-height);
+	color: var(--text-primary);
+}
+.ui-quota-rows {
+	display: flex;
+	flex-direction: column;
+	gap: 0.25rem;
+	padding: 0.75rem;
+	background-color: var(--surface-bg);
+	border: 1px solid var(--border-subtle);
+	border-radius: var(--radius-box);
+}
+.ui-quota-row {
+	display: flex;
+	justify-content: space-between;
+	gap: 0.75rem;
+	font-size: var(--text-xs);
+	line-height: var(--text-xs--line-height);
+	color: var(--text-muted);
+}
+.ui-quota-class {
+	display: flex;
+	flex-direction: column;
+	gap: 1rem;
+}
+.ui-quota-overage-note {
+	margin: 0;
+	font-size: var(--text-xs);
+	line-height: var(--text-xs--line-height);
+	color: var(--error-text);
+}
+@media (prefers-reduced-motion: reduce) {
+	.ui-quota-bar-fill {
+		transition: none;
+	}
+}
+
 /* Clip card content to the rounded corners (zebra rows, full-bleed
    children). Cards with tables are excluded because clip-path breaks
    position:sticky in Chromium; cards with dropdowns are excluded so the
@@ -2847,7 +2983,8 @@ html[data-ui-style="cyber-terminal"] .ui-tab-active:hover {
    justified: a callout is a short paragraph block and a ragged edge on a
    tinted box reads untidy. Links inside inherit the box colour and are
    underlined so they read as links on tint. */
-[data-ui-style] .ui-callout {
+[data-ui-style] .ui-callout,
+[data-ui-style] .ui-quota-notice {
 	padding: 0.75rem;
 	border: 1px solid;
 	border-radius: var(--radius-box);
@@ -2862,7 +2999,8 @@ html[data-ui-style="cyber-terminal"] .ui-tab-active:hover {
 	text-underline-offset: 2px;
 }
 
-[data-ui-style] .ui-callout-warning {
+[data-ui-style] .ui-callout-warning,
+[data-ui-style] .ui-quota-notice {
 	background-color: rgba(120, 53, 15, 0.3);
 	color: #fcd34d;
 	border-color: #d97706;
@@ -2880,7 +3018,8 @@ html[data-ui-style="cyber-terminal"] .ui-tab-active:hover {
 	border-color: #0284c7;
 }
 
-[data-ui-style].light .ui-callout-warning {
+[data-ui-style].light .ui-callout-warning,
+[data-ui-style].light .ui-quota-notice {
 	background-color: rgba(217, 119, 6, 0.1);
 	color: #b45309;
 }

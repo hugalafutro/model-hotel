@@ -1,130 +1,9 @@
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import i18next from "i18next";
 import { describe, expect, it, vi } from "vitest";
-import {
-	QuotaBar,
-	QuotaDetailGrid,
-	QuotaDetailItem,
-	QuotaModalShell,
-	quotaRightText,
-	resetSublabel,
-	resetSublabelFromEpoch,
-} from "../shared";
-
-// Returns the last dotted segment of the key, ignoring interpolation options,
-// same convention as the quotaRightText tests below: locale-independent,
-// asserts on the translation KEY rather than a translated value.
-const stubT = (key: string) => key.split(".").pop() as string;
-
-describe("QuotaBar", () => {
-	it("fills to the used share in used mode", () => {
-		render(
-			<QuotaBar
-				label="Weekly"
-				rightText="75%"
-				percentage={75}
-				barMode="used"
-				testId="bar"
-				fillTestId="fill"
-			/>,
-		);
-		expect(screen.getByTestId("bar")).toBeInTheDocument();
-		expect(screen.getByTestId("fill")).toHaveStyle({ width: "75%" });
-	});
-
-	it("fills to the remaining share in remaining mode", () => {
-		render(
-			<QuotaBar
-				label="Weekly"
-				rightText="25%"
-				percentage={75}
-				barMode="remaining"
-				testId="bar"
-				fillTestId="fill"
-			/>,
-		);
-		expect(screen.getByTestId("fill")).toHaveStyle({ width: "25%" });
-	});
-
-	it("clamps an over-100 percentage", () => {
-		render(
-			<QuotaBar
-				label="Weekly"
-				rightText="x"
-				percentage={140}
-				barMode="used"
-				fillTestId="fill"
-			/>,
-		);
-		expect(screen.getByTestId("fill")).toHaveStyle({ width: "100%" });
-	});
-
-	it("clamps the lower bound when a remaining-mode share goes negative", () => {
-		// percentage is percent USED; 140 used in remaining mode computes a raw
-		// shown value of 100 - 140 = -40, which must clamp to 0, not render
-		// negative width.
-		render(
-			<QuotaBar
-				label="Weekly"
-				rightText="x"
-				percentage={140}
-				barMode="remaining"
-				fillTestId="fill"
-			/>,
-		);
-		expect(screen.getByTestId("fill")).toHaveStyle({ width: "0%" });
-	});
-
-	it("tones the fill by severity", () => {
-		render(
-			<QuotaBar
-				label="Weekly"
-				rightText="x"
-				percentage={95}
-				barMode="used"
-				fillTestId="fill"
-			/>,
-		);
-		expect(screen.getByTestId("fill").className).toContain(
-			"fd-quota-fill-danger",
-		);
-	});
-
-	it("tones a remaining-mode bar off the used percentage, not the inverted width", () => {
-		// percentage is always percent USED. 75 used in remaining mode means 25
-		// remaining, which is barTone's "warn" band (< 60 remaining). This fails
-		// under two plausible bugs: passing the already-inverted/clamped width
-		// into barTone instead of percentage, or hardcoding barMode to "used".
-		render(
-			<QuotaBar
-				label="Weekly"
-				rightText="x"
-				percentage={75}
-				barMode="remaining"
-				fillTestId="fill"
-			/>,
-		);
-		expect(screen.getByTestId("fill").className).toContain(
-			"fd-quota-fill-warn",
-		);
-	});
-
-	it("renders a sublabel and a footer when given", () => {
-		render(
-			<QuotaBar
-				label="Weekly"
-				rightText="x"
-				percentage={10}
-				barMode="used"
-				footer={<span data-testid="foot">F</span>}
-			>
-				<span data-testid="sub">S</span>
-			</QuotaBar>,
-		);
-		expect(screen.getByTestId("sub")).toBeInTheDocument();
-		expect(screen.getByTestId("foot")).toBeInTheDocument();
-	});
-});
+import { OpenCodeGoQuotaModal } from "../modals";
+import { QuotaModalShell } from "../shared";
 
 describe("QuotaModalShell", () => {
 	function renderShell(
@@ -209,113 +88,32 @@ describe("QuotaModalShell", () => {
 	});
 });
 
-describe("QuotaDetailGrid", () => {
-	it("renders label and value pairs", () => {
+// The bindings hand each shared body Front Desk's shell and its `quota.modal`
+// strings; the bodies themselves are covered in the dashboard's suites.
+describe("quota modal bindings", () => {
+	it("wraps a shared body in the Front Desk shell with this app's strings", async () => {
+		const onToggleBarMode = vi.fn();
 		render(
-			<QuotaDetailGrid columns={2}>
-				<QuotaDetailItem label="Plan" value="pro" testId="plan" />
-			</QuotaDetailGrid>,
+			<OpenCodeGoQuotaModal
+				providerName="acct"
+				payload={{ usage: { weekly: { status: "ok", percent: 30 } } }}
+				barMode="used"
+				fetchedAt="2026-07-26T10:00:00Z"
+				onToggleBarMode={onToggleBarMode}
+				onRefresh={vi.fn()}
+				isRefreshing={false}
+				onClose={vi.fn()}
+			/>,
 		);
-		expect(screen.getByTestId("plan")).toHaveTextContent("pro");
-		expect(screen.getByTestId("plan").parentElement?.className).toContain(
-			"fd-quota-detail-grid-2",
+		expect(screen.getByRole("dialog")).toHaveAttribute(
+			"aria-label",
+			i18next.t("quota.modal.openCodeGoPlanQuota", { provider: "acct" }),
 		);
-		// No span prop was passed, so the span class must be absent.
-		expect(screen.getByTestId("plan").className).not.toContain(
-			"fd-quota-detail-span",
-		);
-	});
-
-	it("applies the 3-column grid class when given columns={3}", () => {
-		render(
-			<QuotaDetailGrid columns={3}>
-				<QuotaDetailItem label="Plan" value="pro" testId="plan" />
-			</QuotaDetailGrid>,
-		);
-		expect(screen.getByTestId("plan").parentElement?.className).toContain(
-			"fd-quota-detail-grid-3",
-		);
-	});
-
-	it("spans a detail item across the full grid width when span is set", () => {
-		render(
-			<QuotaDetailGrid columns={2}>
-				<QuotaDetailItem label="Notes" value="long text" span testId="notes" />
-			</QuotaDetailGrid>,
-		);
-		expect(screen.getByTestId("notes").className).toContain(
-			"fd-quota-detail-span",
-		);
-	});
-});
-
-describe("quotaRightText", () => {
-	it("reports the used share in used mode", () => {
-		expect(
-			quotaRightText(40, "used", (k) => k.split(".").pop() as string),
-		).toBe("40% used");
-	});
-
-	it("reports the remaining share in remaining mode", () => {
-		expect(
-			quotaRightText(40, "remaining", (k) => k.split(".").pop() as string),
-		).toBe("60% left");
-	});
-});
-
-describe("resetSublabel", () => {
-	it("returns the dash sentinel for undefined", () => {
-		expect(resetSublabel(undefined, stubT)).toBe("-");
-	});
-
-	it("returns the dash sentinel for null", () => {
-		expect(resetSublabel(null, stubT)).toBe("-");
-	});
-
-	it("returns the dash sentinel for an empty string", () => {
-		expect(resetSublabel("", stubT)).toBe("-");
-	});
-
-	it("returns the dash sentinel for an unparseable ISO string", () => {
-		expect(resetSublabel("not-a-date", stubT)).toBe("-");
-	});
-
-	it("composes the resets key and a non-empty relative line for a valid ISO string", () => {
-		const iso = new Date(Date.now() + 3_600_000).toISOString();
-		const out = resetSublabel(iso, stubT);
-		const lines = out.split("\n");
-		expect(lines).toHaveLength(2);
-		expect(lines[0]).toBe("resets");
-		expect(lines[1].length).toBeGreaterThan(0);
-	});
-});
-
-describe("resetSublabelFromEpoch", () => {
-	it("returns the dash sentinel for null", () => {
-		expect(resetSublabelFromEpoch(null, stubT)).toBe("-");
-	});
-
-	it("returns the dash sentinel for undefined", () => {
-		expect(resetSublabelFromEpoch(undefined, stubT)).toBe("-");
-	});
-
-	it("returns the dash sentinel for NaN", () => {
-		expect(resetSublabelFromEpoch(Number.NaN, stubT)).toBe("-");
-	});
-
-	it("returns the dash sentinel for zero", () => {
-		expect(resetSublabelFromEpoch(0, stubT)).toBe("-");
-	});
-
-	it("returns the dash sentinel for a negative instant", () => {
-		expect(resetSublabelFromEpoch(-1000, stubT)).toBe("-");
-	});
-
-	it("delegates to resetSublabel for a valid future instant", () => {
-		const out = resetSublabelFromEpoch(Date.now() + 3_600_000, stubT);
-		const lines = out.split("\n");
-		expect(lines).toHaveLength(2);
-		expect(lines[0]).toBe("resets");
-		expect(lines[1].length).toBeGreaterThan(0);
+		expect(screen.getByTestId("opencode-go-weekly-fill")).toHaveStyle({
+			width: "30%",
+		});
+		expect(screen.getByTestId("quota-modal-fetched-at")).toBeInTheDocument();
+		await userEvent.click(screen.getByTestId("quota-modal-toggle"));
+		expect(onToggleBarMode).toHaveBeenCalledTimes(1);
 	});
 });

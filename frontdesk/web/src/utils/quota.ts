@@ -88,26 +88,13 @@ export function payloadOf<T>(snapshot: QuotaSnapshot): T | null {
 }
 
 // ── Bar colouring ────────────────────────────────────────────────────────
+// Shared with the Model Hotel dashboard, whose quota modals draw the same bars.
 
-export type QuotaBarMode = "used" | "remaining";
-export type QuotaBarTone = "ok" | "warn" | "high" | "danger";
-
-/**
- * Grades a bar by how alarming it is. `percentUsed` is always the used share;
- * remaining mode inverts it internally. Thresholds are the Model Hotel ones
- * (web/src/components/modals/shared.tsx:7-18).
- */
-export function barTone(percentUsed: number, mode: QuotaBarMode): QuotaBarTone {
-	if (mode === "remaining") {
-		const remaining = 100 - percentUsed;
-		if (remaining < 20) return "danger";
-		if (remaining < 60) return "warn";
-		return "ok";
-	}
-	if (percentUsed < 50) return "warn";
-	if (percentUsed < 80) return "high";
-	return "danger";
-}
+export {
+	barTone,
+	type QuotaBarMode,
+	type QuotaBarTone,
+} from "@web-shared/quota";
 
 // ── Badge models ─────────────────────────────────────────────────────────
 

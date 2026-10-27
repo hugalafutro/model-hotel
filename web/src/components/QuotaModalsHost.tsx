@@ -40,7 +40,7 @@ export function QuotaModalsHost() {
 			return (
 				q.nanogptUsage && (
 					<NanoGPTQuotaModal
-						usage={q.nanogptUsage}
+						payload={q.nanogptUsage}
 						onClose={onClose}
 						onRefresh={q.refetchNano}
 						isRefreshing={q.isNanoRefetching}
@@ -53,7 +53,7 @@ export function QuotaModalsHost() {
 			return (
 				q.zaiCodingUsage && (
 					<ZAICodingQuotaModal
-						usage={q.zaiCodingUsage}
+						payload={q.zaiCodingUsage}
 						onClose={onClose}
 						onRefresh={q.refetchZaiCoding}
 						isRefreshing={q.isZaiCodingRefetching}
@@ -66,7 +66,7 @@ export function QuotaModalsHost() {
 			return (
 				q.kimiCodeUsage && (
 					<KimiCodeQuotaModal
-						usage={q.kimiCodeUsage}
+						payload={q.kimiCodeUsage}
 						onClose={onClose}
 						onRefresh={q.refetchKimiCode}
 						isRefreshing={q.isKimiCodeRefetching}
@@ -79,7 +79,7 @@ export function QuotaModalsHost() {
 			return (
 				q.minimaxUsage && (
 					<MiniMaxQuotaModal
-						usage={q.minimaxUsage}
+						payload={q.minimaxUsage}
 						onClose={onClose}
 						onRefresh={q.refetchMiniMax}
 						isRefreshing={q.isMiniMaxRefetching}
@@ -92,7 +92,7 @@ export function QuotaModalsHost() {
 			return (
 				q.openrouterBalance && (
 					<OpenRouterQuotaModal
-						balance={q.openrouterBalance}
+						payload={q.openrouterBalance}
 						onClose={onClose}
 						onRefresh={q.refetchOpenRouter}
 						isRefreshing={q.isOrRefetching}
@@ -105,7 +105,7 @@ export function QuotaModalsHost() {
 			return (
 				q.neuralwattQuota && (
 					<NeuralWattQuotaModal
-						quota={q.neuralwattQuota}
+						payload={q.neuralwattQuota}
 						onClose={onClose}
 						onRefresh={q.refetchNeuralwatt}
 						isRefreshing={q.isNeuralwattRefetching}
@@ -118,7 +118,7 @@ export function QuotaModalsHost() {
 			return (
 				q.opencodeGoUsage && (
 					<OpenCodeGoQuotaModal
-						usage={q.opencodeGoUsage}
+						payload={q.opencodeGoUsage}
 						onClose={onClose}
 						onRefresh={q.refetchOpenCodeGo}
 						isRefreshing={q.isOpenCodeGoRefetching}

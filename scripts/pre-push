@@ -379,8 +379,8 @@ else
 
 	# web dashboard frontend. web/ owns web-shared/ for coverage (its vitest
 	# config instruments it), so shared files are measured and gated here.
-	if has_measurable_change '^web/src/.*\.tsx?$|^web-shared/.*\.ts$' '\.test\.tsx?$|/__tests__/|^web/src/test/'; then
-		if run_vitest_coverage web '^web/src/.*\.tsx?$|^web-shared/.*\.ts$'; then
+	if has_measurable_change '^web/src/.*\.tsx?$|^web-shared/.*\.tsx?$' '\.test\.tsx?$|/__tests__/|^web/src/test/'; then
+		if run_vitest_coverage web '^web/src/.*\.tsx?$|^web-shared/.*\.tsx?$'; then
 			DC_ARGS+=(--lcov "web/=$REPO_ROOT/web/coverage/lcov.info")
 		else
 			exit 1
@@ -393,8 +393,8 @@ else
 	# them here would fail the instrumentation guard on every push. The broader
 	# seed regex still hands them to test selection, so a web-shared change runs
 	# the Front Desk tests that import it rather than the whole suite.
-	if has_measurable_change '^frontdesk/web/src/.*\.tsx?$|^web-shared/.*\.ts$' '\.test\.tsx?$|/__tests__/|^frontdesk/web/src/test/'; then
-		if run_vitest_coverage frontdesk/web '^frontdesk/web/src/.*\.tsx?$' '^frontdesk/web/src/.*\.tsx?$|^web-shared/.*\.ts$'; then
+	if has_measurable_change '^frontdesk/web/src/.*\.tsx?$|^web-shared/.*\.tsx?$' '\.test\.tsx?$|/__tests__/|^frontdesk/web/src/test/'; then
+		if run_vitest_coverage frontdesk/web '^frontdesk/web/src/.*\.tsx?$' '^frontdesk/web/src/.*\.tsx?$|^web-shared/.*\.tsx?$'; then
 			DC_ARGS+=(--lcov "frontdesk/web/=$REPO_ROOT/frontdesk/web/coverage/lcov.info")
 		else
 			exit 1

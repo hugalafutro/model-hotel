@@ -1,12 +1,12 @@
 import { act, renderHook } from "@testing-library/react";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
 	readJSON,
 	storedBool,
 	storedNumber,
 	useLocalStorage,
 	useLocalStorageValue,
-} from "../useLocalStorage";
+} from "@web-shared/local-storage";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 describe("useLocalStorage", () => {
 	const key = "test-key";
