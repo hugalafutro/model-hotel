@@ -19,7 +19,7 @@ import { FilterDropdown } from "../components/FilterDropdown";
 import { LoadingSpinner } from "../components/LoadingSpinner";
 import { PageHeader } from "../components/PageHeader";
 import { useIdentity } from "../context/IdentityContext";
-import { formatCompact, formatSpend } from "../utils/format";
+import { formatCompact, formatLatency, formatSpend } from "../utils/format";
 import { Gauge } from "./Dashboard/Gauge";
 import { GaugeModal } from "./Dashboard/GaugeModal";
 import { ProviderDoughnut } from "./Dashboard/ProviderDoughnut";
@@ -333,16 +333,14 @@ export function Dashboard() {
 									label={t("dashboard.chart.avgTtftOver", {
 										range: rangeLabel,
 									})}
-									value={(stats?.avg_ttft_ms || 0) / 1000}
+									value={stats?.avg_ttft_ms || 0}
 									decimals={1}
-									suffix="s"
+									suffix=""
 									color={accents.latency}
 									onClick={() => setTtftModalOpen(true)}
 									tooltip={t("dashboard.gauge.viewTtftHistory")}
-									maxScale={Math.max(
-										1,
-										((stats?.avg_ttft_ms || 0) / 1000) * 1.5,
-									)}
+									maxScale={Math.max(1000, (stats?.avg_ttft_ms || 0) * 1.5)}
+									formatValue={formatLatency}
 								/>
 								<Gauge
 									label={t("dashboard.chart.avgOverheadOver", {

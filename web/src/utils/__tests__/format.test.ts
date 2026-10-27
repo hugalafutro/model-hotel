@@ -197,6 +197,12 @@ describe("formatLocale", () => {
 		expect(formatPercent(0.02)).toBe("<0,1%");
 		expect(formatLatency(8400)).toBe("8,4s");
 		expect(formatLatency(15_000)).toBe("15s");
+		expect(formatLatency(0.42)).toBe("0,4ms");
+		expect(formatLatency(0)).toBe("0ms");
+		expect(formatLatency(9.96)).toBe("10ms");
+		expect(formatLatency(9.6)).toBe("9,6ms");
+		expect(formatLatency(12.6)).toBe("13ms");
+		expect(formatLatency(999.6)).toBe("1,0s");
 		expect(formatBytes(1536)).toBe("1,5 KB");
 		expect(formatBytes(1024)).toBe("1 KB");
 	});
