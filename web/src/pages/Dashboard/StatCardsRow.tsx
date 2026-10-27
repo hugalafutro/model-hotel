@@ -11,6 +11,7 @@ import {
 } from "@/lib/icons";
 import {
 	formatCompact,
+	formatLatency,
 	formatSpend,
 	formatWithCommas,
 } from "../../utils/format";
@@ -97,9 +98,8 @@ export function StatCardsRow({
 			/>
 			<StatCard
 				label={t("dashboard.chart.avgDurationOver", { range: rangeLabel })}
-				value={(stats?.avg_latency_ms || 0) / 1000}
-				decimals={1}
-				suffix="s"
+				value={stats?.avg_latency_ms || 0}
+				formatter={formatLatency}
 				icon={Clock}
 				accent={accents.latency}
 				onClick={() => setLatencyModalOpen(true)}

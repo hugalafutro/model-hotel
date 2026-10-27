@@ -324,6 +324,7 @@ describe("Dashboard", () => {
 				...mockStats,
 				requests_last_1h: 150,
 				avg_ttft_ms: 250,
+				avg_latency_ms: 40,
 				avg_overhead_ms: 45,
 				rate_limit_hits: 5,
 				error_rate: 0.02,
@@ -341,6 +342,11 @@ describe("Dashboard", () => {
 			// Gauge renders with correct label - value animation is tested elsewhere
 			const requestsGauges = screen.getAllByText("Requests/1d");
 			expect(requestsGauges.length).toBeGreaterThan(0);
+			// Sub-second latencies stay in milliseconds instead of rounding to "0s".
+			expect(screen.getByText("250ms")).toBeInTheDocument();
+			await waitFor(() => {
+				expect(screen.getByText("40ms")).toBeInTheDocument();
+			});
 		});
 	});
 
