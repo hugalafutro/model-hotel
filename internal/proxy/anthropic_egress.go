@@ -24,26 +24,6 @@ import (
 // full input price on every turn, where the Messages route with the breakpoints
 // TranslateRequest places (caching.go) bills the repeated prefix at a tenth.
 
-// isAnthropicFamily reports whether a provider type speaks Anthropic's native
-// Messages API. Both members serve /v1/messages with x-api-key. "anthropic" is
-// Anthropic's own API; "anthropic-messages" is an operator-entered endpoint that
-// speaks Messages and nothing else. Chat traffic to either is translated.
-func isAnthropicFamily(providerType string) bool {
-	return providerType == "anthropic" || providerType == "anthropic-messages"
-}
-
-// isOpenCodeClaude is util.IsOpenCodeClaude: a Claude model behind one of the
-// OpenCode types, which OpenCode serves over Anthropic Messages alone.
-func isOpenCodeClaude(providerType, modelID string) bool {
-	return util.IsOpenCodeClaude(providerType, modelID)
-}
-
-// speaksMessages reports a candidate reachable at the provider's /messages
-// route: an Anthropic-family provider, or a Claude model on OpenCode.
-func speaksMessages(providerType, modelID string) bool {
-	return isAnthropicFamily(providerType) || isOpenCodeClaude(providerType, modelID)
-}
-
 // isAnthropicEgressAttempt reports whether this candidate is served through the
 // Anthropic egress adapter: a plain chat-completions request (no explicit
 // endpoint override, no multipart body) bound for a Messages-speaking candidate
@@ -53,7 +33,7 @@ func speaksMessages(providerType, modelID string) bool {
 // (buildNativeAnthropicRequest forwards its original Messages body verbatim),
 // and translating a body that is already Anthropic-shaped would corrupt it.
 func isAnthropicEgressAttempt(st *requestState, providerType, modelID string) bool {
-	if !speaksMessages(providerType, modelID) || st.anthropicIn {
+	if !util.SpeaksMessages(providerType, modelID) || st.anthropicIn {
 		return false
 	}
 	// A non-chat surface (embeddings, audio, images) and a multipart body both

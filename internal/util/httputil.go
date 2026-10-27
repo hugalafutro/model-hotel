@@ -463,6 +463,22 @@ func IsOpenCodeClaude(providerType, modelID string) bool {
 	return IsOpenCodeType(providerType) && strings.HasPrefix(modelID, "claude-")
 }
 
+// IsAnthropicFamily reports whether a provider type speaks Anthropic's native
+// Messages API. Both members serve /v1/messages with x-api-key. "anthropic" is
+// Anthropic's own API; "anthropic-messages" is an operator-entered endpoint that
+// speaks Messages and nothing else. Chat traffic to either is translated.
+func IsAnthropicFamily(providerType string) bool {
+	return providerType == "anthropic" || providerType == "anthropic-messages"
+}
+
+// SpeaksMessages reports a candidate reachable at the provider's /messages
+// route: an Anthropic-family provider, or a Claude model on OpenCode. The proxy
+// serves these through the Anthropic egress adapter, and the Test button probes
+// the same route.
+func SpeaksMessages(providerType, modelID string) bool {
+	return IsAnthropicFamily(providerType) || IsOpenCodeClaude(providerType, modelID)
+}
+
 // SetMessagesAuthHeaders sets what a provider's /messages route reads: the
 // type's own headers, plus x-api-key and anthropic-version for an OpenCode
 // type, whose Messages route reads those rather than the Bearer its chat and

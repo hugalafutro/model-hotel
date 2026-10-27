@@ -591,7 +591,7 @@ func (h *Handler) buildCandidateRequest(ctx context.Context, st *requestState, c
 	// same failover group still goes through translation, so a single
 	// hotel/claude-* request can fail over from native to translated. The flag
 	// is read by the response dispatch and writer.
-	st.anthropicNativeAttempt = st.anthropicIn && speaksMessages(providerType, candidate.model.ModelID)
+	st.anthropicNativeAttempt = st.anthropicIn && util.SpeaksMessages(providerType, candidate.model.ModelID)
 	// The Responses twin: a Responses-in request resolved to OpenAI itself
 	// forwards the original body to OpenAI's own /v1/responses, so hosted
 	// tools, encrypted reasoning and every knob this gateway does not
