@@ -2,6 +2,7 @@ package failover
 
 import (
 	"context"
+	"strings"
 	"testing"
 
 	"github.com/google/uuid"
@@ -39,13 +40,13 @@ func TestScanFailoverGroup_MalformedJSON(t *testing.T) {
 			}()
 
 			InvalidateFailoverCache()
-			if _, err := repo.GetByModel(ctx, displayModel); err == nil || !containsSubstring(err.Error(), tc.want) {
+			if _, err := repo.GetByModel(ctx, displayModel); err == nil || !strings.Contains(err.Error(), tc.want) {
 				t.Errorf("GetByModel error = %v, want one containing %q", err, tc.want)
 			}
-			if _, err := repo.GetByID(ctx, id); err == nil || !containsSubstring(err.Error(), tc.want) {
+			if _, err := repo.GetByID(ctx, id); err == nil || !strings.Contains(err.Error(), tc.want) {
 				t.Errorf("GetByID error = %v, want one containing %q", err, tc.want)
 			}
-			if _, err := repo.List(ctx); err == nil || !containsSubstring(err.Error(), tc.want) {
+			if _, err := repo.List(ctx); err == nil || !strings.Contains(err.Error(), tc.want) {
 				t.Errorf("List error = %v, want one containing %q", err, tc.want)
 			}
 		})

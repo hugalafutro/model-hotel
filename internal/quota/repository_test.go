@@ -13,6 +13,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/hugalafutro/model-hotel/internal/db"
+	"github.com/hugalafutro/model-hotel/internal/dbtest"
 	"github.com/hugalafutro/model-hotel/internal/quota"
 )
 
@@ -43,23 +44,6 @@ func TestMain(m *testing.M) {
 	os.Exit(m.Run())
 }
 
-// insertTestProvider inserts a provider row and returns its ID.
-func insertTestProvider(ctx context.Context, t *testing.T, name string) uuid.UUID {
-	t.Helper()
-
-	// Need the same columns that the app would write.
-	// encrypted_key, key_nonce, key_salt are nullable after migration 026.
-	id := uuid.New()
-	_, err := testPool.Exec(ctx, `
-		INSERT INTO providers (id, name, base_url, enabled, created_at, updated_at)
-		VALUES ($1, $2, $3, true, now(), now())
-	`, id, name, "https://test.example.com")
-	if err != nil {
-		t.Fatalf("insert provider: %v", err)
-	}
-	return id
-}
-
 // cleanupProvider deletes the test provider row (snapshots cascade via FK).
 func cleanupProvider(ctx context.Context, t *testing.T, providerID uuid.UUID) {
 	t.Helper()
@@ -72,7 +56,7 @@ func cleanupProvider(ctx context.Context, t *testing.T, providerID uuid.UUID) {
 func TestListPopulatesLastError(t *testing.T) {
 	ctx := context.Background()
 	repo := quota.NewRepository(testPool)
-	id := insertTestProvider(ctx, t, "list-lasterr")
+	id := dbtest.InsertTestProvider(ctx, t, testPool, "list-lasterr")
 	defer cleanupProvider(ctx, t, id)
 
 	if err := repo.RecordFailure(ctx, id, "usage", "boom"); err != nil {
@@ -101,7 +85,7 @@ func TestListPopulatesLastError(t *testing.T) {
 func TestReplaceIfNewerDefaultsFetchedAt(t *testing.T) {
 	ctx := context.Background()
 	repo := quota.NewRepository(testPool)
-	id := insertTestProvider(ctx, t, "upsertnewer-default")
+	id := dbtest.InsertTestProvider(ctx, t, testPool, "upsertnewer-default")
 	defer cleanupProvider(ctx, t, id)
 
 	wrote, _, err := repo.ReplaceIfNewer(ctx, quota.Snapshot{
@@ -170,7 +154,7 @@ func TestUpsertAndGet(t *testing.T) {
 	ctx := context.Background()
 	repo := quota.NewRepository(testPool)
 
-	provID := insertTestProvider(ctx, t, "test-quota-upsert-get")
+	provID := dbtest.InsertTestProvider(ctx, t, testPool, "test-quota-upsert-get")
 	t.Cleanup(func() { cleanupProvider(ctx, t, provID) })
 
 	_, err := repo.Replace(ctx, quota.Snapshot{
@@ -208,7 +192,7 @@ func TestRecordFailureKeepsPayload(t *testing.T) {
 	ctx := context.Background()
 	repo := quota.NewRepository(testPool)
 
-	provID := insertTestProvider(ctx, t, "test-quota-record-failure")
+	provID := dbtest.InsertTestProvider(ctx, t, testPool, "test-quota-record-failure")
 	t.Cleanup(func() { cleanupProvider(ctx, t, provID) })
 
 	_, _ = repo.Replace(ctx, quota.Snapshot{ProviderID: provID, Kind: "usage", Payload: json.RawMessage(`{"used":5}`), HTTPStatus: 200, Source: "poll"})
@@ -225,7 +209,7 @@ func TestReplaceIfNewer(t *testing.T) {
 	ctx := context.Background()
 	repo := quota.NewRepository(testPool)
 
-	provID := insertTestProvider(ctx, t, "test-quota-upsert-if-newer")
+	provID := dbtest.InsertTestProvider(ctx, t, testPool, "test-quota-upsert-if-newer")
 	t.Cleanup(func() { cleanupProvider(ctx, t, provID) })
 
 	older := time.Now().Add(-10 * time.Minute)
@@ -257,7 +241,7 @@ func TestReplaceIfNewerPersistsFailureMarker(t *testing.T) {
 	ctx := context.Background()
 	repo := quota.NewRepository(testPool)
 
-	provID := insertTestProvider(ctx, t, "test-quota-upsertnewer-marker")
+	provID := dbtest.InsertTestProvider(ctx, t, testPool, "test-quota-upsertnewer-marker")
 	t.Cleanup(func() { cleanupProvider(ctx, t, provID) })
 
 	if _, _, err := repo.ReplaceIfNewer(ctx, quota.Snapshot{
@@ -288,7 +272,7 @@ func TestReplaceIfNewerAddsFailureMarkerAtEqualFetchedAt(t *testing.T) {
 	ctx := context.Background()
 	repo := quota.NewRepository(testPool)
 
-	provID := insertTestProvider(ctx, t, "test-quota-upsertnewer-equal-marker")
+	provID := dbtest.InsertTestProvider(ctx, t, testPool, "test-quota-upsertnewer-equal-marker")
 	t.Cleanup(func() { cleanupProvider(ctx, t, provID) })
 
 	at := time.Now()
@@ -327,7 +311,7 @@ func TestReplaceIfNewerKeepsMarkerWhenNoNewerEvidence(t *testing.T) {
 	ctx := context.Background()
 	repo := quota.NewRepository(testPool)
 
-	provID := insertTestProvider(ctx, t, "test-quota-upsertnewer-keeps-marker")
+	provID := dbtest.InsertTestProvider(ctx, t, testPool, "test-quota-upsertnewer-keeps-marker")
 	t.Cleanup(func() { cleanupProvider(ctx, t, provID) })
 
 	at := time.Now()
@@ -364,7 +348,7 @@ func TestReplaceIfNewerNewerSuccessClearsMarker(t *testing.T) {
 	ctx := context.Background()
 	repo := quota.NewRepository(testPool)
 
-	provID := insertTestProvider(ctx, t, "test-quota-upsertnewer-clears-marker")
+	provID := dbtest.InsertTestProvider(ctx, t, testPool, "test-quota-upsertnewer-clears-marker")
 	t.Cleanup(func() { cleanupProvider(ctx, t, provID) })
 
 	at := time.Now()
@@ -397,7 +381,7 @@ func TestUpsertClearsFailureMarker(t *testing.T) {
 	ctx := context.Background()
 	repo := quota.NewRepository(testPool)
 
-	provID := insertTestProvider(ctx, t, "test-quota-upsert-clears-marker")
+	provID := dbtest.InsertTestProvider(ctx, t, testPool, "test-quota-upsert-clears-marker")
 	t.Cleanup(func() { cleanupProvider(ctx, t, provID) })
 
 	if _, err := repo.Replace(ctx, quota.Snapshot{
@@ -429,7 +413,7 @@ func TestList(t *testing.T) {
 	ctx := context.Background()
 	repo := quota.NewRepository(testPool)
 
-	provID := insertTestProvider(ctx, t, "test-quota-list")
+	provID := dbtest.InsertTestProvider(ctx, t, testPool, "test-quota-list")
 	t.Cleanup(func() { cleanupProvider(ctx, t, provID) })
 
 	if _, err := repo.Replace(ctx, quota.Snapshot{ProviderID: provID, Kind: "usage", Payload: json.RawMessage(`{}`), HTTPStatus: 200, Source: "poll"}); err != nil {
@@ -469,7 +453,7 @@ func TestReplaceIfNewer_ClampsFutureFetchedAt(t *testing.T) {
 	ctx := context.Background()
 	repo := quota.NewRepository(testPool)
 
-	provID := insertTestProvider(ctx, t, "test-quota-future-fetched-at")
+	provID := dbtest.InsertTestProvider(ctx, t, testPool, "test-quota-future-fetched-at")
 	t.Cleanup(func() { cleanupProvider(ctx, t, provID) })
 
 	future := time.Now().Add(48 * time.Hour)
@@ -516,7 +500,7 @@ func TestReplaceIfNewer_SmallSkewStillDedupes(t *testing.T) {
 	ctx := context.Background()
 	repo := quota.NewRepository(testPool)
 
-	provID := insertTestProvider(ctx, t, "test-quota-small-skew")
+	provID := dbtest.InsertTestProvider(ctx, t, testPool, "test-quota-small-skew")
 	t.Cleanup(func() { cleanupProvider(ctx, t, provID) })
 
 	// A primary one second ahead of this member: ordinary NTP drift.

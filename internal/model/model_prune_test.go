@@ -6,6 +6,8 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+
+	"github.com/hugalafutro/model-hotel/internal/dbtest"
 )
 
 // TestPruneRetired pins every exclusion rule with one row each, plus the row
@@ -15,18 +17,18 @@ func TestPruneRetired(t *testing.T) {
 	ctx := context.Background()
 	repo := NewRepository(testPool)
 
-	onProvider := insertTestProvider(ctx, t, "prune-on")
+	onProvider := dbtest.InsertTestProvider(ctx, t, testPool, "prune-on")
 	t.Cleanup(func() { cleanupProvider(ctx, t, onProvider) })
-	offProvider := insertTestProvider(ctx, t, "prune-off")
+	offProvider := dbtest.InsertTestProvider(ctx, t, testPool, "prune-off")
 	t.Cleanup(func() { cleanupProvider(ctx, t, offProvider) })
 	if _, err := testPool.Exec(ctx, `UPDATE providers SET enabled = false WHERE id = $1`, offProvider); err != nil {
 		t.Fatalf("disable provider: %v", err)
 	}
-	otherProvider := insertTestProvider(ctx, t, "prune-other")
+	otherProvider := dbtest.InsertTestProvider(ctx, t, testPool, "prune-other")
 	t.Cleanup(func() { cleanupProvider(ctx, t, otherProvider) })
 	// enabled = NULL is the third state the column allows; COALESCE treats it
 	// as off, so its models are parked exactly like a disabled provider's.
-	nullFlagProvider := insertTestProvider(ctx, t, "prune-null-flag")
+	nullFlagProvider := dbtest.InsertTestProvider(ctx, t, testPool, "prune-null-flag")
 	t.Cleanup(func() { cleanupProvider(ctx, t, nullFlagProvider) })
 	if _, err := testPool.Exec(ctx, `UPDATE providers SET enabled = NULL WHERE id = $1`, nullFlagProvider); err != nil {
 		t.Fatalf("null provider flag: %v", err)
@@ -134,7 +136,7 @@ func TestPruneRetired(t *testing.T) {
 func TestPruneRetired_CapAndOrder(t *testing.T) {
 	ctx := context.Background()
 	repo := NewRepository(testPool)
-	prov := insertTestProvider(ctx, t, "prune-cap")
+	prov := dbtest.InsertTestProvider(ctx, t, testPool, "prune-cap")
 	t.Cleanup(func() { cleanupProvider(ctx, t, prov) })
 
 	for i := range 5 {
@@ -163,7 +165,7 @@ func TestPruneRetired_CapAndOrder(t *testing.T) {
 func TestPruneRetired_NoProvidersNoop(t *testing.T) {
 	ctx := context.Background()
 	repo := NewRepository(testPool)
-	prov := insertTestProvider(ctx, t, "prune-noop")
+	prov := dbtest.InsertTestProvider(ctx, t, testPool, "prune-noop")
 	t.Cleanup(func() { cleanupProvider(ctx, t, prov) })
 
 	if _, err := testPool.Exec(ctx, `
@@ -218,7 +220,7 @@ func TestPruneRetired_ReconcilesRevivedRows(t *testing.T) {
 	repo := NewRepository(testPool)
 
 	t.Run("row revived mid-flight", func(t *testing.T) {
-		prov := insertTestProvider(ctx, t, "prune-recon-a")
+		prov := dbtest.InsertTestProvider(ctx, t, testPool, "prune-recon-a")
 		t.Cleanup(func() { cleanupProvider(ctx, t, prov) })
 
 		aliveID := insertPrunableModel(ctx, t, prov, "prune-recon-alive")
@@ -254,7 +256,7 @@ func TestPruneRetired_ReconcilesRevivedRows(t *testing.T) {
 	})
 
 	t.Run("provider disabled mid-flight", func(t *testing.T) {
-		prov := insertTestProvider(ctx, t, "prune-recon-b")
+		prov := dbtest.InsertTestProvider(ctx, t, testPool, "prune-recon-b")
 		t.Cleanup(func() { cleanupProvider(ctx, t, prov) })
 
 		id1 := insertPrunableModel(ctx, t, prov, "prune-recon-b1")
@@ -294,7 +296,7 @@ func TestPruneRetired_ReconcilesRevivedRows(t *testing.T) {
 func TestPruneRetired_QueryErrorsSurface(t *testing.T) {
 	ctx := context.Background()
 	repo := NewRepository(testPool)
-	prov := insertTestProvider(ctx, t, "prune-errors")
+	prov := dbtest.InsertTestProvider(ctx, t, testPool, "prune-errors")
 	t.Cleanup(func() { cleanupProvider(ctx, t, prov) })
 	id := insertPrunableModel(ctx, t, prov, "prune-errors-row")
 	candidates := []PrunedModel{{ID: id, ProviderID: prov, ProviderName: "prune-errors", ModelID: "prune-errors-row"}}
@@ -347,7 +349,7 @@ func insertJournalTransition(ctx context.Context, t *testing.T, providerID uuid.
 func TestPruneRetired_FlapLandingMidFlightKeepsRow(t *testing.T) {
 	ctx := context.Background()
 	repo := NewRepository(testPool)
-	prov := insertTestProvider(ctx, t, "prune-flap-race")
+	prov := dbtest.InsertTestProvider(ctx, t, testPool, "prune-flap-race")
 	t.Cleanup(func() { cleanupProvider(ctx, t, prov) })
 	id := insertPrunableModel(ctx, t, prov, "prune-flap-race-row")
 	since := time.Now().Add(-30 * 24 * time.Hour)

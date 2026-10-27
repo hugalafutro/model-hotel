@@ -8,7 +8,7 @@ _EXCLUDE_SUFFIXES = (".d.ts",)
 _EXCLUDE_SUBSTRINGS = ("/__tests__/",)
 _EXCLUDE_PREFIXES = (
     "cmd/", "tools/",
-    "web/src/test/", "frontdesk/web/src/test/",
+    "web/src/test/", "frontdesk/web/src/test/", "internal/dbtest/",
 )
 _EXCLUDE_EXACT = ("web/src/main.tsx", "frontdesk/web/src/main.tsx")
 _TEST_FILE_RE = re.compile(r"(_test\.go|\.(test|spec)\.(ts|tsx))$")

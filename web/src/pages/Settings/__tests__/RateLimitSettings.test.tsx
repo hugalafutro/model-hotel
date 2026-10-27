@@ -6,7 +6,10 @@ import { api } from "../../../api/client";
 import i18n from "../../../i18n";
 import { toggleRowResetButton } from "../../../test/helpers";
 import { server } from "../../../test/mocks/server";
-import { renderWithProviders } from "../../../test/utils";
+import {
+	expectResetButtonCallsReset,
+	renderWithProviders,
+} from "../../../test/utils";
 import { RateLimitSettings } from "../RateLimitSettings";
 
 describe("RateLimitSettings", () => {
@@ -875,36 +878,13 @@ describe("RateLimitSettings", () => {
 
 describe("per-setting reset", () => {
 	it("calls api.settings.reset when reset button is clicked", async () => {
-		const resetSpy = vi.spyOn(api.settings, "reset");
-		resetSpy.mockResolvedValueOnce({});
-
-		const user = userEvent.setup();
-		renderWithProviders(
+		await expectResetButtonCallsReset(
 			<RateLimitSettings
 				collapsed={false}
 				onToggle={() => {}}
 				onResetSection={() => {}}
 			/>,
 		);
-
-		await waitFor(() => {
-			expect(
-				screen.getAllByRole("button", {
-					name: /reset this setting to default/i,
-				}).length,
-			).toBeGreaterThanOrEqual(1);
-		});
-
-		const resetBtn = screen.getAllByRole("button", {
-			name: /reset this setting to default/i,
-		})[0];
-		await user.click(resetBtn);
-
-		await waitFor(() => {
-			expect(resetSpy).toHaveBeenCalledOnce();
-		});
-
-		resetSpy.mockRestore();
 	});
 
 	it("shows error toast when reset fails", async () => {
@@ -923,13 +903,13 @@ describe("per-setting reset", () => {
 		await waitFor(() => {
 			expect(
 				screen.getAllByRole("button", {
-					name: /reset this setting to default/i,
+					name: i18n.t("settings.common.resetSetting"),
 				}).length,
 			).toBeGreaterThanOrEqual(1);
 		});
 
 		const resetBtn = screen.getAllByRole("button", {
-			name: /reset this setting to default/i,
+			name: i18n.t("settings.common.resetSetting"),
 		})[0];
 		await user.click(resetBtn);
 

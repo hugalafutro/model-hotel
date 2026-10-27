@@ -6,6 +6,8 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+
+	"github.com/hugalafutro/model-hotel/internal/dbtest"
 )
 
 // A read that fails must come back as an error: a false "nothing retired",
@@ -52,7 +54,7 @@ func TestAutoRetireIfConfirmed_ContextLostDuringConfirmDoesNotRetire(t *testing.
 	}
 	ctx := context.Background()
 	repo := NewRepository(testPool)
-	providerID := insertTestProvider(ctx, t, "test-autoretire-ctx-lost")
+	providerID := dbtest.InsertTestProvider(ctx, t, testPool, "test-autoretire-ctx-lost")
 	t.Cleanup(func() { cleanupProvider(ctx, t, providerID) })
 	id := insertTestModel(ctx, t, providerID, "confirm-outlives-ctx")
 
@@ -81,7 +83,7 @@ func TestAutoRetireIfConfirmed_RowHeldByAnotherWriterTimesOut(t *testing.T) {
 	}
 	ctx := context.Background()
 	repo := NewRepository(testPool)
-	providerID := insertTestProvider(ctx, t, "test-autoretire-row-held")
+	providerID := dbtest.InsertTestProvider(ctx, t, testPool, "test-autoretire-row-held")
 	t.Cleanup(func() { cleanupProvider(ctx, t, providerID) })
 	id := insertTestModel(ctx, t, providerID, "row-held-elsewhere")
 

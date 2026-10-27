@@ -4,7 +4,6 @@ import (
 	"context"
 	"log"
 	"os"
-	"strings"
 	"testing"
 
 	"github.com/google/uuid"
@@ -59,9 +58,4 @@ func newTestRepo(t *testing.T) *Repository {
 func upsertGroup(ctx context.Context, t *testing.T, repo *Repository, displayModel string, priorityOrder []uuid.UUID) (*FailoverGroup, error) {
 	t.Helper()
 	return repo.UpsertWithConfig(ctx, displayModel, priorityOrder, nil, nil, nil, nil, nil)
-}
-
-// containsSubstring is a thin wrapper kept for test readability.
-func containsSubstring(s, substr string) bool {
-	return strings.Contains(s, substr)
 }

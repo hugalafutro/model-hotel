@@ -3,8 +3,12 @@ import userEvent from "@testing-library/user-event";
 import { HttpResponse, http } from "msw";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { api } from "../../../api/client";
+import i18n from "../../../i18n";
 import { server } from "../../../test/mocks/server";
-import { renderWithProviders } from "../../../test/utils";
+import {
+	expectResetButtonCallsReset,
+	renderWithProviders,
+} from "../../../test/utils";
 import { Settings } from "../../Settings";
 
 // MSW handler for DELETE /api/settings
@@ -134,37 +138,14 @@ describe("Settings reset flows", { timeout: SETTINGS_PAGE_TIMEOUT_MS }, () => {
 		renderWithProviders(<Settings />);
 		await waitFor(() => {
 			const resetButtons = screen.getAllByRole("button", {
-				name: /reset this setting to default/i,
+				name: i18n.t("settings.common.resetSetting"),
 			});
 			expect(resetButtons.length).toBeGreaterThanOrEqual(3);
 		});
 	});
 
 	it("calls api.settings.reset when per-setting reset is clicked", async () => {
-		const resetSpy = vi.spyOn(api.settings, "reset");
-		resetSpy.mockResolvedValueOnce({});
-
-		const user = userEvent.setup();
-		renderWithProviders(<Settings />);
-
-		await waitFor(() => {
-			expect(
-				screen.getAllByRole("button", {
-					name: /reset this setting to default/i,
-				}).length,
-			).toBeGreaterThanOrEqual(1);
-		});
-
-		const firstResetBtn = screen.getAllByRole("button", {
-			name: /reset this setting to default/i,
-		})[0];
-		await user.click(firstResetBtn);
-
-		await waitFor(() => {
-			expect(resetSpy).toHaveBeenCalledOnce();
-		});
-
-		resetSpy.mockRestore();
+		await expectResetButtonCallsReset(<Settings />);
 	});
 
 	it("completes global reset flow: click → type RESET → confirm", async () => {

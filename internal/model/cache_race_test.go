@@ -5,45 +5,18 @@ import (
 	"testing"
 
 	"github.com/google/uuid"
-	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgxpool"
+
+	"github.com/hugalafutro/model-hotel/internal/dbtest"
 )
-
-// invalidateOnQuery is a pgx tracer that runs fn as each query starts: the
-// invalidation lands while the read-through's SELECT is in flight, which is
-// the interleaving the generation guard exists for.
-type invalidateOnQuery struct{ fn func() }
-
-func (t invalidateOnQuery) TraceQueryStart(ctx context.Context, _ *pgx.Conn, _ pgx.TraceQueryStartData) context.Context {
-	t.fn()
-	return ctx
-}
-
-func (invalidateOnQuery) TraceQueryEnd(context.Context, *pgx.Conn, pgx.TraceQueryEndData) {}
-
-func tracedPool(t *testing.T, fn func()) *pgxpool.Pool {
-	t.Helper()
-	cfg, err := pgxpool.ParseConfig(testDBURL)
-	if err != nil {
-		t.Fatalf("parse test DB URL: %v", err)
-	}
-	cfg.ConnConfig.Tracer = invalidateOnQuery{fn: fn}
-	pool, err := pgxpool.NewWithConfig(context.Background(), cfg)
-	if err != nil {
-		t.Fatalf("traced pool: %v", err)
-	}
-	t.Cleanup(pool.Close)
-	return pool
-}
 
 func TestGet_InvalidationDuringQueryIsNotReinstalled(t *testing.T) {
 	InvalidateModelCache()
 	ctx := context.Background()
-	providerID := insertTestProvider(ctx, t, "race-"+uuid.NewString())
+	providerID := dbtest.InsertTestProvider(ctx, t, testPool, "race-"+uuid.NewString())
 	t.Cleanup(func() { cleanupProvider(ctx, t, providerID) })
 	modelID := insertTestModel(ctx, t, providerID, "race-model")
 
-	racing := NewRepository(tracedPool(t, InvalidateModelCache))
+	racing := NewRepository(dbtest.TracedPool(t, testDBURL, InvalidateModelCache))
 	if _, err := racing.Get(ctx, modelID); err != nil {
 		t.Fatalf("Get: %v", err)
 	}
