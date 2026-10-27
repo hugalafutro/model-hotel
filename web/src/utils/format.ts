@@ -202,8 +202,8 @@ export function formatTimeUntil(ts: number): string {
  * Values >= 1000ms are shown as seconds (e.g., "8.4s", "15s").
  * Values < 1000ms are shown as milliseconds (e.g., "980ms"); under 10ms one
  * decimal is kept so sub-millisecond proxy overhead reads "0.4ms", not "0ms"
- * (whole values trim to "8ms"). The unit boundaries sit on the rounded value,
- * so 999.6ms reads "1.0s" and 9.96ms reads "10ms".
+ * (whole values trim to "8ms"). Each boundary sits on the value as it will be
+ * displayed: 999.6ms reads "1.0s", 9.96ms reads "10ms" and 9.6ms stays "9.6ms".
  */
 export function formatLatency(ms: number): string {
 	const whole = Math.round(ms);
@@ -211,7 +211,7 @@ export function formatLatency(ms: number): string {
 		const sec = ms / 1000;
 		return sec >= 10 ? `${Math.round(sec)}s` : `${formatDecimal(sec, 1)}s`;
 	}
-	return whole >= 10
+	return Math.round(ms * 10) >= 100
 		? `${whole}ms`
 		: `${formatDecimal(ms, 1, { trim: true })}ms`;
 }
