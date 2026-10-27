@@ -29,10 +29,10 @@ type StalePhrase struct {
 	Observed string
 }
 
-// StalePhrases lists the phrase-table entries that have matched no attempt in
+// stalePhrases lists the phrase-table entries that have matched no attempt in
 // the horizon ending at now. An entry added inside the horizon is never stale:
 // it has not had the horizon to prove itself.
-func StalePhrases(ctx context.Context, pool *pgxpool.Pool, now time.Time) ([]StalePhrase, error) {
+func stalePhrases(ctx context.Context, pool *pgxpool.Pool, now time.Time) ([]StalePhrase, error) {
 	since := now.Add(-PhraseStalenessHorizon)
 	var stale []StalePhrase
 	for _, p := range rateLimitPhrases {
@@ -69,10 +69,10 @@ func phraseMatchedSince(ctx context.Context, pool *pgxpool.Pool, phrase string, 
 	return matched, err
 }
 
-// ReportStalePhrases runs the check once and logs the result: one Warn naming
+// reportStalePhrases runs the check once and logs the result: one Warn naming
 // every stale phrase, or a Debug saying the table is healthy.
-func ReportStalePhrases(ctx context.Context, pool *pgxpool.Pool, now time.Time) {
-	stale, err := StalePhrases(ctx, pool, now)
+func reportStalePhrases(ctx context.Context, pool *pgxpool.Pool, now time.Time) {
+	stale, err := stalePhrases(ctx, pool, now)
 	if err != nil {
 		debuglog.Warn("phrases: staleness check failed", "error", err)
 		return
@@ -103,7 +103,7 @@ func phraseStalenessLoop(ctx context.Context, pool *pgxpool.Pool, first, every t
 		case <-ctx.Done():
 			return
 		}
-		ReportStalePhrases(ctx, pool, time.Now())
+		reportStalePhrases(ctx, pool, time.Now())
 		timer.Reset(every)
 	}
 }

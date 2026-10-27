@@ -413,83 +413,83 @@ func TestSplitAndTrim_LeadingComma(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// OpenAIErrorType
+// openAIErrorType
 // ---------------------------------------------------------------------------
 
 func TestOpenAIErrorType_401(t *testing.T) {
-	result := OpenAIErrorType(401)
+	result := openAIErrorType(401)
 	if result != "authentication_error" {
-		t.Errorf("OpenAIErrorType(401) = %q, want %q", result, "authentication_error")
+		t.Errorf("openAIErrorType(401) = %q, want %q", result, "authentication_error")
 	}
 }
 
 func TestOpenAIErrorType_403(t *testing.T) {
-	result := OpenAIErrorType(403)
+	result := openAIErrorType(403)
 	if result != "permission_error" {
-		t.Errorf("OpenAIErrorType(403) = %q, want %q", result, "permission_error")
+		t.Errorf("openAIErrorType(403) = %q, want %q", result, "permission_error")
 	}
 }
 
 func TestOpenAIErrorType_404(t *testing.T) {
-	result := OpenAIErrorType(404)
+	result := openAIErrorType(404)
 	if result != "not_found_error" {
-		t.Errorf("OpenAIErrorType(404) = %q, want %q", result, "not_found_error")
+		t.Errorf("openAIErrorType(404) = %q, want %q", result, "not_found_error")
 	}
 }
 
 // A 499 is the caller hanging up, not an invalid request it sent.
 func TestOpenAIErrorType_499(t *testing.T) {
-	if got := OpenAIErrorType(499); got != "client_closed_request" {
-		t.Errorf("OpenAIErrorType(499) = %q, want %q", got, "client_closed_request")
+	if got := openAIErrorType(499); got != "client_closed_request" {
+		t.Errorf("openAIErrorType(499) = %q, want %q", got, "client_closed_request")
 	}
 }
 
 func TestOpenAIErrorType_429(t *testing.T) {
-	result := OpenAIErrorType(429)
+	result := openAIErrorType(429)
 	if result != "rate_limit_error" {
-		t.Errorf("OpenAIErrorType(429) = %q, want %q", result, "rate_limit_error")
+		t.Errorf("openAIErrorType(429) = %q, want %q", result, "rate_limit_error")
 	}
 }
 
 func TestOpenAIErrorType_500(t *testing.T) {
-	result := OpenAIErrorType(500)
+	result := openAIErrorType(500)
 	if result != "server_error" {
-		t.Errorf("OpenAIErrorType(500) = %q, want %q", result, "server_error")
+		t.Errorf("openAIErrorType(500) = %q, want %q", result, "server_error")
 	}
 }
 
 func TestOpenAIErrorType_502(t *testing.T) {
-	result := OpenAIErrorType(502)
+	result := openAIErrorType(502)
 	if result != "server_error" {
-		t.Errorf("OpenAIErrorType(502) = %q, want %q", result, "server_error")
+		t.Errorf("openAIErrorType(502) = %q, want %q", result, "server_error")
 	}
 }
 
 func TestOpenAIErrorType_503(t *testing.T) {
-	result := OpenAIErrorType(503)
+	result := openAIErrorType(503)
 	if result != "server_error" {
-		t.Errorf("OpenAIErrorType(503) = %q, want %q", result, "server_error")
+		t.Errorf("openAIErrorType(503) = %q, want %q", result, "server_error")
 	}
 }
 
 func TestOpenAIErrorType_400(t *testing.T) {
-	result := OpenAIErrorType(400)
+	result := openAIErrorType(400)
 	if result != "invalid_request_error" {
-		t.Errorf("OpenAIErrorType(400) = %q, want %q", result, "invalid_request_error")
+		t.Errorf("openAIErrorType(400) = %q, want %q", result, "invalid_request_error")
 	}
 }
 
 func TestOpenAIErrorType_200(t *testing.T) {
-	result := OpenAIErrorType(200)
+	result := openAIErrorType(200)
 	if result != "invalid_request_error" {
-		t.Errorf("OpenAIErrorType(200) = %q, want %q", result, "invalid_request_error")
+		t.Errorf("openAIErrorType(200) = %q, want %q", result, "invalid_request_error")
 	}
 }
 
 func TestOpenAIErrorType_0(t *testing.T) {
-	result := OpenAIErrorType(0)
+	result := openAIErrorType(0)
 	if result != "invalid_request_error" {
-		t.Errorf("OpenAIErrorType(0) = %q, want %q", result, "invalid_request_error")
+		t.Errorf("openAIErrorType(0) = %q, want %q", result, "invalid_request_error")
 	}
 }
 

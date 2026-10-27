@@ -87,10 +87,10 @@ type TranscriptionRequest struct {
 	Dedicated bool
 }
 
-// TranscriptionFormat resolves an OpenAI transcription response_format to
+// transcriptionFormat resolves an OpenAI transcription response_format to
 // one the adapter can deliver: absent means json, and anything but json or
 // text is ErrTranscriptionFormat.
-func TranscriptionFormat(format string) (string, error) {
+func transcriptionFormat(format string) (string, error) {
 	switch strings.ToLower(format) {
 	case "", TranscriptionFormatJSON:
 		return TranscriptionFormatJSON, nil
@@ -102,10 +102,10 @@ func TranscriptionFormat(format string) (string, error) {
 	return "", fmt.Errorf("%w: a Gemini transcription carries no timestamps, so response_format must be json or text", ErrTranscriptionFormat)
 }
 
-// AudioMimeType resolves the upload's mime type from its file name, falling
+// audioMimeType resolves the upload's mime type from its file name, falling
 // back to the part's own content type when that names a container Gemini
 // takes.
-func AudioMimeType(fileName, contentType string) (string, bool) {
+func audioMimeType(fileName, contentType string) (string, bool) {
 	if mime, ok := audioMimeByExt[strings.ToLower(strings.TrimPrefix(path.Ext(fileName), "."))]; ok {
 		return mime, true
 	}
@@ -130,7 +130,7 @@ func AudioMimeType(fileName, contentType string) (string, bool) {
 // The refusal path runs this once per candidate, so the base64 of the upload
 // is left to the translation proper.
 func ValidateTranscriptionRequest(req TranscriptionRequest) (mime, format string, err error) {
-	format, err = TranscriptionFormat(req.ResponseFormat)
+	format, err = transcriptionFormat(req.ResponseFormat)
 	if err != nil {
 		return "", "", err
 	}
@@ -140,7 +140,7 @@ func ValidateTranscriptionRequest(req TranscriptionRequest) (mime, format string
 	if len(req.Audio) == 0 {
 		return "", "", errors.New("gemini: transcription request carries no audio")
 	}
-	mime, ok := AudioMimeType(req.FileName, req.ContentType)
+	mime, ok := audioMimeType(req.FileName, req.ContentType)
 	if !ok {
 		return "", "", errors.New("gemini: cannot tell the audio container; name the file with its extension (wav, mp3, m4a, ogg, flac, webm)")
 	}

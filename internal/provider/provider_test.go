@@ -385,51 +385,6 @@ func TestGetOpenAIModels_NoDuplicateModelIDs(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// LookupOpenCodeCatalog
-// ---------------------------------------------------------------------------
-
-func TestLookupOpenCodeCatalog_NotFound(t *testing.T) {
-	catalog := GetOpenAIModels()
-	result := LookupOpenCodeCatalog(catalog, "nonexistent-model-xyz")
-	if result != nil {
-		t.Errorf("expected nil for unknown model, got %+v", result)
-	}
-}
-
-func TestLookupOpenCodeCatalog_Found(t *testing.T) {
-	catalog := GetOpenAIModels()
-	if len(catalog) == 0 {
-		t.Fatal("catalog is empty")
-	}
-	first := catalog[0]
-	result := LookupOpenCodeCatalog(catalog, first.ModelID)
-	if result == nil {
-		t.Fatalf("expected non-nil for %q", first.ModelID)
-		return
-	}
-	if result.ModelID != first.ModelID {
-		t.Errorf("ModelID = %q, want %q", result.ModelID, first.ModelID)
-	}
-	if result.DisplayName != first.DisplayName {
-		t.Errorf("DisplayName = %q, want %q", result.DisplayName, first.DisplayName)
-	}
-}
-
-func TestLookupOpenCodeCatalog_NilSlice(t *testing.T) {
-	result := LookupOpenCodeCatalog(nil, "gpt-5.5")
-	if result != nil {
-		t.Error("expected nil when catalog is nil")
-	}
-}
-
-func TestLookupOpenCodeCatalog_EmptySlice(t *testing.T) {
-	result := LookupOpenCodeCatalog([]OpenCodeModelSpec{}, "gpt-5.5")
-	if result != nil {
-		t.Error("expected nil for empty catalog")
-	}
-}
-
-// ---------------------------------------------------------------------------
 // NewDiscoveryService
 // ---------------------------------------------------------------------------
 

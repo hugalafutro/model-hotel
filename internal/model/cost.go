@@ -26,7 +26,7 @@ type Usage struct {
 	Completion         int
 }
 
-// Priceable reports whether a stored price can price anything: present,
+// priceable reports whether a stored price can price anything: present,
 // finite and not negative. A listing can state "NaN", "Inf" or a negative
 // figure and a parser that only checks for a parse error stores it as a real
 // price; a row priced from one would carry a cost the budget cannot compare
@@ -34,7 +34,7 @@ type Usage struct {
 // counts as absent: the model is unpriced and its rows stay NULL, the state
 // every reader already handles. NaN fails the comparison on its own; only
 // +Inf needs naming.
-func Priceable(p *float64) bool {
+func priceable(p *float64) bool {
 	return p != nil && !math.IsInf(*p, 0) && *p >= 0
 }
 
@@ -42,7 +42,7 @@ func Priceable(p *float64) bool {
 // absent price it counts as, so a discovery driver stores "no price" rather
 // than a figure no reader can use.
 func PriceOrNil(p *float64) *float64 {
-	if !Priceable(p) {
+	if !priceable(p) {
 		return nil
 	}
 	return p
@@ -60,7 +60,7 @@ const (
 
 // CostUSD prices usage at the model's stored per-million prices. ok is false
 // when the model holds no priceable input or output price (absent, or a figure
-// Priceable refuses), in which case the cost is unknown rather than zero.
+// priceable refuses), in which case the cost is unknown rather than zero.
 // Cache-hit tokens take the cache-hit price when the model has a priceable
 // one and the input price otherwise; cache-write tokens, never hits, add
 // CacheWritePremium of the input price on top (Anthropic bills a 5-minute
@@ -71,11 +71,11 @@ const (
 // no split, or only part of one). The excess takes the input price, so every
 // prompt token the caller passes is priced.
 func (m *Model) CostUSD(u Usage) (cost float64, ok bool) {
-	if m == nil || !Priceable(m.InputPricePerMillion) || !Priceable(m.OutputPricePerMillion) {
+	if m == nil || !priceable(m.InputPricePerMillion) || !priceable(m.OutputPricePerMillion) {
 		return 0, false
 	}
 	prompt := float64(u.Prompt) * *m.InputPricePerMillion
-	if u.PromptCacheHit > 0 && Priceable(m.InputPricePerMillionCacheHit) {
+	if u.PromptCacheHit > 0 && priceable(m.InputPricePerMillionCacheHit) {
 		prompt = float64(u.PromptCacheHit)**m.InputPricePerMillionCacheHit +
 			float64(u.PromptCacheMiss)**m.InputPricePerMillion +
 			float64(max(0, u.Prompt-u.PromptCacheHit-u.PromptCacheMiss))**m.InputPricePerMillion
@@ -102,7 +102,7 @@ func (m *Model) CostUSD(u Usage) (cost float64, ok bool) {
 // price, the unit a rerank model bills in. ok is false when the model holds no
 // priceable search price, in which case the cost is unknown rather than zero.
 func (m *Model) SearchCostUSD(units int) (cost float64, ok bool) {
-	if m == nil || !Priceable(m.SearchPricePerThousand) {
+	if m == nil || !priceable(m.SearchPricePerThousand) {
 		return 0, false
 	}
 	cost = float64(units) * *m.SearchPricePerThousand / 1000

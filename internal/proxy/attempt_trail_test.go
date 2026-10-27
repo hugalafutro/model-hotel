@@ -424,15 +424,15 @@ func TestStalePhrases(t *testing.T) {
 	}
 	t.Cleanup(func() { _, _ = pool.Exec(context.Background(), `DELETE FROM request_logs WHERE id = $1`, seeded) })
 
-	stale, err := StalePhrases(context.Background(), pool, now)
+	stale, err := stalePhrases(context.Background(), pool, now)
 	if err != nil {
-		t.Fatalf("StalePhrases: %v", err)
+		t.Fatalf("stalePhrases: %v", err)
 	}
 	if len(stale) != 1 || stale[0].Phrase != "never-seen" || stale[0].Provider != "P3" {
 		t.Errorf("stale = %+v, want only the never-seen phrase", stale)
 	}
 	// The report itself runs without error either way.
-	ReportStalePhrases(context.Background(), pool, now)
+	reportStalePhrases(context.Background(), pool, now)
 }
 
 // The report's other two outcomes, and the loop that schedules it: a healthy
@@ -450,7 +450,7 @@ func TestStalePhrases_ReportPathsAndLoop(t *testing.T) {
 
 	// Every entry inside the horizon by its own date: nothing to query, nothing
 	// stale, a Debug line only.
-	ReportStalePhrases(context.Background(), pool, now)
+	reportStalePhrases(context.Background(), pool, now)
 	if len(capt.find("phrases: entries unmatched inside the horizon; the provider may have rewritten its error text")) > 0 {
 		t.Error("a fresh table was reported stale")
 	}
@@ -459,10 +459,10 @@ func TestStalePhrases_ReportPathsAndLoop(t *testing.T) {
 	rateLimitPhrases = []rateLimitPhrase{{phrase: "old-entry", class: rateLimitSaturated, provider: "P", observed: "2026-01-01"}}
 	cancelled, cancel := context.WithCancel(context.Background())
 	cancel()
-	if _, err := StalePhrases(cancelled, pool, now); err == nil {
-		t.Error("StalePhrases on a cancelled context returned no error")
+	if _, err := stalePhrases(cancelled, pool, now); err == nil {
+		t.Error("stalePhrases on a cancelled context returned no error")
 	}
-	ReportStalePhrases(cancelled, pool, now)
+	reportStalePhrases(cancelled, pool, now)
 	if len(capt.find("phrases: staleness check failed")) == 0 {
 		t.Error("the failed check was not logged")
 	}

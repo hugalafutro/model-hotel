@@ -192,7 +192,7 @@ func OpenAIErrorBody(message string, statusCode int) []byte {
 	body, _ := json.Marshal(map[string]any{
 		"error": map[string]any{
 			"message": message,
-			"type":    OpenAIErrorType(statusCode),
+			"type":    openAIErrorType(statusCode),
 			"code":    statusCode,
 		},
 	})
@@ -354,8 +354,8 @@ func StripProviderAuthHeaders(req *http.Request) {
 	}
 }
 
-// OpenAIErrorType maps an HTTP status code to the corresponding OpenAI error type string.
-func OpenAIErrorType(code int) string {
+// openAIErrorType maps an HTTP status code to the corresponding OpenAI error type string.
+func openAIErrorType(code int) string {
 	switch {
 	case code == 401:
 		return "authentication_error"
