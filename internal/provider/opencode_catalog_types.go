@@ -57,12 +57,6 @@ func opencodeCatalogModels(catalog []OpenCodeModelSpec, providerID uuid.UUID, ow
 	return models
 }
 
-// LookupOpenCodeCatalog finds a spec by model ID in a catalog slice.
-// Returns nil if not found.
-func LookupOpenCodeCatalog(catalog []OpenCodeModelSpec, modelID string) *OpenCodeModelSpec {
-	return lookupByModelID(catalog, modelID, func(e *OpenCodeModelSpec) string { return e.ModelID })
-}
-
 // OpenCodeCatalogToModel converts an OpenCodeModelSpec into a model.Model
 // suitable for upsert into the database.
 // ownedBy sets the OwnedBy field — pass the provider name (e.g. "opencode", "xai").

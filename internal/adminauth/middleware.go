@@ -139,18 +139,18 @@ func adminCookieSession(r *http.Request, sessionMgr *webauthn.SessionManager, ja
 	if !ok || sessionMgr == nil {
 		return "", webauthn.AuthResult{}, false
 	}
-	res, ok := SessionAuth(r, sessionMgr, tok, use)
+	res, ok := sessionAuth(r, sessionMgr, tok, use)
 	if !ok || string(res.UserID) != "admin" {
 		return "", webauthn.AuthResult{}, false
 	}
 	return tok, res, true
 }
 
-// SessionAuth validates a session token, sliding it when the request is the
+// sessionAuth validates a session token, sliding it when the request is the
 // person's own use and merely verifying it for a server-driven re-check. It is
 // exported so the dashboard's own auth middleware resolves a session exactly the
 // way this package's gate does.
-func SessionAuth(r *http.Request, sessionMgr *webauthn.SessionManager, token string, use bool) (webauthn.AuthResult, bool) {
+func sessionAuth(r *http.Request, sessionMgr *webauthn.SessionManager, token string, use bool) (webauthn.AuthResult, bool) {
 	if use {
 		return sessionMgr.Authenticate(r.Context(), token)
 	}
@@ -178,7 +178,7 @@ func validAdminBearer(
 	if sessionMgr == nil {
 		return false
 	}
-	res, ok := SessionAuth(r, sessionMgr, token, use)
+	res, ok := sessionAuth(r, sessionMgr, token, use)
 	return ok && string(res.UserID) == "admin"
 }
 

@@ -2,9 +2,12 @@ package db
 
 import (
 	"context"
+	"errors"
 	"io/fs"
 	"strings"
 	"testing"
+
+	"github.com/jackc/pgx/v5/pgconn"
 )
 
 const providerNameNormalizedMigration = "migrations/082_provider_name_normalized_unique.sql"
@@ -73,7 +76,9 @@ func TestProviderNameNormalizedMigrationRefusesCollisions(t *testing.T) {
 
 	_, err = testPool.Exec(ctx,
 		`INSERT INTO providers (name, base_url, provider_type) VALUES ('twin a', 'https://twin.example.test/v1', 'custom')`)
-	if !IsUniqueViolationOn(err, "providers_name_normalized_unique") {
+	// The providers table carries more than one unique index, so the check
+	// names the one this migration adds rather than accepting any 23505.
+	if pgErr, ok := errors.AsType[*pgconn.PgError](err); !ok || pgErr.Code != "23505" || pgErr.ConstraintName != "providers_name_normalized_unique" {
 		t.Fatalf("inserting a normalized twin returned %v, want a 23505", err)
 	}
 }

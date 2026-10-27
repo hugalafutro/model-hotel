@@ -129,16 +129,11 @@ type Handler struct {
 	waitInsertTimeout time.Duration
 }
 
-// virtualKeyRepoAdapter wraps *virtualkey.Repository to implement VirtualKeyRepository.
-type virtualKeyRepoAdapter struct {
-	repo *virtualkey.Repository
-}
-
-// WrapVirtualKeyRepo wraps a *virtualkey.Repository to implement the
+// virtualKeyRepoAdapter wraps *virtualkey.Repository to implement the
 // VirtualKeyRepository interface, whose signatures use VirtualKeyInfo, a subset
 // of virtualkey.VirtualKey.
-func WrapVirtualKeyRepo(repo *virtualkey.Repository) VirtualKeyRepository {
-	return &virtualKeyRepoAdapter{repo: repo}
+type virtualKeyRepoAdapter struct {
+	repo *virtualkey.Repository
 }
 
 func (a *virtualKeyRepoAdapter) AddTokens(ctx context.Context, keyHash string, tokens int) error {

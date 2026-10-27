@@ -433,8 +433,8 @@ func TestIsClientDisconnect(t *testing.T) {
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			if got := IsClientDisconnect(tc.err); got != tc.want {
-				t.Errorf("IsClientDisconnect(%v) = %v, want %v", tc.err, got, tc.want)
+			if got := isClientDisconnect(tc.err); got != tc.want {
+				t.Errorf("isClientDisconnect(%v) = %v, want %v", tc.err, got, tc.want)
 			}
 		})
 	}
@@ -445,7 +445,7 @@ func TestLogEncodeError_Level(t *testing.T) {
 
 	t.Run("client disconnect logs at debug", func(t *testing.T) {
 		capt.last = slog.LevelError + 1 // sentinel
-		LogEncodeError("api", fmt.Errorf("write tcp 1.2.3.4:8080->5.6.7.8:9: write: %w", syscall.EPIPE))
+		logEncodeError("api", fmt.Errorf("write tcp 1.2.3.4:8080->5.6.7.8:9: write: %w", syscall.EPIPE))
 		if capt.last != slog.LevelDebug {
 			t.Errorf("expected debug level, got %v", capt.last)
 		}
@@ -453,7 +453,7 @@ func TestLogEncodeError_Level(t *testing.T) {
 
 	t.Run("handler timeout logs at debug", func(t *testing.T) {
 		capt.last = slog.LevelError + 1 // sentinel
-		LogEncodeError("api", fmt.Errorf("encode: %w", http.ErrHandlerTimeout))
+		logEncodeError("api", fmt.Errorf("encode: %w", http.ErrHandlerTimeout))
 		if capt.last != slog.LevelDebug {
 			t.Errorf("expected debug level, got %v", capt.last)
 		}
@@ -464,7 +464,7 @@ func TestLogEncodeError_Level(t *testing.T) {
 
 	t.Run("genuine encode error logs at error", func(t *testing.T) {
 		capt.last = slog.LevelDebug - 1 // sentinel
-		LogEncodeError("api", errors.New("json: unsupported type: chan int"))
+		logEncodeError("api", errors.New("json: unsupported type: chan int"))
 		if capt.last != slog.LevelError {
 			t.Errorf("expected error level, got %v", capt.last)
 		}

@@ -140,7 +140,7 @@ func WriteJSON(w http.ResponseWriter, component string, v any) {
 	}
 	w.Header().Set("Content-Type", "application/json")
 	if _, err := w.Write(b); err != nil {
-		LogEncodeError(component, err)
+		logEncodeError(component, err)
 	}
 }
 
@@ -153,7 +153,7 @@ func WriteJSON(w http.ResponseWriter, component string, v any) {
 func WriteJSONStatus(w http.ResponseWriter, component string, status int, v any) {
 	b, err := marshalBody(v)
 	if err != nil {
-		LogEncodeError(component, err)
+		logEncodeError(component, err)
 	}
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)
@@ -161,7 +161,7 @@ func WriteJSONStatus(w http.ResponseWriter, component string, status int, v any)
 		return
 	}
 	if _, err := w.Write(b); err != nil {
-		LogEncodeError(component, err)
+		logEncodeError(component, err)
 	}
 }
 
@@ -171,15 +171,15 @@ func WriteCodedError(w http.ResponseWriter, component string, status int, code, 
 	WriteJSONStatus(w, component, status, map[string]string{"code": code, "error": msg})
 }
 
-// LogEncodeError logs a failure to encode a JSON response. A client that hangs
+// logEncodeError logs a failure to encode a JSON response. A client that hangs
 // up before the body is written (broken pipe, connection reset, closed conn)
 // and a handler whose deadline fired mid-response (http.ErrHandlerTimeout) are
 // not server faults, so they are logged at debug level to keep production logs
 // clean; any other failure (e.g. an unmarshalable value) stays at error level
 // so genuine bugs remain visible even with debug disabled.
-func LogEncodeError(component string, err error) {
+func logEncodeError(component string, err error) {
 	switch {
-	case IsClientDisconnect(err):
+	case isClientDisconnect(err):
 		debuglog.Debug(component+": client disconnected before JSON response completed", "error", err)
 	case errors.Is(err, http.ErrHandlerTimeout):
 		debuglog.Debug(component+": handler timed out before JSON response completed", "error", err)
@@ -188,13 +188,13 @@ func LogEncodeError(component string, err error) {
 	}
 }
 
-// IsClientDisconnect reports whether err indicates the client closed the
+// isClientDisconnect reports whether err indicates the client closed the
 // connection before the response could be fully written. These are the
 // OS-level write errors that unambiguously signal a dead client TCP connection;
 // context cancellation is deliberately excluded because it crosses a different
 // boundary (a server-side cancel must not be silently downgraded), and the
 // response-encode path produces these write errors, not context.Canceled.
-func IsClientDisconnect(err error) bool {
+func isClientDisconnect(err error) bool {
 	return errors.Is(err, syscall.EPIPE) ||
 		errors.Is(err, syscall.ECONNRESET) ||
 		errors.Is(err, net.ErrClosed)

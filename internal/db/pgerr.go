@@ -14,18 +14,6 @@ func IsUniqueViolation(err error) bool {
 	return pgCode(err, "23505")
 }
 
-// IsUniqueViolationOn reports whether err is a unique violation raised by one
-// named constraint or index. A table can carry several, so a caller that
-// explains the failure in its own words has to know which one fired: reading
-// every 23505 as the interesting one starts lying the day another unique column
-// is added.
-func IsUniqueViolationOn(err error, constraint string) bool {
-	if pgErr, ok := errors.AsType[*pgconn.PgError](err); ok {
-		return pgErr.Code == "23505" && pgErr.ConstraintName == constraint
-	}
-	return false
-}
-
 // IsRaisedException reports whether err is an exception a PL/pgSQL block raised
 // on purpose with RAISE EXCEPTION (SQLSTATE P0001), which is how a migration
 // refuses an install it will not upgrade. Everything the database rejects on
