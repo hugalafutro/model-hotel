@@ -98,6 +98,37 @@ describe("useCopyToClipboard", () => {
 		clearSpy.mockRestore();
 	});
 
+	it("does not clear a reset timer that has already fired", async () => {
+		vi.useFakeTimers();
+		const setSpy = vi.spyOn(globalThis, "setTimeout");
+		const clearSpy = vi.spyOn(globalThis, "clearTimeout");
+		const { result, unmount } = renderHook(() => useCopyToClipboard());
+
+		await act(async () => {
+			await result.current.copy("hello");
+		});
+		const timerId = setSpy.mock.results.at(-1)?.value;
+		expect(timerId).toBeDefined();
+		act(() => {
+			vi.advanceTimersByTime(2000);
+		});
+		expect(result.current.copied).toBe(false);
+
+		// The expired handle was dropped when the timer fired, so neither a
+		// re-copy nor the unmount cleanup hands it back to clearTimeout.
+		await act(async () => {
+			await result.current.copy("again");
+		});
+		expect(clearSpy).not.toHaveBeenCalledWith(timerId);
+		act(() => {
+			vi.advanceTimersByTime(2000);
+		});
+		unmount();
+		expect(clearSpy).not.toHaveBeenCalledWith(timerId);
+		setSpy.mockRestore();
+		clearSpy.mockRestore();
+	});
+
 	it("schedules nothing when the component unmounts mid-write", async () => {
 		vi.useFakeTimers();
 		let settle: (() => void) | undefined;

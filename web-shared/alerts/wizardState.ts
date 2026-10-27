@@ -2,8 +2,8 @@
 // Front Desk: the step count, the draft shape, the action union, the reducer and
 // the per-step gate. Pure, so a step can be reasoned about (and tested) without
 // rendering, and so both apps run the same corrected machine instead of two
-// copies that drift. Seeding stays per app: `initialState` reads that app's
-// wizard props, which differ.
+// copies that drift. `initialState` is shared too; only the rule for when the
+// recommended event preset stands in for the stored selection stays per app.
 
 import {
 	compose,
@@ -11,6 +11,7 @@ import {
 	type DestinationKind,
 	FIELDS,
 } from "./composers";
+import { parseCsv } from "./events";
 import type { AlertStatus } from "./status";
 
 export type { AlertStatus };
@@ -156,6 +157,49 @@ export function newDraft(kind: DestinationKind, ntfyServer: string): Draft {
 		url: compose(kind, fields),
 		tested: false,
 		acceptedUrl: null,
+	};
+}
+/** The wizard props both apps pass that a run is seeded from. */
+export interface WizardSeed {
+	/** Saved Apprise API URL ("" when none is configured yet). */
+	initialApiUrl: string;
+	savedTargets: string[];
+	/** Saved alert_events CSV; null only where an app can tell "never written". */
+	savedEvents: string | null;
+	catalog: readonly { type: string; defaultOn: boolean }[];
+	/** 1 = Set up alerts / Re-run setup, 2 = Add destination to a working setup. */
+	startAt: 1 | 2;
+}
+// initialState seeds a run from the wizard props. `seedPreset` is the app's
+// answer to "does the stored selection mean nothing has been decided yet": when
+// it does, the run starts on the catalog's recommended events instead.
+export function initialState(p: WizardSeed, seedPreset: boolean): WizardState {
+	// "Add destination" only makes sense against a configured apprise-api; without
+	// one the run starts at step 1 whatever the caller asked for.
+	const start: Step = p.startAt === 2 && p.initialApiUrl !== "" ? 2 : 1;
+	return {
+		step: start,
+		minStep: start,
+		apiUrl: p.initialApiUrl || DEFAULT_APPRISE_URL,
+		probedUrl: "",
+		apiStatus: null,
+		apiChecking: false,
+		draft: EMPTY_DRAFT,
+		added: [],
+		listSeen: false,
+		saved: p.savedTargets,
+		events: seedPreset
+			? new Set(p.catalog.filter((e) => e.defaultOn).map((e) => e.type))
+			: parseCsv(p.savedEvents ?? ""),
+		testing: false,
+		testError: "",
+		testOk: false,
+		finishing: false,
+		finishError: "",
+		done: false,
+		finalStatus: null,
+		sendingAll: false,
+		sentAll: "none",
 	};
 }
 export function reducer(s: WizardState, a: Action): WizardState {
