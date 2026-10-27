@@ -3239,12 +3239,10 @@
 			"topK": "Stöds inte av xAI API"
 		},
 		"ollama": {
-			"minP": "Stöd varierar beroende på underliggande modell; inte allmänt tillgänglig",
-			"reasoningEffort": "Stöds inte av Ollama"
+			"minP": "Stöd varierar beroende på underliggande modell; inte allmänt tillgänglig"
 		},
 		"ollamaCloud": {
-			"minP": "Stöd varierar beroende på underliggande modell; inte allmänt tillgänglig",
-			"reasoningEffort": "Stöds inte av Ollama"
+			"minP": "Stöd varierar beroende på underliggande modell; inte allmänt tillgänglig"
 		},
 		"zaiCoding": {
 			"minP": "Stöds inte av z.ai kodning",

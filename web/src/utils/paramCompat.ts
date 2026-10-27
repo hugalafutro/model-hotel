@@ -53,11 +53,9 @@ export const PROVIDER_PARAM_INCOMPATIBILITY: Record<
 	},
 	ollama: {
 		min_p: "paramCompat.ollama.minP",
-		reasoning_effort: "paramCompat.ollama.reasoningEffort",
 	},
 	"ollama-cloud": {
 		min_p: "paramCompat.ollamaCloud.minP",
-		reasoning_effort: "paramCompat.ollamaCloud.reasoningEffort",
 	},
 	"zai-coding": {
 		min_p: "paramCompat.zaiCoding.minP",

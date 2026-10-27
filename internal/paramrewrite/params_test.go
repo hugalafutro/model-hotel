@@ -275,6 +275,22 @@ func TestParseProviderParamError_ParamRefusalStillLearned(t *testing.T) {
 	}
 }
 
+// Ollama's OpenAI endpoint honours reasoning_effort (it is the only switch
+// that turns a hybrid Qwen3's thinking off there: Ollama ignores
+// chat_template_kwargs), so neither Ollama type may strip it. Stripping it
+// left qwen3:4b thinking through its whole token budget on every structured
+// request (2026-10-27).
+func TestBuildUpstreamBody_OllamaKeepsReasoningEffort(t *testing.T) {
+	for _, typ := range []string{"ollama", "ollama-cloud"} {
+		var dep, ren sync.Map
+		body := []byte(`{"model":"qwen3:4b","messages":[{"role":"user","content":"Tokyo?"}],"reasoning_effort":"none"}`)
+		raw := decodeJSONBody(t, BuildUpstreamBody(body, typ, "qwen3:4b", "qwen3:4b", false, &dep, &ren, nil, "p"))
+		if raw["reasoning_effort"] != "none" {
+			t.Errorf("%s: reasoning_effort = %v, want \"none\" forwarded", typ, raw["reasoning_effort"])
+		}
+	}
+}
+
 // The dashboard hides the reasoning control on a provider type whose
 // PROVIDER_PARAM_INCOMPATIBILITY entry names reasoning_effort. Hiding it where
 // the backend forwards the param makes None unreachable on the one type that

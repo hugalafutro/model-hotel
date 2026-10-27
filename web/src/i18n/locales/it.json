@@ -3315,12 +3315,10 @@
 			"topK": "Non supportato dall'API xAI"
 		},
 		"ollama": {
-			"minP": "Il supporto varia in base al modello sottostante; non universalmente disponibile",
-			"reasoningEffort": "Non supportato da Ollama"
+			"minP": "Il supporto varia in base al modello sottostante; non universalmente disponibile"
 		},
 		"ollamaCloud": {
-			"minP": "Il supporto varia in base al modello sottostante; non universalmente disponibile",
-			"reasoningEffort": "Non supportato da Ollama"
+			"minP": "Il supporto varia in base al modello sottostante; non universalmente disponibile"
 		},
 		"zaiCoding": {
 			"minP": "Non supportato da z.ai Coding",

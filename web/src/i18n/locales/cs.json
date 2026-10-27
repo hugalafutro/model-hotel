@@ -3391,12 +3391,10 @@
 			"topK": "Není podporováno rozhraním xAI API"
 		},
 		"ollama": {
-			"minP": "Podpora se liší podle konkrétního modelu; není k dispozici pro všechny modely",
-			"reasoningEffort": "Ollama tuto funkci nepodporuje"
+			"minP": "Podpora se liší podle konkrétního modelu; není k dispozici pro všechny modely"
 		},
 		"ollamaCloud": {
-			"minP": "Podpora se liší podle konkrétního modelu; není k dispozici pro všechny modely",
-			"reasoningEffort": "Ollama tuto funkci nepodporuje"
+			"minP": "Podpora se liší podle konkrétního modelu; není k dispozici pro všechny modely"
 		},
 		"zaiCoding": {
 			"minP": "Není podporováno službou z.ai Coding",

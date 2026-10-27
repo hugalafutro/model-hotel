@@ -3239,12 +3239,10 @@
 			"topK": "不支持 xAI API"
 		},
 		"ollama": {
-			"minP": "支持情况因底层模型而异；并非普遍可用",
-			"reasoningEffort": "Ollama不支持"
+			"minP": "支持情况因底层模型而异；并非普遍可用"
 		},
 		"ollamaCloud": {
-			"minP": "支持情况因底层模型而异；并非普遍可用",
-			"reasoningEffort": "Ollama不支持"
+			"minP": "支持情况因底层模型而异；并非普遍可用"
 		},
 		"zaiCoding": {
 			"minP": "不支持 z.ai 编码",

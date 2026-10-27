@@ -3239,12 +3239,10 @@
 			"topK": "Ei tuettu xAI API"
 		},
 		"ollama": {
-			"minP": "Tuki vaihtelee perustana olevan mallin mukaan; sitä ei ole yleisesti saatavilla",
-			"reasoningEffort": "Ollama ei tue"
+			"minP": "Tuki vaihtelee perustana olevan mallin mukaan; sitä ei ole yleisesti saatavilla"
 		},
 		"ollamaCloud": {
-			"minP": "Tuki vaihtelee perustana olevan mallin mukaan; sitä ei ole yleisesti saatavilla",
-			"reasoningEffort": "Ollama ei tue"
+			"minP": "Tuki vaihtelee perustana olevan mallin mukaan; sitä ei ole yleisesti saatavilla"
 		},
 		"zaiCoding": {
 			"minP": "Z.ai koodaus ei tue",

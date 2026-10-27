@@ -3391,12 +3391,10 @@
 			"topK": "Nie obsługiwane przez xAI API"
 		},
 		"ollama": {
-			"minP": "Wsparcie jest zróżnicowane w zależności od modelu bazowego; nie jest powszechnie dostępne",
-			"reasoningEffort": "Nieobsługiwane przez Ollamę"
+			"minP": "Wsparcie jest zróżnicowane w zależności od modelu bazowego; nie jest powszechnie dostępne"
 		},
 		"ollamaCloud": {
-			"minP": "Wsparcie jest zróżnicowane w zależności od modelu bazowego; nie jest powszechnie dostępne",
-			"reasoningEffort": "Nieobsługiwane przez Ollamę"
+			"minP": "Wsparcie jest zróżnicowane w zależności od modelu bazowego; nie jest powszechnie dostępne"
 		},
 		"zaiCoding": {
 			"minP": "Nie obsługiwane przez kodowanie z.ai",

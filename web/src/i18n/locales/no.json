@@ -3239,12 +3239,10 @@
 			"topK": "Ikke støttet av xAI API"
 		},
 		"ollama": {
-			"minP": "Støtte varierer med underliggende modell, ikke tilgjengelig universelt",
-			"reasoningEffort": "Ikke støttet av Ollama"
+			"minP": "Støtte varierer med underliggende modell, ikke tilgjengelig universelt"
 		},
 		"ollamaCloud": {
-			"minP": "Støtte varierer med underliggende modell, ikke tilgjengelig universelt",
-			"reasoningEffort": "Ikke støttet av Ollama"
+			"minP": "Støtte varierer med underliggende modell, ikke tilgjengelig universelt"
 		},
 		"zaiCoding": {
 			"minP": "Ikke støttet av z.ai koding",

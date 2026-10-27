@@ -3315,12 +3315,10 @@
 			"topK": "Nu este suportat de API-ul xAI"
 		},
 		"ollama": {
-			"minP": "Sprijinul variază în funcție de modelul de bază; nu este universal disponibil",
-			"reasoningEffort": "Nu este suportat de Ollama"
+			"minP": "Sprijinul variază în funcție de modelul de bază; nu este universal disponibil"
 		},
 		"ollamaCloud": {
-			"minP": "Sprijinul variază în funcție de modelul de bază; nu este universal disponibil",
-			"reasoningEffort": "Nu este suportat de Ollama"
+			"minP": "Sprijinul variază în funcție de modelul de bază; nu este universal disponibil"
 		},
 		"zaiCoding": {
 			"minP": "Nu este suportat de z.ai Coding",

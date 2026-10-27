@@ -3315,12 +3315,10 @@
 			"topK": "Non pris en charge par l'API xAI"
 		},
 		"ollama": {
-			"minP": "La prise en charge varie selon le modèle sous-jacent ; pas universellement disponible",
-			"reasoningEffort": "Non pris en charge par Ollama"
+			"minP": "La prise en charge varie selon le modèle sous-jacent ; pas universellement disponible"
 		},
 		"ollamaCloud": {
-			"minP": "La prise en charge varie selon le modèle sous-jacent ; pas universellement disponible",
-			"reasoningEffort": "Non pris en charge par Ollama"
+			"minP": "La prise en charge varie selon le modèle sous-jacent ; pas universellement disponible"
 		},
 		"zaiCoding": {
 			"minP": "Non pris en charge par z.ai Coding",

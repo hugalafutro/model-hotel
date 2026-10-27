@@ -3239,12 +3239,10 @@
 			"topK": "Không được hỗ trợ bởi API xAI"
 		},
 		"ollama": {
-			"minP": "Mức hỗ trợ tùy thuộc vào từng mô hình nền; không phải mô hình nào cũng có",
-			"reasoningEffort": "Không được hỗ trợ bởi Ollama"
+			"minP": "Mức hỗ trợ tùy thuộc vào từng mô hình nền; không phải mô hình nào cũng có"
 		},
 		"ollamaCloud": {
-			"minP": "Mức hỗ trợ tùy thuộc vào từng mô hình nền; không phải mô hình nào cũng có",
-			"reasoningEffort": "Không được hỗ trợ bởi Ollama"
+			"minP": "Mức hỗ trợ tùy thuộc vào từng mô hình nền; không phải mô hình nào cũng có"
 		},
 		"zaiCoding": {
 			"minP": "Không được hỗ trợ bởi z.ai Coding",

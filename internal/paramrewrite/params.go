@@ -67,12 +67,6 @@ var ProviderUnsupportedParams = map[string][]string{
 		"min_p", // not supported by xAI API
 		"top_k", // not supported by xAI API
 	},
-	"ollama": {
-		"reasoning_effort", // not supported by Ollama
-	},
-	"ollama-cloud": {
-		"reasoning_effort", // not supported by Ollama Cloud
-	},
 	"koboldcpp": {
 		"reasoning_effort", // not supported by KoboldCpp
 	},

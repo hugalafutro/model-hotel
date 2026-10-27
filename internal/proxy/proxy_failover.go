@@ -692,7 +692,7 @@ func (h *Handler) buildCandidateRequest(ctx context.Context, st *requestState, c
 		// json_schema fallbacks), so a table gaining an entry gates a rebuild in
 		// without a second edit here. The three terms beside it are the caller's
 		// own: the model rename, stream_options, and what a 400 has taught.
-		// Sixteen provider types carry an unsupported-params entry, so most
+		// Fourteen provider types carry an unsupported-params entry, so most
 		// non-streaming chat requests take the decode-and-re-encode path even when
 		// the body names nothing the tables strip; correctness of the stripped
 		// params outranks forwarding those bytes untouched.
