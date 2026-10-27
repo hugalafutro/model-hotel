@@ -3239,12 +3239,10 @@
 			"topK": "Az xAI API nem támogatja"
 		},
 		"ollama": {
-			"minP": "A támogatás az alapul szolgáló modelltől függ; nem mindenhol elérhető",
-			"reasoningEffort": "Az Ollama nem támogatja"
+			"minP": "A támogatás az alapul szolgáló modelltől függ; nem mindenhol elérhető"
 		},
 		"ollamaCloud": {
-			"minP": "A támogatás az alapul szolgáló modelltől függ; nem mindenhol elérhető",
-			"reasoningEffort": "Az Ollama nem támogatja"
+			"minP": "A támogatás az alapul szolgáló modelltől függ; nem mindenhol elérhető"
 		},
 		"zaiCoding": {
 			"minP": "A z.ai Coding nem támogatja",

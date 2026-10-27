@@ -3239,12 +3239,10 @@
 			"topK": "xAI API tarafından desteklenmiyor"
 		},
 		"ollama": {
-			"minP": "Destek, ilgili modele göre değişiklik gösterir; her yerde mevcut değildir",
-			"reasoningEffort": "Ollama tarafından desteklenmiyor"
+			"minP": "Destek, ilgili modele göre değişiklik gösterir; her yerde mevcut değildir"
 		},
 		"ollamaCloud": {
-			"minP": "Destek, ilgili modele göre değişiklik gösterir; her yerde mevcut değildir",
-			"reasoningEffort": "Ollama tarafından desteklenmiyor"
+			"minP": "Destek, ilgili modele göre değişiklik gösterir; her yerde mevcut değildir"
 		},
 		"zaiCoding": {
 			"minP": "z.ai Coding tarafından desteklenmemektedir",

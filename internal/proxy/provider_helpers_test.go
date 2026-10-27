@@ -652,8 +652,6 @@ func TestProviderUnsupportedParams_ReasoningEffort(t *testing.T) {
 		"google",
 		"cohere",
 		"deepseek",
-		"ollama",
-		"ollama-cloud",
 		"koboldcpp",
 		"lmstudio",
 		"nanogpt",
@@ -677,8 +675,9 @@ func TestProviderUnsupportedParams_ReasoningEffort(t *testing.T) {
 }
 
 func TestProviderUnsupportedParams_OpenAISupportsReasoningEffort(t *testing.T) {
-	// OpenAI and xAI support reasoning_effort — it should NOT be in their unsupported list
-	for _, provider := range []string{"openai", "xai"} {
+	// OpenAI, xAI and both Ollama types support reasoning_effort (Ollama maps it
+	// to its think switch); it must NOT be in their unsupported list.
+	for _, provider := range []string{"openai", "xai", "ollama", "ollama-cloud"} {
 		params, ok := paramrewrite.ProviderUnsupportedParams[provider]
 		if !ok {
 			continue // no entry is fine (means nothing is unsupported)

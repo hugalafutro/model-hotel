@@ -339,8 +339,6 @@ describe("reasoning_effort incompatibility", () => {
 		"google",
 		"cohere",
 		"deepseek",
-		"ollama",
-		"ollama-cloud",
 		"zai-coding",
 		"koboldcpp",
 		"lmstudio",
@@ -354,6 +352,8 @@ describe("reasoning_effort incompatibility", () => {
 	const providersWithReasoningEffortCompatible = [
 		"openai",
 		"xai",
+		"ollama",
+		"ollama-cloud",
 		"anthropic",
 		"anthropic-messages",
 	];
