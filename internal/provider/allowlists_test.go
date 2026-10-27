@@ -7,31 +7,9 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgconn"
+
+	"github.com/hugalafutro/model-hotel/internal/db"
 )
-
-// readAllowList returns the two facts that now mean opposite things, read in
-// SQL: whether the column is SQL NULL (unrestricted) and its members. Never
-// scanned straight into a []string, because pgx yields a nil slice for both NULL
-// and '{}' and that is the exact distinction under test.
-func readAllowList(t *testing.T, query, subject string) (isNull bool, card int, members []string) {
-	t.Helper()
-	if err := testDB.Pool().QueryRow(context.Background(), query, subject).Scan(&isNull, &card, &members); err != nil {
-		t.Fatalf("reading allowed_providers for %q: %v", subject, err)
-	}
-	return isNull, card, members
-}
-
-const pruneTestKeyQuery = `
-	SELECT allowed_providers IS NULL,
-	       coalesce(cardinality(allowed_providers), -1),
-	       coalesce(allowed_providers, '{}'::text[])
-	  FROM virtual_keys WHERE key_hash = $1`
-
-const pruneTestUserQuery = `
-	SELECT allowed_providers IS NULL,
-	       coalesce(cardinality(allowed_providers), -1),
-	       coalesce(allowed_providers, '{}'::text[])
-	  FROM users WHERE username = $1`
 
 // seedAllowListRows inserts one restricted key, one restricted user and one
 // unrestricted example of each, all scoped to the given suffix so parallel
@@ -85,10 +63,10 @@ func TestPruneAllowLists_RemovesOnlyTheNamedIDs(t *testing.T) {
 		query   string
 		subject string
 	}{
-		{"virtual key", pruneTestKeyQuery, "restricted-multi"},
-		{"user", pruneTestUserQuery, "capped-multi"},
+		{"virtual key", db.KeyAllowListQuery, "restricted-multi"},
+		{"user", db.UserAllowListQuery, "capped-multi"},
 	} {
-		isNull, card, members := readAllowList(t, tc.query, tc.subject)
+		isNull, card, members := db.ReadAllowList(t, testDB.Pool(), tc.query, tc.subject)
 		if isNull {
 			t.Fatalf("%s: ESCALATION: the allow-list is now NULL, i.e. unrestricted", tc.what)
 		}
@@ -102,10 +80,10 @@ func TestPruneAllowLists_RemovesOnlyTheNamedIDs(t *testing.T) {
 		query   string
 		subject string
 	}{
-		{"virtual key", pruneTestKeyQuery, "restricted-solo"},
-		{"user", pruneTestUserQuery, "capped-solo"},
+		{"virtual key", db.KeyAllowListQuery, "restricted-solo"},
+		{"user", db.UserAllowListQuery, "capped-solo"},
 	} {
-		isNull, card, _ := readAllowList(t, tc.query, tc.subject)
+		isNull, card, _ := db.ReadAllowList(t, testDB.Pool(), tc.query, tc.subject)
 		if isNull {
 			t.Fatalf("%s: ESCALATION: pruning the last entry produced NULL, not '{}'", tc.what)
 		}
@@ -123,10 +101,10 @@ func TestPruneAllowLists_RemovesOnlyTheNamedIDs(t *testing.T) {
 		query   string
 		subject string
 	}{
-		{"virtual key", pruneTestKeyQuery, "open-multi"},
-		{"user", pruneTestUserQuery, "uncapped-multi"},
+		{"virtual key", db.KeyAllowListQuery, "open-multi"},
+		{"user", db.UserAllowListQuery, "uncapped-multi"},
 	} {
-		isNull, card, _ := readAllowList(t, tc.query, tc.subject)
+		isNull, card, _ := db.ReadAllowList(t, testDB.Pool(), tc.query, tc.subject)
 		if !isNull {
 			t.Fatalf("%s: LOCKOUT: an unrestricted row was given an allow-list (cardinality %d)", tc.what, card)
 		}
@@ -214,14 +192,14 @@ func TestDelete_PrunesAllowLists(t *testing.T) {
 		t.Fatalf("delete provider: %v", err)
 	}
 
-	isNull, card, _ := readAllowList(t, pruneTestKeyQuery, "restricted-viadelete")
+	isNull, card, _ := db.ReadAllowList(t, testDB.Pool(), db.KeyAllowListQuery, "restricted-viadelete")
 	if isNull {
 		t.Fatal("ESCALATION: the key's allow-list is NULL after the provider delete")
 	}
 	if card != 0 {
 		t.Fatalf("allow-list cardinality = %d, want 0: Delete did not prune", card)
 	}
-	isNull, card, _ = readAllowList(t, pruneTestUserQuery, "capped-viadelete")
+	isNull, card, _ = db.ReadAllowList(t, testDB.Pool(), db.UserAllowListQuery, "capped-viadelete")
 	if isNull {
 		t.Fatal("ESCALATION: the account cap is NULL after the provider delete")
 	}

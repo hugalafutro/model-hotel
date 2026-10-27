@@ -8,6 +8,7 @@ import (
 
 	"github.com/google/uuid"
 
+	"github.com/hugalafutro/model-hotel/internal/db"
 	"github.com/hugalafutro/model-hotel/internal/provider"
 )
 
@@ -23,32 +24,6 @@ import (
 // separately from cardinality. Scanning the array into a []string would not do:
 // pgx yields a nil slice for both NULL and '{}', so the exact confusion under
 // test would be invisible.
-
-// keyAllowListQuery and userAllowListQuery read the three facts each assertion
-// needs without letting a codec collapse them: is the column SQL NULL, how many
-// members does it have (-1 standing in for NULL, which has no cardinality), and
-// what are they.
-const keyAllowListQuery = `
-	SELECT allowed_providers IS NULL,
-	       coalesce(cardinality(allowed_providers), -1),
-	       coalesce(allowed_providers, '{}'::text[])
-	  FROM virtual_keys WHERE key_hash = $1`
-
-const userAllowListQuery = `
-	SELECT allowed_providers IS NULL,
-	       coalesce(cardinality(allowed_providers), -1),
-	       coalesce(allowed_providers, '{}'::text[])
-	  FROM users WHERE username = $1`
-
-func readAllowList(t *testing.T, query, subject string) (isNull bool, card int, members []string) {
-	t.Helper()
-	if err := apiTestDB.Pool().QueryRow(context.Background(), query, subject).Scan(&isNull, &card, &members); err != nil {
-		// A query failure must fail the test outright. Treating it as "nothing to
-		// assert" would make every check below pass green on a missing row.
-		t.Fatalf("reading allowed_providers for %q: %v", subject, err)
-	}
-	return isNull, card, members
-}
 
 // seedRestrictedKey inserts a virtual key with the given allow-list. A nil
 // allowed encodes as SQL NULL, which is how an unrestricted key is stored.
@@ -94,7 +69,7 @@ func TestProviderPrune_KeyKeepsSurvivingProviders(t *testing.T) {
 
 	deleteProviderViaRepo(t, doomed)
 
-	isNull, card, members := readAllowList(t, keyAllowListQuery, "hash-prune-multi")
+	isNull, card, members := db.ReadAllowList(t, apiTestDB.Pool(), db.KeyAllowListQuery, "hash-prune-multi")
 	if isNull {
 		t.Fatal("ESCALATION: the key's allow-list is now NULL, i.e. unrestricted")
 	}
@@ -116,7 +91,7 @@ func TestProviderPrune_EmptiedKeyAllowListIsEmptyNotNull(t *testing.T) {
 
 	deleteProviderViaRepo(t, doomed)
 
-	isNull, card, _ := readAllowList(t, keyAllowListQuery, "hash-prune-solo")
+	isNull, card, _ := db.ReadAllowList(t, apiTestDB.Pool(), db.KeyAllowListQuery, "hash-prune-solo")
 	if isNull {
 		t.Fatal("ESCALATION: pruning the last entry produced NULL; the key is now unrestricted")
 	}
@@ -135,7 +110,7 @@ func TestProviderPrune_UserCapKeepsSurvivingProviders(t *testing.T) {
 
 	deleteProviderViaRepo(t, doomed)
 
-	isNull, card, members := readAllowList(t, userAllowListQuery, "capped-multi")
+	isNull, card, members := db.ReadAllowList(t, apiTestDB.Pool(), db.UserAllowListQuery, "capped-multi")
 	if isNull {
 		t.Fatal("ESCALATION: the account cap is now NULL, i.e. uncapped")
 	}
@@ -153,7 +128,7 @@ func TestProviderPrune_EmptiedUserCapIsEmptyNotNull(t *testing.T) {
 
 	deleteProviderViaRepo(t, doomed)
 
-	isNull, card, _ := readAllowList(t, userAllowListQuery, "capped-solo")
+	isNull, card, _ := db.ReadAllowList(t, apiTestDB.Pool(), db.UserAllowListQuery, "capped-solo")
 	if isNull {
 		t.Fatal("ESCALATION: pruning the last entry produced NULL; the account is now uncapped")
 	}
@@ -177,11 +152,11 @@ func TestProviderPrune_UnrestrictedRowsStayNull(t *testing.T) {
 
 	deleteProviderViaRepo(t, doomed)
 
-	keyNull, keyCard, _ := readAllowList(t, keyAllowListQuery, "hash-prune-open")
+	keyNull, keyCard, _ := db.ReadAllowList(t, apiTestDB.Pool(), db.KeyAllowListQuery, "hash-prune-open")
 	if !keyNull {
 		t.Fatalf("LOCKOUT: an unrestricted key was given an allow-list (cardinality %d)", keyCard)
 	}
-	userNull, userCard, _ := readAllowList(t, userAllowListQuery, "uncapped")
+	userNull, userCard, _ := db.ReadAllowList(t, apiTestDB.Pool(), db.UserAllowListQuery, "uncapped")
 	if !userNull {
 		t.Fatalf("LOCKOUT: an uncapped account was given a cap (cardinality %d)", userCard)
 	}
@@ -239,7 +214,7 @@ func TestProviderPrune_ConfigSyncBulkDeletePrunes(t *testing.T) {
 		t.Fatal("the declarative replace did not delete the provider")
 	}
 
-	isNull, card, members := readAllowList(t, keyAllowListQuery, "hash-sync-both")
+	isNull, card, members := db.ReadAllowList(t, apiTestDB.Pool(), db.KeyAllowListQuery, "hash-sync-both")
 	if isNull {
 		t.Fatal("ESCALATION: the multi-provider key became unrestricted")
 	}
@@ -247,7 +222,7 @@ func TestProviderPrune_ConfigSyncBulkDeletePrunes(t *testing.T) {
 		t.Fatalf("multi-provider key allow-list = %v (cardinality %d), want just [%s]", members, card, keep)
 	}
 
-	isNull, card, members = readAllowList(t, keyAllowListQuery, "hash-sync-solo")
+	isNull, card, members = db.ReadAllowList(t, apiTestDB.Pool(), db.KeyAllowListQuery, "hash-sync-solo")
 	if isNull {
 		t.Fatal("ESCALATION: the single-provider key became unrestricted")
 	}

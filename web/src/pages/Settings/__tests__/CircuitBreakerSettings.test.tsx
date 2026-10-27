@@ -6,7 +6,10 @@ import { api } from "../../../api/client";
 import i18n from "../../../i18n";
 import { mockSettings, toggleRowResetButton } from "../../../test/helpers";
 import { server } from "../../../test/mocks/server";
-import { renderWithProviders } from "../../../test/utils";
+import {
+	expectResetButtonCallsReset,
+	renderWithProviders,
+} from "../../../test/utils";
 import { CircuitBreakerSettings } from "../CircuitBreakerSettings";
 
 describe("CircuitBreakerSettings", () => {
@@ -1061,36 +1064,13 @@ describe("CircuitBreakerSettings", () => {
 
 	describe("per-setting reset", () => {
 		it("calls api.settings.reset when reset button is clicked", async () => {
-			const resetSpy = vi.spyOn(api.settings, "reset");
-			resetSpy.mockResolvedValueOnce({});
-
-			const user = userEvent.setup();
-			renderWithProviders(
+			await expectResetButtonCallsReset(
 				<CircuitBreakerSettings
 					collapsed={false}
 					onToggle={() => {}}
 					onResetSection={() => {}}
 				/>,
 			);
-
-			await waitFor(() => {
-				expect(
-					screen.getAllByRole("button", {
-						name: /reset this setting to default/i,
-					}).length,
-				).toBeGreaterThanOrEqual(1);
-			});
-
-			const resetBtn = screen.getAllByRole("button", {
-				name: /reset this setting to default/i,
-			})[0];
-			await user.click(resetBtn);
-
-			await waitFor(() => {
-				expect(resetSpy).toHaveBeenCalledOnce();
-			});
-
-			resetSpy.mockRestore();
 		});
 
 		it("resets exactly the hedging keys from the Hedging group's inline reset buttons", async () => {

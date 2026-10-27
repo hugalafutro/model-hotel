@@ -4,36 +4,8 @@ import (
 	"context"
 	"testing"
 
-	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/hugalafutro/model-hotel/internal/db"
 )
-
-// invalidateOnQuery is a pgx tracer that runs fn as each query starts: the
-// eviction lands while the read-through's SELECT is in flight, which is the
-// interleaving the generation guard exists for.
-type invalidateOnQuery struct{ fn func() }
-
-func (t invalidateOnQuery) TraceQueryStart(ctx context.Context, _ *pgx.Conn, _ pgx.TraceQueryStartData) context.Context {
-	t.fn()
-	return ctx
-}
-
-func (invalidateOnQuery) TraceQueryEnd(context.Context, *pgx.Conn, pgx.TraceQueryEndData) {}
-
-func tracedPool(t *testing.T, fn func()) *pgxpool.Pool {
-	t.Helper()
-	cfg, err := pgxpool.ParseConfig(testDBURL)
-	if err != nil {
-		t.Fatalf("parse test DB URL: %v", err)
-	}
-	cfg.ConnConfig.Tracer = invalidateOnQuery{fn: fn}
-	pool, err := pgxpool.NewWithConfig(context.Background(), cfg)
-	if err != nil {
-		t.Fatalf("traced pool: %v", err)
-	}
-	t.Cleanup(pool.Close)
-	return pool
-}
 
 func TestGetByName_EvictionDuringQueryIsNotReinstalled(t *testing.T) {
 	InvalidateProviderCache()
@@ -47,7 +19,7 @@ func TestGetByName_EvictionDuringQueryIsNotReinstalled(t *testing.T) {
 	t.Cleanup(func() { _ = newTestRepo(t).Delete(ctx, p.ID) })
 
 	// A discovery stamp evicts this provider while the SELECT is in flight.
-	racing := NewRepository(tracedPool(t, func() { EvictProviderCacheByID(p.ID) }))
+	racing := NewRepository(db.TracedPool(t, testDBURL, func() { EvictProviderCacheByID(p.ID) }))
 	if _, err := racing.GetByName(ctx, p.Name); err != nil {
 		t.Fatalf("GetByName: %v", err)
 	}

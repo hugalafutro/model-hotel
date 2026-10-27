@@ -19,7 +19,7 @@ import (
 func TestReplaceReportsThePrior(t *testing.T) {
 	ctx := context.Background()
 	repo := quota.NewRepository(testPool)
-	provID := insertTestProvider(ctx, t, "test-quota-replace")
+	provID := db.InsertTestProvider(ctx, t, testPool, "test-quota-replace")
 	t.Cleanup(func() { cleanupProvider(ctx, t, provID) })
 
 	at := time.Now().Add(-3 * time.Minute).UTC().Truncate(time.Microsecond)
@@ -36,7 +36,7 @@ func TestReplaceReportsThePrior(t *testing.T) {
 		t.Fatalf("same status: want prior 200/poll, got %+v (err %v)", prior, err)
 	}
 
-	other := insertTestProvider(ctx, t, "test-quota-replace-placeholder")
+	other := db.InsertTestProvider(ctx, t, testPool, "test-quota-replace-placeholder")
 	t.Cleanup(func() { cleanupProvider(ctx, t, other) })
 	if err := repo.RecordFailure(ctx, other, "usage", "timeout"); err != nil {
 		t.Fatalf("record failure: %v", err)
@@ -53,7 +53,7 @@ func TestReplaceReportsThePrior(t *testing.T) {
 func TestReplaceIfNewerReportsThePrior(t *testing.T) {
 	ctx := context.Background()
 	repo := quota.NewRepository(testPool)
-	provID := insertTestProvider(ctx, t, "test-quota-replace-newer")
+	provID := db.InsertTestProvider(ctx, t, testPool, "test-quota-replace-newer")
 	t.Cleanup(func() { cleanupProvider(ctx, t, provID) })
 
 	older := time.Now().Add(-time.Hour).UTC()
@@ -94,7 +94,7 @@ func TestReplaceSerialisesConcurrentWriters(t *testing.T) {
 			ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 			defer cancel()
 			repo := quota.NewRepository(testPool)
-			provID := insertTestProvider(ctx, t, "test-quota-replace-race-"+tc.name)
+			provID := db.InsertTestProvider(ctx, t, testPool, "test-quota-replace-race-"+tc.name)
 			t.Cleanup(func() { cleanupProvider(context.Background(), t, provID) })
 			snap := func(status int) quota.Snapshot {
 				return quota.Snapshot{ProviderID: provID, Kind: "usage", Payload: json.RawMessage(`{}`), HTTPStatus: status, Source: "poll"}
@@ -214,7 +214,7 @@ func TestReplaceErrorPaths(t *testing.T) {
 	if err := slow.Pool().QueryRow(ctx, "SELECT current_setting('statement_timeout')").Scan(&timeout); err != nil || timeout != "250ms" {
 		t.Fatalf("statement_timeout = %q (%v), want 250ms", timeout, err)
 	}
-	provID := insertTestProvider(ctx, t, "test-quota-replace-locked")
+	provID := db.InsertTestProvider(ctx, t, testPool, "test-quota-replace-locked")
 	t.Cleanup(func() { cleanupProvider(context.Background(), t, provID) })
 	holder, err := testPool.Begin(ctx)
 	if err != nil {
