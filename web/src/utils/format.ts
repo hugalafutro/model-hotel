@@ -207,7 +207,9 @@ export function formatLatency(ms: number): string {
 		const sec = ms / 1000;
 		return sec >= 10 ? `${Math.round(sec)}s` : `${formatDecimal(sec, 1)}s`;
 	}
-	return `${Math.round(ms)}ms`;
+	return ms >= 10
+		? `${Math.round(ms)}ms`
+		: `${formatDecimal(ms, 1, { trim: true })}ms`;
 }
 
 /**
