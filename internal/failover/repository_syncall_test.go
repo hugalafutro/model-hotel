@@ -393,7 +393,7 @@ func TestRepository_SyncAllModels_PruneStaleEntriesFromCustomGroup(t *testing.T)
 	for _, dg := range result2.DeletedGroups {
 		if dg.DisplayModel == baseModel {
 			foundDeleted = true
-			if !containsSubstring(dg.Reason, "prune") {
+			if !strings.Contains(dg.Reason, "prune") {
 				t.Errorf("Expected reason to contain 'prune', got %q", dg.Reason)
 			}
 			break
@@ -520,7 +520,7 @@ func TestRepository_SyncAllModels_DeleteCustomGroupAfterPrune(t *testing.T) {
 	for _, dg := range result2.DeletedGroups {
 		if dg.DisplayModel == baseModel {
 			foundDeleted = true
-			if !containsSubstring(dg.Reason, "prune") {
+			if !strings.Contains(dg.Reason, "prune") {
 				t.Errorf("Expected reason to contain 'prune', got %q", dg.Reason)
 			}
 			break

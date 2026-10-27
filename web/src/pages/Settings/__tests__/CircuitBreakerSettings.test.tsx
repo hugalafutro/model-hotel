@@ -6,7 +6,10 @@ import { api } from "../../../api/client";
 import i18n from "../../../i18n";
 import { mockSettings, toggleRowResetButton } from "../../../test/helpers";
 import { server } from "../../../test/mocks/server";
-import { renderWithProviders } from "../../../test/utils";
+import {
+	expectResetButtonCallsReset,
+	renderWithProviders,
+} from "../../../test/utils";
 import { CircuitBreakerSettings } from "../CircuitBreakerSettings";
 
 describe("CircuitBreakerSettings", () => {
@@ -1061,36 +1064,13 @@ describe("CircuitBreakerSettings", () => {
 
 	describe("per-setting reset", () => {
 		it("calls api.settings.reset when reset button is clicked", async () => {
-			const resetSpy = vi.spyOn(api.settings, "reset");
-			resetSpy.mockResolvedValueOnce({});
-
-			const user = userEvent.setup();
-			renderWithProviders(
+			await expectResetButtonCallsReset(
 				<CircuitBreakerSettings
 					collapsed={false}
 					onToggle={() => {}}
 					onResetSection={() => {}}
 				/>,
 			);
-
-			await waitFor(() => {
-				expect(
-					screen.getAllByRole("button", {
-						name: /reset this setting to default/i,
-					}).length,
-				).toBeGreaterThanOrEqual(1);
-			});
-
-			const resetBtn = screen.getAllByRole("button", {
-				name: /reset this setting to default/i,
-			})[0];
-			await user.click(resetBtn);
-
-			await waitFor(() => {
-				expect(resetSpy).toHaveBeenCalledOnce();
-			});
-
-			resetSpy.mockRestore();
 		});
 
 		it("resets exactly the hedging keys from the Hedging group's inline reset buttons", async () => {
@@ -1111,7 +1091,7 @@ describe("CircuitBreakerSettings", () => {
 			// the Hedge Delay slider) are the last two in DOM order there, after
 			// the seven Failover controls.
 			const resets = within(column).getAllByRole("button", {
-				name: /reset this setting to default/i,
+				name: i18n.t("settings.common.resetSetting"),
 			});
 			expect(resets).toHaveLength(9);
 			await user.click(resets[resets.length - 2]);
@@ -1363,7 +1343,7 @@ describe("CircuitBreakerSettings", () => {
 			);
 			const row = await screen.findByTestId("classify-429-row");
 			const reset = within(row).getByRole("button", {
-				name: /reset this setting to default/i,
+				name: i18n.t("settings.common.resetSetting"),
 			});
 			await user.click(reset);
 			await waitFor(() =>
@@ -1490,7 +1470,7 @@ describe("CircuitBreakerSettings", () => {
 			const row = await screen.findByTestId("inflight-limiter-row");
 			await user.click(
 				within(row).getByRole("button", {
-					name: /reset this setting to default/i,
+					name: i18n.t("settings.common.resetSetting"),
 				}),
 			);
 			await waitFor(() =>
@@ -1500,7 +1480,7 @@ describe("CircuitBreakerSettings", () => {
 			// column: the group renders below the 429 controls there.
 			const column = await screen.findByTestId("limits-column");
 			const resets = within(column).getAllByRole("button", {
-				name: /reset this setting to default/i,
+				name: i18n.t("settings.common.resetSetting"),
 			});
 			await user.click(resets[resets.length - 2]);
 			await waitFor(() =>

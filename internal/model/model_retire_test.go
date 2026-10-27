@@ -6,6 +6,8 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+
+	"github.com/hugalafutro/model-hotel/internal/dbtest"
 )
 
 // Retirement bookkeeping: recording a missing model, the confirmed
@@ -15,7 +17,7 @@ func TestSetEnabled_Enable(t *testing.T) {
 	ctx := context.Background()
 	repo := NewRepository(testPool)
 
-	providerID := insertTestProvider(ctx, t, "test-setenabled-enable")
+	providerID := dbtest.InsertTestProvider(ctx, t, testPool, "test-setenabled-enable")
 	t.Cleanup(func() { cleanupProvider(ctx, t, providerID) })
 
 	modelID := uuid.New()
@@ -41,7 +43,7 @@ func TestSetEnabled_Disable(t *testing.T) {
 	ctx := context.Background()
 	repo := NewRepository(testPool)
 
-	providerID := insertTestProvider(ctx, t, "test-setenabled-disable")
+	providerID := dbtest.InsertTestProvider(ctx, t, testPool, "test-setenabled-disable")
 	t.Cleanup(func() { cleanupProvider(ctx, t, providerID) })
 
 	modelID := uuid.New()
@@ -82,7 +84,7 @@ func TestAutoRetireIfConfirmed_AbandonedWriteIsNeverVisible(t *testing.T) {
 	ctx := context.Background()
 	repo := NewRepository(testPool)
 
-	providerID := insertTestProvider(ctx, t, "test-setenabled-confirm")
+	providerID := dbtest.InsertTestProvider(ctx, t, testPool, "test-setenabled-confirm")
 	t.Cleanup(func() { cleanupProvider(ctx, t, providerID) })
 
 	modelID := uuid.New()
@@ -159,7 +161,7 @@ func TestAutoRetireIfConfirmed_SurvivesReSighting(t *testing.T) {
 	ctx := context.Background()
 	repo := NewRepository(testPool)
 
-	providerID := insertTestProvider(ctx, t, "test-autoretire-resighting")
+	providerID := dbtest.InsertTestProvider(ctx, t, testPool, "test-autoretire-resighting")
 	t.Cleanup(func() { cleanupProvider(ctx, t, providerID) })
 
 	retiredID := insertTestModel(ctx, t, providerID, "traffic-retired-model")
@@ -237,7 +239,7 @@ func TestAutoRetireIfConfirmed_StandsDownOnceTheRowMovedOn(t *testing.T) {
 	ctx := context.Background()
 	repo := NewRepository(testPool)
 
-	providerID := insertTestProvider(ctx, t, "test-autoretire-standdown")
+	providerID := dbtest.InsertTestProvider(ctx, t, testPool, "test-autoretire-standdown")
 	t.Cleanup(func() { cleanupProvider(ctx, t, providerID) })
 
 	assertNotRetired := func(t *testing.T, id uuid.UUID) {
@@ -337,7 +339,7 @@ func TestRevertAutoRetire_DoesNotOverwriteAnOperatorDisable(t *testing.T) {
 	ctx := context.Background()
 	repo := NewRepository(testPool)
 
-	providerID := insertTestProvider(ctx, t, "test-revert-autoretire")
+	providerID := dbtest.InsertTestProvider(ctx, t, testPool, "test-revert-autoretire")
 	t.Cleanup(func() { cleanupProvider(ctx, t, providerID) })
 
 	modelID := insertTestModel(ctx, t, providerID, "contested-model")
@@ -397,7 +399,7 @@ func TestUpsert_RetiredModelKeepsItsDismissal(t *testing.T) {
 	ctx := context.Background()
 	repo := NewRepository(testPool)
 
-	providerID := insertTestProvider(ctx, t, "test-retired-dismissal")
+	providerID := dbtest.InsertTestProvider(ctx, t, testPool, "test-retired-dismissal")
 	t.Cleanup(func() { cleanupProvider(ctx, t, providerID) })
 
 	retiredID := insertTestModel(ctx, t, providerID, "retired-model")
@@ -461,7 +463,7 @@ func TestSetEnabled_ClearsADismissalSoAReRetirementIsVisible(t *testing.T) {
 	ctx := context.Background()
 	repo := NewRepository(testPool)
 
-	providerID := insertTestProvider(ctx, t, "test-dismissal-recovery")
+	providerID := dbtest.InsertTestProvider(ctx, t, testPool, "test-dismissal-recovery")
 	t.Cleanup(func() { cleanupProvider(ctx, t, providerID) })
 
 	modelID := insertTestModel(ctx, t, providerID, "twice-retired")
@@ -520,7 +522,7 @@ func TestAutoRetireIfConfirmed_DeadContextReportsNotCommitted(t *testing.T) {
 	ctx := context.Background()
 	repo := NewRepository(testPool)
 
-	providerID := insertTestProvider(ctx, t, "test-setenabled-deadctx")
+	providerID := dbtest.InsertTestProvider(ctx, t, testPool, "test-setenabled-deadctx")
 	t.Cleanup(func() { cleanupProvider(ctx, t, providerID) })
 
 	modelID := uuid.New()
@@ -566,7 +568,7 @@ func TestRepository_SetEnabled_DisableThenVerify(t *testing.T) {
 	ctx := context.Background()
 	repo := NewRepository(testPool)
 
-	providerID := insertTestProvider(ctx, t, "test-setenabled-verify")
+	providerID := dbtest.InsertTestProvider(ctx, t, testPool, "test-setenabled-verify")
 	t.Cleanup(func() { cleanupProvider(ctx, t, providerID) })
 
 	// Create a model
@@ -609,7 +611,7 @@ func TestRepository_RecordMissingModels_WithProviderAndModel(t *testing.T) {
 	ctx := context.Background()
 	repo := NewRepository(testPool)
 
-	providerID := insertTestProvider(ctx, t, "test-disable-missing-crud")
+	providerID := dbtest.InsertTestProvider(ctx, t, testPool, "test-disable-missing-crud")
 	t.Cleanup(func() { cleanupProvider(ctx, t, providerID) })
 
 	// Create two models

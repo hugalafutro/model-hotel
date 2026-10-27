@@ -131,11 +131,11 @@ func TestNormalizeModelClassification_EnrichedTranscribeInput(t *testing.T) {
 	if m.OutputModalities != `["text"]` {
 		t.Errorf("OutputModalities = %q, want [\"text\"]", m.OutputModalities)
 	}
-	if !containsSubstring(m.Capabilities, `"vision":false`) {
+	if !strings.Contains(m.Capabilities, `"vision":false`) {
 		t.Errorf("Capabilities = %s, want the inherited vision flag cleared", m.Capabilities)
 	}
 	for _, want := range []string{`"audio_input":true`, `"streaming":true`} {
-		if !containsSubstring(m.Capabilities, want) {
+		if !strings.Contains(m.Capabilities, want) {
 			t.Errorf("Capabilities = %s, missing %s", m.Capabilities, want)
 		}
 	}
@@ -323,10 +323,10 @@ func TestNormalizeModelClassification_ExplicitClassSyncsCaps(t *testing.T) {
 	if m.Modality != "image" {
 		t.Errorf("Modality = %q, want image", m.Modality)
 	}
-	if !containsSubstring(m.Capabilities, `"vision":true`) {
+	if !strings.Contains(m.Capabilities, `"vision":true`) {
 		t.Errorf("Capabilities = %s, want vision:true from image input", m.Capabilities)
 	}
-	if !containsSubstring(m.Capabilities, `"streaming":false`) {
+	if !strings.Contains(m.Capabilities, `"streaming":false`) {
 		t.Errorf("Capabilities = %s, streaming flag must be preserved", m.Capabilities)
 	}
 }
@@ -340,11 +340,11 @@ func TestNormalizeModelClassification_CapsSyncFromArrays(t *testing.T) {
 	NormalizeModelClassification(&m)
 	caps := m.Capabilities
 	for _, want := range []string{`"audio_input":true`, `"streaming":true`} {
-		if !containsSubstring(caps, want) {
+		if !strings.Contains(caps, want) {
 			t.Errorf("Capabilities = %s, missing %s", caps, want)
 		}
 	}
-	if containsSubstring(caps, `"vision":true`) {
+	if strings.Contains(caps, `"vision":true`) {
 		t.Errorf("Capabilities = %s, unexpected vision flag", caps)
 	}
 }
@@ -358,7 +358,7 @@ func TestNormalizeModelClassification_PDFCapSync(t *testing.T) {
 		Capabilities:    `{"streaming":true}`,
 	}
 	NormalizeModelClassification(&m)
-	if !containsSubstring(m.Capabilities, `"pdf_upload":true`) {
+	if !strings.Contains(m.Capabilities, `"pdf_upload":true`) {
 		t.Errorf("Capabilities = %s, want pdf_upload:true from pdf input", m.Capabilities)
 	}
 	// ...and the reverse: a catalog pdf_upload flag seeds the input array.
@@ -387,10 +387,6 @@ func TestNormalizeModels_Batch(t *testing.T) {
 	if models[1].OutputModalities != `["embedding"]` {
 		t.Errorf("models[1].OutputModalities = %q, want [\"embedding\"]", models[1].OutputModalities)
 	}
-}
-
-func containsSubstring(s, sub string) bool {
-	return strings.Contains(s, sub)
 }
 
 // models.dev enrichment describes an embedding or reranking model as text in,

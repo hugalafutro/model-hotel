@@ -9,7 +9,8 @@ class TestExclusions(unittest.TestCase):
     def test_excludes_cmd_tools_tests_and_dts(self):
         for p in [
             "cmd/server/main.go", "tools/i18n/x.go", "internal/x_test.go",
-            "web/src/main.tsx", "web/src/test/setup.ts", "web/src/x.d.ts",
+            "web/src/main.tsx", "web/src/test/setup.ts", "internal/dbtest/dbtest.go",
+            "web/src/x.d.ts",
             "frontdesk/web/src/main.tsx", "frontdesk/web/src/foo.test.tsx",
             "web/src/components/__tests__/A.test.tsx", "frontdesk/web/src/test/sse.ts",
         ]:
