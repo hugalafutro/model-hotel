@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"encoding/json"
+	"io"
 	"log"
 	"net/http"
 	"net/http/httptest"
@@ -438,7 +439,15 @@ func TestRunDiscoveryHappyPath(t *testing.T) {
 	if err := provider.LoadModelsDevWithClient(ctx, mdClient); err != nil {
 		t.Fatalf("failed to load models.dev cache: %v", err)
 	}
-	t.Cleanup(provider.ResetModelsDevCache)
+	t.Cleanup(func() {
+		// Leave an empty catalogue behind so later tests see no enrichment data.
+		empty := &http.Client{Transport: roundTripperFunc(func(*http.Request) (*http.Response, error) {
+			return &http.Response{StatusCode: http.StatusOK, Header: http.Header{}, Body: io.NopCloser(strings.NewReader("{}"))}, nil
+		})}
+		if err := provider.LoadModelsDevWithClient(context.Background(), empty); err != nil {
+			t.Errorf("emptying the models.dev cache: %v", err)
+		}
+	})
 
 	ch := events.DefaultBus.Subscribe()
 	defer events.DefaultBus.Unsubscribe(ch)

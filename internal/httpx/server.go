@@ -64,10 +64,10 @@ const (
 	bodyReadCap   = 15 * time.Minute
 )
 
-// BodyReadBudget is the time a body of length bytes gets to arrive. An
+// bodyReadBudget is the time a body of length bytes gets to arrive. An
 // empty length gets the base; the clamping of a declared length and the
 // treatment of an undeclared one happen in bodyBudgetFor.
-func BodyReadBudget(length int64) time.Duration {
+func bodyReadBudget(length int64) time.Duration {
 	if length <= 0 {
 		return bodyReadBase
 	}
@@ -93,7 +93,7 @@ func bodyBudgetFor(maxBody int64) func(contentLength int64) time.Duration {
 		if contentLength < 0 || contentLength > maxBody {
 			contentLength = maxBody
 		}
-		return BodyReadBudget(contentLength)
+		return bodyReadBudget(contentLength)
 	}
 }
 

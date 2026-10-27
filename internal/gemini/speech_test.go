@@ -44,8 +44,8 @@ func TestTranslateSpeechRequest(t *testing.T) {
 
 func TestSpeechVoice(t *testing.T) {
 	for in, want := range map[string]string{"": "Kore", "alloy": "Kore", "Shimmer": "Zephyr", "onyx": "Charon", "Puck": "Puck", "Sulafat": "Sulafat"} {
-		if got := SpeechVoice(in); got != want {
-			t.Errorf("SpeechVoice(%q) = %q, want %q", in, got, want)
+		if got := speechVoice(in); got != want {
+			t.Errorf("speechVoice(%q) = %q, want %q", in, got, want)
 		}
 	}
 }

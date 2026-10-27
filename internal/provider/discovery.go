@@ -50,14 +50,12 @@ func NewDiscoveryService(dialCtx func(ctx context.Context, network, addr string)
 	if checkRedirect != nil {
 		client.CheckRedirect = checkRedirect
 	}
-	return &DiscoveryService{
-		httpClient:     client,
-		retryBaseDelay: 3 * time.Second,
-	}
+	return NewDiscoveryServiceWithHTTPClient(client)
 }
 
-// NewDiscoveryServiceWithHTTPClient creates a discovery service with a custom
-// HTTP client. This is intended for tests that need to inject a mock transport.
+// NewDiscoveryServiceWithHTTPClient creates a discovery service that sends
+// every request through client. NewDiscoveryService builds its client and
+// delegates here; tests pass one with a mock transport.
 func NewDiscoveryServiceWithHTTPClient(client *http.Client) *DiscoveryService {
 	return &DiscoveryService{
 		httpClient:     client,

@@ -40,15 +40,15 @@ func TestBodyReadBudget(t *testing.T) {
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			if got := BodyReadBudget(tc.cl); got != tc.want {
-				t.Fatalf("BodyReadBudget(%d) = %v, want %v", tc.cl, got, tc.want)
+			if got := bodyReadBudget(tc.cl); got != tc.want {
+				t.Fatalf("bodyReadBudget(%d) = %v, want %v", tc.cl, got, tc.want)
 			}
 		})
 	}
 	// The largest legitimate body must fit under the cap at the floor rate,
 	// or the cap would reject a slow but honest restore.
-	if BodyReadBudget(100<<20) >= bodyReadCap {
-		t.Fatalf("a 100 MiB restore at the floor rate (%v) must sit below the cap (%v)", BodyReadBudget(100<<20), bodyReadCap)
+	if bodyReadBudget(100<<20) >= bodyReadCap {
+		t.Fatalf("a 100 MiB restore at the floor rate (%v) must sit below the cap (%v)", bodyReadBudget(100<<20), bodyReadCap)
 	}
 }
 
@@ -63,11 +63,11 @@ func TestBodyBudgetForListener(t *testing.T) {
 		cl   int64
 		want time.Duration
 	}{
-		{"chunked earns the largest accepted body", -1, BodyReadBudget(maxBody)},
+		{"chunked earns the largest accepted body", -1, bodyReadBudget(maxBody)},
 		{"empty", 0, bodyReadBase},
-		{"within the ceiling is itself", 1 << 20, BodyReadBudget(1 << 20)},
-		{"the ceiling exactly", maxBody, BodyReadBudget(maxBody)},
-		{"past the ceiling earns nothing more", 10 << 30, BodyReadBudget(maxBody)},
+		{"within the ceiling is itself", 1 << 20, bodyReadBudget(1 << 20)},
+		{"the ceiling exactly", maxBody, bodyReadBudget(maxBody)},
+		{"past the ceiling earns nothing more", 10 << 30, bodyReadBudget(maxBody)},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
@@ -83,7 +83,7 @@ func TestBodyBudgetForListener(t *testing.T) {
 	}
 	// A listener built with no ceiling still budgets an undeclared body as a
 	// JSON body, never as the bare base.
-	if got, want := bodyBudgetFor(0)(-1), BodyReadBudget(MaxJSONBody); got != want {
+	if got, want := bodyBudgetFor(0)(-1), bodyReadBudget(MaxJSONBody); got != want {
 		t.Fatalf("chunked budget with no ceiling = %v, want the JSON ceiling's %v", got, want)
 	}
 }
@@ -120,17 +120,17 @@ func TestNewServerPosture(t *testing.T) {
 	if bd.next != (teapot{}) {
 		t.Fatalf("wrapped handler is %T, want the one given", bd.next)
 	}
-	if got, want := bd.budget(-1), BodyReadBudget(50<<20); got != want {
+	if got, want := bd.budget(-1), bodyReadBudget(50<<20); got != want {
 		t.Fatalf("chunked budget = %v, want the 50 MiB ceiling's %v", got, want)
 	}
 	// And a declared length inside the ceiling earns its own time, not the
 	// ceiling's: the clamp must be a clamp, not a constant.
-	if got, want := bd.budget(1<<20), BodyReadBudget(1<<20); got != want {
+	if got, want := bd.budget(1<<20), bodyReadBudget(1<<20); got != want {
 		t.Fatalf("1 MiB budget = %v, want %v", got, want)
 	}
 	// And a length past the ceiling earns the ceiling's time, not its own:
 	// the upper clamp is what keeps a hostile length off the cap.
-	if got, want := bd.budget(1<<40), BodyReadBudget(50<<20); got != want {
+	if got, want := bd.budget(1<<40), bodyReadBudget(50<<20); got != want {
 		t.Fatalf("1 TiB budget = %v, want the 50 MiB ceiling's %v", got, want)
 	}
 	rec := httptest.NewRecorder()

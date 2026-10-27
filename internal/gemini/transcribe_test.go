@@ -91,7 +91,7 @@ func TestAudioMimeType(t *testing.T) {
 		{"clip.txt", "text/plain", "text/plain", false},
 	}
 	for _, tc := range cases {
-		if got, ok := AudioMimeType(tc.name, tc.contentType); got != tc.want || ok != tc.ok {
+		if got, ok := audioMimeType(tc.name, tc.contentType); got != tc.want || ok != tc.ok {
 			t.Errorf("%s %q: got %q %v, want %q %v", tc.name, tc.contentType, got, ok, tc.want, tc.ok)
 		}
 	}

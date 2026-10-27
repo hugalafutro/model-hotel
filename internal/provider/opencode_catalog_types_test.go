@@ -9,46 +9,6 @@ import (
 	"github.com/hugalafutro/model-hotel/internal/model"
 )
 
-func TestLookupOpenCodeCatalog(t *testing.T) {
-	catalog := []OpenCodeModelSpec{
-		{ModelID: "gpt-4", DisplayName: "GPT-4"},
-		{ModelID: "claude-3", DisplayName: "Claude 3"},
-	}
-	tests := []struct {
-		name    string
-		modelID string
-		want    string // DisplayName of found model, or "" if nil
-		isNil   bool
-	}{
-		{"found gpt-4", "gpt-4", "GPT-4", false},
-		{"found claude-3", "claude-3", "Claude 3", false},
-		{"not found", "gemini-pro", "", true},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			got := LookupOpenCodeCatalog(catalog, tt.modelID)
-			if tt.isNil {
-				if got != nil {
-					t.Errorf("LookupOpenCodeCatalog() = %v, want nil", got)
-				}
-			} else {
-				if got == nil {
-					t.Errorf("LookupOpenCodeCatalog() = nil, want non-nil")
-				} else if got.DisplayName != tt.want {
-					t.Errorf("LookupOpenCodeCatalog().DisplayName = %q, want %q", got.DisplayName, tt.want)
-				}
-			}
-		})
-	}
-}
-
-func TestLookupOpenCodeCatalogEmpty(t *testing.T) {
-	got := LookupOpenCodeCatalog(nil, "anything")
-	if got != nil {
-		t.Errorf("LookupOpenCodeCatalog(nil, ...) = %v, want nil", got)
-	}
-}
-
 func TestOpenCodeCatalogToModel(t *testing.T) {
 	pid := uuid.MustParse("00000000-0000-0000-0000-000000000001")
 	spec := &OpenCodeModelSpec{

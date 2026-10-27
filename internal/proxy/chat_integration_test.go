@@ -1337,7 +1337,7 @@ func TestChatCompletions_NonJSONErrorBody(t *testing.T) {
 		failoverRepo:   failoverRepo,
 		modelRepo:      modelRepo,
 		providerRepo:   providerRepo,
-		virtualKeyRepo: WrapVirtualKeyRepo(virtualKeyRepo),
+		virtualKeyRepo: &virtualKeyRepoAdapter{repo: virtualKeyRepo},
 		circuitBreaker: failover.NewCircuitBreaker(settingsRepo),
 		dbPool:         pool,
 		upstreamTransport: &http.Transport{

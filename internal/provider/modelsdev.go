@@ -131,15 +131,6 @@ func GetModelsDevCache() *ModelsDevCache {
 	return modelsDevCache
 }
 
-// ResetModelsDevCache clears the models.dev cache. For use in tests only.
-func ResetModelsDevCache() {
-	modelsDevCache.mu.Lock()
-	modelsDevCache.loaded = false
-	modelsDevCache.byID = nil
-	modelsDevCache.byProvider = nil
-	modelsDevCache.mu.Unlock()
-}
-
 func (c *ModelsDevCache) load(ctx context.Context, client *http.Client) error {
 	req, err := http.NewRequestWithContext(ctx, "GET", modelsDevAPIURL, http.NoBody)
 	if err != nil {

@@ -12,6 +12,11 @@ import (
 	"github.com/hugalafutro/model-hotel/internal/model"
 )
 
+// lookupOpenCodeCatalog finds a spec by model ID in a catalog slice, or nil.
+func lookupOpenCodeCatalog(catalog []OpenCodeModelSpec, modelID string) *OpenCodeModelSpec {
+	return lookupByModelID(catalog, modelID, func(e *OpenCodeModelSpec) string { return e.ModelID })
+}
+
 func TestOpenAIDiscoveryHybrid(t *testing.T) {
 	catalog := GetOpenAIModels()
 	if len(catalog) == 0 {
@@ -22,12 +27,12 @@ func TestOpenAIDiscoveryHybrid(t *testing.T) {
 
 	// Verify lookup works
 	for _, spec := range catalog {
-		found := LookupOpenCodeCatalog(catalog, spec.ModelID)
+		found := lookupOpenCodeCatalog(catalog, spec.ModelID)
 		if found == nil {
-			t.Errorf("LookupOpenCodeCatalog failed for %s", spec.ModelID)
+			t.Errorf("lookupOpenCodeCatalog failed for %s", spec.ModelID)
 		}
 		if found != nil && found.DisplayName != spec.DisplayName {
-			t.Errorf("LookupOpenCodeCatalog returned wrong spec for %s: got %s, want %s", spec.ModelID, found.DisplayName, spec.DisplayName)
+			t.Errorf("lookupOpenCodeCatalog returned wrong spec for %s: got %s, want %s", spec.ModelID, found.DisplayName, spec.DisplayName)
 		}
 	}
 
@@ -45,7 +50,7 @@ func TestOpenAIDiscoveryHybrid(t *testing.T) {
 
 	result := make([]*model.Model, 0, len(apiModels))
 	for _, m := range apiModels {
-		if spec := LookupOpenCodeCatalog(catalog, m.ID); spec != nil {
+		if spec := lookupOpenCodeCatalog(catalog, m.ID); spec != nil {
 			result = append(result, OpenCodeCatalogToModel(spec, uuid.UUID{}, m.OwnedBy))
 		} else {
 			result = append(result, liveModelStub(m.ID, m.OwnedBy, uuid.UUID{}))

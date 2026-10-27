@@ -123,8 +123,8 @@ func TestDiscoverOpenCodeZen_KeylessKeepsTheFreeModels(t *testing.T) {
 // from a paid one, so it surfaces nothing rather than a model a keyless caller
 // cannot use.
 func TestDiscoverOpenCodeZen_KeylessWithoutModelsDevKeepsNothing(t *testing.T) {
-	t.Cleanup(ResetModelsDevCache)
-	ResetModelsDevCache()
+	t.Cleanup(resetModelsDevCache)
+	resetModelsDevCache()
 	server, _ := zenListing(t, "big-pickle")
 	provider := &Provider{ID: uuid.New(), BaseURL: server.URL}
 

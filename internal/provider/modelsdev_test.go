@@ -85,62 +85,14 @@ func TestLoadModelsDev_CancelledContext(t *testing.T) {
 	}
 }
 
-// ---------------------------------------------------------------------------
-// ResetModelsDevCache
-// ---------------------------------------------------------------------------
-
-func TestResetModelsDevCache(t *testing.T) {
-	// Set up a mock server with valid models.dev data
-	mockServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path == "/api.json" {
-			w.Header().Set("Content-Type", "application/json")
-			_, _ = w.Write([]byte(`{"test-provider":{"id":"test","name":"Test","api":"openai","models":{"test-model":{"id":"test-model","name":"Test Model","attachment":false,"reasoning":false,"tool_call":false,"modalities":{"input":["text"],"output":["text"]},"open_weights":false,"cost":{"input":0,"output":0},"limit":{"context":1000,"output":100}}}}}`))
-			return
-		}
-		http.NotFound(w, r)
-	}))
-	defer mockServer.Close()
-
-	// Redirect modelsDevAPIURL to mock server via URL rewriting
-	baseTransport := mockServer.Client().Transport
-	client := mockServer.Client()
-	client.Transport = &mockTransport{roundTripFunc: func(req *http.Request) (*http.Response, error) {
-		req.URL.Scheme = "http"
-		req.URL.Host = mockServer.Listener.Addr().String()
-		req.URL.Path = "/api.json"
-		return baseTransport.RoundTrip(req)
-	}}
-
-	// Load the cache with data
-	ctx := context.Background()
-	err := LoadModelsDevWithClient(ctx, client)
-	if err != nil {
-		t.Fatalf("failed to load models.dev cache: %v", err)
-	}
-
-	// Verify cache has data
-	cache := GetModelsDevCache()
-	if cache == nil {
-		t.Fatal("expected cache to be loaded before reset")
-		return
-	}
-
-	cache.mu.RLock()
-	hasData := cache.loaded && len(cache.byID) > 0
-	cache.mu.RUnlock()
-
-	if !hasData {
-		t.Fatal("expected cache to have data before reset")
-	}
-
-	// Reset the cache
-	ResetModelsDevCache()
-
-	// Verify cache is now nil
-	cache = GetModelsDevCache()
-	if cache != nil {
-		t.Error("expected cache to be nil after reset")
-	}
+// resetModelsDevCache returns the process-wide models.dev cache to its
+// unloaded state, so a test that filled it leaves nothing behind.
+func resetModelsDevCache() {
+	modelsDevCache.mu.Lock()
+	modelsDevCache.loaded = false
+	modelsDevCache.byID = nil
+	modelsDevCache.byProvider = nil
+	modelsDevCache.mu.Unlock()
 }
 
 // ---------------------------------------------------------------------------
@@ -158,7 +110,7 @@ func TestModelsDevInterleaved_UnmarshalJSON_InvalidJSON(t *testing.T) {
 // Helper to set up cache with specific test data
 func setupCacheWithModels(t *testing.T, models map[string]*ModelsDevModelSpec) {
 	t.Helper()
-	t.Cleanup(func() { ResetModelsDevCache() })
+	t.Cleanup(func() { resetModelsDevCache() })
 	modelsDevCache.mu.Lock()
 	defer modelsDevCache.mu.Unlock()
 	modelsDevCache.byID = models
@@ -642,7 +594,7 @@ func TestLookupFuzzy_VersionSuffixSixDigits(t *testing.T) {
 // indexes are built exactly as production builds them.
 func loadCacheFromJSON(t *testing.T, payload string) *ModelsDevCache {
 	t.Helper()
-	t.Cleanup(func() { ResetModelsDevCache() })
+	t.Cleanup(func() { resetModelsDevCache() })
 
 	mockServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set("Content-Type", "application/json")

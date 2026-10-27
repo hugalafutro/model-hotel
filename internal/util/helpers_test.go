@@ -10,11 +10,11 @@ import (
 )
 
 func TestMillisSinceAndMs(t *testing.T) {
-	if got := Ms(1500 * time.Microsecond); got != 1.5 {
-		t.Errorf("Ms(1500us) = %v, want 1.5", got)
+	if got := ms(1500 * time.Microsecond); got != 1.5 {
+		t.Errorf("ms(1500us) = %v, want 1.5", got)
 	}
-	if got := Ms(0); got != 0 {
-		t.Errorf("Ms(0) = %v, want 0", got)
+	if got := ms(0); got != 0 {
+		t.Errorf("ms(0) = %v, want 0", got)
 	}
 	start := time.Now().Add(-2 * time.Millisecond)
 	if got := MillisSince(start); got < 2 {
