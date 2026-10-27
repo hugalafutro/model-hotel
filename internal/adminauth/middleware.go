@@ -147,9 +147,10 @@ func adminCookieSession(r *http.Request, sessionMgr *webauthn.SessionManager, ja
 }
 
 // sessionAuth validates a session token, sliding it when the request is the
-// person's own use and merely verifying it for a server-driven re-check. It is
-// exported so the dashboard's own auth middleware resolves a session exactly the
-// way this package's gate does.
+// person's own use and merely verifying it for a server-driven re-check. Both
+// gates in this package (cookie and bearer) resolve sessions through it; the
+// dashboard middleware in internal/api (admin.go) mirrors the same
+// Authenticate-versus-Verify branch by hand, so keep the two in step.
 func sessionAuth(r *http.Request, sessionMgr *webauthn.SessionManager, token string, use bool) (webauthn.AuthResult, bool) {
 	if use {
 		return sessionMgr.Authenticate(r.Context(), token)
