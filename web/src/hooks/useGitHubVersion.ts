@@ -1,5 +1,6 @@
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import { api } from "../api/client";
+import { readJSON, useLocalStorage } from "./useLocalStorage";
 import { useSettingsQuery } from "./useSettingsQuery";
 
 const STORAGE_KEY = "github-latest-version";
@@ -9,6 +10,11 @@ interface CachedVersion {
 	tag: string;
 	timestamp: number;
 }
+
+const cacheStorage = {
+	serialize: (v: CachedVersion | null) => JSON.stringify(v),
+	deserialize: (stored: string): CachedVersion | null => JSON.parse(stored),
+};
 
 export interface VersionInfo {
 	/** Latest release tag from GitHub (e.g. "v1.2.3") */
@@ -67,18 +73,12 @@ function compareSemverTags(latest: string, running: string): boolean {
  * GitHub release tag with localStorage caching.
  */
 export function useGitHubVersion(): VersionInfo {
-	const [latest, setLatest] = useState<string>(() => {
-		try {
-			const raw = localStorage.getItem(STORAGE_KEY);
-			if (raw) {
-				const cached: CachedVersion = JSON.parse(raw);
-				return cached.tag;
-			}
-		} catch {
-			/* ignore */
-		}
-		return "GitHub";
-	});
+	const [cached, setCached] = useLocalStorage<CachedVersion | null>(
+		STORAGE_KEY,
+		null,
+		cacheStorage,
+	);
+	const latest = cached?.tag ?? "GitHub";
 
 	// The running version rides on the shared settings query, so the sidebar and
 	// the settings screen issue one GET between them and a settings write
@@ -93,34 +93,16 @@ export function useGitHubVersion(): VersionInfo {
 
 	// Fetch latest GitHub release via backend proxy
 	useEffect(() => {
-		// Check if cache is still fresh
-		try {
-			const raw = localStorage.getItem(STORAGE_KEY);
-			if (raw) {
-				const cached: CachedVersion = JSON.parse(raw);
-				if (Date.now() - cached.timestamp < CACHE_TTL) {
-					return; // cache is fresh, skip fetch
-				}
-			}
-		} catch {
-			/* ignore, proceed to fetch */
-		}
+		// A fresh cache skips the fetch.
+		const stored = readJSON<CachedVersion>(STORAGE_KEY);
+		if (stored && Date.now() - stored.timestamp < CACHE_TTL) return;
 
 		const controller = new AbortController();
 		api.version
 			.getLatest({ signal: controller.signal })
 			.then((data) => {
 				if (data.tag_name) {
-					const cached: CachedVersion = {
-						tag: data.tag_name,
-						timestamp: Date.now(),
-					};
-					try {
-						localStorage.setItem(STORAGE_KEY, JSON.stringify(cached));
-					} catch {
-						/* quota exceeded */
-					}
-					setLatest(data.tag_name);
+					setCached({ tag: data.tag_name, timestamp: Date.now() });
 				}
 			})
 			.catch(() => {
@@ -129,7 +111,7 @@ export function useGitHubVersion(): VersionInfo {
 		return () => {
 			controller.abort();
 		};
-	}, []);
+	}, [setCached]);
 
 	const isDev = isDevVersion(running);
 	const updateAvailable =
