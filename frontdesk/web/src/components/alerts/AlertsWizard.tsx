@@ -1,12 +1,10 @@
 import { ntfyServerOf } from "@web-shared/alerts/composers";
-import { parseCsv } from "@web-shared/alerts/events";
 import {
 	type Action,
 	canNext,
-	DEFAULT_APPRISE_URL,
-	EMPTY_DRAFT,
 	reducer,
 	type Step,
+	initialState as seedState,
 	TOTAL_STEPS,
 	type WizardState,
 } from "@web-shared/alerts/wizardState";
@@ -60,39 +58,11 @@ export interface AlertsWizardProps {
 
 // eslint-disable-next-line react-refresh/only-export-components -- wizard state logic exported for its tests beside the component
 export function initialState(p: AlertsWizardProps): WizardState {
-	// "Add destination" only makes sense against a configured apprise-api; without
-	// one the run starts at step 1 whatever the caller asked for.
-	const start: Step = p.startAt === 2 && p.initialApiUrl !== "" ? 2 : 1;
 	// Front Desk stores a non-empty CSV for every selection it has ever been
 	// given, so a blank one on an "Add destination" run is the operator having
 	// deliberately turned every event off. Re-ticking the preset behind their back
 	// would silently undo that, so the preset is only the seed for a setup run.
-	const events =
-		p.startAt === 1 && p.savedEvents.trim() === ""
-			? new Set(p.catalog.filter((e) => e.defaultOn).map((e) => e.type))
-			: parseCsv(p.savedEvents);
-	return {
-		step: start,
-		minStep: start,
-		listSeen: false,
-		apiUrl: p.initialApiUrl || DEFAULT_APPRISE_URL,
-		probedUrl: "",
-		apiStatus: null,
-		apiChecking: false,
-		draft: EMPTY_DRAFT,
-		added: [],
-		saved: p.savedTargets,
-		events,
-		testing: false,
-		testError: "",
-		testOk: false,
-		finishing: false,
-		finishError: "",
-		done: false,
-		finalStatus: null,
-		sendingAll: false,
-		sentAll: "none",
-	};
+	return seedState(p, p.startAt === 1 && p.savedEvents.trim() === "");
 }
 
 export function AlertsWizard(props: AlertsWizardProps) {
