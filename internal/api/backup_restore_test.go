@@ -1643,6 +1643,7 @@ func TestRestoreBackup_Success_Integration(t *testing.T) {
 	if err != nil {
 		t.Fatalf("migrate restore database: %v", err)
 	}
+	t.Cleanup(restoreDB.Close) // a failure before the explicit close below must not leak the pool
 	providerID := dbtest.InsertTestProvider(ctx, t, restoreDB.Pool(), "restored-provider")
 	dir := t.TempDir()
 	dumpPath := filepath.Join(dir, "restore.dump")

@@ -28,7 +28,7 @@ clean:
 
 # pg_dump/pg_restore must match the test server's major (scripts/pg-tools-path).
 test:
-	PATH="$$(scripts/pg-tools-path):$$PATH" go test -v ./...
+	pgtools="$$(scripts/pg-tools-path)" && [ -n "$$pgtools" ] && PATH="$$pgtools:$$PATH" go test -v ./...
 
 # Same packages as `test`, split across concurrent processes: internal/api is one
 # binary of ~1600 sequential tests and sets the wall clock for the whole tree on

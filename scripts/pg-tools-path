@@ -26,9 +26,11 @@ server_major="$(printf '%s' "$image" | sed -E 's/^postgres:([0-9]+).*/\1/')"
 host_major="$( (pg_restore --version 2>/dev/null || true) | sed -nE 's/.*\) ([0-9]+)\..*/\1/p')"
 
 if [ -n "$server_major" ] && [ "$host_major" != "$server_major" ] && command -v docker >/dev/null 2>&1; then
+	# Mount arguments are shell-quoted into the shim, so a TMPDIR with spaces
+	# stays one argument.
 	mounts="-v /tmp:/tmp"
 	if [ -n "${TMPDIR:-}" ] && [ "$TMPDIR" != "/tmp" ]; then
-		mounts="$mounts -v $TMPDIR:$TMPDIR"
+		mounts="$mounts -v $(printf '%q' "$TMPDIR:$TMPDIR")"
 	fi
 	for tool in pg_dump pg_restore; do
 		cat >"$DIR/$tool" <<SHIM
