@@ -41,6 +41,9 @@ func TestCapture_RecordsAndRestores(t *testing.T) {
 		if !h.Has("other") || h.Has("absent") {
 			t.Error("Has must track exactly the captured messages")
 		}
+		if r, ok := h.Latest(); !ok || r.Msg != "first" || r.Attrs["n"] != int64(2) {
+			t.Errorf("Latest() = %+v, %v; want the last record logged", r, ok)
+		}
 		if got := len(h.Records()); got != 3 {
 			t.Errorf("Records() has %d entries, want 3", got)
 		}

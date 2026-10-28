@@ -19,14 +19,10 @@ import (
 	"github.com/hugalafutro/model-hotel/internal/logtest"
 )
 
-// lastRecord returns the most recent captured record, or the zero Record when
-// nothing was logged.
+// lastRecord is the most recent captured record, zero when nothing was logged.
 func lastRecord(h *logtest.Handler) logtest.Record {
-	recs := h.Records()
-	if len(recs) == 0 {
-		return logtest.Record{}
-	}
-	return recs[len(recs)-1]
+	r, _ := h.Latest()
+	return r
 }
 
 // errWriter fails every write, so the JSON encoder inside the write helpers

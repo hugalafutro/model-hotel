@@ -68,6 +68,15 @@ func (h *Handler) Records() []Record {
 	return append([]Record(nil), h.records...)
 }
 
+// Latest returns the most recent record of any message.
+func (h *Handler) Latest() (Record, bool) {
+	recs := h.Records()
+	if len(recs) == 0 {
+		return Record{}, false
+	}
+	return recs[len(recs)-1], true
+}
+
 // Find returns the first record carrying msg.
 func (h *Handler) Find(msg string) (Record, bool) {
 	for _, r := range h.Records() {
