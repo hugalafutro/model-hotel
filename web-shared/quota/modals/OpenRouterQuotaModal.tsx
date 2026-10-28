@@ -19,6 +19,7 @@ export function OpenRouterQuotaModal({
 	// The `limit > 0` guard avoids a division by zero.
 	const limitPctUsed =
 		limit != null && limit > 0 ? 100 - (limitRemaining / limit) * 100 : 0;
+	const limitReset = resetSublabel(payload.limit_reset || null, t, time);
 
 	return shell({
 		title: t("openRouterCredits", { provider: providerName }),
@@ -50,21 +51,27 @@ export function OpenRouterQuotaModal({
 					</QuotaDetailGrid>
 				)}
 
+				{/* A zero limit blocks all spending: an empty amber bar in both
+				    modes, never the full healthy one 0% used would derive. */}
 				{limit != null && (
 					<QuotaBar
 						label={t("keySpendingLimit")}
 						rightText={`${formatDollars(limitRemaining)} ${t("remaining")}`}
 						percentage={limitPctUsed}
+						{...(limit > 0
+							? {}
+							: { remainingPercentage: 0, tone: "warn" as const })}
 						barMode={barMode}
 						testId="or-limit-bar"
 						fillTestId="or-limit-fill"
 					>
 						{limit > 0 ? (
-							<span data-testid="or-limit-reset">
-								{resetSublabel(payload.limit_reset || null, t, time)}
-							</span>
+							<span data-testid="or-limit-reset">{limitReset}</span>
 						) : (
-							<span data-testid="or-limit-reached">{t("limitReset")}</span>
+							<span data-testid="or-limit-reached">
+								{`${formatDollars(0)} ${t("limitReset")}`}
+								{limitReset !== "-" && ` · ${limitReset}`}
+							</span>
 						)}
 					</QuotaBar>
 				)}

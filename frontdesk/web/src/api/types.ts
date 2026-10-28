@@ -419,13 +419,10 @@ export interface QuotaRefreshResult {
 	skipped: number;
 }
 
-// ── Kimi Code + MiniMax + OpenCode Go quota ─────────────────────
-// Declared in web-shared/quota, the parser both Front Desk and the Model Hotel
-// dashboard use for these payloads, and re-exported here so app code imports
-// every API type from one place.
-
-// The balance-style payloads the shared quota modals render, declared beside
-// them in web-shared/quota.
+// ── Provider quota payloads ─────────────────────────────────────
+// Declared in web-shared/quota, which both Front Desk and the Model Hotel
+// dashboard parse and render these payloads with, and re-exported here so app
+// code imports every API type from one place.
 export type {
 	KimiCodeQuotaLimitEntry,
 	KimiCodeQuotaResponse,

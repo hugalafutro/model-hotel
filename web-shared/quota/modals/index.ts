@@ -6,7 +6,6 @@ export { KimiCodeQuotaModal } from "./KimiCodeQuotaModal";
 export {
 	type QuotaBodyProps,
 	type QuotaModalKit,
-	type QuotaShellProps,
 	quotaRightText,
 	resetSublabel,
 	resetSublabelFromEpoch,

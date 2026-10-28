@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 import { clamp } from "../../format";
-import { barTone, type QuotaBarMode } from "../display";
+import { barTone, type QuotaBarMode, type QuotaBarTone } from "../display";
 
 export interface QuotaBarProps {
 	/** Already-translated label for the left of the header row. */
@@ -21,6 +21,8 @@ export interface QuotaBarProps {
 	 */
 	remainingPercentage?: number;
 	barMode: QuotaBarMode;
+	/** Overrides the tone the fill would take from its percentage. */
+	tone?: QuotaBarTone;
 	testId?: string;
 	fillTestId?: string;
 	/** Sublabel rendered under the bar. */
@@ -36,6 +38,7 @@ export function QuotaBar({
 	percentage,
 	remainingPercentage = 100 - percentage,
 	barMode,
+	tone: toneOverride,
 	testId,
 	fillTestId,
 	children,
@@ -45,7 +48,7 @@ export function QuotaBar({
 	// Bounded both ways: a window consumed past its cap reads as a full bar in
 	// used mode and an empty one in remaining mode, not a negative width.
 	const width = clamp(barMode === "used" ? used : 100 - used, 0, 100);
-	const tone = barTone(used, barMode);
+	const tone = toneOverride ?? barTone(used, barMode);
 
 	return (
 		<div className="ui-quota-bar-block">

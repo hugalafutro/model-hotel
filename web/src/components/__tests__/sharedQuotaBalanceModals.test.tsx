@@ -1,4 +1,5 @@
 import { render, screen } from "@testing-library/react";
+import { formatCount, formatDollars } from "@web-shared/format";
 import type {
 	NanoGPTUsage,
 	NeuralWattQuotaResponse,
@@ -422,6 +423,33 @@ describe("OpenRouterQuotaModal", () => {
 		expect(decemberText).not.toBe(augustText);
 	});
 
+	it("draws a zero limit as an empty warning bar in both modes, dated by its reset", () => {
+		// 0% used would otherwise derive a full, healthy bar in remaining mode
+		// under a sublabel saying spending is blocked.
+		for (const barMode of ["used", "remaining"] as const) {
+			const { unmount } = render(
+				<OpenRouterQuotaModal
+					{...chrome}
+					payload={{ ...payload, limit: 0 }}
+					barMode={barMode}
+				/>,
+			);
+			const fill = screen.getByTestId("or-limit-fill");
+			expect(fill).toHaveStyle({ width: "0%" });
+			expect(fill).toHaveClass("ui-quota-fill-warn");
+			const reached = screen.getByTestId("or-limit-reached");
+			expect(reached).toHaveTextContent(
+				`${formatDollars(0)} ${i18n.t("components.providerModals.limitReset")}`,
+			);
+			expect(reached).toHaveTextContent(
+				i18n.t("components.providerModals.resets", {
+					when: `at ${payload.limit_reset}`,
+				}),
+			);
+			unmount();
+		}
+	});
+
 	it("shows the limit-reached sublabel testid for a zero-value limit", () => {
 		render(
 			<OpenRouterQuotaModal
@@ -759,5 +787,95 @@ describe("NeuralWattQuotaModal", () => {
 		);
 		expect(screen.getByTestId("nw-allowance")).toHaveTextContent("$40.00");
 		expect(screen.queryByTestId("nw-overage-limit")).toBeNull();
+	});
+
+	// A block that is present but missing fields: each figure needs its own
+	// numbers, or its formatter would throw and take the modal down.
+	it("renders a limits block that reports only its tier", () => {
+		render(
+			<NeuralWattQuotaModal
+				{...chrome}
+				payload={{
+					balance: payload.balance,
+					limits: { rate_limit_tier: "standard" },
+				}}
+				barMode="used"
+			/>,
+		);
+		expect(screen.getByTestId("nw-rate-limit-tier")).toHaveTextContent(
+			"standard",
+		);
+		expect(screen.queryByTestId("nw-overage-limit")).toBeNull();
+	});
+
+	it("leaves out a key block that reports no allowance", () => {
+		render(
+			<NeuralWattQuotaModal
+				{...chrome}
+				payload={{ balance: payload.balance, key: { name: "k" } }}
+				barMode="used"
+			/>,
+		);
+		expect(screen.queryByTestId("nw-allowance")).toBeNull();
+		expect(document.querySelector(".ui-quota-detail-grid-3")).toBeNull();
+	});
+
+	it("summarises a usage period from the figures it reports, dropping an empty one", () => {
+		render(
+			<NeuralWattQuotaModal
+				{...chrome}
+				payload={{
+					balance: payload.balance,
+					usage: { current_month: { requests: 1234 }, lifetime: {} },
+				}}
+				barMode="used"
+			/>,
+		);
+		const row = screen.getByTestId("nw-usage-current");
+		expect(row).toHaveTextContent(formatCount(1234));
+		expect(row).not.toHaveTextContent("kWh");
+		expect(row).not.toHaveTextContent("·");
+		expect(screen.queryByTestId("nw-usage-lifetime")).toBeNull();
+	});
+
+	it("draws the energy bar from a subscription that reports only used and included kWh", () => {
+		const sparse: NeuralWattQuotaResponse = {
+			balance: payload.balance,
+			subscription: { kwh_included: 20, kwh_used: 5 },
+		};
+		const { unmount } = render(
+			<NeuralWattQuotaModal {...chrome} payload={sparse} barMode="remaining" />,
+		);
+		// No remaining figure came, so remaining mode falls back to the complement.
+		expect(screen.getByTestId("nw-kwh-fill")).toHaveStyle({ width: "75%" });
+		expect(screen.queryByTestId("nw-kwh-remaining")).toBeNull();
+		expect(screen.queryByTestId("nw-kwh-reset")).toBeNull();
+		expect(screen.queryByTestId("nw-status")).toBeNull();
+		expect(screen.queryByTestId("nw-auto-renew")).toBeNull();
+		unmount();
+
+		render(
+			<NeuralWattQuotaModal
+				{...chrome}
+				payload={{
+					balance: payload.balance,
+					subscription: { kwh_included: 20 },
+				}}
+				barMode="used"
+			/>,
+		);
+		expect(screen.queryByTestId("nw-kwh-fill")).toBeNull();
+	});
+
+	it("dates the energy bar's reset from the billing period end", () => {
+		render(
+			<NeuralWattQuotaModal {...chrome} payload={payload} barMode="used" />,
+		);
+		expect(screen.getByTestId("nw-kwh-reset")).toHaveTextContent(
+			i18n.t("components.providerModals.resets", {
+				when: `at ${subscription.current_period_end}`,
+			}),
+		);
+		expect(screen.getByTestId("nw-kwh-remaining")).toBeInTheDocument();
 	});
 });

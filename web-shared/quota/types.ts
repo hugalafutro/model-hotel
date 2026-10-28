@@ -268,10 +268,10 @@ export interface OpenRouterBalance {
 }
 
 export interface NeuralWattQuotaUsagePeriod {
-	cost_usd: number;
-	requests: number;
-	tokens: number;
-	energy_kwh: number;
+	cost_usd?: number | null;
+	requests?: number | null;
+	tokens?: number | null;
+	energy_kwh?: number | null;
 }
 
 /**
@@ -283,6 +283,8 @@ export interface NeuralWattQuotaUsagePeriod {
  * reachable without it. Every other block is optional: this is an upstream
  * provider's JSON forwarded through another machine's export, not a shape this
  * build controls, and a fleet primary on a different version may relay less.
+ * The same holds one level down: a block that is present can still be missing
+ * any of its fields, so each figure is rendered only when its own numbers are.
  * Optional is what makes the compiler, rather than an operator's crashed
  * dashboard, catch an unguarded nested read.
  */
@@ -298,18 +300,23 @@ export interface NeuralWattQuotaResponse {
 		lifetime?: NeuralWattQuotaUsagePeriod;
 		current_month?: NeuralWattQuotaUsagePeriod;
 	};
-	limits?: { overage_limit_usd: number | null; rate_limit_tier: string };
-	subscription?: {
-		plan: string;
-		status: string;
-		billing_interval: string;
-		current_period_start: string;
-		current_period_end: string;
-		auto_renew: boolean;
-		kwh_included: number;
-		kwh_used: number;
-		kwh_remaining: number;
-		in_overage: boolean;
+	limits?: {
+		/** null is "no overage limit"; absent is "not reported". */
+		overage_limit_usd?: number | null;
+		rate_limit_tier?: string;
 	};
-	key?: { name: string; allowance: number | null };
+	subscription?: {
+		plan?: string;
+		status?: string;
+		billing_interval?: string;
+		current_period_start?: string;
+		current_period_end?: string;
+		auto_renew?: boolean;
+		kwh_included?: number | null;
+		kwh_used?: number | null;
+		kwh_remaining?: number | null;
+		in_overage?: boolean;
+	};
+	/** allowance null is "unlimited"; absent is "not reported". */
+	key?: { name?: string; allowance?: number | null };
 }

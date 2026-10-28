@@ -1,6 +1,8 @@
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import * as Body from "@web-shared/quota/modals";
 import i18next from "i18next";
+import type { ComponentType } from "react";
 import { describe, expect, it, vi } from "vitest";
 import { OpenCodeGoQuotaModal } from "../modals";
 import { QuotaModalShell } from "../shared";
@@ -116,4 +118,220 @@ describe("quota modal bindings", () => {
 		await userEvent.click(screen.getByTestId("quota-modal-toggle"));
 		expect(onToggleBarMode).toHaveBeenCalledTimes(1);
 	});
+});
+
+// The shared bodies' own suites run against the dashboard's strings, so this is
+// what proves every key a body asks for also exists under Front Desk's
+// `quota.modal` prefix: a missing one would render as a raw key path here.
+describe("quota modal translation contract", () => {
+	const reset = "2026-08-01T00:00:00Z";
+	// Typed at `never` so one table can hold every body; each payload is cast
+	// back to it at render time.
+	const cases: [string, ComponentType<Body.QuotaBodyProps<never>>, unknown][] =
+		[
+			[
+				"Kimi Code",
+				Body.KimiCodeQuotaModal,
+				{
+					user: { membership: { level: "pro" } },
+					limits: [
+						{
+							window: { timeUnit: "TIME_UNIT_MINUTE", duration: 300 },
+							detail: { limit: "1000", remaining: "250", resetTime: reset },
+						},
+					],
+					usage: { limit: "5000", remaining: "4000", resetTime: reset },
+					parallel: { limit: "4" },
+					totalQuota: { limit: "9000", remaining: "8000" },
+				},
+			],
+			[
+				"MiniMax",
+				Body.MiniMaxQuotaModal,
+				{
+					base_resp: { status_code: 0, status_msg: "ok" },
+					model_remains: [
+						{
+							model_name: "general",
+							start_time: 0,
+							end_time: 18_000_000,
+							current_interval_status: 1,
+							current_interval_remaining_percent: 70,
+							remains_time: 3_600_000,
+							current_weekly_status: 1,
+							current_weekly_remaining_percent: 30,
+							weekly_remains_time: 86_400_000,
+						},
+						{
+							model_name: "video",
+							current_interval_status: 3,
+							current_interval_remaining_percent: 0,
+							remains_time: 0,
+							current_weekly_status: 3,
+							current_weekly_remaining_percent: 0,
+							weekly_remains_time: 0,
+						},
+					],
+				},
+			],
+			[
+				"NanoGPT",
+				Body.NanoGPTQuotaModal,
+				{
+					active: true,
+					provider: "nanogpt",
+					providerStatus: "active",
+					cancelAtPeriodEnd: true,
+					limits: {
+						weeklyInputTokens: 1000,
+						dailyInputTokens: null,
+						dailyImages: 50,
+					},
+					allowOverage: true,
+					period: { currentPeriodEnd: reset },
+					dailyImages: {
+						used: 10,
+						remaining: 40,
+						percentUsed: 0.2,
+						resetAt: 1_800_000_000_000,
+					},
+					dailyInputTokens: {
+						used: 50,
+						remaining: 150,
+						percentUsed: 0.25,
+						resetAt: 1_800_000_000_000,
+					},
+					weeklyInputTokens: {
+						used: 400,
+						remaining: 600,
+						percentUsed: 0.4,
+						resetAt: 1_800_000_000_000,
+					},
+				},
+			],
+			[
+				"NeuralWatt",
+				Body.NeuralWattQuotaModal,
+				{
+					balance: {
+						credits_remaining_usd: 30,
+						total_credits_usd: 30,
+						credits_used_usd: 0,
+						accounting_method: "",
+					},
+					usage: {
+						current_month: {
+							cost_usd: 1,
+							requests: 2,
+							tokens: 3,
+							energy_kwh: 4,
+						},
+						lifetime: { cost_usd: 5, requests: 6, tokens: 7, energy_kwh: 8 },
+					},
+					limits: { overage_limit_usd: null, rate_limit_tier: "standard" },
+					subscription: {
+						plan: "pro",
+						status: "active",
+						billing_interval: "month",
+						current_period_start: "2026-07-01T00:00:00Z",
+						current_period_end: reset,
+						auto_renew: false,
+						kwh_included: 20,
+						kwh_used: 20,
+						kwh_remaining: 0,
+						in_overage: true,
+					},
+					key: { name: "k", allowance: null },
+				},
+			],
+			[
+				"OpenCode Go",
+				Body.OpenCodeGoQuotaModal,
+				{
+					usage: {
+						rolling: { status: "ok", percent: 12, resetsAt: reset },
+						weekly: { status: "ok", percent: 34 },
+						monthly: { status: "exhausted", percent: 100 },
+					},
+				},
+			],
+			[
+				"OpenRouter",
+				Body.OpenRouterQuotaModal,
+				{
+					label: "k",
+					limit: 0,
+					limit_reset: reset,
+					limit_remaining: 0,
+					usage: 40,
+					usage_daily: 1,
+					usage_weekly: 5,
+					usage_monthly: 20,
+					credits_total: 0,
+					credits_used: 0,
+					credits_remaining: 0,
+					is_free_tier: true,
+				},
+			],
+			[
+				"Z.ai Coding",
+				Body.ZAICodingQuotaModal,
+				{
+					success: true,
+					data: {
+						level: "pro",
+						limits: [
+							{
+								type: "TOKENS_LIMIT",
+								unit: 3,
+								percentage: 40,
+								nextResetTime: 1_800_000_000_000,
+							},
+							{ type: "TOKENS_LIMIT", unit: 6, percentage: 10 },
+							{
+								type: "TIME_LIMIT",
+								unit: 5,
+								percentage: 25,
+								usageDetails: [{ modelCode: "glm-4", usage: 7 }],
+							},
+						],
+					},
+				},
+			],
+		];
+
+	it.each(cases)(
+		"%s asks only for keys Front Desk defines",
+		(_, QuotaBody, payload) => {
+			const asked: [string, Record<string, unknown> | undefined][] = [];
+			for (const barMode of ["used", "remaining"] as const) {
+				const { unmount } = render(
+					<QuotaBody
+						providerName="acct"
+						payload={payload as never}
+						barMode={barMode}
+						fetchedAt="2026-07-26T10:00:00Z"
+						kit={{
+							t: (key, opts) => {
+								asked.push([key, opts]);
+								return i18next.t(`quota.modal.${key}`, opts);
+							},
+							time: { absolute: (iso) => iso ?? "-", relative: () => "" },
+							shell: ({ title, children }) => (
+								<div role="dialog" aria-label={title}>
+									{children}
+								</div>
+							),
+						}}
+					/>,
+				);
+				unmount();
+			}
+			expect(asked.length).toBeGreaterThan(0);
+			const missing = asked
+				.filter(([key, opts]) => !i18next.exists(`quota.modal.${key}`, opts))
+				.map(([key]) => key);
+			expect(missing).toEqual([]);
+		},
+	);
 });

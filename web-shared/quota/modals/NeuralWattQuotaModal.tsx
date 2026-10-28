@@ -8,12 +8,23 @@ import type {
 	NeuralWattQuotaResponse,
 	NeuralWattQuotaUsagePeriod,
 } from "../types";
-import type { QuotaBodyProps } from "./labels";
+import { type QuotaBodyProps, resetSublabel } from "./labels";
 import { QuotaBar, QuotaDetailGrid, QuotaDetailItem } from "./primitives";
 
-/** "$cost · requests · tokens · kWh" for one usage period. */
-function periodSummary(p: NeuralWattQuotaUsagePeriod): string {
-	return `${formatDollars(p.cost_usd)} · ${formatCount(p.requests)} · ${formatTokens(p.tokens)} · ${formatKwh(p.energy_kwh)} kWh`;
+/**
+ * "$cost · requests · tokens · kWh" for one usage period, from whichever of the
+ * four figures the provider reported; empty when it reported none.
+ */
+function periodSummary(p: NeuralWattQuotaUsagePeriod | undefined): string {
+	if (!p) return "";
+	return [
+		p.cost_usd != null && formatDollars(p.cost_usd),
+		p.requests != null && formatCount(p.requests),
+		p.tokens != null && formatTokens(p.tokens),
+		p.energy_kwh != null && `${formatKwh(p.energy_kwh)} kWh`,
+	]
+		.filter(Boolean)
+		.join(" · ");
 }
 
 export function NeuralWattQuotaModal({
@@ -24,25 +35,35 @@ export function NeuralWattQuotaModal({
 }: QuotaBodyProps<NeuralWattQuotaResponse>) {
 	// Only `balance` is assured: the badge gate keys on it, everything else is
 	// whatever the provider put in a 200 (see NeuralWattQuotaResponse). Each
-	// block below therefore stands or falls on its own object, and a block whose
-	// object is missing is left out entirely rather than rendered as a row of
-	// dashes.
-	const { balance, subscription, usage, limits, key } = payload;
-	const currentMonth = usage?.current_month;
-	const lifetime = usage?.lifetime;
+	// figure below therefore stands or falls on its own fields, and one whose
+	// fields are missing is left out entirely rather than rendered as a dash
+	// (or, for a number, thrown on by its formatter).
+	const { balance, subscription, limits, key } = payload;
+	const currentMonth = periodSummary(payload.usage?.current_month);
+	const lifetime = periodSummary(payload.usage?.lifetime);
 
 	const kwhIncluded = subscription?.kwh_included ?? 0;
-	const hasKwh = kwhIncluded > 0;
+	const kwhUsed = subscription?.kwh_used;
+	const kwhRemaining = subscription?.kwh_remaining;
+	const periodStart = subscription?.current_period_start;
+	const periodEnd = subscription?.current_period_end;
+	// null and absent differ below: a null overage limit or allowance means
+	// "none"/"unlimited", an absent one was simply not reported.
+	const overageLimit = limits?.overage_limit_usd;
+	const tier = limits?.rate_limit_tier;
+	const allowance = key?.allowance;
+	const showLimits =
+		overageLimit !== undefined || !!tier || allowance !== undefined;
 
 	return shell({
 		title: t("neuralWattCredits", { provider: providerName }),
-		subtitle:
-			subscription &&
-			(subscription.in_overage ? (
-				<span data-testid="nw-status-overage">{t("neuralwattInOverage")}</span>
-			) : (
+		subtitle: subscription?.in_overage ? (
+			<span data-testid="nw-status-overage">{t("neuralwattInOverage")}</span>
+		) : (
+			subscription?.status && (
 				<span data-testid="nw-status">{subscription.status}</span>
-			)),
+			)
+		),
 		children: (
 			<>
 				{/* Just the number, no bar: NeuralWatt exposes no cumulative draw
@@ -61,22 +82,39 @@ export function NeuralWattQuotaModal({
 					/>
 				</QuotaDetailGrid>
 
-				{subscription && hasKwh && (
+				{kwhIncluded > 0 && kwhUsed != null && (
 					<QuotaBar
 						label={t("neuralwattEnergyQuota")}
-						rightText={`${formatKwh(subscription.kwh_used)} / ${formatKwh(kwhIncluded)} kWh`}
-						percentage={(subscription.kwh_used / kwhIncluded) * 100}
+						rightText={`${formatKwh(kwhUsed)} / ${formatKwh(kwhIncluded)} kWh`}
+						percentage={(kwhUsed / kwhIncluded) * 100}
 						// The provider reports used and remaining kWh separately and
 						// they do not always add up to the included amount, so the
-						// remaining bar reads its own figure rather than the complement.
+						// remaining bar reads its own figure rather than the complement
+						// (falling back to it only when no remaining figure came).
 						remainingPercentage={
-							(subscription.kwh_remaining / kwhIncluded) * 100
+							kwhRemaining != null
+								? (kwhRemaining / kwhIncluded) * 100
+								: undefined
 						}
 						barMode={barMode}
 						testId="nw-kwh-bar"
 						fillTestId="nw-kwh-fill"
 					>
-						{`${formatKwh(subscription.kwh_remaining)} kWh ${t("remaining")}`}
+						{(kwhRemaining != null || periodEnd) && (
+							<>
+								{kwhRemaining != null && (
+									<span data-testid="nw-kwh-remaining">
+										{`${formatKwh(kwhRemaining)} kWh ${t("remaining")}`}
+									</span>
+								)}
+								{kwhRemaining != null && periodEnd && "\n"}
+								{periodEnd && (
+									<span data-testid="nw-kwh-reset">
+										{resetSublabel(periodEnd, t, time)}
+									</span>
+								)}
+							</>
+						)}
 					</QuotaBar>
 				)}
 
@@ -90,24 +128,28 @@ export function NeuralWattQuotaModal({
 				)}
 
 				<QuotaDetailGrid columns={2}>
-					{subscription && (
-						<>
-							<QuotaDetailItem label={t("plan")} value={subscription.plan} />
-							<QuotaDetailItem
-								label={t("neuralwattBillingInterval")}
-								value={subscription.billing_interval}
-							/>
-							<QuotaDetailItem
-								label={t("neuralwattBillingPeriod")}
-								value={`${time.absolute(subscription.current_period_start)} - ${time.absolute(subscription.current_period_end)}`}
-								span
-							/>
-							<QuotaDetailItem
-								label={t("neuralwattAutoRenew")}
-								value={subscription.auto_renew ? t("yes") : t("no")}
-								testId="nw-auto-renew"
-							/>
-						</>
+					{subscription?.plan && (
+						<QuotaDetailItem label={t("plan")} value={subscription.plan} />
+					)}
+					{subscription?.billing_interval && (
+						<QuotaDetailItem
+							label={t("neuralwattBillingInterval")}
+							value={subscription.billing_interval}
+						/>
+					)}
+					{periodStart && periodEnd && (
+						<QuotaDetailItem
+							label={t("neuralwattBillingPeriod")}
+							value={`${time.absolute(periodStart)} - ${time.absolute(periodEnd)}`}
+							span
+						/>
+					)}
+					{subscription?.auto_renew != null && (
+						<QuotaDetailItem
+							label={t("neuralwattAutoRenew")}
+							value={subscription.auto_renew ? t("yes") : t("no")}
+							testId="nw-auto-renew"
+						/>
 					)}
 					<QuotaDetailItem
 						label={t("neuralwattAccountingMethod")}
@@ -121,44 +163,43 @@ export function NeuralWattQuotaModal({
 						{currentMonth && (
 							<div className="ui-quota-row" data-testid="nw-usage-current">
 								<span>{t("neuralwattCurrentMonth")}</span>
-								<span>{periodSummary(currentMonth)}</span>
+								<span>{currentMonth}</span>
 							</div>
 						)}
 						{lifetime && (
 							<div className="ui-quota-row" data-testid="nw-usage-lifetime">
 								<span>{t("neuralwattLifetime")}</span>
-								<span>{periodSummary(lifetime)}</span>
+								<span>{lifetime}</span>
 							</div>
 						)}
 					</div>
 				)}
 
-				{(limits || key) && (
+				{showLimits && (
 					<QuotaDetailGrid columns={3}>
-						{limits && (
-							<>
-								<QuotaDetailItem
-									label={t("neuralwattOverageLimit")}
-									value={
-										limits.overage_limit_usd !== null
-											? formatDollars(limits.overage_limit_usd)
-											: t("none")
-									}
-									testId="nw-overage-limit"
-								/>
-								<QuotaDetailItem
-									label={t("neuralwattRateLimitTier")}
-									value={limits.rate_limit_tier}
-								/>
-							</>
+						{overageLimit !== undefined && (
+							<QuotaDetailItem
+								label={t("neuralwattOverageLimit")}
+								value={
+									overageLimit !== null
+										? formatDollars(overageLimit)
+										: t("none")
+								}
+								testId="nw-overage-limit"
+							/>
 						)}
-						{key && (
+						{tier && (
+							<QuotaDetailItem
+								label={t("neuralwattRateLimitTier")}
+								value={tier}
+								testId="nw-rate-limit-tier"
+							/>
+						)}
+						{allowance !== undefined && (
 							<QuotaDetailItem
 								label={t("neuralwattAllowance")}
 								value={
-									key.allowance !== null
-										? formatDollars(key.allowance)
-										: t("unlimited")
+									allowance !== null ? formatDollars(allowance) : t("unlimited")
 								}
 								testId="nw-allowance"
 							/>
