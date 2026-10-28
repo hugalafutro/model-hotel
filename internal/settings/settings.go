@@ -344,8 +344,9 @@ func (r *Repository) GetWithDefault(ctx context.Context, key, defaultValue strin
 // a Warn to keep it visible. A cancelled caller context (a hedge loser
 // cancelled mid cache-miss, a client hanging up) says nothing about the
 // database, so that case is logged at Debug. An expired deadline stays a Warn:
-// the query was still running when the caller's budget ran out, which is the
-// slow-database signal debuglog.Error keeps visible for the same reason.
+// the setting could not be read within the caller's budget, whether the query
+// was slow or the pool had no connection to give, which is the signal
+// debuglog.Error keeps visible for the same reason.
 func logReadFailure(key string, err error) {
 	if errors.Is(err, context.Canceled) {
 		debuglog.Debug("settings: DB read failed, falling back to default", "key", key, "error", err)

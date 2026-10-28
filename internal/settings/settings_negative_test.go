@@ -336,8 +336,9 @@ func TestReadFailureOnCancelledContextLogsAtDebug(t *testing.T) {
 	}
 }
 
-// An expired deadline is not a hangup: the caller's budget ran out while the
-// query was still running, which is worth seeing, so it stays a Warn.
+// An expired deadline is not a hangup: the setting could not be read within
+// the caller's budget (here one that had already run out), which is worth
+// seeing, so it stays a Warn.
 func TestReadFailureOnExpiredDeadlineLogsAtWarn(t *testing.T) {
 	clearSettings(t)
 	r := NewRepository(testPool)
