@@ -199,3 +199,128 @@ export interface OpenCodeGoUsageResponse {
 		monthly?: OpenCodeGoUsageWindow;
 	};
 }
+
+// ── Payloads the shared quota modals render ──────────────────────────────
+// Front Desk's declarations, written against another machine's relayed export,
+// so a block the provider may omit is optional. The dashboard keeps its own,
+// narrower declarations, which stay assignable to these.
+
+export interface NanoGPTUsageLimits {
+	weeklyInputTokens: number | null;
+	dailyInputTokens: number | null;
+	dailyImages: number | null;
+}
+
+export interface NanoGPTUsageTokenInfo {
+	used: number;
+	remaining: number;
+	percentUsed: number;
+	resetAt: number;
+}
+
+export interface NanoGPTUsage {
+	active: boolean;
+	provider: string;
+	providerStatus: string;
+	cancelAtPeriodEnd: boolean;
+	limits: NanoGPTUsageLimits;
+	allowOverage: boolean;
+	period: { currentPeriodEnd: string };
+	dailyImages: NanoGPTUsageTokenInfo | null;
+	dailyInputTokens: NanoGPTUsageTokenInfo | null;
+	weeklyInputTokens: NanoGPTUsageTokenInfo | null;
+}
+
+export interface ZAICodingQuotaUsageDetail {
+	modelCode: string;
+	usage: number;
+}
+
+export interface ZAICodingQuotaLimit {
+	type: string;
+	unit: number;
+	percentage: number;
+	nextResetTime?: number;
+	usageDetails?: ZAICodingQuotaUsageDetail[];
+}
+
+export interface ZAICodingQuotaResponse {
+	success: boolean;
+	data?: {
+		level?: string;
+		limits?: ZAICodingQuotaLimit[];
+	};
+}
+
+/**
+ * Only credits_remaining is guaranteed (the visibility gate requires it); a
+ * partial snapshot may omit any other field.
+ */
+export interface OpenRouterBalance {
+	label?: string;
+	limit?: number | null;
+	limit_reset?: string;
+	limit_remaining?: number | null;
+	usage?: number | null;
+	usage_daily?: number | null;
+	usage_weekly?: number | null;
+	usage_monthly?: number | null;
+	credits_total?: number | null;
+	credits_used?: number | null;
+	credits_remaining: number;
+	is_free_tier?: boolean;
+}
+
+export interface NeuralWattQuotaUsagePeriod {
+	cost_usd?: number | null;
+	requests?: number | null;
+	tokens?: number | null;
+	energy_kwh?: number | null;
+}
+
+/**
+ * NeuralWatt's quota body, as relayed by the fleet primary.
+ *
+ * Only `balance` is required, because the badge visibility gate
+ * (isNeuralWattQuotaVisible in web-shared/quota) renders no NeuralWatt badge
+ * unless balance.credits_remaining_usd is present, so nothing downstream is
+ * reachable without it. Every other block is optional: this is an upstream
+ * provider's JSON forwarded through another machine's export, not a shape this
+ * build controls, and a fleet primary on a different version may relay less.
+ * The same holds one level down: a block that is present can still be missing
+ * any of its fields, so each figure is rendered only when its own numbers are.
+ * Optional is what makes the compiler, rather than an operator's crashed
+ * dashboard, catch an unguarded nested read.
+ */
+export interface NeuralWattQuotaResponse {
+	balance: {
+		/** Absent when the provider omitted the balance; never coerce to 0. */
+		credits_remaining_usd?: number | null;
+		total_credits_usd: number;
+		credits_used_usd: number;
+		accounting_method: string;
+	};
+	usage?: {
+		lifetime?: NeuralWattQuotaUsagePeriod;
+		current_month?: NeuralWattQuotaUsagePeriod;
+	};
+	limits?: {
+		/** null is "no overage limit"; absent is "not reported". */
+		overage_limit_usd?: number | null;
+		rate_limit_tier?: string;
+	};
+	subscription?: {
+		plan?: string;
+		status?: string;
+		billing_interval?: string;
+		current_period_start?: string;
+		current_period_end?: string;
+		auto_renew?: boolean;
+		kwh_included?: number | null;
+		kwh_used?: number | null;
+		kwh_remaining?: number | null;
+		in_overage?: boolean;
+	};
+	/** allowance null is "unlimited"; absent is "not reported". */
+	key?: { name?: string; allowance?: number | null };
+}

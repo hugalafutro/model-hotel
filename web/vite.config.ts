@@ -24,6 +24,9 @@ const SHIKI_LAZY = [
 export default defineConfig({
 	plugins: [react()],
 	resolve: {
+		// web-shared/*.tsx imports react bare and has no node_modules of its own;
+		// dedupe resolves it from this app's root, so one React loads.
+		dedupe: ["react"],
 		alias: {
 			"@": path.resolve(import.meta.dirname, "./src"),
 			// One prefix alias for the whole cross-app module: "@web-shared/quota"

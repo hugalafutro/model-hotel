@@ -1,130 +1,11 @@
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import * as Body from "@web-shared/quota/modals";
+import i18next from "i18next";
+import type { ComponentType } from "react";
 import { describe, expect, it, vi } from "vitest";
-import {
-	QuotaBar,
-	QuotaDetailGrid,
-	QuotaDetailItem,
-	QuotaModalShell,
-	quotaRightText,
-	resetSublabel,
-	resetSublabelFromEpoch,
-} from "../shared";
-
-// Returns the last dotted segment of the key, ignoring interpolation options,
-// same convention as the quotaRightText tests below: locale-independent,
-// asserts on the translation KEY rather than a translated value.
-const stubT = (key: string) => key.split(".").pop() as string;
-
-describe("QuotaBar", () => {
-	it("fills to the used share in used mode", () => {
-		render(
-			<QuotaBar
-				label="Weekly"
-				rightText="75%"
-				percentage={75}
-				barMode="used"
-				testId="bar"
-				fillTestId="fill"
-			/>,
-		);
-		expect(screen.getByTestId("bar")).toBeInTheDocument();
-		expect(screen.getByTestId("fill")).toHaveStyle({ width: "75%" });
-	});
-
-	it("fills to the remaining share in remaining mode", () => {
-		render(
-			<QuotaBar
-				label="Weekly"
-				rightText="25%"
-				percentage={75}
-				barMode="remaining"
-				testId="bar"
-				fillTestId="fill"
-			/>,
-		);
-		expect(screen.getByTestId("fill")).toHaveStyle({ width: "25%" });
-	});
-
-	it("clamps an over-100 percentage", () => {
-		render(
-			<QuotaBar
-				label="Weekly"
-				rightText="x"
-				percentage={140}
-				barMode="used"
-				fillTestId="fill"
-			/>,
-		);
-		expect(screen.getByTestId("fill")).toHaveStyle({ width: "100%" });
-	});
-
-	it("clamps the lower bound when a remaining-mode share goes negative", () => {
-		// percentage is percent USED; 140 used in remaining mode computes a raw
-		// shown value of 100 - 140 = -40, which must clamp to 0, not render
-		// negative width.
-		render(
-			<QuotaBar
-				label="Weekly"
-				rightText="x"
-				percentage={140}
-				barMode="remaining"
-				fillTestId="fill"
-			/>,
-		);
-		expect(screen.getByTestId("fill")).toHaveStyle({ width: "0%" });
-	});
-
-	it("tones the fill by severity", () => {
-		render(
-			<QuotaBar
-				label="Weekly"
-				rightText="x"
-				percentage={95}
-				barMode="used"
-				fillTestId="fill"
-			/>,
-		);
-		expect(screen.getByTestId("fill").className).toContain(
-			"fd-quota-fill-danger",
-		);
-	});
-
-	it("tones a remaining-mode bar off the used percentage, not the inverted width", () => {
-		// percentage is always percent USED. 75 used in remaining mode means 25
-		// remaining, which is barTone's "warn" band (< 60 remaining). This fails
-		// under two plausible bugs: passing the already-inverted/clamped width
-		// into barTone instead of percentage, or hardcoding barMode to "used".
-		render(
-			<QuotaBar
-				label="Weekly"
-				rightText="x"
-				percentage={75}
-				barMode="remaining"
-				fillTestId="fill"
-			/>,
-		);
-		expect(screen.getByTestId("fill").className).toContain(
-			"fd-quota-fill-warn",
-		);
-	});
-
-	it("renders a sublabel and a footer when given", () => {
-		render(
-			<QuotaBar
-				label="Weekly"
-				rightText="x"
-				percentage={10}
-				barMode="used"
-				footer={<span data-testid="foot">F</span>}
-			>
-				<span data-testid="sub">S</span>
-			</QuotaBar>,
-		);
-		expect(screen.getByTestId("sub")).toBeInTheDocument();
-		expect(screen.getByTestId("foot")).toBeInTheDocument();
-	});
-});
+import { OpenCodeGoQuotaModal } from "../modals";
+import { QuotaModalShell } from "../shared";
 
 describe("QuotaModalShell", () => {
 	function renderShell(
@@ -209,113 +90,278 @@ describe("QuotaModalShell", () => {
 	});
 });
 
-describe("QuotaDetailGrid", () => {
-	it("renders label and value pairs", () => {
+// The bindings hand each shared body Front Desk's shell and its `quota.modal`
+// strings; the bodies themselves are covered in the dashboard's suites.
+describe("quota modal bindings", () => {
+	it("wraps a shared body in the Front Desk shell with this app's strings", async () => {
+		const onToggleBarMode = vi.fn();
 		render(
-			<QuotaDetailGrid columns={2}>
-				<QuotaDetailItem label="Plan" value="pro" testId="plan" />
-			</QuotaDetailGrid>,
+			<OpenCodeGoQuotaModal
+				providerName="acct"
+				payload={{ usage: { weekly: { status: "ok", percent: 30 } } }}
+				barMode="used"
+				fetchedAt="2026-07-26T10:00:00Z"
+				onToggleBarMode={onToggleBarMode}
+				onRefresh={vi.fn()}
+				isRefreshing={false}
+				onClose={vi.fn()}
+			/>,
 		);
-		expect(screen.getByTestId("plan")).toHaveTextContent("pro");
-		expect(screen.getByTestId("plan").parentElement?.className).toContain(
-			"fd-quota-detail-grid-2",
+		expect(screen.getByRole("dialog")).toHaveAttribute(
+			"aria-label",
+			i18next.t("quota.modal.openCodeGoPlanQuota", { provider: "acct" }),
 		);
-		// No span prop was passed, so the span class must be absent.
-		expect(screen.getByTestId("plan").className).not.toContain(
-			"fd-quota-detail-span",
-		);
-	});
-
-	it("applies the 3-column grid class when given columns={3}", () => {
-		render(
-			<QuotaDetailGrid columns={3}>
-				<QuotaDetailItem label="Plan" value="pro" testId="plan" />
-			</QuotaDetailGrid>,
-		);
-		expect(screen.getByTestId("plan").parentElement?.className).toContain(
-			"fd-quota-detail-grid-3",
-		);
-	});
-
-	it("spans a detail item across the full grid width when span is set", () => {
-		render(
-			<QuotaDetailGrid columns={2}>
-				<QuotaDetailItem label="Notes" value="long text" span testId="notes" />
-			</QuotaDetailGrid>,
-		);
-		expect(screen.getByTestId("notes").className).toContain(
-			"fd-quota-detail-span",
-		);
+		expect(screen.getByTestId("opencode-go-weekly-fill")).toHaveStyle({
+			width: "30%",
+		});
+		expect(screen.getByTestId("quota-modal-fetched-at")).toBeInTheDocument();
+		await userEvent.click(screen.getByTestId("quota-modal-toggle"));
+		expect(onToggleBarMode).toHaveBeenCalledTimes(1);
 	});
 });
 
-describe("quotaRightText", () => {
-	it("reports the used share in used mode", () => {
-		expect(
-			quotaRightText(40, "used", (k) => k.split(".").pop() as string),
-		).toBe("40% used");
-	});
+// The shared bodies' own suites run against the dashboard's strings, so this is
+// what proves every key a body asks for also exists under Front Desk's
+// `quota.modal` prefix: a missing one would render as a raw key path here.
+describe("quota modal translation contract", () => {
+	const reset = "2026-08-01T00:00:00Z";
+	// Typed at `never` so one table can hold every body; each payload is cast
+	// back to it at render time.
+	const cases: [string, ComponentType<Body.QuotaBodyProps<never>>, unknown][] =
+		[
+			[
+				"Kimi Code",
+				Body.KimiCodeQuotaModal,
+				{
+					user: { membership: { level: "pro" } },
+					limits: [
+						{
+							window: { timeUnit: "TIME_UNIT_MINUTE", duration: 300 },
+							detail: { limit: "1000", remaining: "250", resetTime: reset },
+						},
+					],
+					usage: { limit: "5000", remaining: "4000", resetTime: reset },
+					parallel: { limit: "4" },
+					totalQuota: { limit: "9000", remaining: "8000" },
+				},
+			],
+			[
+				"MiniMax",
+				Body.MiniMaxQuotaModal,
+				{
+					base_resp: { status_code: 0, status_msg: "ok" },
+					model_remains: [
+						{
+							model_name: "general",
+							start_time: 0,
+							end_time: 18_000_000,
+							current_interval_status: 1,
+							current_interval_remaining_percent: 70,
+							remains_time: 3_600_000,
+							current_weekly_status: 1,
+							current_weekly_remaining_percent: 30,
+							weekly_remains_time: 86_400_000,
+						},
+						{
+							model_name: "video",
+							current_interval_status: 3,
+							current_interval_remaining_percent: 0,
+							remains_time: 0,
+							current_weekly_status: 3,
+							current_weekly_remaining_percent: 0,
+							weekly_remains_time: 0,
+						},
+					],
+				},
+			],
+			[
+				"NanoGPT",
+				Body.NanoGPTQuotaModal,
+				{
+					active: true,
+					provider: "nanogpt",
+					providerStatus: "active",
+					cancelAtPeriodEnd: true,
+					limits: {
+						weeklyInputTokens: 1000,
+						dailyInputTokens: null,
+						dailyImages: 50,
+					},
+					allowOverage: true,
+					period: { currentPeriodEnd: reset },
+					dailyImages: {
+						used: 10,
+						remaining: 40,
+						percentUsed: 0.2,
+						resetAt: 1_800_000_000_000,
+					},
+					dailyInputTokens: {
+						used: 50,
+						remaining: 150,
+						percentUsed: 0.25,
+						resetAt: 1_800_000_000_000,
+					},
+					weeklyInputTokens: {
+						used: 400,
+						remaining: 600,
+						percentUsed: 0.4,
+						resetAt: 1_800_000_000_000,
+					},
+				},
+			],
+			// The inactive subscription, the unset weekly limit and the disabled
+			// overage are the branches the full fixture above never takes.
+			[
+				"NanoGPT (inactive, no weekly limit)",
+				Body.NanoGPTQuotaModal,
+				{
+					active: false,
+					provider: "nanogpt",
+					providerStatus: "inactive",
+					cancelAtPeriodEnd: false,
+					limits: { weeklyInputTokens: 0 },
+					allowOverage: false,
+					weeklyInputTokens: { used: 0, remaining: 0, percentUsed: 0 },
+				},
+			],
+			[
+				"NeuralWatt",
+				Body.NeuralWattQuotaModal,
+				{
+					balance: {
+						credits_remaining_usd: 30,
+						total_credits_usd: 30,
+						credits_used_usd: 0,
+						accounting_method: "",
+					},
+					usage: {
+						current_month: {
+							cost_usd: 1,
+							requests: 2,
+							tokens: 3,
+							energy_kwh: 4,
+						},
+						lifetime: { cost_usd: 5, requests: 6, tokens: 7, energy_kwh: 8 },
+					},
+					limits: { overage_limit_usd: null, rate_limit_tier: "standard" },
+					subscription: {
+						plan: "pro",
+						status: "active",
+						billing_interval: "month",
+						current_period_start: "2026-07-01T00:00:00Z",
+						current_period_end: reset,
+						auto_renew: false,
+						kwh_included: 20,
+						kwh_used: 20,
+						kwh_remaining: 0,
+						in_overage: true,
+					},
+					key: { name: "k", allowance: null },
+				},
+			],
+			[
+				"OpenCode Go",
+				Body.OpenCodeGoQuotaModal,
+				{
+					usage: {
+						rolling: { status: "ok", percent: 12, resetsAt: reset },
+						weekly: { status: "ok", percent: 34 },
+						monthly: { status: "exhausted", percent: 100 },
+					},
+				},
+			],
+			[
+				"OpenRouter",
+				Body.OpenRouterQuotaModal,
+				{
+					label: "k",
+					limit: 0,
+					limit_reset: reset,
+					limit_remaining: 0,
+					usage: 40,
+					usage_daily: 1,
+					usage_weekly: 5,
+					usage_monthly: 20,
+					credits_total: 0,
+					credits_used: 0,
+					credits_remaining: 0,
+					is_free_tier: true,
+				},
+			],
+			// A paid key with a credit total and a positive spending limit: the
+			// tier label, credit bar and reset sublabel the free fixture skips.
+			[
+				"OpenRouter (paid)",
+				Body.OpenRouterQuotaModal,
+				{
+					limit: 100,
+					limit_reset: reset,
+					limit_remaining: 25,
+					credits_total: 10,
+					credits_used: 5,
+					credits_remaining: 5,
+					is_free_tier: false,
+				},
+			],
+			[
+				"Z.ai Coding",
+				Body.ZAICodingQuotaModal,
+				{
+					success: true,
+					data: {
+						level: "pro",
+						limits: [
+							{
+								type: "TOKENS_LIMIT",
+								unit: 3,
+								percentage: 40,
+								nextResetTime: 1_800_000_000_000,
+							},
+							{ type: "TOKENS_LIMIT", unit: 6, percentage: 10 },
+							{
+								type: "TIME_LIMIT",
+								unit: 5,
+								percentage: 25,
+								usageDetails: [{ modelCode: "glm-4", usage: 7 }],
+							},
+						],
+					},
+				},
+			],
+		];
 
-	it("reports the remaining share in remaining mode", () => {
-		expect(
-			quotaRightText(40, "remaining", (k) => k.split(".").pop() as string),
-		).toBe("60% left");
-	});
-});
-
-describe("resetSublabel", () => {
-	it("returns the dash sentinel for undefined", () => {
-		expect(resetSublabel(undefined, stubT)).toBe("-");
-	});
-
-	it("returns the dash sentinel for null", () => {
-		expect(resetSublabel(null, stubT)).toBe("-");
-	});
-
-	it("returns the dash sentinel for an empty string", () => {
-		expect(resetSublabel("", stubT)).toBe("-");
-	});
-
-	it("returns the dash sentinel for an unparseable ISO string", () => {
-		expect(resetSublabel("not-a-date", stubT)).toBe("-");
-	});
-
-	it("composes the resets key and a non-empty relative line for a valid ISO string", () => {
-		const iso = new Date(Date.now() + 3_600_000).toISOString();
-		const out = resetSublabel(iso, stubT);
-		const lines = out.split("\n");
-		expect(lines).toHaveLength(2);
-		expect(lines[0]).toBe("resets");
-		expect(lines[1].length).toBeGreaterThan(0);
-	});
-});
-
-describe("resetSublabelFromEpoch", () => {
-	it("returns the dash sentinel for null", () => {
-		expect(resetSublabelFromEpoch(null, stubT)).toBe("-");
-	});
-
-	it("returns the dash sentinel for undefined", () => {
-		expect(resetSublabelFromEpoch(undefined, stubT)).toBe("-");
-	});
-
-	it("returns the dash sentinel for NaN", () => {
-		expect(resetSublabelFromEpoch(Number.NaN, stubT)).toBe("-");
-	});
-
-	it("returns the dash sentinel for zero", () => {
-		expect(resetSublabelFromEpoch(0, stubT)).toBe("-");
-	});
-
-	it("returns the dash sentinel for a negative instant", () => {
-		expect(resetSublabelFromEpoch(-1000, stubT)).toBe("-");
-	});
-
-	it("delegates to resetSublabel for a valid future instant", () => {
-		const out = resetSublabelFromEpoch(Date.now() + 3_600_000, stubT);
-		const lines = out.split("\n");
-		expect(lines).toHaveLength(2);
-		expect(lines[0]).toBe("resets");
-		expect(lines[1].length).toBeGreaterThan(0);
-	});
+	it.each(cases)(
+		"%s asks only for keys Front Desk defines",
+		(_, QuotaBody, payload) => {
+			const asked: [string, Record<string, unknown> | undefined][] = [];
+			for (const barMode of ["used", "remaining"] as const) {
+				const { unmount } = render(
+					<QuotaBody
+						providerName="acct"
+						payload={payload as never}
+						barMode={barMode}
+						fetchedAt="2026-07-26T10:00:00Z"
+						kit={{
+							t: (key, opts) => {
+								asked.push([key, opts]);
+								return i18next.t(`quota.modal.${key}`, opts);
+							},
+							time: { absolute: (iso) => iso ?? "-", relative: () => "" },
+							shell: ({ title, children }) => (
+								<div role="dialog" aria-label={title}>
+									{children}
+								</div>
+							),
+						}}
+					/>,
+				);
+				unmount();
+			}
+			expect(asked.length).toBeGreaterThan(0);
+			const missing = asked
+				.filter(([key, opts]) => !i18next.exists(`quota.modal.${key}`, opts))
+				.map(([key]) => key);
+			expect(missing).toEqual([]);
+		},
+	);
 });

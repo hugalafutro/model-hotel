@@ -154,7 +154,7 @@ export function AddProviderModal({
 					// own visibility rule, so a payload carrying a usage object with
 					// no window in it reads the same way in both places.
 					case "opencode-go": {
-						const goUsage = await api.providers.getOpenCodeGoUsage(
+						const { data: goUsage } = await api.providers.getOpenCodeGoUsage(
 							newProvider.id,
 						);
 						onToast(
@@ -169,7 +169,9 @@ export function AddProviderModal({
 						break;
 					}
 					case "deepseek": {
-						const balance = await api.providers.getBalance(newProvider.id);
+						const { data: balance } = await api.providers.getBalance(
+							newProvider.id,
+						);
 						const usd = deepseekUsd(balance);
 						if (usd) {
 							onToast(
@@ -183,9 +185,8 @@ export function AddProviderModal({
 						break;
 					}
 					case "openrouter": {
-						const orBalance = await api.providers.getOpenRouterBalance(
-							newProvider.id,
-						);
+						const { data: orBalance } =
+							await api.providers.getOpenRouterBalance(newProvider.id);
 						onToast(
 							t("providers.add.openrouterBalance", {
 								balance:
@@ -199,7 +200,7 @@ export function AddProviderModal({
 						break;
 					}
 					case "ollama-cloud": {
-						const account = await api.providers.getOllamaCloudAccount(
+						const { data: account } = await api.providers.getOllamaCloudAccount(
 							newProvider.id,
 						);
 						onToast(

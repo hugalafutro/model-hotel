@@ -1582,40 +1582,6 @@
 		"da",
 		"de"
 	],
-	"components.providerModals.neuralwattCost": [
-		"ca",
-		"ro"
-	],
-	"components.providerModals.neuralwattPlan": [
-		"af",
-		"da",
-		"de",
-		"es",
-		"pl",
-		"ro",
-		"sv",
-		"tr"
-	],
-	"components.providerModals.neuralwattStatus": [
-		"af",
-		"da",
-		"de",
-		"pl",
-		"ro",
-		"sv"
-	],
-	"components.providerModals.neuralwattTokens": [
-		"af",
-		"ca",
-		"da",
-		"es",
-		"nl",
-		"pt",
-		"sv"
-	],
-	"components.providerModals.neuralwattUsage": [
-		"fr"
-	],
 	"components.providerModals.no": [
 		"ca",
 		"es",

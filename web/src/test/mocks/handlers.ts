@@ -213,22 +213,23 @@ export const handlers: RequestHandler[] = [
 					Date.now() + 7 * 24 * 60 * 60 * 1000,
 				).toISOString(),
 			},
+			// percentUsed is a fraction, as NanoGPT documents it.
 			dailyImages: {
 				used: 10,
 				remaining: 90,
-				percentUsed: 10,
+				percentUsed: 0.1,
 				resetAt: Date.now() + 24 * 60 * 60 * 1000,
 			},
 			dailyInputTokens: {
 				used: 50000,
 				remaining: 150000,
-				percentUsed: 25,
+				percentUsed: 0.25,
 				resetAt: Date.now() + 24 * 60 * 60 * 1000,
 			},
 			weeklyInputTokens: {
 				used: 200000,
 				remaining: 800000,
-				percentUsed: 20,
+				percentUsed: 0.2,
 				resetAt: Date.now() + 7 * 24 * 60 * 60 * 1000,
 			},
 			state: "active",

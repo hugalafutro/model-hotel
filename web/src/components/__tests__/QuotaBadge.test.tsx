@@ -1,4 +1,5 @@
 import { act, render, screen, waitFor } from "@testing-library/react";
+import type { NeuralWattQuotaResponse as SharedNeuralWattQuota } from "@web-shared/quota";
 import i18next from "i18next";
 import type {
 	DeepSeekBalance,
@@ -841,6 +842,28 @@ describe("QuotaBadge", () => {
 			expect(screen.getByText("-")).toBeInTheDocument();
 		});
 
+		// The visibility gate admits a snapshot carrying only the balance; the
+		// badge must read the absent subscription as no allowance, not throw.
+		it("renders a balance-only snapshot without a subscription block", () => {
+			const balanceOnly = {
+				balance: { credits_remaining_usd: 5 },
+			} as SharedNeuralWattQuota;
+			render(
+				<QuotaBadge
+					type="neuralwatt"
+					variant="card"
+					neuralwattQuota={balanceOnly}
+				/>,
+			);
+			expect(screen.getByText("0 kWh")).toBeInTheDocument();
+			expect(screen.getByRole("button").getAttribute("title")).toBe(
+				i18next.t("components.quotaBadge.neuralwattBalance", {
+					amount: "0",
+					refreshed: "",
+				}),
+			);
+		});
+
 		// Live overage fixture (used > included, kwh_remaining 0, in_overage):
 		// the label shows used/included, and the tooltip describes energy USED
 		// this period, not "remaining" (which would read as the misleading
@@ -1100,6 +1123,13 @@ describe("QuotaBadges", () => {
 		refetchOpenCodeGo: vi.fn(),
 		isOpenCodeGoRefetching: false,
 		opencodeGoDataUpdatedAt: 0,
+		nanogptFetchedAt: null,
+		zaiCodingFetchedAt: null,
+		kimiCodeFetchedAt: null,
+		minimaxFetchedAt: null,
+		openrouterFetchedAt: null,
+		neuralwattFetchedAt: null,
+		opencodeGoFetchedAt: null,
 		invalidateAll: vi.fn(),
 	};
 
@@ -1209,6 +1239,13 @@ describe("QuotaBadges", () => {
 		refetchOpenCodeGo: vi.fn(),
 		isOpenCodeGoRefetching: false,
 		opencodeGoDataUpdatedAt: 0,
+		nanogptFetchedAt: null,
+		zaiCodingFetchedAt: null,
+		kimiCodeFetchedAt: null,
+		minimaxFetchedAt: null,
+		openrouterFetchedAt: null,
+		neuralwattFetchedAt: null,
+		opencodeGoFetchedAt: null,
 		invalidateAll: vi.fn(),
 	};
 

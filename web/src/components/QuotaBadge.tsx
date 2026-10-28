@@ -1,11 +1,15 @@
-import { deepseekUsd, isQuotaPayloadSpent, windowPct } from "@web-shared/quota";
+import {
+	deepseekUsd,
+	isQuotaPayloadSpent,
+	type NeuralWattQuotaResponse,
+	windowPct,
+} from "@web-shared/quota";
 import i18next from "i18next";
 import type {
 	DeepSeekBalance,
 	KimiCodeQuotaResponse,
 	MiniMaxQuotaResponse,
 	NanoGPTUsage,
-	NeuralWattQuotaResponse,
 	OllamaCloudAccount,
 	OpenCodeGoUsageResponse,
 	OpenRouterBalance,
@@ -245,8 +249,10 @@ function neuralwattBadgeContent(
 	quota: NeuralWattQuotaResponse,
 	dataUpdatedAt?: number,
 ): BadgeContent {
-	const used = quota.subscription.kwh_used;
-	const included = quota.subscription.kwh_included;
+	// The visibility gate admits a balance-only snapshot, so the subscription
+	// block (and each of its figures) may be absent: read it as no allowance.
+	const used = quota.subscription?.kwh_used ?? 0;
+	const included = quota.subscription?.kwh_included ?? 0;
 	const label =
 		included > 0
 			? `${formatKwh(used)}/${formatKwh(included)} kWh`
@@ -257,7 +263,7 @@ function neuralwattBadgeContent(
 	// "nothing is happening"; the tooltip says so. No dollar figure: NeuralWatt
 	// exposes no cumulative draw (credits_used_usd is a hardwired 0 and
 	// total_credits_usd re-bases to remaining as spend settles).
-	const title = quota.subscription.in_overage
+	const title = quota.subscription?.in_overage
 		? i18next.t("components.quotaBadge.neuralwattBalanceOverage", {
 				amount: formatKwh(used),
 				refreshed,

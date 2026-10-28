@@ -110,17 +110,45 @@ export async function fetchJSON<T>(
 	return response.json();
 }
 
-/** Like fetchJSON, but maps a 204 to null. The quota endpoints answer 204 with
- * an empty body when the provider has nothing to report, which is a hidden
- * badge rather than a failure, and `response.json()` on an empty body throws. */
-export async function fetchJSONOrNull<T>(
+/** A quota endpoint's payload with the instant the server's stored snapshot was
+ * fetched upstream: its `X-Quota-Fetched-At` header (RFC3339), or null when
+ * the header is absent or unparseable. Durations in a payload (MiniMax's
+ * remains_time) were measured at that instant, which can be well before this
+ * request returned. */
+export interface QuotaSnapshot<T> {
+	data: T;
+	fetchedAt: string | null;
+}
+
+function quotaFetchedAt(response: Response): string | null {
+	const raw = response.headers.get("X-Quota-Fetched-At");
+	return raw && !Number.isNaN(Date.parse(raw)) ? raw : null;
+}
+
+/** Like fetchJSON, but reads a quota endpoint into a QuotaSnapshot. */
+export async function fetchQuotaSnapshot<T>(
 	url: string,
 	options?: RequestInit,
 	errorPrefix = "Request failed",
-): Promise<T | null> {
+): Promise<QuotaSnapshot<T>> {
 	const response = await fetchOK(url, options, errorPrefix);
-	if (response.status === 204) return null;
-	return response.json();
+	const fetchedAt = quotaFetchedAt(response);
+	return { data: (await response.json()) as T, fetchedAt };
+}
+
+/** Like fetchQuotaSnapshot, but maps a 204 to null data. The quota endpoints
+ * answer 204 with an empty body when the provider has nothing to report, which
+ * is a hidden badge rather than a failure, and `response.json()` on an empty
+ * body throws. */
+export async function fetchQuotaSnapshotOrNull<T>(
+	url: string,
+	options?: RequestInit,
+	errorPrefix = "Request failed",
+): Promise<QuotaSnapshot<T | null>> {
+	const response = await fetchOK(url, options, errorPrefix);
+	const fetchedAt = quotaFetchedAt(response);
+	if (response.status === 204) return { data: null, fetchedAt };
+	return { data: (await response.json()) as T, fetchedAt };
 }
 
 /** Server wall-clock (epoch ms) parsed from a response's `Date` header, or null

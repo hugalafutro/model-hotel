@@ -2,9 +2,11 @@ import {
 	API_BASE,
 	buildUrl,
 	fetchJSON,
-	fetchJSONOrNull,
 	fetchOK,
+	fetchQuotaSnapshot,
+	fetchQuotaSnapshotOrNull,
 	getAuthHeaders,
+	type QuotaSnapshot,
 } from "../http";
 import type {
 	CreateProviderRequest,
@@ -100,72 +102,63 @@ export const providers = {
 			"Failed to refresh quotas",
 		);
 	},
+	// The quota getters return a QuotaSnapshot: the payload plus when the
+	// server's stored snapshot was fetched upstream.
 	getUsage: async (
 		id: string,
 	): Promise<
-		| NanoGPTUsage
-		| ZAICodingQuotaResponse
-		| KimiCodeQuotaResponse
-		| MiniMaxQuotaResponse
-	> => {
-		return fetchJSON<
+		QuotaSnapshot<
 			| NanoGPTUsage
 			| ZAICodingQuotaResponse
 			| KimiCodeQuotaResponse
 			| MiniMaxQuotaResponse
-		>(
+		>
+	> =>
+		fetchQuotaSnapshot(
 			`${API_BASE}/api/providers/${id}/usage`,
-			{
-				headers: getAuthHeaders(),
-			},
+			{ headers: getAuthHeaders() },
 			"Failed to fetch usage",
-		);
-	},
+		),
 	// OpenCode Go answers 204 with a null payload when the key has no active Go
 	// subscription, which is a hidden badge rather than an error.
 	getOpenCodeGoUsage: async (
 		id: string,
-	): Promise<OpenCodeGoUsageResponse | null> =>
-		fetchJSONOrNull<OpenCodeGoUsageResponse>(
+	): Promise<QuotaSnapshot<OpenCodeGoUsageResponse | null>> =>
+		fetchQuotaSnapshotOrNull(
 			`${API_BASE}/api/providers/${id}/usage`,
 			{ headers: getAuthHeaders() },
 			"Failed to fetch OpenCode Go usage",
 		),
-	getBalance: async (id: string): Promise<DeepSeekBalance> => {
-		return fetchJSON<DeepSeekBalance>(
+	getBalance: async (id: string): Promise<QuotaSnapshot<DeepSeekBalance>> =>
+		fetchQuotaSnapshot(
 			`${API_BASE}/api/providers/${id}/balance`,
-			{
-				headers: getAuthHeaders(),
-			},
+			{ headers: getAuthHeaders() },
 			"Failed to fetch balance",
-		);
-	},
-	getOpenRouterBalance: async (id: string): Promise<OpenRouterBalance> => {
-		return fetchJSON<OpenRouterBalance>(
+		),
+	getOpenRouterBalance: async (
+		id: string,
+	): Promise<QuotaSnapshot<OpenRouterBalance>> =>
+		fetchQuotaSnapshot(
 			`${API_BASE}/api/providers/${id}/usage`,
-			{
-				headers: getAuthHeaders(),
-			},
+			{ headers: getAuthHeaders() },
 			"Failed to fetch OpenRouter balance",
-		);
-	},
+		),
 	getNeuralWattQuota: async (
 		id: string,
-	): Promise<NeuralWattQuotaResponse | null> =>
-		fetchJSONOrNull<NeuralWattQuotaResponse>(
+	): Promise<QuotaSnapshot<NeuralWattQuotaResponse | null>> =>
+		fetchQuotaSnapshotOrNull(
 			`${API_BASE}/api/providers/${id}/usage`,
 			{ headers: getAuthHeaders() },
 			"Failed to fetch NeuralWatt quota",
 		),
-	getOllamaCloudAccount: async (id: string): Promise<OllamaCloudAccount> => {
-		return fetchJSON<OllamaCloudAccount>(
+	getOllamaCloudAccount: async (
+		id: string,
+	): Promise<QuotaSnapshot<OllamaCloudAccount>> =>
+		fetchQuotaSnapshot(
 			`${API_BASE}/api/providers/${id}/account`,
-			{
-				headers: getAuthHeaders(),
-			},
+			{ headers: getAuthHeaders() },
 			"Failed to fetch Ollama Cloud account",
-		);
-	},
+		),
 };
 
 export const discovery = {

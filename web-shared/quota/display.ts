@@ -21,6 +21,26 @@ export function windowPct(
 	return `${formatDecimal(mode === "remaining" ? 100 - used : used, 0)}%`;
 }
 
+/** Whether a quota bar reads as the share used or the share remaining. */
+export type QuotaBarMode = "used" | "remaining";
+export type QuotaBarTone = "ok" | "warn" | "high" | "danger";
+
+/**
+ * Grades a bar by how alarming it is. `percentUsed` is always the used share;
+ * remaining mode inverts it internally.
+ */
+export function barTone(percentUsed: number, mode: QuotaBarMode): QuotaBarTone {
+	if (mode === "remaining") {
+		const remaining = 100 - percentUsed;
+		if (remaining < 20) return "danger";
+		if (remaining < 60) return "warn";
+		return "ok";
+	}
+	if (percentUsed < 50) return "warn";
+	if (percentUsed < 80) return "high";
+	return "danger";
+}
+
 /** A DeepSeek account's USD balance as dollars, or null when none is reported. */
 export function deepseekUsd(b: DeepSeekBalanceLike): string | null {
 	const usd = b.balance_infos?.find((i) => i.currency === "USD")?.total_balance;

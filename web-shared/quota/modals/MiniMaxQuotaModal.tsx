@@ -1,22 +1,18 @@
-import { useTranslation } from "react-i18next";
-import type {
-	MiniMaxModelRemains,
-	MiniMaxQuotaResponse,
-} from "../../api/types";
-import type { QuotaBarMode } from "../../utils/quota";
+import type { QuotaBarMode } from "../display";
+import type { MiniMaxModelRemains, MiniMaxQuotaResponse } from "../types";
 import {
-	QuotaBar,
-	type QuotaModalProps,
-	QuotaModalShell,
+	type QuotaBodyProps,
+	type QuotaModalKit,
 	quotaRightText,
 	resetSublabelFromEpoch,
 	type Translate,
-} from "./shared";
+} from "./labels";
+import { QuotaBar } from "./primitives";
 
 /** Human label for a MiniMax model class; unknown classes show their raw name. */
 function classLabel(modelName: string, t: Translate): string {
-	if (modelName === "general") return t("quota.modal.miniMaxChatModels");
-	if (modelName === "video") return t("quota.modal.miniMaxVideoModels");
+	if (modelName === "general") return t("miniMaxChatModels");
+	if (modelName === "video") return t("miniMaxVideoModels");
 	return modelName;
 }
 
@@ -24,12 +20,13 @@ function ModelClassRows({
 	entry,
 	barMode,
 	fetchedAt,
+	kit: { t, time },
 }: {
 	entry: MiniMaxModelRemains;
 	barMode: QuotaBarMode;
 	fetchedAt: string;
+	kit: QuotaModalKit;
 }) {
-	const { t } = useTranslation();
 	const name = entry.model_name;
 	const label = classLabel(name, t);
 
@@ -37,13 +34,13 @@ function ModelClassRows({
 	// to draw, so show a placeholder rather than two empty bars.
 	if (entry.current_interval_status === 3) {
 		return (
-			<div className="fd-quota-class">
-				<p className="fd-quota-class-label">{label}</p>
+			<div className="ui-quota-class">
+				<p className="ui-quota-class-label">{label}</p>
 				<p
-					className="fd-quota-bar-sub"
+					className="ui-quota-bar-sub"
 					data-testid={`minimax-${name}-not-in-plan`}
 				>
-					{t("quota.modal.miniMaxNotInPlan")}
+					{t("miniMaxNotInPlan")}
 				</p>
 			</div>
 		);
@@ -76,12 +73,12 @@ function ModelClassRows({
 			: null;
 
 	return (
-		<div className="fd-quota-class">
-			<p className="fd-quota-class-label">{label}</p>
+		<div className="ui-quota-class">
+			<p className="ui-quota-class-label">{label}</p>
 			<QuotaBar
 				label={
 					<span data-testid={`minimax-${name}-5h-label`}>
-						{t("quota.modal.hourTokenQuota", { hours: intervalHours })}
+						{t("hTokenQuota", { hours: intervalHours })}
 					</span>
 				}
 				rightText={rightText(fiveHourUsed)}
@@ -90,17 +87,17 @@ function ModelClassRows({
 				testId={`minimax-${name}-5h-bar`}
 				fillTestId={`minimax-${name}-5h-fill`}
 			>
-				{resetSublabelFromEpoch(fiveHourResetAt, t)}
+				{resetSublabelFromEpoch(fiveHourResetAt, t, time)}
 			</QuotaBar>
 			<QuotaBar
-				label={t("quota.modal.weeklyTokenQuota")}
+				label={t("weeklyTokenQuota")}
 				rightText={rightText(weeklyUsed)}
 				percentage={weeklyUsed}
 				barMode={barMode}
 				testId={`minimax-${name}-weekly-bar`}
 				fillTestId={`minimax-${name}-weekly-fill`}
 			>
-				{resetSublabelFromEpoch(weeklyResetAt, t)}
+				{resetSublabelFromEpoch(weeklyResetAt, t, time)}
 			</QuotaBar>
 		</div>
 	);
@@ -111,31 +108,24 @@ export function MiniMaxQuotaModal({
 	payload,
 	barMode,
 	fetchedAt,
-	...shell
-}: QuotaModalProps<MiniMaxQuotaResponse>) {
-	const { t } = useTranslation();
-	// Unlike getMiniMaxGeneralEntry (web-shared/quota), this does not gate on
+	kit,
+}: QuotaBodyProps<MiniMaxQuotaResponse>) {
+	// Unlike getMiniMaxGeneralEntry, this does not gate on
 	// base_resp.status_code === 0. That is safe, not an oversight: a non-zero
-	// status produces no visible badge (toBadgeModels/isQuotaPayloadVisible), so
-	// this modal is never opened for that payload in the first place. Model
-	// Hotel's equivalent modal makes the same simplification.
+	// status produces no visible badge (isQuotaPayloadVisible), so this modal is
+	// never opened for that payload in the first place.
 	const entries = payload.model_remains ?? [];
 
-	return (
-		<QuotaModalShell
-			title={t("quota.modal.miniMaxTitle", { provider: providerName })}
-			barMode={barMode}
-			fetchedAt={fetchedAt}
-			{...shell}
-		>
-			{entries.map((entry) => (
-				<ModelClassRows
-					key={entry.model_name}
-					entry={entry}
-					barMode={barMode}
-					fetchedAt={fetchedAt}
-				/>
-			))}
-		</QuotaModalShell>
-	);
+	return kit.shell({
+		title: kit.t("miniMaxPlanQuota", { provider: providerName }),
+		children: entries.map((entry) => (
+			<ModelClassRows
+				key={entry.model_name}
+				entry={entry}
+				barMode={barMode}
+				fetchedAt={fetchedAt}
+				kit={kit}
+			/>
+		)),
+	});
 }

@@ -3,77 +3,18 @@ import {
 	ArrowsLeftRightIcon,
 	XIcon,
 } from "@phosphor-icons/react";
-import { clamp } from "@web-shared/format";
-import { windowPct } from "@web-shared/quota";
 import type { ReactNode } from "react";
 import { useTranslation } from "react-i18next";
-import { barTone, type QuotaBarMode } from "../../utils/quota";
-import { formatAbsolute, formatRelative } from "../../utils/time";
+import type { QuotaBarMode } from "../../utils/quota";
+import { formatAbsolute } from "../../utils/time";
 import { Modal } from "../Modal";
-
-export interface QuotaBarProps {
-	/** Already-translated label for the left of the header row. */
-	label: ReactNode;
-	/** Already-translated/formatted content for the right of the header row. */
-	rightText: ReactNode;
-	/**
-	 * Percent USED, 0 to 100. Always the used share, in every caller; the
-	 * component derives the remaining view itself. Passing a remaining
-	 * percentage here silently inverts the bar.
-	 */
-	percentage: number;
-	barMode: QuotaBarMode;
-	testId?: string;
-	fillTestId?: string;
-	/** Sublabel rendered under the bar. */
-	children?: ReactNode;
-	/** Block content rendered after the sublabel. */
-	footer?: ReactNode;
-}
-
-/** A labelled progress bar, shared by every quota modal. */
-export function QuotaBar({
-	label,
-	rightText,
-	percentage,
-	barMode,
-	testId,
-	fillTestId,
-	children,
-	footer,
-}: QuotaBarProps) {
-	const shown = barMode === "used" ? percentage : 100 - percentage;
-	const width = clamp(shown, 0, 100);
-	const tone = barTone(percentage, barMode);
-
-	return (
-		<div className="fd-quota-bar-block">
-			<div className="fd-quota-bar-head">
-				<span className="fd-quota-bar-label">{label}</span>
-				<span className="fd-quota-bar-right">{rightText}</span>
-			</div>
-			<div
-				className="fd-quota-bar-track"
-				{...(testId ? { "data-testid": testId } : {})}
-			>
-				<div
-					{...(fillTestId ? { "data-testid": fillTestId } : {})}
-					className={`fd-quota-bar-fill fd-quota-fill-${tone}`}
-					style={{ width: `${width}%` }}
-				/>
-			</div>
-			{children && <p className="fd-quota-bar-sub">{children}</p>}
-			{footer}
-		</div>
-	);
-}
 
 /**
  * What every provider's quota modal takes: its own payload plus the shell's own
  * controls, forwarded straight through. The shell owns the header, so a modal
  * writes only the parts that are its own (the title, the subtitle and the bars)
  * and spreads the rest, which means adding a shell control touches the shell
- * alone rather than all six modals.
+ * alone rather than all seven modals.
  */
 export type QuotaModalProps<P> = Omit<
 	QuotaModalShellProps,
@@ -97,7 +38,7 @@ export interface QuotaModalShellProps {
 }
 
 /**
- * Chrome shared by all six quota modals: title, optional subtitle, the bar-mode
+ * Chrome shared by all seven quota modals: title, optional subtitle, the bar-mode
  * toggle and refresh buttons, and the snapshot timestamp footer.
  *
  * The footer is not decoration. Front Desk shows the primary's stored snapshot
@@ -181,90 +122,4 @@ export function QuotaModalShell({
 			</div>
 		</Modal>
 	);
-}
-
-export function QuotaDetailGrid({
-	columns,
-	children,
-}: {
-	columns: 2 | 3;
-	children: ReactNode;
-}) {
-	return (
-		<div className={`fd-quota-detail-grid fd-quota-detail-grid-${columns}`}>
-			{children}
-		</div>
-	);
-}
-
-export function QuotaDetailItem({
-	label,
-	value,
-	span,
-	testId,
-}: {
-	label: string;
-	value: ReactNode;
-	span?: boolean;
-	testId?: string;
-}) {
-	return (
-		<div
-			className={`fd-quota-detail-item${span ? " fd-quota-detail-span" : ""}`}
-			{...(testId ? { "data-testid": testId } : {})}
-		>
-			<span className="fd-quota-detail-label">{label}</span>
-			<span className="fd-quota-detail-value">{value}</span>
-		</div>
-	);
-}
-
-export type Translate = (key: string, opts?: Record<string, unknown>) => string;
-
-/**
- * "Resets <absolute>\n<relative>" for an ISO reset time, or "-" when the
- * provider did not report one. Rendered inside a QuotaBar sublabel, which is
- * `white-space: pre-line`, so the newline becomes a second line.
- */
-// eslint-disable-next-line react-refresh/only-export-components -- label helper shared by the quota modals beside their bar components
-export function resetSublabel(
-	iso: string | null | undefined,
-	t: Translate,
-): string {
-	if (!iso) return "-";
-	const ms = new Date(iso).getTime();
-	if (!Number.isFinite(ms)) return "-";
-	return `${t("quota.modal.resets", { when: formatAbsolute(iso) })}\n${formatRelative(iso)}`;
-}
-
-/** Same, from an epoch-milliseconds instant (Z.ai) or a computed one (MiniMax). */
-// eslint-disable-next-line react-refresh/only-export-components -- label helper shared by the quota modals beside their bar components
-export function resetSublabelFromEpoch(
-	ms: number | null | undefined,
-	t: Translate,
-): string {
-	// `ms == null` is redundant AT RUNTIME: Number.isFinite does not coerce, so
-	// Number.isFinite(null) and Number.isFinite(undefined) are already false,
-	// and no test can independently kill this clause. It is NOT redundant at
-	// COMPILE TIME: Number.isFinite's TS signature is `(number: unknown) =>
-	// boolean`, not a type guard, so it does not narrow `ms` from `number |
-	// null | undefined` down to `number`. This explicit check is what narrows
-	// `ms` for the `new Date(ms)` call below; deleting it as "dead" breaks the
-	// build (TS18049 / TS2769), it does not just leave untested code.
-	if (ms == null || !Number.isFinite(ms) || ms <= 0) return "-";
-	return resetSublabel(new Date(ms).toISOString(), t);
-}
-
-/**
- * The right-hand figure on a quota bar header: "40% used" or "60% left",
- * whichever the current bar mode calls for. `used` is a percent used, matching
- * QuotaBar's `percentage`.
- */
-// eslint-disable-next-line react-refresh/only-export-components -- label helper shared by the quota modals beside their bar components
-export function quotaRightText(
-	used: number,
-	barMode: QuotaBarMode,
-	t: Translate,
-): string {
-	return `${windowPct(used, barMode)} ${t(barMode === "used" ? "quota.modal.used" : "quota.modal.left")}`;
 }

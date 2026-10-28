@@ -419,58 +419,10 @@ export interface QuotaRefreshResult {
 	skipped: number;
 }
 
-export interface NanoGPTUsageLimits {
-	weeklyInputTokens: number | null;
-	dailyInputTokens: number | null;
-	dailyImages: number | null;
-}
-
-export interface NanoGPTUsageTokenInfo {
-	used: number;
-	remaining: number;
-	percentUsed: number;
-	resetAt: number;
-}
-
-export interface NanoGPTUsage {
-	active: boolean;
-	provider: string;
-	providerStatus: string;
-	cancelAtPeriodEnd: boolean;
-	limits: NanoGPTUsageLimits;
-	allowOverage: boolean;
-	period: { currentPeriodEnd: string };
-	dailyImages: NanoGPTUsageTokenInfo | null;
-	dailyInputTokens: NanoGPTUsageTokenInfo | null;
-	weeklyInputTokens: NanoGPTUsageTokenInfo | null;
-}
-
-export interface ZAICodingQuotaUsageDetail {
-	modelCode: string;
-	usage: number;
-}
-
-export interface ZAICodingQuotaLimit {
-	type: string;
-	unit: number;
-	percentage: number;
-	nextResetTime?: number;
-	usageDetails?: ZAICodingQuotaUsageDetail[];
-}
-
-export interface ZAICodingQuotaResponse {
-	success: boolean;
-	data?: {
-		level?: string;
-		limits?: ZAICodingQuotaLimit[];
-	};
-}
-
-// ── Kimi Code + MiniMax + OpenCode Go quota ─────────────────────
-// Declared in web-shared/quota, the parser both Front Desk and the Model Hotel
-// dashboard use for these payloads, and re-exported here so app code imports
-// every API type from one place.
-
+// ── Provider quota payloads ─────────────────────────────────────
+// Declared in web-shared/quota, which both Front Desk and the Model Hotel
+// dashboard parse and render these payloads with, and re-exported here so app
+// code imports every API type from one place.
 export type {
 	KimiCodeQuotaLimitEntry,
 	KimiCodeQuotaResponse,
@@ -481,10 +433,19 @@ export type {
 	MiniMaxModelRemains,
 	MiniMaxQuotaResponse,
 	MiniMaxQuotaWindow,
+	NanoGPTUsage,
+	NanoGPTUsageLimits,
+	NanoGPTUsageTokenInfo,
+	NeuralWattQuotaResponse,
+	NeuralWattQuotaUsagePeriod,
 	OpenCodeGoUsageResponse,
 	OpenCodeGoUsageWindow,
 	OpenCodeGoWindow,
 	OpenCodeGoWindowKey,
+	OpenRouterBalance,
+	ZAICodingQuotaLimit,
+	ZAICodingQuotaResponse,
+	ZAICodingQuotaUsageDetail,
 } from "@web-shared/quota";
 
 export interface DeepSeekBalanceInfo {
@@ -497,70 +458,8 @@ export interface DeepSeekBalance {
 	balance_infos: DeepSeekBalanceInfo[];
 }
 
-export interface OpenRouterBalance {
-	label: string;
-	limit: number | null;
-	limit_reset: string;
-	limit_remaining: number | null;
-	usage: number;
-	usage_daily: number;
-	usage_weekly: number;
-	usage_monthly: number;
-	credits_total: number;
-	credits_used: number;
-	credits_remaining: number;
-	is_free_tier: boolean;
-}
-
 export interface OllamaCloudAccount {
 	plan: string;
 	subscription_period_end: { time: string; valid: boolean };
 	suspended_at: { time: string; valid: boolean };
-}
-
-export interface NeuralWattQuotaUsagePeriod {
-	cost_usd: number;
-	requests: number;
-	tokens: number;
-	energy_kwh: number;
-}
-
-/**
- * NeuralWatt's quota body, as relayed by the fleet primary.
- *
- * Only `balance` is required, because the badge visibility gate
- * (isNeuralWattQuotaVisible in web-shared/quota) renders no NeuralWatt badge
- * unless balance.credits_remaining_usd is present, so nothing downstream is
- * reachable without it. Every other block is optional: this is an upstream
- * provider's JSON forwarded through another machine's export, not a shape this
- * build controls, and a fleet primary on a different version may relay less.
- * Optional is what makes the compiler, rather than an operator's crashed
- * dashboard, catch an unguarded nested read.
- */
-export interface NeuralWattQuotaResponse {
-	balance: {
-		/** Absent when the provider omitted the balance; never coerce to 0. */
-		credits_remaining_usd?: number | null;
-		total_credits_usd: number;
-		credits_used_usd: number;
-		accounting_method: string;
-	};
-	usage?: {
-		lifetime?: NeuralWattQuotaUsagePeriod;
-		current_month?: NeuralWattQuotaUsagePeriod;
-	};
-	limits?: { overage_limit_usd: number | null; rate_limit_tier: string };
-	subscription?: {
-		plan: string;
-		status: string;
-		billing_interval: string;
-		current_period_start: string;
-		current_period_end: string;
-		auto_renew: boolean;
-		kwh_included: number;
-		kwh_used: number;
-		kwh_remaining: number;
-		in_overage: boolean;
-	};
-	key?: { name: string; allowance: number | null };
 }

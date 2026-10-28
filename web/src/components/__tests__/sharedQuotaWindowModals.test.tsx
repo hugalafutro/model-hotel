@@ -1,25 +1,23 @@
+import { readFileSync } from "node:fs";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
 import { render, screen } from "@testing-library/react";
-import { describe, expect, it, vi } from "vitest";
 import type {
 	KimiCodeQuotaResponse,
 	MiniMaxQuotaResponse,
+	NanoGPTUsage,
 	OpenCodeGoUsageResponse,
 	ZAICodingQuotaResponse,
-} from "../../../api/types";
-import { formatAbsolute } from "../../../utils/time";
-import { KimiCodeQuotaModal } from "../KimiCodeQuotaModal";
-import { MiniMaxQuotaModal } from "../MiniMaxQuotaModal";
-import { OpenCodeGoQuotaModal } from "../OpenCodeGoQuotaModal";
-import { ZAICodingQuotaModal } from "../ZAICodingQuotaModal";
-
-const chrome = {
-	providerName: "acct",
-	fetchedAt: "2026-07-26T10:00:00Z",
-	onToggleBarMode: vi.fn(),
-	onRefresh: vi.fn(),
-	isRefreshing: false,
-	onClose: vi.fn(),
-};
+} from "@web-shared/quota";
+import {
+	KimiCodeQuotaModal,
+	MiniMaxQuotaModal,
+	NanoGPTQuotaModal,
+	OpenCodeGoQuotaModal,
+	ZAICodingQuotaModal,
+} from "@web-shared/quota/modals";
+import i18n from "../../i18n";
+import { quotaBodyChrome as chrome } from "../../test/quotaKit";
 
 describe("ZAICodingQuotaModal", () => {
 	const payload: ZAICodingQuotaResponse = {
@@ -66,7 +64,23 @@ describe("ZAICodingQuotaModal", () => {
 		);
 		const row = screen.getByTestId("zai-mcp-detail-glm-4");
 		expect(row).toHaveTextContent("glm-4");
-		expect(row).toHaveTextContent("7");
+		// The count reads as a usage, not a bare number.
+		expect(row).toHaveTextContent(
+			`7 ${i18n.t("components.providerModals.used")}`,
+		);
+	});
+
+	it("titles the dialog and names the plan from this app's strings", () => {
+		render(
+			<ZAICodingQuotaModal {...chrome} payload={payload} barMode="used" />,
+		);
+		expect(screen.getByRole("dialog")).toHaveAttribute(
+			"aria-label",
+			i18n.t("components.providerModals.zAICodingPlanQuota"),
+		);
+		expect(screen.getByTestId("quota-subtitle")).toHaveTextContent(
+			`${i18n.t("components.providerModals.plan")}: pro`,
+		);
 	});
 
 	it("omits a bar whose window is absent", () => {
@@ -120,6 +134,19 @@ describe("KimiCodeQuotaModal", () => {
 		// looser assertion.
 		expect(screen.getByTestId("kimi-total-quota")).toHaveTextContent(
 			"8000 / 9000",
+		);
+	});
+
+	it("shows a dash for a plan level the payload omits", () => {
+		render(
+			<KimiCodeQuotaModal
+				{...chrome}
+				payload={{ usage: payload.usage }}
+				barMode="used"
+			/>,
+		);
+		expect(screen.getByTestId("quota-subtitle")).toHaveTextContent(
+			`${i18n.t("components.providerModals.plan")}: -`,
 		);
 	});
 
@@ -237,7 +264,7 @@ describe("MiniMaxQuotaModal", () => {
 			);
 			// general: remains_time 1h after fetchedAt 2026-07-26T10:00Z. Anchoring
 			// to Date.now() would print a date in August instead.
-			const expected = formatAbsolute("2026-07-26T11:00:00Z");
+			const expected = "at 2026-07-26T11:00:00.000Z";
 			// The testid sits on the bar track; the reset sublabel is its sibling
 			// inside the same QuotaBar root.
 			expect(
@@ -347,7 +374,7 @@ describe("OpenCodeGoQuotaModal", () => {
 		);
 		expect(
 			screen.getByTestId("opencode-go-rolling-bar").parentElement,
-		).toHaveTextContent(formatAbsolute("2026-07-26T15:00:00Z"));
+		).toHaveTextContent("at 2026-07-26T15:00:00Z");
 		expect(
 			screen.getByTestId("opencode-go-weekly-bar").parentElement,
 		).toHaveTextContent("-");
@@ -366,5 +393,42 @@ describe("OpenCodeGoQuotaModal", () => {
 		expect(screen.getByTestId("opencode-go-weekly-fill")).toHaveStyle({
 			width: "5%",
 		});
+	});
+});
+
+describe("NanoGPTQuotaModal contract fixture", () => {
+	const fixture = JSON.parse(
+		readFileSync(
+			path.resolve(
+				path.dirname(fileURLToPath(import.meta.url)),
+				"../../../../testdata/quota-contract/nanogpt/weekly-fraction.json",
+			),
+			"utf8",
+		),
+	) as {
+		payload: NanoGPTUsage;
+		expected: { weeklyUsedPercent: number; dailyImagesUsedPercent: number };
+	};
+
+	it("reads percentUsed as a fraction and omits the null daily-tokens bar", () => {
+		render(
+			<NanoGPTQuotaModal
+				{...chrome}
+				payload={fixture.payload}
+				barMode="used"
+			/>,
+		);
+		const width = (id: string) =>
+			Number.parseFloat(screen.getByTestId(id).style.width);
+		// 0.000201 as a fraction is 0.0201%: not 0.000201 and not 20.1.
+		expect(width("nano-weekly-fill")).toBeCloseTo(
+			fixture.expected.weeklyUsedPercent,
+			6,
+		);
+		expect(width("nano-images-fill")).toBe(
+			fixture.expected.dailyImagesUsedPercent,
+		);
+		expect(fixture.payload.dailyInputTokens).toBeNull();
+		expect(screen.queryByTestId("nano-daily-tokens-bar")).toBeNull();
 	});
 });

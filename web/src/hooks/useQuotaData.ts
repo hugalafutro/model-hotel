@@ -24,7 +24,7 @@ import {
 import { useCallback, useEffect, useMemo, useRef } from "react";
 import { useTranslation } from "react-i18next";
 import { api } from "../api/client";
-import { LOCAL_CACHE_PREFIX } from "../api/http";
+import { LOCAL_CACHE_PREFIX, type QuotaSnapshot } from "../api/http";
 import type {
 	DeepSeekBalance,
 	KimiCodeQuotaResponse,
@@ -258,6 +258,16 @@ export interface QuotaDataResult {
 	neuralwattDataUpdatedAt: number;
 	opencodeGoDataUpdatedAt: number;
 
+	/** When each modal's stored snapshot was fetched upstream (RFC3339), from
+	 * the server's X-Quota-Fetched-At header; null when it did not say. */
+	nanogptFetchedAt: string | null;
+	zaiCodingFetchedAt: string | null;
+	kimiCodeFetchedAt: string | null;
+	minimaxFetchedAt: string | null;
+	openrouterFetchedAt: string | null;
+	neuralwattFetchedAt: string | null;
+	opencodeGoFetchedAt: string | null;
+
 	/** Invalidate all quota query keys. */
 	invalidateAll: () => void;
 }
@@ -274,7 +284,7 @@ function useProviderQuota<T>(
 	providers: Provider[] | undefined,
 	type: QuotaProviderType,
 	cacheKey: string,
-	fetchUsage: (providerId: string) => Promise<T>,
+	fetchUsage: (providerId: string) => Promise<QuotaSnapshot<T>>,
 	errorKey: string,
 	toastErrors: ((msg: string, severity: "warning") => void) | undefined,
 	refetchInterval: number | false | undefined,
@@ -285,19 +295,33 @@ function useProviderQuota<T>(
 		[providers, type],
 	);
 
-	const { data, dataUpdatedAt, isRefetching, isError, isSuccess, refetch } =
-		useQuery<T>({
-			queryKey: [cacheKey, providerId],
-			queryFn: () => fetchUsage(providerId as string),
-			enabled: Boolean(providerId),
-			refetchInterval,
-			// Reflect the server's stored snapshot on every mount (reload after a
-			// rebuild shows correct quotas within ~1s), while initialData still paints
-			// the cached value instantly.
-			staleTime: 0,
-			refetchOnMount: "always",
-			initialData: () => getCachedData<T>(cacheKey),
-		});
+	const {
+		data: snapshot,
+		dataUpdatedAt,
+		isRefetching,
+		isError,
+		isSuccess,
+		refetch,
+	} = useQuery<QuotaSnapshot<T>>({
+		queryKey: [cacheKey, providerId],
+		queryFn: () => fetchUsage(providerId as string),
+		enabled: Boolean(providerId),
+		refetchInterval,
+		// Reflect the server's stored snapshot on every mount (reload after a
+		// rebuild shows correct quotas within ~1s), while initialData still paints
+		// the cached value instantly. The cache keeps only the payload, so a
+		// repainted one has no snapshot time until that refetch lands.
+		staleTime: 0,
+		refetchOnMount: "always",
+		initialData: () => {
+			const cached = getCachedData<T>(cacheKey);
+			return cached === undefined
+				? undefined
+				: { data: cached, fetchedAt: null };
+		},
+	});
+	const data = snapshot?.data;
+	const fetchedAt = snapshot?.fetchedAt ?? null;
 
 	// A null payload means the provider has no quota to report (a 204: lapsed or
 	// free tier), so the stale cache is dropped rather than repainted as
@@ -334,7 +358,14 @@ function useProviderQuota<T>(
 		await refetch();
 	}, [refetch]);
 
-	return { providerId, data, dataUpdatedAt, isRefetching, refetch: refresh };
+	return {
+		providerId,
+		data,
+		dataUpdatedAt,
+		fetchedAt,
+		isRefetching,
+		refetch: refresh,
+	};
 }
 
 /** The query keys every quota reader shares, so an invalidation misses none. */
@@ -374,7 +405,7 @@ export function useQuotaData(
 		providers,
 		"nanogpt",
 		"nanogpt-usage",
-		(id) => api.providers.getUsage(id) as Promise<NanoGPTUsage>,
+		(id) => api.providers.getUsage(id) as Promise<QuotaSnapshot<NanoGPTUsage>>,
 		"hooks.useQuotaData.nanoGPTError",
 		toastErrors,
 		interval,
@@ -383,7 +414,10 @@ export function useQuotaData(
 		providers,
 		"zai-coding",
 		"zai-coding-usage",
-		(id) => api.providers.getUsage(id) as Promise<ZAICodingQuotaResponse>,
+		(id) =>
+			api.providers.getUsage(id) as Promise<
+				QuotaSnapshot<ZAICodingQuotaResponse>
+			>,
 		"hooks.useQuotaData.zaiError",
 		toastErrors,
 		interval,
@@ -392,7 +426,10 @@ export function useQuotaData(
 		providers,
 		"kimi-code",
 		"kimi-code-usage",
-		(id) => api.providers.getUsage(id) as Promise<KimiCodeQuotaResponse>,
+		(id) =>
+			api.providers.getUsage(id) as Promise<
+				QuotaSnapshot<KimiCodeQuotaResponse>
+			>,
 		"hooks.useQuotaData.kimiError",
 		toastErrors,
 		interval,
@@ -401,7 +438,10 @@ export function useQuotaData(
 		providers,
 		"minimax",
 		"minimax-usage",
-		(id) => api.providers.getUsage(id) as Promise<MiniMaxQuotaResponse>,
+		(id) =>
+			api.providers.getUsage(id) as Promise<
+				QuotaSnapshot<MiniMaxQuotaResponse>
+			>,
 		"hooks.useQuotaData.miniMaxError",
 		toastErrors,
 		interval,
@@ -650,6 +690,13 @@ export function useQuotaData(
 		ollamaCloudDataUpdatedAt,
 		neuralwattDataUpdatedAt,
 		opencodeGoDataUpdatedAt,
+		nanogptFetchedAt: nano.fetchedAt,
+		zaiCodingFetchedAt: zai.fetchedAt,
+		kimiCodeFetchedAt: kimi.fetchedAt,
+		minimaxFetchedAt: minimax.fetchedAt,
+		openrouterFetchedAt: openrouter.fetchedAt,
+		neuralwattFetchedAt: neuralwatt.fetchedAt,
+		opencodeGoFetchedAt: opencodeGo.fetchedAt,
 		invalidateAll,
 	};
 }

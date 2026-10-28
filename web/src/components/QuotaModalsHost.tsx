@@ -40,12 +40,13 @@ export function QuotaModalsHost() {
 			return (
 				q.nanogptUsage && (
 					<NanoGPTQuotaModal
-						usage={q.nanogptUsage}
+						payload={q.nanogptUsage}
 						onClose={onClose}
 						onRefresh={q.refetchNano}
 						isRefreshing={q.isNanoRefetching}
 						onToast={toast}
 						lastRefreshed={q.nanogptDataUpdatedAt}
+						fetchedAt={q.nanogptFetchedAt}
 					/>
 				)
 			);
@@ -53,12 +54,13 @@ export function QuotaModalsHost() {
 			return (
 				q.zaiCodingUsage && (
 					<ZAICodingQuotaModal
-						usage={q.zaiCodingUsage}
+						payload={q.zaiCodingUsage}
 						onClose={onClose}
 						onRefresh={q.refetchZaiCoding}
 						isRefreshing={q.isZaiCodingRefetching}
 						onToast={toast}
 						lastRefreshed={q.zaiCodingDataUpdatedAt}
+						fetchedAt={q.zaiCodingFetchedAt}
 					/>
 				)
 			);
@@ -66,12 +68,13 @@ export function QuotaModalsHost() {
 			return (
 				q.kimiCodeUsage && (
 					<KimiCodeQuotaModal
-						usage={q.kimiCodeUsage}
+						payload={q.kimiCodeUsage}
 						onClose={onClose}
 						onRefresh={q.refetchKimiCode}
 						isRefreshing={q.isKimiCodeRefetching}
 						onToast={toast}
 						lastRefreshed={q.kimiCodeDataUpdatedAt}
+						fetchedAt={q.kimiCodeFetchedAt}
 					/>
 				)
 			);
@@ -79,12 +82,13 @@ export function QuotaModalsHost() {
 			return (
 				q.minimaxUsage && (
 					<MiniMaxQuotaModal
-						usage={q.minimaxUsage}
+						payload={q.minimaxUsage}
 						onClose={onClose}
 						onRefresh={q.refetchMiniMax}
 						isRefreshing={q.isMiniMaxRefetching}
 						onToast={toast}
 						lastRefreshed={q.minimaxDataUpdatedAt}
+						fetchedAt={q.minimaxFetchedAt}
 					/>
 				)
 			);
@@ -92,12 +96,13 @@ export function QuotaModalsHost() {
 			return (
 				q.openrouterBalance && (
 					<OpenRouterQuotaModal
-						balance={q.openrouterBalance}
+						payload={q.openrouterBalance}
 						onClose={onClose}
 						onRefresh={q.refetchOpenRouter}
 						isRefreshing={q.isOrRefetching}
 						onToast={toast}
 						lastRefreshed={q.openrouterDataUpdatedAt}
+						fetchedAt={q.openrouterFetchedAt}
 					/>
 				)
 			);
@@ -105,12 +110,13 @@ export function QuotaModalsHost() {
 			return (
 				q.neuralwattQuota && (
 					<NeuralWattQuotaModal
-						quota={q.neuralwattQuota}
+						payload={q.neuralwattQuota}
 						onClose={onClose}
 						onRefresh={q.refetchNeuralwatt}
 						isRefreshing={q.isNeuralwattRefetching}
 						onToast={toast}
 						lastRefreshed={q.neuralwattDataUpdatedAt}
+						fetchedAt={q.neuralwattFetchedAt}
 					/>
 				)
 			);
@@ -118,12 +124,13 @@ export function QuotaModalsHost() {
 			return (
 				q.opencodeGoUsage && (
 					<OpenCodeGoQuotaModal
-						usage={q.opencodeGoUsage}
+						payload={q.opencodeGoUsage}
 						onClose={onClose}
 						onRefresh={q.refetchOpenCodeGo}
 						isRefreshing={q.isOpenCodeGoRefetching}
 						onToast={toast}
 						lastRefreshed={q.opencodeGoDataUpdatedAt}
+						fetchedAt={q.opencodeGoFetchedAt}
 					/>
 				)
 			);

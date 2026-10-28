@@ -3,6 +3,7 @@ import {
 	CaretDownIcon,
 	CaretUpIcon,
 } from "@phosphor-icons/react";
+import { useLocalStorage } from "@web-shared/local-storage";
 import { useCallback, useState } from "react";
 import { useTranslation } from "react-i18next";
 import type {
@@ -25,44 +26,22 @@ import {
 import { formatTimeOfDay } from "../utils/time";
 import { ErrorBoundary } from "./ErrorBoundary";
 import { QuotaBadge } from "./QuotaBadge";
-import { KimiCodeQuotaModal } from "./quota/KimiCodeQuotaModal";
-import { MiniMaxQuotaModal } from "./quota/MiniMaxQuotaModal";
-import { NanoGPTQuotaModal } from "./quota/NanoGPTQuotaModal";
-import { NeuralWattQuotaModal } from "./quota/NeuralWattQuotaModal";
-import { OpenCodeGoQuotaModal } from "./quota/OpenCodeGoQuotaModal";
-import { OpenRouterQuotaModal } from "./quota/OpenRouterQuotaModal";
+import {
+	KimiCodeQuotaModal,
+	MiniMaxQuotaModal,
+	NanoGPTQuotaModal,
+	NeuralWattQuotaModal,
+	OpenCodeGoQuotaModal,
+	OpenRouterQuotaModal,
+	ZAICodingQuotaModal,
+} from "./quota/modals";
 import type { QuotaModalProps } from "./quota/shared";
-import { ZAICodingQuotaModal } from "./quota/ZAICodingQuotaModal";
 
 const COLLAPSED_KEY = "fdQuotaCollapsed";
 const BAR_MODE_KEY = "fdQuotaBarMode";
 
 /** Providers whose badge says everything the modal would: click means refresh. */
 const NO_MODAL = new Set(["deepseek", "ollama-cloud"]);
-
-function readCollapsed(): boolean {
-	try {
-		return localStorage.getItem(COLLAPSED_KEY) === "true";
-	} catch {
-		return false;
-	}
-}
-
-function readBarMode(): QuotaBarMode {
-	try {
-		return localStorage.getItem(BAR_MODE_KEY) === "used" ? "used" : "remaining";
-	} catch {
-		return "remaining";
-	}
-}
-
-function store(key: string, value: string) {
-	try {
-		localStorage.setItem(key, value);
-	} catch {
-		/* private mode: the preference just does not survive the reload */
-	}
-}
 
 /**
  * The quota strip under the header, on every tab.
@@ -74,8 +53,14 @@ function store(key: string, value: string) {
 export function QuotaStrip() {
 	const { t } = useTranslation();
 	const { toast } = useToast();
-	const [collapsed, setCollapsed] = useState(readCollapsed);
-	const [barMode, setBarMode] = useState<QuotaBarMode>(readBarMode);
+	const [collapsed, setCollapsed] = useLocalStorage(COLLAPSED_KEY, false, {
+		deserialize: (stored) => stored === "true",
+	});
+	const [barMode, setBarMode] = useLocalStorage<QuotaBarMode>(
+		BAR_MODE_KEY,
+		"remaining",
+		{ deserialize: (stored) => (stored === "used" ? "used" : "remaining") },
+	);
 	const [openKey, setOpenKey] = useState<string | null>(null);
 
 	const { snapshots, loading, stale, lastUpdatedAt, refreshing, refresh } =
@@ -112,7 +97,6 @@ export function QuotaStrip() {
 	const toggleCollapsed = useCallback(() => {
 		setCollapsed((prev) => {
 			const next = !prev;
-			store(COLLAPSED_KEY, String(next));
 			// M-3: collapsing hides the badges but previously left an open modal
 			// floating over the now-empty strip. Close it along with the badges;
 			// idempotent, so a StrictMode double-invoke of this updater is
@@ -121,15 +105,11 @@ export function QuotaStrip() {
 			if (next) setOpenKey(null);
 			return next;
 		});
-	}, []);
+	}, [setCollapsed]);
 
 	const toggleBarMode = useCallback(() => {
-		setBarMode((prev) => {
-			const next: QuotaBarMode = prev === "remaining" ? "used" : "remaining";
-			store(BAR_MODE_KEY, next);
-			return next;
-		});
-	}, []);
+		setBarMode((prev) => (prev === "remaining" ? "used" : "remaining"));
+	}, [setBarMode]);
 
 	const onBadgeClick = useCallback(
 		(model: QuotaBadgeModel) => {

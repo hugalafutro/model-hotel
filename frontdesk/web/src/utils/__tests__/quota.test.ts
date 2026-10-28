@@ -1,7 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { QuotaSnapshot } from "../../api/types";
 import {
-	barTone,
 	getKimiCodeFiveHourLimit,
 	getKimiCodeWeeklyLimit,
 	getMiniMaxFiveHourLimit,
@@ -94,43 +93,6 @@ describe("payloadOf", () => {
 		]);
 		expect(out).toHaveLength(1);
 		expect(out[0].degraded).toBe(true);
-	});
-});
-
-describe("barTone", () => {
-	it("grades remaining mode from the remaining share", () => {
-		expect(barTone(90, "remaining")).toBe("danger"); // 10% left
-		expect(barTone(50, "remaining")).toBe("warn"); // 50% left
-		expect(barTone(10, "remaining")).toBe("ok"); // 90% left
-	});
-
-	it("grades used mode from the used share", () => {
-		expect(barTone(20, "used")).toBe("warn");
-		expect(barTone(60, "used")).toBe("high");
-		expect(barTone(95, "used")).toBe("danger");
-	});
-
-	// Each threshold is exclusive (`<`). The tests below sit exactly on the
-	// boundary and one step below it, so flipping any `<` to `<=` flips an
-	// assertion; the round numbers used above all sit mid-band and survive that.
-	it("puts exactly 20% remaining in warn, not danger", () => {
-		expect(barTone(80, "remaining")).toBe("warn"); // 20% left
-		expect(barTone(81, "remaining")).toBe("danger"); // 19% left
-	});
-
-	it("puts exactly 60% remaining in ok, not warn", () => {
-		expect(barTone(40, "remaining")).toBe("ok"); // 60% left
-		expect(barTone(41, "remaining")).toBe("warn"); // 59% left
-	});
-
-	it("puts exactly 50% used in high, not warn", () => {
-		expect(barTone(50, "used")).toBe("high");
-		expect(barTone(49, "used")).toBe("warn");
-	});
-
-	it("puts exactly 80% used in danger, not high", () => {
-		expect(barTone(80, "used")).toBe("danger");
-		expect(barTone(79, "used")).toBe("high");
 	});
 });
 

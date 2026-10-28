@@ -827,32 +827,32 @@ h3 {
 	font-size: 0.72rem;
 }
 
-.fd-quota-bar-block {
+.ui-quota-bar-block {
 	display: flex;
 	flex-direction: column;
 	gap: 0.35rem;
 }
 
-.fd-quota-bar-head {
+.ui-quota-bar-head {
 	display: flex;
 	align-items: center;
 	justify-content: space-between;
 	gap: 0.5rem;
 }
 
-.fd-quota-bar-label {
+.ui-quota-bar-label {
 	color: var(--text);
 	font-size: 0.82rem;
 	font-weight: 500;
 }
 
-.fd-quota-bar-right {
+.ui-quota-bar-right {
 	color: var(--text-muted);
 	font-size: 0.8rem;
 	font-family: var(--font-mono);
 }
 
-.fd-quota-bar-track {
+.ui-quota-bar-track {
 	width: 100%;
 	height: 0.6rem;
 	border-radius: 999px;
@@ -860,44 +860,44 @@ h3 {
 	overflow: hidden;
 }
 
-.fd-quota-bar-fill {
+.ui-quota-bar-fill {
 	height: 100%;
 	border-radius: 999px;
 	transition: width 0.25s ease;
 }
 
-.fd-quota-fill-ok {
+.ui-quota-fill-ok {
 	background: var(--ok);
 }
-.fd-quota-fill-warn {
+.ui-quota-fill-warn {
 	background: var(--warn);
 }
-.fd-quota-fill-high {
+.ui-quota-fill-high {
 	background: var(--accent-strong);
 }
-.fd-quota-fill-danger {
+.ui-quota-fill-danger {
 	background: var(--danger);
 }
 
-.fd-quota-bar-sub {
+.ui-quota-bar-sub {
 	margin: 0;
 	color: var(--text-faint);
 	font-size: 0.72rem;
 	white-space: pre-line;
 }
 
-.fd-quota-detail-grid {
+.ui-quota-detail-grid {
 	display: grid;
 	gap: 0.5rem;
 }
-.fd-quota-detail-grid-2 {
+.ui-quota-detail-grid-2 {
 	grid-template-columns: repeat(2, minmax(0, 1fr));
 }
-.fd-quota-detail-grid-3 {
+.ui-quota-detail-grid-3 {
 	grid-template-columns: repeat(3, minmax(0, 1fr));
 }
 
-.fd-quota-detail-item {
+.ui-quota-detail-item {
 	display: flex;
 	flex-direction: column;
 	gap: 0.15rem;
@@ -908,24 +908,24 @@ h3 {
 	min-width: 0;
 }
 
-.fd-quota-detail-span {
+.ui-quota-detail-span {
 	grid-column: 1 / -1;
 }
 
-.fd-quota-detail-label {
+.ui-quota-detail-label {
 	color: var(--text-faint);
 	font-size: 0.68rem;
 	text-transform: uppercase;
 	letter-spacing: 0.04em;
 }
 
-.fd-quota-detail-value {
+.ui-quota-detail-value {
 	color: var(--text);
 	font-size: 0.82rem;
 	overflow-wrap: anywhere;
 }
 
-.fd-quota-rows {
+.ui-quota-rows {
 	display: flex;
 	flex-direction: column;
 	gap: 0.3rem;
@@ -935,7 +935,7 @@ h3 {
 	background: var(--surface-2);
 }
 
-.fd-quota-row {
+.ui-quota-row {
 	display: flex;
 	align-items: center;
 	justify-content: space-between;
@@ -944,19 +944,19 @@ h3 {
 	font-size: 0.74rem;
 }
 
-.fd-quota-overage-note {
+.ui-quota-overage-note {
 	margin: 0;
 	color: var(--danger);
 	font-size: 0.74rem;
 }
 
-.fd-quota-class {
+.ui-quota-class {
 	display: flex;
 	flex-direction: column;
 	gap: 0.75rem;
 }
 
-.fd-quota-class-label {
+.ui-quota-class-label {
 	margin: 0;
 	color: var(--text);
 	font-size: 0.85rem;
@@ -973,12 +973,12 @@ h3 {
 	.fd-spin {
 		animation: none;
 	}
-	.fd-quota-bar-fill {
+	.ui-quota-bar-fill {
 		transition: none;
 	}
 }
 
-.fd-quota-notice {
+.ui-quota-notice {
 	margin: 0;
 	padding: 0.5rem 0.6rem;
 	border: 1px solid color-mix(in srgb, var(--warn) 45%, transparent);

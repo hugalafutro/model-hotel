@@ -1,14 +1,23 @@
 // Quota payload parsing shared by the Model Hotel dashboard (web/) and Front
-// Desk (frontdesk/web/). Pure TypeScript: no React, no i18next, no imports from
-// either app. Presentation stays in the app that renders it, apart from the
-// values both apps spell identically (pill prefixes, the window-percentage
-// label and the DeepSeek USD balance, in display.ts): brand colours, modal shells and reset labels differ
-// per app and live there.
+// Desk (frontdesk/web/). Pure TypeScript apart from ./modals (React bodies that
+// take an app-supplied kit): no i18next, no imports from either app.
+// Presentation stays in the app that renders it, apart from the values both
+// apps spell identically (pill prefixes, the window-percentage label, bar tones
+// and the DeepSeek USD balance, in display.ts) and the modal bodies in
+// ./modals, which each app wraps in its own shell and strings. Brand colours,
+// pills and modal chrome differ per app and live there.
 //
 // Both apps reach this module as `@web-shared/quota`, through the `@web-shared`
 // prefix alias wired in their tsconfig `paths`, vite and vitest configs.
 
-export { deepseekUsd, QUOTA_PREFIXES, windowPct } from "./display";
+export {
+	barTone,
+	deepseekUsd,
+	QUOTA_PREFIXES,
+	type QuotaBarMode,
+	type QuotaBarTone,
+	windowPct,
+} from "./display";
 export {
 	getKimiCodeFiveHourLimit,
 	getKimiCodeWeeklyLimit,
@@ -46,13 +55,22 @@ export type {
 	MiniMaxModelRemains,
 	MiniMaxQuotaResponse,
 	MiniMaxQuotaWindow,
+	NanoGPTUsage,
+	NanoGPTUsageLimits,
+	NanoGPTUsageTokenInfo,
 	NanoGptUsageLike,
 	NeuralWattQuotaLike,
+	NeuralWattQuotaResponse,
+	NeuralWattQuotaUsagePeriod,
 	OllamaCloudAccountLike,
 	OpenCodeGoUsageResponse,
 	OpenCodeGoUsageWindow,
+	OpenRouterBalance,
 	OpenRouterBalanceLike,
 	QuotaProviderType,
+	ZAICodingQuotaLimit,
+	ZAICodingQuotaResponse,
+	ZAICodingQuotaUsageDetail,
 	ZaiCodingLimitLike,
 	ZaiCodingResponseLike,
 } from "./types";

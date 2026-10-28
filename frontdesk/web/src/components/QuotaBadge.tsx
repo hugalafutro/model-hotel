@@ -1,4 +1,5 @@
 import { deepseekUsd, isQuotaPayloadSpent, windowPct } from "@web-shared/quota";
+import type { Translate } from "@web-shared/quota/modals";
 import type { CSSProperties } from "react";
 import { useTranslation } from "react-i18next";
 import type {
@@ -28,7 +29,6 @@ import {
 	type QuotaBadgeModel,
 	type QuotaBarMode,
 } from "../utils/quota";
-import type { Translate } from "./quota/shared";
 
 interface BadgeContent {
 	label: string;
