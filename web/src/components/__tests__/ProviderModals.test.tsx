@@ -135,27 +135,48 @@ describe("quota modal shell", () => {
 		});
 	});
 
-	it("anchors a payload's durations at its fetch time, not the render clock", () => {
-		// MiniMax reports how long until each window resets, measured when the
-		// payload was fetched; anchoring at Date.now() would push the reset
-		// later on every re-render.
-		const fetched = Date.parse("2026-07-26T10:00:00Z");
-		const payload: MiniMaxQuotaResponse = {
-			base_resp: { status_code: 0, status_msg: "ok" },
-			model_remains: [
-				{
-					model_name: "general",
-					current_interval_status: 1,
-					current_interval_remaining_percent: 70,
-					remains_time: 3_600_000,
-					current_weekly_status: 1,
-					current_weekly_remaining_percent: 30,
-					weekly_remains_time: 0,
-				},
-			],
-		};
+	const minimax: MiniMaxQuotaResponse = {
+		base_resp: { status_code: 0, status_msg: "ok" },
+		model_remains: [
+			{
+				model_name: "general",
+				current_interval_status: 1,
+				current_interval_remaining_percent: 70,
+				remains_time: 3_600_000,
+				current_weekly_status: 1,
+				current_weekly_remaining_percent: 30,
+				weekly_remains_time: 0,
+			},
+		],
+	};
+
+	it("anchors a payload's durations at the server snapshot's fetch time", () => {
+		// The server can answer with a snapshot it fetched upstream earlier than
+		// this query landed. MiniMax measured remains_time at that upstream
+		// fetch, so anchoring at the query time would push the reset later by
+		// the snapshot's age, and again on every refresh of the same snapshot.
+		const snapshot = "2026-07-26T09:00:00Z";
+		const queried = Date.parse("2026-07-26T10:00:00Z");
 		renderWithProviders(
-			<MiniMaxQuotaModal {...props(payload)} lastRefreshed={fetched} />,
+			<MiniMaxQuotaModal
+				{...props(minimax)}
+				lastRefreshed={queried}
+				fetchedAt={snapshot}
+			/>,
+		);
+		const bar = screen.getByTestId("minimax-general-5h-bar").parentElement;
+		expect(bar).toHaveTextContent(
+			formatTimestamp(Date.parse(snapshot) + 3_600_000),
+		);
+		expect(bar).not.toHaveTextContent(formatTimestamp(queried + 3_600_000));
+	});
+
+	it("falls back to the query time, not the render clock, without a snapshot time", () => {
+		// MiniMax reports how long until each window resets; anchoring at
+		// Date.now() would push the reset later on every re-render.
+		const fetched = Date.parse("2026-07-26T10:00:00Z");
+		renderWithProviders(
+			<MiniMaxQuotaModal {...props(minimax)} lastRefreshed={fetched} />,
 		);
 		const bar = screen.getByTestId("minimax-general-5h-bar").parentElement;
 		expect(bar).toHaveTextContent(formatTimestamp(fetched + 3_600_000));

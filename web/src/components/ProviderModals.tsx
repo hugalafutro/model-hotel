@@ -34,6 +34,8 @@ export interface QuotaModalProps<P> {
 	onToast: OnToast;
 	/** When the payload was fetched (the query's dataUpdatedAt), epoch ms. */
 	lastRefreshed?: number;
+	/** When the server's stored snapshot was fetched upstream (RFC3339). */
+	fetchedAt?: string | null;
 }
 
 function bind<P>(QuotaBody: ComponentType<Body.QuotaBodyProps<P>>) {
@@ -44,6 +46,7 @@ function bind<P>(QuotaBody: ComponentType<Body.QuotaBodyProps<P>>) {
 		isRefreshing,
 		onToast,
 		lastRefreshed,
+		fetchedAt,
 	}: QuotaModalProps<P>) {
 		const { t } = useTranslation(undefined, {
 			keyPrefix: "components.providerModals",
@@ -57,8 +60,12 @@ function bind<P>(QuotaBody: ComponentType<Body.QuotaBodyProps<P>>) {
 				// The dashboard's titles name the provider family, not the account.
 				providerName=""
 				// Durations in a payload (MiniMax's remains_time) were measured when
-				// it was fetched, so they anchor here rather than at render time.
-				fetchedAt={new Date(lastRefreshed ?? Date.now()).toISOString()}
+				// the server's snapshot was fetched upstream, so they anchor there
+				// rather than at this query's or the render's time. The query time
+				// stands in only when the server did not say.
+				fetchedAt={
+					fetchedAt ?? new Date(lastRefreshed ?? Date.now()).toISOString()
+				}
 				kit={{
 					t,
 					time: TIME,

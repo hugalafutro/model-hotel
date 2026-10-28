@@ -264,7 +264,7 @@ describe("api.providers", () => {
 			);
 
 			const result = await api.providers.getUsage("123");
-			expect(result).toEqual(mockUsage);
+			expect(result).toEqual({ data: mockUsage, fetchedAt: null });
 			expect(globalThis.fetch).toHaveBeenCalledWith(
 				"/api/providers/123/usage",
 				expect.objectContaining({
@@ -273,6 +273,30 @@ describe("api.providers", () => {
 					}),
 				}),
 			);
+		});
+
+		it("carries the stored snapshot's upstream fetch time", async () => {
+			// The server serves a stored snapshot; its header says when that
+			// snapshot was fetched upstream, which can predate this request.
+			vi.spyOn(globalThis, "fetch").mockResolvedValue(
+				new Response("{}", {
+					status: 200,
+					headers: { "X-Quota-Fetched-At": "2026-07-26T09:00:00Z" },
+				}),
+			);
+			const result = await api.providers.getUsage("123");
+			expect(result.fetchedAt).toBe("2026-07-26T09:00:00Z");
+		});
+
+		it("ignores an unparseable snapshot time", async () => {
+			vi.spyOn(globalThis, "fetch").mockResolvedValue(
+				new Response("{}", {
+					status: 200,
+					headers: { "X-Quota-Fetched-At": "soon" },
+				}),
+			);
+			const result = await api.providers.getUsage("123");
+			expect(result.fetchedAt).toBeNull();
 		});
 
 		it("throws on error response", async () => {
@@ -293,7 +317,7 @@ describe("api.providers", () => {
 			);
 
 			const result = await api.providers.getBalance("123");
-			expect(result).toEqual(mockBalance);
+			expect(result).toEqual({ data: mockBalance, fetchedAt: null });
 			expect(globalThis.fetch).toHaveBeenCalledWith(
 				"/api/providers/123/balance",
 				expect.objectContaining({
@@ -322,7 +346,7 @@ describe("api.providers", () => {
 			);
 
 			const result = await api.providers.getOpenRouterBalance("123");
-			expect(result).toEqual(mockBalance);
+			expect(result).toEqual({ data: mockBalance, fetchedAt: null });
 			expect(globalThis.fetch).toHaveBeenCalledWith(
 				"/api/providers/123/usage",
 				expect.objectContaining({
@@ -351,7 +375,7 @@ describe("api.providers", () => {
 			);
 
 			const result = await api.providers.getOllamaCloudAccount("123");
-			expect(result).toEqual(mockAccount);
+			expect(result).toEqual({ data: mockAccount, fetchedAt: null });
 			expect(globalThis.fetch).toHaveBeenCalledWith(
 				"/api/providers/123/account",
 				expect.objectContaining({
@@ -381,7 +405,7 @@ describe("api.providers", () => {
 
 			const result = await api.providers.getNeuralWattQuota("123");
 
-			expect(result).toEqual(quota);
+			expect(result).toEqual({ data: quota, fetchedAt: null });
 			expect(globalThis.fetch).toHaveBeenCalledWith(
 				"/api/providers/123/usage",
 				expect.objectContaining({
@@ -398,7 +422,7 @@ describe("api.providers", () => {
 			);
 
 			const result = await api.providers.getNeuralWattQuota("123");
-			expect(result).toBeNull();
+			expect(result.data).toBeNull();
 		});
 
 		it("throws on error response", async () => {

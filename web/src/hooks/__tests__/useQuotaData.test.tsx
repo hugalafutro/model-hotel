@@ -775,6 +775,53 @@ describe("useQuotaData", () => {
 		expect(result.current.showOpenCodeGoBadge).toBe(false);
 	});
 
+	// The server serves a stored snapshot and says in a header when it was
+	// fetched upstream; the modals anchor payload durations there, so the
+	// time has to survive the trip through the query.
+	it("carries the snapshot's upstream fetch time from the response header", async () => {
+		const minimaxProvider: Provider = {
+			...mockProviders[0],
+			id: "minimax-1",
+			name: "MiniMax",
+			base_url: "https://api.minimax.io/v1",
+			provider_type: "custom",
+		};
+		server.use(
+			http.get("/api/providers/:id/usage", () =>
+				HttpResponse.json(
+					{
+						base_resp: { status_code: 0, status_msg: "ok" },
+						model_remains: [],
+					},
+					{ headers: { "X-Quota-Fetched-At": "2026-07-26T09:00:00Z" } },
+				),
+			),
+		);
+
+		const { result } = renderHook(() => useQuotaData([minimaxProvider]), {
+			wrapper: createQueryWrapper(),
+		});
+
+		await waitFor(() => {
+			expect(result.current.minimaxFetchedAt).toBe("2026-07-26T09:00:00Z");
+		});
+		expect(result.current.minimaxUsage?.model_remains).toEqual([]);
+	});
+
+	it("reports no snapshot time for a payload repainted from the cache", () => {
+		localStorage.setItem(
+			"model-hotel:nanogpt-usage",
+			JSON.stringify({ active: true, providerStatus: "cached" }),
+		);
+
+		const { result } = renderHook(() => useQuotaData(mockProviders), {
+			wrapper: createQueryWrapper(),
+		});
+
+		expect(result.current.nanogptUsage?.providerStatus).toBe("cached");
+		expect(result.current.nanogptFetchedAt).toBeNull();
+	});
+
 	it("returns dataUpdatedAt timestamps", async () => {
 		const { result } = renderHook(() => useQuotaData(mockProviders), {
 			wrapper: createQueryWrapper(),

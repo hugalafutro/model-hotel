@@ -46,6 +46,7 @@ export function QuotaModalsHost() {
 						isRefreshing={q.isNanoRefetching}
 						onToast={toast}
 						lastRefreshed={q.nanogptDataUpdatedAt}
+						fetchedAt={q.nanogptFetchedAt}
 					/>
 				)
 			);
@@ -59,6 +60,7 @@ export function QuotaModalsHost() {
 						isRefreshing={q.isZaiCodingRefetching}
 						onToast={toast}
 						lastRefreshed={q.zaiCodingDataUpdatedAt}
+						fetchedAt={q.zaiCodingFetchedAt}
 					/>
 				)
 			);
@@ -72,6 +74,7 @@ export function QuotaModalsHost() {
 						isRefreshing={q.isKimiCodeRefetching}
 						onToast={toast}
 						lastRefreshed={q.kimiCodeDataUpdatedAt}
+						fetchedAt={q.kimiCodeFetchedAt}
 					/>
 				)
 			);
@@ -85,6 +88,7 @@ export function QuotaModalsHost() {
 						isRefreshing={q.isMiniMaxRefetching}
 						onToast={toast}
 						lastRefreshed={q.minimaxDataUpdatedAt}
+						fetchedAt={q.minimaxFetchedAt}
 					/>
 				)
 			);
@@ -98,6 +102,7 @@ export function QuotaModalsHost() {
 						isRefreshing={q.isOrRefetching}
 						onToast={toast}
 						lastRefreshed={q.openrouterDataUpdatedAt}
+						fetchedAt={q.openrouterFetchedAt}
 					/>
 				)
 			);
@@ -111,6 +116,7 @@ export function QuotaModalsHost() {
 						isRefreshing={q.isNeuralwattRefetching}
 						onToast={toast}
 						lastRefreshed={q.neuralwattDataUpdatedAt}
+						fetchedAt={q.neuralwattFetchedAt}
 					/>
 				)
 			);
@@ -124,6 +130,7 @@ export function QuotaModalsHost() {
 						isRefreshing={q.isOpenCodeGoRefetching}
 						onToast={toast}
 						lastRefreshed={q.opencodeGoDataUpdatedAt}
+						fetchedAt={q.opencodeGoFetchedAt}
 					/>
 				)
 			);

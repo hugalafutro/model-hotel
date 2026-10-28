@@ -1123,6 +1123,13 @@ describe("QuotaBadges", () => {
 		refetchOpenCodeGo: vi.fn(),
 		isOpenCodeGoRefetching: false,
 		opencodeGoDataUpdatedAt: 0,
+		nanogptFetchedAt: null,
+		zaiCodingFetchedAt: null,
+		kimiCodeFetchedAt: null,
+		minimaxFetchedAt: null,
+		openrouterFetchedAt: null,
+		neuralwattFetchedAt: null,
+		opencodeGoFetchedAt: null,
 		invalidateAll: vi.fn(),
 	};
 
@@ -1232,6 +1239,13 @@ describe("QuotaBadges", () => {
 		refetchOpenCodeGo: vi.fn(),
 		isOpenCodeGoRefetching: false,
 		opencodeGoDataUpdatedAt: 0,
+		nanogptFetchedAt: null,
+		zaiCodingFetchedAt: null,
+		kimiCodeFetchedAt: null,
+		minimaxFetchedAt: null,
+		openrouterFetchedAt: null,
+		neuralwattFetchedAt: null,
+		opencodeGoFetchedAt: null,
 		invalidateAll: vi.fn(),
 	};
 

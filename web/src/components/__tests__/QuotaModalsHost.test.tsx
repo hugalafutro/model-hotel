@@ -5,6 +5,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { useQuotaModal } from "../../context/QuotaModalContext";
 import type { QuotaDataResult } from "../../hooks/useQuotaData";
 import { renderWithProviders } from "../../test/utils";
+import { formatTimestamp } from "../../utils/format";
 import { QuotaModalsHost } from "../QuotaModalsHost";
 
 vi.mock("../../hooks/useQuotaData", async (importOriginal) => {
@@ -125,6 +126,48 @@ describe("QuotaModalsHost", () => {
 				screen.queryByRole("heading", { name: "NanoGPT Subscription" }),
 			).toBeNull();
 		});
+	});
+
+	it("anchors the modal at the server snapshot's fetch time, not the query's", async () => {
+		const user = userEvent.setup();
+		const snapshot = "2026-07-26T09:00:00Z";
+		mockQuota({
+			minimaxUsage: {
+				base_resp: { status_code: 0, status_msg: "ok" },
+				model_remains: [
+					{
+						model_name: "general",
+						current_interval_status: 1,
+						current_interval_remaining_percent: 70,
+						remains_time: 3_600_000,
+						current_weekly_status: 1,
+						current_weekly_remaining_percent: 30,
+						weekly_remains_time: 0,
+					},
+				],
+			},
+			isMiniMaxRefetching: false,
+			refetchMiniMax: vi.fn(),
+			minimaxDataUpdatedAt: Date.parse("2026-07-26T10:00:00Z"),
+			minimaxFetchedAt: snapshot,
+		});
+		function OpenMiniMax() {
+			const { setOpen } = useQuotaModal();
+			return (
+				<button type="button" onClick={() => setOpen("minimax")}>
+					open minimax
+				</button>
+			);
+		}
+		renderHost(<OpenMiniMax />);
+
+		await user.click(screen.getByRole("button", { name: "open minimax" }));
+
+		const bar = (await screen.findByTestId("minimax-general-5h-bar"))
+			.parentElement;
+		expect(bar).toHaveTextContent(
+			formatTimestamp(Date.parse(snapshot) + 3_600_000),
+		);
 	});
 
 	it("renders nothing for a provider whose quota has not loaded", async () => {
