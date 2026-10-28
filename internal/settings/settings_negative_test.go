@@ -2,6 +2,7 @@ package settings
 
 import (
 	"context"
+	"errors"
 	"log/slog"
 	"sync"
 	"testing"
@@ -332,6 +333,30 @@ func TestReadFailureOnCancelledContextLogsAtDebug(t *testing.T) {
 	got := levels()
 	if len(got) != 2 || got[0] != slog.LevelDebug || got[1] != slog.LevelDebug {
 		t.Errorf("logged levels %v, want [DEBUG DEBUG]", got)
+	}
+}
+
+// An expired deadline is not a hangup: the caller's budget ran out while the
+// query was still running, which is worth seeing, so it stays a Warn.
+func TestReadFailureOnExpiredDeadlineLogsAtWarn(t *testing.T) {
+	clearSettings(t)
+	r := NewRepository(testPool)
+	key := "expired_read_key"
+	levels := readFailureLevels(t, key)
+
+	ctx, cancel := context.WithDeadline(context.Background(), time.Now().Add(-time.Second))
+	defer cancel()
+
+	if got := r.GetWithDefault(ctx, key, "dflt"); got != "dflt" {
+		t.Errorf("GetWithDefault = %q, want the default", got)
+	}
+	d, err := r.GetDurationChecked(ctx, key, time.Minute)
+	if !errors.Is(err, context.DeadlineExceeded) || d != time.Minute {
+		t.Errorf("GetDurationChecked = (%v, %v), want (1m, DeadlineExceeded)", d, err)
+	}
+	got := levels()
+	if len(got) != 2 || got[0] != slog.LevelWarn || got[1] != slog.LevelWarn {
+		t.Errorf("logged levels %v, want [WARN WARN]", got)
 	}
 }
 

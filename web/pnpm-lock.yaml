@@ -549,8 +549,8 @@ packages:
   '@msw/url@0.1.2':
     resolution: {integrity: sha512-DdeBLQxQ+ZrtmwEmaj7GQ7lbzPCgbbbyAqOz/I4ulo68hwBpfdNvQJ5bmihJUkAAKOeCmqCIG3OFZGosqFN4mA==}
 
-  '@mswjs/interceptors@0.45.7':
-    resolution: {integrity: sha512-PPZQBiojRuy1jJQoUqbrJhoac47GC1GwRazDrYwwbE70zfqMkOY/5a+Du4hp3vlPUXLt/um4TMcmRabmooAkxw==}
+  '@mswjs/interceptors@0.45.10':
+    resolution: {integrity: sha512-pGZkvxzv6PZAQCpZHuu+TRs/4U8GWlClRToQETz4MHwwnq0dSxS279xRQ2StBVPpwXxTKtXpLHeK6MGSuxh8uA==}
     engines: {node: '>=22'}
 
   '@open-draft/until@3.0.1':
@@ -3165,7 +3165,7 @@ snapshots:
 
   '@msw/url@0.1.2': {}
 
-  '@mswjs/interceptors@0.45.7':
+  '@mswjs/interceptors@0.45.10':
     dependencies:
       '@open-draft/until': 3.0.1
       '@types/debug': 4.1.13
@@ -4828,7 +4828,7 @@ snapshots:
     dependencies:
       '@inquirer/confirm': 6.3.3(@types/node@26.6.5)
       '@msw/url': 0.1.2
-      '@mswjs/interceptors': 0.45.7
+      '@mswjs/interceptors': 0.45.10
       cookie: 2.0.1
       headers-polyfill: 5.0.1
       is-node-process: 1.2.0

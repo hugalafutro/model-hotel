@@ -341,11 +341,13 @@ func (r *Repository) GetWithDefault(ctx context.Context, key, defaultValue strin
 
 // logReadFailure records a settings read that fell back to the default. A real
 // DB error silently reverts behaviour to defaults (e.g. rate limits), so it is
-// a Warn to keep it visible. A cancelled or expired caller context (a hedge
-// loser cancelled mid cache-miss, a client hanging up) says nothing about the
-// database, so that case is logged at Debug.
+// a Warn to keep it visible. A cancelled caller context (a hedge loser
+// cancelled mid cache-miss, a client hanging up) says nothing about the
+// database, so that case is logged at Debug. An expired deadline stays a Warn:
+// the query was still running when the caller's budget ran out, which is the
+// slow-database signal debuglog.Error keeps visible for the same reason.
 func logReadFailure(key string, err error) {
-	if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
+	if errors.Is(err, context.Canceled) {
 		debuglog.Debug("settings: DB read failed, falling back to default", "key", key, "error", err)
 		return
 	}
@@ -373,9 +375,10 @@ func (r *Repository) install(key string, gen uint64, entry cacheEntry) {
 // GetChecked retrieves a setting from cache or database. Unlike GetWithDefault
 // it distinguishes "key not set" (found=false, err=nil) from a real read
 // failure (err != nil), so callers that change behaviour on a value (fleet
-// role, write locks) can refuse to guess when the read failed. On a real DB
-// error it does NOT emit the debuglog fallback warning that GetWithDefault
-// does: the caller now sees the error and decides how to log it.
+// role, write locks) can refuse to guess when the read failed. On a read
+// error it does NOT emit the debuglog fallback line that GetWithDefault does
+// (Warn, or Debug for a cancelled caller context): the caller now sees the
+// error and decides how to log it.
 func (r *Repository) GetChecked(ctx context.Context, key string) (value string, found bool, err error) {
 	r.mu.RLock()
 	if entry, ok := r.cache[key]; ok && time.Now().Before(entry.expiresAt) {
