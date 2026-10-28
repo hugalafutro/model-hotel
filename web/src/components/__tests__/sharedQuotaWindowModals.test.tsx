@@ -1,13 +1,18 @@
+import { readFileSync } from "node:fs";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
 import { render, screen } from "@testing-library/react";
 import type {
 	KimiCodeQuotaResponse,
 	MiniMaxQuotaResponse,
+	NanoGPTUsage,
 	OpenCodeGoUsageResponse,
 	ZAICodingQuotaResponse,
 } from "@web-shared/quota";
 import {
 	KimiCodeQuotaModal,
 	MiniMaxQuotaModal,
+	NanoGPTQuotaModal,
 	OpenCodeGoQuotaModal,
 	ZAICodingQuotaModal,
 } from "@web-shared/quota/modals";
@@ -388,5 +393,42 @@ describe("OpenCodeGoQuotaModal", () => {
 		expect(screen.getByTestId("opencode-go-weekly-fill")).toHaveStyle({
 			width: "5%",
 		});
+	});
+});
+
+describe("NanoGPTQuotaModal contract fixture", () => {
+	const fixture = JSON.parse(
+		readFileSync(
+			path.resolve(
+				path.dirname(fileURLToPath(import.meta.url)),
+				"../../../../testdata/quota-contract/nanogpt/weekly-fraction.json",
+			),
+			"utf8",
+		),
+	) as {
+		payload: NanoGPTUsage;
+		expected: { weeklyUsedPercent: number; dailyImagesUsedPercent: number };
+	};
+
+	it("reads percentUsed as a fraction and omits the null daily-tokens bar", () => {
+		render(
+			<NanoGPTQuotaModal
+				{...chrome}
+				payload={fixture.payload}
+				barMode="used"
+			/>,
+		);
+		const width = (id: string) =>
+			Number.parseFloat(screen.getByTestId(id).style.width);
+		// 0.000201 as a fraction is 0.0201%: not 0.000201 and not 20.1.
+		expect(width("nano-weekly-fill")).toBeCloseTo(
+			fixture.expected.weeklyUsedPercent,
+			6,
+		);
+		expect(width("nano-images-fill")).toBe(
+			fixture.expected.dailyImagesUsedPercent,
+		);
+		expect(fixture.payload.dailyInputTokens).toBeNull();
+		expect(screen.queryByTestId("nano-daily-tokens-bar")).toBeNull();
 	});
 });

@@ -1,0 +1,37 @@
+{
+	"payload": {
+		"state": "active",
+		"active": true,
+		"limits": {
+			"dailyImages": 100,
+			"dailyInputTokens": null,
+			"weeklyInputTokens": 60000000
+		},
+		"period": { "currentPeriodEnd": "2026-11-04T14:42:23.000Z" },
+		"endedAt": null,
+		"cancelAt": null,
+		"provider": "stripe",
+		"canceledAt": null,
+		"graceUntil": null,
+		"dailyImages": {
+			"used": 0,
+			"resetAt": 1793232000000,
+			"remaining": 100,
+			"percentUsed": 0
+		},
+		"allowOverage": false,
+		"providerStatus": "active",
+		"dailyInputTokens": null,
+		"cancelAtPeriodEnd": false,
+		"providerStatusRaw": "active",
+		"weeklyInputTokens": {
+			"used": 12060,
+			"resetAt": 1793577600000,
+			"remaining": 59987940,
+			"percentUsed": 0.000201
+		},
+		"cancellationReason": null,
+		"stripeSubscriptionId": "sub_redacted"
+	},
+	"expected": { "weeklyUsedPercent": 0.0201, "dailyImagesUsedPercent": 0 }
+}
