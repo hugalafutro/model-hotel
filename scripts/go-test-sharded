@@ -39,6 +39,24 @@ set -uo pipefail
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
+# The backup tests shell out to pg_dump/pg_restore, which must match the test
+# server's major; see scripts/pg-tools-path. Resolved once: the per-job
+# re-entries below inherit PATH and would only repeat its notice.
+case "${1:-}" in
+--run-job | --list-one) ;;
+*)
+	# An empty prefix would put the current directory on PATH, so a helper
+	# that fails stops the run instead.
+	PG_TOOLS="$("$REPO_ROOT/scripts/pg-tools-path")"
+	if [ -z "$PG_TOOLS" ]; then
+		echo "go-test-sharded: scripts/pg-tools-path printed no directory" >&2
+		exit 1
+	fi
+	PATH="$PG_TOOLS:$PATH"
+	export PATH
+	;;
+esac
+
 SHARDS=""
 MIN_TESTS=200
 JOBS=""

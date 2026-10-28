@@ -316,7 +316,7 @@ func (h *BackupHandler) RestoreBackup(w http.ResponseWriter, r *http.Request) {
 	go func() {
 		time.Sleep(500 * time.Millisecond) // give the HTTP response time to flush
 		os.Remove(tmpPath)                 //nolint:errcheck,gosec // best-effort cleanup before exit
-		os.Exit(0)
+		h.exit(0)
 	}()
 }
 
