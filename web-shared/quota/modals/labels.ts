@@ -74,7 +74,11 @@ export function resetSublabelFromEpoch(
 	// `ms == null` looks redundant at runtime (Number.isFinite does not coerce)
 	// but is what narrows `ms` to number for `new Date(ms)` below.
 	if (ms == null || !Number.isFinite(ms) || ms <= 0) return "-";
-	return resetSublabel(new Date(ms).toISOString(), t, time);
+	// A Date holds instants within 8.64e15 ms of the epoch; past that its time
+	// is NaN and toISOString throws, so an oversized provider value is "-" too.
+	const at = new Date(ms);
+	if (Number.isNaN(at.getTime())) return "-";
+	return resetSublabel(at.toISOString(), t, time);
 }
 
 /**

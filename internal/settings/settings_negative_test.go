@@ -2,8 +2,14 @@ package settings
 
 import (
 	"context"
+	"log/slog"
+	"sync"
 	"testing"
 	"time"
+
+	"github.com/jackc/pgx/v5/pgxpool"
+
+	"github.com/hugalafutro/model-hotel/internal/debuglog"
 )
 
 // A key with no row is the common case for a runtime setting: nearly every
@@ -261,5 +267,96 @@ func TestCacheGenerationGuardBlocksALateAbsence(t *testing.T) {
 
 	if r.IsCached(key) {
 		t.Error("a reader whose generation moved mid-query must not cache the absence it observed")
+	}
+}
+
+// readFailureLevels installs a handler that records the level of every
+// "DB read failed" line for key, restoring the previous handler on cleanup.
+func readFailureLevels(t *testing.T, key string) func() []slog.Level {
+	t.Helper()
+	prev := slog.Default().Handler()
+	t.Cleanup(func() { debuglog.SetHandler(prev) })
+	h := &levelRecorder{key: key}
+	debuglog.SetHandler(h)
+	return func() []slog.Level {
+		h.mu.Lock()
+		defer h.mu.Unlock()
+		return append([]slog.Level(nil), h.levels...)
+	}
+}
+
+type levelRecorder struct {
+	key    string
+	mu     sync.Mutex
+	levels []slog.Level
+}
+
+func (h *levelRecorder) Enabled(context.Context, slog.Level) bool { return true }
+func (h *levelRecorder) WithAttrs([]slog.Attr) slog.Handler       { return h }
+func (h *levelRecorder) WithGroup(string) slog.Handler            { return h }
+func (h *levelRecorder) Handle(_ context.Context, r slog.Record) error {
+	if r.Message != "settings: DB read failed, falling back to default" {
+		return nil
+	}
+	r.Attrs(func(a slog.Attr) bool {
+		if a.Key == "key" && a.Value.String() == h.key {
+			h.mu.Lock()
+			h.levels = append(h.levels, r.Level)
+			h.mu.Unlock()
+			return false
+		}
+		return true
+	})
+	return nil
+}
+
+// A read whose own context is already cancelled (a proxy hedge loser on a
+// cache miss) still falls back to the default and reports the error, but the
+// failure is the caller's, not the database's: it is logged at Debug.
+func TestReadFailureOnCancelledContextLogsAtDebug(t *testing.T) {
+	clearSettings(t)
+	r := NewRepository(testPool)
+	key := "cancelled_read_key"
+	levels := readFailureLevels(t, key)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+
+	if got := r.GetWithDefault(ctx, key, "dflt"); got != "dflt" {
+		t.Errorf("GetWithDefault = %q, want the default", got)
+	}
+	d, err := r.GetDurationChecked(ctx, key, time.Minute)
+	if err == nil || d != time.Minute {
+		t.Errorf("GetDurationChecked = (%v, %v), want (1m, non-nil error)", d, err)
+	}
+	got := levels()
+	if len(got) != 2 || got[0] != slog.LevelDebug || got[1] != slog.LevelDebug {
+		t.Errorf("logged levels %v, want [DEBUG DEBUG]", got)
+	}
+}
+
+// A read that fails in the database itself (here a closed pool) silently
+// reverts behaviour to the default, so it stays a Warn.
+func TestReadFailureOnDatabaseErrorLogsAtWarn(t *testing.T) {
+	closed, err := pgxpool.NewWithConfig(context.Background(), testPool.Config())
+	if err != nil {
+		t.Fatalf("pool: %v", err)
+	}
+	closed.Close()
+	r := NewRepository(closed)
+	key := "db_error_read_key"
+	levels := readFailureLevels(t, key)
+	ctx := context.Background()
+
+	if got := r.GetWithDefault(ctx, key, "dflt"); got != "dflt" {
+		t.Errorf("GetWithDefault = %q, want the default", got)
+	}
+	d, err := r.GetDurationChecked(ctx, key, time.Minute)
+	if err == nil || d != time.Minute {
+		t.Errorf("GetDurationChecked = (%v, %v), want (1m, non-nil error)", d, err)
+	}
+	got := levels()
+	if len(got) != 2 || got[0] != slog.LevelWarn || got[1] != slog.LevelWarn {
+		t.Errorf("logged levels %v, want [WARN WARN]", got)
 	}
 }

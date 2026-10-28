@@ -328,16 +328,28 @@ func (r *Repository) IsCached(key string) bool {
 func (r *Repository) GetWithDefault(ctx context.Context, key, defaultValue string) string {
 	value, found, err := r.GetChecked(ctx, key)
 	if err != nil {
-		// A real DB error silently reverts behaviour to defaults (e.g. rate
-		// limits), so it is worth a Warn to keep it visible. GetChecked has
-		// already left it out of the cache: the next read must try again.
-		debuglog.Warn("settings: DB read failed, falling back to default", "key", key, "error", err)
+		// GetChecked has already left the failure out of the cache: the next
+		// read must try again. See logReadFailure for the level.
+		logReadFailure(key, err)
 		return defaultValue
 	}
 	if !found {
 		return defaultValue
 	}
 	return value
+}
+
+// logReadFailure records a settings read that fell back to the default. A real
+// DB error silently reverts behaviour to defaults (e.g. rate limits), so it is
+// a Warn to keep it visible. A cancelled or expired caller context (a hedge
+// loser cancelled mid cache-miss, a client hanging up) says nothing about the
+// database, so that case is logged at Debug.
+func logReadFailure(key string, err error) {
+	if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
+		debuglog.Debug("settings: DB read failed, falling back to default", "key", key, "error", err)
+		return
+	}
+	debuglog.Warn("settings: DB read failed, falling back to default", "key", key, "error", err)
 }
 
 // install caches one read, value or absence, if no write landed while the
@@ -651,7 +663,7 @@ func (r *Repository) GetDuration(ctx context.Context, key string, defaultValue t
 func (r *Repository) GetDurationChecked(ctx context.Context, key string, defaultValue time.Duration) (time.Duration, error) {
 	val, found, err := r.GetChecked(ctx, key)
 	if err != nil {
-		debuglog.Warn("settings: DB read failed, falling back to default", "key", key, "error", err)
+		logReadFailure(key, err)
 		return defaultValue, err
 	}
 	if !found {
