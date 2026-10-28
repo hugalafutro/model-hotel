@@ -106,6 +106,12 @@ describe("resetSublabelFromEpoch", () => {
 		expect(resetSublabelFromEpoch(-1000, stubT, time)).toBe("-");
 	});
 
+	it("returns the dash sentinel for an instant beyond the Date range", () => {
+		// Finite and positive, yet past the 8.64e15 ms limit a Date can hold.
+		expect(resetSublabelFromEpoch(8.64e15 + 1, stubT, time)).toBe("-");
+		expect(resetSublabelFromEpoch(1.79e18, stubT, time)).toBe("-");
+	});
+
 	it("delegates to resetSublabel with the instant as ISO", () => {
 		const iso = "2026-08-01T00:00:00.000Z";
 		expect(resetSublabelFromEpoch(Date.parse(iso), stubT, time)).toBe(
