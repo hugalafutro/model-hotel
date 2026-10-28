@@ -42,6 +42,10 @@ type BackupHandler struct {
 	// StartScheduler call is handed the goroutine that exists rather than a
 	// closed channel that would tell it there is nothing to wait for.
 	schedulerStopped chan struct{}
+	// exit ends the process once a restore has landed and the response has
+	// flushed, so the supervisor restarts it on the restored database with
+	// fresh caches. os.Exit in the server; a test observes the code instead.
+	exit func(code int)
 }
 
 // NewBackupHandler creates a new BackupHandler.
@@ -56,6 +60,7 @@ func NewBackupHandler(databaseURL, backupDir string, adminMgr AdminAuthenticator
 		backupDir:    absDir,
 		adminMgr:     adminMgr,
 		settingsRepo: settingsRepo,
+		exit:         os.Exit,
 	}
 }
 

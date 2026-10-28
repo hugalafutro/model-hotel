@@ -18,10 +18,30 @@ import (
 	"time"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/hugalafutro/model-hotel/internal/authcookie"
+	"github.com/hugalafutro/model-hotel/internal/db"
+	"github.com/hugalafutro/model-hotel/internal/dbtest"
+	"github.com/hugalafutro/model-hotel/internal/events"
 	"github.com/hugalafutro/model-hotel/internal/webauthn"
 )
+
+// pgDumpTestDB writes a custom-format pg_dump of dbURL to dumpPath, the
+// password carried in the environment the way the handler's own dump does it.
+// extra arguments go before the connection URL.
+func pgDumpTestDB(t *testing.T, dbURL, dumpPath string, extra ...string) {
+	t.Helper()
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+	connURL, env := pgCommandEnv(dbURL)
+	args := append([]string{"--format=custom", "--no-password", "--file=" + dumpPath}, extra...)
+	cmd := exec.CommandContext(ctx, "pg_dump", append(args, connURL)...)
+	cmd.Env = env
+	if out, err := cmd.CombinedOutput(); err != nil {
+		t.Fatalf("pg_dump failed: %v: %s", err, out)
+	}
+}
 
 func TestRestoreBackup_MissingAdminToken(t *testing.T) {
 	r, _ := setupBackupRouter(t)
@@ -374,29 +394,7 @@ func TestRestoreBackup_WithRealDump_Integration(t *testing.T) {
 	dir := t.TempDir()
 	dumpPath := filepath.Join(dir, "test_backup.dump")
 
-	u, err := url.Parse(apiTestDBURL)
-	if err != nil {
-		t.Fatalf("failed to parse DB URL: %v", err)
-	}
-
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
-	defer cancel()
-
-	pgDumpPath, _ := exec.LookPath("pg_dump")
-	cmd := exec.CommandContext(ctx, pgDumpPath,
-		"--format=custom",
-		"--no-password",
-		"--file="+dumpPath,
-		apiTestDBURL,
-	)
-	if u.User != nil {
-		if pass, ok := u.User.Password(); ok {
-			cmd.Env = append(os.Environ(), "PGPASSWORD="+pass)
-		}
-	}
-	if err := cmd.Run(); err != nil {
-		t.Fatalf("pg_dump failed: %v", err)
-	}
+	pgDumpTestDB(t, apiTestDBURL, dumpPath)
 
 	// Step 2: Upload the dump via the restore endpoint.
 	// Use an invalid database URL so pg_restore --clean fails after
@@ -455,33 +453,11 @@ func TestRestoreBackup_DangerousObjectsInDump_Integration(t *testing.T) {
 	dir := t.TempDir()
 	dumpPath := filepath.Join(dir, "test_backup.dump")
 
-	u, err := url.Parse(apiTestDBURL)
-	if err != nil {
-		t.Fatalf("failed to parse DB URL: %v", err)
-	}
-
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
-	defer cancel()
-
-	pgDumpPath, _ := exec.LookPath("pg_dump")
-	cmd := exec.CommandContext(ctx, pgDumpPath,
-		"--format=custom",
-		"--no-password",
-		"--file="+dumpPath,
-		apiTestDBURL,
-	)
-	if u.User != nil {
-		if pass, ok := u.User.Password(); ok {
-			cmd.Env = append(os.Environ(), "PGPASSWORD="+pass)
-		}
-	}
-	if err := cmd.Run(); err != nil {
-		t.Fatalf("pg_dump failed: %v", err)
-	}
+	pgDumpTestDB(t, apiTestDBURL, dumpPath)
 
 	// Verify the dump passes validation (no dangerous objects)
 	pgRestorePath, _ := exec.LookPath("pg_restore")
-	listCmd := exec.CommandContext(ctx, pgRestorePath, "--list", dumpPath)
+	listCmd := exec.CommandContext(context.Background(), pgRestorePath, "--list", dumpPath)
 	var listStdout bytes.Buffer
 	listCmd.Stdout = &listStdout
 	if err := listCmd.Run(); err != nil {
@@ -574,22 +550,7 @@ func TestRestoreBackup_NoSchemaMigrationsInDump_Integration(t *testing.T) {
 		dropCmd.CombinedOutput()
 	}()
 
-	pgDumpPath, _ := exec.LookPath("pg_dump")
-	cmd := exec.CommandContext(ctx, pgDumpPath,
-		"--format=custom",
-		"--no-password",
-		"--file="+dumpPath,
-		"-t", tmpTable,
-		apiTestDBURL,
-	)
-	if u.User != nil {
-		if pass, ok := u.User.Password(); ok {
-			cmd.Env = append(os.Environ(), "PGPASSWORD="+pass)
-		}
-	}
-	if out, err := cmd.CombinedOutput(); err != nil {
-		t.Fatalf("pg_dump failed: %v: %s", err, string(out))
-	}
+	pgDumpTestDB(t, apiTestDBURL, dumpPath, "-t", tmpTable)
 
 	// Upload the dump via the restore endpoint
 	h := NewBackupHandler(apiTestDBURL, dir, &mockAdminAuth{validateFn: func(string) bool { return true }}, nil)
@@ -693,21 +654,7 @@ func TestRestoreBackup_DangerousObjectsHandler_Integration(t *testing.T) {
 	}()
 
 	// Dump the entire database (which now includes the function)
-	pgDumpPath, _ := exec.LookPath("pg_dump")
-	cmd := exec.CommandContext(ctx, pgDumpPath,
-		"--format=custom",
-		"--no-password",
-		"--file="+dumpPath,
-		apiTestDBURL,
-	)
-	if u.User != nil {
-		if pass, ok := u.User.Password(); ok {
-			cmd.Env = append(os.Environ(), "PGPASSWORD="+pass)
-		}
-	}
-	if err := cmd.Run(); err != nil {
-		t.Fatalf("pg_dump failed: %v", err)
-	}
+	pgDumpTestDB(t, apiTestDBURL, dumpPath)
 
 	// Upload the dump via the restore endpoint
 	h := NewBackupHandler(apiTestDBURL, dir, &mockAdminAuth{validateFn: func(string) bool { return true }}, nil)
@@ -808,21 +755,7 @@ func TestRestoreBackup_UnknownMigrations_Integration(t *testing.T) {
 	}()
 
 	// Create a dump of the database (which now has the fake migration)
-	pgDumpPath, _ := exec.LookPath("pg_dump")
-	cmd := exec.CommandContext(ctx, pgDumpPath,
-		"--format=custom",
-		"--no-password",
-		"--file="+dumpPath,
-		apiTestDBURL,
-	)
-	if u.User != nil {
-		if pass, ok := u.User.Password(); ok {
-			cmd.Env = append(os.Environ(), "PGPASSWORD="+pass)
-		}
-	}
-	if out, err := cmd.CombinedOutput(); err != nil {
-		t.Fatalf("pg_dump failed: %v: %s", err, string(out))
-	}
+	pgDumpTestDB(t, apiTestDBURL, dumpPath)
 
 	// Upload the dump via the restore endpoint
 	h := NewBackupHandler(apiTestDBURL, dir, &mockAdminAuth{validateFn: func(string) bool { return true }}, nil)
@@ -921,28 +854,8 @@ func TestRestoreBackup_ExtractMigrationsError(t *testing.T) {
 		dir := t.TempDir()
 
 		// Create a valid dump so RestoreBackup passes pg_restore --list validation.
-		u, err := url.Parse(apiTestDBURL)
-		if err != nil {
-			t.Fatalf("EXTRACT_MIG: failed to parse DB URL: %v", err)
-		}
 		dumpPath := filepath.Join(dir, "test.dump")
-		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
-		defer cancel()
-		pgDumpPath, _ := exec.LookPath("pg_dump")
-		cmd := exec.CommandContext(ctx, pgDumpPath,
-			"--format=custom",
-			"--no-password",
-			"--file="+dumpPath,
-			apiTestDBURL,
-		)
-		if u.User != nil {
-			if pass, ok := u.User.Password(); ok {
-				cmd.Env = append(os.Environ(), "PGPASSWORD="+pass)
-			}
-		}
-		if err := cmd.Run(); err != nil {
-			t.Fatalf("EXTRACT_MIG: pg_dump failed: %v", err)
-		}
+		pgDumpTestDB(t, apiTestDBURL, dumpPath)
 
 		h := NewBackupHandler(apiTestDBURL, dir, &mockAdminAuth{validateFn: func(string) bool { return true }}, nil)
 		r := chi.NewRouter()
@@ -1312,30 +1225,7 @@ func TestRestoreBackup_ValidDumpPassesValidation_Integration(t *testing.T) {
 	dir := t.TempDir()
 	dumpPath := filepath.Join(dir, "valid_backup.dump")
 
-	u, err := url.Parse(apiTestDBURL)
-	if err != nil {
-		t.Fatalf("failed to parse DB URL: %v", err)
-	}
-
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
-	defer cancel()
-
-	pgDumpPath, _ := exec.LookPath("pg_dump")
-	cmd := exec.CommandContext(ctx, pgDumpPath,
-		"--format=custom",
-		"--compress=zstd:19",
-		"--no-password",
-		"--file="+dumpPath,
-		apiTestDBURL,
-	)
-	if u.User != nil {
-		if pass, ok := u.User.Password(); ok {
-			cmd.Env = append(os.Environ(), "PGPASSWORD="+pass)
-		}
-	}
-	if err := cmd.Run(); err != nil {
-		t.Fatalf("pg_dump failed: %v", err)
-	}
+	pgDumpTestDB(t, apiTestDBURL, dumpPath, "--compress=zstd:19")
 
 	// Upload the dump via restore endpoint with an invalid DB URL.
 	// validateRestoreDump should pass (valid dump, no dangerous objects,
@@ -1724,4 +1614,117 @@ func (b *enableTotpOnRead) Read(p []byte) (int, error) {
 		b.enable()
 	}
 	return b.r.Read(p)
+}
+
+// A restore that lands: the rows the dump held are back, the response reports
+// the dump's migrations against the app's, the restore event is published, and
+// the process is handed to the supervisor to restart on the restored database
+// once the response has flushed and the upload is gone from disk.
+func TestRestoreBackup_Success_Integration(t *testing.T) {
+	if apiTestDBURL == "" {
+		t.Fatal("test database not available")
+	}
+	for _, bin := range []string{"pg_dump", "pg_restore"} {
+		if _, err := exec.LookPath(bin); err != nil {
+			t.Fatalf("%s not installed", bin)
+		}
+	}
+
+	// The restore is destructive, so it gets a database of its own.
+	ctx := context.Background()
+	dbURL, err := db.SetupTestDB("apirestore")
+	if err != nil {
+		t.Fatalf("set up restore database: %v", err)
+	}
+	t.Cleanup(func() { db.CleanupTestDB("apirestore") })
+	restoreDB, err := db.New(ctx, dbURL, 2, 1)
+	if err != nil {
+		t.Fatalf("migrate restore database: %v", err)
+	}
+	providerID := dbtest.InsertTestProvider(ctx, t, restoreDB.Pool(), "restored-provider")
+	dir := t.TempDir()
+	dumpPath := filepath.Join(dir, "restore.dump")
+	pgDumpTestDB(t, dbURL, dumpPath)
+	if _, err := restoreDB.Pool().Exec(ctx, `DELETE FROM providers WHERE id = $1`, providerID); err != nil {
+		t.Fatalf("delete the provider the dump holds: %v", err)
+	}
+	// pg_restore --clean drops the tables; an idle session of ours must not be
+	// what it waits on.
+	restoreDB.Close()
+
+	exited := make(chan int, 1)
+	h := NewBackupHandler(dbURL, dir, &mockAdminAuth{validateFn: func(string) bool { return true }}, nil)
+	h.exit = func(code int) { exited <- code }
+	bus := events.Subscribe()
+	defer events.Unsubscribe(bus)
+
+	r := chi.NewRouter()
+	h.Register(r)
+	dumpContent, err := os.ReadFile(dumpPath)
+	if err != nil {
+		t.Fatalf("read dump: %v", err)
+	}
+	var body bytes.Buffer
+	writer := multipart.NewWriter(&body)
+	writer.WriteField("admin_token", "valid-token")
+	part, _ := writer.CreateFormFile("dump", "restore.dump")
+	part.Write(dumpContent)
+	writer.Close()
+	req := httptest.NewRequest("POST", "/backups/restore", &body)
+	req.Header.Set("Content-Type", writer.FormDataContentType())
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("restore: %d %s", w.Code, w.Body.String())
+	}
+	var res restoreResult
+	if err := json.NewDecoder(w.Body).Decode(&res); err != nil {
+		t.Fatalf("decode restore result: %v", err)
+	}
+	if known := len(db.KnownMigrations()); res.MigrationCount != known || res.KnownCount != known {
+		t.Errorf("result = %+v, want migration_count and known_count both %d", res, known)
+	}
+
+	deadline := time.After(10 * time.Second)
+	for restored := false; !restored; {
+		select {
+		case ev := <-bus:
+			if ev.Type == "backup.restored" {
+				restored = true
+				if got := ev.Metadata["migration_count"]; got != res.MigrationCount {
+					t.Errorf("event migration_count = %v, want %d", got, res.MigrationCount)
+				}
+			}
+		case <-deadline:
+			t.Fatal("no backup.restored event was published")
+		}
+	}
+	select {
+	case code := <-exited:
+		if code != 0 {
+			t.Errorf("exit code = %d, want 0", code)
+		}
+	case <-deadline:
+		t.Fatal("the process was not handed over for restart")
+	}
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		t.Fatalf("read backup dir: %v", err)
+	}
+	for _, e := range entries {
+		if e.Name() != "restore.dump" {
+			t.Errorf("upload left behind in the backup dir: %s", e.Name())
+		}
+	}
+
+	pool, err := pgxpool.New(ctx, dbURL)
+	if err != nil {
+		t.Fatalf("reconnect to the restored database: %v", err)
+	}
+	defer pool.Close()
+	var n int
+	if err := pool.QueryRow(ctx, `SELECT count(*) FROM providers WHERE id = $1`, providerID).Scan(&n); err != nil || n != 1 {
+		t.Errorf("provider rows after restore = %d (err %v), want the dumped row back", n, err)
+	}
 }
