@@ -17,8 +17,11 @@
 set -euo pipefail
 
 REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
-DIR="${TMPDIR:-/tmp}/model-hotel-pg-tools-$(id -u)"
+# Under the repo's own gitignored bin/, never a shared temp dir: this directory
+# goes first on PATH, so it must be one no other local user can pre-create.
+DIR="$REPO_ROOT/bin/pg-tools"
 mkdir -p "$DIR"
+chmod 700 "$DIR"
 rm -f "$DIR"/pg_dump "$DIR"/pg_restore
 
 image="$(grep -m1 -oE 'image:[[:space:]]*postgres:[^[:space:]]+' "$REPO_ROOT/docker-compose.test.yml" | sed 's/image:[[:space:]]*//')"
