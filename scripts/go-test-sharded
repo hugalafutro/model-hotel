@@ -39,6 +39,11 @@ set -uo pipefail
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
+# The backup tests shell out to pg_dump/pg_restore, which must match the test
+# server's major; see scripts/pg-tools-path.
+PATH="$("$REPO_ROOT/scripts/pg-tools-path"):$PATH"
+export PATH
+
 SHARDS=""
 MIN_TESTS=200
 JOBS=""

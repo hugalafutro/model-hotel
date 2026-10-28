@@ -456,8 +456,10 @@ func TestRestoreBackup_DangerousObjectsInDump_Integration(t *testing.T) {
 	pgDumpTestDB(t, apiTestDBURL, dumpPath)
 
 	// Verify the dump passes validation (no dangerous objects)
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
 	pgRestorePath, _ := exec.LookPath("pg_restore")
-	listCmd := exec.CommandContext(context.Background(), pgRestorePath, "--list", dumpPath)
+	listCmd := exec.CommandContext(ctx, pgRestorePath, "--list", dumpPath)
 	var listStdout bytes.Buffer
 	listCmd.Stdout = &listStdout
 	if err := listCmd.Run(); err != nil {
