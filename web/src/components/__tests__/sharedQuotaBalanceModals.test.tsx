@@ -398,7 +398,9 @@ describe("OpenRouterQuotaModal", () => {
 		expect(screen.queryByTestId("or-tier-free")).toBeNull();
 	});
 
-	it("treats a missing key limit remaining as zero", () => {
+	// A missing remainder is unknown, not spent: no limit bar rather than a
+	// fabricated 100%-used one.
+	it("omits the key limit bar when the remainder is null", () => {
 		render(
 			<OpenRouterQuotaModal
 				{...chrome}
@@ -406,8 +408,19 @@ describe("OpenRouterQuotaModal", () => {
 				barMode="used"
 			/>,
 		);
-		// limitRemaining falls back to 0, so limitPctUsed = 100 - (0 / 100) * 100 = 100.
-		expect(screen.getByTestId("or-limit-fill")).toHaveStyle({ width: "100%" });
+		expect(screen.queryByTestId("or-limit-bar")).toBeNull();
+	});
+
+	it("omits the key limit bar when the remainder is absent", () => {
+		render(
+			<OpenRouterQuotaModal
+				{...chrome}
+				payload={{ credits_remaining: 5, limit: 100 }}
+				barMode="used"
+			/>,
+		);
+		expect(screen.queryByTestId("or-limit-bar")).toBeNull();
+		expect(screen.getByRole("dialog")).toHaveTextContent(formatDollars(5));
 	});
 
 	it("still renders a zero-value key limit bar at 0 percent used", () => {
@@ -419,7 +432,7 @@ describe("OpenRouterQuotaModal", () => {
 			/>,
 		);
 		// Pinning current behaviour (matches the brief and Model Hotel): a
-		// zero-value limit still passes `limit != null`, so the block renders
+		// zero-value limit is still a finite figure, so the block renders
 		// rather than being omitted like `limit: null`, with a 0% fill since
 		// limitPctUsed's `limit > 0` guard is false.
 		expect(screen.getByTestId("or-limit-fill")).toHaveStyle({ width: "0%" });

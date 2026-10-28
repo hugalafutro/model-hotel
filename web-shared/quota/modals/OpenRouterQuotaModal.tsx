@@ -25,11 +25,15 @@ export function OpenRouterQuotaModal({
 	] as const;
 	const shownUsage = usageTiles.filter(([, value]) => Number.isFinite(value));
 
+	// A missing remainder is unknown, not spent: the limit bar needs both
+	// figures. The `limit > 0` guard avoids a division by zero.
 	const limit = payload.limit;
-	const limitRemaining = payload.limit_remaining ?? 0;
-	// The `limit > 0` guard avoids a division by zero.
+	const limitRemaining = payload.limit_remaining;
+	const hasLimit = Number.isFinite(limit) && Number.isFinite(limitRemaining);
 	const limitPctUsed =
-		limit != null && limit > 0 ? 100 - (limitRemaining / limit) * 100 : 0;
+		hasLimit && (limit as number) > 0
+			? 100 - ((limitRemaining as number) / (limit as number)) * 100
+			: 0;
 	const limitReset = resetSublabel(payload.limit_reset || null, t, time);
 
 	return shell({
@@ -64,19 +68,19 @@ export function OpenRouterQuotaModal({
 
 				{/* A zero limit blocks all spending: an empty amber bar in both
 				    modes, never the full healthy one 0% used would derive. */}
-				{limit != null && (
+				{hasLimit && (
 					<QuotaBar
 						label={t("keySpendingLimit")}
-						rightText={`${formatDollars(limitRemaining)} ${t("remaining")}`}
+						rightText={`${formatDollars(limitRemaining as number)} ${t("remaining")}`}
 						percentage={limitPctUsed}
-						{...(limit > 0
+						{...((limit as number) > 0
 							? {}
 							: { remainingPercentage: 0, tone: "warn" as const })}
 						barMode={barMode}
 						testId="or-limit-bar"
 						fillTestId="or-limit-fill"
 					>
-						{limit > 0 ? (
+						{(limit as number) > 0 ? (
 							<span data-testid="or-limit-reset">{limitReset}</span>
 						) : (
 							<span data-testid="or-limit-reached">
