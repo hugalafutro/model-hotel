@@ -444,9 +444,9 @@ describe("Security page edge handlers", () => {
 			http.post("/api/auth/password", () => HttpResponse.json({ ok: true })),
 		);
 		const reload = vi.fn();
-		const original = window.location;
+		const original = Object.getOwnPropertyDescriptor(window, "location");
 		Object.defineProperty(window, "location", {
-			value: { ...original, reload },
+			value: { ...window.location, reload },
 			configurable: true,
 		});
 		try {
@@ -471,10 +471,7 @@ describe("Security page edge handlers", () => {
 			// The teardown clears the client auth signal (mh_csrf cookie).
 			expect(document.cookie).not.toContain("mh_csrf=");
 		} finally {
-			Object.defineProperty(window, "location", {
-				value: original,
-				configurable: true,
-			});
+			if (original) Object.defineProperty(window, "location", original);
 			// The teardown cleared the file-wide session cookie; put it back for
 			// whatever runs after this test.
 			document.cookie = "mh_csrf=test-csrf; path=/";
@@ -489,9 +486,9 @@ describe("Security page edge handlers", () => {
 			http.post("/api/auth/password", () => HttpResponse.json({ ok: true })),
 		);
 		const reload = vi.fn();
-		const original = window.location;
+		const original = Object.getOwnPropertyDescriptor(window, "location");
 		Object.defineProperty(window, "location", {
-			value: { ...original, reload },
+			value: { ...window.location, reload },
 			configurable: true,
 		});
 		try {
@@ -516,10 +513,7 @@ describe("Security page edge handlers", () => {
 			await new Promise((resolve) => setTimeout(resolve, 2000));
 			expect(reload).not.toHaveBeenCalled();
 		} finally {
-			Object.defineProperty(window, "location", {
-				value: original,
-				configurable: true,
-			});
+			if (original) Object.defineProperty(window, "location", original);
 			document.cookie = "mh_csrf=test-csrf; path=/";
 		}
 	});

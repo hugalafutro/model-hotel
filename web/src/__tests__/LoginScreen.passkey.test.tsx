@@ -50,7 +50,9 @@ vi.mock("../utils/webauthn", () => ({
 
 describe("LoginScreen passkey sign-in outcomes", () => {
 	const reload = vi.fn();
-	const original = window.location;
+	// The whole descriptor is kept, not just the Location object: restoring a
+	// value-only descriptor would leave window.location non-writable.
+	const original = Object.getOwnPropertyDescriptor(window, "location");
 
 	beforeEach(() => {
 		localStorage.clear();
@@ -58,16 +60,13 @@ describe("LoginScreen passkey sign-in outcomes", () => {
 		vi.clearAllMocks();
 		server.resetHandlers();
 		Object.defineProperty(window, "location", {
-			value: { ...original, reload },
+			value: { ...window.location, reload },
 			configurable: true,
 		});
 	});
 
 	afterEach(() => {
-		Object.defineProperty(window, "location", {
-			value: original,
-			configurable: true,
-		});
+		if (original) Object.defineProperty(window, "location", original);
 	});
 
 	async function clickPasskey() {

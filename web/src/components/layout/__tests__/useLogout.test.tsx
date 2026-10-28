@@ -17,12 +17,11 @@ vi.mock("../../../hooks/useIdleLogout", () => ({ useIdleLogout: vi.fn() }));
 // The sidebar button is the common way a session ends; it must run the same
 // teardown as the 401 and password-change paths, mirror included.
 describe("useLogout", () => {
-	const original = window.location;
+	// The whole descriptor is kept, not just the Location object: restoring a
+	// value-only descriptor would leave window.location non-writable.
+	const original = Object.getOwnPropertyDescriptor(window, "location");
 	afterEach(() => {
-		Object.defineProperty(window, "location", {
-			value: original,
-			configurable: true,
-		});
+		if (original) Object.defineProperty(window, "location", original);
 		localStorage.clear();
 	});
 
@@ -30,7 +29,7 @@ describe("useLogout", () => {
 		vi.mocked(api.auth.logout).mockResolvedValue(undefined as never);
 		const reload = vi.fn();
 		Object.defineProperty(window, "location", {
-			value: { ...original, reload },
+			value: { ...window.location, reload },
 			configurable: true,
 		});
 		localStorage.setItem("model-hotel:ollama-cloud-account", "{}");
