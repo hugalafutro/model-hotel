@@ -8,6 +8,13 @@ import (
 )
 
 func TestCapture_RecordsAndRestores(t *testing.T) {
+	// A sentinel stands in for whatever handler a test file had installed, so
+	// the restore is observed on the receiving end, not inferred.
+	orig := slog.Default().Handler()
+	t.Cleanup(func() { debuglog.SetHandler(orig) })
+	sentinel := &Handler{}
+	debuglog.SetHandler(sentinel)
+
 	var released *Handler
 	t.Run("captures", func(t *testing.T) {
 		h := Capture(t)
@@ -39,10 +46,16 @@ func TestCapture_RecordsAndRestores(t *testing.T) {
 		}
 	})
 
-	// The subtest's cleanup ran: the handler installed before Capture is back,
-	// so what a later test logs does not land in a released recorder.
+	// The subtest's cleanup ran: the handler installed before Capture is back
+	// and the released recorder hears nothing more.
 	debuglog.Warn("after cleanup")
+	if !sentinel.Has("after cleanup") {
+		t.Error("the handler installed before Capture did not get the record logged after cleanup")
+	}
 	if released.Has("after cleanup") {
 		t.Error("a record logged after cleanup reached the released capture handler")
+	}
+	if sentinel.Has("first") {
+		t.Error("a record logged during Capture leaked to the handler it displaced")
 	}
 }

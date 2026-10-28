@@ -16,7 +16,6 @@ import (
 	"testing"
 
 	"github.com/fxamacker/cbor/v2"
-	webauthnx "github.com/go-webauthn/webauthn/webauthn"
 	"github.com/google/uuid"
 
 	"github.com/hugalafutro/model-hotel/internal/webauthn"
@@ -150,8 +149,10 @@ func (a *softAuthenticator) credential(t *testing.T, response map[string]any) js
 	return b
 }
 
-// startCeremony calls a start endpoint and returns the session id it minted.
-func startCeremony(t *testing.T, start http.HandlerFunc, path string) string {
+// startCeremony calls a start endpoint and returns the session id it minted
+// and the challenge its options carry, the one a browser echoes back in
+// clientDataJSON.
+func startCeremony(t *testing.T, start http.HandlerFunc, path string) (sessionID, challenge string) {
 	t.Helper()
 	req, w := newChiRequest(http.MethodPost, path, http.NoBody)
 	start(w, req)
@@ -160,26 +161,14 @@ func startCeremony(t *testing.T, start http.HandlerFunc, path string) string {
 	}
 	var resp struct {
 		SessionID string `json:"session_id"`
+		Options   struct {
+			Challenge string `json:"challenge"`
+		} `json:"options"`
 	}
-	if err := json.NewDecoder(w.Body).Decode(&resp); err != nil || resp.SessionID == "" {
-		t.Fatalf("%s: no session_id in response (%v)", path, err)
+	if err := json.NewDecoder(w.Body).Decode(&resp); err != nil || resp.SessionID == "" || resp.Options.Challenge == "" {
+		t.Fatalf("%s: response lacks session_id or options.challenge (%v)", path, err)
 	}
-	return resp.SessionID
-}
-
-// sessionChallenge reads back the challenge a start endpoint stored for the
-// ceremony, the one a browser would echo in clientDataJSON.
-func sessionChallenge(t *testing.T, repo *webauthn.Repository, sessionID string) string {
-	t.Helper()
-	rec, err := repo.GetSession(context.Background(), uuid.MustParse(sessionID))
-	if err != nil {
-		t.Fatalf("load ceremony session: %v", err)
-	}
-	var data webauthnx.SessionData
-	if err := json.Unmarshal(rec.SessionData, &data); err != nil {
-		t.Fatalf("decode ceremony session: %v", err)
-	}
-	return data.Challenge
+	return resp.SessionID, resp.Options.Challenge
 }
 
 func finishCeremony(t *testing.T, finish http.HandlerFunc, path, sessionID string, cred json.RawMessage) *httptest.ResponseRecorder {
@@ -211,9 +200,8 @@ func TestPasskeyCeremony_RegisterLoginAndCloneRefusal(t *testing.T) {
 	auth := newSoftAuthenticator(t)
 	t.Cleanup(func() { _ = repo.DeleteCredential(ctx, auth.credID) })
 
-	sessionID := startCeremony(t, h.RegisterStart, "/webauthn/register/start")
-	w := finishCeremony(t, h.RegisterFinish, "/webauthn/register/finish", sessionID,
-		auth.attestation(t, sessionChallenge(t, repo, sessionID)))
+	sessionID, challenge := startCeremony(t, h.RegisterStart, "/webauthn/register/start")
+	w := finishCeremony(t, h.RegisterFinish, "/webauthn/register/finish", sessionID, auth.attestation(t, challenge))
 	if w.Code != http.StatusOK {
 		t.Fatalf("register finish: %d %s", w.Code, w.Body.String())
 	}
@@ -225,9 +213,8 @@ func TestPasskeyCeremony_RegisterLoginAndCloneRefusal(t *testing.T) {
 		t.Errorf("stored credential = format %q, sign count %d; want none, 0", cred.AttestationFormat, cred.SignCount)
 	}
 
-	sessionID = startCeremony(t, h.LoginStart, "/webauthn/login/start")
-	w = finishCeremony(t, h.LoginFinish, "/webauthn/login/finish", sessionID,
-		auth.assertion(t, sessionChallenge(t, repo, sessionID), 1))
+	sessionID, challenge = startCeremony(t, h.LoginStart, "/webauthn/login/start")
+	w = finishCeremony(t, h.LoginFinish, "/webauthn/login/finish", sessionID, auth.assertion(t, challenge, 1))
 	if w.Code != http.StatusOK {
 		t.Fatalf("login finish: %d %s", w.Code, w.Body.String())
 	}
@@ -245,9 +232,8 @@ func TestPasskeyCeremony_RegisterLoginAndCloneRefusal(t *testing.T) {
 		t.Errorf("after login: sign count %d, err %v; want 1 stored", cred.SignCount, err)
 	}
 
-	sessionID = startCeremony(t, h.LoginStart, "/webauthn/login/start")
-	w = finishCeremony(t, h.LoginFinish, "/webauthn/login/finish", sessionID,
-		auth.assertion(t, sessionChallenge(t, repo, sessionID), 1))
+	sessionID, challenge = startCeremony(t, h.LoginStart, "/webauthn/login/start")
+	w = finishCeremony(t, h.LoginFinish, "/webauthn/login/finish", sessionID, auth.assertion(t, challenge, 1))
 	if w.Code != http.StatusBadRequest {
 		t.Fatalf("replayed counter: %d %s; want %d", w.Code, w.Body.String(), http.StatusBadRequest)
 	}

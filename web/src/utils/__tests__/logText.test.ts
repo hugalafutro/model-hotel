@@ -117,11 +117,13 @@ describe("decodeLogEscapes", () => {
 
 describe("displayLogMessage", () => {
 	it("decodes only from the attribute boundary and only when flagged", () => {
-		const msg = 'head\\x20kept a="x\\x20y"';
-		expect(displayLogMessage(msg, true, "head\\x20kept ".length)).toBe(
-			'head\\x20kept a="x y"',
-		);
-		expect(displayLogMessage(msg, false, 0)).toBe(msg);
+		// Both halves carry a quoted escaped space; only the one past the
+		// boundary may decode.
+		const msg = 'pre="a\\x20b" x="c\\x20d"';
+		const at = 'pre="a\\x20b" '.length;
+		expect(displayLogMessage(msg, true, at)).toBe('pre="a\\x20b" x="c d"');
+		expect(displayLogMessage(msg, true, 0)).toBe('pre="a b" x="c d"');
+		expect(displayLogMessage(msg, false, at)).toBe(msg);
 		expect(displayLogMessage(msg, true, 999)).toBe(msg);
 	});
 });
