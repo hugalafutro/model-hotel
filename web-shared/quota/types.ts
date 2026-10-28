@@ -252,19 +252,23 @@ export interface ZAICodingQuotaResponse {
 	};
 }
 
+/**
+ * Only credits_remaining is guaranteed (the visibility gate requires it); a
+ * partial snapshot may omit any other field.
+ */
 export interface OpenRouterBalance {
-	label: string;
-	limit: number | null;
-	limit_reset: string;
-	limit_remaining: number | null;
-	usage: number;
-	usage_daily: number;
-	usage_weekly: number;
-	usage_monthly: number;
-	credits_total: number;
-	credits_used: number;
+	label?: string;
+	limit?: number | null;
+	limit_reset?: string;
+	limit_remaining?: number | null;
+	usage?: number | null;
+	usage_daily?: number | null;
+	usage_weekly?: number | null;
+	usage_monthly?: number | null;
+	credits_total?: number | null;
+	credits_used?: number | null;
 	credits_remaining: number;
-	is_free_tier: boolean;
+	is_free_tier?: boolean;
 }
 
 export interface NeuralWattQuotaUsagePeriod {

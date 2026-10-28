@@ -209,6 +209,21 @@ describe("quota modal translation contract", () => {
 					},
 				},
 			],
+			// The inactive subscription, the unset weekly limit and the disabled
+			// overage are the branches the full fixture above never takes.
+			[
+				"NanoGPT (inactive, no weekly limit)",
+				Body.NanoGPTQuotaModal,
+				{
+					active: false,
+					provider: "nanogpt",
+					providerStatus: "inactive",
+					cancelAtPeriodEnd: false,
+					limits: { weeklyInputTokens: 0 },
+					allowOverage: false,
+					weeklyInputTokens: { used: 0, remaining: 0, percentUsed: 0 },
+				},
+			],
 			[
 				"NeuralWatt",
 				Body.NeuralWattQuotaModal,
@@ -271,6 +286,21 @@ describe("quota modal translation contract", () => {
 					credits_used: 0,
 					credits_remaining: 0,
 					is_free_tier: true,
+				},
+			],
+			// A paid key with a credit total and a positive spending limit: the
+			// tier label, credit bar and reset sublabel the free fixture skips.
+			[
+				"OpenRouter (paid)",
+				Body.OpenRouterQuotaModal,
+				{
+					limit: 100,
+					limit_reset: reset,
+					limit_remaining: 25,
+					credits_total: 10,
+					credits_used: 5,
+					credits_remaining: 5,
+					is_free_tier: false,
 				},
 			],
 			[

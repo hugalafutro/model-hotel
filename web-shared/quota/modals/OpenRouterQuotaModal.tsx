@@ -9,10 +9,21 @@ export function OpenRouterQuotaModal({
 	barMode,
 	kit: { shell, t, time },
 }: QuotaBodyProps<OpenRouterBalance>) {
-	const hasCredits = payload.credits_total > 0;
+	// Only credits_remaining is guaranteed (the visibility gate checks it), so
+	// every other figure renders only when the snapshot carries it.
+	const creditsTotal = payload.credits_total ?? 0;
+	const creditsUsed = payload.credits_used;
+	const hasCredits = creditsTotal > 0 && Number.isFinite(creditsUsed);
 	const creditsPctUsed = hasCredits
-		? (payload.credits_used / payload.credits_total) * 100
+		? ((creditsUsed as number) / creditsTotal) * 100
 		: 0;
+	const usageTiles = [
+		[t("today"), payload.usage_daily, "or-usage-daily"],
+		[t("thisWeek"), payload.usage_weekly, "or-usage-weekly"],
+		[t("thisMonth"), payload.usage_monthly, "or-usage-monthly"],
+		[t("allTime"), payload.usage, "or-usage-all"],
+	] as const;
+	const shownUsage = usageTiles.filter(([, value]) => Number.isFinite(value));
 
 	const limit = payload.limit;
 	const limitRemaining = payload.limit_remaining ?? 0;
@@ -39,7 +50,7 @@ export function OpenRouterQuotaModal({
 						testId="or-credits-bar"
 						fillTestId="or-credits-fill"
 					>
-						{t("spentTotal", { amount: formatDollars(payload.credits_used) })}
+						{t("spentTotal", { amount: formatDollars(creditsUsed as number) })}
 					</QuotaBar>
 				) : (
 					<QuotaDetailGrid columns={2}>
@@ -78,31 +89,23 @@ export function OpenRouterQuotaModal({
 
 				{/* The usage figures are the key's own spend, not the account's:
 				    say so, or they read as contradicting the balance above. */}
-				<p className="ui-quota-bar-sub" data-testid="or-key-usage-hint">
-					{t("spendingByThisKey")}
-				</p>
-				<QuotaDetailGrid columns={2}>
-					<QuotaDetailItem
-						label={t("today")}
-						value={formatDollars(payload.usage_daily)}
-						testId="or-usage-daily"
-					/>
-					<QuotaDetailItem
-						label={t("thisWeek")}
-						value={formatDollars(payload.usage_weekly)}
-						testId="or-usage-weekly"
-					/>
-					<QuotaDetailItem
-						label={t("thisMonth")}
-						value={formatDollars(payload.usage_monthly)}
-						testId="or-usage-monthly"
-					/>
-					<QuotaDetailItem
-						label={t("allTime")}
-						value={formatDollars(payload.usage)}
-						testId="or-usage-all"
-					/>
-				</QuotaDetailGrid>
+				{shownUsage.length > 0 && (
+					<>
+						<p className="ui-quota-bar-sub" data-testid="or-key-usage-hint">
+							{t("spendingByThisKey")}
+						</p>
+						<QuotaDetailGrid columns={2}>
+							{shownUsage.map(([label, value, testId]) => (
+								<QuotaDetailItem
+									key={testId}
+									label={label}
+									value={formatDollars(value as number)}
+									testId={testId}
+								/>
+							))}
+						</QuotaDetailGrid>
+					</>
+				)}
 			</>
 		),
 	});

@@ -335,6 +335,45 @@ describe("OpenRouterQuotaModal", () => {
 		expect(screen.getByTestId("or-usage-all")).toHaveTextContent("$40.00");
 	});
 
+	// Regression: the visibility gate passes any snapshot that carries
+	// credits_remaining, and formatDollars throws on undefined, so a body that
+	// formatted every usage field took the modal out behind its error boundary.
+	it("renders a snapshot holding only credits_remaining as the balance alone", () => {
+		render(
+			<OpenRouterQuotaModal
+				{...chrome}
+				payload={{ credits_remaining: 5 }}
+				barMode="used"
+			/>,
+		);
+		expect(screen.getByRole("dialog")).toHaveTextContent(formatDollars(5));
+		expect(screen.queryByTestId("or-credits-bar")).toBeNull();
+		expect(screen.queryByTestId("or-limit-bar")).toBeNull();
+		expect(screen.queryByTestId("or-key-usage-hint")).toBeNull();
+		expect(screen.queryByTestId("or-usage-daily")).toBeNull();
+		expect(screen.queryByTestId("or-usage-weekly")).toBeNull();
+		expect(screen.queryByTestId("or-usage-monthly")).toBeNull();
+		expect(screen.queryByTestId("or-usage-all")).toBeNull();
+	});
+
+	it("renders only the spending tiles the snapshot carries", () => {
+		render(
+			<OpenRouterQuotaModal
+				{...chrome}
+				payload={{ credits_remaining: 5, usage_daily: 1, credits_total: 10 }}
+				barMode="used"
+			/>,
+		);
+		expect(screen.getByTestId("or-usage-daily")).toHaveTextContent(
+			formatDollars(1),
+		);
+		expect(screen.queryByTestId("or-usage-weekly")).toBeNull();
+		expect(screen.queryByTestId("or-usage-monthly")).toBeNull();
+		expect(screen.queryByTestId("or-usage-all")).toBeNull();
+		// A credit total without credits_used has no bar to fill.
+		expect(screen.queryByTestId("or-credits-bar")).toBeNull();
+	});
+
 	it("marks a free-tier account", () => {
 		render(
 			<OpenRouterQuotaModal
@@ -695,10 +734,10 @@ describe("NeuralWattQuotaModal", () => {
 
 	// Regression: a 200 whose body stops after balance and subscription passes
 	// payloadOf and the badge visibility gate (which only requires
-	// balance.credits_remaining_usd), so the badge renders happily, and opening
-	// its modal used to throw on usage.current_month.cost_usd, latch the
-	// boundary above the strip and take the whole quota strip out until the
-	// operator reloaded.
+	// balance.credits_remaining_usd), so the badge renders. A modal that throws
+	// on usage.current_month.cost_usd disappears, and the error boundary that
+	// wraps only the modal stays latched until a new snapshot or another
+	// provider resets it; the badges survive.
 	it("renders the credits it has when usage, limits and key are absent", () => {
 		const partial: NeuralWattQuotaResponse = {
 			balance: payload.balance,
