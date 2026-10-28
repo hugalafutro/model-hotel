@@ -18,6 +18,7 @@ import (
 
 	"github.com/hugalafutro/model-hotel/internal/auth"
 	"github.com/hugalafutro/model-hotel/internal/config"
+	"github.com/hugalafutro/model-hotel/internal/logtest"
 	"github.com/hugalafutro/model-hotel/internal/settings"
 )
 
@@ -1117,7 +1118,7 @@ func TestConfigSync_ImportApplyAbandonedWarns(t *testing.T) {
 		func(string) error { cancel(); return nil })
 	r := chi.NewRouter()
 	h.Register(r)
-	capt := captureLogs(t)
+	capt := logtest.Capture(t)
 
 	rec := httptest.NewRecorder()
 	r.ServeHTTP(rec, httptest.NewRequestWithContext(ctx, http.MethodPost, "/config/import", bytes.NewReader(keylessImport(t))))
@@ -1125,9 +1126,9 @@ func TestConfigSync_ImportApplyAbandonedWarns(t *testing.T) {
 	if rec.Code != statusClientClosed {
 		t.Fatalf("status = %d, want 499; body %s", rec.Code, rec.Body.String())
 	}
-	level, _, found := capt.last("configsync: apply import")
-	if !found || level != slog.LevelWarn {
-		t.Errorf("apply log found=%v level=%v, want a warning", found, level)
+	line, found := capt.Last("configsync: apply import")
+	if !found || line.Level != slog.LevelWarn {
+		t.Errorf("apply log found=%v level=%v, want a warning", found, line.Level)
 	}
 }
 

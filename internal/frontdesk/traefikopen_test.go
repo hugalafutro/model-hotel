@@ -3,6 +3,8 @@ package frontdesk
 import (
 	"net/http"
 	"testing"
+
+	"github.com/hugalafutro/model-hotel/internal/logtest"
 )
 
 const traefikOpenWarning = "frontdesk: /traefik/config is unauthenticated, set FRONTDESK_TRAEFIK_TOKEN to gate it"
@@ -15,10 +17,10 @@ const traefikOpenWarning = "frontdesk: /traefik/config is unauthenticated, set F
 // operator who never set the token has a watchdog anyone can keep quiet, and
 // before this line nothing anywhere said so.
 func TestTraefikConfigOpenByDefault_IsAnnounced(t *testing.T) {
-	capt := captureLogs(t)
+	capt := logtest.Capture(t)
 	newTestServer(t)
 
-	if _, ok := capt.find(traefikOpenWarning); !ok {
+	if _, ok := capt.Find(traefikOpenWarning); !ok {
 		t.Error("a Front Desk with no Traefik token started without warning that the endpoint is open")
 	}
 }
@@ -26,10 +28,10 @@ func TestTraefikConfigOpenByDefault_IsAnnounced(t *testing.T) {
 // TestTraefikConfigGated_IsNotAnnounced is the other half: an operator who did
 // set the token must not be nagged about a hole they closed.
 func TestTraefikConfigGated_IsNotAnnounced(t *testing.T) {
-	capt := captureLogs(t)
+	capt := logtest.Capture(t)
 	newTestServerTraefikToken(t, "a-real-traefik-token")
 
-	if _, ok := capt.find(traefikOpenWarning); ok {
+	if _, ok := capt.Find(traefikOpenWarning); ok {
 		t.Error("warned about an open /traefik/config on a server whose token gates it")
 	}
 }

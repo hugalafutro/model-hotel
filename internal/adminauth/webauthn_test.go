@@ -2,15 +2,11 @@ package adminauth
 
 import (
 	"context"
-	"crypto/sha256"
-	"encoding/base64"
-	"encoding/binary"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"testing"
 
-	"github.com/fxamacker/cbor/v2"
 	webauthnx "github.com/go-webauthn/webauthn/webauthn"
 	"github.com/jackc/pgx/v5/pgxpool"
 
@@ -576,168 +572,20 @@ func TestWebAuthnHandler_NewWebAuthnHandler_NonNilParams(t *testing.T) {
 	}
 }
 
-// buildFakeRegistrationCredential constructs a JSON-encoded credential response
-// that passes ParseCredentialCreationResponseBody (valid CBOR attestation object)
-// but fails at CreateCredential (challenge mismatch).
+// buildFakeRegistrationCredential returns a create() response for a credential
+// whose id is credentialIDB64, issued against no challenge: it parses, and the
+// library then rejects it at the challenge check.
 func buildFakeRegistrationCredential(t *testing.T, credentialIDB64 string) json.RawMessage {
 	t.Helper()
-
-	// Build clientDataJSON as proper JSON
-	clientData := map[string]any{
-		"type":        "webauthn.create",
-		"challenge":   "",
-		"origin":      "http://localhost",
-		"crossOrigin": false,
-	}
-	clientDataJSON, err := json.Marshal(clientData)
-	if err != nil {
-		t.Fatalf("failed to marshal clientDataJSON: %v", err)
-	}
-
-	// Build a minimal AuthenticatorData
-	rpIDHash := sha256.Sum256([]byte("localhost"))
-	flags := byte(0x41) // UP (0x01) | AT (0x40) = attested credential data present
-	var signCount uint32
-
-	// Attested credential data
-	aaguid := make([]byte, 16)
-	credID := []byte("test-credential")
-	credIDLen := make([]byte, 2)
-	binary.BigEndian.PutUint16(credIDLen, uint16(len(credID)))
-
-	// Minimal COSE key: EC2/P-256 with placeholder coordinates
-	coseKey := map[int]any{
-		1:  2,                // kty: EC2
-		3:  -25,              // alg: ES256
-		-1: make([]byte, 32), // x: 32 zero bytes
-		-2: make([]byte, 32), // y: 32 zero bytes
-	}
-	coseKeyCBOR, err := cbor.Marshal(coseKey)
-	if err != nil {
-		t.Fatalf("failed to marshal COSE key: %v", err)
-	}
-
-	// Assemble authData
-	authData := make([]byte, 0)
-	authData = append(authData, rpIDHash[:]...)
-	authData = append(authData, flags)
-	signCountBytes := make([]byte, 4)
-	binary.BigEndian.PutUint32(signCountBytes, signCount)
-	authData = append(authData, signCountBytes...)
-	authData = append(authData, aaguid...)
-	authData = append(authData, credIDLen...)
-	authData = append(authData, credID...)
-	authData = append(authData, coseKeyCBOR...)
-
-	// Build attestation object as CBOR
-	attObj := map[string]any{
-		"fmt":      "none",
-		"attStmt":  map[string]any{},
-		"authData": authData,
-	}
-	attObjCBOR, err := cbor.Marshal(attObj)
-	if err != nil {
-		t.Fatalf("failed to marshal attestation object: %v", err)
-	}
-
-	// Build the credential response JSON
-	cred := map[string]any{
-		"id":    credentialIDB64,
-		"rawId": credentialIDB64,
-		"type":  "public-key",
-		"response": map[string]any{
-			"attestationObject": base64.RawURLEncoding.EncodeToString(attObjCBOR),
-			"clientDataJSON":    base64.RawURLEncoding.EncodeToString(clientDataJSON),
-			"transports":        []string{"internal"},
-		},
-	}
-	credJSON, err := json.Marshal(cred)
-	if err != nil {
-		t.Fatalf("failed to marshal credential: %v", err)
-	}
-	return credJSON
+	return softAuthenticatorWithID(t, credentialIDB64).attestation(t, "")
 }
 
-// buildFakeLoginCredential constructs a JSON-encoded credential assertion response
-// that passes ParseCredentialRequestResponseBody (valid structure)
-// but fails at ValidatePasskeyLogin (challenge mismatch / no matching credential).
+// buildFakeLoginCredential is the get() counterpart: it parses, and the library
+// rejects it at the challenge check.
 func buildFakeLoginCredential(t *testing.T, credentialIDB64 string) json.RawMessage {
 	t.Helper()
-
-	// Build clientDataJSON
-	clientData := map[string]any{
-		"type":        "webauthn.get",
-		"challenge":   "",
-		"origin":      "http://localhost",
-		"crossOrigin": false,
-	}
-	clientDataJSON, err := json.Marshal(clientData)
-	if err != nil {
-		t.Fatalf("failed to marshal clientDataJSON: %v", err)
-	}
-
-	// Build minimal authenticatorData (no attested credential data for assertion)
-	rpIDHash := sha256.Sum256([]byte("localhost"))
-	flags := byte(0x01) // UP only
-	var signCount uint32
-
-	authData := make([]byte, 0)
-	authData = append(authData, rpIDHash[:]...)
-	authData = append(authData, flags)
-	signCountBytes := make([]byte, 4)
-	binary.BigEndian.PutUint32(signCountBytes, signCount)
-	authData = append(authData, signCountBytes...)
-
-	// Build the credential assertion response JSON
-	cred := map[string]any{
-		"id":    credentialIDB64,
-		"rawId": credentialIDB64,
-		"type":  "public-key",
-		"response": map[string]any{
-			"authenticatorData": base64.RawURLEncoding.EncodeToString(authData),
-			"clientDataJSON":    base64.RawURLEncoding.EncodeToString(clientDataJSON),
-			"signature":         base64.RawURLEncoding.EncodeToString(make([]byte, 64)),
-			"userHandle":        base64.RawURLEncoding.EncodeToString([]byte("admin")),
-		},
-	}
-	credJSON, err := json.Marshal(cred)
-	if err != nil {
-		t.Fatalf("failed to marshal credential: %v", err)
-	}
-	return credJSON
+	return softAuthenticatorWithID(t, credentialIDB64).assertion(t, "", 0)
 }
-
-// --- Unreachable path documentation ---
-
-// The following paths in WebAuthn handlers are structurally unreachable in tests:
-//
-// 1. RegisterFinish: ListCredentials error after GetSession + ParseCredentialCreation
-//    succeed. The handler uses a single repo, so GetSession must succeed first,
-//    but with a working pool, ListCredentials also succeeds. A closed/cancelled
-//    pool affects GetSession first. (webauthn_handlers.go:221-226)
-//
-// 2. RegisterFinish: StoreCredential error after CreateCredential succeeds.
-//    CreateCredential requires cryptographically valid WebAuthn data that can only
-//    be produced by a real browser/authenticator. Without that, we can't reach
-//    the StoreCredential call. (webauthn_handlers.go:243-247)
-//
-// 3. LoginFinish: UpdateSignCount error after ValidatePasskeyLogin succeeds.
-//    ValidatePasskeyLogin requires a real WebAuthn assertion signed by an authenticator.
-//    (webauthn_handlers.go:368-372)
-//
-// 4. LoginFinish: CreateAuthToken error after UpdateSignCount succeeds.
-//    Same reason — requires a real WebAuthn assertion. (webauthn_handlers.go:374-379)
-//
-// 5. RegisterStart: json.Marshal(session) error. The webauthn library's SessionData
-//    struct only contains marshalable types (strings, bytes, maps), so json.Marshal
-//    never fails. (webauthn_handlers.go:140-145)
-//
-// 6. LoginStart: json.Marshal(session) error. Same as RegisterStart.
-//    (webauthn_handlers.go:271-276)
-//
-// 7. generateToken: base64 encoding failure. b64.Encode can only fail if
-//    the writer returns an error, and bytes.Buffer.Write never returns an error.
-//    (internal/admin/token.go)
 
 // --- TOTP gate tests for adminOrSessionAuth (B1) ---
 

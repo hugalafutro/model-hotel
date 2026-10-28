@@ -488,16 +488,6 @@ func TestIsDockerAvailable_WithSocketOverride(t *testing.T) {
 	}
 }
 
-func TestIsDockerAvailable_RealDaemon(t *testing.T) {
-	resetDockerState()
-	// Call with the real Docker socket path. If Docker is running (expected
-	// in this project's primary deployment), this covers the os.Stat success
-	// path and the /info HTTP check. If Docker is not available the test
-	// still passes — it just won't contribute coverage for those branches.
-	result := IsDockerAvailable()
-	t.Logf("IsDockerAvailable() = %v", result)
-}
-
 type errorRoundTripper struct{}
 
 func (errorRoundTripper) RoundTrip(*http.Request) (*http.Response, error) {

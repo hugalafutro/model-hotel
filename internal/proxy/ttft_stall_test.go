@@ -529,32 +529,6 @@ func TestProbeFirstToken_MultipleSkipLines(t *testing.T) {
 	}
 }
 
-func TestProbeFirstToken_CanceledContext(t *testing.T) {
-	h := &Handler{}
-	ctx, cancel := context.WithCancel(context.Background())
-	cancel() // cancel immediately
-
-	pr, pw := io.Pipe()
-	go func() {
-		pw.Write([]byte("data: {\"choices\":[]}\n\n"))
-		pw.Close()
-	}()
-
-	// With an already-canceled context and a 0 timeout, the function should
-	// either return immediately with an error or process the data quickly.
-	// A short timeout ensures we don't block forever.
-	_, _, err := h.probeFirstToken(ctx, pr, 1*time.Second, time.Now())
-	_ = pr.Close()
-
-	// Either we get data fast enough, or we get a context error.
-	// Both are acceptable given the race between cancel and pipe write.
-	if err != nil {
-		// Context is cancelled, the probe goroutine detects DeadlineExceeded or the scanner hits EOF/other error.
-		// Either an error or success is fine — just ensure no panic.
-		t.Logf("got expected error from canceled context: %v", err)
-	}
-}
-
 func TestStallWatchdog_CircuitBreakerOnStall(t *testing.T) {
 	h := newIntegrationHandler()
 	defer stopUnitHandler(h)

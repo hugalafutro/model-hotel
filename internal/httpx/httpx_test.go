@@ -16,44 +16,17 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
 
-	"github.com/hugalafutro/model-hotel/internal/debuglog"
+	"github.com/hugalafutro/model-hotel/internal/logtest"
 )
 
-// levelCaptureHandler records the level and message of the last record it handled.
-type levelCaptureHandler struct {
-	last slog.Level
-	msg  string
-	// status records the "status" attribute of the last record, which the
-	// access-log tests assert on.
-	status int64
-}
-
-func (h *levelCaptureHandler) Enabled(context.Context, slog.Level) bool { return true }
-func (h *levelCaptureHandler) Handle(_ context.Context, r slog.Record) error {
-	h.last = r.Level
-	h.msg = r.Message
-	h.status = 0
-	r.Attrs(func(a slog.Attr) bool {
-		if a.Key == "status" {
-			h.status = a.Value.Int64()
-			return false
-		}
-		return true
-	})
-	return nil
-}
-func (h *levelCaptureHandler) WithAttrs([]slog.Attr) slog.Handler { return h }
-func (h *levelCaptureHandler) WithGroup(string) slog.Handler      { return h }
-
-// captureLogs swaps the process-wide slog default for a recorder and restores
-// it afterwards so later tests are not swallowed by the capture handler.
-func captureLogs(t *testing.T) *levelCaptureHandler {
-	t.Helper()
-	prev := slog.Default().Handler()
-	t.Cleanup(func() { debuglog.SetHandler(prev) })
-	capt := &levelCaptureHandler{}
-	debuglog.SetHandler(capt)
-	return capt
+// lastRecord returns the most recent captured record, or the zero Record when
+// nothing was logged.
+func lastRecord(h *logtest.Handler) logtest.Record {
+	recs := h.Records()
+	if len(recs) == 0 {
+		return logtest.Record{}
+	}
+	return recs[len(recs)-1]
 }
 
 // errWriter fails every write, so the JSON encoder inside the write helpers
@@ -75,7 +48,7 @@ func (w *errWriter) WriteHeader(code int)      { w.code = code }
 
 func TestRespondError(t *testing.T) {
 	t.Run("logs the error and writes the message", func(t *testing.T) {
-		capt := captureLogs(t)
+		capt := logtest.Capture(t)
 		w := httptest.NewRecorder()
 		RespondError(w, "api", "failed to load thing", errors.New("db down"), http.StatusInternalServerError)
 		if w.Code != http.StatusInternalServerError {
@@ -84,33 +57,32 @@ func TestRespondError(t *testing.T) {
 		if got := strings.TrimSpace(w.Body.String()); got != "failed to load thing" {
 			t.Errorf("body = %q, want the sanitized message", got)
 		}
-		if capt.msg != "api: failed to load thing" {
-			t.Errorf("log message = %q, want the component prefix", capt.msg)
+		if lastRecord(capt).Msg != "api: failed to load thing" {
+			t.Errorf("log message = %q, want the component prefix", lastRecord(capt).Msg)
 		}
-		if capt.last != slog.LevelError {
-			t.Errorf("log level = %v, want error", capt.last)
+		if lastRecord(capt).Level != slog.LevelError {
+			t.Errorf("log level = %v, want error", lastRecord(capt).Level)
 		}
 	})
 
 	t.Run("5xx without an error value is still logged", func(t *testing.T) {
-		capt := captureLogs(t)
+		capt := logtest.Capture(t)
 		w := httptest.NewRecorder()
 		RespondError(w, "adminauth", "upstream unavailable", nil, http.StatusBadGateway)
-		if capt.msg != "adminauth: upstream unavailable" {
-			t.Errorf("log message = %q, want the message logged for a 5xx", capt.msg)
+		if lastRecord(capt).Msg != "adminauth: upstream unavailable" {
+			t.Errorf("log message = %q, want the message logged for a 5xx", lastRecord(capt).Msg)
 		}
-		if capt.last != slog.LevelError {
-			t.Errorf("log level = %v, want error", capt.last)
+		if lastRecord(capt).Level != slog.LevelError {
+			t.Errorf("log level = %v, want error", lastRecord(capt).Level)
 		}
 	})
 
 	t.Run("4xx without an error value is not logged", func(t *testing.T) {
-		capt := captureLogs(t)
-		capt.msg = "sentinel"
+		capt := logtest.Capture(t)
 		w := httptest.NewRecorder()
 		RespondError(w, "api", "nope", nil, http.StatusForbidden)
-		if capt.msg != "sentinel" {
-			t.Errorf("log message = %q, want no log for a client-facing 4xx", capt.msg)
+		if recs := capt.Records(); len(recs) != 0 {
+			t.Errorf("log message = %q, want no log for a client-facing 4xx", recs[len(recs)-1].Msg)
 		}
 		if w.Code != http.StatusForbidden {
 			t.Errorf("status = %d, want 403", w.Code)
@@ -118,28 +90,28 @@ func TestRespondError(t *testing.T) {
 	})
 
 	t.Run("a cancelled request answers 499 and warns", func(t *testing.T) {
-		capt := captureLogs(t)
+		capt := logtest.Capture(t)
 		w := httptest.NewRecorder()
 		RespondError(w, "api", "failed to query time series",
 			fmt.Errorf("query row: %w", context.Canceled), http.StatusInternalServerError)
 		if w.Code != StatusClientClosedRequest {
 			t.Errorf("status = %d, want %d for a client that hung up", w.Code, StatusClientClosedRequest)
 		}
-		if capt.last != slog.LevelWarn {
-			t.Errorf("log level = %v, want warn: the caller cancelled, nothing here failed", capt.last)
+		if lastRecord(capt).Level != slog.LevelWarn {
+			t.Errorf("log level = %v, want warn: the caller cancelled, nothing here failed", lastRecord(capt).Level)
 		}
 	})
 
 	t.Run("a deadline that expired stays a 500 error", func(t *testing.T) {
-		capt := captureLogs(t)
+		capt := logtest.Capture(t)
 		w := httptest.NewRecorder()
 		RespondError(w, "api", "failed to query time series",
 			fmt.Errorf("query row: %w", context.DeadlineExceeded), http.StatusInternalServerError)
 		if w.Code != http.StatusInternalServerError {
 			t.Errorf("status = %d, want 500: the timeout is this server's own", w.Code)
 		}
-		if capt.last != slog.LevelError {
-			t.Errorf("log level = %v, want error", capt.last)
+		if lastRecord(capt).Level != slog.LevelError {
+			t.Errorf("log level = %v, want error", lastRecord(capt).Level)
 		}
 	})
 }
@@ -196,41 +168,40 @@ func TestRespondLookupError(t *testing.T) {
 	})
 
 	t.Run("any other error returns a logged 500", func(t *testing.T) {
-		capt := captureLogs(t)
+		capt := logtest.Capture(t)
 		w := httptest.NewRecorder()
 		RespondLookupError(w, "api", errors.New("db connection lost"), notFound, "thing not found", "failed to load thing")
 		if w.Code != http.StatusInternalServerError {
 			t.Errorf("expected 500, got %d", w.Code)
 		}
-		if capt.msg != "api: failed to load thing" {
-			t.Errorf("log message = %q, want the load message", capt.msg)
+		if lastRecord(capt).Msg != "api: failed to load thing" {
+			t.Errorf("log message = %q, want the load message", lastRecord(capt).Msg)
 		}
 	})
 }
 
 func TestRespondBadRequest(t *testing.T) {
 	t.Run("logs the cause at info", func(t *testing.T) {
-		capt := captureLogs(t)
+		capt := logtest.Capture(t)
 		w := httptest.NewRecorder()
 		RespondBadRequest(w, "api", "invalid JSON body", errors.New("unexpected EOF"))
 		if w.Code != http.StatusBadRequest {
 			t.Errorf("status = %d, want 400", w.Code)
 		}
-		if capt.msg != "api: bad request: invalid JSON body" {
-			t.Errorf("log message = %q", capt.msg)
+		if lastRecord(capt).Msg != "api: bad request: invalid JSON body" {
+			t.Errorf("log message = %q", lastRecord(capt).Msg)
 		}
-		if capt.last != slog.LevelInfo {
-			t.Errorf("log level = %v, want info", capt.last)
+		if lastRecord(capt).Level != slog.LevelInfo {
+			t.Errorf("log level = %v, want info", lastRecord(capt).Level)
 		}
 	})
 
 	t.Run("nil error logs nothing", func(t *testing.T) {
-		capt := captureLogs(t)
-		capt.msg = "sentinel"
+		capt := logtest.Capture(t)
 		w := httptest.NewRecorder()
 		RespondBadRequest(w, "api", "missing field", nil)
-		if capt.msg != "sentinel" {
-			t.Errorf("log message = %q, want no log without a cause", capt.msg)
+		if recs := capt.Records(); len(recs) != 0 {
+			t.Errorf("log message = %q, want no log without a cause", recs[len(recs)-1].Msg)
 		}
 		if w.Code != http.StatusBadRequest {
 			t.Errorf("status = %d, want 400", w.Code)
@@ -313,14 +284,14 @@ func TestWriteJSON(t *testing.T) {
 // already gone. A second WriteHeader could never reach the client, so the
 // failure is logged and nothing else.
 func TestWriteJSON_WriteFailureIsLogOnly(t *testing.T) {
-	capt := captureLogs(t)
+	capt := logtest.Capture(t)
 	w := newErrWriter(errors.New("boom"))
 	WriteJSON(w, "api", map[string]string{"a": "b"})
-	if capt.msg != "api: failed to encode JSON response" {
-		t.Errorf("log message = %q", capt.msg)
+	if lastRecord(capt).Msg != "api: failed to encode JSON response" {
+		t.Errorf("log message = %q", lastRecord(capt).Msg)
 	}
-	if capt.last != slog.LevelError {
-		t.Errorf("log level = %v, want error", capt.last)
+	if lastRecord(capt).Level != slog.LevelError {
+		t.Errorf("log level = %v, want error", lastRecord(capt).Level)
 	}
 	if w.code != 0 {
 		t.Errorf("wrote status %d after the body started; want none", w.code)
@@ -331,7 +302,7 @@ func TestWriteJSON_WriteFailureIsLogOnly(t *testing.T) {
 // fails having written nothing, so a real 500 is still deliverable and must be
 // sent rather than letting net/http emit a 200 with an empty body.
 func TestWriteJSON_MarshalFailureIs500(t *testing.T) {
-	capt := captureLogs(t)
+	capt := logtest.Capture(t)
 	w := httptest.NewRecorder()
 	WriteJSON(w, "api", map[string]any{"ch": make(chan int)})
 	if w.Code != http.StatusInternalServerError {
@@ -340,11 +311,11 @@ func TestWriteJSON_MarshalFailureIs500(t *testing.T) {
 	if got := strings.TrimSpace(w.Body.String()); got != "failed to encode response" {
 		t.Errorf("body = %q, want the sanitized encode-failure message", got)
 	}
-	if capt.msg != "api: failed to encode response" {
-		t.Errorf("log message = %q", capt.msg)
+	if lastRecord(capt).Msg != "api: failed to encode response" {
+		t.Errorf("log message = %q", lastRecord(capt).Msg)
 	}
-	if capt.last != slog.LevelError {
-		t.Errorf("log level = %v, want error", capt.last)
+	if lastRecord(capt).Level != slog.LevelError {
+		t.Errorf("log level = %v, want error", lastRecord(capt).Level)
 	}
 }
 
@@ -353,7 +324,7 @@ func TestWriteJSON_MarshalFailureIs500(t *testing.T) {
 // (409 duplicate, 422 schema mismatch), so an unmarshalable body loses the body
 // and nothing more.
 func TestWriteJSONStatus_MarshalFailureKeepsStatus(t *testing.T) {
-	capt := captureLogs(t)
+	capt := logtest.Capture(t)
 	w := httptest.NewRecorder()
 	WriteJSONStatus(w, "api", http.StatusConflict, map[string]any{"ch": make(chan int)})
 	if w.Code != http.StatusConflict {
@@ -362,11 +333,11 @@ func TestWriteJSONStatus_MarshalFailureKeepsStatus(t *testing.T) {
 	if w.Body.Len() != 0 {
 		t.Errorf("body = %q, want empty", w.Body.String())
 	}
-	if capt.msg != "api: failed to encode JSON response" {
-		t.Errorf("log message = %q", capt.msg)
+	if lastRecord(capt).Msg != "api: failed to encode JSON response" {
+		t.Errorf("log message = %q", lastRecord(capt).Msg)
 	}
-	if capt.last != slog.LevelError {
-		t.Errorf("log level = %v, want error", capt.last)
+	if lastRecord(capt).Level != slog.LevelError {
+		t.Errorf("log level = %v, want error", lastRecord(capt).Level)
 	}
 }
 
@@ -385,17 +356,17 @@ func TestWriteJSONStatus(t *testing.T) {
 }
 
 func TestWriteJSONStatus_EncodeFailureIsLogged(t *testing.T) {
-	capt := captureLogs(t)
+	capt := logtest.Capture(t)
 	w := newErrWriter(syscall.EPIPE)
 	WriteJSONStatus(w, "frontdesk", http.StatusOK, map[string]int{"n": 1})
 	if w.code != http.StatusOK {
 		t.Errorf("WriteHeader got %d, want 200", w.code)
 	}
-	if capt.last != slog.LevelDebug {
-		t.Errorf("log level = %v, want debug for a client disconnect", capt.last)
+	if lastRecord(capt).Level != slog.LevelDebug {
+		t.Errorf("log level = %v, want debug for a client disconnect", lastRecord(capt).Level)
 	}
-	if capt.msg != "frontdesk: client disconnected before JSON response completed" {
-		t.Errorf("log message = %q", capt.msg)
+	if lastRecord(capt).Msg != "frontdesk: client disconnected before JSON response completed" {
+		t.Errorf("log message = %q", lastRecord(capt).Msg)
 	}
 }
 
@@ -441,32 +412,30 @@ func TestIsClientDisconnect(t *testing.T) {
 }
 
 func TestLogEncodeError_Level(t *testing.T) {
-	capt := captureLogs(t)
-
 	t.Run("client disconnect logs at debug", func(t *testing.T) {
-		capt.last = slog.LevelError + 1 // sentinel
+		capt := logtest.Capture(t)
 		logEncodeError("api", fmt.Errorf("write tcp 1.2.3.4:8080->5.6.7.8:9: write: %w", syscall.EPIPE))
-		if capt.last != slog.LevelDebug {
-			t.Errorf("expected debug level, got %v", capt.last)
+		if lastRecord(capt).Level != slog.LevelDebug {
+			t.Errorf("expected debug level, got %v", lastRecord(capt).Level)
 		}
 	})
 
 	t.Run("handler timeout logs at debug", func(t *testing.T) {
-		capt.last = slog.LevelError + 1 // sentinel
+		capt := logtest.Capture(t)
 		logEncodeError("api", fmt.Errorf("encode: %w", http.ErrHandlerTimeout))
-		if capt.last != slog.LevelDebug {
-			t.Errorf("expected debug level, got %v", capt.last)
+		if lastRecord(capt).Level != slog.LevelDebug {
+			t.Errorf("expected debug level, got %v", lastRecord(capt).Level)
 		}
-		if capt.msg != "api: handler timed out before JSON response completed" {
-			t.Errorf("log message = %q", capt.msg)
+		if lastRecord(capt).Msg != "api: handler timed out before JSON response completed" {
+			t.Errorf("log message = %q", lastRecord(capt).Msg)
 		}
 	})
 
 	t.Run("genuine encode error logs at error", func(t *testing.T) {
-		capt.last = slog.LevelDebug - 1 // sentinel
+		capt := logtest.Capture(t)
 		logEncodeError("api", errors.New("json: unsupported type: chan int"))
-		if capt.last != slog.LevelError {
-			t.Errorf("expected error level, got %v", capt.last)
+		if lastRecord(capt).Level != slog.LevelError {
+			t.Errorf("expected error level, got %v", lastRecord(capt).Level)
 		}
 	})
 }

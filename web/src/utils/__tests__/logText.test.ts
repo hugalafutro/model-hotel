@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { parseLogAttrs, splitLogMessage } from "../logText";
+import {
+	decodeLogEscapes,
+	displayLogMessage,
+	parseLogAttrs,
+	splitLogMessage,
+} from "../logText";
 
 describe("parseLogAttrs", () => {
 	it("reads an access line into ordered pairs", () => {
@@ -82,5 +87,41 @@ describe("splitLogMessage", () => {
 			head: "head and tail",
 			attrs: [],
 		});
+	});
+});
+
+describe("decodeLogEscapes", () => {
+	it("turns an escaped space inside a quoted value back into a space", () => {
+		expect(decodeLogEscapes('a="x\\x20y" b=1')).toBe('a="x y" b=1');
+	});
+
+	it("leaves an escaped space outside quotes alone", () => {
+		expect(decodeLogEscapes("a=x\\x20y")).toBe("a=x\\x20y");
+	});
+
+	it("copies an escaped quote through without closing the value", () => {
+		// The \" does not toggle the quote state, so the \x20 after it is
+		// still inside the value and decodes.
+		expect(decodeLogEscapes('e="said \\"no\\"\\x20twice"')).toBe(
+			'e="said \\"no\\" twice"',
+		);
+	});
+
+	it("reads a backslash run by parity: only an odd run escapes what follows", () => {
+		// Three backslashes: one pair stays, the third escapes the space.
+		expect(decodeLogEscapes('p="C:\\\\\\x20dir"')).toBe('p="C:\\\\ dir"');
+		// Two backslashes: a literal pair, and x20 is plain text after it.
+		expect(decodeLogEscapes('p="C:\\\\x20dir"')).toBe('p="C:\\\\x20dir"');
+	});
+});
+
+describe("displayLogMessage", () => {
+	it("decodes only from the attribute boundary and only when flagged", () => {
+		const msg = 'head\\x20kept a="x\\x20y"';
+		expect(displayLogMessage(msg, true, "head\\x20kept ".length)).toBe(
+			'head\\x20kept a="x y"',
+		);
+		expect(displayLogMessage(msg, false, 0)).toBe(msg);
+		expect(displayLogMessage(msg, true, 999)).toBe(msg);
 	});
 });

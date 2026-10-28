@@ -10,6 +10,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/hugalafutro/model-hotel/internal/logtest"
 )
 
 // Auto-sync tests for DIVERGENCE: flagging a member whose hash never matches,
@@ -1442,12 +1444,12 @@ func TestAutoSyncStaleTierIdle(t *testing.T) {
 // refuses the stored token cannot be retried into working, so it is idle at
 // once.
 func TestAutoSyncIdleNeedsRepeatedPrimaryFailures(t *testing.T) {
-	logs := captureLogs(t)
+	logs := logtest.Capture(t)
 	const warn = "frontdesk: auto-sync is enabled but cannot run: primary unavailable"
 	warnings := func() int {
 		n := 0
-		for _, r := range logs.snapshot() {
-			if r.msg == warn {
+		for _, r := range logs.Records() {
+			if r.Msg == warn {
 				n++
 			}
 		}

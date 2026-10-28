@@ -8,6 +8,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/hugalafutro/model-hotel/internal/logtest"
 )
 
 func TestSetRetryAfter(t *testing.T) {
@@ -97,7 +99,7 @@ func TestAccessLoggerLevels(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			capt := captureLogs(t)
+			capt := logtest.Capture(t)
 			h := AccessLogger(noisy)(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 				if tt.writeBody {
 					_, _ = w.Write([]byte("ok"))
@@ -108,32 +110,32 @@ func TestAccessLoggerLevels(t *testing.T) {
 			h.ServeHTTP(httptest.NewRecorder(), httptest.NewRequest(http.MethodGet, tt.path, http.NoBody))
 
 			if !tt.wantLine {
-				if capt.msg != "" {
-					t.Fatalf("expected no log line, got %q", capt.msg)
+				if lastRecord(capt).Msg != "" {
+					t.Fatalf("expected no log line, got %q", lastRecord(capt).Msg)
 				}
 				return
 			}
-			if capt.msg != "access: request" {
-				t.Errorf("message = %q, want the access line", capt.msg)
+			if lastRecord(capt).Msg != "access: request" {
+				t.Errorf("message = %q, want the access line", lastRecord(capt).Msg)
 			}
-			if capt.last != tt.wantLevel {
-				t.Errorf("level = %v, want %v", capt.last, tt.wantLevel)
+			if lastRecord(capt).Level != tt.wantLevel {
+				t.Errorf("level = %v, want %v", lastRecord(capt).Level, tt.wantLevel)
 			}
-			if tt.writeBody && capt.status != 200 {
-				t.Errorf("implicit 200 not normalized: status=%d", capt.status)
+			if status := lastRecord(capt).Attrs["status"]; tt.writeBody && status != int64(200) {
+				t.Errorf("implicit 200 not normalized: status=%d", status)
 			}
 		})
 	}
 }
 
 func TestAccessLoggerNilPredicate(t *testing.T) {
-	capt := captureLogs(t)
+	capt := logtest.Capture(t)
 	h := AccessLogger(nil)(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusOK)
 	}))
 	h.ServeHTTP(httptest.NewRecorder(), httptest.NewRequest(http.MethodGet, "/healthz", http.NoBody))
-	if capt.last != slog.LevelInfo {
-		t.Errorf("nil predicate should log at info, got %v", capt.last)
+	if lastRecord(capt).Level != slog.LevelInfo {
+		t.Errorf("nil predicate should log at info, got %v", lastRecord(capt).Level)
 	}
 }
 
