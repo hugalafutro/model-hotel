@@ -40,9 +40,15 @@ set -uo pipefail
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
 # The backup tests shell out to pg_dump/pg_restore, which must match the test
-# server's major; see scripts/pg-tools-path.
-PATH="$("$REPO_ROOT/scripts/pg-tools-path"):$PATH"
-export PATH
+# server's major; see scripts/pg-tools-path. Resolved once: the per-job
+# re-entries below inherit PATH and would only repeat its notice.
+case "${1:-}" in
+--run-job | --list-one) ;;
+*)
+	PATH="$("$REPO_ROOT/scripts/pg-tools-path"):$PATH"
+	export PATH
+	;;
+esac
 
 SHARDS=""
 MIN_TESTS=200
