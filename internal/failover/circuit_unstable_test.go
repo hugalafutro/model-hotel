@@ -7,6 +7,7 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/hugalafutro/model-hotel/internal/events"
+	"github.com/hugalafutro/model-hotel/internal/logtest"
 )
 
 // The window arithmetic is unit-tested directly because the escalation it
@@ -92,7 +93,7 @@ func TestNoteOpen_ReportsOncePerWindowNotPerThreeOpens(t *testing.T) {
 // its provider: the breaker charges one model at a time, so "provider X is
 // unstable" would accuse every sibling the provider still serves.
 func TestCircuitBreaker_ReportsAModelThatKeepsReopening(t *testing.T) {
-	capt := captureLogs(t)
+	capt := logtest.Capture(t)
 	sub := events.Subscribe()
 	defer events.Unsubscribe(sub)
 
@@ -134,7 +135,7 @@ func TestCircuitBreaker_ReportsAModelThatKeepsReopening(t *testing.T) {
 	if ev.Severity != "warning" {
 		t.Errorf("unstable event severity %q, want warning: a chronically broken model is not routine", ev.Severity)
 	}
-	if _, _, ok := capt.last("circuit-breaker: model keeps reopening its circuit"); !ok {
+	if !capt.Has("circuit-breaker: model keeps reopening its circuit") {
 		t.Error("no escalation log line captured")
 	}
 }

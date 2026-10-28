@@ -9,6 +9,7 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/hugalafutro/model-hotel/internal/events"
+	"github.com/hugalafutro/model-hotel/internal/logtest"
 )
 
 // The probe backoff is exercised with minute-scale cooldowns that never elapse
@@ -307,7 +308,7 @@ func TestCircuitBreaker_RetargetedPinIsFlooredAtTheBackoff(t *testing.T) {
 // one the circuit had earned: a provider that recovered its quota is still a
 // provider whose probe failed.
 func TestCircuitBreaker_ReleasingAPinFallsBackToTheBackoff(t *testing.T) {
-	capt := captureLogs(t)
+	capt := logtest.Capture(t)
 	cb := newTestCB(1, backoffTestBase)
 	id := uuid.New()
 	openBreaker(t, cb, id)
@@ -326,12 +327,12 @@ func TestCircuitBreaker_ReleasingAPinFallsBackToTheBackoff(t *testing.T) {
 			s.QuotaPinned, s.BackedOff, s.CooldownMs)
 	}
 	// The release line promises a cooldown; it must be the one that governs.
-	_, attrs, ok := capt.last("circuit-breaker: quota pin released (provider no longer exhausted)")
+	line, ok := capt.Last("circuit-breaker: quota pin released (provider no longer exhausted)")
 	if !ok {
 		t.Fatal("no release log line captured")
 	}
-	if got, _ := attrs["cooldown_ms"].(int64); got != (2 * backoffTestBase).Milliseconds() {
-		t.Errorf("release log line cooldown_ms=%v, want the 4m backoff the circuit falls back to", attrs["cooldown_ms"])
+	if got, _ := line.Attrs["cooldown_ms"].(int64); got != (2 * backoffTestBase).Milliseconds() {
+		t.Errorf("release log line cooldown_ms=%v, want the 4m backoff the circuit falls back to", line.Attrs["cooldown_ms"])
 	}
 }
 
@@ -463,7 +464,7 @@ func TestShortDuration(t *testing.T) {
 // second is dropped, which is the bug #829 fixed for the unstable event and
 // which these two events still had.
 func TestCircuitBreaker_OpenEventCarriesModelIDAndTheBackoff(t *testing.T) {
-	capt := captureLogs(t)
+	capt := logtest.Capture(t)
 	sub := events.Subscribe()
 	defer events.Unsubscribe(sub)
 
@@ -522,18 +523,18 @@ func TestCircuitBreaker_OpenEventCarriesModelIDAndTheBackoff(t *testing.T) {
 	if want := "backing off after 1 failed retry, next retry in 4m"; !strings.Contains(ev.Message, want) {
 		t.Errorf("re-open message %q does not say %q", ev.Message, want)
 	}
-	_, attrs, ok := capt.last("circuit-breaker: model state=half-open→open (probe failed)")
+	line, ok := capt.Last("circuit-breaker: model state=half-open→open (probe failed)")
 	if !ok {
 		t.Fatal("no probe-failed log line captured")
 	}
-	if got, _ := attrs["failed_probes"].(int64); got != 1 {
-		t.Errorf("log line failed_probes=%v, want 1", attrs["failed_probes"])
+	if got, _ := line.Attrs["failed_probes"].(int64); got != 1 {
+		t.Errorf("log line failed_probes=%v, want 1", line.Attrs["failed_probes"])
 	}
-	if got, _ := attrs["backed_off"].(bool); !got {
-		t.Errorf("log line backed_off=%v, want true", attrs["backed_off"])
+	if got, _ := line.Attrs["backed_off"].(bool); !got {
+		t.Errorf("log line backed_off=%v, want true", line.Attrs["backed_off"])
 	}
-	if got, _ := attrs["cooldown_ms"].(int64); got != (2 * backoffTestBase).Milliseconds() {
-		t.Errorf("log line cooldown_ms=%v, want 4m: the line must show the cooldown actually enforced", attrs["cooldown_ms"])
+	if got, _ := line.Attrs["cooldown_ms"].(int64); got != (2 * backoffTestBase).Milliseconds() {
+		t.Errorf("log line cooldown_ms=%v, want 4m: the line must show the cooldown actually enforced", line.Attrs["cooldown_ms"])
 	}
 }
 

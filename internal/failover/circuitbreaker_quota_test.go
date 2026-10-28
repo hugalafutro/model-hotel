@@ -8,6 +8,7 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/hugalafutro/model-hotel/internal/events"
+	"github.com/hugalafutro/model-hotel/internal/logtest"
 )
 
 // Quota pins: a circuit held open until the provider's quota window resets,
@@ -486,22 +487,22 @@ func TestReleaseQuotaPins_LogsTheLiftedPin(t *testing.T) {
 
 	openBreaker(t, cb, id)
 
-	capt := captureLogs(t)
+	capt := logtest.Capture(t)
 
 	cb.ReleaseQuotaPins(map[uuid.UUID]struct{}{id: {}})
 
-	level, attrs, found := capt.last("circuit-breaker: quota pin released (provider no longer exhausted)")
+	line, found := capt.Last("circuit-breaker: quota pin released (provider no longer exhausted)")
 	if !found {
 		t.Fatal("lifting a pin must leave a log trail")
 	}
-	if level != slog.LevelInfo {
-		t.Errorf("got level %v, want info", level)
+	if line.Level != slog.LevelInfo {
+		t.Errorf("got level %v, want info", line.Level)
 	}
-	if got, _ := attrs["provider_id"].(string); got != id.String() {
-		t.Errorf("got provider_id=%v, want %s", attrs["provider_id"], id)
+	if got, _ := line.Attrs["provider_id"].(string); got != id.String() {
+		t.Errorf("got provider_id=%v, want %s", line.Attrs["provider_id"], id)
 	}
-	if got, _ := attrs["cooldown_ms"].(int64); got != time.Hour.Milliseconds() {
-		t.Errorf("got cooldown_ms=%v, want the configured cooldown %d", attrs["cooldown_ms"], time.Hour.Milliseconds())
+	if got, _ := line.Attrs["cooldown_ms"].(int64); got != time.Hour.Milliseconds() {
+		t.Errorf("got cooldown_ms=%v, want the configured cooldown %d", line.Attrs["cooldown_ms"], time.Hour.Milliseconds())
 	}
 }
 
@@ -590,21 +591,21 @@ func TestReleaseAllQuotaPins_LogsTheReason(t *testing.T) {
 
 	openBreaker(t, cb, id)
 
-	capt := captureLogs(t)
+	capt := logtest.Capture(t)
 	cb.ReleaseAllQuotaPins()
 
-	level, attrs, found := capt.last("circuit-breaker: quota pin released (quota polling disabled)")
+	line, found := capt.Last("circuit-breaker: quota pin released (quota polling disabled)")
 	if !found {
 		t.Fatal("releasing every pin must leave a log trail of its own")
 	}
-	if level != slog.LevelInfo {
-		t.Errorf("got level %v, want info", level)
+	if line.Level != slog.LevelInfo {
+		t.Errorf("got level %v, want info", line.Level)
 	}
-	if got, _ := attrs["provider_id"].(string); got != id.String() {
-		t.Errorf("got provider_id=%v, want %s", attrs["provider_id"], id)
+	if got, _ := line.Attrs["provider_id"].(string); got != id.String() {
+		t.Errorf("got provider_id=%v, want %s", line.Attrs["provider_id"], id)
 	}
-	if got, _ := attrs["cooldown_ms"].(int64); got != time.Hour.Milliseconds() {
-		t.Errorf("got cooldown_ms=%v, want the configured cooldown %d", attrs["cooldown_ms"], time.Hour.Milliseconds())
+	if got, _ := line.Attrs["cooldown_ms"].(int64); got != time.Hour.Milliseconds() {
+		t.Errorf("got cooldown_ms=%v, want the configured cooldown %d", line.Attrs["cooldown_ms"], time.Hour.Milliseconds())
 	}
 }
 

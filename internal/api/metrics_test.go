@@ -15,6 +15,7 @@ import (
 
 	"github.com/hugalafutro/model-hotel/internal/config"
 	"github.com/hugalafutro/model-hotel/internal/failover"
+	"github.com/hugalafutro/model-hotel/internal/logtest"
 	"github.com/hugalafutro/model-hotel/internal/metrics"
 	"github.com/hugalafutro/model-hotel/internal/provider"
 	"github.com/hugalafutro/model-hotel/internal/quota"
@@ -154,7 +155,7 @@ func TestMetricsAuth_LogLinesFeedTheCrowdSecParser(t *testing.T) {
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			capt := captureAPILogs(t)
+			capt := logtest.Capture(t)
 			h := &Handler{cfg: &config.Config{MetricsToken: "s3cret"}}
 			guarded := h.metricsAuth(http.HandlerFunc(func(http.ResponseWriter, *http.Request) {
 				t.Error("next must not run for a refused scrape")
@@ -166,8 +167,8 @@ func TestMetricsAuth_LogLinesFeedTheCrowdSecParser(t *testing.T) {
 			}
 			guarded.ServeHTTP(httptest.NewRecorder(), r)
 
-			if capt.msg != tc.want {
-				t.Errorf("log message = %q, want %q", capt.msg, tc.want)
+			if got := lastMsg(capt); got != tc.want {
+				t.Errorf("log message = %q, want %q", got, tc.want)
 			}
 		})
 	}

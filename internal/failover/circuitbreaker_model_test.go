@@ -9,6 +9,7 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/hugalafutro/model-hotel/internal/events"
+	"github.com/hugalafutro/model-hotel/internal/logtest"
 )
 
 // Circuits are keyed (provider, resolved upstream model) and the provider-wide
@@ -409,7 +410,7 @@ func TestModelCircuits_StatusReportsTheDarkestOpenCircuit(t *testing.T) {
 }
 
 func TestModelCircuits_EventAndLogCarryTheModel(t *testing.T) {
-	capt := captureLogs(t)
+	capt := logtest.Capture(t)
 	sub := events.Subscribe()
 	defer events.Unsubscribe(sub)
 
@@ -422,11 +423,11 @@ func TestModelCircuits_EventAndLogCarryTheModel(t *testing.T) {
 		t.Errorf("open event model metadata %q, want %q", got, modelA)
 	}
 
-	_, attrs, ok := capt.last("circuit-breaker: model state=closed→open")
+	line, ok := capt.Last("circuit-breaker: model state=closed→open")
 	if !ok {
 		t.Fatal("no open-transition log line captured")
 	}
-	if got, _ := attrs["model"].(string); got != modelA {
+	if got, _ := line.Attrs["model"].(string); got != modelA {
 		t.Errorf("open-transition log model %q, want %q", got, modelA)
 	}
 }

@@ -1,65 +1,47 @@
 package api
 
 import (
-	"context"
 	"errors"
-	"log/slog"
 	"net/http"
 	"net/http/httptest"
 	"testing"
 
 	"github.com/jackc/pgx/v5"
 
-	"github.com/hugalafutro/model-hotel/internal/debuglog"
+	"github.com/hugalafutro/model-hotel/internal/logtest"
 )
 
 // The helper bodies live in internal/httpx and are tested there. What this
 // package owns is the wrapper layer: it must keep the "api" log prefix and the
 // argument order the ~250 call sites rely on.
 
-// msgCaptureHandler records the message of the last record it handled.
-type msgCaptureHandler struct{ msg string }
-
-func (h *msgCaptureHandler) Enabled(context.Context, slog.Level) bool { return true }
-func (h *msgCaptureHandler) Handle(_ context.Context, r slog.Record) error {
-	h.msg = r.Message
-	return nil
-}
-func (h *msgCaptureHandler) WithAttrs([]slog.Attr) slog.Handler { return h }
-func (h *msgCaptureHandler) WithGroup(string) slog.Handler      { return h }
-
-func captureAPILogs(t *testing.T) *msgCaptureHandler {
-	t.Helper()
-	// SetHandler swaps the process-wide slog default; restore it afterwards so
-	// later tests in this package aren't silently swallowed by the capture handler.
-	prev := slog.Default().Handler()
-	t.Cleanup(func() { debuglog.SetHandler(prev) })
-	capt := &msgCaptureHandler{}
-	debuglog.SetHandler(capt)
-	return capt
+// lastMsg is the message of the most recent record capt saw, "" when none.
+func lastMsg(capt *logtest.Handler) string {
+	r, _ := capt.Latest()
+	return r.Msg
 }
 
 func TestRespondError_UsesAPIPrefix(t *testing.T) {
-	capt := captureAPILogs(t)
+	capt := logtest.Capture(t)
 	w := httptest.NewRecorder()
 	respondError(w, "failed to load thing", errors.New("db down"), http.StatusInternalServerError)
 	if w.Code != http.StatusInternalServerError {
 		t.Errorf("status = %d, want 500", w.Code)
 	}
-	if capt.msg != "api: failed to load thing" {
-		t.Errorf("log message = %q, want the api prefix", capt.msg)
+	if got := lastMsg(capt); got != "api: failed to load thing" {
+		t.Errorf("log message = %q, want the api prefix", got)
 	}
 }
 
 func TestRespondBadRequest_UsesAPIPrefix(t *testing.T) {
-	capt := captureAPILogs(t)
+	capt := logtest.Capture(t)
 	w := httptest.NewRecorder()
 	respondBadRequest(w, "invalid JSON body", errors.New("unexpected EOF"))
 	if w.Code != http.StatusBadRequest {
 		t.Errorf("status = %d, want 400", w.Code)
 	}
-	if capt.msg != "api: bad request: invalid JSON body" {
-		t.Errorf("log message = %q, want the api prefix", capt.msg)
+	if got := lastMsg(capt); got != "api: bad request: invalid JSON body" {
+		t.Errorf("log message = %q, want the api prefix", got)
 	}
 }
 
@@ -73,14 +55,14 @@ func TestRespondLookupError(t *testing.T) {
 	})
 
 	t.Run("any other error returns a logged 500 under the api prefix", func(t *testing.T) {
-		capt := captureAPILogs(t)
+		capt := logtest.Capture(t)
 		w := httptest.NewRecorder()
 		respondLookupError(w, errors.New("db connection lost"), pgx.ErrNoRows, "thing not found", "failed to load thing")
 		if w.Code != http.StatusInternalServerError {
 			t.Errorf("expected 500, got %d", w.Code)
 		}
-		if capt.msg != "api: failed to load thing" {
-			t.Errorf("log message = %q, want the api prefix", capt.msg)
+		if got := lastMsg(capt); got != "api: failed to load thing" {
+			t.Errorf("log message = %q, want the api prefix", got)
 		}
 	})
 }

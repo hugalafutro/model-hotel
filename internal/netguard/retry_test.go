@@ -5,13 +5,13 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"log/slog"
 	"net"
 	"net/http"
 	"strings"
-	"sync"
 	"testing"
 	"time"
+
+	"github.com/hugalafutro/model-hotel/internal/logtest"
 )
 
 // retryWarning is the exact message RetryTransport logs when it commits to a
@@ -19,77 +19,6 @@ import (
 // the App Logs view derives a line's source from the text before the first
 // colon, so changing it silently unlabels every one of these lines in the UI.
 const retryWarning = "netguard: retrying request after pre-connection failure"
-
-// captureHandler collects the records emitted through the default slog logger,
-// which is where debuglog.Warn sends them. slog handlers are called from
-// whichever goroutine logs, so the records are guarded: a test that drives a
-// client from more than one goroutine would otherwise trip the race detector
-// here, where it reads as flakiness rather than as the bug it is.
-type captureHandler struct {
-	mu      sync.Mutex
-	records []slog.Record
-}
-
-func (h *captureHandler) Enabled(context.Context, slog.Level) bool { return true }
-
-func (h *captureHandler) Handle(_ context.Context, r slog.Record) error {
-	h.mu.Lock()
-	defer h.mu.Unlock()
-	h.records = append(h.records, r)
-	return nil
-}
-
-func (h *captureHandler) WithAttrs([]slog.Attr) slog.Handler { return h }
-
-func (h *captureHandler) WithGroup(string) slog.Handler { return h }
-
-// count reports how many captured records carry msg.
-func (h *captureHandler) count(msg string) int {
-	h.mu.Lock()
-	defer h.mu.Unlock()
-	n := 0
-	for _, r := range h.records {
-		if r.Message == msg {
-			n++
-		}
-	}
-	return n
-}
-
-// attr returns the value of key on the first captured record carrying msg, or
-// nil when there is no such record or key.
-func (h *captureHandler) attr(msg, key string) any {
-	h.mu.Lock()
-	defer h.mu.Unlock()
-	for _, r := range h.records {
-		if r.Message != msg {
-			continue
-		}
-		var found any
-		r.Attrs(func(a slog.Attr) bool {
-			if a.Key == key {
-				found = a.Value.Any()
-				return false
-			}
-			return true
-		})
-		return found
-	}
-	return nil
-}
-
-// captureLogs redirects the default logger into a captureHandler for the length
-// of the test. The default logger is process-global, so a test that calls this
-// must not call t.Parallel(): a second one running alongside it would capture
-// the first's records, or restore the original logger out from under it.
-func captureLogs(t *testing.T) *captureHandler {
-	t.Helper()
-	prev := slog.Default()
-	h := &captureHandler{}
-	slog.SetDefault(slog.New(h))
-	t.Cleanup(func() { slog.SetDefault(prev) })
-	return h
-}
 
 // stubTransport returns a scripted result per call and records the request body
 // it saw each time, so a test can prove the body was replayed intact.
@@ -174,7 +103,7 @@ func TestRetryTransport_RetriesDNSFailure(t *testing.T) {
 // operator gets that a resolver is flaking, and it is how attempts are counted
 // from the logs, so a retry must produce exactly one.
 func TestRetryTransport_LogsOneWarningPerRetry(t *testing.T) {
-	logs := captureLogs(t)
+	logs := logtest.Capture(t)
 	stub := &stubTransport{results: []stubResult{
 		{err: dnsFailure()},
 		{resp: okResponse()},
@@ -186,12 +115,12 @@ func TestRetryTransport_LogsOneWarningPerRetry(t *testing.T) {
 		t.Fatalf("RoundTrip = %v, want success on the retry", err)
 	}
 	_ = resp.Body.Close()
-	if got := logs.count(retryWarning); got != 1 {
+	if got := logs.Count(retryWarning); got != 1 {
 		t.Fatalf("retry warnings = %d, want 1 for the one retry that was issued", got)
 	}
 	// The attribute names the attempt that failed, not the one being issued, so
 	// the first retry reports attempt=1.
-	if got := logs.attr(retryWarning, "attempt"); got != int64(1) {
+	if got := logs.Attr(retryWarning, "attempt"); got != int64(1) {
 		t.Fatalf("attempt attribute = %v, want the failed attempt 1", got)
 	}
 }
@@ -201,7 +130,7 @@ func TestRetryTransport_LogsOneWarningPerRetry(t *testing.T) {
 // an operator counting attempts from the log that a request was issued twice
 // when it was issued once.
 func TestRetryTransport_DoesNotLogARetryItNeverIssues(t *testing.T) {
-	logs := captureLogs(t)
+	logs := logtest.Capture(t)
 	stub := &stubTransport{results: []stubResult{{err: dnsFailure()}}}
 	rt := &RetryTransport{Base: stub, Attempts: 2, Delay: 30 * time.Second}
 	ctx, cancel := context.WithCancel(context.Background())
@@ -213,7 +142,7 @@ func TestRetryTransport_DoesNotLogARetryItNeverIssues(t *testing.T) {
 	if stub.calls != 1 {
 		t.Fatalf("calls = %d, want 1", stub.calls)
 	}
-	if got := logs.count(retryWarning); got != 0 {
+	if got := logs.Count(retryWarning); got != 0 {
 		t.Fatalf("retry warnings = %d, want 0: no second attempt was ever issued", got)
 	}
 }
@@ -488,7 +417,7 @@ func TestRetryTransport_DoesNotRetryUnrewindableBody(t *testing.T) {
 // abandoned this late, after the backoff has already elapsed, so it must not be
 // announced in the log either.
 func TestRetryTransport_SurfacesGetBodyError(t *testing.T) {
-	logs := captureLogs(t)
+	logs := logtest.Capture(t)
 	stub := &stubTransport{results: []stubResult{{err: dnsFailure()}}}
 	rt := &RetryTransport{Base: stub, Attempts: 2, Delay: time.Millisecond}
 	req := postRequest(t, "x=1")
@@ -502,7 +431,7 @@ func TestRetryTransport_SurfacesGetBodyError(t *testing.T) {
 	if stub.calls != 1 {
 		t.Fatalf("calls = %d, want 1", stub.calls)
 	}
-	if got := logs.count(retryWarning); got != 0 {
+	if got := logs.Count(retryWarning); got != 0 {
 		t.Fatalf("retry warnings = %d, want 0: the replay failed, so no second attempt went out", got)
 	}
 }

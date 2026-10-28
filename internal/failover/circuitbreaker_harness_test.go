@@ -2,15 +2,14 @@ package failover
 
 import (
 	"context"
-	"log/slog"
 	"sync"
 	"testing"
 	"time"
 
 	"github.com/google/uuid"
 
-	"github.com/hugalafutro/model-hotel/internal/debuglog"
 	"github.com/hugalafutro/model-hotel/internal/events"
+	"github.com/hugalafutro/model-hotel/internal/logtest"
 )
 
 // Fixtures the circuit-breaker tests share.
@@ -178,74 +177,17 @@ func waitForOpenEvent(t *testing.T, sub chan events.Event, id uuid.UUID) events.
 // Open-transition log trail
 // ---------------------------------------------------------------------------
 
-// capturedLog is one slog record reduced to what these assertions care about.
-type capturedLog struct {
-	level slog.Level
-	msg   string
-	attrs map[string]any
-}
-
-// logCaptureHandler records every slog record emitted while it is installed.
-type logCaptureHandler struct {
-	mu      sync.Mutex
-	records []capturedLog
-}
-
-func (h *logCaptureHandler) Enabled(context.Context, slog.Level) bool { return true }
-
-func (h *logCaptureHandler) Handle(_ context.Context, r slog.Record) error {
-	rec := capturedLog{level: r.Level, msg: r.Message, attrs: make(map[string]any, r.NumAttrs())}
-	r.Attrs(func(a slog.Attr) bool {
-		rec.attrs[a.Key] = a.Value.Any()
-		return true
-	})
-	h.mu.Lock()
-	defer h.mu.Unlock()
-	h.records = append(h.records, rec)
-	return nil
-}
-
-func (h *logCaptureHandler) WithAttrs([]slog.Attr) slog.Handler { return h }
-func (h *logCaptureHandler) WithGroup(string) slog.Handler      { return h }
-
-// forProvider returns the records whose provider_id attribute matches id, so an
-// assertion can never be satisfied by a line another test or another provider
-// emitted onto the process-wide logger.
-func (h *logCaptureHandler) forProvider(id uuid.UUID) []capturedLog {
-	h.mu.Lock()
-	defer h.mu.Unlock()
-	var out []capturedLog
-	for _, r := range h.records {
-		if pid, ok := r.attrs["provider_id"].(uuid.UUID); ok && pid == id {
+// logsForProvider returns the records whose provider_id attribute matches id,
+// so an assertion can never be satisfied by a line another test or another
+// provider emitted onto the process-wide logger.
+func logsForProvider(h *logtest.Handler, id uuid.UUID) []logtest.Record {
+	var out []logtest.Record
+	for _, r := range h.Records() {
+		if pid, ok := r.Attrs["provider_id"].(uuid.UUID); ok && pid == id {
 			out = append(out, r)
 		}
 	}
 	return out
-}
-
-// last returns the most recent record with the given message. Used where the
-// line's own provider_id is a plain string (the circuits map is keyed by the
-// provider's UUID string), which forProvider's uuid.UUID assertion cannot match.
-func (h *logCaptureHandler) last(msg string) (slog.Level, map[string]any, bool) {
-	h.mu.Lock()
-	defer h.mu.Unlock()
-	for i := len(h.records) - 1; i >= 0; i-- {
-		if h.records[i].msg == msg {
-			return h.records[i].level, h.records[i].attrs, true
-		}
-	}
-	return 0, nil, false
-}
-
-// captureLogs installs a capturing slog handler for the duration of the test.
-// SetHandler swaps the process-wide default, so the previous one is restored.
-func captureLogs(t *testing.T) *logCaptureHandler {
-	t.Helper()
-	prev := slog.Default().Handler()
-	t.Cleanup(func() { debuglog.SetHandler(prev) })
-	capt := &logCaptureHandler{}
-	debuglog.SetHandler(capt)
-	return capt
 }
 
 // waitForOnOpen returns the provider the open callback reported, or fails the
@@ -336,16 +278,4 @@ func onlyStatus(t *testing.T, cb *CircuitBreaker) ProviderStatus {
 		t.Fatalf("got %d statuses, want 1", len(statuses))
 	}
 	return statuses[0]
-}
-
-// has reports whether a record with exactly this message was captured.
-func (h *logCaptureHandler) has(msg string) bool {
-	h.mu.Lock()
-	defer h.mu.Unlock()
-	for _, r := range h.records {
-		if r.msg == msg {
-			return true
-		}
-	}
-	return false
 }

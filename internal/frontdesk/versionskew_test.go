@@ -3,6 +3,8 @@ package frontdesk
 import (
 	"strings"
 	"testing"
+
+	"github.com/hugalafutro/model-hotel/internal/logtest"
 )
 
 func TestBuildSkew(t *testing.T) {
@@ -116,10 +118,10 @@ func TestWarnIfBuildGateDegraded(t *testing.T) {
 	const msg = "frontdesk: auto-sync: primary reports no build commit, " +
 		"config sync is gated on the app version alone"
 
-	count := func(h *recordingHandler) int {
+	count := func(h *logtest.Handler) int {
 		n := 0
-		for _, r := range h.snapshot() {
-			if strings.Contains(r.msg, "no build commit") {
+		for _, r := range h.Records() {
+			if strings.Contains(r.Msg, "no build commit") {
 				n++
 			}
 		}
@@ -127,7 +129,7 @@ func TestWarnIfBuildGateDegraded(t *testing.T) {
 	}
 
 	t.Run("a stamped primary says nothing", func(t *testing.T) {
-		h := captureLogs(t)
+		h := logtest.Capture(t)
 		srv, _ := newTestServer(t)
 		srv.warnIfBuildGateDegraded(memberBuild{Version: "dev", Commit: "d18a96d1f84d"})
 		if got := count(h); got != 0 {
@@ -136,7 +138,7 @@ func TestWarnIfBuildGateDegraded(t *testing.T) {
 	})
 
 	t.Run("warns once, then stays quiet", func(t *testing.T) {
-		h := captureLogs(t)
+		h := logtest.Capture(t)
 		srv, _ := newTestServer(t)
 		for range 3 {
 			srv.warnIfBuildGateDegraded(memberBuild{Version: "dev", Commit: unstampedCommit})
@@ -144,17 +146,17 @@ func TestWarnIfBuildGateDegraded(t *testing.T) {
 		if got := count(h); got != 1 {
 			t.Fatalf("warnings = %d, want exactly 1 across repeated passes", got)
 		}
-		rec, ok := h.find(msg)
+		rec, ok := h.Find(msg)
 		if !ok {
-			t.Fatalf("no warning matched %q; got %+v", msg, h.snapshot())
+			t.Fatalf("no warning matched %q; got %+v", msg, h.Records())
 		}
-		if rec.attrs["primary_version"] != "dev" {
-			t.Errorf("primary_version attr = %v, want dev", rec.attrs["primary_version"])
+		if rec.Attrs["primary_version"] != "dev" {
+			t.Errorf("primary_version attr = %v, want dev", rec.Attrs["primary_version"])
 		}
 	})
 
 	t.Run("re-arms once the primary is stamped again", func(t *testing.T) {
-		h := captureLogs(t)
+		h := logtest.Capture(t)
 		srv, _ := newTestServer(t)
 		srv.warnIfBuildGateDegraded(memberBuild{Version: "dev", Commit: ""})
 		srv.warnIfBuildGateDegraded(memberBuild{Version: "dev", Commit: "d18a96d1f84d"})

@@ -34,7 +34,7 @@ func TestHandlerRegister(t *testing.T) {
 	r.ServeHTTP(rec, req)
 
 	if rec.Code != http.StatusOK {
-		t.Logf("Expected 200, got %d", rec.Code)
+		t.Fatalf("expected 200, got %d; body: %s", rec.Code, rec.Body.String())
 	}
 }
 

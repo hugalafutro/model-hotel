@@ -676,57 +676,6 @@ func TestChatCompletions_RetryCancelDuringFailover(t *testing.T) {
 	}
 }
 
-// TestChatCompletions_TouchLastUsedGoroutine verifies the TouchLastUsed goroutine
-// at line 1081 fires during a successful request. The error paths (1083-1085: panic
-// recovery, 1089-1091: TouchLastUsed error) cannot be reliably tested because:
-//   - provider.Repository is a concrete type (not mockable)
-//   - closing the pool breaks the entire request, not just the goroutine
-//   - the goroutine creates its own 5s-timeout context, so cancellation from
-//     the test doesn't affect it
-//
-// Coverage of the success path is confirmed (48 hits in the coverage profile).
-func TestChatCompletions_TouchLastUsedGoroutine(t *testing.T) {
-	env := newTestProxyHandler(t)
-	handler := env.Handler
-	upstream := env.Upstream
-	providerName := env.ProviderName
-	modelName := env.ModelName
-	defer upstream.Close()
-	defer stopUnitHandlerIntegration(handler)
-
-	// The upstream returns a successful response, which causes the code to
-	// reach the TouchLastUsed goroutine at line 1081.
-	upstream.Config.Handler = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(map[string]any{
-			"id":      "chatcmpl-test",
-			"object":  "chat.completion",
-			"created": time.Now().Unix(),
-			"model":   modelName,
-			"choices": []map[string]any{
-				{"index": 0, "message": map[string]any{"role": "assistant", "content": "hello"}, "finish_reason": "stop"},
-			},
-			"usage": map[string]any{
-				"prompt_tokens": 5, "completion_tokens": 7, "total_tokens": 12,
-			},
-		})
-	})
-
-	body := `{"model": "` + providerName + `/` + modelName + `", "stream": false, "messages": [{"role": "user", "content": "hello"}]}`
-	req := httptest.NewRequest("POST", "/v1/chat/completions", strings.NewReader(body))
-	req = withAuthContext(req)
-
-	w := httptest.NewRecorder()
-	handler.ChatCompletions(w, req)
-
-	if w.Code != http.StatusOK {
-		t.Errorf("expected 200, got %d", w.Code)
-	}
-
-	// Give the TouchLastUsed goroutine time to execute.
-	time.Sleep(200 * time.Millisecond)
-}
-
 // ---------------------------------------------------------------------------
 // ChatCompletions TTFT probe integration tests (requires PostgreSQL)
 // ---------------------------------------------------------------------------

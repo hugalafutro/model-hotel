@@ -8,6 +8,7 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/hugalafutro/model-hotel/internal/events"
+	"github.com/hugalafutro/model-hotel/internal/logtest"
 )
 
 func TestCircuitBreaker_StartsClosed(t *testing.T) {
@@ -760,7 +761,7 @@ func TestGetState_HalfOpenTransitionsToOpenOnFailure(t *testing.T) {
 // (closed→open and a failed half-open probe) must name the cooldown actually
 // governing the circuit and whether a quota pin produced it.
 func TestOpenTransitionLogsTheGoverningCooldown(t *testing.T) {
-	capt := captureLogs(t)
+	capt := logtest.Capture(t)
 
 	settings := &stubSettings{threshold: 1, cooldown: 50 * time.Millisecond}
 	cb := NewCircuitBreaker(settings)
@@ -769,21 +770,21 @@ func TestOpenTransitionLogsTheGoverningCooldown(t *testing.T) {
 
 	openBreaker(t, cb, id)
 
-	recs := capt.forProvider(id)
+	recs := logsForProvider(capt, id)
 	if len(recs) != 1 {
 		t.Fatalf("got %d log record(s) for the open transition, want 1: %+v", len(recs), recs)
 	}
 	opened := recs[0]
-	if opened.level != slog.LevelWarn {
-		t.Errorf("got level %v, want warn for an opening circuit", opened.level)
+	if opened.Level != slog.LevelWarn {
+		t.Errorf("got level %v, want warn for an opening circuit", opened.Level)
 	}
-	pinned, _ := opened.attrs["quota_pinned"].(bool)
+	pinned, _ := opened.Attrs["quota_pinned"].(bool)
 	if !pinned {
-		t.Errorf("a pinned circuit must log quota_pinned=true, got attrs %#v", opened.attrs)
+		t.Errorf("a pinned circuit must log quota_pinned=true, got attrs %#v", opened.Attrs)
 	}
-	cooldownMs, ok := opened.attrs["cooldown_ms"].(int64)
+	cooldownMs, ok := opened.Attrs["cooldown_ms"].(int64)
 	if !ok {
-		t.Fatalf("the open transition must log cooldown_ms, got attrs %#v", opened.attrs)
+		t.Fatalf("the open transition must log cooldown_ms, got attrs %#v", opened.Attrs)
 	}
 	if want := cb.Status()[0].CooldownMs; cooldownMs != want {
 		t.Errorf("logged cooldown_ms=%d, want the cooldown actually governing the circuit (%d)", cooldownMs, want)
@@ -802,20 +803,20 @@ func TestOpenTransitionLogsTheGoverningCooldown(t *testing.T) {
 	cb.circuits[id.String()][""].state = StateHalfOpen
 	cb.RecordFailure(id, "test-provider", "", Cause{})
 
-	recs = capt.forProvider(id)
+	recs = logsForProvider(capt, id)
 	if len(recs) != 2 {
 		t.Fatalf("got %d log record(s), want the half-open→open transition logged too: %+v", len(recs), recs)
 	}
 	reopened := recs[1]
-	if reopened.level != slog.LevelWarn {
-		t.Errorf("got level %v, want warn for a failed probe re-opening the circuit", reopened.level)
+	if reopened.Level != slog.LevelWarn {
+		t.Errorf("got level %v, want warn for a failed probe re-opening the circuit", reopened.Level)
 	}
-	if pinned, _ := reopened.attrs["quota_pinned"].(bool); pinned {
-		t.Errorf("an unpinned re-open must log quota_pinned=false, got attrs %#v", reopened.attrs)
+	if pinned, _ := reopened.Attrs["quota_pinned"].(bool); pinned {
+		t.Errorf("an unpinned re-open must log quota_pinned=false, got attrs %#v", reopened.Attrs)
 	}
-	reMs, ok := reopened.attrs["cooldown_ms"].(int64)
+	reMs, ok := reopened.Attrs["cooldown_ms"].(int64)
 	if !ok {
-		t.Fatalf("the half-open→open transition must log cooldown_ms, got attrs %#v", reopened.attrs)
+		t.Fatalf("the half-open→open transition must log cooldown_ms, got attrs %#v", reopened.Attrs)
 	}
 	// After a failed probe the governing cooldown is the doubled one, and the
 	// line must say so: the configured 50ms is exactly the number an operator

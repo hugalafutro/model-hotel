@@ -20,8 +20,8 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	"github.com/hugalafutro/model-hotel/internal/debuglog"
 	"github.com/hugalafutro/model-hotel/internal/failover"
+	"github.com/hugalafutro/model-hotel/internal/logtest"
 	"github.com/hugalafutro/model-hotel/internal/provider"
 	"github.com/hugalafutro/model-hotel/internal/quota"
 )
@@ -435,61 +435,6 @@ func TestRefreshQuotaAdvice_ThreeIntervalWindowBoundary(t *testing.T) {
 	}
 }
 
-// attrCaptureHandler records every slog record emitted while installed, with
-// its level and attributes, so a log assertion can name the exact line it means.
-type attrCaptureHandler struct {
-	mu      sync.Mutex
-	records []struct {
-		level slog.Level
-		msg   string
-		attrs map[string]any
-	}
-}
-
-func (h *attrCaptureHandler) Enabled(context.Context, slog.Level) bool { return true }
-
-func (h *attrCaptureHandler) Handle(_ context.Context, r slog.Record) error {
-	attrs := make(map[string]any, r.NumAttrs())
-	r.Attrs(func(a slog.Attr) bool {
-		attrs[a.Key] = a.Value.Any()
-		return true
-	})
-	h.mu.Lock()
-	defer h.mu.Unlock()
-	h.records = append(h.records, struct {
-		level slog.Level
-		msg   string
-		attrs map[string]any
-	}{r.Level, r.Message, attrs})
-	return nil
-}
-
-func (h *attrCaptureHandler) WithAttrs([]slog.Attr) slog.Handler { return h }
-func (h *attrCaptureHandler) WithGroup(string) slog.Handler      { return h }
-
-// last returns the most recent record with the given message.
-func (h *attrCaptureHandler) last(msg string) (slog.Level, map[string]any, bool) {
-	h.mu.Lock()
-	defer h.mu.Unlock()
-	for i := len(h.records) - 1; i >= 0; i-- {
-		if h.records[i].msg == msg {
-			return h.records[i].level, h.records[i].attrs, true
-		}
-	}
-	return 0, nil, false
-}
-
-// captureLogs installs a capturing slog handler for the duration of the test.
-// debuglog.SetHandler swaps the process-wide default, so it is restored after.
-func captureLogs(t *testing.T) *attrCaptureHandler {
-	t.Helper()
-	prev := slog.Default().Handler()
-	t.Cleanup(func() { debuglog.SetHandler(prev) })
-	capt := &attrCaptureHandler{}
-	debuglog.SetHandler(capt)
-	return capt
-}
-
 // TestRefreshQuotaAdvice_LogsAdvisedProvidersAtInfoOnlyWhenAdvising covers the
 // operator's log trail for a pinned circuit. The advice-refresh line was emitted
 // at Debug, which is off in normal production, so nothing outside the Failover
@@ -504,7 +449,7 @@ func TestRefreshQuotaAdvice_LogsAdvisedProvidersAtInfoOnlyWhenAdvising(t *testin
 
 	id := insertQuotaPollProvider(t, h.dbPool.Pool(), "zai-advice-log", "https://api.z.ai", true)
 
-	capt := captureLogs(t)
+	capt := logtest.Capture(t)
 
 	// A healthy provider: nothing advised, so the line stays at Debug.
 	if _, err := h.quotaRepo.Replace(ctx, quota.Snapshot{
@@ -515,15 +460,15 @@ func TestRefreshQuotaAdvice_LogsAdvisedProvidersAtInfoOnlyWhenAdvising(t *testin
 	}
 	h.RefreshQuotaAdvice(ctx)
 
-	level, attrs, found := capt.last("quota: advice refreshed")
+	rec, found := capt.Last("quota: advice refreshed")
 	if !found {
 		t.Fatal("the advice refresh must log a line in both directions")
 	}
-	if level != slog.LevelDebug {
-		t.Errorf("got level %v with nothing advised, want debug — an every-pass Info line is noise", level)
+	if rec.Level != slog.LevelDebug {
+		t.Errorf("got level %v with nothing advised, want debug — an every-pass Info line is noise", rec.Level)
 	}
-	if got, _ := attrs["advised_providers"].(int64); got != 0 {
-		t.Errorf("got advised_providers=%v, want 0", attrs["advised_providers"])
+	if got, _ := rec.Attrs["advised_providers"].(int64); got != 0 {
+		t.Errorf("got advised_providers=%v, want 0", rec.Attrs["advised_providers"])
 	}
 
 	// The window is now spent: an operator needs to see this in a normal log.
@@ -535,15 +480,15 @@ func TestRefreshQuotaAdvice_LogsAdvisedProvidersAtInfoOnlyWhenAdvising(t *testin
 	}
 	h.RefreshQuotaAdvice(ctx)
 
-	level, attrs, found = capt.last("quota: advice refreshed")
+	rec, found = capt.Last("quota: advice refreshed")
 	if !found {
 		t.Fatal("the advice refresh must log a line in both directions")
 	}
-	if level != slog.LevelInfo {
-		t.Errorf("got level %v with a provider advised, want info — debug is off in production", level)
+	if rec.Level != slog.LevelInfo {
+		t.Errorf("got level %v with a provider advised, want info — debug is off in production", rec.Level)
 	}
-	if got, _ := attrs["advised_providers"].(int64); got != 1 {
-		t.Errorf("got advised_providers=%v, want 1", attrs["advised_providers"])
+	if got, _ := rec.Attrs["advised_providers"].(int64); got != 1 {
+		t.Errorf("got advised_providers=%v, want 1", rec.Attrs["advised_providers"])
 	}
 }
 

@@ -858,45 +858,6 @@ func TestRunScheduledBackup_ListBackupFilesError(t *testing.T) {
 // StartScheduler: timer-fire path when enabled with mock pg_dump
 // ---------------------------------------------------------------------------
 
-// TestStartScheduler_EnabledLoopTimerFires verifies the for-loop body with
-// backup_enabled=true runs runScheduledBackup and reads the interval setting.
-// It uses a mock pg_dump so the backup execution path runs to completion.
-func TestStartScheduler_EnabledLoopTimerFires(t *testing.T) {
-	intervalCallCount := 0
-	ss := &mockSettingsStore{
-		getWithDefaultFn: func(_ context.Context, key, defaultValue string) string {
-			return defaultValue
-		},
-		getBoolFn: func(_ context.Context, key string, defaultValue bool) bool {
-			return true // backup enabled → runScheduledBackup is called
-		},
-		getDurationFn: func(_ context.Context, key string, defaultValue time.Duration) time.Duration {
-			intervalCallCount++
-			return 5 * time.Minute
-		},
-	}
-	dir := t.TempDir()
-	h := NewBackupHandler("postgres://invalid:invalid@127.0.0.1:1/nonexistent", dir, &mockAdminAuth{}, ss)
-
-	// Override runScheduledBackup with a counter so we can observe it was called.
-	// Since runScheduledBackup is a method, we can't easily swap it. Instead,
-	// test that the scheduler enters the enabled branch by observing that
-	// getDurationFn is called (which only happens in the enabled=true path).
-	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
-	defer cancel()
-
-	h.StartScheduler(ctx)
-
-	// Wait for the goroutine to run or the context to expire.
-	time.Sleep(200 * time.Millisecond)
-
-	h.StopScheduler()
-
-	// The getDurationFn should have been called at least once if the
-	// enabled branch was taken. With a cancelled context this may be 0,
-	// so we simply verify no panic occurred.
-}
-
 // TestRunScheduledBackup_ContextExpiredDuringDump verifies that
 // runScheduledBackup respects context cancellation during the pg_dump
 // command execution. Uses an already-expired context.

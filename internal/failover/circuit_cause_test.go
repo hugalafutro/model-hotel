@@ -15,6 +15,7 @@ import (
 
 	"github.com/hugalafutro/model-hotel/internal/debuglog"
 	"github.com/hugalafutro/model-hotel/internal/events"
+	"github.com/hugalafutro/model-hotel/internal/logtest"
 	"github.com/hugalafutro/model-hotel/internal/metrics"
 )
 
@@ -235,7 +236,7 @@ func TestStatus_CircuitsMatchOpenModels(t *testing.T) {
 // and the event's sentence names it, because the message is all an outbound
 // alert renders. The close carries its own verdict too.
 func TestOpenEventAndLogCarryTheCause(t *testing.T) {
-	capt := captureLogs(t)
+	capt := logtest.Capture(t)
 	sub := events.Subscribe()
 	defer events.Unsubscribe(sub)
 
@@ -255,9 +256,9 @@ func TestOpenEventAndLogCarryTheCause(t *testing.T) {
 		t.Errorf("event message = %q, want %q", ev.Message, want)
 	}
 
-	var opened *capturedLog
-	for _, r := range capt.forProvider(id) {
-		if r.msg == "circuit-breaker: model state=closed→open" {
+	var opened *logtest.Record
+	for _, r := range logsForProvider(capt, id) {
+		if r.Msg == "circuit-breaker: model state=closed→open" {
 			rec := r
 			opened = &rec
 		}
@@ -265,12 +266,12 @@ func TestOpenEventAndLogCarryTheCause(t *testing.T) {
 	if opened == nil {
 		t.Fatal("no open log line for the provider")
 	}
-	if got, _ := opened.attrs["cause"].(string); got != "upstream status 429 (unrecognised)" {
+	if got, _ := opened.Attrs["cause"].(string); got != "upstream status 429 (unrecognised)" {
 		t.Errorf("log cause = %q", got)
 	}
 	// slog widens an int attribute to int64; the rendered value is what matters.
-	if got := fmt.Sprint(opened.attrs["status"]); got != "429" {
-		t.Errorf("log status = %v", opened.attrs["status"])
+	if got := fmt.Sprint(opened.Attrs["status"]); got != "429" {
+		t.Errorf("log status = %v", opened.Attrs["status"])
 	}
 
 	// Close it: the cooldown elapses, IsOpen moves the circuit to half-open
@@ -328,7 +329,7 @@ func TestStatus_OmitsCircuitsWithoutDetail(t *testing.T) {
 // its last circuit, and every manual reset logs one line per circuit with the
 // cause vocabulary the rest of the breaker uses.
 func TestResetModel_ClearsOneCircuitAndLogsEach(t *testing.T) {
-	capt := captureLogs(t)
+	capt := logtest.Capture(t)
 	cb := newTestCB(2, time.Minute)
 	id := uuid.New()
 	cb.RecordFailure(id, "p", "dark", UpstreamStatus(503, ""))
@@ -380,19 +381,17 @@ func TestResetModel_ClearsOneCircuitAndLogsEach(t *testing.T) {
 
 // manualResetLines returns the attrs of every "manual reset" line captured,
 // optionally only those for one provider id. The reset lines carry the id as
-// the map's string key, which forProvider's uuid.UUID match cannot see.
-func manualResetLines(capt *logCaptureHandler, providerID string) []map[string]any {
-	capt.mu.Lock()
-	defer capt.mu.Unlock()
+// the map's string key, which logsForProvider's uuid.UUID match cannot see.
+func manualResetLines(capt *logtest.Handler, providerID string) []map[string]any {
 	var out []map[string]any
-	for _, r := range capt.records {
-		if r.msg != "circuit-breaker: manual reset" {
+	for _, r := range capt.Records() {
+		if r.Msg != "circuit-breaker: manual reset" {
 			continue
 		}
-		if providerID != "" && r.attrs["provider_id"] != providerID {
+		if providerID != "" && r.Attrs["provider_id"] != providerID {
 			continue
 		}
-		out = append(out, r.attrs)
+		out = append(out, r.Attrs)
 	}
 	return out
 }
@@ -400,7 +399,7 @@ func manualResetLines(capt *logCaptureHandler, providerID string) []map[string]a
 // breakerReadingHandler reads the breaker while handling a record, standing in
 // for the app-log handler that can block on its store for seconds per line.
 type breakerReadingHandler struct {
-	*logCaptureHandler
+	*logtest.Handler
 	cb *CircuitBreaker
 	id uuid.UUID
 }
@@ -413,7 +412,7 @@ func (h *breakerReadingHandler) Handle(ctx context.Context, r slog.Record) error
 		// time, not liveness, and this guard would not see it.
 		h.cb.GetState(h.id, "unrelated")
 	}
-	return h.logCaptureHandler.Handle(ctx, r)
+	return h.Handler.Handle(ctx, r)
 }
 
 // Every line the breaker writes, on the request path and the poller's as well
@@ -422,10 +421,10 @@ func (h *breakerReadingHandler) Handle(ctx context.Context, r slog.Record) error
 // when its store is backed up: one transition logged under the lock stalls
 // every request for that long, and a fleet-wide reset for N of those stalls.
 func TestBreakerLogsWithTheLockReleased(t *testing.T) {
-	capt := captureLogs(t)
+	capt := logtest.Capture(t)
 	cb := newTestCB(2, 5*time.Millisecond)
 	id := uuid.New()
-	debuglog.SetHandler(&breakerReadingHandler{logCaptureHandler: capt, cb: cb, id: id})
+	debuglog.SetHandler(&breakerReadingHandler{Handler: capt, cb: cb, id: id})
 
 	fail := func(model string) { cb.RecordFailure(id, "p", model, UpstreamStatus(503, "")) }
 	probeDue := func(model string) {
@@ -483,7 +482,7 @@ func TestBreakerLogsWithTheLockReleased(t *testing.T) {
 		"circuit-breaker: " + causePinReleasedOff,
 	}
 	for _, msg := range want {
-		if !capt.has(msg) {
+		if !capt.Has(msg) {
 			t.Errorf("no %q line: the sequence did not drive that emission site", msg)
 		}
 	}

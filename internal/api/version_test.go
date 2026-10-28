@@ -16,6 +16,8 @@ import (
 	"time"
 
 	"github.com/go-chi/chi/v5"
+
+	"github.com/hugalafutro/model-hotel/internal/logtest"
 )
 
 func resetVersionCache() {
@@ -222,13 +224,11 @@ func TestGetLatestVersion_ConcurrentMissesShareOneLookup(t *testing.T) {
 }
 
 // countRecords reports how many captured records carry msg, and at what levels.
-func countRecords(capt *attrCaptureHandler, msg string) (n int, levels []slog.Level) {
-	capt.mu.Lock()
-	defer capt.mu.Unlock()
-	for _, rec := range capt.records {
-		if rec.msg == msg {
+func countRecords(capt *logtest.Handler, msg string) (n int, levels []slog.Level) {
+	for _, rec := range capt.Records() {
+		if rec.Msg == msg {
 			n++
-			levels = append(levels, rec.level)
+			levels = append(levels, rec.Level)
 		}
 	}
 	return n, levels
@@ -266,7 +266,7 @@ func versionRouter() chi.Router {
 func TestGetLatestVersion_SharedFailureLogsOnce(t *testing.T) {
 	synctest.Test(t, func(t *testing.T) {
 		resetVersionCache()
-		capt := captureLogs(t)
+		capt := logtest.Capture(t)
 		release := make(chan struct{})
 		calls := failingGitHub(t, release)
 		r := versionRouter()
@@ -325,7 +325,7 @@ func TestRefreshLatestTag_ReusesAFreshAnswer(t *testing.T) {
 func TestGetLatestVersion_NoTagFailureHoldsForTheWindow(t *testing.T) {
 	synctest.Test(t, func(t *testing.T) {
 		resetVersionCache()
-		capt := captureLogs(t)
+		capt := logtest.Capture(t)
 		calls := failingGitHub(t, nil)
 		r := versionRouter()
 
@@ -366,7 +366,7 @@ func TestGetLatestVersion_StaleTagHoldsThroughAnOutage(t *testing.T) {
 		vCache.tag = "v1.0.0"
 		vCache.freshUntil = time.Now().Add(-time.Minute)
 		vCache.mu.Unlock()
-		capt := captureLogs(t)
+		capt := logtest.Capture(t)
 		calls := failingGitHub(t, nil)
 		r := versionRouter()
 

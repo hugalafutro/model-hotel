@@ -176,6 +176,55 @@ func TestProbeFirstToken_MixedSSELines(t *testing.T) {
 	}
 }
 
+// gatedBody hands out its data only once Close has been called, so the first
+// token reaches the scanner strictly after the deadline goroutine gave the body
+// up. That makes the lost claim deterministic instead of a race.
+type gatedBody struct {
+	data   string
+	closed chan struct{}
+	once   sync.Once
+	read   bool
+}
+
+func (b *gatedBody) Read(p []byte) (int, error) {
+	<-b.closed
+	if b.read {
+		return 0, io.EOF
+	}
+	b.read = true
+	return copy(p, b.data), nil
+}
+
+func (b *gatedBody) Close() error {
+	b.once.Do(func() { close(b.closed) })
+	return nil
+}
+
+// A caller that hangs up is not a provider that timed out: the probe reports
+// the cancellation it was handed, never the TTFT timeout that would charge
+// the provider with a stall and feed the failover statistics.
+func TestProbeFirstToken_CancelledCallerIsNotATimeout(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	body := &gatedBody{
+		data:   "data: {\"choices\":[{\"delta\":{\"content\":\"hi\"}}]}\n\n",
+		closed: make(chan struct{}),
+	}
+
+	h := &Handler{}
+	probeBuf, _, err := h.probeFirstToken(ctx, body, time.Second, time.Now())
+
+	if !errors.Is(err, context.Canceled) {
+		t.Fatalf("err = %v, want the caller's context.Canceled wrapped", err)
+	}
+	if strings.Contains(err.Error(), "TTFT timeout") {
+		t.Errorf("a cancelled caller must not be reported as a provider timeout: %v", err)
+	}
+	if probeBuf != nil {
+		t.Error("a probe that lost the body claim must not hand back a buffer to replay")
+	}
+}
+
 func TestProbeFirstToken_Timeout(t *testing.T) {
 	pr, pw := io.Pipe()
 	// Writer never sends anything — body blocks forever
@@ -526,32 +575,6 @@ func TestProbeFirstToken_MultipleSkipLines(t *testing.T) {
 	}
 	if !strings.Contains(got, "event: open") {
 		t.Errorf("expected 'event: open' in buffer, got: %q", got)
-	}
-}
-
-func TestProbeFirstToken_CanceledContext(t *testing.T) {
-	h := &Handler{}
-	ctx, cancel := context.WithCancel(context.Background())
-	cancel() // cancel immediately
-
-	pr, pw := io.Pipe()
-	go func() {
-		pw.Write([]byte("data: {\"choices\":[]}\n\n"))
-		pw.Close()
-	}()
-
-	// With an already-canceled context and a 0 timeout, the function should
-	// either return immediately with an error or process the data quickly.
-	// A short timeout ensures we don't block forever.
-	_, _, err := h.probeFirstToken(ctx, pr, 1*time.Second, time.Now())
-	_ = pr.Close()
-
-	// Either we get data fast enough, or we get a context error.
-	// Both are acceptable given the race between cancel and pipe write.
-	if err != nil {
-		// Context is cancelled, the probe goroutine detects DeadlineExceeded or the scanner hits EOF/other error.
-		// Either an error or success is fine — just ensure no panic.
-		t.Logf("got expected error from canceled context: %v", err)
 	}
 }
 
