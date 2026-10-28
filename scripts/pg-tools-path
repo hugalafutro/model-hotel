@@ -22,7 +22,6 @@ REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 DIR="$REPO_ROOT/bin/pg-tools"
 mkdir -p "$DIR"
 chmod 700 "$DIR"
-rm -f "$DIR"/pg_dump "$DIR"/pg_restore
 
 image="$(grep -m1 -oE 'image:[[:space:]]*postgres:[^[:space:]]+' "$REPO_ROOT/docker-compose.test.yml" | sed 's/image:[[:space:]]*//')"
 server_major="$(printf '%s' "$image" | sed -E 's/^postgres:([0-9]+).*/\1/')"
@@ -35,13 +34,21 @@ if [ -n "$server_major" ] && [ "$host_major" != "$server_major" ] && command -v 
 	if [ -n "${TMPDIR:-}" ] && [ "$TMPDIR" != "/tmp" ]; then
 		mounts="$mounts -v $(printf '%q' "$TMPDIR:$TMPDIR")"
 	fi
+	# Written beside and renamed over: a run already using the directory keeps
+	# seeing a whole shim, never a missing or half-written one.
 	for tool in pg_dump pg_restore; do
-		cat >"$DIR/$tool" <<SHIM
+		tmp="$DIR/.$tool.$$"
+		cat >"$tmp" <<SHIM
 #!/bin/sh
 exec docker run --rm --network host --user "\$(id -u):\$(id -g)" $mounts -e PGPASSWORD -e TMPDIR $image $tool "\$@"
 SHIM
-		chmod +x "$DIR/$tool"
+		chmod +x "$tmp"
+		mv -f "$tmp" "$DIR/$tool"
 	done
 	echo "pg-tools-path: host pg client is ${host_major:-absent}, test server is $server_major; using $image tools via docker" >&2
+else
+	# No shim wanted on this machine; a stale one from an earlier client would
+	# shadow the matching host tools.
+	rm -f "$DIR"/pg_dump "$DIR"/pg_restore
 fi
 printf '%s\n' "$DIR"
