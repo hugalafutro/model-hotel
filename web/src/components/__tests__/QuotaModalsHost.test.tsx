@@ -36,17 +36,17 @@ const nanogptUsage: import("../../api/types").NanoGPTUsage = {
 	},
 	allowOverage: false,
 	period: { currentPeriodEnd: "2025-12-31" },
-	dailyImages: { used: 10, remaining: 40, percentUsed: 20, resetAt: 0 },
+	dailyImages: { used: 10, remaining: 40, percentUsed: 0.2, resetAt: 0 },
 	dailyInputTokens: {
 		used: 50_000,
 		remaining: 150_000,
-		percentUsed: 25,
+		percentUsed: 0.25,
 		resetAt: 0,
 	},
 	weeklyInputTokens: {
 		used: 500_000,
 		remaining: 500_000,
-		percentUsed: 50,
+		percentUsed: 0.5,
 		resetAt: 0,
 	},
 };
