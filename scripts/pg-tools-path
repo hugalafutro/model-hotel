@@ -23,7 +23,13 @@ DIR="$REPO_ROOT/bin/pg-tools"
 mkdir -p "$DIR"
 chmod 700 "$DIR"
 
-image="$(grep -m1 -oE 'image:[[:space:]]*postgres:[^[:space:]]+' "$REPO_ROOT/docker-compose.test.yml" | sed 's/image:[[:space:]]*//')"
+image="$(grep -m1 -oE 'image:[[:space:]]*postgres:[^[:space:]]+' "$REPO_ROOT/docker-compose.test.yml" | sed 's/image:[[:space:]]*//' || true)"
+if [ -z "$image" ]; then
+	# Fail closed, but say so: under set -e a silent grep miss surfaced as the
+	# test targets' "printed no directory" with nothing to go on.
+	echo "pg-tools-path: no literal postgres image tag in docker-compose.test.yml; cannot match the client major" >&2
+	exit 1
+fi
 server_major="$(printf '%s' "$image" | sed -E 's/^postgres:([0-9]+).*/\1/')"
 # The host client is read with this directory taken off PATH: a call made while
 # an earlier call's shim is already first on PATH would otherwise read the
@@ -37,8 +43,9 @@ host_path="${host_path%:}"
 host_major="$( (PATH="$host_path" pg_restore --version 2>/dev/null || true) | sed -nE 's/.*\) ([0-9]+)\..*/\1/p')"
 
 if [ -n "$server_major" ] && [ "$host_major" != "$server_major" ] && command -v docker >/dev/null 2>&1; then
-	# Mount arguments are shell-quoted into the shim, so a TMPDIR with spaces
-	# stays one argument.
+	# Mount arguments and the image reference are shell-quoted into the shim,
+	# so a TMPDIR with spaces stays one argument and the shim's contract holds
+	# for whatever the compose file names.
 	mounts="-v /tmp:/tmp"
 	if [ -n "${TMPDIR:-}" ] && [ "$TMPDIR" != "/tmp" ]; then
 		mounts="$mounts -v $(printf '%q' "$TMPDIR:$TMPDIR")"
@@ -49,7 +56,7 @@ if [ -n "$server_major" ] && [ "$host_major" != "$server_major" ] && command -v 
 		tmp="$DIR/.$tool.$$"
 		cat >"$tmp" <<SHIM
 #!/bin/sh
-exec docker run --rm --network host --user "\$(id -u):\$(id -g)" $mounts -e PGPASSWORD -e TMPDIR $image $tool "\$@"
+exec docker run --rm --network host --user "\$(id -u):\$(id -g)" $mounts -e PGPASSWORD -e TMPDIR $(printf '%q' "$image") $tool "\$@"
 SHIM
 		chmod +x "$tmp"
 		mv -f "$tmp" "$DIR/$tool"
