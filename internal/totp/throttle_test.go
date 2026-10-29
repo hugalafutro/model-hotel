@@ -57,7 +57,9 @@ func TestThrottle_AdmitRefusesALockedKeyWith429(t *testing.T) {
 // Past maxThrottleEntries a failure sweeps the map before recording itself:
 // stale unlocked entries go, locked ones and the new failure stay.
 func TestThrottle_RecordFailureSweepsWhenTheMapIsFull(t *testing.T) {
-	th := NewThrottle(0, time.Millisecond, time.Second)
+	// A long base delay: the lock the fresh failure takes must still hold when
+	// it is checked below, however slowly the race detector runs this.
+	th := NewThrottle(0, time.Minute, time.Hour)
 	old := time.Now().Add(-time.Hour)
 	for i := range maxThrottleEntries {
 		th.entries["stale"+strconv.Itoa(i)] = &throttleEntry{lockedUntil: old, lastSeen: old}

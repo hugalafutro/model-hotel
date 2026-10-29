@@ -30,7 +30,8 @@ server_major="$(printf '%s' "$image" | sed -E 's/^postgres:([0-9]+).*/\1/')"
 # shim's version, take the host for a match and delete the shims under a test
 # run that is still using them.
 host_path=":$PATH:"
-while [ "$host_path" != "${host_path//:$DIR:/:}" ]; do host_path="${host_path//:$DIR:/:}"; done
+# Quoted so a directory with glob characters in its name still matches literally.
+while [ "$host_path" != "${host_path//":$DIR:"/:}" ]; do host_path="${host_path//":$DIR:"/:}"; done
 host_path="${host_path#:}"
 host_path="${host_path%:}"
 host_major="$( (PATH="$host_path" pg_restore --version 2>/dev/null || true) | sed -nE 's/.*\) ([0-9]+)\..*/\1/p')"

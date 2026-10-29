@@ -7,6 +7,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
+	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -592,18 +593,29 @@ done
 	if err := os.WriteFile(anchorPath, []byte("earlier scheduled dump"), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	// Due in two seconds: long enough that the first tick waits rather than dumps.
-	stamp := time.Now().Add(-backupIntervalFloor + 2*time.Second)
+	// Due in three seconds: long enough that the first tick waits rather than dumps.
+	stamp := time.Now().Add(-backupIntervalFloor + 3*time.Second)
 	if err := os.Chtimes(anchorPath, stamp, stamp); err != nil {
 		t.Fatal(err)
 	}
+	// The due time as the scheduler sees it: the mtime the filesystem kept.
+	info, err := os.Stat(anchorPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	due := info.ModTime().Add(backupIntervalFloor)
 
 	logs := logtest.Capture(t)
-	var ticks atomic.Int32
+	// schedulerTick reads backup_enabled exactly once per tick, so each GetBool
+	// call is one tick.
+	var ticksMu sync.Mutex
+	var ticks []time.Time
 	rotating := make(chan struct{}, 1)
 	ss := &mockSettingsStore{
 		getBoolFn: func(_ context.Context, _ string, _ bool) bool {
-			ticks.Add(1)
+			ticksMu.Lock()
+			ticks = append(ticks, time.Now())
+			ticksMu.Unlock()
 			return true
 		},
 		getDurationFn: func(_ context.Context, _ string, _ time.Duration) time.Duration {
@@ -630,8 +642,20 @@ done
 	case <-time.After(30 * time.Second):
 		t.Fatal("the scheduler never ran a scheduled backup")
 	}
-	if n := ticks.Load(); n < 2 {
-		t.Fatalf("the backup ran on tick %d; the first tick should have waited for the anchor to age", n)
+	ticksMu.Lock()
+	seen := append([]time.Time(nil), ticks...)
+	ticksMu.Unlock()
+	switch {
+	case len(seen) == 1:
+		t.Fatal("the backup ran on the first tick; it should have waited for the anchor to age")
+	case len(seen) != 2:
+		t.Fatalf("the backup ran on tick %d, want 2: the loop re-ticked instead of sleeping what the tick returned", len(seen))
+	}
+	// The second tick may not come before the anchor is due: the loop slept the
+	// wait the first tick returned rather than re-ticking early. The slack covers
+	// the wall clock versus the timer's monotonic clock.
+	if early := due.Sub(seen[1]); early > 50*time.Millisecond {
+		t.Errorf("the second tick came %v before the anchor was due (ticks %v apart): the loop did not honour the sleep", early, seen[1].Sub(seen[0]))
 	}
 
 	cancel()
