@@ -82,28 +82,28 @@ describe("useArenaRunner guards", () => {
 		result.current.abortAll();
 	});
 
-	it("a swap adds its slot to the running set and skips a missing matchup", () => {
+	it("a swap into a missing matchup changes nothing and starts nothing", () => {
 		const rounds = oneMatchup(null);
 		const roundsRef = { current: rounds };
 		const setRunningModels = vi.fn();
-		const deps = createMockDeps({ rounds, roundsRef, setRunningModels });
-		server.use(
-			http.post(
-				"/api/chat/arena",
-				() => new HttpResponse(null, { status: 500 }),
-			),
-		);
+		const setPhase = vi.fn();
+		const deps = createMockDeps({
+			rounds,
+			roundsRef,
+			setRunningModels,
+			setPhase,
+		});
 		const { result } = renderHook(() => useArenaRunner(deps), {
 			wrapper: createWrapper(),
 		});
 		act(() => result.current.handleSwapComplete(0, 7, "A", "P/new-model"));
-		// The draft had no matchup 7, so nothing in it changed.
+		// The bracket has no matchup 7: no slot is marked running, the phase
+		// stays put, no stream is registered, and the rounds are untouched.
+		expect(setRunningModels).not.toHaveBeenCalled();
+		expect(setPhase).not.toHaveBeenCalled();
+		expect(deps.setRounds).not.toHaveBeenCalled();
+		expect(result.current.abortMapRef.current.size).toBe(0);
 		expect(roundsRef.current).toEqual(rounds);
-		const update = setRunningModels.mock.calls[0][0] as (
-			prev: Set<string>,
-		) => Set<string>;
-		expect(update(new Set())).toEqual(new Set([streamKey(0, 7, "A")]));
-		result.current.abortAll();
 	});
 
 	it("does not dispatch a stream once the arena has unmounted", () => {

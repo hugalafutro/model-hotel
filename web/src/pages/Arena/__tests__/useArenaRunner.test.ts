@@ -1184,7 +1184,29 @@ describe("useArenaRunner", () => {
 				"P/new-model": { temperature: 0.7 },
 			};
 
+			// The swap targets a matchup the bracket holds; a missing one is
+			// refused (see useArenaRunner.guards.test.ts).
+			const rounds: BracketRound[] = [
+				{
+					matchups: [
+						{
+							slotA: {
+								modelId: "P/model-a",
+								personaId: null,
+								personaPrompt: "",
+								params: {},
+							},
+							slotB: null,
+							responseA: null,
+							responseB: null,
+							vote: null,
+						},
+					],
+				},
+			];
 			const deps = createMockDeps({
+				rounds,
+				roundsRef: { current: rounds },
 				setRounds: setRoundsMock,
 				setRunningModels: setRunningModelsMock,
 				setPhase: setPhaseMock,
@@ -1201,8 +1223,16 @@ describe("useArenaRunner", () => {
 			});
 
 			expect(setRoundsMock).toHaveBeenCalled();
-			expect(setRunningModelsMock).toHaveBeenCalled();
 			expect(setPhaseMock).toHaveBeenCalledWith("running");
+			// The swapped slot joins the running set without touching the old set.
+			const update = setRunningModelsMock.mock.calls[0][0] as (
+				prev: Set<string>,
+			) => Set<string>;
+			const prev = new Set(["other"]);
+			const next = update(prev);
+			expect(next.size).toBe(2);
+			expect(next.has("other")).toBe(true);
+			expect(prev).toEqual(new Set(["other"]));
 		});
 
 		it("handleSwapComplete does nothing without a usable allowlist", () => {

@@ -425,6 +425,9 @@ export function useArenaRunner(deps: ArenaRunnerDeps): ArenaRunner {
 			// The swap picker only offers loaded chat models, but guard anyway so a
 			// swap during an empty/loading window doesn't wedge the slot.
 			if (!hasUsableAllowlist) return;
+			// A matchup the bracket no longer holds (the picker outlived a reset)
+			// gets nothing: no running mark and no stream for a slot nobody can see.
+			if (!roundsRef.current[roundIdx]?.matchups[matchupIdx]) return;
 			setRounds(
 				produce((draft) => {
 					const mu = draft[roundIdx]?.matchups[matchupIdx];
@@ -467,6 +470,7 @@ export function useArenaRunner(deps: ArenaRunnerDeps): ArenaRunner {
 			setRounds,
 			setPhase,
 			hasUsableAllowlist,
+			roundsRef,
 		],
 	);
 
