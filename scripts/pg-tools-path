@@ -25,7 +25,16 @@ chmod 700 "$DIR"
 
 image="$(grep -m1 -oE 'image:[[:space:]]*postgres:[^[:space:]]+' "$REPO_ROOT/docker-compose.test.yml" | sed 's/image:[[:space:]]*//')"
 server_major="$(printf '%s' "$image" | sed -E 's/^postgres:([0-9]+).*/\1/')"
-host_major="$( (pg_restore --version 2>/dev/null || true) | sed -nE 's/.*\) ([0-9]+)\..*/\1/p')"
+# The host client is read with this directory taken off PATH: a call made while
+# an earlier call's shim is already first on PATH would otherwise read the
+# shim's version, take the host for a match and delete the shims under a test
+# run that is still using them.
+host_path=":${PATH:-}:"
+# Quoted so a directory with glob characters in its name still matches literally.
+while [ "$host_path" != "${host_path//":$DIR:"/:}" ]; do host_path="${host_path//":$DIR:"/:}"; done
+host_path="${host_path#:}"
+host_path="${host_path%:}"
+host_major="$( (PATH="$host_path" pg_restore --version 2>/dev/null || true) | sed -nE 's/.*\) ([0-9]+)\..*/\1/p')"
 
 if [ -n "$server_major" ] && [ "$host_major" != "$server_major" ] && command -v docker >/dev/null 2>&1; then
 	# Mount arguments are shell-quoted into the shim, so a TMPDIR with spaces

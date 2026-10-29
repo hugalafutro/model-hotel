@@ -8,6 +8,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -475,6 +476,159 @@ func TestLimiter_NilIsInert(t *testing.T) {
 		ServeHTTP(rr, httptest.NewRequest(http.MethodGet, "/", http.NoBody))
 	if rr.Code != http.StatusNoContent {
 		t.Fatalf("status = %d", rr.Code)
+	}
+	if got, known := l.Spent(context.Background(), &Subject{Kind: KindKey, ID: "k"}); got != 0 || known {
+		t.Fatalf("Spent = %v/%v, want 0/false from a nil limiter", got, known)
+	}
+}
+
+// spendFunc adapts a function to SpendSource.
+type spendFunc func(ctx context.Context, kind, id string, since time.Time) (float64, error)
+
+func (f spendFunc) Spend(ctx context.Context, kind, id string, since time.Time) (float64, error) {
+	return f(ctx, kind, id, since)
+}
+
+// gatedSource answers every read from answer(since), holding read i until
+// gates[i] closes (reads past the gates answer at once), and sends each read's
+// since on the returned channel as it starts.
+func gatedSource(gates []chan struct{}, answer func(since time.Time) float64) (spendFunc, <-chan time.Time) {
+	var n atomic.Int64
+	entered := make(chan time.Time, 8)
+	return func(_ context.Context, _, _ string, since time.Time) (float64, error) {
+		i := int(n.Add(1) - 1)
+		entered <- since
+		if i < len(gates) {
+			<-gates[i]
+		}
+		return answer(since), nil
+	}, entered
+}
+
+func recvWithin[T any](t *testing.T, ch <-chan T) T {
+	t.Helper()
+	select {
+	case v := <-ch:
+		return v
+	case <-time.After(2 * time.Second):
+		t.Fatal("timed out waiting on the limiter")
+	}
+	var zero T
+	return zero
+}
+
+// A first-sight sum that started before midnight and lands after the period
+// rolled is yesterday's figure: it is discarded and the period holding now is
+// summed instead, so yesterday's overspend does not refuse today's request.
+func TestLimiter_FirstSightReadSpanningAPeriodRollJudgesTheNewPeriod(t *testing.T) {
+	midnight := time.Date(2026, 9, 17, 0, 0, 0, 0, time.UTC)
+	gates := []chan struct{}{make(chan struct{}), make(chan struct{})}
+	src, entered := gatedSource(gates, func(since time.Time) float64 {
+		if since.Before(midnight) {
+			return 20 // yesterday was over the $10 cap
+		}
+		return 1
+	})
+	l := NewLimiter(src)
+	clk := &clock{t: midnight.Add(-time.Minute)}
+	l.now = clk.now
+	collectEvents(t)
+	sub := &Subject{Kind: KindKey, ID: "k1", Name: "ci", Budget: Budget{USD: 10, Period: PeriodDay}}
+
+	first := make(chan int, 1)
+	go func() { first <- serve(l, keyed(sub)).Code }()
+	if since := recvWithin(t, entered); !since.Before(midnight) {
+		t.Fatalf("first read since = %v, want yesterday's period", since)
+	}
+	clk.add(2 * time.Minute)
+	second := make(chan int, 1)
+	go func() { second <- serve(l, keyed(sub)).Code }()
+	if since := recvWithin(t, entered); !since.Equal(midnight) {
+		t.Fatalf("second read since = %v, want today's period start", since)
+	}
+	// Yesterday's sum lands first, after the roll.
+	close(gates[0])
+	if code := recvWithin(t, first); code != http.StatusNoContent {
+		t.Fatalf("status = %d, want admitted on today's $1, not refused on yesterday's $20", code)
+	}
+	// Today's other first-sight read lands on a figure already summed.
+	close(gates[1])
+	if code := recvWithin(t, second); code != http.StatusNoContent {
+		t.Fatalf("second status = %d, want admitted", code)
+	}
+	if got, known := l.Spent(context.Background(), sub); !known || got != 1 {
+		t.Fatalf("Spent = %v/%v, want today's 1", got, known)
+	}
+}
+
+// Two first-sight reads for one subject run at once (the mutex is released
+// for the query). The later one to land must not overwrite the figure the
+// earlier installed, or a charge made in between would be lost.
+func TestLimiter_ConcurrentFirstSightKeepsAChargeMadeAfterTheFirstSum(t *testing.T) {
+	gates := []chan struct{}{make(chan struct{}), make(chan struct{})}
+	src, entered := gatedSource(gates, func(time.Time) float64 { return 5 })
+	l := NewLimiter(src)
+	clk := &clock{t: time.Date(2026, 9, 16, 12, 0, 0, 0, time.UTC)}
+	l.now = clk.now
+	collectEvents(t)
+	sub := &Subject{Kind: KindKey, ID: "k1", Name: "ci", Budget: Budget{USD: 10, Period: PeriodDay}}
+
+	done := make(chan int, 2)
+	for range 2 {
+		go func() { done <- serve(l, keyed(sub)).Code }()
+	}
+	recvWithin(t, entered)
+	recvWithin(t, entered)
+	close(gates[0])
+	if code := recvWithin(t, done); code != http.StatusNoContent {
+		t.Fatalf("first status = %d, want admitted", code)
+	}
+	l.Charge("k1", "", 3, time.Time{})
+	close(gates[1])
+	if code := recvWithin(t, done); code != http.StatusNoContent {
+		t.Fatalf("second status = %d, want admitted", code)
+	}
+	if got, _ := l.Spent(context.Background(), sub); got != 8 {
+		t.Fatalf("Spent = %v, want 5 + the 3 charged after the first sum", got)
+	}
+}
+
+// A background reload of yesterday that lands after the period rolled is
+// dropped: the roll summed today on its own, and yesterday's figure must not
+// replace it.
+func TestLimiter_ReloadLandingAfterAPeriodRollIsDiscarded(t *testing.T) {
+	src := &fakeSource{spent: map[string]float64{"key:k1": 4}}
+	at := time.Date(2026, 9, 16, 23, 59, 0, 0, time.UTC)
+	l, clk := newTestLimiter(src, at)
+	collectEvents(t)
+	sub := &Subject{Kind: KindKey, ID: "k1", Name: "ci", Budget: Budget{USD: 10, Period: PeriodDay}}
+	serve(l, keyed(sub))
+
+	src.set("key:k1", 1, nil)
+	clk.add(2 * time.Minute)
+	if rr := serve(l, keyed(sub)); rr.Code != http.StatusNoContent {
+		t.Fatalf("new period status = %d", rr.Code)
+	}
+	e := l.entry(KindKey, "k1")
+	e.mu.Lock()
+	loaded := e.loadedAt
+	e.mu.Unlock()
+
+	// The reload that began yesterday sees yesterday's $50.
+	src.set("key:k1", 50, nil)
+	l.reload(sub, e, PeriodStart(PeriodDay, at), 0)
+
+	e.mu.Lock()
+	reloading, gotLoaded := e.reloading, e.loadedAt
+	e.mu.Unlock()
+	if reloading || !gotLoaded.Equal(loaded) {
+		t.Errorf("reloading = %v, loadedAt %v -> %v: the stale reload must leave today's figure as summed", reloading, loaded, gotLoaded)
+	}
+	if got, known := l.Spent(context.Background(), sub); !known || got != 1 {
+		t.Fatalf("Spent = %v/%v, want today's 1", got, known)
+	}
+	if rr := serve(l, keyed(sub)); rr.Code != http.StatusNoContent {
+		t.Fatalf("status = %d, want admitted on today's $1", rr.Code)
 	}
 }
 

@@ -83,7 +83,7 @@ func (h *BackupHandler) StartScheduler(ctx context.Context) <-chan struct{} {
 		select {
 		case <-schedCtx.Done():
 			return
-		case <-time.After(1 * time.Minute):
+		case <-h.after(1 * time.Minute):
 		}
 
 		for {
@@ -93,7 +93,7 @@ func (h *BackupHandler) StartScheduler(ctx context.Context) <-chan struct{} {
 			case <-schedCtx.Done():
 				debuglog.Info("backup: scheduler stopped")
 				return
-			case <-time.After(sleep):
+			case <-h.after(sleep):
 			}
 		}
 	}()
