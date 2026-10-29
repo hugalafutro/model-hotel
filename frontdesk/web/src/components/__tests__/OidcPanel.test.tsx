@@ -1,9 +1,11 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { act, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { HttpResponse, http } from "msw";
-import { expect, it } from "vitest";
+import { expect, it, vi } from "vitest";
+import { api } from "../../api/client";
 import type { Settings } from "../../api/types";
 import { ToastProvider } from "../../context/ToastContext";
+import i18n from "../../i18n";
 import { server } from "../../test/server";
 import { OidcPanel } from "../OidcPanel";
 
@@ -96,4 +98,129 @@ it("collapses the config fields when SSO is disabled", async () => {
 	// The enable checkbox always renders; the issuer field only when enabled.
 	await screen.findByTestId("fd-oidc-enable");
 	expect(screen.queryByText(/Issuer URL/i)).toBeNull();
+});
+
+function renderPanel() {
+	render(
+		<ToastProvider>
+			<OidcPanel />
+		</ToastProvider>,
+	);
+}
+
+it("renders nothing when the settings cannot be loaded", async () => {
+	// The read is held by a promise the test rejects, so the assertion runs
+	// only after the panel's own rejection handler has run and React flushed.
+	let reject!: (e: unknown) => void;
+	const pending = new Promise<Settings>((_, rej) => {
+		reject = rej;
+	});
+	const getSettings = vi.spyOn(api, "getSettings").mockReturnValue(pending);
+	const oidcStatus = vi
+		.spyOn(api, "oidcStatus")
+		.mockResolvedValue({ enabled: false } as Awaited<
+			ReturnType<typeof api.oidcStatus>
+		>);
+	renderPanel();
+	await act(async () => {
+		reject(new Error("down"));
+		await pending.catch(() => {});
+	});
+	expect(getSettings).toHaveBeenCalledTimes(1);
+	expect(screen.queryByTestId("fd-oidc-panel")).toBeNull();
+	getSettings.mockRestore();
+	oidcStatus.mockRestore();
+});
+
+it("enables SSO, sends every edited field trimmed, and keeps the last status when the re-read fails", async () => {
+	const puts: Partial<Settings>[] = [];
+	let statusReads = 0;
+	server.use(
+		http.get("/api/settings", () =>
+			HttpResponse.json(
+				makeSettings({
+					oidc_enabled: false,
+					oidc_issuer_url: "",
+					oidc_client_secret: "",
+					oidc_public_base_url: "",
+					oidc_allowed_emails: "",
+				}),
+			),
+		),
+		http.get("/api/auth/oidc/status", () => {
+			statusReads += 1;
+			return statusReads === 1
+				? HttpResponse.json({ enabled: true, display_name: "idp" })
+				: HttpResponse.json({ error: "down" }, { status: 500 });
+		}),
+		http.put("/api/settings", async ({ request }) => {
+			puts.push((await request.json()) as Partial<Settings>);
+			return new HttpResponse(null, { status: 204 });
+		}),
+	);
+	renderPanel();
+	await userEvent.click(await screen.findByTestId("fd-oidc-enable"));
+	const field = (key: string) => screen.getByLabelText(i18n.t(key));
+	await userEvent.type(
+		field("settings.oidc.issuerLabel"),
+		" https://idp.example.com ",
+	);
+	await userEvent.type(field("settings.oidc.clientSecretLabel"), " s3cret ");
+	await userEvent.type(
+		field("settings.oidc.baseUrlLabel"),
+		"https://fd.example.com//",
+	);
+	await userEvent.type(
+		field("settings.oidc.allowedEmailsLabel"),
+		" a@example.com ",
+	);
+	// Trailing slashes are trimmed off the derived redirect URI.
+	const redirect = screen.getByTestId("fd-oidc-redirect-uri");
+	expect(redirect).toHaveValue("https://fd.example.com/api/auth/oidc/callback");
+	// Focusing the read-only URI selects it for copying.
+	await userEvent.click(redirect);
+	const input = redirect as HTMLInputElement;
+	expect(input.selectionStart).toBe(0);
+	expect(input.selectionEnd).toBe(input.value.length);
+
+	await userEvent.click(screen.getByTestId("fd-oidc-save"));
+	await waitFor(() => expect(puts).toHaveLength(1));
+	expect(puts[0]).toMatchObject({
+		oidc_enabled: true,
+		oidc_issuer_url: "https://idp.example.com",
+		oidc_client_secret: "s3cret",
+		oidc_public_base_url: "https://fd.example.com//",
+		oidc_allowed_emails: "a@example.com",
+	});
+	await waitFor(() => expect(statusReads).toBe(2));
+	// The failed status re-read keeps the previous (configured) badge.
+	expect(screen.getByTestId("fd-oidc-status")).toHaveClass("ui-badge-ok");
+});
+
+it("shows a validation message as written and hides anything else behind the generic error", async () => {
+	let status = 400;
+	server.use(
+		http.get("/api/settings", () => HttpResponse.json(makeSettings())),
+		http.get("/api/auth/oidc/status", () =>
+			HttpResponse.json({ enabled: true }),
+		),
+		http.put("/api/settings", () =>
+			HttpResponse.json({ error: "issuer must be https" }, { status }),
+		),
+	);
+	renderPanel();
+	await userEvent.click(await screen.findByTestId("fd-oidc-save"));
+	expect(await screen.findByRole("alert")).toHaveTextContent(
+		"issuer must be https",
+	);
+	status = 500;
+	await userEvent.click(screen.getByTestId("fd-oidc-save"));
+	await waitFor(() =>
+		expect(screen.getByRole("alert")).toHaveTextContent(
+			i18n.t("errors.generic"),
+		),
+	);
+	expect(screen.getByRole("alert")).not.toHaveTextContent(
+		"issuer must be https",
+	);
 });

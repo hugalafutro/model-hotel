@@ -565,12 +565,12 @@ func TestTranslateRequest_Errors(t *testing.T) {
 
 func TestTranslateRequest_EmptyTextPartsSkipped(t *testing.T) {
 	// An empty text part would marshal as {} inside parts (Text has omitempty),
-	// which Gemini rejects. Empty parts are dropped; a message left with no
-	// parts is dropped entirely.
+	// which Gemini rejects. Empty parts (an image_url part without a URL too)
+	// are dropped; a message left with no parts is dropped entirely.
 	body := []byte(`{
 		"model": "m",
 		"messages": [
-			{"role": "user", "content": [{"type": "text", "text": ""}, {"type": "text", "text": "hi"}]},
+			{"role": "user", "content": [{"type": "text", "text": ""}, {"type": "image_url"}, {"type": "image_url", "image_url": {"url": ""}}, {"type": "text", "text": "hi"}]},
 			{"role": "assistant", "content": [{"type": "text", "text": ""}]},
 			{"role": "user", "content": [{"type": "text", "text": "bye"}]}
 		]
@@ -677,12 +677,13 @@ func TestRequestCarriesFile(t *testing.T) {
 		"file_id only":                            {`{"messages":[{"role":"user","content":[{"type":"file","file":{"file_id":"file-1"}}]}]}`, false},
 		"remote file_data":                        {`{"messages":[{"role":"user","content":[{"type":"file","file":{"file_data":"https://x/y.pdf"}}]}]}`, false},
 		// Roles and payloads the translator drops are not a reason to reroute.
-		"file in system turn":    {`{"messages":[{"role":"system","content":[{"type":"file","file":{"file_data":"data:application/pdf;base64,JVBERi0="}}]},{"role":"user","content":"hi"}]}`, false},
-		"file in tool turn":      {`{"messages":[{"role":"tool","tool_call_id":"c1","content":[{"type":"file","file":{"file_data":"data:application/pdf;base64,JVBERi0="}}]}]}`, false},
-		"data URI, no base64":    {`{"messages":[{"role":"user","content":[{"type":"file","file":{"file_data":"data:text/plain,hello"}}]}]}`, false},
-		"data URI, empty data":   {`{"messages":[{"role":"user","content":[{"type":"file","file":{"file_data":"data:application/pdf;base64,"}}]}]}`, false},
-		"file in assistant turn": {`{"messages":[{"role":"assistant","content":[{"type":"file","file":{"file_data":"data:application/pdf;base64,JVBERi0="}}]}]}`, true},
-		"not json":               {`{`, false},
+		"file in system turn":       {`{"messages":[{"role":"system","content":[{"type":"file","file":{"file_data":"data:application/pdf;base64,JVBERi0="}}]},{"role":"user","content":"hi"}]}`, false},
+		"file in tool turn":         {`{"messages":[{"role":"tool","tool_call_id":"c1","content":[{"type":"file","file":{"file_data":"data:application/pdf;base64,JVBERi0="}}]}]}`, false},
+		"data URI, no base64":       {`{"messages":[{"role":"user","content":[{"type":"file","file":{"file_data":"data:text/plain,hello"}}]}]}`, false},
+		"data URI, empty data":      {`{"messages":[{"role":"user","content":[{"type":"file","file":{"file_data":"data:application/pdf;base64,"}}]}]}`, false},
+		"file in assistant turn":    {`{"messages":[{"role":"assistant","content":[{"type":"file","file":{"file_data":"data:application/pdf;base64,JVBERi0="}}]}]}`, true},
+		"not json":                  {`{`, false},
+		"not json, names file_data": {`{"messages":[{"role":"user","content":[{"type":"file","file":{"file_data":"data:application/pdf;base64,JVBERi0="}}]`, false},
 	}
 	for name, tc := range cases {
 		t.Run(name, func(t *testing.T) {
@@ -719,6 +720,26 @@ func TestMediaPart(t *testing.T) {
 		}
 		if ok && (part.InlineData == nil || part.InlineData.MimeType != tc.mime || part.InlineData.Data != tc.data) {
 			t.Errorf("mediaPart(%q) = %+v, want mime %q data %q", tc.in, part.InlineData, tc.mime, tc.data)
+		}
+	}
+}
+
+// The native route is picked for image output only when the request names
+// image among its modalities, in any case.
+func TestRequestWantsImage(t *testing.T) {
+	for _, tc := range []struct {
+		body string
+		want bool
+	}{
+		{`{"modalities":["text","image"]}`, true},
+		{`{"modalities":["IMAGE"]}`, true},
+		{`{"modalities":["text"]}`, false},
+		{`{"messages":[]}`, false},
+		{`{"modalities":"image"}`, false},
+		{`not json`, false},
+	} {
+		if got := RequestWantsImage([]byte(tc.body)); got != tc.want {
+			t.Errorf("RequestWantsImage(%s) = %v, want %v", tc.body, got, tc.want)
 		}
 	}
 }

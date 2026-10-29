@@ -3,10 +3,14 @@ package api
 import (
 	"context"
 	"errors"
+	"fmt"
 	"testing"
 
 	"github.com/jackc/pgx/v5"
 
+	"github.com/hugalafutro/model-hotel/internal/logtest"
+	"github.com/hugalafutro/model-hotel/internal/provider"
+	"github.com/hugalafutro/model-hotel/internal/settings"
 	"github.com/hugalafutro/model-hotel/internal/user"
 )
 
@@ -160,5 +164,68 @@ func TestApplyUsers_UnknownRoleIsRejected(t *testing.T) {
 	users := []ExportUser{{Username: "odd-role", PasswordHash: hash, Role: "superuser", Enabled: true}}
 	if err := applyUsers(ctx, beginApplyTx(t), users, map[string]string{}); err == nil {
 		t.Fatal("expected the unknown role to be rejected")
+	}
+}
+
+// A post-commit section that cannot take the fence lock fails on its own
+// lock_timeout, and the refresh reports each failure rather than dropping it:
+// the disable and pin failures are joined (one must not erase the other) and
+// the group build's is kept. The lock is held from another connection, so
+// every section waits out its lock_timeout.
+func TestPostImportRefresh_ReportsEverySectionFailure(t *testing.T) {
+	cleanConfigTables(t)
+	h := NewConfigSyncHandler(apiTestDB, settings.NewRepository(apiTestDB.Pool()), configSyncMasterKey, "v-test", nil, nil)
+
+	holder, err := apiTestDB.Pool().Acquire(context.Background())
+	if err != nil {
+		t.Fatalf("acquire holder conn: %v", err)
+	}
+	defer holder.Release()
+	if _, err := holder.Exec(context.Background(), `SELECT pg_advisory_lock($1)`, fleetSourceGenLock); err != nil {
+		t.Fatalf("hold advisory lock: %v", err)
+	}
+	defer func() { _, _ = holder.Exec(context.Background(), `SELECT pg_advisory_unlock($1)`, fleetSourceGenLock) }()
+
+	out := h.postImportRefresh(context.Background(), ConfigEnvelope{Config: ConfigPayload{
+		DisabledModels: []ExportModelRef{},
+		EnabledModels:  []ExportModelRef{},
+		FailoverGroups: []ExportFailoverGroup{},
+	}}, 0, nil, nil)
+
+	joined, ok := out.ModelStateErr.(interface{ Unwrap() []error })
+	if !ok || len(joined.Unwrap()) != 2 {
+		t.Errorf("ModelStateErr = %v, want the disable and the pin failures joined", out.ModelStateErr)
+	}
+	if out.GroupApplyErr == nil {
+		t.Error("GroupApplyErr = nil, want the group build's lock failure")
+	}
+	if !out.incomplete() {
+		t.Error("an import whose post-commit sections all failed must report incomplete")
+	}
+}
+
+// The refresh rewrites a key mask an older dump carried in the legacy
+// two-dots-two shape, and says how many it rewrote.
+func TestPostImportRefresh_RewritesLegacyKeyMasks(t *testing.T) {
+	cleanConfigTables(t)
+	const key = "sk-legacy-mask-key-0123456789"
+	id := seedProvider(t, "openai", key, configSyncMasterKey)
+	if _, err := apiTestDB.Pool().Exec(context.Background(), `UPDATE providers SET masked_key = 'sk...89' WHERE id = $1`, id); err != nil {
+		t.Fatalf("set legacy mask: %v", err)
+	}
+	h := NewConfigSyncHandler(apiTestDB, settings.NewRepository(apiTestDB.Pool()), configSyncMasterKey, "v-test", nil, nil)
+	capt := logtest.Capture(t)
+
+	h.postImportRefresh(context.Background(), ConfigEnvelope{}, 0, nil, nil)
+
+	var masked string
+	if err := apiTestDB.Pool().QueryRow(context.Background(), `SELECT masked_key FROM providers WHERE id = $1`, id).Scan(&masked); err != nil {
+		t.Fatalf("read masked_key: %v", err)
+	}
+	if masked != provider.MaskAPIKey(key) {
+		t.Errorf("masked_key = %q, want the current mask %q", masked, provider.MaskAPIKey(key))
+	}
+	if got := fmt.Sprint(capt.Attr("configsync: provider key masks rewritten", "count")); got != "1" {
+		t.Errorf("rewritten count logged = %s, want 1", got)
 	}
 }

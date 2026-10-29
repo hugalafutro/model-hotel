@@ -3,6 +3,7 @@ package frontdesk
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
@@ -12,6 +13,7 @@ import (
 	"strings"
 	"sync"
 	"testing"
+	"testing/iotest"
 
 	"github.com/hugalafutro/model-hotel/internal/alert"
 	"github.com/hugalafutro/model-hotel/internal/auth"
@@ -876,5 +878,112 @@ func TestAlertTestEndpointUnreachableDoesNotEchoCredentials(t *testing.T) {
 		if strings.Contains(rec.Body.String(), secret) {
 			t.Errorf("%q is in the response: %s", secret, rec.Body.String())
 		}
+	}
+}
+
+// codedErrorOf decodes the {code, error} body writeCodedError produces.
+func codedErrorOf(t *testing.T, rec *httptest.ResponseRecorder) (code, msg string) {
+	t.Helper()
+	var body struct {
+		Code  string `json:"code"`
+		Error string `json:"error"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &body); err != nil {
+		t.Fatalf("decode coded error %q: %v", rec.Body.String(), err)
+	}
+	return body.Code, body.Error
+}
+
+// The test endpoint reads its optional body itself rather than through
+// decodeJSON, so both of its body failures answer the coded 400 the wizard
+// routes on: a body that cannot be read, and one that is not JSON.
+func TestAlertTestEndpointRejectsBadBody(t *testing.T) {
+	srv, _ := newTestServer(t)
+
+	req := httptest.NewRequest(http.MethodPost, "/api/alert/test", iotest.ErrReader(errors.New("connection reset")))
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Authorization", "Bearer "+testFrontdeskToken)
+	rec := httptest.NewRecorder()
+	srv.ServeHTTP(rec, req)
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("unreadable body = %d %s, want 400", rec.Code, rec.Body.String())
+	}
+	if code, msg := codedErrorOf(t, rec); code != "invalid_body" || msg != "read body" {
+		t.Errorf("unreadable body = %q %q, want invalid_body \"read body\"", code, msg)
+	}
+
+	rec = do(t, srv, http.MethodPost, "/api/alert/test", `{"api_url":`, true)
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("truncated JSON = %d %s, want 400", rec.Code, rec.Body.String())
+	}
+	if code, msg := codedErrorOf(t, rec); code != "invalid_body" || msg != "invalid JSON body" {
+		t.Errorf("truncated JSON = %q %q, want invalid_body \"invalid JSON body\"", code, msg)
+	}
+}
+
+// A send that fails before it is a delivery attempt (here the request cannot be
+// built from the URL) carries no reason code of its own, so the handler names it
+// send_failed rather than answering with an empty code the UI cannot label.
+func TestAlertTestEndpointUncodedFailureIsSendFailed(t *testing.T) {
+	srv, _ := newTestServer(t)
+	rec := do(t, srv, http.MethodPost, "/api/alert/test",
+		`{"api_url":"http://%zz","targets":["ntfys://ntfy.example.com/one"]}`, true)
+	if rec.Code != http.StatusBadGateway {
+		t.Fatalf("unbuildable request = %d %s, want 502", rec.Code, rec.Body.String())
+	}
+	code, msg := codedErrorOf(t, rec)
+	if code != "send_failed" {
+		t.Errorf("code = %q, want send_failed", code)
+	}
+	if !strings.Contains(msg, "build request") {
+		t.Errorf("error = %q, want the build-request failure", msg)
+	}
+}
+
+// A settings read that fails is a 500 on every alert endpoint that needs one,
+// never a green status, an empty destinations list, or a 502 that blames the
+// apprise-api. The admin bearer never touches the DB, so a closed store still
+// reaches each handler.
+func TestAlertEndpointsStoreErrors(t *testing.T) {
+	srv, store := newTestServer(t)
+	if err := store.Close(); err != nil {
+		t.Fatalf("close store: %v", err)
+	}
+	for _, c := range []struct{ method, path string }{
+		{http.MethodGet, "/api/alert/status"},  // the probe's base-URL read
+		{http.MethodGet, "/api/alert/targets"}, // the destinations read
+		{http.MethodPost, "/api/alert/test"},   // no body: the saved config is read
+	} {
+		if rec := do(t, srv, c.method, c.path, "", true); rec.Code != http.StatusInternalServerError {
+			t.Errorf("%s %s on a closed store = %d %s, want 500", c.method, c.path, rec.Code, rec.Body.String())
+		}
+	}
+}
+
+// The status check reads settings twice: the probe's base URL, then (once the
+// probe says configured) the target it must also check. A failure of that second
+// read fails the request instead of leaving the target unchecked behind a green
+// pill. The apprise stub closes the store while it answers the probe, so the
+// first read succeeded and only the second can fail.
+func TestAlertStatusFailsWhenTargetReadFails(t *testing.T) {
+	srv, store := newTestServer(t)
+	stub := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		_ = store.Close()
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer stub.Close()
+
+	set, err := store.GetSettings(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	set.AlertEnabled = true
+	set.AlertAppriseAPIURL = stub.URL
+	if err := store.UpdateSettings(context.Background(), set); err != nil {
+		t.Fatal(err)
+	}
+
+	if rec := do(t, srv, http.MethodGet, "/api/alert/status", "", true); rec.Code != http.StatusInternalServerError {
+		t.Errorf("status with the target read failing = %d %s, want 500", rec.Code, rec.Body.String())
 	}
 }

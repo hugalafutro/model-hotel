@@ -330,9 +330,9 @@ func TestStampPriceSources_OnlyPricedAndUnsourced(t *testing.T) {
 		t.Errorf("sources = %+v, want %+v: the unset cache-hit price gets none, the catalog output keeps its source", m.PriceSources, want)
 	}
 
-	all := &Model{InputPricePerMillion: new(1.0), InputPricePerMillionCacheHit: new(0.1), OutputPricePerMillion: new(2.0)}
+	all := &Model{InputPricePerMillion: new(1.0), InputPricePerMillionCacheHit: new(0.1), OutputPricePerMillion: new(2.0), SearchPricePerThousand: new(10.0)}
 	all.StampPriceSources(PriceSourceModelsDev)
-	if want := (PriceSources{Input: PriceSourceModelsDev, CacheHit: PriceSourceModelsDev, Output: PriceSourceModelsDev}); all.PriceSources != want {
+	if want := (PriceSources{Input: PriceSourceModelsDev, CacheHit: PriceSourceModelsDev, Output: PriceSourceModelsDev, Search: PriceSourceModelsDev}); all.PriceSources != want {
 		t.Errorf("sources = %+v, want every priced field stamped %+v", all.PriceSources, want)
 	}
 }

@@ -197,6 +197,29 @@ func TestComputeStripReasoning(t *testing.T) {
 			t.Errorf("got (%v,%q), want (stripPassthrough,nil)", d, out)
 		}
 	})
+
+	t.Run("role kept beside non-string content → forward, not keep-alive", func(t *testing.T) {
+		// A content member that is not a string (an empty parts array) keeps
+		// the role, since the delta is not role-only, but carries no text of
+		// its own: the surviving role is what makes the frame worth forwarding.
+		var lastFR string
+		in := `{"id":"x","object":"chat.completion.chunk","choices":[{"index":0,"delta":{"role":"assistant","content":[],"reasoning_content":"r"},"finish_reason":null}]}`
+		d, out := computeStripReasoning(in, &lastFR, ld)
+		if d != stripForward {
+			t.Fatalf("decision = %v, want stripForward", d)
+		}
+		var raw struct {
+			Choices []struct {
+				Delta map[string]json.RawMessage `json:"delta"`
+			} `json:"choices"`
+		}
+		if err := json.Unmarshal(out, &raw); err != nil {
+			t.Fatalf("decode forward payload: %v", err)
+		}
+		if string(raw.Choices[0].Delta["role"]) != `"assistant"` {
+			t.Errorf("role = %s, want \"assistant\" forwarded", raw.Choices[0].Delta["role"])
+		}
+	})
 }
 
 // TestComputeFinishReason covers the finish_reason transform's decisions:
@@ -284,6 +307,27 @@ func TestComputeFinishReason(t *testing.T) {
 		c := parseStreamChunk(t, `{"choices":[{"delta":{"content":"more"},"finish_reason":"stop"}],"usage":{"prompt_tokens":5}}`)
 		if d, _ := computeFinishReason(c, `{}`, &lastFR); d != finishNone {
 			t.Errorf("decision = %v, want finishNone (content + usage present blocks suppression)", d)
+		}
+	})
+
+	t.Run("rewrite fallbacks forward the original line", func(t *testing.T) {
+		// The typed chunk says STOP needs rewriting, but the raw line cannot be
+		// rebuilt: each shape declines (finishNone, no payload) so the caller
+		// forwards the line as it came; the tracker still moves. (A missing or
+		// empty choices member is covered further down.)
+		c := parseStreamChunk(t, `{"choices":[{"index":0,"delta":{},"finish_reason":"STOP"}]}`)
+		for name, payload := range map[string]string{
+			"not a JSON object": `["not","an","object"]`,
+			"choices not array": `{"choices":{"index":0}}`,
+		} {
+			lastFR := ""
+			d, out := computeFinishReason(c, payload, &lastFR)
+			if d != finishNone || out != nil {
+				t.Errorf("%s: got (%v, %s), want (finishNone, nil)", name, d, out)
+			}
+			if lastFR != "stop" {
+				t.Errorf("%s: lastFinishReason = %q, want stop", name, lastFR)
+			}
 		}
 	})
 
@@ -585,6 +629,15 @@ func TestComputeFinishReason_NPlusOneAndToolCallFrames(t *testing.T) {
 	refusal := `{"choices":[{"index":0,"delta":{"refusal":"no"},"finish_reason":"stop"}]}`
 	if d, _ := computeFinishReason(parse(t, refusal), refusal, &lastFR); d != finishNone {
 		t.Fatalf("refusal frame: decision %v, want forwarded", d)
+	}
+	// Real audio or a real legacy function_call is an answer, not a duplicate.
+	for _, payload := range []string{
+		`{"choices":[{"index":0,"delta":{"audio":{"id":"a1","data":"UklG"}},"finish_reason":"stop"}]}`,
+		`{"choices":[{"index":0,"delta":{"function_call":{"name":"f","arguments":"{}"}},"finish_reason":"stop"}]}`,
+	} {
+		if d, _ := computeFinishReason(parse(t, payload), payload, &lastFR); d != finishNone {
+			t.Fatalf("%s: decision %v, want forwarded", payload, d)
+		}
 	}
 	legacy := `{"choices":[{"index":0,"text":"tail","finish_reason":"stop"}]}`
 	if d, _ := computeFinishReason(parse(t, legacy), legacy, &lastFR); d != finishNone {

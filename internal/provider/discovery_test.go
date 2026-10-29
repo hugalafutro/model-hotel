@@ -8,11 +8,14 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"slices"
 	"strings"
 	"testing"
 	"time"
 
 	"github.com/google/uuid"
+
+	"github.com/hugalafutro/model-hotel/internal/model"
 )
 
 // ---------------------------------------------------------------------------
@@ -618,6 +621,50 @@ func TestDiscoverModels_UnknownProviderType(t *testing.T) {
 	// Single live model unioned with the OpenAI catalog.
 	if len(models) != 1 {
 		t.Fatalf("expected 1 model, got %d", len(models))
+	}
+}
+
+// The local-server types dispatch to their own discovery, which reads a route
+// the OpenAI fallback never asks for: LocalAI's capability listing, SGLang's
+// model info, TabbyAPI's loaded-model card.
+func TestDiscoverModels_DispatchesLocalServerTypes(t *testing.T) {
+	var localAIPaths []string
+	localAI := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		localAIPaths = append(localAIPaths, r.URL.Path)
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(localAICapabilitiesBody))
+	}))
+	defer localAI.Close()
+	sglang, sglangPaths := sglangServer(t, sglangModelInfoBody)
+	defer sglang.Close()
+	tabby, tabbyPaths := tabbyAPIServer(t, tabbyAPIListingBody, tabbyAPIModelCardBody, "")
+	defer tabby.Close()
+
+	for _, tc := range []struct {
+		typ       string
+		srv       *httptest.Server
+		paths     *[]string
+		ownRoute  string
+		wantModel string
+	}{
+		{"localai", localAI, &localAIPaths, "/v1/models/capabilities", "qwen3-1.7b"},
+		{"sglang", sglang, sglangPaths, "/get_model_info", "qwen3-0.6b"},
+		{"tabbyapi", tabby, tabbyPaths, "/v1/model", "Qwen3-4B-exl3-4bpw"},
+	} {
+		t.Run(tc.typ, func(t *testing.T) {
+			svc := &DiscoveryService{httpClient: tc.srv.Client()}
+			provider := &Provider{ID: uuid.New(), Name: tc.typ, ProviderType: tc.typ, BaseURL: tc.srv.URL + "/v1"}
+			models, err := svc.DiscoverModels(context.Background(), provider, "test-master-key")
+			if err != nil {
+				t.Fatalf("DiscoverModels(%s): %v", tc.typ, err)
+			}
+			if !slices.Contains(*tc.paths, tc.ownRoute) {
+				t.Errorf("%s discovery asked %v, want its own route %s", tc.typ, *tc.paths, tc.ownRoute)
+			}
+			if !slices.ContainsFunc(models, func(m *model.Model) bool { return m.ModelID == tc.wantModel }) {
+				t.Errorf("%s discovery returned no %s", tc.typ, tc.wantModel)
+			}
+		})
 	}
 }
 

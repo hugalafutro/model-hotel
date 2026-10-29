@@ -423,3 +423,84 @@ func TestRetryWithResponses_BoundsThe400Read(t *testing.T) {
 		t.Fatalf("buffered %d bytes of a %d-byte 400, cap is %d", len(restored), len(oversized), responsesLearnBodyCap)
 	}
 }
+
+// countingBody counts the reads made of an upstream body.
+type countingBody struct {
+	r     io.Reader
+	reads int
+}
+
+func (b *countingBody) Read(p []byte) (int, error) { b.reads++; return b.r.Read(p) }
+func (b *countingBody) Close() error               { return nil }
+
+// An attempt that is not a plain OpenAI chat call has no Responses route to
+// fall back to: the retry declines without reading the 400 (the param-strip
+// retry reads it next) and learns nothing, even from the real rejection.
+func TestRetryWithResponses_NotPlainChatLeavesTheResponseAlone(t *testing.T) {
+	h := &Handler{}
+	st := &requestState{bodyBytes: []byte(toolsReasoningBody), failoverTimeout: time.Second}
+	cand := responsesTestCandidate("https://openrouter.ai/api/v1")
+	rejection := `{"error":{"message":"Function tools with reasoning_effort are not supported. Please use the /v1/responses endpoint."}}`
+	body := &countingBody{r: strings.NewReader(rejection)}
+	resp := &http.Response{StatusCode: 400, Body: body}
+	r := httptest.NewRequest("POST", "/v1/chat/completions", http.NoBody)
+
+	var dialMs float64
+	res, handled := h.retryWithResponses(r, st, cand, "openrouter", resp, 0, &dialMs, func() {}, "")
+	if handled {
+		t.Fatal("a non-OpenAI attempt was handled by the responses retry")
+	}
+	if res.resp != resp || body.reads != 0 {
+		t.Errorf("the 400 was touched (same resp=%v, reads=%d), want it handed on unread", res.resp == resp, body.reads)
+	}
+	if _, learned := h.responsesRequiredCache.Load("openrouter:gpt-5.6-sol"); learned {
+		t.Error("a requirement was learned for a provider with no Responses route")
+	}
+}
+
+// The rejection is learned but the chat body cannot be rebuilt as a Responses
+// request: that is this gateway's own failure, reported as internal on this
+// attempt, and the loop moves on without issuing anything.
+func TestRetryWithResponses_RebuildFailureIsInternal(t *testing.T) {
+	h := &Handler{upstreamTransport: &http.Transport{}}
+	st := &requestState{bodyBytes: []byte(`{"model":"gpt-5.5-pro","messages":"not-an-array"}`), failoverTimeout: 5 * time.Second}
+	cand := responsesTestCandidate("https://api.openai.com/v1")
+	cand.model.ModelID = "gpt-5.5-pro-2026-04-23"
+	refusal := `{"error":{"message":"This is not a chat model and thus not supported in the v1/chat/completions endpoint. Did you mean to use v1/completions?","type":"invalid_request_error","param":"model","code":null}}`
+	resp := &http.Response{StatusCode: 404, Body: io.NopCloser(strings.NewReader(refusal))}
+	r := httptest.NewRequest("POST", "/v1/chat/completions", http.NoBody)
+	cancelled := false
+
+	var dialMs float64
+	res, handled := h.retryWithResponses(r, st, cand, "openai", resp, 2, &dialMs, func() { cancelled = true }, "")
+	if !handled || !res.cont || res.retried {
+		t.Fatalf("handled=%v cont=%v retried=%v, want handled, continue, nothing re-issued", handled, res.cont, res.retried)
+	}
+	if res.lastReqErr.Kind != KindInternal || res.lastReqErr.Attempt != 2 || res.lastReqErr.Provider != "OpenAI" {
+		t.Errorf("lastReqErr = %+v, want internal on attempt 2 for OpenAI", res.lastReqErr)
+	}
+	if !cancelled {
+		t.Error("the original attempt's context was not released")
+	}
+	if st.responsesAttempt {
+		t.Error("responsesAttempt set although nothing was re-issued")
+	}
+	if v, _ := h.responsesRequiredCache.Load("openai:gpt-5.5-pro-2026-04-23"); v != responsesAlways {
+		t.Errorf("learned %v, want the always requirement kept for the next request", v)
+	}
+}
+
+// A refusal on an attempt that already went to /v1/responses teaches no
+// Responses requirement: the request is there already.
+func TestLearnResponsesRequirement_ResponsesAttemptLearnsNothing(t *testing.T) {
+	h := &Handler{}
+	st := &requestState{bodyBytes: []byte(plainChatBody), responsesAttempt: true}
+	cand := responsesTestCandidate("https://api.openai.com/v1")
+	refusal := []byte(`{"error":{"message":"This is not a chat model and thus not supported in the v1/chat/completions endpoint. Did you mean to use v1/completions?"}}`)
+	if h.learnResponsesRequirement(st, cand, "openai", refusal) {
+		t.Fatal("learned a Responses requirement on a Responses attempt")
+	}
+	if _, ok := h.responsesRequiredCache.Load("openai:gpt-5.6-sol"); ok {
+		t.Fatal("a requirement was cached")
+	}
+}

@@ -16,6 +16,7 @@ import (
 // ---------------------------------------------------------------------------
 
 func TestLoadModelsDev_Success(t *testing.T) {
+	isolateModelsDevCache(t)
 	responseJSON := `{
 		"openai": {
 			"id": "openai",
@@ -107,6 +108,7 @@ func (t *modelsDevTestTransport) RoundTrip(req *http.Request) (*http.Response, e
 // ---------------------------------------------------------------------------
 
 func TestGetModelsDevCache_NotLoaded(t *testing.T) {
+	isolateModelsDevCache(t)
 	// Ensure cache is not loaded
 	modelsDevCache.mu.Lock()
 	modelsDevCache.loaded = false
@@ -120,6 +122,7 @@ func TestGetModelsDevCache_NotLoaded(t *testing.T) {
 }
 
 func TestGetModelsDevCache_AfterLoad(t *testing.T) {
+	isolateModelsDevCache(t)
 	responseJSON := `{
 		"openai": {
 			"id": "openai",
@@ -304,6 +307,42 @@ func TestModelsDevCacheLookupFuzzy_DateSuffix(t *testing.T) {
 	}
 }
 
+// A year-month suffix is not stripped by the trailing-date rule, so only the
+// prefix scan resolves it: the longest catalog key followed by "-" and a
+// date/version wins, and a key that ends mid-segment never matches.
+func TestModelsDevCacheLookupFuzzy_PrefixVersionSuffix(t *testing.T) {
+	short := &ModelsDevModelSpec{ID: "x", Name: "short"}
+	long := &ModelsDevModelSpec{ID: "x-2024", Name: "long"}
+	cache := &ModelsDevCache{}
+	cache.mu.Lock()
+	cache.byID = map[string]*ModelsDevModelSpec{"x": short, "x-2024": long, "gpt-4o": {ID: "gpt-4o", Name: "GPT-4o"}}
+	cache.loaded = true
+	cache.mu.Unlock()
+
+	// Both keys qualify ("-2024-2024-08" and "-2024-08" are version
+	// suffixes); map iteration order is random, so repeat the lookup to see
+	// that the longer key wins every time rather than whichever came last.
+	for range 20 {
+		if found := cache.LookupFuzzy("x-2024-2024-08"); found != long {
+			t.Fatalf("LookupFuzzy(x-2024-2024-08) = %v, want the longest qualifying key x-2024", found)
+		}
+	}
+	if found := cache.LookupFuzzy("gpt-4o-2024-08"); found == nil || found.Name != "GPT-4o" {
+		t.Errorf("LookupFuzzy(gpt-4o-2024-08) = %v, want gpt-4o via the year-month suffix", found)
+	}
+
+	// "gpt-4" is a prefix of "gpt-4o2024" and the remainder minus its first
+	// byte reads as a year, but "o2024" does not start a new "-" segment.
+	only := &ModelsDevCache{}
+	only.mu.Lock()
+	only.byID = map[string]*ModelsDevModelSpec{"gpt-4": {ID: "gpt-4", Name: "GPT-4"}}
+	only.loaded = true
+	only.mu.Unlock()
+	if found := only.LookupFuzzy("gpt-4o2024"); found != nil {
+		t.Errorf("LookupFuzzy(gpt-4o2024) = %v, want no match across a segment boundary", found.Name)
+	}
+}
+
 // ---------------------------------------------------------------------------
 // ModelsDevCache.EnrichModel
 // ---------------------------------------------------------------------------
@@ -416,6 +455,8 @@ func TestLoadModelsDevWithClient_InvalidJSON(t *testing.T) {
 }
 
 func TestLoadModelsDevWithClient_EmptyBody(t *testing.T) {
+	// {} parses, so load commits an empty catalog to the global cache.
+	isolateModelsDevCache(t)
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
 		w.Write([]byte("{}"))
@@ -466,6 +507,7 @@ func TestLoadModelsDevWithClient_ContextCancelled(t *testing.T) {
 }
 
 func TestLoadModelsDevWithClient_NilProvider(t *testing.T) {
+	isolateModelsDevCache(t)
 	// Test that nil providers are skipped
 	responseJSON := `{"provider1": null, "provider2": {"id": "p2", "models": {"m1": {"id": "m1", "name": "M1", "modalities": {"input": ["text"], "output": ["text"]}, "cost": {"input": 1, "output": 2}, "limit": {"context": 100, "output": 50}, "attachment": false, "reasoning": false, "tool_call": false, "open_weights": false}}}}`
 
@@ -491,6 +533,7 @@ func TestLoadModelsDevWithClient_NilProvider(t *testing.T) {
 }
 
 func TestLoadModelsDevWithClient_NilModel(t *testing.T) {
+	isolateModelsDevCache(t)
 	// Test that nil models are skipped
 	responseJSON := `{"provider1": {"id": "p1", "models": {"m1": null, "m2": {"id": "m2", "name": "M2", "modalities": {"input": ["text"], "output": ["text"]}, "cost": {"input": 1, "output": 2}, "limit": {"context": 100, "output": 50}, "attachment": false, "reasoning": false, "tool_call": false, "open_weights": false}}}}`
 
@@ -516,7 +559,31 @@ func TestLoadModelsDevWithClient_NilModel(t *testing.T) {
 	}
 }
 
+// A model listed under an empty key is indexed by its spec ID instead of being
+// dropped.
+func TestLoadModelsDevWithClient_EmptyModelKeyUsesSpecID(t *testing.T) {
+	isolateModelsDevCache(t)
+	responseJSON := `{"p1": {"id": "p1", "models": {"": {"id": "m3", "name": "M3"}}}}`
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_, _ = w.Write([]byte(responseJSON))
+	}))
+	defer server.Close()
+
+	client := &http.Client{Transport: &modelsDevTestTransport{url: server.URL}}
+	if err := LoadModelsDevWithClient(context.Background(), client); err != nil {
+		t.Fatalf("LoadModelsDevWithClient: %v", err)
+	}
+	cache := GetModelsDevCache()
+	if spec := cache.Lookup("m3"); spec == nil || spec.Name != "M3" {
+		t.Errorf("Lookup(m3) = %v, want the spec listed under the empty key", spec)
+	}
+	if cache.Lookup("") != nil {
+		t.Error("Lookup(\"\") found a spec, want it indexed by its ID only")
+	}
+}
+
 func TestLoadModelsDevWithClient_FirstProviderWins(t *testing.T) {
+	isolateModelsDevCache(t)
 	// Test that when same model ID appears in multiple providers, only one is kept
 	// Note: Go map iteration order is non-deterministic, so we can't guarantee
 	// which provider "wins", but we verify that exactly one entry exists

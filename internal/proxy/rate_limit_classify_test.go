@@ -515,6 +515,13 @@ func TestParseResetValue(t *testing.T) {
 	if got, ok := parseResetValue(strconv.FormatInt(future, 10)); !ok || got <= 80*time.Second || got > 91*time.Second {
 		t.Errorf("epoch-seconds reset parsed to (%v, %v), want ~90s", got, ok)
 	}
+	futureMs := time.Now().Add(90 * time.Second).UnixMilli()
+	if got, ok := parseResetValue(strconv.FormatInt(futureMs, 10)); !ok || got <= 80*time.Second || got > 91*time.Second {
+		t.Errorf("epoch-milliseconds reset parsed to (%v, %v), want ~90s", got, ok)
+	}
+	if _, ok := parseResetValue(strconv.FormatInt(time.Now().Add(-time.Minute).UnixMilli(), 10)); ok {
+		t.Error("a past epoch-milliseconds reset parsed as a wait")
+	}
 	// Anthropic's anthropic-ratelimit-*-reset headers are RFC 3339 times.
 	if got, ok := parseResetValue(time.Now().Add(90 * time.Second).UTC().Format(time.RFC3339)); !ok || got <= 80*time.Second || got > 91*time.Second {
 		t.Errorf("RFC 3339 reset parsed to (%v, %v), want ~90s", got, ok)

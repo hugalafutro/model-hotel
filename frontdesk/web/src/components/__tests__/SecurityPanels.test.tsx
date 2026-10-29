@@ -1,8 +1,8 @@
-import { render, screen, waitFor, within } from "@testing-library/react";
+import { act, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { HttpResponse, http } from "msw";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { onUnauthorized } from "../../api/client";
+import { api, onUnauthorized } from "../../api/client";
 import { ToastProvider } from "../../context/ToastContext";
 import i18n from "../../i18n";
 import { server } from "../../test/server";
@@ -513,5 +513,189 @@ describe("TotpPanel", () => {
 				toasts().getByText(i18n.t("common.failedToCopy")),
 			).toBeInTheDocument(),
 		);
+	});
+});
+
+describe("PasskeyPanel edge paths", () => {
+	const cred = (over: Partial<Record<string, unknown>>) => ({
+		id: "c1",
+		name: "Key",
+		transports: ["usb"],
+		created_at: "2026-06-01T10:00:00Z",
+		aaguid: "",
+		sign_count: 0,
+		...over,
+	});
+	const configured = (creds: unknown[]) =>
+		server.use(
+			http.get("/api/webauthn/available", () =>
+				HttpResponse.json({ enabled: true, has_credentials: true }),
+			),
+			http.get("/api/webauthn/credentials", () => HttpResponse.json(creds)),
+			http.get("/api/totp/status", () => HttpResponse.json({ enabled: false })),
+		);
+	const toasts = () => within(screen.getByRole("status"));
+
+	it("labels every known transport and passes an unknown one through", async () => {
+		configured([
+			cred({
+				id: "c1",
+				name: "",
+				transports: ["usb", "nfc", "ble", "hybrid", "smart-card"],
+			}),
+			cred({ id: "c2", name: "", transports: [] }),
+		]);
+		renderPanels();
+		const joined = [
+			i18n.t("settings.passkeys.transportUsb"),
+			i18n.t("settings.passkeys.transportNfc"),
+			i18n.t("settings.passkeys.transportBle"),
+			i18n.t("settings.passkeys.transportHybrid"),
+			"smart-card",
+		].join(", ");
+		expect(await screen.findByText(joined)).toBeInTheDocument();
+		// No name and no transports falls back to the generic label.
+		expect(
+			screen.getByText(i18n.t("settings.passkeys.securityKey")),
+		).toBeInTheDocument();
+	});
+
+	it("does not load credentials when unmounted before availability resolves", async () => {
+		// The availability read is held by a promise the test resolves after
+		// unmount; awaiting that same promise inside act lets the panel's own
+		// handler (registered first) run before the assertion.
+		let resolve!: (v: { enabled: boolean; has_credentials: boolean }) => void;
+		const pending = new Promise<{ enabled: boolean; has_credentials: boolean }>(
+			(r) => {
+				resolve = r;
+			},
+		);
+		const available = vi
+			.spyOn(api, "webauthnAvailable")
+			.mockReturnValue(pending);
+		const list = vi.spyOn(api, "webauthnListCredentials");
+		server.use(
+			http.get("/api/totp/status", () => HttpResponse.json({ enabled: false })),
+		);
+		const { unmount } = renderPanels();
+		expect(available).toHaveBeenCalledTimes(1);
+		unmount();
+		await act(async () => {
+			resolve({ enabled: true, has_credentials: true });
+			await pending;
+		});
+		expect(list).not.toHaveBeenCalled();
+		available.mockRestore();
+		list.mockRestore();
+	});
+
+	it("cancelling the delete confirmation removes nothing", async () => {
+		let deleted = false;
+		configured([cred({})]);
+		server.use(
+			http.delete("/api/webauthn/credentials/c1", () => {
+				deleted = true;
+				return new HttpResponse(null, { status: 204 });
+			}),
+		);
+		renderPanels();
+		await userEvent.click(
+			await screen.findByRole("button", {
+				name: i18n.t("settings.passkeys.deleteLabelFor", { name: "Key" }),
+			}),
+		);
+		const dialog = await screen.findByRole("dialog");
+		await userEvent.click(
+			within(dialog).getByRole("button", { name: i18n.t("common.cancel") }),
+		);
+		await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+		expect(deleted).toBe(false);
+	});
+
+	it("toasts deleteFailed when the delete call fails", async () => {
+		configured([cred({})]);
+		server.use(
+			http.delete("/api/webauthn/credentials/c1", () =>
+				HttpResponse.json({ error: "boom" }, { status: 500 }),
+			),
+		);
+		renderPanels();
+		await userEvent.click(
+			await screen.findByRole("button", {
+				name: i18n.t("settings.passkeys.deleteLabelFor", { name: "Key" }),
+			}),
+		);
+		const dialog = await screen.findByRole("dialog");
+		await userEvent.click(
+			within(dialog).getByRole("button", { name: i18n.t("common.remove") }),
+		);
+		await waitFor(() =>
+			expect(
+				toasts().getByText(i18n.t("settings.passkeys.deleteFailed")),
+			).toBeInTheDocument(),
+		);
+	});
+
+	it("Enter saves a rename and a failed rename toasts renameFailed", async () => {
+		configured([cred({ name: "Old" })]);
+		server.use(
+			http.patch("/api/webauthn/credentials/c1", () =>
+				HttpResponse.json({ error: "boom" }, { status: 500 }),
+			),
+		);
+		renderPanels();
+		await userEvent.click(
+			await screen.findByRole("button", {
+				name: i18n.t("settings.passkeys.renameLabelFor", { name: "Old" }),
+			}),
+		);
+		const input = screen.getByLabelText(i18n.t("settings.passkeys.nameLabel"));
+		await userEvent.clear(input);
+		await userEvent.type(input, "New{Enter}");
+		await waitFor(() =>
+			expect(
+				toasts().getByText(i18n.t("settings.passkeys.renameFailed")),
+			).toBeInTheDocument(),
+		);
+	});
+
+	it("Escape leaves rename mode without saving", async () => {
+		let patched = false;
+		configured([cred({ name: "Old" })]);
+		server.use(
+			http.patch("/api/webauthn/credentials/c1", () => {
+				patched = true;
+				return new HttpResponse(null, { status: 204 });
+			}),
+		);
+		renderPanels();
+		await userEvent.click(
+			await screen.findByRole("button", {
+				name: i18n.t("settings.passkeys.renameLabelFor", { name: "Old" }),
+			}),
+		);
+		const input = screen.getByLabelText(i18n.t("settings.passkeys.nameLabel"));
+		await userEvent.type(input, "x{Escape}");
+		expect(
+			screen.queryByLabelText(i18n.t("settings.passkeys.nameLabel")),
+		).toBeNull();
+		expect(patched).toBe(false);
+	});
+	it("the cancel button leaves rename mode with the saved name intact", async () => {
+		configured([cred({ name: "Old" })]);
+		renderPanels();
+		const label = i18n.t("settings.passkeys.renameLabelFor", { name: "Old" });
+		await userEvent.click(await screen.findByRole("button", { name: label }));
+		await userEvent.type(
+			screen.getByLabelText(i18n.t("settings.passkeys.nameLabel")),
+			"zzz",
+		);
+		await userEvent.click(
+			screen.getByRole("button", { name: i18n.t("common.cancel") }),
+		);
+		expect(
+			screen.queryByLabelText(i18n.t("settings.passkeys.nameLabel")),
+		).toBeNull();
+		expect(screen.getByRole("button", { name: label })).toBeInTheDocument();
 	});
 });

@@ -171,4 +171,74 @@ describe("startIdleLogout", () => {
 		vi.advanceTimersByTime(60_000);
 		expect(onTimeout).not.toHaveBeenCalled();
 	});
+
+	it("ignores peer storage events for other keys, empty values and non-numbers", () => {
+		const onTimeout = vi.fn();
+		const stop = startIdleLogout({
+			timeoutMs: 5000,
+			onTimeout,
+			storageKey: key,
+		});
+		const later = String(Date.now() + 60_000);
+		window.dispatchEvent(
+			new StorageEvent("storage", { key: "someone-else", newValue: later }),
+		);
+		window.dispatchEvent(new StorageEvent("storage", { key, newValue: "" }));
+		window.dispatchEvent(
+			new StorageEvent("storage", { key, newValue: "not-a-number" }),
+		);
+		// None of them moved the original deadline.
+		vi.advanceTimersByTime(5000);
+		expect(onTimeout).toHaveBeenCalledTimes(1);
+		stop();
+	});
+
+	it("does nothing when the tab is hidden, and re-arms from the shared timestamp when it returns early", () => {
+		const onTimeout = vi.fn();
+		const stop = startIdleLogout({
+			timeoutMs: 5000,
+			onTimeout,
+			storageKey: key,
+		});
+		const visibility = vi.spyOn(document, "visibilityState", "get");
+
+		// Hidden: even a long-expired shared timestamp does not log out.
+		visibility.mockReturnValue("hidden");
+		localStorage.setItem(key, String(Date.now() - 10_000));
+		document.dispatchEvent(new Event("visibilitychange"));
+		expect(onTimeout).not.toHaveBeenCalled();
+
+		// Visible with a peer's recent activity (4s from now is still inside the
+		// window): the deadline moves to that timestamp plus the timeout.
+		visibility.mockReturnValue("visible");
+		localStorage.setItem(key, String(Date.now() + 4000));
+		document.dispatchEvent(new Event("visibilitychange"));
+		vi.advanceTimersByTime(8999);
+		expect(onTimeout).not.toHaveBeenCalled();
+		vi.advanceTimersByTime(1);
+		expect(onTimeout).toHaveBeenCalledTimes(1);
+		visibility.mockRestore();
+		stop();
+	});
+
+	it("treats unreadable storage as no shared timestamp", () => {
+		const onTimeout = vi.fn();
+		const getItem = vi
+			.spyOn(Storage.prototype, "getItem")
+			.mockImplementation(() => {
+				throw new Error("storage disabled");
+			});
+		const stop = startIdleLogout({
+			timeoutMs: 5000,
+			onTimeout,
+			storageKey: key,
+		});
+		// Startup fell back to "now", so the full window still applies.
+		vi.advanceTimersByTime(4999);
+		expect(onTimeout).not.toHaveBeenCalled();
+		vi.advanceTimersByTime(1);
+		expect(onTimeout).toHaveBeenCalledTimes(1);
+		getItem.mockRestore();
+		stop();
+	});
 });

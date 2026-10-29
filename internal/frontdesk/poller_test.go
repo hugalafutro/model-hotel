@@ -902,3 +902,458 @@ func TestPollOfRemovedMemberCommitsNothing(t *testing.T) {
 	default:
 	}
 }
+
+// A stored threshold below 1 would report a member down on its first failed
+// poll (or never, at zero), so a readable but invalid row falls back to 3.
+func TestHealthFailThresholdDefaultsWhenInvalid(t *testing.T) {
+	p, store, _ := newTestPoller(t, "")
+	if _, err := store.db.Exec(`UPDATE settings SET health_fail_threshold = 0 WHERE id = 1`); err != nil {
+		t.Fatalf("zero the threshold: %v", err)
+	}
+	if got := p.healthFailThreshold(context.Background()); got != 3 {
+		t.Errorf("threshold with a stored 0 = %d, want the default 3", got)
+	}
+}
+
+// secs turns a stored interval into a duration, substituting the fallback for an
+// unset or invalid (below one second) value so a bad row cannot spin a loop.
+func TestSecsFallsBackBelowOneSecond(t *testing.T) {
+	for _, c := range []struct {
+		n    int
+		want time.Duration
+	}{
+		{0, 7 * time.Second},
+		{-1, 7 * time.Second},
+		{4, 4 * time.Second},
+	} {
+		if got := secs(c.n, 7); got != c.want {
+			t.Errorf("secs(%d, 7) = %v, want %v", c.n, got, c.want)
+		}
+	}
+}
+
+// A member URL the request cannot even be built from is reported down with the
+// parse error, and that error is redacted like a dial error: it quotes the URL,
+// which can carry userinfo on a row stored before the rejection.
+func TestCheckHealthRedactsUnbuildableURLError(t *testing.T) {
+	p, _, _ := newTestPoller(t, "")
+	hs := p.checkHealth(context.Background(), "http://leakuser:leakpass@127.0.0.1:1/%zz")
+	if !hs.Known || hs.Healthy {
+		t.Fatalf("an unbuildable URL should report known-down: %+v", hs)
+	}
+	if !strings.Contains(hs.Error, "invalid URL escape") {
+		t.Errorf("error = %q, want the request-build failure", hs.Error)
+	}
+	if strings.Contains(hs.Error, "leakuser") || strings.Contains(hs.Error, "leakpass") {
+		t.Errorf("health error still carries credentials: %q", hs.Error)
+	}
+}
+
+// tickLoop runs its poll again once the interval elapses, and stops when the
+// context ends. The poll cancels the context on its second run, so exactly two
+// runs prove the wait both elapsed and ended the loop.
+func TestTickLoopRerunsAfterInterval(t *testing.T) {
+	p, _, _ := newTestPoller(t, "")
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	runs := 0
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		p.tickLoop(ctx, func(Settings) time.Duration { return time.Millisecond }, func(context.Context) {
+			runs++
+			if runs == 2 {
+				cancel()
+			}
+		})
+	}()
+	select {
+	case <-done:
+	case <-time.After(5 * time.Second):
+		t.Fatal("tickLoop did not stop after the context was cancelled")
+	}
+	if runs != 2 {
+		t.Errorf("poll ran %d times, want 2", runs)
+	}
+}
+
+// TestPollerRunTicksAndStops exercises Run + tickLoop and one tick of every poll
+// loop, then confirms Run returns once the context is cancelled.
+func TestPollerRunTicksAndStops(t *testing.T) {
+	traefik := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		_, _ = w.Write([]byte("{}"))
+	}))
+	defer traefik.Close()
+
+	member := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == memberHealthPath {
+			_, _ = w.Write([]byte("OK"))
+			return
+		}
+		w.WriteHeader(http.StatusNotFound)
+	}))
+	defer member.Close()
+
+	p, store, _ := newTestPoller(t, traefik.URL)
+	if _, err := store.CreateMember(context.Background(), "m1", member.URL, ""); err != nil {
+		t.Fatalf("CreateMember: %v", err)
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 200*time.Millisecond)
+	defer cancel()
+	done := make(chan struct{})
+	go func() {
+		p.Run(ctx)
+		close(done)
+	}()
+	select {
+	case <-done:
+	case <-time.After(5 * time.Second):
+		t.Fatal("Run did not return after the context was cancelled")
+	}
+	if snap := p.Snapshot(); len(snap) == 0 {
+		t.Error("expected at least one member status after a health tick")
+	}
+}
+
+// TestPollerPollsHandleStoreErrors confirms the poll loops degrade gracefully
+// (log and return, never panic) when the store is unavailable, and that
+// settings() falls back to defaults.
+func TestPollerPollsHandleStoreErrors(t *testing.T) {
+	p, store, _ := newTestPoller(t, "")
+	if err := store.Close(); err != nil {
+		t.Fatalf("close: %v", err)
+	}
+	ctx := context.Background()
+	p.PollHealthOnce(ctx)
+	p.PollVersionsOnce(ctx)
+	p.PollTraefikOnce(ctx)
+	p.checkConfigStaleness(ctx)
+	if s := p.settings(ctx); s.HealthPollSecs == 0 {
+		t.Error("settings() should fall back to defaults when the store errors")
+	}
+}
+
+// TestPollHealthOnceReportsDown covers the per-member health loop and the
+// down-transition event path. The threshold is set to 1 so a single poll
+// confirms down (the debounce itself is covered in poller_test.go).
+func TestPollHealthOnceReportsDown(t *testing.T) {
+	down := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusServiceUnavailable)
+	}))
+	defer down.Close()
+
+	p, store, _ := newTestPoller(t, "")
+	ctx := context.Background()
+	m, err := store.CreateMember(ctx, "m1", down.URL, "")
+	if err != nil {
+		t.Fatalf("CreateMember: %v", err)
+	}
+
+	set, err := store.GetSettings(ctx)
+	if err != nil {
+		t.Fatalf("GetSettings: %v", err)
+	}
+	set.HealthFailThreshold = 1
+	if err := store.UpdateSettings(ctx, set); err != nil {
+		t.Fatalf("UpdateSettings: %v", err)
+	}
+
+	p.PollHealthOnce(ctx)
+
+	st, ok := p.Snapshot()[m.ID]
+	if !ok || !st.Health.Known || st.Health.Healthy {
+		t.Fatalf("expected a known-unhealthy status, got %+v (ok=%v)", st, ok)
+	}
+	evs, _, err := store.ListEvents(ctx, EventFilter{Type: "health.down", Limit: 10})
+	if err != nil {
+		t.Fatalf("ListEvents: %v", err)
+	}
+	if len(evs) == 0 {
+		t.Error("expected a health.down event to be recorded")
+	}
+}
+
+// TestPollVersionsOnceRecordsVersion covers the success path of version polling:
+// a member that serves its settings API has its app_version recorded on the
+// status snapshot (the data behind the version-mismatch UI).
+func TestPollVersionsOnceRecordsVersion(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == memberSettingsPath && r.Header.Get("Authorization") != "" {
+			_, _ = w.Write([]byte(`{"app_version":"1.2.3"}`))
+			return
+		}
+		w.WriteHeader(http.StatusNotFound)
+	}))
+	defer srv.Close()
+
+	p, store, bus := newTestPoller(t, "")
+	ctx := context.Background()
+	m, err := store.CreateMember(ctx, "m1", srv.URL, "admin-token")
+	if err != nil {
+		t.Fatalf("CreateMember: %v", err)
+	}
+
+	ch := bus.Subscribe()
+	defer bus.Unsubscribe(ch)
+
+	p.PollVersionsOnce(ctx)
+
+	if got := p.Snapshot()[m.ID].Version; got != "1.2.3" {
+		t.Errorf("recorded version = %q, want 1.2.3", got)
+	}
+	// A first-seen version nudges the UI to refetch without a manual reload.
+	if !sawMemberStatus(ch) {
+		t.Error("first version read should emit a member.status nudge")
+	}
+}
+
+// sawMemberStatus drains the bus channel and reports whether a member.status
+// UI-refresh nudge was published (the signal the Members tab refetches on).
+func sawMemberStatus(ch chan events.Event) bool {
+	for {
+		select {
+		case ev := <-ch:
+			if ev.Type == "member.status" {
+				return true
+			}
+		default:
+			return false
+		}
+	}
+}
+
+// TestPollTraefikOnceUpdatesStatus covers the success path of Traefik-status
+// polling: a member listed UP in Traefik's services API gets that status on its
+// snapshot (the data behind the Members tab Traefik column).
+func TestPollTraefikOnceUpdatesStatus(t *testing.T) {
+	ctx := context.Background()
+	store := newTestStore(t)
+	m, err := store.CreateMember(ctx, "m1", "http://m1:8081", "")
+	if err != nil {
+		t.Fatalf("CreateMember: %v", err)
+	}
+
+	// The Traefik services response references the member's stored URL so the
+	// status maps back onto it.
+	traefik := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == traefikServicesAPI {
+			_, _ = w.Write([]byte(`[{"name":"hotel@http","serverStatus":{"` + m.URL + `":"UP"}}]`))
+			return
+		}
+		w.WriteHeader(http.StatusNotFound)
+	}))
+	defer traefik.Close()
+
+	bus := events.NewBus()
+	p := NewPoller(store, bus, traefik.URL)
+	ch := bus.Subscribe()
+	defer bus.Unsubscribe(ch)
+
+	p.PollTraefikOnce(ctx)
+
+	if got := p.Snapshot()[m.ID].TraefikStatus; got != "UP" {
+		t.Errorf("traefik status = %q, want UP", got)
+	}
+	// Traefik catching up to a member emits a member.status nudge so the column
+	// fills without a manual reload.
+	if !sawMemberStatus(ch) {
+		t.Error("first Traefik status should emit a member.status nudge")
+	}
+
+	// A second identical poll must not re-nudge: the status did not change.
+	p.PollTraefikOnce(ctx)
+	if sawMemberStatus(ch) {
+		t.Error("unchanged Traefik status should not emit a nudge")
+	}
+}
+
+// TestPollTraefikOnceDampsDownFlip covers the rebuild-tolerance path: a member
+// briefly marked DOWN (or unlisted) must not flip the badge until the non-UP
+// status has been seen `health_fail_threshold` polls in a row; recovery to UP
+// is immediate.
+func TestPollTraefikOnceDampsDownFlip(t *testing.T) {
+	ctx := context.Background()
+	store := newTestStore(t)
+	m, err := store.CreateMember(ctx, "m1", "http://m1:8081", "")
+	if err != nil {
+		t.Fatalf("CreateMember: %v", err)
+	}
+
+	var status atomic.Value // current serverStatus string, "" = unlisted
+	status.Store("UP")
+	traefik := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != traefikServicesAPI {
+			w.WriteHeader(http.StatusNotFound)
+			return
+		}
+		s, _ := status.Load().(string)
+		if s == "" {
+			_, _ = w.Write([]byte(`[]`)) // Traefik no longer lists the member
+			return
+		}
+		_, _ = w.Write([]byte(`[{"name":"hotel@http","serverStatus":{"` + m.URL + `":"` + s + `"}}]`))
+	}))
+	defer traefik.Close()
+
+	p := NewPoller(store, events.NewBus(), traefik.URL)
+	// Configure a grace window (threshold >= 2) so the DOWN status is held back.
+	set, err := store.GetSettings(ctx)
+	if err != nil {
+		t.Fatalf("get settings: %v", err)
+	}
+	set.HealthFailThreshold = 3
+	if err := store.UpdateSettings(ctx, set); err != nil {
+		t.Fatalf("update settings: %v", err)
+	}
+	thr := p.healthFailThreshold(ctx)
+	if thr < 2 {
+		t.Fatalf("expected grace window (threshold >= 2) after configuring, got %d", thr)
+	}
+
+	p.PollTraefikOnce(ctx)
+	if got := p.Snapshot()[m.ID].TraefikStatus; got != "UP" {
+		t.Fatalf("baseline traefik status = %q, want UP", got)
+	}
+
+	// Below threshold the DOWN status is held back: the badge stays UP.
+	status.Store("DOWN")
+	for i := 1; i < thr; i++ {
+		p.PollTraefikOnce(ctx)
+		if got := p.Snapshot()[m.ID].TraefikStatus; got != "UP" {
+			t.Errorf("poll %d: badge should stay UP during grace, got %q", i, got)
+		}
+	}
+	// The threshold-th consecutive non-UP observation commits the flip.
+	p.PollTraefikOnce(ctx)
+	if got := p.Snapshot()[m.ID].TraefikStatus; got != "DOWN" {
+		t.Errorf("threshold-th DOWN should commit, got %q", got)
+	}
+
+	// Recovery is immediate.
+	status.Store("UP")
+	p.PollTraefikOnce(ctx)
+	if got := p.Snapshot()[m.ID].TraefikStatus; got != "UP" {
+		t.Errorf("recovery to UP should be immediate, got %q", got)
+	}
+}
+
+// TestPollTraefikOnceBlanksStatusAfterAPIFailures covers the Traefik-API-down
+// path: once the Traefik API itself stops answering for `health_fail_threshold`
+// polls in a row, every member's TraefikStatus must blank (rendering as the
+// faint "unknown") instead of freezing at its last live-looking value.
+func TestPollTraefikOnceBlanksStatusAfterAPIFailures(t *testing.T) {
+	ctx := context.Background()
+	store := newTestStore(t)
+	m, err := store.CreateMember(ctx, "m1", "http://m1:8081", "")
+	if err != nil {
+		t.Fatalf("CreateMember: %v", err)
+	}
+
+	// apiDown toggles the Traefik API between answering (200 with the member's UP
+	// status) and failing (500), so the outage and the recovery can both be driven
+	// without tearing the server down. The services response references the
+	// member's stored URL so the status maps back onto it.
+	var apiDown atomic.Bool
+	stub := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if apiDown.Load() {
+			w.WriteHeader(http.StatusInternalServerError)
+			return
+		}
+		if r.URL.Path == traefikServicesAPI {
+			_, _ = w.Write([]byte(`[{"name":"hotel@http","serverStatus":{"` + m.URL + `":"UP"}}]`))
+			return
+		}
+		w.WriteHeader(http.StatusNotFound)
+	}))
+	defer stub.Close()
+
+	p := NewPoller(store, events.NewBus(), stub.URL)
+	threshold := p.healthFailThreshold(ctx)
+
+	p.PollTraefikOnce(ctx) // seeds "UP"
+	if got := p.Snapshot()[m.ID].TraefikStatus; got != "UP" {
+		t.Fatalf("seed status = %q, want UP", got)
+	}
+
+	// Traefik's API goes down. Below the threshold the last live value is held.
+	apiDown.Store(true)
+	for i := 0; i < threshold-1; i++ {
+		p.PollTraefikOnce(ctx)
+		if got := p.Snapshot()[m.ID].TraefikStatus; got != "UP" {
+			t.Fatalf("blanked after %d failures, want hold until %d", i+1, threshold)
+		}
+	}
+	// The threshold-th consecutive failure blanks the badge.
+	p.PollTraefikOnce(ctx)
+	if got := p.Snapshot()[m.ID].TraefikStatus; got != "" {
+		t.Fatalf("status after %d failed polls = %q, want blank", threshold, got)
+	}
+	p.mu.Lock()
+	blanked, fails := p.traefikBlanked, p.traefikAPIFails
+	p.mu.Unlock()
+	if !blanked || fails != threshold {
+		t.Fatalf("after blanking: traefikBlanked=%v traefikAPIFails=%d, want true and %d", blanked, fails, threshold)
+	}
+
+	// Further failed polls while blanked neither re-blank nor advance the counter.
+	p.PollTraefikOnce(ctx)
+	p.mu.Lock()
+	fails = p.traefikAPIFails
+	p.mu.Unlock()
+	if fails != threshold {
+		t.Fatalf("counter advanced past threshold while blanked: got %d, want %d", fails, threshold)
+	}
+
+	// Recovery: the API answers again, so the next successful poll repopulates the
+	// badge and resets the outage flags (a regression deleting either reset would
+	// leave the badge blank or the flags stuck).
+	apiDown.Store(false)
+	p.PollTraefikOnce(ctx)
+	if got := p.Snapshot()[m.ID].TraefikStatus; got != "UP" {
+		t.Fatalf("recovery status = %q, want UP", got)
+	}
+	p.mu.Lock()
+	blanked, fails = p.traefikBlanked, p.traefikAPIFails
+	p.mu.Unlock()
+	if blanked || fails != 0 {
+		t.Fatalf("after recovery: traefikBlanked=%v traefikAPIFails=%d, want false and 0", blanked, fails)
+	}
+}
+
+// TestPruneEventsOnceAppliesRetention covers the retention tick: events past the
+// configured window are deleted, so the operator-set event_retention_days is
+// actually applied instead of being a stored no-op.
+func TestPruneEventsOnceAppliesRetention(t *testing.T) {
+	p, store, _ := newTestPoller(t, "")
+	ctx := context.Background()
+
+	set, err := store.GetSettings(ctx)
+	if err != nil {
+		t.Fatalf("GetSettings: %v", err)
+	}
+	set.EventRetentionDays = 7
+	if err := store.UpdateSettings(ctx, set); err != nil {
+		t.Fatalf("UpdateSettings: %v", err)
+	}
+
+	if _, err := store.InsertEvent(ctx, Event{
+		Type: "health.down", Severity: "error", Source: "x", Message: "ancient",
+		CreatedAt: time.Now().Add(-30 * 24 * time.Hour),
+	}); err != nil {
+		t.Fatalf("InsertEvent old: %v", err)
+	}
+	if _, err := store.InsertEvent(ctx, Event{Type: "health.up", Severity: "success", Source: "x", Message: "fresh"}); err != nil {
+		t.Fatalf("InsertEvent new: %v", err)
+	}
+
+	p.PruneEventsOnce(ctx)
+
+	evs, total, err := store.ListEvents(ctx, EventFilter{})
+	if err != nil {
+		t.Fatalf("ListEvents: %v", err)
+	}
+	if total != 1 || evs[0].Message != "fresh" {
+		t.Errorf("after the retention tick events = %+v, want only the fresh one", evs)
+	}
+}

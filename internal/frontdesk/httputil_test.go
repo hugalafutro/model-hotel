@@ -6,7 +6,9 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
+	"testing/fstest"
 
 	"github.com/hugalafutro/model-hotel/internal/httpx"
 )
@@ -35,5 +37,34 @@ func TestWriteError_StatusFollowsTheCause(t *testing.T) {
 				t.Errorf("status = %d, want %d", w.Code, tt.want)
 			}
 		})
+	}
+}
+
+// TestSPAHandlerServesAssetsAndIndex covers spaHandler: a concrete asset is
+// served directly, and any unknown route falls back to index.html.
+func TestSPAHandlerServesAssetsAndIndex(t *testing.T) {
+	fsys := fstest.MapFS{
+		"index.html":    &fstest.MapFile{Data: []byte("<!doctype html><title>fd</title>")},
+		"assets/app.js": &fstest.MapFile{Data: []byte("console.log(1)")},
+	}
+	h := spaHandler(fsys)
+
+	rec := httptest.NewRecorder()
+	h.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/assets/app.js", http.NoBody))
+	if rec.Code != http.StatusOK || !strings.Contains(rec.Body.String(), "console.log") {
+		t.Errorf("asset request = %d body=%q", rec.Code, rec.Body.String())
+	}
+
+	rec = httptest.NewRecorder()
+	h.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/some/spa/route", http.NoBody))
+	if rec.Code != http.StatusOK || !strings.Contains(rec.Body.String(), "<title>fd</title>") {
+		t.Errorf("spa fallback = %d body=%q", rec.Code, rec.Body.String())
+	}
+
+	// A chunk from before a redeploy must 404, not come back as index.html.
+	rec = httptest.NewRecorder()
+	h.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/assets/gone-deadbeef.js", http.NoBody))
+	if rec.Code != http.StatusNotFound {
+		t.Errorf("missing asset = %d, want 404", rec.Code)
 	}
 }

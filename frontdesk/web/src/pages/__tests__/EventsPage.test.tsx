@@ -1,9 +1,18 @@
-import { act, render, screen, waitFor, within } from "@testing-library/react";
+import {
+	act,
+	fireEvent,
+	render,
+	screen,
+	waitFor,
+	within,
+} from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { HttpResponse, http } from "msw";
-import { beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { api } from "../../api/client";
 import type { FdEvent } from "../../api/types";
 import { ToastProvider } from "../../context/ToastContext";
+import i18n from "../../i18n";
 import { server } from "../../test/server";
 import { sseEmitting, sseHandler } from "../../test/sse";
 import { EventsPage } from "../EventsPage";
@@ -124,47 +133,40 @@ describe("EventsPage", () => {
 	// whichever lands last would put page 2's rows under a page-1 counter, so a
 	// superseded response is dropped.
 	it("ignores a superseded page response that lands last", async () => {
-		let seen = 0;
-		// The page-2 read is held open by a promise the test releases, and it
-		// reports back once its body has been handed to the client. Both halves
-		// are explicit signals: a wall-clock wait could expire before the held
-		// response existed, and the assertions below would then hold vacuously.
-		let release!: () => void;
-		const held = new Promise<void>((r) => {
-			release = r;
+		// The page-2 read is held by a promise the test resolves after the page
+		// has moved back to page 1. Awaiting that same promise inside act runs the
+		// page's own then-handler (attached first) before the rows are read, so a
+		// stale response that was applied would already be on screen.
+		const page = (offset: number) => ({
+			events: Array.from({ length: offset === 0 ? 25 : 5 }, (_, i) =>
+				ev(`${offset + i}`),
+			),
+			total: 30,
 		});
-		let served!: () => void;
-		const landed = new Promise<void>((r) => {
-			served = r;
+		let resolvePage2!: (v: ReturnType<typeof page>) => void;
+		const page2 = new Promise<ReturnType<typeof page>>((r) => {
+			resolvePage2 = r;
 		});
-		server.use(
-			http.get("/api/events", async ({ request }) => {
-				const offset = Number(new URL(request.url).searchParams.get("offset"));
-				seen += 1;
-				const mine = seen;
-				// Hold the second read (page 2) open past the third (back to page 1).
-				if (mine === 2) await held;
-				const events = Array.from({ length: offset === 0 ? 25 : 5 }, (_, i) =>
-					ev(`${offset + i}`),
-				);
-				if (mine === 2) setTimeout(served, 0);
-				return HttpResponse.json({ events, total: 30 });
-			}),
-		);
+		const listEvents = vi
+			.spyOn(api, "listEvents")
+			.mockImplementation((params: URLSearchParams) =>
+				params.get("offset") === "25"
+					? page2
+					: Promise.resolve(page(Number(params.get("offset")))),
+			);
 		renderPage();
 		await screen.findByText("event 0");
 		await userEvent.click(screen.getByRole("button", { name: /Next/i }));
 		await userEvent.click(screen.getByRole("button", { name: /Previous/i }));
 		await screen.findByText("event 0");
-		release();
-		await landed;
-		// One more turn of the loop, so the superseded response has been through
-		// the client before the rows are read.
 		await act(async () => {
-			await new Promise((r) => setTimeout(r, 0));
+			resolvePage2(page(25));
+			await page2;
 		});
+		expect(listEvents).toHaveBeenCalledTimes(3);
 		expect(screen.getByText("event 0")).toBeInTheDocument();
 		expect(screen.queryByText("event 25")).toBeNull();
+		listEvents.mockRestore();
 	});
 
 	it("resets to the first page when filters are cleared", async () => {
@@ -228,5 +230,124 @@ describe("EventsPage", () => {
 		// Only the refetch the event triggered can surface it.
 		expect(await screen.findByText("fresh event")).toBeInTheDocument();
 		expect(calls).toBe(2);
+	});
+});
+
+describe("EventsPage filters and rows", () => {
+	afterEach(() => {
+		vi.restoreAllMocks();
+	});
+
+	it("gives each severity its own badge class", async () => {
+		server.use(
+			http.get("/api/events", () =>
+				HttpResponse.json({
+					events: [
+						ev("1", { severity: "success", message: "m-success" }),
+						ev("2", { severity: "warning", message: "m-warning" }),
+						ev("3", { severity: "error", message: "m-error" }),
+						ev("4", { severity: "info", message: "m-info" }),
+					],
+					total: 4,
+				}),
+			),
+		);
+		renderPage();
+		const badge = async (sev: string) => {
+			const row = (await screen.findByText(`m-${sev}`)).closest(
+				"tr",
+			) as HTMLElement;
+			return within(row).getByText(
+				i18n.t(`events.sev${sev[0].toUpperCase()}${sev.slice(1)}`),
+			);
+		};
+		expect(await badge("success")).toHaveClass("ui-badge-ok");
+		expect(await badge("warning")).toHaveClass("ui-badge-warn");
+		expect(await badge("error")).toHaveClass("ui-badge-danger");
+		expect(await badge("info")).toHaveClass("ui-badge-info");
+	});
+
+	it("shows the network error when the read fails", async () => {
+		server.use(
+			http.get("/api/events", () =>
+				HttpResponse.json({ error: "down" }, { status: 500 }),
+			),
+		);
+		renderPage();
+		expect(
+			await screen.findByText(i18n.t("errors.network")),
+		).toBeInTheDocument();
+	});
+
+	it("names a known member, falls back to the raw id, and filters by member and type", async () => {
+		const seen: URLSearchParams[] = [];
+		server.use(
+			http.get("/api/members", () =>
+				HttpResponse.json([
+					{
+						id: "m1",
+						name: "hotel-one",
+						url: "https://one.example.com",
+						state: "active",
+						has_token: true,
+						created_at: "",
+						updated_at: "",
+					},
+				]),
+			),
+			http.get("/api/events", ({ request }) => {
+				seen.push(new URL(request.url).searchParams);
+				return HttpResponse.json({
+					events: [
+						ev("1", { member_id: "m1", message: "known" }),
+						ev("2", { member_id: "gone", message: "orphan" }),
+					],
+					total: 2,
+				});
+			}),
+		);
+		renderPage();
+		const known = (await screen.findByText("known")).closest("td");
+		await waitFor(() => expect(known).toHaveTextContent("· hotel-one"));
+		expect((await screen.findByText("orphan")).closest("td")).toHaveTextContent(
+			"· gone",
+		);
+
+		await userEvent.selectOptions(
+			screen.getByLabelText(i18n.t("events.filterMember")),
+			"m1",
+		);
+		await waitFor(() => expect(seen.at(-1)?.get("member_id")).toBe("m1"));
+		await userEvent.selectOptions(
+			screen.getByLabelText(i18n.t("events.filterType")),
+			"member.added",
+		);
+		await waitFor(() => expect(seen.at(-1)?.get("type")).toBe("member.added"));
+		expect(seen.at(-1)?.get("member_id")).toBe("m1");
+	});
+
+	it("pages with the horizontal wheel over the table", async () => {
+		let clock = 0;
+		// Each wheel event reads as a fresh gesture (gap over the idle threshold).
+		vi.spyOn(Date, "now").mockImplementation(() => {
+			clock += 1000;
+			return clock;
+		});
+		const offsets: number[] = [];
+		server.use(
+			http.get("/api/events", ({ request }) => {
+				const offset = Number(new URL(request.url).searchParams.get("offset"));
+				offsets.push(offset);
+				return HttpResponse.json({ events: [ev(`${offset}`)], total: 30 });
+			}),
+		);
+		renderPage();
+		await screen.findByText("event 0");
+		const scroller = screen.getByRole("table").parentElement as HTMLElement;
+		fireEvent.wheel(scroller, { deltaX: 120, deltaY: 0 });
+		expect(await screen.findByText("event 25")).toBeInTheDocument();
+		fireEvent.wheel(scroller, { deltaX: -120, deltaY: 0 });
+		expect(await screen.findByText("event 0")).toBeInTheDocument();
+		expect(offsets).toEqual([0, 25, 0]);
 	});
 });

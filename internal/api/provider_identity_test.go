@@ -10,6 +10,7 @@ import (
 
 	"github.com/google/uuid"
 
+	"github.com/hugalafutro/model-hotel/internal/auth"
 	"github.com/hugalafutro/model-hotel/internal/config"
 	"github.com/hugalafutro/model-hotel/internal/provider"
 )
@@ -160,4 +161,83 @@ func koboldcppTestServer(t *testing.T) *httptest.Server {
 		}
 		w.WriteHeader(http.StatusNotFound)
 	}))
+}
+
+// A type correction that also carries a new key probes the server with that
+// key, not the stored one, and stores it encrypted in place of the old one.
+// The same correction without a key hands the store no key columns, so the
+// stored key stays.
+func TestUpdateProvider_TypeCorrectionProbesWithTheNewKey(t *testing.T) {
+	var probeAuth []string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/api/extra/version" {
+			probeAuth = append(probeAuth, r.Header.Get("Authorization"))
+			w.Header().Set("Content-Type", "application/json")
+			_, _ = w.Write([]byte(`{"result":"KoboldCpp","version":"1.119"}`))
+			return
+		}
+		w.WriteHeader(http.StatusNotFound)
+	}))
+	defer srv.Close()
+
+	oldEnc, err := auth.Encrypt("sk-stored-local-key", secretTestMasterKey)
+	if err != nil {
+		t.Fatal(err)
+	}
+	stored := &provider.Provider{
+		ID: uuid.New(), Name: "KoboldCpp", BaseURL: srv.URL + "/v1", ProviderType: "openai",
+		EncryptedKey: oldEnc.Ciphertext, KeyNonce: oldEnc.Nonce, KeySalt: oldEnc.Salt,
+	}
+	var captured provider.UpdateProviderRequest
+	h, id := identityHandler(t, stored, &captured)
+	h.cfg.MasterKey = secretTestMasterKey
+	var gotKey, gotNonce, gotSalt []byte
+	h.providerRepo.(*mockProviderStore).updateFn = func(_ context.Context, _ uuid.UUID, req provider.UpdateProviderRequest, enc, nonce, salt []byte) (*provider.Provider, error) {
+		captured, gotKey, gotNonce, gotSalt = req, enc, nonce, salt
+		return stored, nil
+	}
+	withDiscoveryAgainst(h, srv.Client())
+
+	w := doUpdate(t, h, id, `{"provider_type":"koboldcpp","api_key":"sk-new-local-key"}`)
+	if w.Code != http.StatusOK {
+		t.Fatalf("status = %d, body %s", w.Code, w.Body.String())
+	}
+	if len(probeAuth) == 0 || probeAuth[0] != "Bearer sk-new-local-key" {
+		t.Errorf("probe Authorization = %v, want the update's own key", probeAuth)
+	}
+	if plain, err := auth.Decrypt(gotKey, gotNonce, gotSalt, secretTestMasterKey); err != nil || plain != "sk-new-local-key" {
+		t.Errorf("stored key decrypts to %q (%v), want the new key", plain, err)
+	}
+
+	probeAuth = nil
+	w = doUpdate(t, h, id, `{"provider_type":"koboldcpp"}`)
+	if w.Code != http.StatusOK {
+		t.Fatalf("keyless update status = %d, body %s", w.Code, w.Body.String())
+	}
+	if len(probeAuth) == 0 || probeAuth[0] != "Bearer sk-stored-local-key" {
+		t.Errorf("probe Authorization = %v, want the stored key", probeAuth)
+	}
+	if gotKey != nil || gotNonce != nil || gotSalt != nil {
+		t.Errorf("key columns handed to the store = %v/%v/%v, want none so the stored key stays", gotKey, gotNonce, gotSalt)
+	}
+}
+
+// A blank key is judged against the type the row will have after the save: a
+// hosted provider corrected to a self-hosted type may drop its key, while the
+// same blank key on its hosted type is refused.
+func TestUpdateProvider_BlankKeyJudgedByTheNewType(t *testing.T) {
+	srv := koboldcppTestServer(t)
+	defer srv.Close()
+
+	stored := &provider.Provider{ID: uuid.New(), Name: "KoboldCpp", BaseURL: srv.URL + "/v1", ProviderType: "openai"}
+	var captured provider.UpdateProviderRequest
+	h, id := identityHandler(t, stored, &captured)
+	withDiscoveryAgainst(h, srv.Client())
+
+	if w := doUpdate(t, h, id, `{"provider_type":"koboldcpp","api_key":""}`); w.Code != http.StatusOK {
+		t.Errorf("blank key with a keyless new type: status = %d, body %s; want 200", w.Code, w.Body.String())
+	}
+	if w := doUpdate(t, h, id, `{"api_key":""}`); w.Code != http.StatusBadRequest {
+		t.Errorf("blank key on the hosted type: status = %d, body %s; want 400", w.Code, w.Body.String())
+	}
 }

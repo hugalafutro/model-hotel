@@ -6,6 +6,7 @@ import {
 	waitFor,
 } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import i18n from "../../i18n";
 import { getByDialogName } from "../../test/helpers";
 import { Modal } from "../Modal";
 
@@ -59,6 +60,40 @@ describe("Modal", () => {
 			</Modal>,
 		);
 		expect(screen.getByRole("dialog")).toHaveAttribute("data-placement", "top");
+	});
+
+	it("hangs from the top once a stepper arrives after the dialog opened", () => {
+		const { rerender } = render(
+			<Modal title="Late" onClose={onClose}>
+				<p>row</p>
+			</Modal>,
+		);
+		expect(screen.getByRole("dialog")).toHaveAttribute(
+			"data-placement",
+			"center",
+		);
+		rerender(
+			<Modal title="Late" nav={nav} onClose={onClose}>
+				<p>row</p>
+			</Modal>,
+		);
+		expect(screen.getByRole("dialog")).toHaveAttribute("data-placement", "top");
+	});
+
+	it("ignores a second close while the first is still fading out", async () => {
+		const onCloseRequest = vi.fn(() => true);
+		render(
+			<Modal onClose={onClose} onCloseRequest={onCloseRequest}>
+				Content
+			</Modal>,
+		);
+		const close = screen.getByRole("button", { name: i18n.t("common.close") });
+		act(() => {
+			close.click();
+			close.click();
+		});
+		expect(onCloseRequest).toHaveBeenCalledTimes(1);
+		await waitFor(() => expect(onClose).toHaveBeenCalledTimes(1));
 	});
 
 	it("pins the footer outside the scrolling body", () => {

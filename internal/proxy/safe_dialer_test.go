@@ -867,3 +867,46 @@ func TestCheckRedirect_PreservesAuthHeadersSameHost(t *testing.T) {
 		t.Fatalf("x-api-key should survive a same-host redirect, got %q", got)
 	}
 }
+
+func TestSafeDialer_BlockedIP(t *testing.T) {
+	dialer := NewSafeDialer([]string{"allowed.example.com"}, nil)
+
+	// Test blocking of loopback
+	_, err := dialer.DialContext(context.Background(), "tcp", "127.0.0.1:80")
+	if err == nil {
+		t.Error("expected error for loopback IP")
+	} else if !strings.Contains(err.Error(), "private/reserved IP") {
+		t.Errorf("expected 'private/reserved IP' error, got %v", err)
+	}
+
+	// Test blocking of private IP range
+	_, err = dialer.DialContext(context.Background(), "tcp", "192.168.1.1:80")
+	if err == nil {
+		t.Error("expected error for private IP")
+	} else if !strings.Contains(err.Error(), "private/reserved IP") {
+		t.Errorf("expected 'private/reserved IP' error, got %v", err)
+	}
+
+	// Test blocking of link-local
+	_, err = dialer.DialContext(context.Background(), "tcp", "169.254.169.254:80")
+	if err == nil {
+		t.Error("expected error for link-local IP")
+	} else if !strings.Contains(err.Error(), "private/reserved IP") {
+		t.Errorf("expected 'private/reserved IP' error, got %v", err)
+	}
+}
+
+// TestSafeDialer_AllowedHost tests that SafeDialer allows allowed hosts
+
+func TestSafeDialer_AllowedHost(t *testing.T) {
+	dialer := NewSafeDialer([]string{"localhost", "127.0.0.1"}, nil)
+
+	// Test that allowed host bypasses IP checks
+	// We can't actually dial without a server, but we can test that it doesn't
+	// return an immediate error for blocked IPs when the host is allowed
+	_, err := dialer.DialContext(context.Background(), "tcp", "localhost:9999")
+	// This will fail to connect, but shouldn't fail with "private/reserved IP" error
+	if err != nil && strings.Contains(err.Error(), "private/reserved IP") {
+		t.Errorf("allowed host should not be blocked: %v", err)
+	}
+}

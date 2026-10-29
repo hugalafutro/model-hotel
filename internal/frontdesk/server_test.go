@@ -485,6 +485,41 @@ func TestListMembersAttachesNewestEvent(t *testing.T) {
 	}
 }
 
+// The inline newest event is best-effort: when the events read fails the members
+// list still answers, just without the pills, rather than failing the tab.
+func TestListMembersDegradesWhenNewestEventsUnreadable(t *testing.T) {
+	srv, store := newTestServer(t)
+	ctx := context.Background()
+	m, err := store.CreateMember(ctx, "hotel-1", "https://h1.example", "")
+	if err != nil {
+		t.Fatalf("CreateMember: %v", err)
+	}
+	if _, err := store.InsertEvent(ctx, Event{
+		Type: "health.up", Severity: "success", Source: "poller", Message: "up", MemberID: m.ID,
+	}); err != nil {
+		t.Fatalf("InsertEvent: %v", err)
+	}
+	if _, err := store.db.Exec(`ALTER TABLE events RENAME TO events_gone`); err != nil {
+		t.Fatalf("break events: %v", err)
+	}
+	t.Cleanup(func() { _, _ = store.db.Exec(`ALTER TABLE events_gone RENAME TO events`) })
+
+	rec := do(t, srv, http.MethodGet, "/api/members", "", true)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("GET /api/members = %d, want 200; body=%s", rec.Code, rec.Body.String())
+	}
+	var views []memberView
+	if err := json.Unmarshal(rec.Body.Bytes(), &views); err != nil {
+		t.Fatalf("decode: %v", err)
+	}
+	if len(views) != 1 || views[0].ID != m.ID {
+		t.Fatalf("members = %+v, want the one member", views)
+	}
+	if views[0].NewestEvent != nil {
+		t.Errorf("newest_event = %+v, want it omitted when events cannot be read", views[0].NewestEvent)
+	}
+}
+
 func TestServerSettings(t *testing.T) {
 	srv, _ := newTestServer(t)
 
@@ -1257,4 +1292,124 @@ func mustMemberID(t *testing.T, store *Store, url string) string {
 	}
 	t.Fatalf("member with url %q not found", url)
 	return ""
+}
+
+// TestServerSettingsEventsAndMemberMutations drives the settings, events, and
+// member-mutation handlers (happy and error paths) over HTTP.
+func TestServerSettingsEventsAndMemberMutations(t *testing.T) {
+	srv, store := newTestServer(t)
+
+	// An add now requires a verified reply: point it at a stand-in that answers
+	// the token probe and self-reports is_primary=false.
+	host := systemMemberServer(t, false)
+	rec := do(t, srv, http.MethodPost, "/api/members",
+		fmt.Sprintf(`{"name":"m1","url":%q,"token":"tok"}`, host.URL), true)
+	if rec.Code != http.StatusCreated {
+		t.Fatalf("create member = %d: %s", rec.Code, rec.Body.String())
+	}
+	var created struct {
+		ID string `json:"id"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &created); err != nil {
+		t.Fatalf("decode created member: %v", err)
+	}
+	id := created.ID
+
+	if rec := do(t, srv, http.MethodGet, "/api/settings", "", true); rec.Code != http.StatusOK {
+		t.Errorf("get settings = %d", rec.Code)
+	}
+	if rec := do(t, srv, http.MethodPut, "/api/settings",
+		`{"health_poll_secs":10,"traefik_poll_secs":10,"traefik_stale_secs":30,"event_retention_days":30,"retry_attempts":3}`,
+		true); rec.Code != http.StatusOK {
+		t.Errorf("put settings = %d: %s", rec.Code, rec.Body.String())
+	}
+	if rec := do(t, srv, http.MethodPut, "/api/settings", `{not json`, true); rec.Code != http.StatusBadRequest {
+		t.Errorf("put settings (bad json) = %d, want 400", rec.Code)
+	}
+	if rec := do(t, srv, http.MethodPut, "/api/settings",
+		`{"health_poll_secs":0,"traefik_poll_secs":10,"traefik_stale_secs":30}`, true); rec.Code == http.StatusOK {
+		t.Errorf("put settings (below-minimum) should be rejected, got %d", rec.Code)
+	}
+
+	if rec := do(t, srv, http.MethodGet, "/api/events?limit=10&type=member.added", "", true); rec.Code != http.StatusOK {
+		t.Errorf("list events = %d", rec.Code)
+	}
+
+	if rec := do(t, srv, http.MethodPatch, "/api/members/"+id, `{"name":"renamed"}`, true); rec.Code != http.StatusOK {
+		t.Errorf("patch member = %d: %s", rec.Code, rec.Body.String())
+	}
+	if rec := do(t, srv, http.MethodPatch, "/api/members/"+id, `{"token":""}`, true); rec.Code != http.StatusOK {
+		t.Errorf("patch member (clear token) = %d: %s", rec.Code, rec.Body.String())
+	}
+	if rec := do(t, srv, http.MethodPatch, "/api/members/does-not-exist", `{"name":"x"}`, true); rec.Code == http.StatusOK {
+		t.Errorf("patch missing member should fail, got %d", rec.Code)
+	}
+	// A second active member so draining m1 is allowed (the last active member
+	// cannot be drained). Added via the store to skip the add-time host handshake.
+	if _, err := store.CreateMember(context.Background(), "m2", "http://m2:8081", ""); err != nil {
+		t.Fatalf("second member: %v", err)
+	}
+	if rec := do(t, srv, http.MethodPost, "/api/members/"+id+"/state", `{"state":"drained"}`, true); rec.Code != http.StatusOK {
+		t.Errorf("set member state = %d: %s", rec.Code, rec.Body.String())
+	}
+	if rec := do(t, srv, http.MethodGet, "/api/traefik-status", "", true); rec.Code != http.StatusOK {
+		t.Errorf("traefik status = %d", rec.Code)
+	}
+	if rec := do(t, srv, http.MethodDelete, "/api/members/"+id, "", true); rec.Code != http.StatusOK && rec.Code != http.StatusNoContent {
+		t.Errorf("delete member = %d", rec.Code)
+	}
+}
+
+// TestServerHandlersErrorWhenStoreClosed drives every control-plane handler with
+// a dead store so the writeError/error branches (not hit on the happy path) run.
+func TestServerHandlersErrorWhenStoreClosed(t *testing.T) {
+	srv, store := newTestServer(t)
+	m, err := store.CreateMember(context.Background(), "m1", "http://m1:8081", "")
+	if err != nil {
+		t.Fatalf("CreateMember: %v", err)
+	}
+	if err := store.Close(); err != nil {
+		t.Fatalf("close store: %v", err)
+	}
+
+	cases := []struct {
+		method, path, body string
+		auth               bool
+	}{
+		{http.MethodGet, "/api/members", "", true},
+		// Token present so the handler passes the token-required check and reaches
+		// the (dead) store, exercising createMember's writeError branch.
+		{http.MethodPost, "/api/members", `{"name":"x","url":"http://x:8081","token":"tok"}`, true},
+		{http.MethodPatch, "/api/members/" + m.ID, `{"name":"y"}`, true},
+		{http.MethodPost, "/api/members/" + m.ID + "/state", `{"state":"drained"}`, true},
+		{http.MethodDelete, "/api/members/" + m.ID, "", true},
+		{http.MethodGet, "/api/settings", "", true},
+		{http.MethodPut, "/api/settings", `{"health_poll_secs":1,"traefik_poll_secs":1,"traefik_stale_secs":1}`, true},
+		{http.MethodGet, "/api/events", "", true},
+		{http.MethodPost, "/api/config/sync", `{"primary_id":"` + m.ID + `"}`, true},
+		{http.MethodGet, "/traefik/config", "", false}, // compose-internal, open without a configured token
+		{http.MethodGet, "/healthz", "", false},        // liveness probe reports the dead store
+	}
+	for _, c := range cases {
+		rec := do(t, srv, c.method, c.path, c.body, c.auth)
+		if rec.Code < 400 {
+			t.Errorf("%s %s with a dead store = %d, want an error status", c.method, c.path, rec.Code)
+		}
+	}
+}
+
+// TestHandleTraefikConfig covers the compose-internal config endpoint that
+// Traefik's HTTP provider polls (open here: no poll token configured).
+func TestHandleTraefikConfig(t *testing.T) {
+	srv, store := newTestServer(t)
+	if _, err := store.CreateMember(context.Background(), "m1", "http://m1:8081", ""); err != nil {
+		t.Fatalf("CreateMember: %v", err)
+	}
+	rec := do(t, srv, http.MethodGet, "/traefik/config", "", false)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("traefik config = %d: %s", rec.Code, rec.Body.String())
+	}
+	if !strings.Contains(rec.Body.String(), "http") {
+		t.Errorf("unexpected traefik config body: %s", rec.Body.String())
+	}
 }

@@ -30,7 +30,8 @@ func TestSignedToolUseID_Unsigned(t *testing.T) {
 	if got := signedToolUseID("call_1", ""); got != "call_1" {
 		t.Fatalf("unsigned id = %q, want it untouched", got)
 	}
-	for _, id := range []string{"call_1", "toolu_01abc", "", "call_1" + thoughtSigMarker + "not base64url!", "call_1" + thoughtSigMarker} {
+	// The last one decodes but carries a tag this build does not know.
+	for _, id := range []string{"call_1", "toolu_01abc", "", "call_1" + thoughtSigMarker + "not base64url!", "call_1" + thoughtSigMarker, "call_1" + thoughtSigMarker + "x" + base64.RawURLEncoding.EncodeToString([]byte("sig"))} {
 		base, sig := splitToolUseID(id)
 		if base != id || sig != "" {
 			t.Errorf("splitToolUseID(%q) = (%q, %q), want the id as it came and no signature", id, base, sig)

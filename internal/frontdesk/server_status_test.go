@@ -3,7 +3,10 @@ package frontdesk
 import (
 	"context"
 	"log/slog"
+	"net/http"
+	"net/http/httptest"
 	"testing"
+	"time"
 
 	"github.com/hugalafutro/model-hotel/internal/logtest"
 )
@@ -101,5 +104,38 @@ func TestEmit_PersistsLogsAndPublishes(t *testing.T) {
 		}
 	default:
 		t.Fatal("event was not published on the bus")
+	}
+}
+
+// TestSSEStreamsAndStops covers the routed /api/sse path end to end: the auth
+// gate admits the admin bearer, the handler answers with event-stream headers,
+// and it returns when the client hangs up. The streaming behaviour behind it
+// (keep-alives, credential re-checks, event frames) is covered against the
+// handler directly in sse_reauth_test.go.
+func TestSSEStreamsAndStops(t *testing.T) {
+	srv, _ := newTestServer(t)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	req := httptest.NewRequest(http.MethodGet, "/api/sse", http.NoBody).WithContext(ctx)
+	req.Header.Set("Authorization", "Bearer "+testFrontdeskToken)
+	rec := httptest.NewRecorder()
+
+	done := make(chan struct{})
+	go func() {
+		srv.ServeHTTP(rec, req)
+		close(done)
+	}()
+	cancel()
+
+	select {
+	case <-done:
+	case <-time.After(5 * time.Second):
+		t.Fatal("sse did not return after context cancel")
+	}
+	if rec.Code != http.StatusOK {
+		t.Errorf("status = %d, want 200", rec.Code)
+	}
+	if ct := rec.Header().Get("Content-Type"); ct != "text/event-stream" {
+		t.Errorf("content-type = %q, want text/event-stream", ct)
 	}
 }

@@ -266,6 +266,10 @@ func TestParseProviderParamError_ParamRefusalStillLearned(t *testing.T) {
 		{`Unsupported parameter: 'reasoning_effort' is not supported with this model. Invalid value for 'top_p'. Supported values are: 1.`, []string{"reasoning_effort", "top_p"}},
 		{`Invalid value for 'top_p'. Supported values are: 1.; Unsupported parameter: 'reasoning_effort' is not supported.`, []string{"reasoning_effort", "top_p"}},
 		{`Unsupported parameter: 'reasoning_effort' is not supported. Invalid value for top_p. Supported values are: 1.`, []string{"reasoning_effort"}},
+		// Both sampling params at once: top_p goes, temperature stays.
+		{`temperature and top_p cannot both be specified for this model.`, []string{"top_p"}},
+		// The injected chat_template_args, refused without quotes.
+		{`Extra inputs are not permitted, field: chat_template_args`, []string{"chat_template_args"}},
 	} {
 		body := []byte(`{"error":{"message":` + fmt.Sprintf("%q", tc.msg) + `}}`)
 		got := slices.Sorted(maps.Keys(ParseProviderParamError(body)))

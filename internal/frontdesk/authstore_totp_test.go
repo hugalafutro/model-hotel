@@ -254,3 +254,12 @@ func TestTOTPStoreDisableIfAuthorizedProbesRecoveryCodes(t *testing.T) {
 		t.Errorf("recovery codes survived an authorized disable: total=%d", total)
 	}
 }
+
+// TestTOTPStoreDisable covers TOTPStore.Disable, which runs its delete
+// transaction even when nothing is enrolled.
+func TestTOTPStoreDisable(t *testing.T) {
+	store := newTestStore(t)
+	if err := NewTOTPStore(store).Disable(context.Background()); err != nil {
+		t.Fatalf("Disable: %v", err)
+	}
+}

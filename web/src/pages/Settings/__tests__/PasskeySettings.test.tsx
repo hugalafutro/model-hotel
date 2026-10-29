@@ -1,6 +1,8 @@
-import { screen, waitFor } from "@testing-library/react";
+import { act, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { HttpResponse, http } from "msw";
+import { api } from "../../../api/client";
+import i18n from "../../../i18n";
 import { server } from "../../../test/mocks/server";
 import { renderWithProviders } from "../../../test/utils";
 import * as webauthnUtils from "../../../utils/webauthn";
@@ -240,7 +242,14 @@ describe("PasskeySettings", () => {
 			vi.clearAllMocks();
 			server.resetHandlers();
 			vi.spyOn(webauthnUtils, "isWebAuthnAvailable").mockResolvedValue(true);
-			vi.spyOn(webauthnUtils, "registerPasskey").mockResolvedValue(false);
+			// The ceremony is held by a promise the test resolves with "cancelled";
+			// awaiting it inside act runs the panel's handler (and its finally)
+			// before the assertion, so a wrongly raised toast would already show.
+			let resolveCeremony!: (ok: boolean) => void;
+			const ceremony = new Promise<boolean>((r) => {
+				resolveCeremony = r;
+			});
+			vi.spyOn(webauthnUtils, "registerPasskey").mockReturnValue(ceremony);
 
 			server.use(
 				http.get("/api/webauthn/credentials", () => HttpResponse.json([])),
@@ -252,9 +261,14 @@ describe("PasskeySettings", () => {
 				name: /Register a new passkey/i,
 			});
 			await userEvent.click(registerButton);
+			expect(registerButton).toBeDisabled();
 
-			// Wait a bit to ensure no toast appears
-			await new Promise((resolve) => setTimeout(resolve, 100));
+			await act(async () => {
+				resolveCeremony(false);
+				await ceremony;
+			});
+			// The handler finished: the button is usable again, and no toast.
+			expect(registerButton).toBeEnabled();
 			expect(screen.queryByText(/Passkey registered/i)).not.toBeInTheDocument();
 		});
 
@@ -511,5 +525,133 @@ describe("PasskeySettings", () => {
 				expect(screen.getByText("Security Key")).toBeInTheDocument();
 			});
 		});
+	});
+});
+
+describe("PasskeySettings labels and failures", () => {
+	const cred = (over: Record<string, unknown>) => ({
+		id: "c1",
+		name: "Key",
+		transports: [],
+		created_at: "2025-01-15T10:00:00Z",
+		aaguid: "00000000-0000-0000-0000-000000000000",
+		sign_count: 1,
+		...over,
+	});
+	const serve = (creds: unknown[]) =>
+		server.use(
+			http.get("/api/webauthn/credentials", () => HttpResponse.json(creds)),
+		);
+
+	beforeEach(() => {
+		vi.restoreAllMocks();
+		server.resetHandlers();
+		vi.spyOn(webauthnUtils, "isWebAuthnAvailable").mockResolvedValue(true);
+	});
+
+	it("labels usb and hybrid transports and passes an unknown one through", async () => {
+		serve([cred({ name: "", transports: ["usb", "hybrid", "smart-card"] })]);
+		renderWithProviders(<PasskeyPanel />);
+		const expected = [
+			i18n.t("settings.passkeys.transportUsb"),
+			i18n.t("settings.passkeys.transportHybrid"),
+			"smart-card",
+		].join(", ");
+		expect(await screen.findByTitle(expected)).toHaveTextContent(expected);
+	});
+
+	it("toasts the failure when a delete is rejected", async () => {
+		serve([cred({})]);
+		vi.spyOn(api.webauthn, "deleteCredential").mockRejectedValue(
+			new Error("boom"),
+		);
+		renderWithProviders(<PasskeyPanel />);
+		await userEvent.click(
+			await screen.findByRole("button", {
+				name: i18n.t("settings.passkeys.deleteAriaLabel"),
+			}),
+		);
+		await userEvent.click(
+			await screen.findByRole("button", { name: i18n.t("common.delete") }),
+		);
+		expect(
+			await screen.findByText(
+				i18n.t("settings.passkeys.failedToDelete", { message: "boom" }),
+			),
+		).toBeInTheDocument();
+	});
+
+	it("toasts the failure when a rename is rejected", async () => {
+		serve([cred({ name: "Old" })]);
+		vi.spyOn(api.webauthn, "renameCredential").mockRejectedValue(
+			new Error("nope"),
+		);
+		renderWithProviders(<PasskeyPanel />);
+		await userEvent.click(
+			await screen.findByRole("button", {
+				name: i18n.t("settings.passkeys.renameAriaLabel"),
+			}),
+		);
+		const input = screen.getByRole("textbox", {
+			name: i18n.t("settings.passkeys.nameAriaLabel"),
+		});
+		await userEvent.clear(input);
+		await userEvent.type(input, "New{Enter}");
+		expect(
+			await screen.findByText(
+				i18n.t("settings.passkeys.failedToRename", { message: "nope" }),
+			),
+		).toBeInTheDocument();
+	});
+
+	it("saving an unchanged name just closes the editor without a request", async () => {
+		serve([cred({ name: "Same" })]);
+		const rename = vi.spyOn(api.webauthn, "renameCredential");
+		renderWithProviders(<PasskeyPanel />);
+		await userEvent.click(
+			await screen.findByRole("button", {
+				name: i18n.t("settings.passkeys.renameAriaLabel"),
+			}),
+		);
+		await userEvent.click(
+			screen.getByRole("button", {
+				name: i18n.t("settings.passkeys.saveNameAriaLabel"),
+			}),
+		);
+		expect(
+			screen.queryByRole("textbox", {
+				name: i18n.t("settings.passkeys.nameAriaLabel"),
+			}),
+		).toBeNull();
+		expect(rename).not.toHaveBeenCalled();
+	});
+
+	it("cancel discards the draft and closes the editor", async () => {
+		serve([cred({ name: "Kept" })]);
+		const rename = vi.spyOn(api.webauthn, "renameCredential");
+		renderWithProviders(<PasskeyPanel />);
+		await userEvent.click(
+			await screen.findByRole("button", {
+				name: i18n.t("settings.passkeys.renameAriaLabel"),
+			}),
+		);
+		await userEvent.type(
+			screen.getByRole("textbox", {
+				name: i18n.t("settings.passkeys.nameAriaLabel"),
+			}),
+			"zzz",
+		);
+		await userEvent.click(
+			screen.getByRole("button", {
+				name: i18n.t("settings.passkeys.cancelNameAriaLabel"),
+			}),
+		);
+		expect(
+			screen.queryByRole("textbox", {
+				name: i18n.t("settings.passkeys.nameAriaLabel"),
+			}),
+		).toBeNull();
+		expect(screen.getByText("Kept")).toBeInTheDocument();
+		expect(rename).not.toHaveBeenCalled();
 	});
 });

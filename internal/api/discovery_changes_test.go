@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
 	"github.com/google/uuid"
@@ -147,6 +148,16 @@ func TestDiscoveryChangesHandlers_HTTP(t *testing.T) {
 	}
 	if len(after) != 0 {
 		t.Errorf("pending after ack = %+v, want none", after)
+	}
+
+	// A second ack clears nothing and still answers an empty array, never
+	// null, so the client can range over it.
+	req := httptest.NewRequest("POST", "/discovery/changes/ack", http.NoBody)
+	req.Header.Set("Authorization", "Bearer test-admin-token")
+	rec := httptest.NewRecorder()
+	r.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK || !strings.Contains(rec.Body.String(), `"entries":[]`) {
+		t.Errorf("empty ack = %d %s, want 200 with \"entries\":[]", rec.Code, rec.Body.String())
 	}
 }
 

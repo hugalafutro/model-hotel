@@ -7,10 +7,12 @@ import (
 	"net/http/httptest"
 	"testing"
 
+	"github.com/go-chi/chi/v5"
 	webauthnx "github.com/go-webauthn/webauthn/webauthn"
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/hugalafutro/model-hotel/internal/authcookie"
+	"github.com/hugalafutro/model-hotel/internal/user"
 	"github.com/hugalafutro/model-hotel/internal/webauthn"
 )
 
@@ -629,5 +631,52 @@ func TestWebAuthnAdminOrSessionAuth_TotpOff_AcceptsRawToken(t *testing.T) {
 
 	if w.Code != http.StatusOK {
 		t.Errorf("expected 200 (raw token accepted under TOTP off), got %d", w.Code)
+	}
+}
+
+// The audit middleware installed with SetAudit runs on the passkey management
+// routes behind the admin-or-session gate, under the admin identity the trail
+// names, and never for a request the gate refuses.
+func TestWebAuthnRoutes_AuditMiddlewareBehindTheGate(t *testing.T) {
+	pool, err := pgxpool.New(context.Background(), apiTestDBURL)
+	if err != nil {
+		t.Fatalf("test database: %v", err)
+	}
+	defer pool.Close()
+	adminMgr := &mockAdminAuth{validateFn: func(token string) bool { return token == "admin-token" }}
+	h := newTestWebAuthnHandler(webauthn.NewRepository(pool), nil, nil, adminMgr)
+	var seen, actors []string
+	h.SetAudit(func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			seen = append(seen, r.Method+" "+r.URL.Path)
+			if id := user.IdentityFrom(r.Context()); id != nil && id.IsAdmin() {
+				actors = append(actors, "admin")
+			} else {
+				actors = append(actors, "unknown")
+			}
+			next.ServeHTTP(w, r)
+		})
+	})
+	r := chi.NewRouter()
+	h.Register(r)
+
+	authed := httptest.NewRequest(http.MethodGet, "/webauthn/credentials", http.NoBody)
+	authed.Header.Set("Authorization", "Bearer admin-token")
+	rec := httptest.NewRecorder()
+	r.ServeHTTP(rec, authed)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("authenticated GET /webauthn/credentials = %d (%s)", rec.Code, rec.Body.String())
+	}
+	unauth := httptest.NewRecorder()
+	r.ServeHTTP(unauth, httptest.NewRequest(http.MethodGet, "/webauthn/credentials", http.NoBody))
+	if unauth.Code != http.StatusUnauthorized {
+		t.Fatalf("unauthenticated GET /webauthn/credentials = %d, want 401", unauth.Code)
+	}
+
+	if len(seen) != 1 || seen[0] != "GET /webauthn/credentials" {
+		t.Fatalf("audited = %v, want only the authenticated request", seen)
+	}
+	if actors[0] != "admin" {
+		t.Errorf("actor = %q, want the admin identity stamped for the trail", actors[0])
 	}
 }

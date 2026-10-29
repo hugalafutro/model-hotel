@@ -8,6 +8,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 )
@@ -271,6 +272,54 @@ func TestConfigSyncStopsWhenPrimaryRepointedMidRun(t *testing.T) {
 	}
 	if !strings.Contains(rec.Body.String(), "1 member(s) were not attempted") {
 		t.Errorf("answer must say how much of the fleet the stopped run never reached, got %s", rec.Body.String())
+	}
+}
+
+// TestConfigSyncStopsBeforeImportWhenRepointedDuringDryRun: the gate tightest to
+// the mutation. A repoint that lands while a member's slow dry-run is in flight,
+// before any rearm broadcast could cancel the run, is caught once the dry-run
+// answers: that member is never imported into, and it counts among the members
+// the run did not attempt along with every member after it.
+func TestConfigSyncStopsBeforeImportWhenRepointedDuringDryRun(t *testing.T) {
+	srv, store := newTestServer(t)
+	primary := newStubConfigMember(t, "ptoken")
+	second := newStubConfigMember(t, "r2token")
+
+	var repointTo atomic.Value // the member id the dry-run repoints the fleet to
+	var realImport atomic.Bool
+	first := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPost || r.URL.Path != "/api/config/import" {
+			w.WriteHeader(http.StatusNotFound)
+			return
+		}
+		if r.URL.Query().Get("dryRun") == "" {
+			realImport.Store(true)
+		} else if err := store.SetAutoSync(r.Context(), true, repointTo.Load().(string)); err != nil {
+			t.Errorf("repoint during dry-run: %v", err)
+		}
+		_, _ = w.Write([]byte(primary.importBody)) // a non-empty diff: the member is changing
+	}))
+	t.Cleanup(first.Close)
+
+	pm, _ := store.CreateMember(t.Context(), "primary", primary.srv.URL, "ptoken")
+	_, _ = store.CreateMember(t.Context(), "first", first.URL, "r1token")
+	sm, _ := store.CreateMember(t.Context(), "second", second.srv.URL, "r2token")
+	repointTo.Store(sm.ID)
+	enableAutoSync(t, store, pm.ID)
+	alignFleetVersions(t, srv, store, "dev")
+
+	rec := do(t, srv, http.MethodPost, "/api/config/sync", `{"primary_id":"`+pm.ID+`"}`, true)
+	if rec.Code != http.StatusConflict || errCode(t, rec) != primaryRepointedCode {
+		t.Fatalf("sync = %d code=%q (%s), want 409 %s", rec.Code, errCode(t, rec), rec.Body.String(), primaryRepointedCode)
+	}
+	if realImport.Load() {
+		t.Error("the member whose dry-run saw the repoint was imported into anyway")
+	}
+	if second.gotImport {
+		t.Error("a member after the repoint was pushed to")
+	}
+	if !strings.Contains(rec.Body.String(), "2 member(s) were not attempted") {
+		t.Errorf("the member stopped before import and the one after it are both unattempted, got %s", rec.Body.String())
 	}
 }
 

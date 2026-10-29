@@ -384,6 +384,24 @@ func TestRepository_Update_WithDisplayNameAndDescription(t *testing.T) {
 	if found.Description != description {
 		t.Errorf("GetByID Description = %q, want %q", found.Description, description)
 	}
+
+	// An empty display name clears the column back to NULL rather than
+	// storing "", so the group falls back to its display model's name.
+	empty := ""
+	cleared, err := repo.Update(ctx, fg.ID, po, fg.EntryEnabled, nil, false, &empty, nil, nil)
+	if err != nil {
+		t.Fatalf("Update(display_name=\"\") failed: %v", err)
+	}
+	if cleared.DisplayName == nil || *cleared.DisplayName != "" {
+		t.Errorf("DisplayName after clearing = %v, want empty", cleared.DisplayName)
+	}
+	var stored *string
+	if err := testDB.Pool().QueryRow(ctx, `SELECT display_name FROM model_failover_groups WHERE id = $1`, fg.ID).Scan(&stored); err != nil {
+		t.Fatalf("read display_name: %v", err)
+	}
+	if stored != nil {
+		t.Errorf("stored display_name = %q, want NULL", *stored)
+	}
 }
 
 func TestRepository_Update_WithDisplayModel(t *testing.T) {

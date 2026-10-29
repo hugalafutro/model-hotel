@@ -942,6 +942,7 @@ func TestDiscoverModels_ErrorPropagation(t *testing.T) {
 }
 
 func TestLoadModelsDev(t *testing.T) {
+	isolateModelsDevCache(t)
 	t.Parallel()
 
 	ctx := context.Background()

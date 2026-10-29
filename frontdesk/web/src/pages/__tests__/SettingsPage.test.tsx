@@ -1,9 +1,10 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { HttpResponse, http } from "msw";
 import { beforeEach, describe, expect, it } from "vitest";
 import type { Settings } from "../../api/types";
 import { ToastProvider } from "../../context/ToastContext";
+import i18n from "../../i18n";
 import { server } from "../../test/server";
 import { sseHandler } from "../../test/sse";
 import { SettingsPage } from "../SettingsPage";
@@ -235,5 +236,45 @@ describe("SettingsPage", () => {
 
 		await waitFor(() => expect(current.traefik_stale_secs).toBe(42));
 		expect(current.alert_enabled).toBe(false);
+	});
+});
+
+describe("SettingsPage polling form fields", () => {
+	it("sends every polling field the operator edited", async () => {
+		let saved: Settings | null = null;
+		server.use(
+			http.get("/api/settings", () => HttpResponse.json(defaults)),
+			http.put("/api/settings", async ({ request }) => {
+				saved = (await request.json()) as Settings;
+				return new HttpResponse(null, { status: 204 });
+			}),
+		);
+		renderPage();
+		const edits: Array<[string, string]> = [
+			["settings.healthPoll", "7"],
+			["settings.traefikPoll", "8"],
+			["settings.retryAttempts", "4"],
+			["settings.healthFailThreshold", "6"],
+			["settings.sessionTimeout", "120"],
+		];
+		const first = await screen.findByLabelText(i18n.t(edits[0][0]));
+		for (const [key, value] of edits) {
+			const input = screen.getByLabelText(i18n.t(key));
+			await userEvent.clear(input);
+			await userEvent.type(input, value);
+		}
+		const form = first.closest("form") as HTMLFormElement;
+		await userEvent.click(
+			within(form).getByRole("button", { name: i18n.t("common.save") }),
+		);
+		await waitFor(() =>
+			expect(saved).toMatchObject({
+				health_poll_secs: 7,
+				traefik_poll_secs: 8,
+				retry_attempts: 4,
+				health_fail_threshold: 6,
+				session_idle_timeout_minutes: 120,
+			}),
+		);
 	});
 });
