@@ -455,6 +455,8 @@ func TestLoadModelsDevWithClient_InvalidJSON(t *testing.T) {
 }
 
 func TestLoadModelsDevWithClient_EmptyBody(t *testing.T) {
+	// {} parses, so load commits an empty catalog to the global cache.
+	isolateModelsDevCache(t)
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
 		w.Write([]byte("{}"))
