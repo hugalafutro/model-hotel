@@ -589,3 +589,51 @@ func TestTranslateRequest_ToolResultImagesSurviveAMixedTurn(t *testing.T) {
 		t.Fatalf("user message = %v, want the image", msgs[1])
 	}
 }
+
+// Each source shape the converters cannot carry yields no part, rather than an
+// empty URL or a file part a provider would reject.
+func TestImageURLAndDocumentPart_RejectedShapes(t *testing.T) {
+	for _, tc := range []struct {
+		name string
+		src  *blockSource
+	}{
+		{"no source", nil},
+		{"base64 without data", &blockSource{Type: "base64", MediaType: "image/png"}},
+		{"url without url", &blockSource{Type: "url"}},
+		{"unknown source type", &blockSource{Type: "file", URL: "file-1", Data: "x"}},
+	} {
+		if got, ok := imageURL(tc.src); ok || got != "" {
+			t.Errorf("imageURL(%s) = (%q, %v), want (\"\", false)", tc.name, got, ok)
+		}
+	}
+
+	for _, tc := range []struct {
+		name  string
+		block reqBlock
+	}{
+		{"no source", reqBlock{Type: "document"}},
+		{"text source without text", reqBlock{Type: "document", Source: &blockSource{Type: "text", MediaType: "text/plain"}}},
+		{"source imageURL refuses", reqBlock{Type: "document", Source: &blockSource{Type: "base64", MediaType: "application/pdf"}}},
+		{"remote url", reqBlock{Type: "document", Source: &blockSource{Type: "url", URL: "https://example.com/a.pdf"}}},
+	} {
+		if got, ok := documentPart(tc.block); ok || got != (oaiContentPart{}) {
+			t.Errorf("documentPart(%s) = (%+v, %v), want no part", tc.name, got, ok)
+		}
+	}
+}
+
+// decodeText reads a string or a block array; any other JSON is not text.
+func TestDecodeText_NeitherStringNorBlocks(t *testing.T) {
+	for _, raw := range []string{`42`, `{"type":"text","text":"x"}`, ``} {
+		if got, ok := decodeText(json.RawMessage(raw)); ok || got != "" {
+			t.Errorf("decodeText(%q) = (%q, %v), want (\"\", false)", raw, got, ok)
+		}
+	}
+}
+
+// A tool_choice that is not an object is dropped, not guessed at.
+func TestTranslateToolChoice_NotAnObject(t *testing.T) {
+	if got, ok := translateToolChoice(json.RawMessage(`"auto"`)); ok || got != nil {
+		t.Errorf("translateToolChoice(string) = (%v, %v), want (nil, false)", got, ok)
+	}
+}

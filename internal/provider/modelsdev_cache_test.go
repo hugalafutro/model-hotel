@@ -304,6 +304,42 @@ func TestModelsDevCacheLookupFuzzy_DateSuffix(t *testing.T) {
 	}
 }
 
+// A year-month suffix is not stripped by the trailing-date rule, so only the
+// prefix scan resolves it: the longest catalog key followed by "-" and a
+// date/version wins, and a key that ends mid-segment never matches.
+func TestModelsDevCacheLookupFuzzy_PrefixVersionSuffix(t *testing.T) {
+	short := &ModelsDevModelSpec{ID: "x", Name: "short"}
+	long := &ModelsDevModelSpec{ID: "x-2024", Name: "long"}
+	cache := &ModelsDevCache{}
+	cache.mu.Lock()
+	cache.byID = map[string]*ModelsDevModelSpec{"x": short, "x-2024": long, "gpt-4o": {ID: "gpt-4o", Name: "GPT-4o"}}
+	cache.loaded = true
+	cache.mu.Unlock()
+
+	// Both keys qualify ("-2024-2024-08" and "-2024-08" are version
+	// suffixes); map iteration order is random, so repeat the lookup to see
+	// that the longer key wins every time rather than whichever came last.
+	for range 20 {
+		if found := cache.LookupFuzzy("x-2024-2024-08"); found != long {
+			t.Fatalf("LookupFuzzy(x-2024-2024-08) = %v, want the longest qualifying key x-2024", found)
+		}
+	}
+	if found := cache.LookupFuzzy("gpt-4o-2024-08"); found == nil || found.Name != "GPT-4o" {
+		t.Errorf("LookupFuzzy(gpt-4o-2024-08) = %v, want gpt-4o via the year-month suffix", found)
+	}
+
+	// "gpt-4" is a prefix of "gpt-4o2024" and the remainder minus its first
+	// byte reads as a year, but "o2024" does not start a new "-" segment.
+	only := &ModelsDevCache{}
+	only.mu.Lock()
+	only.byID = map[string]*ModelsDevModelSpec{"gpt-4": {ID: "gpt-4", Name: "GPT-4"}}
+	only.loaded = true
+	only.mu.Unlock()
+	if found := only.LookupFuzzy("gpt-4o2024"); found != nil {
+		t.Errorf("LookupFuzzy(gpt-4o2024) = %v, want no match across a segment boundary", found.Name)
+	}
+}
+
 // ---------------------------------------------------------------------------
 // ModelsDevCache.EnrichModel
 // ---------------------------------------------------------------------------
@@ -513,6 +549,28 @@ func TestLoadModelsDevWithClient_NilModel(t *testing.T) {
 	}
 	if cache.Lookup("m2") == nil {
 		t.Error("expected to find m2")
+	}
+}
+
+// A model listed under an empty key is indexed by its spec ID instead of being
+// dropped.
+func TestLoadModelsDevWithClient_EmptyModelKeyUsesSpecID(t *testing.T) {
+	responseJSON := `{"p1": {"id": "p1", "models": {"": {"id": "m3", "name": "M3"}}}}`
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_, _ = w.Write([]byte(responseJSON))
+	}))
+	defer server.Close()
+
+	client := &http.Client{Transport: &modelsDevTestTransport{url: server.URL}}
+	if err := LoadModelsDevWithClient(context.Background(), client); err != nil {
+		t.Fatalf("LoadModelsDevWithClient: %v", err)
+	}
+	cache := GetModelsDevCache()
+	if spec := cache.Lookup("m3"); spec == nil || spec.Name != "M3" {
+		t.Errorf("Lookup(m3) = %v, want the spec listed under the empty key", spec)
+	}
+	if cache.Lookup("") != nil {
+		t.Error("Lookup(\"\") found a spec, want it indexed by its ID only")
 	}
 }
 

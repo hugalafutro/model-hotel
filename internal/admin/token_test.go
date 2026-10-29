@@ -2,9 +2,12 @@ package admin
 
 import (
 	"encoding/hex"
+	"errors"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"strings"
+	"syscall"
 	"testing"
 
 	"github.com/google/uuid"
@@ -821,5 +824,48 @@ func TestNew_RestartHoldsAMatchingAdminToken(t *testing.T) {
 	}
 	if other.held.Load() {
 		t.Fatal("an ADMIN_TOKEN that does not match the file was taken for the token")
+	}
+}
+
+// Every failure after the temp file is opened removes it, so a failed write
+// never leaves an "admin-token.tmp" behind. The temp path is pointed at a
+// device through a symlink to fail the write (/dev/full answers ENOSPC) and
+// the fsync (/dev/null refuses it with EINVAL), and the target is a directory
+// to fail the rename. os.Remove takes the symlink, never the device.
+func TestWriteTokenFileAtomic_FailureRemovesTempFile(t *testing.T) {
+	for _, tc := range []struct {
+		name    string
+		setup   func(t *testing.T, path string)
+		wantErr error
+	}{
+		{"write fails", func(t *testing.T, path string) {
+			if err := os.Symlink("/dev/full", path+".tmp"); err != nil {
+				t.Fatal(err)
+			}
+		}, syscall.ENOSPC},
+		{"sync fails", func(t *testing.T, path string) {
+			if err := os.Symlink("/dev/null", path+".tmp"); err != nil {
+				t.Fatal(err)
+			}
+		}, syscall.EINVAL},
+		{"rename fails", func(t *testing.T, path string) {
+			if err := os.Mkdir(path, 0o700); err != nil {
+				t.Fatal(err)
+			}
+		}, syscall.EEXIST},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			dir := t.TempDir()
+			path := filepath.Join(dir, "admin-token")
+			tc.setup(t, path)
+
+			err := writeTokenFileAtomic(path, []byte("hash"))
+			if !errors.Is(err, tc.wantErr) {
+				t.Fatalf("writeTokenFileAtomic error = %v, want %v", err, tc.wantErr)
+			}
+			if _, err := os.Lstat(path + ".tmp"); !errors.Is(err, fs.ErrNotExist) {
+				t.Errorf("temp file left behind after the failure (lstat err %v)", err)
+			}
+		})
 	}
 }

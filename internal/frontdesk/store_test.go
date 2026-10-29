@@ -1210,3 +1210,39 @@ func TestMemberToken_HoldsTheDecryptedToken(t *testing.T) {
 		t.Fatalf("a decrypted member token is not held, so the log masker cannot catch it: %q", masked)
 	}
 }
+
+// TestServerAccessorsAndHelpers covers the small exported accessors and helpers.
+func TestServerAccessorsAndHelpers(t *testing.T) {
+	_, store := newTestServer(t)
+	if store.DB() == nil {
+		t.Error("DB() returned nil")
+	}
+	// No real SPA is embedded in tests (only the placeholder), so this is nil; the
+	// call still exercises the function.
+	_ = EmbeddedUI()
+}
+
+// TestMemberTokenOf covers the shared token load: a member flagged as tokenless
+// resolves to "no token" without a query, and a stored token is returned.
+func TestMemberTokenOf(t *testing.T) {
+	store := newTestStore(t)
+	ctx := context.Background()
+
+	none, err := store.CreateMember(ctx, "tokenless", "http://127.0.0.1:9401", "")
+	if err != nil {
+		t.Fatalf("CreateMember(tokenless): %v", err)
+	}
+	if tok, ok := store.MemberTokenOf(ctx, none); ok || tok != "" {
+		t.Errorf("tokenless member = (%q, %v), want (\"\", false)", tok, ok)
+	}
+	withTok, err := store.CreateMember(ctx, "with-token", "http://127.0.0.1:9402", "secret-token")
+	if err != nil {
+		t.Fatalf("CreateMember(with-token): %v", err)
+	}
+	if tok, ok := store.MemberTokenOf(ctx, withTok); !ok || tok != "secret-token" {
+		t.Errorf("stored token = (%q, %v), want (\"secret-token\", true)", tok, ok)
+	}
+	if tok, ok := store.MemberTokenOf(ctx, nil); ok || tok != "" {
+		t.Errorf("nil member = (%q, %v), want (\"\", false)", tok, ok)
+	}
+}

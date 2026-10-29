@@ -523,3 +523,27 @@ func TestSendAlertTestUnreachableDoesNotEchoAQueryKey(t *testing.T) {
 		t.Errorf("the query key is in the response: %s", rec.Body.String())
 	}
 }
+
+// An apprise-api URL no request can be built from fails before delivery with
+// an error that carries no delivery reason; the handler answers it with the
+// generic send_failed code rather than an empty one.
+func TestSendAlertTestUnbuildableURLIsSendFailed(t *testing.T) {
+	h := &Handler{cfg: &config.Config{MasterKey: secretTestMasterKey}, settingsRepo: &mockSettingsStore{}}
+
+	rec := httptest.NewRecorder()
+	h.SendAlertTest(rec, httptest.NewRequest(http.MethodPost, "/alert/test",
+		strings.NewReader(`{"api_url":"http://[::1","targets":["ntfys://n.example.com/t"]}`)))
+
+	if rec.Code != http.StatusBadGateway {
+		t.Fatalf("status = %d, want %d (%s)", rec.Code, http.StatusBadGateway, rec.Body.String())
+	}
+	var body struct {
+		Code string `json:"code"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &body); err != nil {
+		t.Fatalf("decode body %s: %v", rec.Body.String(), err)
+	}
+	if body.Code != "send_failed" {
+		t.Errorf("code = %q, want send_failed (%s)", body.Code, rec.Body.String())
+	}
+}

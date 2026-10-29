@@ -158,3 +158,28 @@ func TestOIDCSettingsAdapter(t *testing.T) {
 		t.Errorf("unknown key = %q, want default", got)
 	}
 }
+
+// TestOIDCSettingsAdapterDefaults covers the adapter's fallbacks: a bool key it
+// does not map, and a settings row that cannot be read, both answer with the
+// caller's default rather than a zero value. The stored row has OIDC disabled,
+// so a true answer can only be the default.
+func TestOIDCSettingsAdapterDefaults(t *testing.T) {
+	_, store := newTestServer(t)
+	ctx := context.Background()
+
+	if !newOIDCSettings(store).GetBool(ctx, "not-a-bool-key", true) {
+		t.Error("GetBool(unknown key) = false, want the default true")
+	}
+
+	if err := store.Close(); err != nil {
+		t.Fatalf("close store: %v", err)
+	}
+	// A fresh adapter has no cached row to fall back on.
+	a := newOIDCSettings(store)
+	if !a.GetBool(ctx, adminauth.OIDCEnabledKey, true) {
+		t.Error("GetBool on an unreadable row = false, want the default true")
+	}
+	if got := a.GetWithDefault(ctx, adminauth.OIDCIssuerURLKey, "fallback"); got != "fallback" {
+		t.Errorf("GetWithDefault on an unreadable row = %q, want the default", got)
+	}
+}

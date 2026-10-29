@@ -12,6 +12,7 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/hugalafutro/model-hotel/internal/failover"
+	"github.com/hugalafutro/model-hotel/internal/logtest"
 	"github.com/hugalafutro/model-hotel/internal/model"
 	"github.com/hugalafutro/model-hotel/internal/provider"
 )
@@ -689,5 +690,44 @@ func TestHandleNativeNonStreaming_AnOversizedBodyIsNotTheProvidersFault(t *testi
 	}
 	if h.circuitBreaker.GetState(providerID, "claude-x") == failover.StateOpen {
 		t.Error("a provider was charged for sending too much")
+	}
+}
+
+// A client that hangs up mid-stream stops the native emit: the data write and
+// the separator write each mark the client gone, log which write failed, and
+// tell the caller to stop.
+func TestEmitRawData_ClientWriteFailureStops(t *testing.T) {
+	const payload = `{"type":"content_block_delta","index":0,"delta":{"type":"text_delta","text":"hi"}}`
+	for _, tc := range []struct {
+		name      string
+		okWrites  int
+		wantLog   string
+		wantBytes string
+	}{
+		{"data write", 0, "proxy: client write failed during native stream", ""},
+		{"newline write", 1, "proxy: client write failed during native stream (newline)", "data: " + payload},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			logs := logtest.Capture(t)
+			rec := httptest.NewRecorder()
+			sink := newStreamSink(&failAfterNWriter{inner: rec, maxWrites: tc.okWrites})
+			st := &streamState{}
+			ev := sseEvent{raw: []byte("data: " + payload), payload: payload}
+			if stop := (&Handler{}).emitRawData(sink, st, anthropicNative, ev, 3, &requestLogData{modelID: "claude-x", providerName: "p"}); !stop {
+				t.Fatal("emitRawData kept going after the client write failed")
+			}
+			if !st.clientDisconnected {
+				t.Error("client not marked disconnected")
+			}
+			if sink.swallowBlank {
+				t.Error("a failed emit still claimed the upstream separator")
+			}
+			if got := logs.Attr(tc.wantLog, "chunks"); got != int64(3) {
+				t.Errorf("%q chunks = %v, want 3 (records: %+v)", tc.wantLog, got, logs.Records())
+			}
+			if rec.Body.String() != tc.wantBytes {
+				t.Errorf("client got %q, want %q", rec.Body.String(), tc.wantBytes)
+			}
+		})
 	}
 }

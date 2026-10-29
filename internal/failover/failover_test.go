@@ -59,3 +59,22 @@ func upsertGroup(ctx context.Context, t *testing.T, repo *Repository, displayMod
 	t.Helper()
 	return repo.UpsertWithConfig(ctx, displayModel, priorityOrder, nil, nil, nil, nil, nil)
 }
+
+// The entry_enabled map records deviations from enabled: a member with no key
+// is on, and a recorded value is returned as stored.
+func TestIsEntryEnabled_AbsentKeyIsEnabled(t *testing.T) {
+	off, on, absent := uuid.New(), uuid.New(), uuid.New()
+	g := &FailoverGroup{EntryEnabled: map[string]bool{off.String(): false, on.String(): true}}
+	if g.IsEntryEnabled(off) {
+		t.Error("IsEntryEnabled(off) = true, want the stored false")
+	}
+	if !g.IsEntryEnabled(on) {
+		t.Error("IsEntryEnabled(on) = false, want the stored true")
+	}
+	if !g.IsEntryEnabled(absent) {
+		t.Error("IsEntryEnabled(absent) = false, want a member with no key enabled")
+	}
+	if !(&FailoverGroup{}).IsEntryEnabled(absent) {
+		t.Error("IsEntryEnabled on a nil map = false, want enabled")
+	}
+}

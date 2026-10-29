@@ -1130,3 +1130,102 @@ func TestGetByIDs_PartiallyNonExistent(t *testing.T) {
 		t.Error("non-existent id2 should not be in result map")
 	}
 }
+
+// A read whose rows are all cached answers from the cache without a query:
+// the cached row exists in no table, so only the cache can produce it.
+func TestGetByIDs_AllCachedSkipsDatabase(t *testing.T) {
+	InvalidateModelCache()
+	t.Cleanup(InvalidateModelCache)
+	cached := &Model{ID: uuid.New(), ProviderID: uuid.New(), ModelID: "cache-only-model"}
+	WarmModelCacheAt([]*Model{cached}, CacheGen())
+
+	result, err := NewRepository(testPool).GetByIDs(context.Background(), []uuid.UUID{cached.ID})
+	if err != nil {
+		t.Fatalf("GetByIDs: %v", err)
+	}
+	if result[cached.ID] != cached {
+		t.Errorf("GetByIDs = %v, want the cached row", result)
+	}
+}
+
+func TestGetByProviderAndModelID_CacheHitSkipsDatabase(t *testing.T) {
+	InvalidateModelCache()
+	t.Cleanup(InvalidateModelCache)
+	cached := &Model{ID: uuid.New(), ProviderID: uuid.New(), ModelID: "cache-only-model"}
+	WarmModelCacheAt([]*Model{cached}, CacheGen())
+
+	got, err := NewRepository(testPool).GetByProviderAndModelID(context.Background(), cached.ProviderID, cached.ModelID)
+	if err != nil {
+		t.Fatalf("GetByProviderAndModelID: %v", err)
+	}
+	if got != cached {
+		t.Errorf("GetByProviderAndModelID = %+v, want the cached row", got)
+	}
+}
+
+// The provider-enabled filter keeps only rows whose provider matches it.
+func TestListFiltered_ProviderEnabled(t *testing.T) {
+	ctx := context.Background()
+	repo := NewRepository(testPool)
+	onID := dbtest.InsertTestProvider(ctx, t, testPool, "test-listfiltered-on")
+	t.Cleanup(func() { cleanupProvider(ctx, t, onID) })
+	offID := dbtest.InsertTestProvider(ctx, t, testPool, "test-listfiltered-off")
+	t.Cleanup(func() { cleanupProvider(ctx, t, offID) })
+	if _, err := testPool.Exec(ctx, `UPDATE providers SET enabled = false WHERE id = $1`, offID); err != nil {
+		t.Fatalf("disable provider: %v", err)
+	}
+	insertTestModel(ctx, t, onID, "listfiltered-on-model")
+	insertTestModel(ctx, t, offID, "listfiltered-off-model")
+
+	for _, tc := range []struct {
+		enabled bool
+		want    string
+	}{{true, "listfiltered-on-model"}, {false, "listfiltered-off-model"}} {
+		models, err := repo.ListFiltered(ctx, nil, &tc.enabled)
+		if err != nil {
+			t.Fatalf("ListFiltered(enabled=%v): %v", tc.enabled, err)
+		}
+		var ours []string
+		for _, m := range models {
+			if m.ProviderID == onID || m.ProviderID == offID {
+				ours = append(ours, m.ModelID)
+				if m.ProviderEnabled != tc.enabled {
+					t.Errorf("ListFiltered(enabled=%v) returned %s with provider_enabled=%v", tc.enabled, m.ModelID, m.ProviderEnabled)
+				}
+			}
+		}
+		if len(ours) != 1 || ours[0] != tc.want {
+			t.Errorf("ListFiltered(enabled=%v) = %v, want only %s", tc.enabled, ours, tc.want)
+		}
+	}
+}
+
+// Clearing the display name nulls it and drops the customization pin, so the
+// next scan may name the model again.
+func TestUpdate_EmptyDisplayNameClearsCustomization(t *testing.T) {
+	ctx := context.Background()
+	repo := NewRepository(testPool)
+	providerID := dbtest.InsertTestProvider(ctx, t, testPool, "test-update-clear-display-name")
+	t.Cleanup(func() { cleanupProvider(ctx, t, providerID) })
+	id := insertTestModel(ctx, t, providerID, "clear-display-name")
+
+	name := "Operator Name"
+	if m, err := repo.Update(ctx, id, UpdateModelRequest{DisplayName: &name}); err != nil || m.DisplayName != name || !m.DisplayNameCustomized {
+		t.Fatalf("Update(display_name=%q) = %+v, %v; want it set and pinned", name, m, err)
+	}
+	empty := ""
+	m, err := repo.Update(ctx, id, UpdateModelRequest{DisplayName: &empty})
+	if err != nil {
+		t.Fatalf("Update(display_name=\"\"): %v", err)
+	}
+	if m.DisplayName != "" || m.DisplayNameCustomized {
+		t.Errorf("after clearing: display_name=%q customized=%v, want empty and unpinned", m.DisplayName, m.DisplayNameCustomized)
+	}
+	var stored *string
+	if err := testPool.QueryRow(ctx, `SELECT display_name FROM models WHERE id = $1`, id).Scan(&stored); err != nil {
+		t.Fatalf("read display_name: %v", err)
+	}
+	if stored != nil {
+		t.Errorf("stored display_name = %q, want NULL", *stored)
+	}
+}

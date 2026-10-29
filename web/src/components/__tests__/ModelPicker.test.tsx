@@ -1,8 +1,10 @@
-import { fireEvent, screen, within } from "@testing-library/react";
+import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { HttpResponse, http } from "msw";
 import type { Model } from "../../api/types";
+import i18n from "../../i18n";
 import { server } from "../../test/mocks/server";
 import { renderWithProviders } from "../../test/utils";
+import { proxyModelID } from "../../utils/model";
 import { ModelPicker } from "../ModelPicker";
 
 describe("ModelPicker", () => {
@@ -784,6 +786,55 @@ describe("ModelPicker", () => {
 				name: "Collapse all providers",
 			});
 			expect(collapseButton).toHaveAttribute("title");
+		});
+	});
+
+	describe("details, params and capability gaps", () => {
+		it("drops a model with no capabilities once a capability filter is on", async () => {
+			const bare = {
+				...mockModels[2],
+				id: "m-bare",
+				model_id: "bare",
+				display_name: "Bare",
+				capabilities: "",
+			};
+			const { user } = renderWithProviders(
+				<ModelPicker {...defaultProps} models={[...mockModels, bare]} />,
+			);
+			expect(screen.getByText("Bare")).toBeInTheDocument();
+			await user.click(screen.getByText(i18n.t("models.capPills.vision")));
+			expect(screen.queryByText("Bare")).toBeNull();
+			expect(screen.getByText("GPT-4")).toBeInTheDocument();
+		});
+
+		it("hands the selected model's id to onConfigureParams", async () => {
+			const onConfigureParams = vi.fn();
+			const gpt = proxyModelID("OpenAI", "gpt-4");
+			const { user } = renderWithProviders(
+				<ModelPicker
+					{...defaultProps}
+					selected={gpt}
+					onConfigureParams={onConfigureParams}
+				/>,
+			);
+			await user.click(
+				screen.getByTitle(i18n.t("components.modelPicker.addParams")),
+			);
+			expect(onConfigureParams).toHaveBeenCalledWith(gpt);
+			// The params button sits on the chip; it must not toggle the model.
+			expect(defaultProps.onChange).not.toHaveBeenCalled();
+		});
+
+		it("closes the model detail modal", async () => {
+			server.use(http.get("/api/models", () => HttpResponse.json(mockModels)));
+			const { user } = renderWithProviders(<ModelPicker {...defaultProps} />);
+			const [info] = await screen.findAllByRole("button", {
+				name: i18n.t("components.modelPicker.viewDetails"),
+			});
+			await user.click(info);
+			expect(await screen.findByRole("dialog")).toBeInTheDocument();
+			await user.keyboard("{Escape}");
+			await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
 		});
 	});
 });

@@ -314,6 +314,46 @@ func TestPatchMemberClearingTokenSkipsProbe(t *testing.T) {
 	}
 }
 
+// A new token the member could not confirm (offline, or reached without a 200
+// and without refusing it) is still saved, and the answer says which of the two
+// happened so the operator knows whether to check the host or its build.
+func TestPatchMemberUnconfirmedTokenSavesWithWarning(t *testing.T) {
+	offline := httptest.NewServer(http.NotFoundHandler())
+	offlineURL := offline.URL
+	offline.Close() // nothing listens here any more: the probe cannot reach it
+	older := httptest.NewServer(http.NotFoundHandler())
+	defer older.Close()
+
+	for _, c := range []struct {
+		name, url, want string
+	}{
+		{"unreachable", offlineURL, "Saved, but Front Desk could not reach this member to verify the token yet."},
+		{"not accepted", older.URL, "Saved, but this member did not accept the token (HTTP 404); it may be an older build."},
+	} {
+		t.Run(c.name, func(t *testing.T) {
+			srv, store := newTestServer(t)
+			m, err := store.CreateMember(t.Context(), "m1", c.url, "")
+			if err != nil {
+				t.Fatalf("CreateMember: %v", err)
+			}
+			rec := do(t, srv, http.MethodPatch, "/api/members/"+m.ID, `{"token":"newtok"}`, true)
+			if rec.Code != http.StatusOK {
+				t.Fatalf("patch = %d %s, want 200", rec.Code, rec.Body.String())
+			}
+			var resp memberResponse
+			if err := json.Unmarshal(rec.Body.Bytes(), &resp); err != nil {
+				t.Fatalf("decode: %v", err)
+			}
+			if resp.TokenWarning != c.want {
+				t.Errorf("token_warning = %q, want %q", resp.TokenWarning, c.want)
+			}
+			if tok, ok, _ := store.MemberToken(t.Context(), m.ID); !ok || tok != "newtok" {
+				t.Errorf("stored token = %q (ok=%v), want the new token saved", tok, ok)
+			}
+		})
+	}
+}
+
 // A member from before the identity index whose verification learns an
 // identity another member already holds is a duplicate row: the backfill
 // reports it (no silent failure), the roster is left as configured, and the

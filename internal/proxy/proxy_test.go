@@ -8,14 +8,17 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"strings"
 	"testing"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/hugalafutro/model-hotel/internal/config"
 	"github.com/hugalafutro/model-hotel/internal/db"
 	"github.com/hugalafutro/model-hotel/internal/failover"
+	"github.com/hugalafutro/model-hotel/internal/logtest"
 	"github.com/hugalafutro/model-hotel/internal/model"
 	"github.com/hugalafutro/model-hotel/internal/provider"
 	"github.com/hugalafutro/model-hotel/internal/ratelimit"
@@ -505,5 +508,70 @@ func TestHumanReadableCancelOrigin(t *testing.T) {
 		if got != tc.expected {
 			t.Errorf("humanReadableCancelOrigin(%q) = %q, want %q", tc.input, got, tc.expected)
 		}
+	}
+}
+
+// Once the overall deadline has passed, the loop stops before the next
+// candidate: the verdict is a failover timeout charged to the attempt that
+// last ran (not the one that never started), it keeps that attempt's
+// upstream error, and the client gets a 504.
+func TestRunFailoverLoop_OverallDeadlineStopsBeforeTheNextCandidate(t *testing.T) {
+	env := newTestProxyHandler(t)
+	defer env.Upstream.Close()
+	h := env.Handler
+	req := httptest.NewRequest("POST", "/v1/chat/completions", http.NoBody)
+	logData, _ := h.newPendingRequestLog(req, endpointTypeChat, "m", false)
+	st := &requestState{startTime: time.Now(), reqModel: "m", isFailover: true, overallDeadline: time.Now().Add(-time.Second), logData: logData}
+	cands := []modelCandidate{modelCandidateForBreaker(uuid.New()), modelCandidateForBreaker(uuid.New())}
+	var tried []int
+	fn := func(_ http.ResponseWriter, _ *http.Request, st *requestState, c modelCandidate, attempt, _ int) candidateOutcome {
+		tried = append(tried, attempt)
+		st.logData.providerName = c.provider.Name
+		st.setReqErr(reqError{Kind: KindProviderError, Attempt: attempt, Provider: c.provider.Name, Underlying: "upstream 500"})
+		return outcomeFailover
+	}
+	w := httptest.NewRecorder()
+	h.runFailoverLoop(w, req, st, cands, fn)
+
+	if len(tried) != 1 || tried[0] != 0 {
+		t.Fatalf("attempts = %v, want only the first candidate before the deadline check", tried)
+	}
+	if st.lastReqErr.Kind != KindFailoverTimeout || st.lastReqErr.Attempt != 0 {
+		t.Errorf("verdict = %+v, want failover_timeout on attempt index 0", st.lastReqErr)
+	}
+	if msg := st.lastReqErr.render(); !strings.Contains(msg, "(attempt 1)") || !strings.Contains(msg, "upstream 500") {
+		t.Errorf("verdict renders %q, want attempt 1 and the carried upstream error", msg)
+	}
+	if w.Code != http.StatusGatewayTimeout {
+		t.Errorf("status = %d, want 504", w.Code)
+	}
+}
+
+// A saturated last candidate whose 429 named no Retry-After waits the
+// default: with room for a zero wait but not for the default, the retry is
+// refused for lack of budget and the log names the default as the wait.
+func TestRetrySaturatedCandidate_NoRetryAfterUsesTheDefaultWait(t *testing.T) {
+	env := newTestProxyHandler(t)
+	defer env.Upstream.Close()
+	h := env.Handler
+	logs := logtest.Capture(t)
+	attempted := false
+	fn := func(http.ResponseWriter, *http.Request, *requestState, modelCandidate, int, int) candidateOutcome {
+		attempted = true
+		return outcomeServed
+	}
+	st := &requestState{
+		overallDeadline: time.Now().Add(retryMinRound + defaultSaturatedRetryAfter/2),
+		rateLimit:       rateLimitVerdict{class: rateLimitSaturated},
+		logData:         &requestLogData{modelID: "m"},
+	}
+	if h.retrySaturatedCandidate(httptest.NewRecorder(), httptest.NewRequest("POST", "/", http.NoBody), st, modelCandidateForBreaker(uuid.New()), 1, fn) {
+		t.Error("the retry reported the request answered")
+	}
+	if attempted {
+		t.Error("the retry ran although the default wait does not fit the budget")
+	}
+	if got := logs.Attr("proxy: no time budget left to retry the last candidate", "wait"); got != defaultSaturatedRetryAfter {
+		t.Errorf("refused wait = %v, want the %v default", got, defaultSaturatedRetryAfter)
 	}
 }

@@ -1845,3 +1845,44 @@ func TestVirtualKeyRepoAdapter_FindByKeyHashMapsOwner(t *testing.T) {
 		t.Errorf("owner name = %q", info.Owner.Name)
 	}
 }
+
+// TestRegisterAdminChat_Routes tests that RegisterAdminChat registers the expected routes
+
+func TestRegisterAdminChat_Routes(t *testing.T) {
+	h := newIntegrationHandler()
+	defer stopUnitHandlerIntegration(h)
+
+	// Create a chi router and register admin chat routes
+	router := chi.NewRouter()
+	h.RegisterAdminChat(router)
+
+	// Test that routes are registered by checking if they don't return 404
+	// We don't need to test the full functionality, just that routes exist
+	t.Run("chat route exists", func(t *testing.T) {
+		req := httptest.NewRequest("POST", "/chat", http.NoBody)
+		w := httptest.NewRecorder()
+		router.ServeHTTP(w, req)
+		// Route should exist (may return auth error, but not 404)
+		if w.Code == http.StatusNotFound {
+			t.Error("admin chat route should be registered")
+		}
+	})
+
+	t.Run("arena route exists", func(t *testing.T) {
+		req := httptest.NewRequest("POST", "/arena", http.NoBody)
+		w := httptest.NewRecorder()
+		router.ServeHTTP(w, req)
+		if w.Code == http.StatusNotFound {
+			t.Error("admin arena route should be registered")
+		}
+	})
+
+	t.Run("completions route exists", func(t *testing.T) {
+		req := httptest.NewRequest("POST", "/completions", http.NoBody)
+		w := httptest.NewRecorder()
+		router.ServeHTTP(w, req)
+		if w.Code == http.StatusNotFound {
+			t.Error("admin completions route should be registered")
+		}
+	})
+}

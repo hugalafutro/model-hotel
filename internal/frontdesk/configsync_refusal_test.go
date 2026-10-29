@@ -2,6 +2,7 @@ package frontdesk
 
 import (
 	"encoding/json"
+	"errors"
 	"net/http"
 	"strings"
 	"testing"
@@ -82,5 +83,32 @@ func TestRefusalReasonIsBounded(t *testing.T) {
 	}
 	if refusalReason(nil) != "" || refusalReason([]byte("   ")) != "" || refusalReason([]byte(`{"code":"x"}`)) != "" {
 		t.Fatal("an empty or reason-less body must yield no reason")
+	}
+}
+
+// TestWithRefusalReason covers the shared refusal-message helper: a member's own
+// reason is appended when the error carries one, and the base message is left
+// alone otherwise.
+func TestWithRefusalReason(t *testing.T) {
+	base := "this member rejected the request (HTTP 400)"
+	if got := withRefusalReason(base, &memberRefusal{status: 400, reason: "refusing to import an empty config"}); got != base+": refusing to import an empty config" {
+		t.Errorf("with a reason = %q", got)
+	}
+	if got := withRefusalReason(base, &memberRefusal{status: 400}); got != base {
+		t.Errorf("empty reason = %q, want the base message", got)
+	}
+	if got := withRefusalReason(base, errors.New("boom")); got != base {
+		t.Errorf("unrelated error = %q, want the base message", got)
+	}
+}
+
+// A refusal's own error text names the status, and the member's reason when it
+// gave one, so a logged refusal says which field the member objected to.
+func TestMemberRefusalError(t *testing.T) {
+	if got := (&memberRefusal{status: 409}).Error(); got != "member config-import returned 409" {
+		t.Errorf("no reason = %q", got)
+	}
+	if got := (&memberRefusal{status: 400, reason: "master key mismatch"}).Error(); got != "member config-import returned 400: master key mismatch" {
+		t.Errorf("with a reason = %q", got)
 	}
 }

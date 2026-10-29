@@ -1,4 +1,4 @@
-import { renderHook } from "@testing-library/react";
+import { act, renderHook } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { useArenaState } from "../useArenaState";
 import {
@@ -315,6 +315,66 @@ describe("useArenaState", () => {
 			expect(result.current.bracketModels).toEqual([]);
 			expect(result.current.savedPrompt).toBe("");
 			expect(result.current.phase).toBe("setup");
+		});
+	});
+
+	describe("persisted preset and persona ids", () => {
+		beforeEach(() => {
+			persistRef.current = true;
+		});
+		afterEach(() => {
+			persistRef.current = false;
+		});
+
+		it("reads stored ids, treats an empty stored id as none, and writes none back as empty", () => {
+			localStorage.setItem("arenaCompareActivePromptId", "preset-a");
+			localStorage.setItem("arenaCompetitionActivePromptId", "");
+			localStorage.setItem("arenaComparePersonaId", "persona-x");
+			const { result } = renderHook(() => useArenaState(), {
+				wrapper: createWrapper(),
+			});
+			expect(result.current.compareActivePromptId).toBe("preset-a");
+			expect(result.current.competitionActivePromptId).toBeNull();
+			expect(result.current.comparePersonaId).toBe("persona-x");
+
+			act(() => {
+				result.current.setCompareActivePromptId(null);
+				result.current.setCompetitionActivePromptId("preset-b");
+				result.current.setComparePersonaId(null);
+			});
+			expect(localStorage.getItem("arenaCompareActivePromptId")).toBe("");
+			expect(localStorage.getItem("arenaCompetitionActivePromptId")).toBe(
+				"preset-b",
+			);
+			expect(localStorage.getItem("arenaComparePersonaId")).toBe("");
+		});
+	});
+
+	describe("random model at capacity", () => {
+		it("adds no random bracket model once eight are picked", () => {
+			const { result } = renderHook(() => useArenaState(), {
+				wrapper: createWrapper(),
+			});
+			const eight = Array.from(
+				{ length: 8 },
+				(_, i) => `TestProvider/model-${i + 1}`,
+			);
+			act(() => result.current.setBracketModels(eight));
+			act(() => result.current.handleRandomBracketModel());
+			expect(result.current.bracketModels).toEqual(eight);
+		});
+
+		it("adds no random compare model once six are picked", () => {
+			const { result } = renderHook(() => useArenaState(), {
+				wrapper: createWrapper(),
+			});
+			const six = Array.from(
+				{ length: 6 },
+				(_, i) => `TestProvider/model-${i + 1}`,
+			);
+			act(() => result.current.setCompareModels(six));
+			act(() => result.current.handleRandomCompareModel());
+			expect(result.current.compareModels).toEqual(six);
 		});
 	});
 });

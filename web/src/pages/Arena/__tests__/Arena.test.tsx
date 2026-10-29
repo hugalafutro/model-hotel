@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -169,10 +169,12 @@ vi.mock("../ParamEditorModal", () => ({
 	ParamEditorModal: ({
 		modelId,
 		maxOutputTokens,
+		onChange,
 		onClose,
 	}: {
 		modelId: string;
 		maxOutputTokens?: number | null;
+		onChange: (params: Record<string, unknown>) => void;
 		onClose: () => void;
 	}) => (
 		<div
@@ -180,6 +182,11 @@ vi.mock("../ParamEditorModal", () => ({
 			data-model={modelId}
 			data-max-output={String(maxOutputTokens ?? "")}
 		>
+			<button
+				type="button"
+				data-testid="param-editor-apply"
+				onClick={() => onChange({ temperature: 0.4 })}
+			/>
 			<button type="button" onClick={onClose}>
 				Close
 			</button>
@@ -1324,5 +1331,52 @@ describe("Arena - Auto-scroll", () => {
 			expect.objectContaining({ behavior: "instant" }),
 		);
 		scrollToSpy.mockRestore();
+	});
+});
+
+describe("Arena - modal callbacks", () => {
+	it("closing the winner summary clears it", async () => {
+		const setWinnerModal = vi.fn();
+		mockArena({ winnerModal: { winner: "m", rounds: [] }, setWinnerModal });
+		render(<Arena />);
+		await userEvent.click(
+			within(screen.getByTestId("winner-summary-modal")).getByRole("button"),
+		);
+		expect(setWinnerModal).toHaveBeenCalledWith(null);
+	});
+
+	it("closing match history hides it", async () => {
+		const setShowHistoryModal = vi.fn();
+		mockArena({ showHistoryModal: true, setShowHistoryModal });
+		render(<Arena />);
+		await userEvent.click(
+			within(screen.getByTestId("arena-history-modal")).getByRole("button"),
+		);
+		expect(setShowHistoryModal).toHaveBeenCalledWith(false);
+	});
+
+	it("stores edited params under the edited model and closes the editor", async () => {
+		const setModelParams = vi.fn();
+		const setParamEditorModel = vi.fn();
+		mockArena({
+			paramEditorModel: "provider/model1",
+			enabledModels: [{ provider_name: "provider", model_id: "model1" }],
+			setModelParams,
+			setParamEditorModel,
+		});
+		render(<Arena />);
+		await userEvent.click(screen.getByTestId("param-editor-apply"));
+		const update = setModelParams.mock.calls[0][0] as (
+			prev: Record<string, unknown>,
+		) => Record<string, unknown>;
+		expect(update({ "provider/other": { top_p: 1 } })).toEqual({
+			"provider/other": { top_p: 1 },
+			"provider/model1": { temperature: 0.4 },
+		});
+		const modal = screen.getByTestId("param-editor-modal");
+		await userEvent.click(
+			within(modal).getAllByRole("button").at(-1) as HTMLElement,
+		);
+		expect(setParamEditorModel).toHaveBeenCalledWith(null);
 	});
 });

@@ -660,3 +660,27 @@ func TestBuildProviderClaims_OrderingIsTotal(t *testing.T) {
 		}
 	}
 }
+
+// Between two providers with the same counted total, the one with more gone
+// models comes first: Alpha's two counted claims are one gone and one retired,
+// Beta's are both gone, so Beta leads although Alpha sorts first by name.
+func TestBuildProviderClaims_GoneBreaksCountedTie(t *testing.T) {
+	now := time.Date(2026, 8, 1, 12, 0, 0, 0, time.UTC)
+	seen := now.Add(-24 * time.Hour)
+	retired := now.Add(-time.Hour)
+	rows := []claimRow{
+		{ProviderID: "p-alpha", ProviderName: "Alpha", ModelID: "a1", LastSeenAt: seen},
+		{ProviderID: "p-alpha", ProviderName: "Alpha", ModelID: "a2", LastSeenAt: seen, RetiredAt: &retired},
+		{ProviderID: "p-beta", ProviderName: "Beta", ModelID: "b1", LastSeenAt: seen},
+		{ProviderID: "p-beta", ProviderName: "Beta", ModelID: "b2", LastSeenAt: seen},
+	}
+	for i := range 20 {
+		claims, count := buildProviderClaims(rows, nil, nil, now)
+		if count != 4 || len(claims) != 2 {
+			t.Fatalf("pass %d: %d providers with %d counted claims, want 2 with 4", i, len(claims), count)
+		}
+		if claims[0].ProviderID != "p-beta" || len(claims[0].Gone) != 2 || len(claims[1].Retired) != 1 {
+			t.Fatalf("pass %d: order %s then %s, want Beta (two gone) ahead of Alpha (one gone, one retired)", i, claims[0].ProviderName, claims[1].ProviderName)
+		}
+	}
+}

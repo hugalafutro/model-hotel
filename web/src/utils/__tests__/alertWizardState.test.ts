@@ -1,7 +1,9 @@
 import {
+	canNext,
 	DEFAULT_APPRISE_URL,
 	EMPTY_DRAFT,
 	initialState,
+	reducer,
 	type WizardSeed,
 } from "@web-shared/alerts/wizardState";
 import { describe, expect, it } from "vitest";
@@ -62,5 +64,35 @@ describe("initialState", () => {
 		expect(initialState(seed(), true).events).toEqual(
 			new Set(["backup.failed", "quota.low"]),
 		);
+	});
+});
+
+describe("reducer and gates at their edges", () => {
+	it("a step outside the wizard never advances", () => {
+		const s = initialState(seed(), false);
+		expect(canNext({ ...s, step: 8 as unknown as typeof s.step })).toBe(false);
+	});
+
+	it("ignores a field edit before a destination kind is chosen", () => {
+		const s = { ...initialState(seed(), false), draft: EMPTY_DRAFT };
+		expect(reducer(s, { type: "setField", key: "host", value: "x" })).toBe(s);
+	});
+
+	it("toggles one event type on and off without touching the rest", () => {
+		const s = initialState(seed({ savedEvents: "member.down" }), false);
+		const on = reducer(s, {
+			type: "toggleEvent",
+			eventType: "backup.failed",
+			on: true,
+		});
+		expect(on.events).toEqual(new Set(["member.down", "backup.failed"]));
+		// A new Set, so the previous state is unchanged.
+		expect(s.events).toEqual(new Set(["member.down"]));
+		const off = reducer(on, {
+			type: "toggleEvent",
+			eventType: "member.down",
+			on: false,
+		});
+		expect(off.events).toEqual(new Set(["backup.failed"]));
 	});
 });

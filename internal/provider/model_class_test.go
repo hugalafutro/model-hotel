@@ -251,6 +251,38 @@ func TestNormalizeModelClassification(t *testing.T) {
 			wantClass:  "chat",
 		},
 		{
+			name: "legacy audio word seeds audio input when arrays empty",
+			in: model.Model{
+				ModelID:  "qwen2-audio-instruct",
+				Modality: "audio",
+			},
+			wantInput:  `["text","audio"]`,
+			wantOutput: `["text"]`,
+			wantClass:  "chat",
+		},
+		{
+			// The image-generation name would derive "image" if the unknown
+			// output fell through to the name heuristic.
+			name: "unknown-only output defaults to chat over the name",
+			in: model.Model{
+				ModelID:          "dall-e-3",
+				OutputModalities: `["hologram","sonar"]`,
+			},
+			wantInput:  `["text"]`,
+			wantOutput: `["hologram","sonar"]`,
+			wantClass:  "chat",
+		},
+		{
+			name: "unknown input sorts after known entries",
+			in: model.Model{
+				ModelID:         "some/model",
+				InputModalities: `["hologram","image","text"]`,
+			},
+			wantInput:  `["text","image","hologram"]`,
+			wantOutput: `["text"]`,
+			wantClass:  "chat",
+		},
+		{
 			name: "code output kept and derives chat",
 			in: model.Model{
 				ModelID:          "openrouter/some-coder",
@@ -493,5 +525,34 @@ func TestNormalizeModelClassification_ClearsChatCapsOnEmbeddingAndRerank(t *test
 		if c.Streaming != tc.wantChat || (tc.m.Modality != "tts" && (c.StructuredOutput != tc.wantChat || c.ToolCalling != tc.wantChat || c.Reasoning != tc.wantChat || c.ParallelToolCalls != tc.wantChat)) {
 			t.Errorf("%s (class %s): capabilities %s, want chat capabilities %v", tc.name, tc.m.Modality, tc.m.Capabilities, tc.wantChat)
 		}
+	}
+}
+
+// Capabilities JSON is rewritten only when a flag actually changes: an stt
+// model whose flags already agree with its audio input keeps the stored string
+// byte for byte (key order included), while unparseable capabilities are read
+// as no flags and replaced by the ones the input implies.
+func TestNormalizeModelClassification_CapabilitiesRewrittenOnlyOnChange(t *testing.T) {
+	agreeing := &model.Model{
+		ModelID:         "whisper-1",
+		InputModalities: `["audio"]`,
+		Capabilities:    `{"streaming":true,"audio_input":true}`,
+	}
+	NormalizeModelClassification(agreeing)
+	if agreeing.Modality != "stt" {
+		t.Fatalf("Modality = %q, want stt", agreeing.Modality)
+	}
+	if agreeing.Capabilities != `{"streaming":true,"audio_input":true}` {
+		t.Errorf("Capabilities = %s, want the stored string kept unchanged", agreeing.Capabilities)
+	}
+
+	malformed := &model.Model{
+		ModelID:         "some/model",
+		InputModalities: `["text","image"]`,
+		Capabilities:    `not-json`,
+	}
+	NormalizeModelClassification(malformed)
+	if malformed.Capabilities != `{"vision":true}` {
+		t.Errorf("Capabilities = %s, want the malformed value replaced by the vision flag", malformed.Capabilities)
 	}
 }

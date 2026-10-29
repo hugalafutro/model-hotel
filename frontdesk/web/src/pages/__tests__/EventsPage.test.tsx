@@ -1,9 +1,17 @@
-import { act, render, screen, waitFor, within } from "@testing-library/react";
+import {
+	act,
+	fireEvent,
+	render,
+	screen,
+	waitFor,
+	within,
+} from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { HttpResponse, http } from "msw";
-import { beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { FdEvent } from "../../api/types";
 import { ToastProvider } from "../../context/ToastContext";
+import i18n from "../../i18n";
 import { server } from "../../test/server";
 import { sseEmitting, sseHandler } from "../../test/sse";
 import { EventsPage } from "../EventsPage";
@@ -228,5 +236,124 @@ describe("EventsPage", () => {
 		// Only the refetch the event triggered can surface it.
 		expect(await screen.findByText("fresh event")).toBeInTheDocument();
 		expect(calls).toBe(2);
+	});
+});
+
+describe("EventsPage filters and rows", () => {
+	afterEach(() => {
+		vi.restoreAllMocks();
+	});
+
+	it("gives each severity its own badge class", async () => {
+		server.use(
+			http.get("/api/events", () =>
+				HttpResponse.json({
+					events: [
+						ev("1", { severity: "success", message: "m-success" }),
+						ev("2", { severity: "warning", message: "m-warning" }),
+						ev("3", { severity: "error", message: "m-error" }),
+						ev("4", { severity: "info", message: "m-info" }),
+					],
+					total: 4,
+				}),
+			),
+		);
+		renderPage();
+		const badge = async (sev: string) => {
+			const row = (await screen.findByText(`m-${sev}`)).closest(
+				"tr",
+			) as HTMLElement;
+			return within(row).getByText(
+				i18n.t(`events.sev${sev[0].toUpperCase()}${sev.slice(1)}`),
+			);
+		};
+		expect(await badge("success")).toHaveClass("ui-badge-ok");
+		expect(await badge("warning")).toHaveClass("ui-badge-warn");
+		expect(await badge("error")).toHaveClass("ui-badge-danger");
+		expect(await badge("info")).toHaveClass("ui-badge-info");
+	});
+
+	it("shows the network error when the read fails", async () => {
+		server.use(
+			http.get("/api/events", () =>
+				HttpResponse.json({ error: "down" }, { status: 500 }),
+			),
+		);
+		renderPage();
+		expect(
+			await screen.findByText(i18n.t("errors.network")),
+		).toBeInTheDocument();
+	});
+
+	it("names a known member, falls back to the raw id, and filters by member and type", async () => {
+		const seen: URLSearchParams[] = [];
+		server.use(
+			http.get("/api/members", () =>
+				HttpResponse.json([
+					{
+						id: "m1",
+						name: "hotel-one",
+						url: "https://one.example.com",
+						state: "active",
+						has_token: true,
+						created_at: "",
+						updated_at: "",
+					},
+				]),
+			),
+			http.get("/api/events", ({ request }) => {
+				seen.push(new URL(request.url).searchParams);
+				return HttpResponse.json({
+					events: [
+						ev("1", { member_id: "m1", message: "known" }),
+						ev("2", { member_id: "gone", message: "orphan" }),
+					],
+					total: 2,
+				});
+			}),
+		);
+		renderPage();
+		const known = (await screen.findByText("known")).closest("td");
+		await waitFor(() => expect(known).toHaveTextContent("· hotel-one"));
+		expect((await screen.findByText("orphan")).closest("td")).toHaveTextContent(
+			"· gone",
+		);
+
+		await userEvent.selectOptions(
+			screen.getByLabelText(i18n.t("events.filterMember")),
+			"m1",
+		);
+		await waitFor(() => expect(seen.at(-1)?.get("member_id")).toBe("m1"));
+		await userEvent.selectOptions(
+			screen.getByLabelText(i18n.t("events.filterType")),
+			"member.added",
+		);
+		await waitFor(() => expect(seen.at(-1)?.get("type")).toBe("member.added"));
+		expect(seen.at(-1)?.get("member_id")).toBe("m1");
+	});
+
+	it("pages with the horizontal wheel over the table", async () => {
+		let clock = 0;
+		// Each wheel event reads as a fresh gesture (gap over the idle threshold).
+		vi.spyOn(Date, "now").mockImplementation(() => {
+			clock += 1000;
+			return clock;
+		});
+		const offsets: number[] = [];
+		server.use(
+			http.get("/api/events", ({ request }) => {
+				const offset = Number(new URL(request.url).searchParams.get("offset"));
+				offsets.push(offset);
+				return HttpResponse.json({ events: [ev(`${offset}`)], total: 30 });
+			}),
+		);
+		renderPage();
+		await screen.findByText("event 0");
+		const scroller = screen.getByRole("table").parentElement as HTMLElement;
+		fireEvent.wheel(scroller, { deltaX: 120, deltaY: 0 });
+		expect(await screen.findByText("event 25")).toBeInTheDocument();
+		fireEvent.wheel(scroller, { deltaX: -120, deltaY: 0 });
+		expect(await screen.findByText("event 0")).toBeInTheDocument();
+		expect(offsets).toEqual([0, 25, 0]);
 	});
 });

@@ -230,3 +230,22 @@ func waitBlockedInLockPass(t *testing.T) {
 	}
 	t.Fatal("no pass blocked on the pass lock")
 }
+
+// A tick whose context ended while it waited for the pass lock runs nothing and
+// carries the previous hash forward untouched. The store is closed, so a tick
+// that went on to read its config would fail that read and return "" instead.
+func TestAutoSyncOnceSkipsWhenContextEnded(t *testing.T) {
+	srv, store := newTestServer(t)
+	if err := store.Close(); err != nil {
+		t.Fatalf("close store: %v", err)
+	}
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	if got := srv.autoSyncOnce(ctx, "prev-hash"); got != "prev-hash" {
+		t.Errorf("autoSyncOnce with an ended context = %q, want the previous hash", got)
+	}
+	if !srv.passMu.TryLock() {
+		t.Fatal("the skipped tick left the pass lock held")
+	}
+	srv.passMu.Unlock()
+}

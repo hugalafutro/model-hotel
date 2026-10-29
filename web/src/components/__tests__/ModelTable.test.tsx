@@ -1,5 +1,5 @@
 import { fireEvent, screen, waitFor, within } from "@testing-library/react";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { mockModel, mockProvider } from "../../test/mocks/data";
 import { server } from "../../test/mocks/server";
 import { armDeleteConfirm, renderWithProviders } from "../../test/utils";
@@ -1524,5 +1524,37 @@ describe("ModelTable", () => {
 				screen.queryByRole("button", { name: /delete.*disabled/i }),
 			).not.toBeInTheDocument();
 		});
+	});
+});
+
+describe("ModelTable wheel paging", () => {
+	afterEach(() => {
+		vi.restoreAllMocks();
+	});
+
+	it("turns pages with the horizontal wheel over the table", () => {
+		let clock = 0;
+		// Every wheel event reads as a fresh gesture (past the idle gap).
+		vi.spyOn(Date, "now").mockImplementation(() => {
+			clock += 1000;
+			return clock;
+		});
+		// 25 models: two pages at the default page size of 20.
+		const models = Array.from({ length: 25 }, (_, i) => ({
+			...mockModel,
+			id: `m-${String(i).padStart(2, "0")}`,
+			name: `Model ${String(i).padStart(2, "0")}`,
+		}));
+		renderWithProviders(<ModelTable models={models} />);
+		expect(screen.getByText("Model 00")).toBeInTheDocument();
+		const scroller = screen.getByRole("table").parentElement as HTMLElement;
+
+		fireEvent.wheel(scroller, { deltaX: 120, deltaY: 0 });
+		expect(screen.getByText("Model 20")).toBeInTheDocument();
+		expect(screen.queryByText("Model 00")).toBeNull();
+
+		fireEvent.wheel(scroller, { deltaX: -120, deltaY: 0 });
+		expect(screen.getByText("Model 00")).toBeInTheDocument();
+		expect(screen.queryByText("Model 20")).toBeNull();
 	});
 });

@@ -4,9 +4,37 @@ import (
 	"context"
 	"reflect"
 	"slices"
+	"strings"
 	"testing"
 	"time"
 )
+
+// TestFleetStateNowSurfacesStoreErrors: each of fleetStateNow's store reads that
+// fails is returned, never folded into a computed state. The member list reads
+// fine in both cases, so each case reaches the read that follows it: the
+// auto-sync config (settings) and the fleet's last-sync marker.
+func TestFleetStateNowSurfacesStoreErrors(t *testing.T) {
+	for _, c := range []struct{ table, breakSQL, fixSQL string }{
+		{"settings", `ALTER TABLE settings RENAME TO settings_gone`, `ALTER TABLE settings_gone RENAME TO settings`},
+		{"fleet_sync_state", `ALTER TABLE fleet_sync_state RENAME TO fleet_sync_state_gone`, `ALTER TABLE fleet_sync_state_gone RENAME TO fleet_sync_state`},
+	} {
+		t.Run(c.table, func(t *testing.T) {
+			srv, store := newTestServer(t)
+			if _, err := store.db.Exec(c.breakSQL); err != nil {
+				t.Fatalf("break %s: %v", c.table, err)
+			}
+			t.Cleanup(func() { _, _ = store.db.Exec(c.fixSQL) })
+
+			state, reasons, warm, err := srv.fleetStateNow(t.Context())
+			if err == nil || !strings.Contains(err.Error(), "no such table: "+c.table) {
+				t.Fatalf("err = %v, want the %s read's failure", err, c.table)
+			}
+			if state != "" || reasons != nil || warm {
+				t.Errorf("a failed read still produced state %q reasons %v warm %v", state, reasons, warm)
+			}
+		})
+	}
+}
 
 func TestComputeFleetState(t *testing.T) {
 	up := memberFleetFacts{Known: true, Healthy: true}

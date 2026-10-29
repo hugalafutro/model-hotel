@@ -5,6 +5,8 @@ import (
 	"strings"
 	"sync"
 	"testing"
+
+	"github.com/hugalafutro/model-hotel/internal/logtest"
 )
 
 // Both Anthropic types keep reasoning_effort, and the choice is load-bearing.
@@ -490,5 +492,49 @@ func TestBuildUpstreamBody_TrailingContentForwardsVerbatim(t *testing.T) {
 		if string(out) != body {
 			t.Errorf("BuildUpstreamBody(%q) = %q, want it forwarded verbatim", body, out)
 		}
+	}
+}
+
+// A second lesson for a key merges into the first: earlier keys survive, and
+// a key learned again takes the new value.
+func TestMergeLearnedParamCache_MergesIntoExistingEntry(t *testing.T) {
+	var cache sync.Map
+	key := LearnedCacheKey("p", "m")
+	cache.Store(key, &map[string]string{"max_tokens": "max_completion_tokens", "stop": "old"})
+
+	MergeLearnedParamCache(&cache, key, map[string]string{"stop": "stop_sequences", "seed": "random_seed"})
+
+	v, _ := cache.Load(key)
+	got := *v.(*map[string]string)
+	want := map[string]string{"max_tokens": "max_completion_tokens", "stop": "stop_sequences", "seed": "random_seed"}
+	if len(got) != len(want) {
+		t.Fatalf("merged = %v, want %v", got, want)
+	}
+	for k, w := range want {
+		if got[k] != w {
+			t.Errorf("merged[%q] = %q, want %q", k, got[k], w)
+		}
+	}
+}
+
+// An entry of another type under the key is left as it is and logged, never
+// overwritten or panicked on.
+func TestMergeLearnedParamCache_TypeMismatchLeavesTheEntry(t *testing.T) {
+	logs := logtest.Capture(t)
+	var cache sync.Map
+	key := LearnedCacheKey("p", "m")
+	foreign := &map[string]bool{"top_p": true}
+	cache.Store(key, foreign)
+
+	MergeLearnedParamCache(&cache, key, map[string]string{"max_tokens": "max_completion_tokens"})
+
+	if v, _ := cache.Load(key); v != foreign {
+		t.Errorf("entry replaced with %v, want the existing one untouched", v)
+	}
+	if got := logs.Attr("learned param cache: unexpected type", "type"); got != "*map[string]bool" {
+		t.Errorf("logged type = %v, want *map[string]bool", got)
+	}
+	if got := logs.Attr("learned param cache: unexpected type", "key"); got != key {
+		t.Errorf("logged key = %v, want %q", got, key)
 	}
 }

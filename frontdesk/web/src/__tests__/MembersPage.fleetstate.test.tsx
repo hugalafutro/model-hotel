@@ -76,4 +76,16 @@ describe("MembersPage fleet-state badge", () => {
 		);
 		expect(screen.queryByTestId("fleet-state-badge")).not.toBeInTheDocument();
 	});
+	it("degrades an unrecognised (future) state to the neutral info badge", async () => {
+		server.use(
+			...baseHandlers(),
+			autoSync({
+				stale: false,
+				fleet_state: "rebalancing" as AutoSyncConfig["fleet_state"],
+			}),
+		);
+		renderPage();
+		const badge = await screen.findByTestId("fleet-state-badge");
+		expect(badge.className).toContain("ui-badge-info");
+	});
 });
