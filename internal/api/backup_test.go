@@ -635,6 +635,11 @@ func TestNewBackupHandler_Constructor(t *testing.T) {
 	if !filepath.IsAbs(h.backupDir) {
 		t.Errorf("expected backupDir to be absolute, got %q", h.backupDir)
 	}
+	// The server waits a minute before the first scheduled tick so startup
+	// finishes first; the loop tests override this, so pin the default here.
+	if h.initialDelay != time.Minute {
+		t.Errorf("initialDelay = %v, want %v", h.initialDelay, time.Minute)
+	}
 
 	// Test with empty backup dir path
 	hEmpty := NewBackupHandler("postgres://user:pass@localhost/db", "", adminAuth, nil)

@@ -29,7 +29,7 @@ server_major="$(printf '%s' "$image" | sed -E 's/^postgres:([0-9]+).*/\1/')"
 # an earlier call's shim is already first on PATH would otherwise read the
 # shim's version, take the host for a match and delete the shims under a test
 # run that is still using them.
-host_path=":$PATH:"
+host_path=":${PATH:-}:"
 # Quoted so a directory with glob characters in its name still matches literally.
 while [ "$host_path" != "${host_path//":$DIR:"/:}" ]; do host_path="${host_path//":$DIR:"/:}"; done
 host_path="${host_path#:}"
