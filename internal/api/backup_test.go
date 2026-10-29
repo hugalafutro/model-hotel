@@ -291,7 +291,7 @@ func TestBackupHandler_DeleteBackup_NotFound(t *testing.T) {
 }
 
 // The "pg_dump missing -> 412" path is covered deterministically by
-// TestCreateBackup_NoPgDump_ManipulatedPATH (subprocess with empty PATH), so the
+// TestCreateBackup_NoPgDump_ManipulatedPATH (empty PATH), so the
 // earlier environment-conditional duplicates that skipped when pg_dump happened
 // to be installed were removed: a test must pass or fail, never skip.
 
@@ -751,53 +751,57 @@ func TestValidateBackupFilename_ValidNames(t *testing.T) {
 // Tests moved from coverage_gap_test.go
 // ---------------------------------------------------------------------------
 
-// TestCreateBackup_Success tests the happy path of BackupHandler.CreateBackup().
-// This test requires pg_dump to be installed on the system.
+// TestCreateBackup_Success tests the happy path of BackupHandler.CreateBackup()
+// against the test database with a real pg_dump, and the origin the query
+// string records: ?origin=frontdesk badges the dump as Front Desk's, while no
+// origin, or "auto" (scheduler-internal, never accepted from a request), stays
+// "manual".
 func TestCreateBackup_Success(t *testing.T) {
-
-	// Skip if pg_dump is not available
 	if _, err := exec.LookPath("pg_dump"); err != nil {
-		t.Fatal("pg_dump not installed, skipping backup integration test")
+		t.Fatal("pg_dump not installed: CI provides postgresql-client")
 	}
 
-	backupDir := t.TempDir()
-	bh := NewBackupHandler(apiTestDBURL, backupDir, &mockAdminAuth{}, nil)
+	for _, tc := range []struct {
+		query, origin string
+	}{
+		{"", "manual"},
+		{"?origin=" + backupOriginFrontDesk, backupOriginFrontDesk},
+		{"?origin=auto", "manual"},
+	} {
+		t.Run(tc.origin+tc.query, func(t *testing.T) {
+			backupDir := t.TempDir()
+			bh := NewBackupHandler(apiTestDBURL, backupDir, &mockAdminAuth{}, nil)
+			r := chi.NewRouter()
+			bh.Register(r)
 
-	r := chi.NewRouter()
-	bh.Register(r)
+			req := httptest.NewRequest(http.MethodPost, "/backups"+tc.query, http.NoBody)
+			w := httptest.NewRecorder()
+			r.ServeHTTP(w, req)
 
-	req := httptest.NewRequest(http.MethodPost, "/backups", http.NoBody)
-	req.Header.Set("Authorization", "Bearer test-admin-token")
-
-	w := httptest.NewRecorder()
-	r.ServeHTTP(w, req)
-
-	if w.Code != http.StatusCreated {
-		t.Fatalf("expected status 201 Created, got %d: %s", w.Code, w.Body.String())
-	}
-
-	var resp struct {
-		Filename  string `json:"filename"`
-		SizeBytes int64  `json:"size_bytes"`
-	}
-	if err := json.NewDecoder(w.Body).Decode(&resp); err != nil {
-		t.Fatalf("failed to decode response: %v", err)
-	}
-
-	if resp.Filename == "" {
-		t.Error("response should have non-empty filename")
-	}
-
-	if resp.SizeBytes == 0 {
-		t.Error("response should have non-zero size_bytes")
-	}
-
-	// Verify the backup file actually exists on disk
-	backupPath := backupDir + "/" + resp.Filename
-	if _, err := exec.LookPath("stat"); err == nil {
-		if _, err := exec.Command("stat", backupPath).CombinedOutput(); err != nil {
-			t.Errorf("backup file should exist at %s", backupPath)
-		}
+			if w.Code != http.StatusCreated {
+				t.Fatalf("expected status 201 Created, got %d: %s", w.Code, w.Body.String())
+			}
+			var resp backupEntry
+			if err := json.NewDecoder(w.Body).Decode(&resp); err != nil {
+				t.Fatalf("failed to decode response: %v", err)
+			}
+			if !strings.HasSuffix(resp.Filename, "_"+tc.origin+".dump") {
+				t.Errorf("filename %q does not carry the %q origin marker", resp.Filename, tc.origin)
+			}
+			if resp.Origin != tc.origin {
+				t.Errorf("origin = %q, want %q", resp.Origin, tc.origin)
+			}
+			if resp.SizeBytes == 0 {
+				t.Error("response should have non-zero size_bytes")
+			}
+			info, err := os.Stat(filepath.Join(backupDir, resp.Filename))
+			if err != nil {
+				t.Fatalf("backup file missing on disk: %v", err)
+			}
+			if info.Size() != resp.SizeBytes {
+				t.Errorf("size_bytes = %d, file on disk is %d", resp.SizeBytes, info.Size())
+			}
+		})
 	}
 }
 
@@ -831,39 +835,23 @@ func TestNewBackupHandler_PathHandling(t *testing.T) {
 	}
 }
 
+// TestCreateBackup_NoPgDump_ManipulatedPATH empties PATH so pg_dump cannot be
+// found: the handler answers 412 with the install hint. The package's tests run
+// sequentially, so t.Setenv is safe here.
 func TestCreateBackup_NoPgDump_ManipulatedPATH(t *testing.T) {
-	// This test runs itself as a subprocess to safely manipulate PATH
-	// without affecting other tests running in parallel.
-	if os.Getenv("TEST_NO_PG_DUMP") == "1" {
-		dir := t.TempDir()
-		h := NewBackupHandler("postgres://invalid:invalid@127.0.0.1:1/nonexistent", dir, &mockAdminAuth{}, nil)
-		r := chi.NewRouter()
-		r.Use(func(next http.Handler) http.Handler {
-			return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-				w.Header().Set("Content-Type", "application/json")
-				next.ServeHTTP(w, r)
-			})
-		})
-		h.Register(r)
+	t.Setenv("PATH", "")
+	h := NewBackupHandler("postgres://invalid:invalid@127.0.0.1:1/nonexistent", t.TempDir(), &mockAdminAuth{}, nil)
+	r := chi.NewRouter()
+	h.Register(r)
 
-		req := httptest.NewRequest("POST", "/backups", http.NoBody)
-		w := httptest.NewRecorder()
-		r.ServeHTTP(w, req)
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, httptest.NewRequest(http.MethodPost, "/backups", http.NoBody))
 
-		if w.Code != http.StatusPreconditionFailed {
-			t.Fatalf("NO_PG_DUMP: expected 412, got %d: %s", w.Code, w.Body.String())
-		}
-		if !strings.Contains(w.Body.String(), "pg_dump not found") {
-			t.Fatalf("NO_PG_DUMP: expected error to mention pg_dump, got: %s", w.Body.String())
-		}
-		return
+	if w.Code != http.StatusPreconditionFailed {
+		t.Fatalf("expected 412, got %d: %s", w.Code, w.Body.String())
 	}
-
-	cmd := exec.Command(os.Args[0], "-test.run=^TestCreateBackup_NoPgDump_ManipulatedPATH$")
-	cmd.Env = append(os.Environ(), "TEST_NO_PG_DUMP=1", "PATH=")
-	output, err := cmd.CombinedOutput()
-	if err != nil {
-		t.Fatalf("subprocess failed: %v\noutput: %s", err, output)
+	if !strings.Contains(w.Body.String(), errPgDumpMissing.Error()) {
+		t.Fatalf("expected %q, got: %s", errPgDumpMissing.Error(), w.Body.String())
 	}
 }
 
@@ -904,53 +892,26 @@ func TestValidateBackupFilename_AbsPathPrefixEscape(t *testing.T) {
 	}
 }
 
-// TestNewBackupHandler_AbsFallback_Subprocess tests the filepath.Abs fallback
-// (L39-41) by running in a subprocess where the working directory has been
-// deleted, causing filepath.Abs to fail. It also covers the validateBackupFilename
-// prefix-escape check (L192-194) under the same conditions.
-func TestNewBackupHandler_AbsFallback_Subprocess(t *testing.T) {
-	// This test runs itself as a subprocess to safely change CWD
-	// to a deleted directory without affecting other tests.
-	if os.Getenv("TEST_DELETED_CWD") == "1" {
-		// We are the subprocess. Our CWD has been deleted by the parent.
-		// filepath.Abs should fail because os.Getwd() fails.
-
-		// Test L39-41: NewBackupHandler falls back to original path
-		h := NewBackupHandler("postgres://test", "my_backup_dir", &mockAdminAuth{}, nil)
-		if h.backupDir != "my_backup_dir" {
-			t.Fatalf("FALLBACK FAILED: expected my_backup_dir, got %q", h.backupDir)
-		}
-
-		// Test L192-194: validateBackupFilename returns "" when filepath.Abs fails
-		result := h.validateBackupFilename("test.dump")
-		if result != "" {
-			t.Fatalf("PREFIX CHECK FAILED: expected empty string, got %q", result)
-		}
-
-		// Success
-		return
+// TestNewBackupHandler_AbsFallback tests the filepath.Abs fallback with the
+// working directory deleted, the one case where Abs fails for a relative path:
+// NewBackupHandler keeps the path as given, and validateBackupFilename, which
+// cannot resolve a filename against it, rejects everything.
+func TestNewBackupHandler_AbsFallback(t *testing.T) {
+	gone := filepath.Join(t.TempDir(), "gone")
+	if err := os.Mkdir(gone, 0o750); err != nil {
+		t.Fatal(err)
+	}
+	t.Chdir(gone)
+	if err := os.Remove(gone); err != nil {
+		t.Fatal(err)
 	}
 
-	// Parent: create a temp dir, start subprocess with it as CWD, then delete it
-	tmpDir := t.TempDir()
-
-	cmd := exec.Command(os.Args[0], "-test.run=^TestNewBackupHandler_AbsFallback_Subprocess$")
-	cmd.Env = append(os.Environ(), "TEST_DELETED_CWD=1")
-	cmd.Dir = tmpDir
-
-	// Start the subprocess first
-	if err := cmd.Start(); err != nil {
-		t.Fatalf("cannot start subprocess: %v", err)
+	h := NewBackupHandler("postgres://test", "my_backup_dir", &mockAdminAuth{}, nil)
+	if h.backupDir != "my_backup_dir" {
+		t.Fatalf("expected the fallback to keep my_backup_dir, got %q", h.backupDir)
 	}
-
-	// Delete the CWD while the subprocess is running
-	if err := os.RemoveAll(tmpDir); err != nil {
-		t.Fatalf("cannot remove temp dir: %v", err)
-	}
-
-	// Wait for the subprocess to finish
-	if err := cmd.Wait(); err != nil {
-		t.Fatalf("subprocess failed: %v", err)
+	if result := h.validateBackupFilename("test.dump"); result != "" {
+		t.Fatalf("expected an unresolvable filename to be rejected, got %q", result)
 	}
 }
 

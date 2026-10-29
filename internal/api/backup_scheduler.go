@@ -79,11 +79,10 @@ func (h *BackupHandler) StartScheduler(ctx context.Context) <-chan struct{} {
 			}
 		}()
 		h.removeStalePartials()
-		// Initial delay to let the server fully start
 		select {
 		case <-schedCtx.Done():
 			return
-		case <-time.After(1 * time.Minute):
+		case <-time.After(h.initialDelay):
 		}
 
 		for {

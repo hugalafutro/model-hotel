@@ -2,14 +2,16 @@ package api
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
+	"sync/atomic"
 	"testing"
 	"time"
+
+	"github.com/hugalafutro/model-hotel/internal/logtest"
 )
 
 func TestStartScheduler_NilSettingsRepo(t *testing.T) {
@@ -156,40 +158,6 @@ func TestStopScheduler(t *testing.T) {
 
 	// StopScheduler again should be safe (nil check).
 	h.StopScheduler()
-}
-
-func TestScheduler_FiresBackupWhenEnabled(t *testing.T) {
-	ss := &mockSettingsStore{
-		getWithDefaultFn: func(_ context.Context, key, defaultValue string) string {
-			return defaultValue
-		},
-		getBoolFn: func(_ context.Context, key string, defaultValue bool) bool {
-			return true // backup enabled
-		},
-		getDurationFn: func(_ context.Context, key string, defaultValue time.Duration) time.Duration {
-			return 5 * time.Minute
-		},
-	}
-	h := NewBackupHandler("postgres://x", t.TempDir(), &mockAdminAuth{}, ss)
-
-	ctx, cancel := context.WithCancel(context.Background())
-
-	h.StartScheduler(ctx)
-	if h.schedulerCancel == nil {
-		t.Fatal("schedulerCancel should be set after StartScheduler")
-	}
-
-	// Cancel the scheduler context to prevent it from looping forever.
-	cancel()
-	// Give the goroutine a moment to exit.
-	time.Sleep(100 * time.Millisecond)
-
-	// StopScheduler should clean up. It's safe to call even if the context
-	// was already cancelled externally.
-	h.StopScheduler()
-	if h.schedulerCancel != nil {
-		t.Error("schedulerCancel should be nil after StopScheduler")
-	}
 }
 
 // TestScheduledBackupWait pins the interval to the newest scheduled dump on
@@ -398,48 +366,6 @@ func TestStopBackupScheduler_NilBackupScheduler(t *testing.T) {
 	h.StopBackupScheduler()
 }
 
-func TestStartScheduler_PanicRecoveryResetsCancel(t *testing.T) {
-	callCount := 0
-	ss := &mockSettingsStore{
-		getWithDefaultFn: func(_ context.Context, key, defaultValue string) string {
-			return defaultValue
-		},
-		getBoolFn: func(_ context.Context, key string, defaultValue bool) bool {
-			callCount++
-			panic("test-induced panic")
-		},
-		getDurationFn: func(_ context.Context, key string, defaultValue time.Duration) time.Duration {
-			return defaultValue
-		},
-	}
-	// Use a cancelled context so the goroutine's initial select exits
-	// immediately via schedCtx.Done() without waiting the 1-minute delay.
-	ctx, cancel := context.WithCancel(context.Background())
-	cancel()
-
-	h := NewBackupHandler("postgres://x", t.TempDir(), &mockAdminAuth{}, ss)
-	h.StartScheduler(ctx)
-	if h.schedulerCancel == nil {
-		t.Fatal("schedulerCancel should be set after StartScheduler")
-	}
-
-	// With a cancelled context, the goroutine exits via schedCtx.Done()
-	// before reaching the for loop, so schedulerCancel is NOT reset.
-	// This is expected: the normal exit path doesn't clear it (only panic does).
-	// StopScheduler handles cleanup.
-	h.StopScheduler()
-	if h.schedulerCancel != nil {
-		t.Error("schedulerCancel should be nil after StopScheduler")
-	}
-
-	// Restart should work.
-	h.StartScheduler(ctx)
-	if h.schedulerCancel == nil {
-		t.Error("StartScheduler should succeed after StopScheduler")
-	}
-	h.StopScheduler()
-}
-
 func TestStartBackupScheduler_NonNilBackupScheduler(t *testing.T) {
 	ss := &mockSettingsStore{
 		getWithDefaultFn: func(_ context.Context, key, defaultValue string) string { return defaultValue },
@@ -563,133 +489,38 @@ func TestRunScheduledBackup_Integration_WithRotation(t *testing.T) {
 // Scheduler context cancellation and settings-based loop tests
 // ---------------------------------------------------------------------------
 
-// TestStartScheduler_ContextCancellation verifies that the scheduler goroutine
-// exits when the parent context is cancelled, and that StopScheduler can
-// clean up the schedulerCancel field.
-func TestStartScheduler_ContextCancellation(t *testing.T) {
-	ss := &mockSettingsStore{
-		getWithDefaultFn: func(_ context.Context, key, defaultValue string) string {
-			return defaultValue
-		},
-		getBoolFn: func(_ context.Context, key string, defaultValue bool) bool {
-			return false // backup disabled so scheduler just polls
-		},
-		getDurationFn: func(_ context.Context, key string, defaultValue time.Duration) time.Duration {
-			return defaultValue
-		},
-	}
-	h := NewBackupHandler("postgres://x", t.TempDir(), &mockAdminAuth{}, ss)
-
-	ctx, cancel := context.WithCancel(context.Background())
-
-	h.StartScheduler(ctx)
-
-	h.schedulerCancelMu.Lock()
-	hadCancel := h.schedulerCancel != nil
-	h.schedulerCancelMu.Unlock()
-
-	if !hadCancel {
-		t.Fatal("expected schedulerCancel to be set after StartScheduler")
-	}
-
-	// Cancel the parent context to stop the scheduler goroutine
-	cancel()
-
-	// Give the goroutine time to observe the cancellation and exit
-	time.Sleep(100 * time.Millisecond)
-
-	// The schedulerCancel is still non-nil because the normal exit path
-	// (schedCtx.Done()) does not clear schedulerCancel. Only StopScheduler
-	// or the panic recovery path clears it. Verify that StopScheduler
-	// can safely clean up after context cancellation.
-	h.StopScheduler()
-
-	h.schedulerCancelMu.Lock()
-	stillHasCancel := h.schedulerCancel != nil
-	h.schedulerCancelMu.Unlock()
-
-	if stillHasCancel {
-		t.Error("expected schedulerCancel to be nil after StopScheduler")
-	}
-}
-
-// TestStartScheduler_ContextAlreadyCancelled verifies that starting the scheduler
-// with an already-cancelled context works correctly: the goroutine exits
-// quickly via the initial select, and StopScheduler can clean up.
+// TestStartScheduler_ContextAlreadyCancelled starts the scheduler on a context
+// that is already cancelled: the goroutine leaves during the initial delay and
+// releases the join channel without ever ticking, so it reads no settings and
+// writes no dump.
 func TestStartScheduler_ContextAlreadyCancelled(t *testing.T) {
+	var reads atomic.Int32
 	ss := &mockSettingsStore{
-		getWithDefaultFn: func(_ context.Context, key, defaultValue string) string {
-			return defaultValue
-		},
-		getBoolFn: func(_ context.Context, key string, defaultValue bool) bool {
-			return false
-		},
-		getDurationFn: func(_ context.Context, key string, defaultValue time.Duration) time.Duration {
-			return defaultValue
+		getBoolFn: func(_ context.Context, _ string, _ bool) bool {
+			reads.Add(1)
+			return true
 		},
 	}
-	h := NewBackupHandler("postgres://x", t.TempDir(), &mockAdminAuth{}, ss)
+	dir := t.TempDir()
+	h := NewBackupHandler("postgres://x", dir, &mockAdminAuth{}, ss)
 
-	ctx, cancel := context.WithCancel(context.Background())
-	cancel() // Cancel BEFORE starting the scheduler
-
-	h.StartScheduler(ctx)
-
-	h.schedulerCancelMu.Lock()
-	hadCancel := h.schedulerCancel != nil
-	h.schedulerCancelMu.Unlock()
-
-	if !hadCancel {
-		t.Fatal("expected schedulerCancel to be set even with cancelled context")
-	}
-
-	// Give the goroutine time to exit via schedCtx.Done()
-	time.Sleep(50 * time.Millisecond)
-
-	// StopScheduler should work fine
-	h.StopScheduler()
-
-	h.schedulerCancelMu.Lock()
-	stillHasCancel := h.schedulerCancel != nil
-	h.schedulerCancelMu.Unlock()
-
-	if stillHasCancel {
-		t.Error("expected schedulerCancel to be nil after StopScheduler")
-	}
-}
-
-// TestStartScheduler_EnabledThenDisabledLoop verifies that the scheduler
-// loop re-reads settings on each tick. With enabled=false, it should
-// not try to run backup, and should sleep on the idle poll interval.
-func TestStartScheduler_DisabledLoopSettingsRead(t *testing.T) {
-	callCount := 0
-	ss := &mockSettingsStore{
-		getWithDefaultFn: func(_ context.Context, key, defaultValue string) string {
-			return defaultValue
-		},
-		getBoolFn: func(_ context.Context, key string, defaultValue bool) bool {
-			callCount++
-			return false // backup disabled
-		},
-		getDurationFn: func(_ context.Context, key string, defaultValue time.Duration) time.Duration {
-			return defaultValue
-		},
-	}
-	h := NewBackupHandler("postgres://x", t.TempDir(), &mockAdminAuth{}, ss)
-
-	// Use a cancelled context so the goroutine exits quickly at the
-	// initial 1-minute delay select, not from the for-loop.
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
-
-	h.StartScheduler(ctx)
-
-	// Wait for the goroutine to exit
-	time.Sleep(50 * time.Millisecond)
-
-	// The GetBool may not have been called at all since the context was
-	// already cancelled before the for-loop. Just verify no panic.
-	h.StopScheduler()
+	select {
+	case <-h.StartScheduler(ctx):
+	case <-time.After(10 * time.Second):
+		t.Fatal("a scheduler started on a cancelled context never stopped")
+	}
+	if n := reads.Load(); n != 0 {
+		t.Errorf("the scheduler ticked %d time(s) on a cancelled context, want none", n)
+	}
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(entries) != 0 {
+		t.Errorf("the scheduler wrote %d file(s) on a cancelled context, want none", len(entries))
+	}
 }
 
 // TestStartScheduler_RestartAfterStop verifies that StartScheduler can
@@ -736,67 +567,127 @@ func TestStartScheduler_RestartAfterStop(t *testing.T) {
 // extractMigrationNames filter write/close errors, saveUploadedDump success path
 // ---------------------------------------------------------------------------
 
-// TestStartScheduler_EnabledLoopRunsBackup verifies that when backup_enabled=true,
-// the scheduler's for-loop calls runScheduledBackup before sleeping for
-// backup_interval. It uses a cancelled context so the goroutine exits after
-// one iteration of the for-loop body.
-func TestStartScheduler_EnabledLoopRunsBackup(t *testing.T) {
+// TestStartScheduler_LoopTicksUntilCancelled runs the scheduler loop itself:
+// the first tick finds a scheduled dump just under an interval old and sleeps
+// out the remainder, the second finds a backup due and dumps it, and cancelling
+// the context during the sleep after that ends the goroutine with the stopped
+// line and releases the join channel.
+func TestStartScheduler_LoopTicksUntilCancelled(t *testing.T) {
+	pgDumpDir := t.TempDir()
+	mockScript := `#!/bin/bash
+for arg in "$@"; do
+	if [[ "$arg" == --file=* ]]; then
+		echo "mock backup data" > "${arg#--file=}"
+	fi
+done
+`
+	if err := os.WriteFile(filepath.Join(pgDumpDir, "pg_dump"), []byte(mockScript), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("PATH", pgDumpDir+string(os.PathListSeparator)+os.Getenv("PATH"))
+
+	backupDir := t.TempDir()
+	anchor := generateBackupFilename("auto")
+	anchorPath := filepath.Join(backupDir, anchor)
+	if err := os.WriteFile(anchorPath, []byte("earlier scheduled dump"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	// Due in two seconds: long enough that the first tick waits rather than dumps.
+	stamp := time.Now().Add(-backupIntervalFloor + 2*time.Second)
+	if err := os.Chtimes(anchorPath, stamp, stamp); err != nil {
+		t.Fatal(err)
+	}
+
+	logs := logtest.Capture(t)
+	var ticks atomic.Int32
+	rotating := make(chan struct{}, 1)
 	ss := &mockSettingsStore{
-		getWithDefaultFn: func(_ context.Context, key, defaultValue string) string {
+		getBoolFn: func(_ context.Context, _ string, _ bool) bool {
+			ticks.Add(1)
+			return true
+		},
+		getDurationFn: func(_ context.Context, _ string, _ time.Duration) time.Duration {
+			return backupIntervalFloor
+		},
+		// Retention is read only after a dump has landed, ahead of rotation.
+		getIntFn: func(_ context.Context, _ string, defaultValue int) int {
+			select {
+			case rotating <- struct{}{}:
+			default:
+			}
 			return defaultValue
 		},
-		getBoolFn: func(_ context.Context, key string, defaultValue bool) bool {
-			return true // backup enabled → runScheduledBackup is called
-		},
-		getDurationFn: func(_ context.Context, key string, defaultValue time.Duration) time.Duration {
-			return 5 * time.Minute
-		},
 	}
-	dir := t.TempDir()
-	h := NewBackupHandler("postgres://invalid:invalid@127.0.0.1:1/nonexistent", dir, &mockAdminAuth{}, ss)
+	h := NewBackupHandler("postgres://user:pass@localhost/db", backupDir, &mockAdminAuth{}, ss)
+	h.initialDelay = 0
 
-	// Use a cancelled context so the goroutine exits via the initial select
-	// (the 1-minute delay), before the for-loop runs. This still exercises
-	// the StartScheduler code paths up to the initial select block.
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.Context())
+	defer cancel()
+	stopped := h.StartScheduler(ctx)
+
+	select {
+	case <-rotating:
+	case <-time.After(30 * time.Second):
+		t.Fatal("the scheduler never ran a scheduled backup")
+	}
+	if n := ticks.Load(); n < 2 {
+		t.Fatalf("the backup ran on tick %d; the first tick should have waited for the anchor to age", n)
+	}
+
 	cancel()
+	select {
+	case <-stopped:
+	case <-time.After(10 * time.Second):
+		t.Fatal("cancelling the context did not end the scheduler goroutine")
+	}
+	if !logs.Has("backup: scheduler stopped") {
+		t.Error("expected the scheduler to log that it stopped")
+	}
 
-	h.StartScheduler(ctx)
-
-	// Give the goroutine time to exit
-	time.Sleep(100 * time.Millisecond)
-
-	h.StopScheduler()
-	if h.schedulerCancel != nil {
-		t.Error("expected schedulerCancel to be nil after StopScheduler")
+	entries, err := os.ReadDir(backupDir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var dumped []string
+	for _, e := range entries {
+		if e.Name() != anchor && backupOrigin(e.Name()) == "scheduled" {
+			dumped = append(dumped, e.Name())
+		}
+	}
+	if len(dumped) != 1 {
+		t.Fatalf("expected exactly one new scheduled dump, got %v", dumped)
+	}
+	if data, err := os.ReadFile(filepath.Join(backupDir, dumped[0])); err != nil || string(data) != "mock backup data\n" {
+		t.Errorf("dump %s holds %q (err %v), want the mock pg_dump output", dumped[0], data, err)
 	}
 }
 
-// TestStartScheduler_MinimumIntervalEnforced verifies that backup_interval
-// values below 5 minutes are clamped to 5 minutes inside the scheduler loop.
-// This exercises the `if sleep < 5*time.Minute` branch in StartScheduler.
-func TestStartScheduler_MinimumIntervalEnforced(t *testing.T) {
+// TestSchedulerTick_IntervalFloorEnforced sets backup_interval far below the
+// floor: a scheduled dump a minute old is still recent against the floor, so
+// the tick waits out the rest of it instead of dumping back to back.
+func TestSchedulerTick_IntervalFloorEnforced(t *testing.T) {
 	ss := &mockSettingsStore{
-		getWithDefaultFn: func(_ context.Context, key, defaultValue string) string {
-			return defaultValue
-		},
-		getBoolFn: func(_ context.Context, key string, defaultValue bool) bool {
-			return true // enabled
-		},
-		getDurationFn: func(_ context.Context, key string, defaultValue time.Duration) time.Duration {
-			return 1 * time.Second // less than 5 minute minimum
-		},
+		getBoolFn:     func(_ context.Context, _ string, _ bool) bool { return true },
+		getDurationFn: func(_ context.Context, _ string, _ time.Duration) time.Duration { return time.Second },
 	}
 	dir := t.TempDir()
-	h := NewBackupHandler("postgres://invalid:invalid@127.0.0.1:1/nonexistent", dir, &mockAdminAuth{}, ss)
+	h := NewBackupHandler("postgres://x", dir, &mockAdminAuth{}, ss)
+	recent := filepath.Join(dir, generateBackupFilename("auto"))
+	if err := os.WriteFile(recent, []byte("x"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	stamp := time.Now().Add(-time.Minute)
+	if err := os.Chtimes(recent, stamp, stamp); err != nil {
+		t.Fatal(err)
+	}
 
-	ctx, cancel := context.WithCancel(context.Background())
-	cancel() // exit immediately
-
-	h.StartScheduler(ctx)
-	time.Sleep(50 * time.Millisecond)
-	h.StopScheduler()
-	// No panic = success. The minimum-interval clamp is exercised internally.
+	got := h.schedulerTick(context.Background())
+	if !h.lastScheduledAttempt.IsZero() {
+		t.Error("a dump was attempted a minute after the last one; the interval floor was not applied")
+	}
+	if want := backupIntervalFloor - time.Minute; got > want || got < want-time.Minute {
+		t.Errorf("sleep = %v, want about %v (the rest of the floor)", got, want)
+	}
 }
 
 // TestRunScheduledBackup_PgDumpFailed tests the pg_dump failure path in
@@ -1098,141 +989,56 @@ exit 0
 }
 
 // ---------------------------------------------------------------------------
-// StartScheduler: panic recovery within the for-loop
+// StartScheduler: panic recovery within the loop
 // ---------------------------------------------------------------------------
 
-// TestStartScheduler_PanicRecoveryInForLoop verifies that when the scheduler
-// goroutine panics inside the for-loop (after the initial 1-minute delay select),
-// the deferred recover() resets schedulerCancel so the scheduler can be restarted.
-// This test forces a panic by using a mock settings GetBool that panics, and
-// using a short time.After override via a cancelled-but-then-recreated context.
-func TestStartScheduler_PanicRecoveryInForLoop(t *testing.T) {
-	panicCount := 0
-	ss := &mockSettingsStore{
-		getWithDefaultFn: func(_ context.Context, key, defaultValue string) string {
-			return defaultValue
-		},
-		getBoolFn: func(_ context.Context, key string, defaultValue bool) bool {
-			panicCount++
-			panic("for-loop test panic")
-		},
-		getDurationFn: func(_ context.Context, key string, defaultValue time.Duration) time.Duration {
-			return defaultValue
-		},
-	}
-
-	// Use a cancelled context so the goroutine exits via schedCtx.Done()
-	// before the 1-minute delay completes. The panic only fires inside the
-	// for-loop body which requires the initial select to pass first.
-	// Since the context is already cancelled, the goroutine exits via
-	// the initial select's schedCtx.Done() case, NOT the for-loop.
-	// So this test verifies the deferral path without actually hitting the panic.
-	ctx, cancel := context.WithCancel(context.Background())
-	cancel()
-
-	dir := t.TempDir()
-	h := NewBackupHandler("postgres://x", dir, &mockAdminAuth{}, ss)
-	h.StartScheduler(ctx)
-
-	// Wait for goroutine to observe the cancelled context
-	time.Sleep(100 * time.Millisecond)
-
-	// schedulerCancel should still be non-nil because the normal exit path
-	// (schedCtx.Done()) doesn't clear it. Only panic recovery or StopScheduler clears it.
-	h.schedulerCancelMu.Lock()
-	hasCancel := h.schedulerCancel != nil
-	h.schedulerCancelMu.Unlock()
-
-	if !hasCancel {
-		t.Error("expected schedulerCancel to be non-nil (normal exit doesn't reset it)")
-	}
-
-	// StopScheduler should clean up
-	h.StopScheduler()
-
-	h.schedulerCancelMu.Lock()
-	hasCancel = h.schedulerCancel != nil
-	h.schedulerCancelMu.Unlock()
-
-	if hasCancel {
-		t.Error("expected schedulerCancel to be nil after StopScheduler")
-	}
-}
-
-// TestStartScheduler_PanicResetsCancelForRestart verifies that after a panic
-// in the scheduler goroutine, the schedulerCancel is reset (to nil), allowing
-// StartScheduler to be called again successfully. We use a mock that panics
-// on GetBool and a context that is NOT cancelled, combined with a way to make
-// the initial 1-minute delay pass quickly.
-//
-// Since we can't skip the 1-minute initial delay in unit tests, this test
-// verifies the panic-recovery + restart behavior works by checking that:
-// 1. After panic, schedulerCancel is nil (recovery path resets it)
-// 2. StartScheduler can be called again after the panic
+// TestStartScheduler_PanicResetsCancelForRestart makes a tick panic: the
+// goroutine recovers and ends (its join channel closes), logs the panic, and
+// clears schedulerCancel so StartScheduler launches a fresh scheduler instead
+// of handing back the dead one's closed channel.
 func TestStartScheduler_PanicResetsCancelForRestart(t *testing.T) {
-	// This uses a cancelled context to avoid waiting the 1-minute delay.
-	// When the context is cancelled before the goroutine enters the for-loop,
-	// the goroutine exits via schedCtx.Done() in the initial select, which
-	// does NOT trigger the panic or the recovery.
-	//
-	// To actually test the panic recovery path that resets schedulerCancel,
-	// we would need to wait the full 1-minute initial delay. That's not
-	// practical in unit tests. The panic recovery code is:
-	//   defer func() {
-	//     if r := recover(); r != nil {
-	//       h.schedulerCancelMu.Lock()
-	//       h.schedulerCancel = nil
-	//       h.schedulerCancelMu.Unlock()
-	//     }
-	//   }()
-	//
-	// We verify the code structure: the recover() only fires when the
-	// goroutine panics (not on normal exit). The normal exit via schedCtx.Done()
-	// or StopScheduler leaves schedulerCancel for StopScheduler to clean up.
-	// This test verifies StopScheduler properly cleans up after any exit path.
-
+	logs := logtest.Capture(t)
+	var panicking atomic.Bool
+	panicking.Store(true)
 	ss := &mockSettingsStore{
-		getWithDefaultFn: func(_ context.Context, key, defaultValue string) string {
-			return defaultValue
-		},
-		getBoolFn: func(_ context.Context, key string, defaultValue bool) bool {
+		getBoolFn: func(_ context.Context, _ string, _ bool) bool {
+			if panicking.Load() {
+				panic("tick panic")
+			}
 			return false
 		},
-		getDurationFn: func(_ context.Context, key string, defaultValue time.Duration) time.Duration {
-			return defaultValue
-		},
 	}
+	h := NewBackupHandler("postgres://x", t.TempDir(), &mockAdminAuth{}, ss)
+	h.initialDelay = 0
 
-	ctx := t.Context()
-
-	dir := t.TempDir()
-	h := NewBackupHandler("postgres://x", dir, &mockAdminAuth{}, ss)
-
-	// Start the scheduler
-	h.StartScheduler(ctx)
-
-	// Stop it
-	h.StopScheduler()
-
+	select {
+	case <-h.StartScheduler(t.Context()):
+	case <-time.After(10 * time.Second):
+		t.Fatal("a panicking tick did not end the scheduler goroutine")
+	}
 	h.schedulerCancelMu.Lock()
-	isNil := h.schedulerCancel == nil
+	cleared := h.schedulerCancel == nil
 	h.schedulerCancelMu.Unlock()
-
-	if !isNil {
-		t.Error("expected schedulerCancel to be nil after StopScheduler")
+	if !cleared {
+		t.Fatal("schedulerCancel survived the panic; StartScheduler could never restart the scheduler")
+	}
+	if got := logs.Attr("backup: scheduler panic recovered", "panic"); got != "tick panic" {
+		t.Errorf("panic log attr = %v, want %q", got, "tick panic")
 	}
 
-	// Should be able to start again
-	h.StartScheduler(ctx)
-	h.schedulerCancelMu.Lock()
-	isNotNil := h.schedulerCancel != nil
-	h.schedulerCancelMu.Unlock()
-
-	if !isNotNil {
-		t.Error("expected schedulerCancel to be non-nil after restart")
+	panicking.Store(false)
+	restarted := h.StartScheduler(t.Context())
+	select {
+	case <-restarted:
+		t.Fatal("the restart handed back a closed channel: no scheduler is running")
+	default:
 	}
-
 	h.StopScheduler()
+	select {
+	case <-restarted:
+	case <-time.After(10 * time.Second):
+		t.Fatal("the restarted scheduler did not stop")
+	}
 }
 
 // ---------------------------------------------------------------------------
@@ -1399,31 +1205,6 @@ exit 0
 	}
 }
 
-// TestStartScheduler_SettingsGetAllError verifies that when settingsRepo.GetAll
-// returns an error, StartScheduler still starts (GetAll isn't called by the
-// scheduler - it uses GetBool/GetDuration directly). This test documents that
-// the scheduler doesn't depend on GetAll.
-func TestStartScheduler_SettingsGetAllError(t *testing.T) {
-	ss := &mockSettingsStore{
-		getAllFn: func(_ context.Context) (map[string]string, error) {
-			return nil, errors.New("database unavailable")
-		},
-		getBoolFn: func(_ context.Context, key string, defaultValue bool) bool {
-			return false // disabled
-		},
-	}
-	dir := t.TempDir()
-	h := NewBackupHandler("postgres://invalid:invalid@127.0.0.1:1/nonexistent", dir, &mockAdminAuth{}, ss)
-
-	ctx, cancel := context.WithCancel(context.Background())
-	cancel() // exit immediately
-
-	h.StartScheduler(ctx)
-	time.Sleep(50 * time.Millisecond)
-	h.StopScheduler()
-	// No panic = the scheduler doesn't call GetAll
-}
-
 // TestRunScheduledBackup_MkdirAllErrorPath tests the os.MkdirAll failure path
 // in runScheduledBackup when the backup directory cannot be created because
 // a file exists at the same path. This exercises the early-return error path
@@ -1441,33 +1222,6 @@ func TestRunScheduledBackup_MkdirAllErrorPath(t *testing.T) {
 
 	// Should return without panic - MkdirAll fails on file path
 	h.runScheduledBackup(context.Background())
-}
-
-// ---------------------------------------------------------------------------
-// 6. StartScheduler — context cancelled during initial delay
-// ---------------------------------------------------------------------------
-
-// TestStartScheduler_ContextCancelledDuringInitialDelay verifies that when
-// the parent context is cancelled during the initial 1-minute delay, the
-// goroutine exits cleanly.
-func TestStartScheduler_ContextCancelledDuringInitialDelay(t *testing.T) {
-	ss := &mockSettingsStore{
-		getBoolFn: func(_ context.Context, _ string, defaultValue bool) bool {
-			return false
-		},
-	}
-	dir := t.TempDir()
-	h := NewBackupHandler("postgres://x", dir, &mockAdminAuth{}, ss)
-
-	ctx, cancel := context.WithCancel(context.Background())
-	// Cancel immediately so the initial delay select picks up ctx.Done()
-	cancel()
-
-	h.StartScheduler(ctx)
-	// Give the goroutine a moment to process the cancellation
-	time.Sleep(50 * time.Millisecond)
-	h.StopScheduler()
-	// No panic = success
 }
 
 // ---------------------------------------------------------------------------

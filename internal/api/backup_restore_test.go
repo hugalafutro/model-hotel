@@ -795,115 +795,74 @@ func TestRestoreBackup_UnknownMigrations_Integration(t *testing.T) {
 	}
 }
 
+// TestRestoreBackup_PgRestoreNotFound empties PATH so pg_restore cannot be
+// found: the restore answers 412 with the install hint before touching the
+// database. The package's tests run sequentially, so t.Setenv is safe here.
 func TestRestoreBackup_PgRestoreNotFound(t *testing.T) {
-	// This test runs itself as a subprocess to safely manipulate PATH
-	// without affecting other tests running in parallel.
-	if os.Getenv("TEST_NO_PG_RESTORE") == "1" {
-		dir := t.TempDir()
-		h := NewBackupHandler("postgres://invalid:invalid@127.0.0.1:1/nonexistent", dir, &mockAdminAuth{validateFn: func(string) bool { return true }}, nil)
-		r := chi.NewRouter()
-		r.Use(func(next http.Handler) http.Handler {
-			return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-				w.Header().Set("Content-Type", "application/json")
-				next.ServeHTTP(w, r)
-			})
-		})
-		h.Register(r)
+	t.Setenv("PATH", "")
+	h := NewBackupHandler("postgres://invalid:invalid@127.0.0.1:1/nonexistent", t.TempDir(), &mockAdminAuth{validateFn: func(string) bool { return true }}, nil)
+	r := chi.NewRouter()
+	h.Register(r)
 
-		var buf bytes.Buffer
-		writer := multipart.NewWriter(&buf)
-		writer.WriteField("admin_token", "valid-token")
-		part, _ := writer.CreateFormFile("dump", "test.dump")
-		part.Write([]byte("dummy dump content"))
-		writer.Close()
+	var buf bytes.Buffer
+	writer := multipart.NewWriter(&buf)
+	writer.WriteField("admin_token", "valid-token")
+	part, _ := writer.CreateFormFile("dump", "test.dump")
+	part.Write([]byte("dummy dump content"))
+	writer.Close()
 
-		req := httptest.NewRequest("POST", "/backups/restore", &buf)
-		req.Header.Set("Content-Type", writer.FormDataContentType())
-		w := httptest.NewRecorder()
-		r.ServeHTTP(w, req)
+	req := httptest.NewRequest(http.MethodPost, "/backups/restore", &buf)
+	req.Header.Set("Content-Type", writer.FormDataContentType())
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
 
-		if w.Code != http.StatusPreconditionFailed {
-			t.Fatalf("NO_PG_RESTORE: expected 412, got %d: %s", w.Code, w.Body.String())
-		}
-		if !strings.Contains(w.Body.String(), "pg_restore not found") {
-			t.Fatalf("NO_PG_RESTORE: expected error to mention pg_restore, got: %s", w.Body.String())
-		}
-		return
+	if w.Code != http.StatusPreconditionFailed {
+		t.Fatalf("expected 412, got %d: %s", w.Code, w.Body.String())
 	}
-
-	cmd := exec.Command(os.Args[0], "-test.run=^TestRestoreBackup_PgRestoreNotFound$")
-	cmd.Env = append(os.Environ(), "TEST_NO_PG_RESTORE=1", "PATH=")
-	output, err := cmd.CombinedOutput()
-	if err != nil {
-		t.Fatalf("subprocess failed: %v\noutput: %s", err, output)
+	if !strings.Contains(w.Body.String(), "pg_restore not found - install postgresql-client package") {
+		t.Fatalf("expected the pg_restore install hint, got: %s", w.Body.String())
 	}
 }
 
+// TestRestoreBackup_ExtractMigrationsError points TMPDIR at a missing directory
+// so extractMigrationNames cannot create its filter file: a valid dump that
+// passed pg_restore --list still fails the restore with a 500. The package's
+// tests run sequentially, so t.Setenv is safe here.
 func TestRestoreBackup_ExtractMigrationsError(t *testing.T) {
 	if apiTestDBURL == "" {
 		t.Fatal("test database not available")
 	}
-	if _, err := exec.LookPath("pg_dump"); err != nil {
-		t.Fatal("pg_dump not installed")
-	}
-	if _, err := exec.LookPath("pg_restore"); err != nil {
-		t.Fatal("pg_restore not installed")
-	}
-
-	// This test runs itself as a subprocess to safely manipulate TMPDIR
-	// without affecting other tests running in parallel.
-	if os.Getenv("TEST_EXTRACT_MIGRATIONS_ERROR") == "1" {
-		dir := t.TempDir()
-
-		// Create a valid dump so RestoreBackup passes pg_restore --list validation.
-		dumpPath := filepath.Join(dir, "test.dump")
-		pgDumpTestDB(t, apiTestDBURL, dumpPath)
-
-		h := NewBackupHandler(apiTestDBURL, dir, &mockAdminAuth{validateFn: func(string) bool { return true }}, nil)
-		r := chi.NewRouter()
-		r.Use(func(next http.Handler) http.Handler {
-			return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-				w.Header().Set("Content-Type", "application/json")
-				next.ServeHTTP(w, r)
-			})
-		})
-		h.Register(r)
-
-		dumpContent, err := os.ReadFile(dumpPath)
-		if err != nil {
-			t.Fatalf("EXTRACT_MIG: failed to read dump file: %v", err)
-		}
-
-		var buf bytes.Buffer
-		writer := multipart.NewWriter(&buf)
-		writer.WriteField("admin_token", "valid-token")
-		part, _ := writer.CreateFormFile("dump", "test.dump")
-		part.Write(dumpContent)
-		writer.Close()
-
-		// Set TMPDIR to non-existent path so extractMigrationNames' filter file
-		// creation fails. Safe to do here since we're in an isolated subprocess.
-		t.Setenv("TMPDIR", "/nonexistent/path/that/does/not/exist")
-
-		req := httptest.NewRequest("POST", "/backups/restore", &buf)
-		req.Header.Set("Content-Type", writer.FormDataContentType())
-		w := httptest.NewRecorder()
-		r.ServeHTTP(w, req)
-
-		if w.Code != http.StatusInternalServerError {
-			t.Fatalf("EXTRACT_MIG: expected 500, got %d: %s", w.Code, w.Body.String())
-		}
-		if !strings.Contains(w.Body.String(), "failed to extract migration info") {
-			t.Fatalf("EXTRACT_MIG: expected error to mention extraction failure, got: %s", w.Body.String())
-		}
-		return
-	}
-
-	cmd := exec.Command(os.Args[0], "-test.run=^TestRestoreBackup_ExtractMigrationsError$")
-	cmd.Env = append(os.Environ(), "TEST_EXTRACT_MIGRATIONS_ERROR=1")
-	output, err := cmd.CombinedOutput()
+	dir := t.TempDir()
+	dumpPath := filepath.Join(dir, "test.dump")
+	pgDumpTestDB(t, apiTestDBURL, dumpPath)
+	dumpContent, err := os.ReadFile(dumpPath)
 	if err != nil {
-		t.Fatalf("subprocess failed: %v\noutput: %s", err, output)
+		t.Fatalf("failed to read dump file: %v", err)
+	}
+
+	h := NewBackupHandler(apiTestDBURL, dir, &mockAdminAuth{validateFn: func(string) bool { return true }}, nil)
+	r := chi.NewRouter()
+	h.Register(r)
+
+	var buf bytes.Buffer
+	writer := multipart.NewWriter(&buf)
+	writer.WriteField("admin_token", "valid-token")
+	part, _ := writer.CreateFormFile("dump", "test.dump")
+	part.Write(dumpContent)
+	writer.Close()
+
+	t.Setenv("TMPDIR", filepath.Join(dir, "missing"))
+
+	req := httptest.NewRequest(http.MethodPost, "/backups/restore", &buf)
+	req.Header.Set("Content-Type", writer.FormDataContentType())
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+
+	if w.Code != http.StatusInternalServerError {
+		t.Fatalf("expected 500, got %d: %s", w.Code, w.Body.String())
+	}
+	if !strings.Contains(w.Body.String(), "failed to extract migration info") {
+		t.Fatalf("expected error to mention extraction failure, got: %s", w.Body.String())
 	}
 }
 
@@ -946,82 +905,44 @@ func TestSaveUploadedDump_MkdirAllError(t *testing.T) {
 	}
 }
 
+// TestSaveUploadedDump_CreateTempError makes the backup directory unwritable
+// (like TestSaveUploadedDump_MkdirAllError, this relies on not running as
+// root), so os.CreateTemp fails and the upload is refused with a 500.
 func TestSaveUploadedDump_CreateTempError(t *testing.T) {
-	// Run as subprocess to manipulate TMPDIR without affecting parallel tests.
-	if os.Getenv("TEST_SAVE_UPLOAD_CREATE_TEMP") == "1" {
-		dir := t.TempDir()
+	dir := t.TempDir()
+	h := NewBackupHandler("postgres://x", dir, &mockAdminAuth{validateFn: func(string) bool { return true }}, nil)
 
-		// Make the backup directory read-only so os.CreateTemp fails inside it
-		h := NewBackupHandler("postgres://x", dir, &mockAdminAuth{validateFn: func(string) bool { return true }}, nil)
+	var buf bytes.Buffer
+	writer := multipart.NewWriter(&buf)
+	writer.WriteField("admin_token", "valid-token")
+	part, _ := writer.CreateFormFile("dump", "test.dump")
+	part.Write([]byte("dummy"))
+	writer.Close()
 
-		var buf bytes.Buffer
-		writer := multipart.NewWriter(&buf)
-		writer.WriteField("admin_token", "valid-token")
-		part, _ := writer.CreateFormFile("dump", "test.dump")
-		part.Write([]byte("dummy"))
-		writer.Close()
+	req := httptest.NewRequest(http.MethodPost, "/backups/restore", &buf)
+	req.Header.Set("Content-Type", writer.FormDataContentType())
+	w := httptest.NewRecorder()
 
-		req := httptest.NewRequest("POST", "/backups/restore", &buf)
-		req.Header.Set("Content-Type", writer.FormDataContentType())
-		w := httptest.NewRecorder()
-
-		// Make dir read-only after handler creation but before CreateTemp
-		os.Chmod(dir, 0o444)
-
-		upload, ok := h.saveUploadedDump(w, req)
-		tmpPath := upload.tmpPath
-		// Restore permissions for cleanup
-		os.Chmod(dir, 0o755)
-		if ok {
-			t.Fatalf("CREATE_TEMP: expected saveUploadedDump to fail")
-		}
-		if tmpPath != "" {
-			t.Fatalf("CREATE_TEMP: expected empty tmpPath, got %q", tmpPath)
-		}
-		if w.Code != http.StatusInternalServerError {
-			t.Fatalf("CREATE_TEMP: expected 500, got %d: %s", w.Code, w.Body.String())
-		}
-		return
+	if err := os.Chmod(dir, 0o500); err != nil {
+		t.Fatal(err)
 	}
+	t.Cleanup(func() { os.Chmod(dir, 0o700) })
 
-	cmd := exec.Command(os.Args[0], "-test.run=^TestSaveUploadedDump_CreateTempError$")
-	cmd.Env = append(os.Environ(), "TEST_SAVE_UPLOAD_CREATE_TEMP=1")
-	output, err := cmd.CombinedOutput()
-	if err != nil {
-		t.Fatalf("subprocess failed: %v\noutput: %s", err, output)
+	upload, ok := h.saveUploadedDump(w, req)
+	if ok {
+		t.Fatal("expected saveUploadedDump to fail")
+	}
+	if upload.tmpPath != "" {
+		t.Fatalf("expected empty tmpPath, got %q", upload.tmpPath)
+	}
+	if w.Code != http.StatusInternalServerError || !strings.Contains(w.Body.String(), "failed to create temp file") {
+		t.Fatalf("expected 500 failed to create temp file, got %d: %s", w.Code, w.Body.String())
 	}
 }
 
 // ---------------------------------------------------------------------------
 // RestoreBackup additional path tests
 // ---------------------------------------------------------------------------
-
-// TestRestoreBackup_SaveUploadedDumpIOCopyError tests the io.Copy error path
-// in saveUploadedDump (L624-625). This is triggered when writing to the temp
-// file fails during the copy. We create a scenario where the multipart form
-// has a valid dump file but the temp file write target is constrained.
-func TestRestoreBackup_SaveUploadedDumpIOCopyError(t *testing.T) {
-	// This test runs as a subprocess to safely manipulate TMPDIR.
-	if os.Getenv("TEST_IO_COPY_ERROR") == "1" {
-		// Create a handler and then make the dir read-only so io.Copy
-		// to the temp file fails after the file is created (but before
-		// content is written). This is hard to trigger reliably, so
-		// we test a simpler variant: use a very small disk quota approach.
-		//
-		// Instead, verify the handler path by using a closed writer.
-		// This is a more direct test: the temp file is created but
-		// io.Copy fails because the file handle was closed.
-		// Since we can't easily trigger this, the test documents the path.
-		return
-	}
-
-	cmd := exec.Command(os.Args[0], "-test.run=^TestRestoreBackup_SaveUploadedDumpIOCopyError$")
-	cmd.Env = append(os.Environ(), "TEST_IO_COPY_ERROR=1")
-	output, err := cmd.CombinedOutput()
-	if err != nil {
-		t.Fatalf("subprocess failed: %v\noutput: %s", err, output)
-	}
-}
 
 // TestRestoreBackup_AdminTokenEmpty tests that an empty admin_token
 // field is treated as missing/invalid (401 Unauthorized).

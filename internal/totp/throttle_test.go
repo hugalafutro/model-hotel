@@ -1,9 +1,81 @@
 package totp
 
 import (
+	"log/slog"
+	"net/http"
+	"net/http/httptest"
+	"strconv"
 	"testing"
 	"time"
+
+	"github.com/hugalafutro/model-hotel/internal/logtest"
 )
+
+// Admit lets a key under the limit through without touching the response, and
+// answers a key in backoff itself: the caller's warning logged with its attrs,
+// a 429 carrying the remaining lock as Retry-After.
+func TestThrottle_AdmitRefusesALockedKeyWith429(t *testing.T) {
+	logs := logtest.Capture(t)
+	th := NewThrottle(1, time.Minute, time.Hour)
+	th.RecordFailure("ip")
+
+	rr := httptest.NewRecorder()
+	if !th.Admit(rr, "ip", "totp: throttled", "ip", "10.0.0.1") {
+		t.Fatal("Admit refused a key still under the limit")
+	}
+	if rr.Code != http.StatusOK || rr.Body.Len() != 0 || rr.Header().Get("Retry-After") != "" {
+		t.Errorf("an admitted request must write nothing: status %d, body %q, Retry-After %q", rr.Code, rr.Body.String(), rr.Header().Get("Retry-After"))
+	}
+	if logs.Has("totp: throttled") {
+		t.Error("an admitted request logged the throttle warning")
+	}
+
+	th.RecordFailure("ip") // exceeds the limit: locked for a minute
+	rr = httptest.NewRecorder()
+	if th.Admit(rr, "ip", "totp: throttled", "ip", "10.0.0.1") {
+		t.Fatal("Admit let a locked key through")
+	}
+	if rr.Code != http.StatusTooManyRequests {
+		t.Errorf("status = %d, want 429", rr.Code)
+	}
+	if secs, err := strconv.Atoi(rr.Header().Get("Retry-After")); err != nil || secs < 59 || secs > 60 {
+		t.Errorf("Retry-After = %q, want the ~60s left on the lock", rr.Header().Get("Retry-After"))
+	}
+	rec, ok := logs.Find("totp: throttled")
+	if !ok {
+		t.Fatal("refusal did not log the caller's message")
+	}
+	if rec.Level != slog.LevelWarn || rec.Attrs["ip"] != "10.0.0.1" {
+		t.Errorf("log = %+v, want Warn with ip=10.0.0.1", rec)
+	}
+	// Another key is unaffected.
+	if !th.Admit(httptest.NewRecorder(), "other", "totp: throttled") {
+		t.Error("Admit refused an unrelated key")
+	}
+}
+
+// Past maxThrottleEntries a failure sweeps the map before recording itself:
+// stale unlocked entries go, locked ones and the new failure stay.
+func TestThrottle_RecordFailureSweepsWhenTheMapIsFull(t *testing.T) {
+	th := NewThrottle(0, time.Millisecond, time.Second)
+	old := time.Now().Add(-time.Hour)
+	for i := range maxThrottleEntries {
+		th.entries["stale"+strconv.Itoa(i)] = &throttleEntry{lockedUntil: old, lastSeen: old}
+	}
+	th.entries["locked"] = &throttleEntry{lockedUntil: time.Now().Add(time.Hour), lastSeen: time.Now()}
+
+	th.RecordFailure("fresh")
+
+	if len(th.entries) != 2 {
+		t.Fatalf("entries = %d, want the locked one and the fresh failure", len(th.entries))
+	}
+	if _, ok := th.entries["locked"]; !ok {
+		t.Error("a locked entry was swept")
+	}
+	if ok, _ := th.Allowed("fresh"); ok {
+		t.Error("the failure that triggered the sweep was not recorded")
+	}
+}
 
 func TestThrottle_AllowsUntilThreshold(t *testing.T) {
 	th := NewThrottle(3, 10*time.Millisecond, time.Second)

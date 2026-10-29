@@ -480,3 +480,53 @@ func TestDisableWithCode_RejectsReusedTotpStep(t *testing.T) {
 	require.NoError(t, err)
 	assert.True(t, en, "TOTP must stay enabled when the replayed code is rejected")
 }
+
+// VerifyOrRecover accepts the current TOTP code as such, falls back to a
+// single-use recovery code (reporting that it did, and burning it), refuses
+// anything else without an error, and returns a storage failure as an error
+// rather than as a wrong code.
+func TestVerifyOrRecover(t *testing.T) {
+	repo := newTestRepo(t, "test-master-key-very-long-32b+")
+	ctx := context.Background()
+
+	_, secret, err := repo.Enroll(ctx)
+	require.NoError(t, err)
+	recovery, err := repo.GenerateRecoveryCodes(ctx)
+	require.NoError(t, err)
+
+	code, err := totp.GenerateCode(secret, time.Now())
+	require.NoError(t, err)
+	ok, usedRecovery, err := repo.VerifyOrRecover(ctx, code)
+	require.NoError(t, err)
+	assert.True(t, ok, "current TOTP code must be accepted")
+	assert.False(t, usedRecovery, "a TOTP code is not a recovery-code use")
+
+	ok, usedRecovery, err = repo.VerifyOrRecover(ctx, recovery[0])
+	require.NoError(t, err)
+	assert.True(t, ok, "an unused recovery code must be accepted")
+	assert.True(t, usedRecovery, "the recovery-code use must be reported")
+	info, err := repo.Info(ctx)
+	require.NoError(t, err)
+	assert.Equal(t, len(recovery)-1, info.RecoveryRemaining, "the accepted recovery code must be consumed")
+
+	ok, usedRecovery, err = repo.VerifyOrRecover(ctx, recovery[0])
+	require.NoError(t, err)
+	assert.False(t, ok, "a consumed recovery code must not be accepted again")
+	assert.False(t, usedRecovery)
+
+	// Neither a TOTP code (not six digits) nor an issued recovery code.
+	ok, usedRecovery, err = repo.VerifyOrRecover(ctx, "BOGUS-CODE-XXXX-YYYY")
+	require.NoError(t, err, "a wrong code is not an error")
+	assert.False(t, ok)
+	assert.False(t, usedRecovery)
+
+	canceled, cancel := context.WithCancel(ctx)
+	cancel()
+	ok, usedRecovery, err = repo.VerifyOrRecover(canceled, recovery[1])
+	require.Error(t, err, "a storage failure must surface as an error")
+	assert.False(t, ok)
+	assert.False(t, usedRecovery)
+	info, err = repo.Info(ctx)
+	require.NoError(t, err)
+	assert.Equal(t, len(recovery)-1, info.RecoveryRemaining, "a failed attempt must not consume a recovery code")
+}

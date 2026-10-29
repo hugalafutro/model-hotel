@@ -9,7 +9,73 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+
+	"github.com/hugalafutro/model-hotel/internal/logtest"
 )
+
+// rewritingStore delegates to the wrapped store but passes every row looked up
+// by token hash through rewrite first, standing in for a store that returns a
+// row Postgres's schema and lookup would never produce.
+type rewritingStore struct {
+	SessionStore
+	rewrite func(*SessionRecord)
+}
+
+func (s *rewritingStore) GetSessionByTokenHash(ctx context.Context, tokenHash string) (*SessionRecord, error) {
+	rec, err := s.SessionStore.GetSessionByTokenHash(ctx, tokenHash)
+	if err == nil {
+		s.rewrite(rec)
+	}
+	return rec, err
+}
+
+// The constant-time hash check is the last word on a looked-up row: a row with
+// no token hash, or one whose hash is not the presented token's, is refused by
+// Authenticate and Verify alike even though it is live and inside the cap.
+func TestAuthenticate_RejectsARowWhoseTokenHashDoesNotMatch(t *testing.T) {
+	repo := newTestRepo(t)
+	ctx := context.Background()
+	token := mintSession(t, repo, NewSessionManager(repo), "admin-hashcheck")
+	other := "0000000000000000000000000000000000000000000000000000000000000000"
+
+	cases := map[string]func(*SessionRecord){
+		"nil hash":   func(r *SessionRecord) { r.TokenHash = nil },
+		"other hash": func(r *SessionRecord) { r.TokenHash = &other },
+	}
+	for name, rewrite := range cases {
+		mgr := NewSessionManager(&rewritingStore{SessionStore: repo, rewrite: rewrite})
+		if _, ok := mgr.Authenticate(ctx, token); ok {
+			t.Errorf("%s: Authenticate admitted the row", name)
+		}
+		if _, ok := mgr.Verify(ctx, token); ok {
+			t.Errorf("%s: Verify admitted the row", name)
+		}
+	}
+	// The same row unrewritten is admitted, so the refusals above are the hash.
+	if _, ok := NewSessionManager(repo).Verify(ctx, token); !ok {
+		t.Fatal("the untouched session should validate")
+	}
+}
+
+// A store that returns no created_at (one that forgot the column) cannot have
+// the max-lifetime cap applied: the session still validates, and the gap is
+// logged with the session's id instead of passing silently.
+func TestAuthenticate_LogsARowWithNoCreatedAt(t *testing.T) {
+	repo := newTestRepo(t)
+	ctx := context.Background()
+	token := mintSession(t, repo, NewSessionManager(repo), "admin-nocreated")
+	id := sessionByToken(t, repo, token).ID
+	logs := logtest.Capture(t)
+
+	mgr := NewSessionManager(&rewritingStore{SessionStore: repo, rewrite: func(r *SessionRecord) { r.CreatedAt = time.Time{} }})
+	if _, ok := mgr.Verify(ctx, token); !ok {
+		t.Fatal("a live session with no created_at should still validate")
+	}
+	const msg = "webauthn: session has no created_at; the max-lifetime cap cannot apply"
+	if got := logs.Attr(msg, "session_id"); got != id {
+		t.Fatalf("warning session_id = %v, want %v (logged: %v)", got, id, logs.Has(msg))
+	}
+}
 
 // mintSession creates an auth-token session for the test and removes it again
 // on cleanup, so the aged rows these tests leave behind never leak into the

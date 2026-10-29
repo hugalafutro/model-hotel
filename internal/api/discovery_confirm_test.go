@@ -8,7 +8,10 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5/pgxpool"
 
+	"github.com/hugalafutro/model-hotel/internal/events"
+	"github.com/hugalafutro/model-hotel/internal/logtest"
 	"github.com/hugalafutro/model-hotel/internal/model"
 	"github.com/hugalafutro/model-hotel/internal/provider"
 )
@@ -324,5 +327,156 @@ func TestConfirmMissingModels_SmallMissBelowFloorNotSuspect(t *testing.T) {
 		confirmTestSnapshot("m0", "m1", "m2", "m3", "m4", "m5"), nil)
 	if suspect {
 		t.Fatal("expected suspect=false below the mass-vanish floor")
+	}
+}
+
+// ---------------------------------------------------------------------------
+// SuspectStreak — integration tests against the providers.suspect_scans column.
+// ---------------------------------------------------------------------------
+
+// insertStreakProvider seeds one provider row and removes it when the test ends.
+func insertStreakProvider(t *testing.T) *provider.Provider {
+	t.Helper()
+	ctx := context.Background()
+	prov := &provider.Provider{Name: "streak-" + uuid.NewString()}
+	if err := apiTestDB.Pool().QueryRow(ctx, `
+		INSERT INTO providers (name, base_url, provider_type, enabled, autodiscovery_enabled)
+		VALUES ($1, 'https://streak.example/v1', 'openai', true, true) RETURNING id`, prov.Name).Scan(&prov.ID); err != nil {
+		t.Fatalf("seed provider: %v", err)
+	}
+	t.Cleanup(func() {
+		if _, err := apiTestDB.Pool().Exec(context.Background(), `DELETE FROM providers WHERE id = $1`, prov.ID); err != nil {
+			t.Errorf("delete provider: %v", err)
+		}
+	})
+	return prov
+}
+
+func suspectScans(t *testing.T, id uuid.UUID) int {
+	t.Helper()
+	var n int
+	if err := apiTestDB.Pool().QueryRow(context.Background(),
+		`SELECT suspect_scans FROM providers WHERE id = $1`, id).Scan(&n); err != nil {
+		t.Fatalf("read suspect_scans: %v", err)
+	}
+	return n
+}
+
+// drainBulkRemovalEvents returns the bulk-removal alerts already delivered for
+// one provider. Publish sends synchronously, so nothing is still in flight.
+func drainBulkRemovalEvents(ch chan events.Event, id uuid.UUID) []events.Event {
+	var out []events.Event
+	for {
+		select {
+		case ev := <-ch:
+			if ev.Type == "discovery.bulk_removal_suspected" && ev.Metadata["provider_id"] == id {
+				out = append(out, ev)
+			}
+		default:
+			return out
+		}
+	}
+}
+
+// closedPool returns a pool to the test DB that is already closed, so every
+// query on it fails.
+func closedPool(t *testing.T) *pgxpool.Pool {
+	t.Helper()
+	pool, err := pgxpool.New(context.Background(), apiTestDBURL)
+	if err != nil {
+		t.Fatalf("open pool: %v", err)
+	}
+	pool.Close()
+	return pool
+}
+
+func TestSuspectStreak_BumpCountsAndEscalatesEveryThreshold(t *testing.T) {
+	prov := insertStreakProvider(t)
+	streak := NewSuspectStreak(apiTestDB.Pool())
+	sub := events.Subscribe()
+	defer events.Unsubscribe(sub)
+
+	// Through two thresholds: the alert fires on the crossing scan, stays quiet
+	// in between, and re-fires on the next multiple.
+	for scan := 1; scan <= 2*suspectStreakThreshold; scan++ {
+		streak.bump(context.Background(), prov, 8, 10)
+
+		if got := suspectScans(t, prov.ID); got != scan {
+			t.Fatalf("after bump %d: suspect_scans = %d, want %d", scan, got, scan)
+		}
+		evs := drainBulkRemovalEvents(sub, prov.ID)
+		if scan%suspectStreakThreshold != 0 {
+			if len(evs) != 0 {
+				t.Fatalf("after bump %d: got %d bulk-removal event(s), want none below/between thresholds", scan, len(evs))
+			}
+			continue
+		}
+		if len(evs) != 1 {
+			t.Fatalf("after bump %d: got %d bulk-removal event(s), want exactly 1", scan, len(evs))
+		}
+		ev := evs[0]
+		if ev.Severity != "error" || ev.Source != "discovery" {
+			t.Errorf("after bump %d: severity/source = %q/%q, want error/discovery", scan, ev.Severity, ev.Source)
+		}
+		if ev.Metadata["consecutive_scans"] != scan || ev.Metadata["missing"] != 8 || ev.Metadata["enabled"] != 10 {
+			t.Errorf("after bump %d: metadata = %v, want consecutive_scans=%d missing=8 enabled=10", scan, ev.Metadata, scan)
+		}
+	}
+}
+
+func TestSuspectStreak_ResetClearsCounter(t *testing.T) {
+	prov := insertStreakProvider(t)
+	streak := NewSuspectStreak(apiTestDB.Pool())
+	for range 2 {
+		streak.bump(context.Background(), prov, 8, 10)
+	}
+	if got := suspectScans(t, prov.ID); got != 2 {
+		t.Fatalf("suspect_scans = %d before reset, want 2", got)
+	}
+
+	streak.reset(context.Background(), prov)
+	if got := suspectScans(t, prov.ID); got != 0 {
+		t.Fatalf("suspect_scans = %d after reset, want 0", got)
+	}
+
+	// A streak broken by a healthy scan starts over: the next bump is scan 1,
+	// not scan 3, so it must not escalate.
+	sub := events.Subscribe()
+	defer events.Unsubscribe(sub)
+	streak.bump(context.Background(), prov, 8, 10)
+	if got := suspectScans(t, prov.ID); got != 1 {
+		t.Fatalf("suspect_scans = %d after reset+bump, want 1", got)
+	}
+	if evs := drainBulkRemovalEvents(sub, prov.ID); len(evs) != 0 {
+		t.Fatalf("got %d bulk-removal event(s) after a reset streak restarted, want none", len(evs))
+	}
+}
+
+func TestSuspectStreak_DBFailuresAreLoggedNotFatal(t *testing.T) {
+	logs := logtest.Capture(t)
+	prov := confirmTestProvider()
+	streak := NewSuspectStreak(closedPool(t))
+	sub := events.Subscribe()
+	defer events.Unsubscribe(sub)
+
+	streak.bump(context.Background(), prov, 8, 10)
+	rec, ok := logs.Find("discovery: failed to bump provider suspect streak")
+	if !ok {
+		t.Fatal("bump on a closed pool must log the bump-failure warning")
+	}
+	if rec.Attrs["provider"] != prov.Name || rec.Attrs["error"] == nil {
+		t.Errorf("bump warning attrs = %v, want provider=%q and an error", rec.Attrs, prov.Name)
+	}
+	if evs := drainBulkRemovalEvents(sub, prov.ID); len(evs) != 0 {
+		t.Errorf("a failed bump has no streak to escalate, got %d event(s)", len(evs))
+	}
+
+	streak.reset(context.Background(), prov)
+	rec, ok = logs.Find("discovery: failed to reset provider suspect streak")
+	if !ok {
+		t.Fatal("reset on a closed pool must log the reset-failure warning")
+	}
+	if rec.Attrs["provider"] != prov.Name || rec.Attrs["error"] == nil {
+		t.Errorf("reset warning attrs = %v, want provider=%q and an error", rec.Attrs, prov.Name)
 	}
 }

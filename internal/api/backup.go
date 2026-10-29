@@ -42,6 +42,9 @@ type BackupHandler struct {
 	// StartScheduler call is handed the goroutine that exists rather than a
 	// closed channel that would tell it there is nothing to wait for.
 	schedulerStopped chan struct{}
+	// initialDelay is how long a started scheduler waits before its first
+	// tick, so the server finishes starting before a backup can run.
+	initialDelay time.Duration
 	// exit ends the process once a restore has landed and the response has
 	// flushed, so the supervisor restarts it on the restored database with
 	// fresh caches. os.Exit in the server; a test observes the code instead.
@@ -60,6 +63,7 @@ func NewBackupHandler(databaseURL, backupDir string, adminMgr AdminAuthenticator
 		backupDir:    absDir,
 		adminMgr:     adminMgr,
 		settingsRepo: settingsRepo,
+		initialDelay: time.Minute,
 		exit:         os.Exit,
 	}
 }
