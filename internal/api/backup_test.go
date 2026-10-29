@@ -635,10 +635,15 @@ func TestNewBackupHandler_Constructor(t *testing.T) {
 	if !filepath.IsAbs(h.backupDir) {
 		t.Errorf("expected backupDir to be absolute, got %q", h.backupDir)
 	}
-	// The server waits a minute before the first scheduled tick so startup
-	// finishes first; the loop tests override this, so pin the default here.
-	if h.initialDelay != time.Minute {
-		t.Errorf("initialDelay = %v, want %v", h.initialDelay, time.Minute)
+	// The loop's timer is time.After in the server; a func cannot be compared,
+	// so check it is set and fires.
+	if h.after == nil {
+		t.Fatal("after is nil: the scheduler loop would panic on its first sleep")
+	}
+	select {
+	case <-h.after(0):
+	case <-time.After(5 * time.Second):
+		t.Error("after(0) never fired")
 	}
 
 	// Test with empty backup dir path

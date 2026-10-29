@@ -7,7 +7,6 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
-	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -568,11 +567,12 @@ func TestStartScheduler_RestartAfterStop(t *testing.T) {
 // extractMigrationNames filter write/close errors, saveUploadedDump success path
 // ---------------------------------------------------------------------------
 
-// TestStartScheduler_LoopTicksUntilCancelled runs the scheduler loop itself:
-// the first tick finds a scheduled dump just under an interval old and sleeps
-// out the remainder, the second finds a backup due and dumps it, and cancelling
-// the context during the sleep after that ends the goroutine with the stopped
-// line and releases the join channel.
+// TestStartScheduler_LoopTicksUntilCancelled runs the scheduler loop on a
+// timer the test fires by hand, so nothing depends on how fast the runner is:
+// the start-up wait is a minute, the first tick finds a scheduled dump that is
+// not due yet and asks to sleep out the rest of the interval, the second finds
+// one due and dumps it, the loop then asks for the next sleep, and cancelling
+// the context during it ends the goroutine with the stopped line.
 func TestStartScheduler_LoopTicksUntilCancelled(t *testing.T) {
 	pgDumpDir := t.TempDir()
 	mockScript := `#!/bin/bash
@@ -587,82 +587,104 @@ done
 	}
 	t.Setenv("PATH", pgDumpDir+string(os.PathListSeparator)+os.Getenv("PATH"))
 
+	const interval = time.Hour
 	backupDir := t.TempDir()
-	anchor := generateBackupFilename("auto")
+	// A fixed name: one generated now could match the dump the test triggers
+	// to the millisecond, which would overwrite the anchor in place.
+	const anchor = "backup_20260101_000000_000_auto.dump"
 	anchorPath := filepath.Join(backupDir, anchor)
 	if err := os.WriteFile(anchorPath, []byte("earlier scheduled dump"), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	// Due in three seconds: long enough that the first tick waits rather than dumps.
-	stamp := time.Now().Add(-backupIntervalFloor + 3*time.Second)
-	if err := os.Chtimes(anchorPath, stamp, stamp); err != nil {
-		t.Fatal(err)
+	stampAnchor := func(at time.Time) {
+		t.Helper()
+		if err := os.Chtimes(anchorPath, at, at); err != nil {
+			t.Fatal(err)
+		}
 	}
-	// The due time as the scheduler sees it: the mtime the filesystem kept.
-	info, err := os.Stat(anchorPath)
-	if err != nil {
-		t.Fatal(err)
-	}
-	due := info.ModTime().Add(backupIntervalFloor)
+	// Due in three minutes: under the re-check cap, so the first tick asks for
+	// exactly the remainder, and minutes away from any runner stall.
+	stampAnchor(time.Now().Add(-interval + 3*time.Minute))
 
 	logs := logtest.Capture(t)
-	// schedulerTick reads backup_enabled exactly once per tick, so each GetBool
-	// call is one tick.
-	var ticksMu sync.Mutex
-	var ticks []time.Time
+	// schedulerTick reads backup_enabled exactly once per tick.
+	var ticks atomic.Int32
 	rotating := make(chan struct{}, 1)
+	release := make(chan struct{})
 	ss := &mockSettingsStore{
 		getBoolFn: func(_ context.Context, _ string, _ bool) bool {
-			ticksMu.Lock()
-			ticks = append(ticks, time.Now())
-			ticksMu.Unlock()
+			ticks.Add(1)
 			return true
 		},
 		getDurationFn: func(_ context.Context, _ string, _ time.Duration) time.Duration {
-			return backupIntervalFloor
+			return interval
 		},
 		// Retention is read only after a dump has landed, ahead of rotation.
+		// The first read holds the goroutine there until the test lets it go.
 		getIntFn: func(_ context.Context, _ string, defaultValue int) int {
 			select {
 			case rotating <- struct{}{}:
+				<-release
 			default:
 			}
 			return defaultValue
 		},
 	}
 	h := NewBackupHandler("postgres://user:pass@localhost/db", backupDir, &mockAdminAuth{}, ss)
-	h.initialDelay = 0
+	asks := make(chan time.Duration, 16)
+	fire := make(chan time.Time)
+	h.after = func(d time.Duration) <-chan time.Time {
+		asks <- d
+		return fire
+	}
+	nextAsk := func(what string) time.Duration {
+		t.Helper()
+		select {
+		case d := <-asks:
+			return d
+		case <-time.After(10 * time.Second):
+			t.Fatalf("the scheduler never asked the timer for %s", what)
+			return 0
+		}
+	}
 
 	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
 	stopped := h.StartScheduler(ctx)
 
+	if d := nextAsk("the start-up wait"); d != time.Minute {
+		t.Fatalf("start-up wait = %v, want %v", d, time.Minute)
+	}
+	if n := ticks.Load(); n != 0 {
+		t.Fatalf("the scheduler ticked %d time(s) before the start-up wait passed", n)
+	}
+	fire <- time.Now()
+
+	d := nextAsk("the sleep after the first tick")
+	if d <= time.Minute || d > 3*time.Minute {
+		t.Fatalf("first tick asked to sleep %v, want the rest of the interval (just under 3m)", d)
+	}
+	if n := ticks.Load(); n != 1 {
+		t.Fatalf("ticks = %d after the first sleep was asked for, want 1", n)
+	}
+
+	stampAnchor(time.Now().Add(-interval - time.Minute))
+	fire <- time.Now()
 	select {
 	case <-rotating:
 	case <-time.After(30 * time.Second):
-		t.Fatal("the scheduler never ran a scheduled backup")
+		t.Fatal("the second tick never ran a scheduled backup")
 	}
-	ticksMu.Lock()
-	seen := append([]time.Time(nil), ticks...)
-	ticksMu.Unlock()
-	switch {
-	case len(seen) == 1:
-		t.Fatal("the backup ran on the first tick; it should have waited for the anchor to age")
-	case len(seen) != 2:
-		t.Fatalf("the backup ran on tick %d, want 2: the loop re-ticked instead of sleeping what the tick returned", len(seen))
+	if n := ticks.Load(); n != 2 {
+		t.Fatalf("the backup ran on tick %d, want 2", n)
 	}
-	// The second tick may not come before the anchor is due: the loop slept the
-	// wait the first tick returned rather than re-ticking early. The slack covers
-	// the wall clock versus the timer's monotonic clock.
-	if early := due.Sub(seen[1]); early > 50*time.Millisecond {
-		t.Errorf("the second tick came %v before the anchor was due (ticks %v apart): the loop did not honour the sleep", early, seen[1].Sub(seen[0]))
+	if n := len(asks); n != 0 {
+		t.Fatalf("the timer was asked %d more time(s) before the backup finished: the loop re-ticked", n)
 	}
-	// Nor long after it: the loop slept what the tick returned, not some longer
-	// fixed wait. Three seconds of slack is far more than a timer fires late by
-	// on a loaded runner and far less than any wait the floor or the idle poll
-	// would produce.
-	if late := seen[1].Sub(due); late > 3*time.Second {
-		t.Errorf("the second tick came %v after the anchor was due: the loop slept longer than the tick asked", late)
+	close(release)
+
+	if d := nextAsk("the sleep after the backup"); d != backupSchedulerRecheck {
+		t.Errorf("sleep after the backup = %v, want the %v re-check", d, backupSchedulerRecheck)
 	}
 
 	cancel()
@@ -673,6 +695,9 @@ done
 	}
 	if !logs.Has("backup: scheduler stopped") {
 		t.Error("expected the scheduler to log that it stopped")
+	}
+	if n := ticks.Load(); n != 2 {
+		t.Errorf("ticks = %d at stop, want 2", n)
 	}
 
 	entries, err := os.ReadDir(backupDir)
@@ -1040,7 +1065,16 @@ func TestStartScheduler_PanicResetsCancelForRestart(t *testing.T) {
 		},
 	}
 	h := NewBackupHandler("postgres://x", t.TempDir(), &mockAdminAuth{}, ss)
-	h.initialDelay = 0
+	// The start-up wait passes at once while the tick panics; once it no
+	// longer does, the restarted scheduler waits until it is stopped.
+	h.after = func(time.Duration) <-chan time.Time {
+		if !panicking.Load() {
+			return nil
+		}
+		fired := make(chan time.Time, 1)
+		fired <- time.Now()
+		return fired
+	}
 
 	select {
 	case <-h.StartScheduler(t.Context()):
