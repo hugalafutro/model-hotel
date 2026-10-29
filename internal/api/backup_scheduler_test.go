@@ -657,6 +657,13 @@ done
 	if early := due.Sub(seen[1]); early > 50*time.Millisecond {
 		t.Errorf("the second tick came %v before the anchor was due (ticks %v apart): the loop did not honour the sleep", early, seen[1].Sub(seen[0]))
 	}
+	// Nor long after it: the loop slept what the tick returned, not some longer
+	// fixed wait. Three seconds of slack is far more than a timer fires late by
+	// on a loaded runner and far less than any wait the floor or the idle poll
+	// would produce.
+	if late := seen[1].Sub(due); late > 3*time.Second {
+		t.Errorf("the second tick came %v after the anchor was due: the loop slept longer than the tick asked", late)
+	}
 
 	cancel()
 	select {
