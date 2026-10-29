@@ -1,7 +1,8 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { act, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { HttpResponse, http } from "msw";
-import { expect, it } from "vitest";
+import { expect, it, vi } from "vitest";
+import { api } from "../../api/client";
 import type { Settings } from "../../api/types";
 import { ToastProvider } from "../../context/ToastContext";
 import i18n from "../../i18n";
@@ -108,20 +109,27 @@ function renderPanel() {
 }
 
 it("renders nothing when the settings cannot be loaded", async () => {
-	let read = false;
-	server.use(
-		http.get("/api/settings", () => {
-			read = true;
-			return HttpResponse.json({ error: "down" }, { status: 500 });
-		}),
-		http.get("/api/auth/oidc/status", () =>
-			HttpResponse.json({ enabled: false }),
-		),
-	);
+	// The read is held by a promise the test rejects, so the assertion runs
+	// only after the panel's own rejection handler has run and React flushed.
+	let reject!: (e: unknown) => void;
+	const pending = new Promise<Settings>((_, rej) => {
+		reject = rej;
+	});
+	const getSettings = vi.spyOn(api, "getSettings").mockReturnValue(pending);
+	const oidcStatus = vi
+		.spyOn(api, "oidcStatus")
+		.mockResolvedValue({ enabled: false } as Awaited<
+			ReturnType<typeof api.oidcStatus>
+		>);
 	renderPanel();
-	await waitFor(() => expect(read).toBe(true));
-	await new Promise((r) => setTimeout(r, 20));
+	await act(async () => {
+		reject(new Error("down"));
+		await pending.catch(() => {});
+	});
+	expect(getSettings).toHaveBeenCalledTimes(1);
 	expect(screen.queryByTestId("fd-oidc-panel")).toBeNull();
+	getSettings.mockRestore();
+	oidcStatus.mockRestore();
 });
 
 it("enables SSO, sends every edited field trimmed, and keeps the last status when the re-read fails", async () => {

@@ -1,8 +1,8 @@
-import { render, screen, waitFor, within } from "@testing-library/react";
+import { act, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { HttpResponse, http } from "msw";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { onUnauthorized } from "../../api/client";
+import { api, onUnauthorized } from "../../api/client";
 import { ToastProvider } from "../../context/ToastContext";
 import i18n from "../../i18n";
 import { server } from "../../test/server";
@@ -561,27 +561,32 @@ describe("PasskeyPanel edge paths", () => {
 	});
 
 	it("does not load credentials when unmounted before availability resolves", async () => {
-		let release: () => void = () => {};
-		const gate = new Promise<void>((r) => {
-			release = r;
-		});
-		let credsFetched = false;
+		// The availability read is held by a promise the test resolves after
+		// unmount; awaiting that same promise inside act lets the panel's own
+		// handler (registered first) run before the assertion.
+		let resolve!: (v: { enabled: boolean; has_credentials: boolean }) => void;
+		const pending = new Promise<{ enabled: boolean; has_credentials: boolean }>(
+			(r) => {
+				resolve = r;
+			},
+		);
+		const available = vi
+			.spyOn(api, "webauthnAvailable")
+			.mockReturnValue(pending);
+		const list = vi.spyOn(api, "webauthnListCredentials");
 		server.use(
-			http.get("/api/webauthn/available", async () => {
-				await gate;
-				return HttpResponse.json({ enabled: true, has_credentials: true });
-			}),
-			http.get("/api/webauthn/credentials", () => {
-				credsFetched = true;
-				return HttpResponse.json([]);
-			}),
 			http.get("/api/totp/status", () => HttpResponse.json({ enabled: false })),
 		);
 		const { unmount } = renderPanels();
+		expect(available).toHaveBeenCalledTimes(1);
 		unmount();
-		release();
-		await new Promise((r) => setTimeout(r, 50));
-		expect(credsFetched).toBe(false);
+		await act(async () => {
+			resolve({ enabled: true, has_credentials: true });
+			await pending;
+		});
+		expect(list).not.toHaveBeenCalled();
+		available.mockRestore();
+		list.mockRestore();
 	});
 
 	it("cancelling the delete confirmation removes nothing", async () => {

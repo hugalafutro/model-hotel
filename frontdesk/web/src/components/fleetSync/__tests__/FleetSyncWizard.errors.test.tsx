@@ -1,7 +1,8 @@
-import { render, screen, waitFor, within } from "@testing-library/react";
+import { act, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { HttpResponse, http } from "msw";
-import { beforeEach, describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import { ApiError, api } from "../../../api/client";
 import type { FleetMemberStatus, MemberView } from "../../../api/types";
 import { ToastProvider } from "../../../context/ToastContext";
 import i18n from "../../../i18n";
@@ -110,36 +111,37 @@ describe("FleetSyncWizard error paths", () => {
 	});
 
 	it("drops a failed probe that answers after the operator picked another primary", async () => {
-		let releaseFirst: () => void = () => {};
-		const firstGate = new Promise<void>((r) => {
-			releaseFirst = r;
+		// The first probe is held by a promise the test rejects once the second
+		// probe has landed. Awaiting that promise inside act runs the wizard's own
+		// catch (registered first) before the assertion, so a stale toast would
+		// already be on screen.
+		let rejectFirst!: (e: unknown) => void;
+		const first = new Promise<never>((_, rej) => {
+			rejectFirst = rej;
 		});
-		let secondDone = false;
-		server.use(
-			http.get("/api/fleet/status", async ({ request }) => {
-				const id = new URL(request.url).searchParams.get("primary");
-				if (id === "1") {
-					await firstGate;
-					return HttpResponse.text("stale probe failed", { status: 502 });
-				}
-				secondDone = true;
-				return HttpResponse.json({
-					primary_id: "2",
-					primary_reachable: true,
-					members: [row("2")],
-				});
-			}),
-		);
+		const fleetStatus = vi
+			.spyOn(api, "fleetStatus")
+			.mockImplementation((id: string) =>
+				id === "1"
+					? first
+					: Promise.resolve({
+							primary_id: "2",
+							primary_reachable: true,
+							members: [row("2")],
+						} as Awaited<ReturnType<typeof api.fleetStatus>>),
+			);
 		renderWizard();
 		await pick("1");
 		await pick("2");
-		await waitFor(() => expect(secondDone).toBe(true));
 		await waitFor(() => expect(btn("settings.wizard.next")).toBeEnabled());
-		releaseFirst();
-		// Give the stale rejection time to land; it must not toast.
-		await new Promise((r) => setTimeout(r, 50));
+		await act(async () => {
+			rejectFirst(new ApiError(502, "stale probe failed"));
+			await first.catch(() => {});
+		});
+		expect(fleetStatus).toHaveBeenCalledWith("1");
 		expect(screen.queryByText("stale probe failed")).toBeNull();
 		expect(btn("settings.wizard.next")).toBeEnabled();
+		fleetStatus.mockRestore();
 	});
 
 	it("keeps the sync blocked and toasts when the version check fails", async () => {

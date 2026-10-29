@@ -85,8 +85,23 @@ func TestLoadModelsDev_CancelledContext(t *testing.T) {
 	}
 }
 
+// isolateModelsDevCache snapshots the process-wide models.dev cache and
+// restores it when the test ends, so a test that loads or replaces it cannot
+// hand its fixture to whichever test runs next in the same process.
+func isolateModelsDevCache(t *testing.T) {
+	t.Helper()
+	modelsDevCache.mu.RLock()
+	byID, byProvider, loaded := modelsDevCache.byID, modelsDevCache.byProvider, modelsDevCache.loaded
+	modelsDevCache.mu.RUnlock()
+	t.Cleanup(func() {
+		modelsDevCache.mu.Lock()
+		modelsDevCache.byID, modelsDevCache.byProvider, modelsDevCache.loaded = byID, byProvider, loaded
+		modelsDevCache.mu.Unlock()
+	})
+}
+
 // resetModelsDevCache returns the process-wide models.dev cache to its
-// unloaded state, so a test that filled it leaves nothing behind.
+// unloaded state.
 func resetModelsDevCache() {
 	modelsDevCache.mu.Lock()
 	modelsDevCache.loaded = false
@@ -110,7 +125,7 @@ func TestModelsDevInterleaved_UnmarshalJSON_InvalidJSON(t *testing.T) {
 // Helper to set up cache with specific test data
 func setupCacheWithModels(t *testing.T, models map[string]*ModelsDevModelSpec) {
 	t.Helper()
-	t.Cleanup(func() { resetModelsDevCache() })
+	isolateModelsDevCache(t)
 	modelsDevCache.mu.Lock()
 	defer modelsDevCache.mu.Unlock()
 	modelsDevCache.byID = models
@@ -594,7 +609,7 @@ func TestLookupFuzzy_VersionSuffixSixDigits(t *testing.T) {
 // indexes are built exactly as production builds them.
 func loadCacheFromJSON(t *testing.T, payload string) *ModelsDevCache {
 	t.Helper()
-	t.Cleanup(func() { resetModelsDevCache() })
+	isolateModelsDevCache(t)
 
 	mockServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set("Content-Type", "application/json")

@@ -14,6 +14,7 @@ import (
 
 // Test LoadModelsDevWithClient with mock server
 func TestLoadModelsDevWithClient(t *testing.T) {
+	isolateModelsDevCache(t)
 	mockResponse := `{
 		"provider1": {
 			"id": "provider1",
@@ -150,6 +151,7 @@ func TestModelsDevInterleavedUnmarshalJSON(t *testing.T) {
 
 // Test EnrichModel and EnrichModels
 func TestModelsDevCacheEnrichModel(t *testing.T) {
+	isolateModelsDevCache(t)
 	mockResponse := `{
 		"provider1": {
 			"id": "provider1",

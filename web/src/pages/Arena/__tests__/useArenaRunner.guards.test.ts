@@ -106,23 +106,18 @@ describe("useArenaRunner guards", () => {
 		result.current.abortAll();
 	});
 
-	it("does not dispatch a stream once the arena has unmounted", async () => {
-		let requests = 0;
-		server.use(
-			http.post("/api/chat/arena", () => {
-				requests += 1;
-				return new HttpResponse(null, { status: 500 });
-			}),
-		);
+	it("does not dispatch a stream once the arena has unmounted", () => {
 		const deps = createMockDeps();
 		const { result, unmount } = renderHook(() => useArenaRunner(deps), {
 			wrapper: createWrapper(),
 		});
-		const { streamModel } = result.current;
+		const { streamModel, abortMapRef } = result.current;
 		unmount();
+		// P/model-a is a valid chat model, so without the unmount guard the call
+		// registers its abort controller synchronously before starting the
+		// stream. Checking right after the call needs no wait.
 		streamModel("P/model-a", "", "hi", 0, "A", 0);
-		await new Promise((r) => setTimeout(r, 20));
-		expect(requests).toBe(0);
+		expect(abortMapRef.current.size).toBe(0);
 		expect(deps.setRounds).not.toHaveBeenCalled();
 	});
 });

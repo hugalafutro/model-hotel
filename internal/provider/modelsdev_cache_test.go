@@ -16,6 +16,7 @@ import (
 // ---------------------------------------------------------------------------
 
 func TestLoadModelsDev_Success(t *testing.T) {
+	isolateModelsDevCache(t)
 	responseJSON := `{
 		"openai": {
 			"id": "openai",
@@ -107,6 +108,7 @@ func (t *modelsDevTestTransport) RoundTrip(req *http.Request) (*http.Response, e
 // ---------------------------------------------------------------------------
 
 func TestGetModelsDevCache_NotLoaded(t *testing.T) {
+	isolateModelsDevCache(t)
 	// Ensure cache is not loaded
 	modelsDevCache.mu.Lock()
 	modelsDevCache.loaded = false
@@ -120,6 +122,7 @@ func TestGetModelsDevCache_NotLoaded(t *testing.T) {
 }
 
 func TestGetModelsDevCache_AfterLoad(t *testing.T) {
+	isolateModelsDevCache(t)
 	responseJSON := `{
 		"openai": {
 			"id": "openai",
@@ -502,6 +505,7 @@ func TestLoadModelsDevWithClient_ContextCancelled(t *testing.T) {
 }
 
 func TestLoadModelsDevWithClient_NilProvider(t *testing.T) {
+	isolateModelsDevCache(t)
 	// Test that nil providers are skipped
 	responseJSON := `{"provider1": null, "provider2": {"id": "p2", "models": {"m1": {"id": "m1", "name": "M1", "modalities": {"input": ["text"], "output": ["text"]}, "cost": {"input": 1, "output": 2}, "limit": {"context": 100, "output": 50}, "attachment": false, "reasoning": false, "tool_call": false, "open_weights": false}}}}`
 
@@ -527,6 +531,7 @@ func TestLoadModelsDevWithClient_NilProvider(t *testing.T) {
 }
 
 func TestLoadModelsDevWithClient_NilModel(t *testing.T) {
+	isolateModelsDevCache(t)
 	// Test that nil models are skipped
 	responseJSON := `{"provider1": {"id": "p1", "models": {"m1": null, "m2": {"id": "m2", "name": "M2", "modalities": {"input": ["text"], "output": ["text"]}, "cost": {"input": 1, "output": 2}, "limit": {"context": 100, "output": 50}, "attachment": false, "reasoning": false, "tool_call": false, "open_weights": false}}}}`
 
@@ -555,6 +560,7 @@ func TestLoadModelsDevWithClient_NilModel(t *testing.T) {
 // A model listed under an empty key is indexed by its spec ID instead of being
 // dropped.
 func TestLoadModelsDevWithClient_EmptyModelKeyUsesSpecID(t *testing.T) {
+	isolateModelsDevCache(t)
 	responseJSON := `{"p1": {"id": "p1", "models": {"": {"id": "m3", "name": "M3"}}}}`
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		_, _ = w.Write([]byte(responseJSON))
@@ -575,6 +581,7 @@ func TestLoadModelsDevWithClient_EmptyModelKeyUsesSpecID(t *testing.T) {
 }
 
 func TestLoadModelsDevWithClient_FirstProviderWins(t *testing.T) {
+	isolateModelsDevCache(t)
 	// Test that when same model ID appears in multiple providers, only one is kept
 	// Note: Go map iteration order is non-deterministic, so we can't guarantee
 	// which provider "wins", but we verify that exactly one entry exists

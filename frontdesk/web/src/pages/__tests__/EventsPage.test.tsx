@@ -9,6 +9,7 @@ import {
 import userEvent from "@testing-library/user-event";
 import { HttpResponse, http } from "msw";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { api } from "../../api/client";
 import type { FdEvent } from "../../api/types";
 import { ToastProvider } from "../../context/ToastContext";
 import i18n from "../../i18n";
@@ -132,47 +133,40 @@ describe("EventsPage", () => {
 	// whichever lands last would put page 2's rows under a page-1 counter, so a
 	// superseded response is dropped.
 	it("ignores a superseded page response that lands last", async () => {
-		let seen = 0;
-		// The page-2 read is held open by a promise the test releases, and it
-		// reports back once its body has been handed to the client. Both halves
-		// are explicit signals: a wall-clock wait could expire before the held
-		// response existed, and the assertions below would then hold vacuously.
-		let release!: () => void;
-		const held = new Promise<void>((r) => {
-			release = r;
+		// The page-2 read is held by a promise the test resolves after the page
+		// has moved back to page 1. Awaiting that same promise inside act runs the
+		// page's own then-handler (attached first) before the rows are read, so a
+		// stale response that was applied would already be on screen.
+		const page = (offset: number) => ({
+			events: Array.from({ length: offset === 0 ? 25 : 5 }, (_, i) =>
+				ev(`${offset + i}`),
+			),
+			total: 30,
 		});
-		let served!: () => void;
-		const landed = new Promise<void>((r) => {
-			served = r;
+		let resolvePage2!: (v: ReturnType<typeof page>) => void;
+		const page2 = new Promise<ReturnType<typeof page>>((r) => {
+			resolvePage2 = r;
 		});
-		server.use(
-			http.get("/api/events", async ({ request }) => {
-				const offset = Number(new URL(request.url).searchParams.get("offset"));
-				seen += 1;
-				const mine = seen;
-				// Hold the second read (page 2) open past the third (back to page 1).
-				if (mine === 2) await held;
-				const events = Array.from({ length: offset === 0 ? 25 : 5 }, (_, i) =>
-					ev(`${offset + i}`),
-				);
-				if (mine === 2) setTimeout(served, 0);
-				return HttpResponse.json({ events, total: 30 });
-			}),
-		);
+		const listEvents = vi
+			.spyOn(api, "listEvents")
+			.mockImplementation((params: URLSearchParams) =>
+				params.get("offset") === "25"
+					? page2
+					: Promise.resolve(page(Number(params.get("offset")))),
+			);
 		renderPage();
 		await screen.findByText("event 0");
 		await userEvent.click(screen.getByRole("button", { name: /Next/i }));
 		await userEvent.click(screen.getByRole("button", { name: /Previous/i }));
 		await screen.findByText("event 0");
-		release();
-		await landed;
-		// One more turn of the loop, so the superseded response has been through
-		// the client before the rows are read.
 		await act(async () => {
-			await new Promise((r) => setTimeout(r, 0));
+			resolvePage2(page(25));
+			await page2;
 		});
+		expect(listEvents).toHaveBeenCalledTimes(3);
 		expect(screen.getByText("event 0")).toBeInTheDocument();
 		expect(screen.queryByText("event 25")).toBeNull();
+		listEvents.mockRestore();
 	});
 
 	it("resets to the first page when filters are cleared", async () => {

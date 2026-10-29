@@ -119,8 +119,10 @@ func TestDoTestModelEgressRequest_BodyFailures(t *testing.T) {
 			w.WriteHeader(http.StatusOK)
 			_, _ = w.Write([]byte(`not json`))
 		}, func(t *testing.T, err error) {
-			if err == nil || err.Error() == "upstream response too large" {
-				t.Errorf("err = %v, want the translation's own error", err)
+			// The builder's own parse failure, which nothing else on this path
+			// produces.
+			if err == nil || !strings.HasPrefix(err.Error(), "anthropicegress: invalid upstream response: ") {
+				t.Errorf("err = %v, want the translation's invalid-upstream-response error", err)
 			}
 		}},
 	} {

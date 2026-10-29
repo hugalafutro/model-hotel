@@ -1,4 +1,4 @@
-import { screen, waitFor } from "@testing-library/react";
+import { act, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { HttpResponse, http } from "msw";
 import { api } from "../../../api/client";
@@ -242,7 +242,14 @@ describe("PasskeySettings", () => {
 			vi.clearAllMocks();
 			server.resetHandlers();
 			vi.spyOn(webauthnUtils, "isWebAuthnAvailable").mockResolvedValue(true);
-			vi.spyOn(webauthnUtils, "registerPasskey").mockResolvedValue(false);
+			// The ceremony is held by a promise the test resolves with "cancelled";
+			// awaiting it inside act runs the panel's handler (and its finally)
+			// before the assertion, so a wrongly raised toast would already show.
+			let resolveCeremony!: (ok: boolean) => void;
+			const ceremony = new Promise<boolean>((r) => {
+				resolveCeremony = r;
+			});
+			vi.spyOn(webauthnUtils, "registerPasskey").mockReturnValue(ceremony);
 
 			server.use(
 				http.get("/api/webauthn/credentials", () => HttpResponse.json([])),
@@ -254,9 +261,14 @@ describe("PasskeySettings", () => {
 				name: /Register a new passkey/i,
 			});
 			await userEvent.click(registerButton);
+			expect(registerButton).toBeDisabled();
 
-			// Wait a bit to ensure no toast appears
-			await new Promise((resolve) => setTimeout(resolve, 100));
+			await act(async () => {
+				resolveCeremony(false);
+				await ceremony;
+			});
+			// The handler finished: the button is usable again, and no toast.
+			expect(registerButton).toBeEnabled();
 			expect(screen.queryByText(/Passkey registered/i)).not.toBeInTheDocument();
 		});
 
