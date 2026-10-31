@@ -5,6 +5,7 @@ import {
 	ListOrdered,
 	MessageSquare,
 	Mic,
+	Music,
 	Terminal,
 	Volume2,
 } from "@/lib/icons";
@@ -21,6 +22,7 @@ export const ENDPOINT_LABEL_KEYS: Record<string, string> = {
 	image: "logs.endpoint.image",
 	tts: "logs.endpoint.tts",
 	stt: "logs.endpoint.stt",
+	music: "logs.endpoint.music",
 };
 
 export const ENDPOINT_ICONS: Record<string, LucideIcon> = {
@@ -31,6 +33,7 @@ export const ENDPOINT_ICONS: Record<string, LucideIcon> = {
 	image: Image,
 	tts: Volume2,
 	stt: Mic,
+	music: Music,
 };
 
 /**

@@ -34,7 +34,7 @@ To remove everything, run `docker compose down --rmi all` (containers, network a
 
 ## Key Features
 
-- **Unified API** - One OpenAI-compatible surface for all providers: `/v1/chat/completions` plus multimodal endpoints (embeddings, image generation/edits/variations, text-to-speech, speech-to-text)
+- **Unified API** - One OpenAI-compatible surface for all providers: `/v1/chat/completions` plus multimodal endpoints (embeddings, image generation/edits/variations, text-to-speech, speech-to-text, music generation on KoboldCpp)
 - **Hotel Routing** - Prefix models with `hotel/` to route through failover groups (works on every endpoint)
 - **Transparent Failover** - Automatic retry on 5xx, 401/403, 402, 404, 499, and timeouts, plus 429 while the `failover_on_rate_limit` setting is on (the default)
 - **Circuit Breaker** - Health is tracked per provider and model: a repeatedly failing model is skipped, and a provider whose failures span enough of its models is taken out of rotation too

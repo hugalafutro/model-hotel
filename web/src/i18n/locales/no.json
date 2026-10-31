@@ -1397,7 +1397,8 @@
 			"tts": "TTS",
 			"stt": "STT",
 			"messages": "Meldinger",
-			"responses": "Svar"
+			"responses": "Svar",
+			"music": "Musikk"
 		},
 		"table": {
 			"timeDate": "Tid/dato",

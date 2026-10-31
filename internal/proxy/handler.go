@@ -317,6 +317,7 @@ func (h *Handler) Register(r chi.Router, afterAuth ...func(http.Handler) http.Ha
 	r.Post("/audio/speech", h.AudioSpeech)
 	r.Post("/audio/transcriptions", h.AudioTranscriptions)
 	r.Post("/audio/translations", h.AudioTranslations)
+	r.Post("/audio/music", h.AudioMusic)
 }
 
 // RegisterAdminChat adds the admin chat endpoint.

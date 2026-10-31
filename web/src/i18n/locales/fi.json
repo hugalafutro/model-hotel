@@ -1397,7 +1397,8 @@
 			"tts": "TTS",
 			"stt": "STT",
 			"messages": "Viestit",
-			"responses": "Vastaukset"
+			"responses": "Vastaukset",
+			"music": "Musiikki"
 		},
 		"table": {
 			"timeDate": "Aika/Päivämäärä",

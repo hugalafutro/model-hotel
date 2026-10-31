@@ -54,25 +54,6 @@ func (h *Handler) ImageVariations(w http.ResponseWriter, r *http.Request) {
 	h.serveMultipartPassthrough(w, r, "/images/variations", endpointTypeImage)
 }
 
-// AudioSpeech proxies OpenAI-compatible POST /v1/audio/speech requests.
-// The response is binary audio (or SSE when stream_format=sse) and is
-// streamed through without buffering.
-func (h *Handler) AudioSpeech(w http.ResponseWriter, r *http.Request) {
-	h.serveJSONPassthrough(w, r, "/audio/speech", endpointTypeTTS)
-}
-
-// AudioTranscriptions proxies OpenAI-compatible POST /v1/audio/transcriptions
-// requests (multipart: audio file + model + optional params).
-func (h *Handler) AudioTranscriptions(w http.ResponseWriter, r *http.Request) {
-	h.serveMultipartPassthrough(w, r, "/audio/transcriptions", endpointTypeSTT)
-}
-
-// AudioTranslations proxies OpenAI-compatible POST /v1/audio/translations
-// requests (multipart, same shape as transcriptions, always English output).
-func (h *Handler) AudioTranslations(w http.ResponseWriter, r *http.Request) {
-	h.serveMultipartPassthrough(w, r, "/audio/translations", endpointTypeSTT)
-}
-
 // serveJSONPassthrough handles a JSON-bodied multimodal endpoint: reuse the
 // chat ingest phase (the body carries a `model` field like chat does), attach
 // the endpoint path and the JSON model rewriter, and run the shared
@@ -98,7 +79,7 @@ func (h *Handler) serveJSONPassthrough(w http.ResponseWriter, r *http.Request, e
 // keep the standard budget.
 func isLongRunningEndpoint(endpointType string) bool {
 	switch endpointType {
-	case endpointTypeImage, endpointTypeTTS, endpointTypeSTT:
+	case endpointTypeImage, endpointTypeTTS, endpointTypeSTT, endpointTypeMusic:
 		return true
 	default:
 		return false
@@ -132,6 +113,9 @@ func (h *Handler) servePassthroughPipeline(w http.ResponseWriter, r *http.Reques
 	}
 	h.loadFailoverConfig(r, st)
 	if h.refuseGeminiRequest(w, st, candidates) {
+		return
+	}
+	if candidates, ok = h.musicCandidates(w, st, candidates); !ok {
 		return
 	}
 	debuglog.Debug("proxy: model resolved (pre-loop)", "endpoint", st.logData.endpointType, "model", st.logData.modelID, "provider", st.logData.providerName, "candidates", len(candidates), "overhead_ms", st.proxyOverhead)

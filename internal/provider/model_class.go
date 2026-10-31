@@ -10,7 +10,8 @@ import (
 )
 
 // The models.modality column is a *derived endpoint class* with a closed
-// vocabulary: "chat", "embedding", "rerank", "image", "video", "tts", "stt".
+// vocabulary: "chat", "embedding", "rerank", "image", "video", "tts", "stt",
+// "music".
 // Discovery code must never hand-write it; input_modalities/output_modalities
 // are the source of truth and NormalizeModelClassification derives the class
 // from them once, after enrichment and before upsert.
@@ -30,6 +31,9 @@ var explicitClasses = map[string]bool{
 	"image":     true,
 	"tts":       true,
 	"stt":       true,
+	// "music" comes only from KoboldCPP's music flag; no name or modality array
+	// derives it, since text in and audio out is what a tts model is too.
+	"music": true,
 	// "chat" is explicit only from a discovery whose listing states it (an
 	// Ollama completion capability, an LM Studio llm or vlm type); it keeps
 	// the name heuristics below from reclassifying a chat model that merely
@@ -286,7 +290,7 @@ func classDefaultArrays(class string) (input, output []string) {
 	switch class {
 	case "stt":
 		return []string{"audio"}, []string{"text"}
-	case "tts":
+	case "tts", "music":
 		return []string{"text"}, []string{"audio"}
 	case "embedding", "rerank", "image", "video":
 		return []string{"text"}, []string{class}

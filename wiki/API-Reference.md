@@ -32,6 +32,7 @@ The `x-api-key` header (what the Anthropic SDKs send) carries the virtual key ju
 | `/v1/audio/speech` | POST | Virtual Key | Text-to-speech (binary audio response; SSE via `stream_format`) |
 | `/v1/audio/transcriptions` | POST | Virtual Key | Speech-to-text (multipart upload) |
 | `/v1/audio/translations` | POST | Virtual Key | Speech translation to English (multipart upload) |
+| `/v1/audio/music` | POST | Virtual Key | Music generation (KoboldCpp only; binary WAV response) |
 
 All endpoints share the same model routing (`hotel/<model>` failover or `<provider>/<model>` direct), virtual-key authentication, `allowed_providers` access control, rate limiting, circuit breaker, and request logging. See [Multimodal Endpoints](#multimodal-endpoints) below.
 
@@ -296,6 +297,20 @@ curl -X POST http://localhost:8081/v1/audio/transcriptions \
 ```
 
 `multipart/form-data` with `file` and `model` (plus optional `language`, `response_format`, `temperature`, etc.). Returns the provider's JSON (`{"text": ...}`) or alternate `response_format` output verbatim.
+
+#### POST `/v1/audio/music`
+
+```bash
+curl -X POST http://localhost:8081/v1/audio/music \
+  -H "Authorization: Bearer $PROXY_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"model": "Kobold/koboldcpp/music", "caption": "upbeat synth pop, female vocals", "lyrics": "[verse]\nSun comes up over the city", "duration": 30}' \
+  --output song.wav
+```
+
+Music generation has no OpenAI route, so the body is KoboldCpp's own, forwarded verbatim to its native `/api/extra/music/generate` with only `model` rewritten: `caption` (style and mood), `lyrics` (section tags such as `[verse]` and `[chorus]`, or empty for an instrumental) and `duration` in seconds. ACE-Step families also take `bpm`, `keyscale`, `timesignature`, `vocal_language` and `inference_steps`; YuE2 ignores them. The response is raw `audio/wav`, streamed through. A clip takes tens of seconds on a small GPU, so the endpoint carries the long-running timeout budget image generation and speech have.
+
+The model is the `koboldcpp/music` that discovery lists when a KoboldCpp reports a music model loaded (see [Model Discovery](Model-Discovery#koboldcpp)); two KoboldCpp servers both loading one form the `hotel/music` group. Only KoboldCpp providers serve the route: a candidate on any other provider type is dropped before an attempt, so caption and lyrics never reach a provider without the endpoint, and a request whose model resolves to none left is a 400. The answer carries no token counts, so the virtual key's token limits are charged an estimate from the caption and lyrics, as binary speech is from its input.
 
 > **Upload size:** request bodies are capped by the `MAX_REQUEST_SIZE` environment variable (default 50MB, which accommodates OpenAI's 25MB audio limit plus multipart overhead). See [Configuration](Configuration).
 

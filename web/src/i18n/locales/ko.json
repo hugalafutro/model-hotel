@@ -1397,7 +1397,8 @@
 			"tts": "TTS",
 			"stt": "STT",
 			"messages": "메시지",
-			"responses": "응답"
+			"responses": "응답",
+			"music": "음악"
 		},
 		"table": {
 			"timeDate": "시간/날짜",

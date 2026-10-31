@@ -1511,7 +1511,7 @@ func TestAppendLogFilters_EndpointTypeInvalidIgnored(t *testing.T) {
 // same slice would assert nothing; this literal is the independent expectation
 // that catches a family dropped from it.
 func TestIsValidEndpointType(t *testing.T) {
-	for _, v := range []string{"chat", "messages", "responses", "embeddings", "rerank", "image", "tts", "stt"} {
+	for _, v := range []string{"chat", "messages", "responses", "embeddings", "rerank", "image", "tts", "stt", "music"} {
 		if !isValidEndpointType(v) {
 			t.Errorf("isValidEndpointType(%q) = false, want true", v)
 		}

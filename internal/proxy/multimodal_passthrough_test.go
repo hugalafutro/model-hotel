@@ -35,6 +35,7 @@ type multimodalTestEnv struct {
 	providerID   uuid.UUID
 	modelUUID    uuid.UUID
 	keyHash      string
+	rawKey       string // the virtual key as a client sends it, for routed requests
 	providerName string
 	modelName    string
 }
@@ -91,6 +92,7 @@ func newMultimodalEnvTyped(t *testing.T, upstreamHandler http.Handler, outputMod
 		providerID:   providerID,
 		modelUUID:    modelUUID,
 		keyHash:      keyHash,
+		rawKey:       virtualKeyName,
 		providerName: providerName,
 		modelName:    modelName,
 	}

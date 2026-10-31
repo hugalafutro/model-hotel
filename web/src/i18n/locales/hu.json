@@ -1397,7 +1397,8 @@
 			"tts": "TTS",
 			"stt": "STT",
 			"messages": "Üzenetek",
-			"responses": "Válaszok"
+			"responses": "Válaszok",
+			"music": "Zene"
 		},
 		"table": {
 			"timeDate": "Idő/Dátum",

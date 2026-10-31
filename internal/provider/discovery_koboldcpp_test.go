@@ -662,11 +662,12 @@ func sideModelServer(t *testing.T, version, sdModels string) *httptest.Server {
 }
 
 // Every side endpoint the version flags report gets a model of its own class,
-// so image generation, speech, transcription and embeddings on a KoboldCPP are
-// pickable instead of reachable only by sending the chat model's name.
+// so image generation, speech, transcription, embeddings and music on a
+// KoboldCPP are pickable instead of reachable only by sending the chat model's
+// name.
 func TestDiscoverKoboldCPP_SideModels(t *testing.T) {
 	srv := sideModelServer(t,
-		`{"result":"KoboldCpp","version":"1.122.1","llm":true,"txt2img":true,"tts":true,"transcribe":true,"embeddings":true}`,
+		`{"result":"KoboldCpp","version":"1.124","llm":true,"txt2img":true,"tts":true,"transcribe":true,"embeddings":true,"music":true,"musicfamily":"yue2"}`,
 		`[{"title":"dreamshaper_8","model_name":"dreamshaper_8","filename":"/models/dreamshaper_8.safetensors"}]`)
 
 	svc := &DiscoveryService{httpClient: srv.Client()}
@@ -681,6 +682,7 @@ func TestDiscoverKoboldCPP_SideModels(t *testing.T) {
 		"koboldcpp/tts":           "tts",
 		"koboldcpp/whisper":       "stt",
 		"koboldcpp/embeddings":    "embedding",
+		"koboldcpp/music":         "music",
 	}
 	if len(models) != len(want) {
 		t.Fatalf("expected %d models, got %d", len(want), len(models))
@@ -693,6 +695,9 @@ func TestDiscoverKoboldCPP_SideModels(t *testing.T) {
 		}
 		if m.Modality != class {
 			t.Errorf("%s: Modality = %q, want %q", m.ModelID, m.Modality, class)
+		}
+		if m.ModelID == "koboldcpp/music" && m.Description != "KoboldCPP 1.124 yue2 music generation model" {
+			t.Errorf("music description = %q, want the family named", m.Description)
 		}
 		if m.OwnedBy != "koboldcpp" || !m.Enabled {
 			t.Errorf("%s: owned_by=%q enabled=%v", m.ModelID, m.OwnedBy, m.Enabled)

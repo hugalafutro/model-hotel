@@ -1507,7 +1507,8 @@
 			"tts": "Озвучування",
 			"stt": "STT",
 			"messages": "Повідомлення",
-			"responses": "Відповіді"
+			"responses": "Відповіді",
+			"music": "Музика"
 		},
 		"table": {
 			"timeDate": "Час/Дата",

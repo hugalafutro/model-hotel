@@ -18,22 +18,25 @@ import (
 // KoboldCPPVersionResponse is the response from /api/extra/version. Besides
 // identifying the server, it is the only place KoboldCPP says what is loaded:
 // `vision` and `audio` describe the adapters the chat model was given, and
-// `txt2img`, `tts`, `transcribe` and `embeddings` each mean a separate side
-// model serves that endpoint. None of the side flags say anything about what
-// the chat model accepts.
+// `txt2img`, `tts`, `transcribe`, `embeddings` and `music` each mean a
+// separate side model serves that endpoint (`musicfamily` names the music
+// model's family, yue2 or acestep). None of the side flags say anything about
+// what the chat model accepts.
 //
 // LLM is a pointer because builds older than the flag omit it; those always
 // had a chat model, so an absent flag reads as loaded.
 type KoboldCPPVersionResponse struct {
-	Result     string `json:"result"`
-	Version    string `json:"version"`
-	LLM        *bool  `json:"llm"`
-	Vision     bool   `json:"vision"`
-	Audio      bool   `json:"audio"`
-	Txt2Img    bool   `json:"txt2img"`
-	TTS        bool   `json:"tts"`
-	Transcribe bool   `json:"transcribe"`
-	Embeddings bool   `json:"embeddings"`
+	Result      string `json:"result"`
+	Version     string `json:"version"`
+	LLM         *bool  `json:"llm"`
+	Vision      bool   `json:"vision"`
+	Audio       bool   `json:"audio"`
+	Txt2Img     bool   `json:"txt2img"`
+	TTS         bool   `json:"tts"`
+	Transcribe  bool   `json:"transcribe"`
+	Embeddings  bool   `json:"embeddings"`
+	Music       bool   `json:"music"`
+	MusicFamily string `json:"musicfamily"`
 }
 
 // KoboldCPPContextResponse is the response from
@@ -57,6 +60,7 @@ const (
 	koboldcppTTSID           = "koboldcpp/tts"
 	koboldcppSTTID           = "koboldcpp/whisper"
 	koboldcppEmbeddingsID    = "koboldcpp/embeddings"
+	koboldcppMusicID         = "koboldcpp/music"
 )
 
 func (d *DiscoveryService) discoverKoboldCPP(ctx context.Context, provider *Provider, apiKey string) ([]*model.Model, error) {
@@ -184,6 +188,7 @@ func (d *DiscoveryService) koboldcppSideModels(ctx context.Context, provider *Pr
 		{versionInfo.TTS, koboldcppTTSID, "tts", "text-to-speech"},
 		{versionInfo.Transcribe, koboldcppSTTID, "stt", "speech-to-text"},
 		{versionInfo.Embeddings, koboldcppEmbeddingsID, "embedding", "embeddings"},
+		{versionInfo.Music, koboldcppMusicID, "music", strings.TrimSpace(versionInfo.MusicFamily + " music generation")},
 	}
 	var models []*model.Model
 	for _, s := range side {

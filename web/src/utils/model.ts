@@ -42,7 +42,7 @@ export function parseCapabilities(capStr: string): Record<string, boolean> {
 /**
  * Non-chat endpoint classes. The backend derives `modality` as an endpoint
  * class with a closed vocabulary (chat, embedding, rerank, image, video, tts,
- * stt — see internal/provider/model_class.go); models with one of these
+ * stt, music — see internal/provider/model_class.go); models with one of these
  * classes are hidden from the chat/arena pickers, where they could never
  * work, but stay visible in /v1/models and the failover group editor.
  */
@@ -53,6 +53,7 @@ export const NON_CHAT_MODALITIES = new Set([
 	"video",
 	"tts",
 	"stt",
+	"music",
 ]);
 
 /** Parse a modalities field (a JSON array string) to a lowercased list. */

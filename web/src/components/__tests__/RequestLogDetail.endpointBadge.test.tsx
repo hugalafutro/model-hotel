@@ -49,6 +49,7 @@ describe("RequestLogDetail endpoint badge", () => {
 		["image", "Image"],
 		["tts", "TTS"],
 		["stt", "STT"],
+		["music", "Music"],
 	])("shows the %s badge in the header", async (endpointType, label) => {
 		const log: LogEntry = { ...baseLog, endpoint_type: endpointType };
 		renderWithProviders(

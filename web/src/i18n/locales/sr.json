@@ -1452,7 +1452,8 @@
 			"tts": "ТТС",
 			"stt": "СТТ",
 			"messages": "Поруке",
-			"responses": "Одговори"
+			"responses": "Одговори",
+			"music": "Muzika"
 		},
 		"table": {
 			"timeDate": "Време/Датум",

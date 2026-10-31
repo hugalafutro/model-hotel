@@ -302,6 +302,7 @@ describe("isChatModel", () => {
 			"video",
 			"tts",
 			"stt",
+			"music",
 		]) {
 			expect(isChatModel({ modality })).toBe(false);
 		}
