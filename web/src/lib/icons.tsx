@@ -135,6 +135,7 @@ export const ArrowUpZA = withId(Ph.SortDescendingIcon, "ArrowUpZA");
 export const Sparkles = withId(Ph.SparkleIcon, "Sparkles");
 export const VideoCamera = withId(Ph.VideoCameraIcon, "VideoCamera");
 export const Volume2 = withId(Ph.SpeakerHighIcon, "Volume2");
+export const Music = withId(Ph.MusicNotesIcon, "Music");
 export const Square = withId(Ph.SquareIcon, "Square");
 export const LayoutDashboard = withId(Ph.SquaresFourIcon, "LayoutDashboard");
 export const Layers = withId(Ph.StackIcon, "Layers");

@@ -199,6 +199,13 @@ func TestNormalizeModelClassification(t *testing.T) {
 			wantClass:  "stt",
 		},
 		{
+			name:       "explicit music class fills audio output and stays music",
+			in:         model.Model{ModelID: "koboldcpp/music", Modality: "music"},
+			wantInput:  `["text"]`,
+			wantOutput: `["audio"]`,
+			wantClass:  "music",
+		},
+		{
 			name: "vision capability unions into input array",
 			in: model.Model{
 				ModelID:      "claude-3-5-sonnet",

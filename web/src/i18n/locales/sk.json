@@ -1507,7 +1507,8 @@
 			"tts": "TTS",
 			"stt": "STT",
 			"messages": "Správy",
-			"responses": "Odpovede"
+			"responses": "Odpovede",
+			"music": "Hudba"
 		},
 		"table": {
 			"timeDate": "Čas/Dátum",

@@ -1452,7 +1452,8 @@
 			"tts": "TTS",
 			"stt": "STT",
 			"messages": "Missatges",
-			"responses": "Respostes"
+			"responses": "Respostes",
+			"music": "Música"
 		},
 		"table": {
 			"timeDate": "Hora/Data",

@@ -987,6 +987,20 @@ func TestBuildProviderTargetURL(t *testing.T) {
 			expected:     "http://localhost:5001/v1/chat/completions",
 		},
 		{
+			name:         "KoboldCPP native music route sits at the origin, not under /v1",
+			baseURL:      "http://localhost:5001/v1",
+			providerType: "koboldcpp",
+			endpoint:     "/api/extra/music/generate",
+			expected:     "http://localhost:5001/api/extra/music/generate",
+		},
+		{
+			name:         "KoboldCPP native music route on a bare host",
+			baseURL:      "http://localhost:5001/",
+			providerType: "koboldcpp",
+			endpoint:     "/api/extra/music/generate",
+			expected:     "http://localhost:5001/api/extra/music/generate",
+		},
+		{
 			name:         "Ollama Cloud stays on default branch (already has /v1)",
 			baseURL:      "https://ollama.com/v1",
 			providerType: "ollama-cloud",

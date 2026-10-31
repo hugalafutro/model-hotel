@@ -14,6 +14,7 @@ const (
 	Image      = "image"
 	TTS        = "tts"
 	STT        = "stt"
+	Music      = "music"
 )
 
 // All returns every family the constants above name, in the order the
@@ -22,5 +23,5 @@ const (
 // every row: TestAllCoversEveryConstant keeps the two in step. Each call
 // returns a fresh slice, so no caller can edit the list another one reads.
 func All() []string {
-	return []string{Chat, Messages, Responses, Embeddings, Rerank, Image, TTS, STT}
+	return []string{Chat, Messages, Responses, Embeddings, Rerank, Image, TTS, STT, Music}
 }

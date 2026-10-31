@@ -1452,7 +1452,8 @@
 			"tts": "TTS",
 			"stt": "STT",
 			"messages": "Mesaje",
-			"responses": "Răspunsuri"
+			"responses": "Răspunsuri",
+			"music": "Muzică"
 		},
 		"table": {
 			"timeDate": "Ora/Dată",

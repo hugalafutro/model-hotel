@@ -563,6 +563,16 @@ func passthroughPromptTextBytes(body []byte, endpointType string) int {
 			return 0
 		}
 		return len(req.Prompt) + len(req.Input)
+	case endpointTypeMusic:
+		// A music request's text is its caption and lyrics.
+		var req struct {
+			Caption string `json:"caption"`
+			Lyrics  string `json:"lyrics"`
+		}
+		if json.Unmarshal(body, &req) != nil {
+			return 0
+		}
+		return len(req.Caption) + len(req.Lyrics)
 	default:
 		// Multipart families (speech-to-text, image edits) carry their payload
 		// as an uploaded file, which has no honest text size, so they are left

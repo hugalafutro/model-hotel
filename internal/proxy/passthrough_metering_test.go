@@ -75,6 +75,12 @@ func TestPassthroughPromptTextBytes_SizesRealBodies(t *testing.T) {
 			want:         8,
 		},
 		{
+			name:         "music caption and lyrics",
+			endpointType: endpointTypeMusic,
+			body:         `{"model":"koboldcpp/music","caption":"synth pop","lyrics":"la la","duration":10}`,
+			want:         14,
+		},
+		{
 			name:         "multipart family is not guessed at",
 			endpointType: endpointTypeSTT,
 			body:         `{"model":"whisper-1"}`,

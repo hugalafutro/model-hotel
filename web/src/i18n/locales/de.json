@@ -1397,7 +1397,8 @@
 			"tts": "TTS",
 			"stt": "STT",
 			"messages": "Nachrichten",
-			"responses": "Antworten"
+			"responses": "Antworten",
+			"music": "Musik"
 		},
 		"table": {
 			"timeDate": "Zeit/Datum",

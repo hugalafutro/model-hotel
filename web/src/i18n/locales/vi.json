@@ -1397,7 +1397,8 @@
 			"tts": "TTS",
 			"stt": "STT",
 			"messages": "Tin nhắn",
-			"responses": "Phản hồi"
+			"responses": "Phản hồi",
+			"music": "Âm nhạc"
 		},
 		"table": {
 			"timeDate": "Thời gian/Ngày",

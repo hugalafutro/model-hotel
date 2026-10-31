@@ -101,6 +101,7 @@ const (
 	endpointTypeImage      = endpointtype.Image
 	endpointTypeTTS        = endpointtype.TTS
 	endpointTypeSTT        = endpointtype.STT
+	endpointTypeMusic      = endpointtype.Music
 )
 
 type requestLogData struct {

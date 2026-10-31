@@ -1617,7 +1617,8 @@
 			"tts": "TTS",
 			"stt": "STT",
 			"messages": "الرسائل",
-			"responses": "الردود"
+			"responses": "الردود",
+			"music": "موسيقى"
 		},
 		"table": {
 			"timeDate": "الوقت/التاريخ",
