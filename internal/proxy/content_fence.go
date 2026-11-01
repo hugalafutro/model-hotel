@@ -86,7 +86,7 @@ const (
 
 // contentFirstKeys are the members that carry the prompt, visited before any
 // other member of the same object so the index budget covers them first.
-var contentFirstKeys = []string{"messages", "input", "prompt", "query", "documents", "system", "instructions", "contents", "text", "content"}
+var contentFirstKeys = []string{"messages", "input", "prompt", "query", "documents", "system", "instructions", "contents", "text", "content", "caption", "lyrics"}
 
 // contentRoutingKeys are members whose string value is routing metadata, not
 // content: a model name is 16 runes on its own and appears verbatim in the

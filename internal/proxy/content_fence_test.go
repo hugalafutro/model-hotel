@@ -331,27 +331,38 @@ func TestContentFence_DenseTextIsContent(t *testing.T) {
 // the same request fences the same way every time.
 func TestContentFence_DeterministicOverTheBudget(t *testing.T) {
 	t.Parallel()
-	// A filler whose four forms all differ (double spaces, newlines, quotes)
-	// and outweighs every per-form budget, so that only the walk order
-	// decides what is indexed. "context" sorts before "messages", so only the
-	// content-first ranking keeps the prompt inside the budget; a rerank's
-	// "documents" would starve its "query" the same way.
-	filler := strings.Repeat("tool  description \"filler\" words that spend the whole budget\n", 2*contentIndexCap/60+1)
-	body := []byte(`{"context":` + jsonString(filler) + `,"tools":[{"type":"function","function":{"name":"t","description":` + jsonString(filler) + `}}],"model":"p/m","messages":[{"role":"user","content":` + jsonString(canary) + `}]}`)
-	for i := 0; i < 5; i++ {
-		f := newContentFence(body)
-		// The forms are counted before the first fenced fragment: that call
-		// builds the window set and releases the strings.
-		if n := len(f.strings()); n < len(contentForms) {
-			t.Fatalf("run %d: %d forms indexed, want every budget exhausted for the test to bite", i, n)
-		}
-		if got := f.fenceUpstream("echo " + canary); got != contentWithheld {
-			t.Fatalf("run %d: messages lost to the budget: %q", i, got)
-		}
+	// A filler whose forms all differ (double spaces, newlines, quotes, and a
+	// UUID the masked forms rewrite) and outweighs every per-form budget, so
+	// that only the walk order decides what is indexed. The control case
+	// proves it: a prompt under a member that sorts after the filler and has
+	// no rank is starved.
+	filler := jsonString(strings.Repeat("tool  description \"filler\" 793ac38b-0211-43e6-baa7-aa7054c39931\n", 2*contentIndexCap/60+1))
+	cases := []struct {
+		name, body string
+		fenced     bool
+	}{
+		{"control: an unranked member after the filler is starved", `{"a_filler":` + filler + `,"z_prompt":` + jsonString(canary) + `}`, false},
+		// "context" and "tools" sort before "messages".
+		{"chat messages", `{"context":` + filler + `,"tools":[{"type":"function","function":{"name":"t","description":` + filler + `}}],"model":"p/m","messages":[{"role":"user","content":` + jsonString(canary) + `}]}`, true},
+		{"rerank query", `{"model":"p/m","documents":[` + filler + `],"query":` + jsonString(canary) + `}`, true},
+		// "audio_duration" sorts before both of a music request's prompt members.
+		{"music caption", `{"model":"p/m","audio_duration":` + filler + `,"caption":` + jsonString(canary) + `}`, true},
+		{"music lyrics", `{"model":"p/m","audio_duration":` + filler + `,"lyrics":` + jsonString(canary) + `}`, true},
 	}
-	rerank := []byte(`{"model":"p/m","documents":[` + jsonString(filler) + `],"query":` + jsonString(canary) + `}`)
-	if got := newContentFence(rerank).fenceUpstream("cannot rerank: " + canary); got != contentWithheld {
-		t.Fatalf("a rerank query was starved by its documents: %q", got)
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			echo := "provider says: " + canary
+			want := echo
+			if tc.fenced {
+				want = contentWithheld
+			}
+			for run := range 2 {
+				if got := newContentFence([]byte(tc.body)).fenceUpstream(echo); got != want {
+					t.Fatalf("run %d: fenced to %q, want %q", run, got, want)
+				}
+			}
+		})
 	}
 }
 

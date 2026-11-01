@@ -4,6 +4,8 @@ import (
 	"net/url"
 	"slices"
 	"strings"
+
+	"github.com/hugalafutro/model-hotel/internal/util"
 )
 
 // KnownTypes is the provider-type vocabulary shared with the dashboard's add
@@ -108,7 +110,7 @@ func NormalizeLocalBaseURL(providerType, baseURL string) string {
 // server, ignoring the differences that do not change where the request lands:
 // the /v1 mount, a trailing slash, and host case.
 func SameLocalAddress(a, b string) bool {
-	ka, kb := localServerOrigin(a), localServerOrigin(b)
+	ka, kb := util.SanitizeAPIURL(a), util.SanitizeAPIURL(b)
 	return ka != "" && strings.EqualFold(ka, kb)
 }
 
@@ -119,21 +121,4 @@ func pathSuffix(p string, n int) string {
 		return p
 	}
 	return p[len(p)-n:]
-}
-
-// localServerOrigin strips the OpenAI-compatible /v1 mount so the native
-// endpoints (/api/...) can be addressed.
-func localServerOrigin(baseURL string) string {
-	trimmed := strings.TrimRight(strings.TrimSpace(baseURL), "/")
-	if u, err := url.Parse(trimmed); err == nil && u.Host != "" {
-		trimmedPath := strings.TrimRight(u.Path, "/")
-		if strings.EqualFold(pathSuffix(trimmedPath, len("/v1")), "/v1") {
-			trimmedPath = trimmedPath[:len(trimmedPath)-len("/v1")]
-		}
-		u.Path = trimmedPath
-		u.RawQuery = ""
-		u.Fragment = ""
-		return strings.TrimRight(u.String(), "/")
-	}
-	return strings.TrimSuffix(trimmed, "/v1")
 }

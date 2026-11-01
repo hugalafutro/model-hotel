@@ -234,20 +234,6 @@ func TestNormalizeLocalBaseURL(t *testing.T) {
 	}
 }
 
-func TestLocalServerOrigin(t *testing.T) {
-	tests := []struct{ in, expected string }{
-		{"http://host:5001/v1", "http://host:5001"},
-		{"http://host:5001/v1/", "http://host:5001"},
-		{"http://host:5001", "http://host:5001"},
-		{"http://host:5001/openai/v1", "http://host:5001/openai"},
-	}
-	for _, tc := range tests {
-		if got := localServerOrigin(tc.in); got != tc.expected {
-			t.Errorf("localServerOrigin(%q) = %q, want %q", tc.in, got, tc.expected)
-		}
-	}
-}
-
 func TestTypeOf(t *testing.T) {
 	stored := &Provider{ProviderType: "lmstudio", BaseURL: "http://host:5001/v1"}
 	if got := TypeOf(stored); got != "lmstudio" {
@@ -385,9 +371,6 @@ func TestLocalURLHelpers_MalformedInput(t *testing.T) {
 	const broken = "http://box:5001:bad]url"
 	if got := NormalizeLocalBaseURL("ollama", broken); got != broken {
 		t.Errorf("NormalizeLocalBaseURL = %q, want it unchanged", got)
-	}
-	if got := localServerOrigin("not a url/v1"); got != "not a url" {
-		t.Errorf("localServerOrigin = %q, want the /v1 mount trimmed off the raw string", got)
 	}
 }
 

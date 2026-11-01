@@ -212,8 +212,8 @@ func BuildProviderTargetURL(baseURL, providerType, endpoint string) string {
 	if strings.HasPrefix(endpoint, "/api/extra/") {
 		// KoboldCpp's native routes (music generation) sit at the server's
 		// origin beside /v1, so the /v1 a KoboldCpp base URL carries comes off
-		// first. Any other base is used as given.
-		return strings.TrimSuffix(strings.TrimRight(sanitized, "/"), "/v1") + endpoint
+		// first.
+		return SanitizeAPIURL(baseURL) + endpoint
 	}
 	if providerType == "nanogpt" && isImageEndpoint(endpoint) {
 		// NanoGPT serves image generation under /api/v1, never under the

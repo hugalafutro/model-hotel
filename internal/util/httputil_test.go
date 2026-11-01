@@ -994,6 +994,13 @@ func TestBuildProviderTargetURL(t *testing.T) {
 			expected:     "http://localhost:5001/api/extra/music/generate",
 		},
 		{
+			name:         "KoboldCPP native music route on a host named v1",
+			baseURL:      "http://v1",
+			providerType: "koboldcpp",
+			endpoint:     "/api/extra/music/generate",
+			expected:     "http://v1/api/extra/music/generate",
+		},
+		{
 			name:         "KoboldCPP native music route on a bare host",
 			baseURL:      "http://localhost:5001/",
 			providerType: "koboldcpp",

@@ -36,7 +36,7 @@ func (d *DiscoveryService) discoverSGLang(ctx context.Context, provider *Provide
 	}
 
 	var info *SGLangModelInfo
-	if infoBytes, err := d.fetchURL(ctx, "GET", localServerOrigin(baseURL)+"/get_model_info", bearerHeader(apiKey)); err != nil {
+	if infoBytes, err := d.fetchURL(ctx, "GET", util.SanitizeAPIURL(baseURL)+"/get_model_info", bearerHeader(apiKey)); err != nil {
 		debuglog.Warn("discovery: sglang model info unavailable, listing taken as is",
 			"provider", provider.Name, "provider_id", provider.ID, "error", err)
 	} else {

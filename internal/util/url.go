@@ -13,12 +13,26 @@ func SanitizeBaseURL(raw string) string {
 	return strings.TrimSuffix(raw, "/")
 }
 
-// SanitizeAPIURL sanitizes a provider base URL for API use.
-// It removes trailing slashes and "/v1" suffix, which is the common pattern
-// when constructing API endpoints from provider base URLs.
+// SanitizeAPIURL strips the OpenAI-compatible /v1 mount (any case) and
+// trailing slashes off a provider base URL, so a server's native endpoints
+// (/api/..., /get_model_info) can be addressed from its origin. The mount comes
+// off the parsed path, never the raw string, so a host that is literally named
+// "v1" survives; the query and fragment go too, since an endpoint appended after
+// them would land inside them. An unparseable value is trimmed as a string.
 func SanitizeAPIURL(baseURL string) string {
-	clean := SanitizeBaseURL(baseURL)
-	return strings.TrimSuffix(clean, "/v1")
+	trimmed := strings.TrimRight(strings.TrimSpace(baseURL), "/")
+	if u, err := url.Parse(trimmed); err == nil && u.Host != "" {
+		path := strings.TrimRight(u.Path, "/")
+		if n := len(path) - len("/v1"); n >= 0 && strings.EqualFold(path[n:], "/v1") {
+			path = path[:n]
+		}
+		u.Path = path
+		u.RawPath = ""
+		u.RawQuery = ""
+		u.Fragment = ""
+		return strings.TrimRight(u.String(), "/")
+	}
+	return strings.TrimSuffix(trimmed, "/v1")
 }
 
 // SplitAndTrim splits a string by comma, trims whitespace from each element,

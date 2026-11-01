@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/hugalafutro/model-hotel/internal/debuglog"
+	"github.com/hugalafutro/model-hotel/internal/util"
 )
 
 // ErrLocalServerUnreachable reports that none of the probes got an answer:
@@ -57,7 +58,7 @@ const localProbeBodyCap = 1 << 20
 // after the expected family's match could not be completed. A nil error with
 // an empty Type means the server answered but matched no fingerprint.
 func (d *DiscoveryService) IdentifyLocalServer(ctx context.Context, baseURL, apiKey, expected string) (LocalServerIdentity, error) {
-	origin := localServerOrigin(baseURL)
+	origin := util.SanitizeAPIURL(baseURL)
 	reached := false
 
 	probes := localServerProbes()
