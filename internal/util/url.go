@@ -13,12 +13,72 @@ func SanitizeBaseURL(raw string) string {
 	return strings.TrimSuffix(raw, "/")
 }
 
-// SanitizeAPIURL sanitizes a provider base URL for API use.
-// It removes trailing slashes and "/v1" suffix, which is the common pattern
-// when constructing API endpoints from provider base URLs.
+// SanitizeAPIURL strips the OpenAI-compatible /v1 mount (any case) and
+// trailing slashes off a provider base URL, so a server's native endpoints
+// (/api/..., /get_model_info) can be addressed from its origin. The mount comes
+// off the parsed path, never the raw string, so a host that is literally named
+// "v1" survives, and off the path as written, so an encoded slash (%2F) stays
+// encoded. The query and fragment go too, since an endpoint appended after them
+// would land inside them. An unparseable value is trimmed as a string.
 func SanitizeAPIURL(baseURL string) string {
-	clean := SanitizeBaseURL(baseURL)
-	return strings.TrimSuffix(clean, "/v1")
+	trimmed := strings.TrimRight(strings.TrimSpace(baseURL), "/")
+	if u, err := url.Parse(trimmed); err == nil && u.Host != "" {
+		escaped := strings.TrimRight(u.EscapedPath(), "/")
+		if hasV1Suffix(escaped) {
+			escaped = escaped[:len(escaped)-len("/v1")]
+		}
+		// EscapedPath only returns valid escaping, so this cannot fail.
+		path, _ := url.PathUnescape(escaped)
+		u.Path, u.RawPath = path, escaped
+		u.RawQuery, u.ForceQuery = "", false
+		u.Fragment = ""
+		return strings.TrimRight(u.String(), "/")
+	}
+	if hasV1Suffix(trimmed) {
+		return trimmed[:len(trimmed)-len("/v1")]
+	}
+	return trimmed
+}
+
+// hasV1Mount reports whether a base URL's path ends in the /v1 mount, in any
+// case. Like SanitizeAPIURL it reads the parsed path, so a host named "v1" is
+// not a mount; an unparseable value is checked as a string.
+func hasV1Mount(baseURL string) bool {
+	if u, err := url.Parse(baseURL); err == nil && u.Host != "" {
+		return hasV1Suffix(strings.TrimRight(u.EscapedPath(), "/"))
+	}
+	return hasV1Suffix(strings.TrimRight(baseURL, "/"))
+}
+
+// appendPath adds suffix to a base URL's path, so a query on the base stays
+// after it instead of swallowing it. A query on suffix (Vertex's ?alt=sse) is
+// merged after the base's. Trailing slashes come off the path only. A base that
+// does not parse, or a suffix path that is not valid escaping, is joined as a
+// string with its trailing slashes trimmed.
+func appendPath(baseURL, suffix string) string {
+	u, err := url.Parse(baseURL)
+	if err != nil || u.Host == "" {
+		return strings.TrimRight(baseURL, "/") + suffix
+	}
+	suffixPath, suffixQuery, _ := strings.Cut(suffix, "?")
+	escaped := strings.TrimRight(u.EscapedPath(), "/") + suffixPath
+	path, err := url.PathUnescape(escaped)
+	if err != nil {
+		return strings.TrimRight(baseURL, "/") + suffix
+	}
+	u.Path, u.RawPath = path, escaped
+	if suffixQuery != "" {
+		if u.RawQuery != "" {
+			u.RawQuery += "&"
+		}
+		u.RawQuery += suffixQuery
+	}
+	return u.String()
+}
+
+func hasV1Suffix(p string) bool {
+	n := len(p) - len("/v1")
+	return n >= 0 && strings.EqualFold(p[n:], "/v1")
 }
 
 // SplitAndTrim splits a string by comma, trims whitespace from each element,

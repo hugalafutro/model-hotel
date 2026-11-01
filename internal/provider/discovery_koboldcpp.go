@@ -65,8 +65,8 @@ const (
 
 func (d *DiscoveryService) discoverKoboldCPP(ctx context.Context, provider *Provider, apiKey string) ([]*model.Model, error) {
 	baseURL := util.SanitizeBaseURL(provider.BaseURL)
-	// Strip /v1 suffix if present — native endpoints are at the root
-	apiBase := strings.TrimSuffix(baseURL, "/v1")
+	// Native endpoints sit at the server's origin, beside the /v1 mount.
+	apiBase := util.SanitizeAPIURL(baseURL)
 
 	// Step 1: Verify it's KoboldCPP via /api/extra/version
 	versionInfo, err := d.koboldcppVersion(ctx, apiBase, apiKey)
