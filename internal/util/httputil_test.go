@@ -1006,6 +1006,18 @@ func TestBuildProviderTargetURL(t *testing.T) {
 			expected:     "http://box:11434/v1/chat/completions?x=1",
 		},
 		{
+			name:         "Ollama query value ending in a slash stays whole",
+			baseURL:      "http://box:11434/v1?route=/",
+			providerType: "ollama",
+			expected:     "http://box:11434/v1/chat/completions?route=/",
+		},
+		{
+			name:         "KoboldCPP unparseable base with trailing slashes",
+			baseURL:      "not a url/v1//",
+			providerType: "koboldcpp",
+			expected:     "not a url/v1/chat/completions",
+		},
+		{
 			name:         "Ollama query on a bare base stays after the mount and endpoint",
 			baseURL:      "http://box:11434?x=1",
 			providerType: "ollama",

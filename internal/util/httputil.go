@@ -249,15 +249,14 @@ func BuildProviderTargetURL(baseURL, providerType, endpoint string) string {
 		// 404, or the https://api.anthropic.com Anthropic itself documents), and
 		// avoid a double /v1 when the user already included it.
 		//
-		// SanitizeBaseURL only strips a single trailing slash, so normalize any
-		// remaining ones here; otherwise an input like http://host/v1// would
-		// get a second /v1. hasV1Mount reads the path in any case, so a /V1
-		// base is not doubled and a host named "v1" still gets its mount.
-		versioned := strings.TrimRight(sanitized, "/")
-		if hasV1Mount(versioned) {
-			return appendPath(versioned, endpoint)
+		// hasV1Mount and appendPath read the parsed path, trailing slashes
+		// trimmed, so http://host/v1// gets no second /v1, a /V1 base is not
+		// doubled, a host named "v1" still gets its mount, and a query on the
+		// base (even one ending in "/") stays whole after the endpoint.
+		if hasV1Mount(baseURL) {
+			return appendPath(baseURL, endpoint)
 		}
-		return appendPath(versioned, "/v1"+endpoint)
+		return appendPath(baseURL, "/v1"+endpoint)
 	default:
 		// Pass the user's base URL as-is. The user is responsible for
 		// including the correct path prefix (e.g. /v1) in the base URL.
