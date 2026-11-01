@@ -1000,6 +1000,38 @@ func TestBuildProviderTargetURL(t *testing.T) {
 			expected:     "http://localhost:5001/V1/chat/completions",
 		},
 		{
+			name:         "Ollama query on a /v1 base stays after the endpoint",
+			baseURL:      "http://box:11434/v1?x=1",
+			providerType: "ollama",
+			expected:     "http://box:11434/v1/chat/completions?x=1",
+		},
+		{
+			name:         "Ollama query on a bare base stays after the mount and endpoint",
+			baseURL:      "http://box:11434?x=1",
+			providerType: "ollama",
+			expected:     "http://box:11434/v1/chat/completions?x=1",
+		},
+		{
+			name:         "Ollama encoded slash in the base path stays encoded",
+			baseURL:      "http://box:11434/a%2Fb/v1",
+			providerType: "ollama",
+			expected:     "http://box:11434/a%2Fb/v1/chat/completions",
+		},
+		{
+			name:         "Vertex endpoint query merged after the base query",
+			baseURL:      "https://aiplatform.googleapis.com/v1?x=1",
+			providerType: "vertex-express",
+			endpoint:     "/publishers/google/models/m:streamGenerateContent?alt=sse",
+			expected:     "https://aiplatform.googleapis.com/v1/publishers/google/models/m:streamGenerateContent?x=1&alt=sse",
+		},
+		{
+			name:         "Vertex endpoint with a bad escape is joined as a string",
+			baseURL:      "https://aiplatform.googleapis.com/v1",
+			providerType: "vertex-express",
+			endpoint:     "/publishers/google/models/m%zz:generateContent",
+			expected:     "https://aiplatform.googleapis.com/v1/publishers/google/models/m%zz:generateContent",
+		},
+		{
 			name:         "KoboldCPP unparseable base checked as a string",
 			baseURL:      "not a url/v1",
 			providerType: "koboldcpp",

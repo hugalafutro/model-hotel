@@ -255,9 +255,9 @@ func BuildProviderTargetURL(baseURL, providerType, endpoint string) string {
 		// base is not doubled and a host named "v1" still gets its mount.
 		versioned := strings.TrimRight(sanitized, "/")
 		if hasV1Mount(versioned) {
-			return versioned + endpoint
+			return appendPath(versioned, endpoint)
 		}
-		return versioned + "/v1" + endpoint
+		return appendPath(versioned, "/v1"+endpoint)
 	default:
 		// Pass the user's base URL as-is. The user is responsible for
 		// including the correct path prefix (e.g. /v1) in the base URL.

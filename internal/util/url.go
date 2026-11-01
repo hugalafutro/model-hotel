@@ -50,6 +50,31 @@ func hasV1Mount(baseURL string) bool {
 	return hasV1Suffix(baseURL)
 }
 
+// appendPath adds suffix to a base URL's path, so a query on the base stays
+// after it instead of swallowing it. A query on suffix (Vertex's ?alt=sse) is
+// merged after the base's. A base that does not parse, or a suffix path that is
+// not valid escaping, is joined as a string.
+func appendPath(baseURL, suffix string) string {
+	u, err := url.Parse(baseURL)
+	if err != nil || u.Host == "" {
+		return baseURL + suffix
+	}
+	suffixPath, suffixQuery, _ := strings.Cut(suffix, "?")
+	escaped := strings.TrimRight(u.EscapedPath(), "/") + suffixPath
+	path, err := url.PathUnescape(escaped)
+	if err != nil {
+		return baseURL + suffix
+	}
+	u.Path, u.RawPath = path, escaped
+	if suffixQuery != "" {
+		if u.RawQuery != "" {
+			u.RawQuery += "&"
+		}
+		u.RawQuery += suffixQuery
+	}
+	return u.String()
+}
+
 func hasV1Suffix(p string) bool {
 	n := len(p) - len("/v1")
 	return n >= 0 && strings.EqualFold(p[n:], "/v1")
