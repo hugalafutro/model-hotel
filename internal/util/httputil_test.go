@@ -994,6 +994,24 @@ func TestBuildProviderTargetURL(t *testing.T) {
 			expected:     "http://localhost:5001/api/extra/music/generate",
 		},
 		{
+			name:         "KoboldCPP upper-case /V1 mount not doubled",
+			baseURL:      "http://localhost:5001/V1",
+			providerType: "koboldcpp",
+			expected:     "http://localhost:5001/V1/chat/completions",
+		},
+		{
+			name:         "KoboldCPP unparseable base checked as a string",
+			baseURL:      "not a url/v1",
+			providerType: "koboldcpp",
+			expected:     "not a url/v1/chat/completions",
+		},
+		{
+			name:         "KoboldCPP bare host named v1 still gets its mount",
+			baseURL:      "http://v1",
+			providerType: "koboldcpp",
+			expected:     "http://v1/v1/chat/completions",
+		},
+		{
 			name:         "KoboldCPP native music route on a host named v1",
 			baseURL:      "http://v1",
 			providerType: "koboldcpp",

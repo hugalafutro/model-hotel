@@ -250,10 +250,11 @@ func BuildProviderTargetURL(baseURL, providerType, endpoint string) string {
 		// avoid a double /v1 when the user already included it.
 		//
 		// SanitizeBaseURL only strips a single trailing slash, so normalize any
-		// remaining ones here before the suffix check; otherwise an input like
-		// http://host/v1// would slip past the guard and get a second /v1.
+		// remaining ones here; otherwise an input like http://host/v1// would
+		// get a second /v1. hasV1Mount reads the path in any case, so a /V1
+		// base is not doubled and a host named "v1" still gets its mount.
 		versioned := strings.TrimRight(sanitized, "/")
-		if strings.HasSuffix(versioned, "/v1") {
+		if hasV1Mount(versioned) {
 			return versioned + endpoint
 		}
 		return versioned + "/v1" + endpoint

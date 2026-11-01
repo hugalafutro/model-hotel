@@ -17,22 +17,39 @@ func SanitizeBaseURL(raw string) string {
 // trailing slashes off a provider base URL, so a server's native endpoints
 // (/api/..., /get_model_info) can be addressed from its origin. The mount comes
 // off the parsed path, never the raw string, so a host that is literally named
-// "v1" survives; the query and fragment go too, since an endpoint appended after
-// them would land inside them. An unparseable value is trimmed as a string.
+// "v1" survives, and off the path as written, so an encoded slash (%2F) stays
+// encoded. The query and fragment go too, since an endpoint appended after them
+// would land inside them. An unparseable value is trimmed as a string.
 func SanitizeAPIURL(baseURL string) string {
 	trimmed := strings.TrimRight(strings.TrimSpace(baseURL), "/")
 	if u, err := url.Parse(trimmed); err == nil && u.Host != "" {
-		path := strings.TrimRight(u.Path, "/")
-		if n := len(path) - len("/v1"); n >= 0 && strings.EqualFold(path[n:], "/v1") {
-			path = path[:n]
+		escaped := strings.TrimRight(u.EscapedPath(), "/")
+		if hasV1Suffix(escaped) {
+			escaped = escaped[:len(escaped)-len("/v1")]
 		}
-		u.Path = path
-		u.RawPath = ""
+		// EscapedPath only returns valid escaping, so this cannot fail.
+		path, _ := url.PathUnescape(escaped)
+		u.Path, u.RawPath = path, escaped
 		u.RawQuery = ""
 		u.Fragment = ""
 		return strings.TrimRight(u.String(), "/")
 	}
 	return strings.TrimSuffix(trimmed, "/v1")
+}
+
+// hasV1Mount reports whether a base URL's path ends in the /v1 mount, in any
+// case. Like SanitizeAPIURL it reads the parsed path, so a host named "v1" is
+// not a mount; an unparseable value is checked as a string.
+func hasV1Mount(baseURL string) bool {
+	if u, err := url.Parse(baseURL); err == nil && u.Host != "" {
+		return hasV1Suffix(strings.TrimRight(u.EscapedPath(), "/"))
+	}
+	return hasV1Suffix(baseURL)
+}
+
+func hasV1Suffix(p string) bool {
+	n := len(p) - len("/v1")
+	return n >= 0 && strings.EqualFold(p[n:], "/v1")
 }
 
 // SplitAndTrim splits a string by comma, trims whitespace from each element,
