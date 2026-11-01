@@ -30,11 +30,14 @@ func SanitizeAPIURL(baseURL string) string {
 		// EscapedPath only returns valid escaping, so this cannot fail.
 		path, _ := url.PathUnescape(escaped)
 		u.Path, u.RawPath = path, escaped
-		u.RawQuery = ""
+		u.RawQuery, u.ForceQuery = "", false
 		u.Fragment = ""
 		return strings.TrimRight(u.String(), "/")
 	}
-	return strings.TrimSuffix(trimmed, "/v1")
+	if hasV1Suffix(trimmed) {
+		return trimmed[:len(trimmed)-len("/v1")]
+	}
+	return trimmed
 }
 
 // hasV1Mount reports whether a base URL's path ends in the /v1 mount, in any

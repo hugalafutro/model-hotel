@@ -74,6 +74,8 @@ func TestSanitizeAPIURL(t *testing.T) {
 		{"host named v1 with mount", "http://v1:5001/v1", "http://v1:5001"},
 		{"query and fragment dropped", "http://box:5001/v1?x=1#f", "http://box:5001"},
 		{"unparseable trimmed as a string", "not a url/v1", "not a url"},
+		{"unparseable upper-case mount trimmed", "not a url/V1", "not a url"},
+		{"bare question mark dropped", "http://box:5001/v1?", "http://box:5001"},
 		{"encoded slash kept", "https://host/a%2Fb/v1", "https://host/a%2Fb"},
 		{"encoded slash before v1 is not a mount", "https://host/a%2Fv1", "https://host/a%2Fv1"},
 		{"empty", "", ""},
