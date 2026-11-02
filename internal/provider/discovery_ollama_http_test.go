@@ -975,3 +975,75 @@ func TestBuildOllamaModel_CloudServedModelsAdvertiseNoStructuredOutput(t *testin
 		}
 	}
 }
+
+// Ollama 0.40.11+ lists "audio" (audio in) and "speech" (audio out). An omni
+// model that also completes stays chat with audio on both sides; a speech-only
+// model derives to tts.
+func TestDiscoverOllama_AudioSpeechCapabilities(t *testing.T) {
+	shows := map[string]OllamaShowResponse{
+		"lfm3-audio": {Capabilities: []string{"completion", "audio", "speech", "tools"}, Details: OllamaModelDetails{Family: "lfm3"}},
+		"phonon":     {Capabilities: []string{"speech"}, Details: OllamaModelDetails{Family: "phonon"}},
+	}
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		switch r.URL.Path {
+		case "/api/tags":
+			json.NewEncoder(w).Encode(OllamaTagsResponse{Models: []OllamaTagsModel{{Name: "lfm3-audio"}, {Name: "phonon"}}})
+		case "/api/show":
+			var req struct {
+				Model string `json:"model"`
+			}
+			json.NewDecoder(r.Body).Decode(&req)
+			json.NewEncoder(w).Encode(shows[req.Model])
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	defer server.Close()
+
+	service := &DiscoveryService{httpClient: server.Client()}
+	models, err := service.discoverOllama(context.Background(), &Provider{ID: uuid.New(), BaseURL: server.URL}, "test-api-key")
+	if err != nil {
+		t.Fatalf("discoverOllama failed: %v", err)
+	}
+	if len(models) != 2 {
+		t.Fatalf("Expected 2 models, got %d", len(models))
+	}
+	NormalizeModels(models)
+	byID := map[string]*model.Model{}
+	for _, m := range models {
+		byID[m.ModelID] = m
+	}
+
+	omni := byID["lfm3-audio"]
+	var caps model.Capability
+	if err := json.Unmarshal([]byte(omni.Capabilities), &caps); err != nil {
+		t.Fatalf("Failed to unmarshal capabilities: %v", err)
+	}
+	if !caps.AudioInput || !caps.ToolCalling || !caps.Streaming {
+		t.Errorf("lfm3-audio: expected audio_input, tool_calling and streaming, got %+v", caps)
+	}
+	if omni.Modality != "chat" {
+		t.Errorf("lfm3-audio: expected class chat, got %q", omni.Modality)
+	}
+	if omni.InputModalities != `["text","audio"]` {
+		t.Errorf("lfm3-audio: expected input [\"text\",\"audio\"], got %s", omni.InputModalities)
+	}
+	if omni.OutputModalities != `["text","audio"]` {
+		t.Errorf("lfm3-audio: expected output [\"text\",\"audio\"], got %s", omni.OutputModalities)
+	}
+
+	tts := byID["phonon"]
+	if tts.Modality != "tts" {
+		t.Errorf("phonon: expected class tts, got %q", tts.Modality)
+	}
+	if tts.OutputModalities != `["audio"]` {
+		t.Errorf("phonon: expected output [\"audio\"], got %s", tts.OutputModalities)
+	}
+	if err := json.Unmarshal([]byte(tts.Capabilities), &caps); err != nil {
+		t.Fatalf("Failed to unmarshal capabilities: %v", err)
+	}
+	if caps.Streaming || caps.StructuredOutput || caps.AudioInput {
+		t.Errorf("phonon: expected no chat flags, got %+v", caps)
+	}
+}

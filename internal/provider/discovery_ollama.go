@@ -153,7 +153,7 @@ func (d *DiscoveryService) buildOllamaModel(provider *Provider, modelID string, 
 	input := []string{"text"}
 	var output []string
 
-	hasCompletion, hasEmbedding := false, false
+	hasCompletion, hasEmbedding, hasSpeech := false, false, false
 	for _, c := range show.Capabilities {
 		switch c {
 		case "tools":
@@ -162,7 +162,16 @@ func (d *DiscoveryService) buildOllamaModel(provider *Provider, modelID string, 
 			caps.Reasoning = true
 		case "vision":
 			caps.Vision = true
-			input = []string{"text", "image"}
+			input = append(input, "image")
+		case "audio":
+			// Audio in: the model takes input_audio chat parts and answers
+			// /v1/audio/transcriptions (lfm3-audio, lfm3-omni).
+			caps.AudioInput = true
+			input = append(input, "audio")
+		case "speech":
+			// Audio out: the model answers /v1/audio/speech (phonon,
+			// lfm3-audio). Ollama 0.40.11+.
+			hasSpeech = true
 		case "completion":
 			hasCompletion = true
 		case "embedding":
@@ -179,7 +188,9 @@ func (d *DiscoveryService) buildOllamaModel(provider *Provider, modelID string, 
 	// a text output, so the central name heuristics can't reclassify a chat
 	// model that merely has "embed" in its name; a listing naming both
 	// capabilities, or none (older Ollama), leaves the class unset so those
-	// heuristics decide from the name.
+	// heuristics decide from the name. A speech model that also completes
+	// (lfm3-audio) stays chat with audio among its outputs; a speech-only
+	// model (phonon) has audio as its only output and derives to tts.
 	modality := ""
 	switch {
 	case !hasCompletion && !caps.Vision && hasEmbedding:
@@ -191,6 +202,9 @@ func (d *DiscoveryService) buildOllamaModel(provider *Provider, modelID string, 
 		// Both capabilities: the listing has not said which endpoint the
 		// model is for, so the name decides.
 		output = []string{"text"}
+	}
+	if hasSpeech {
+		output = append(output, "audio")
 	}
 
 	// Streaming and structured output go to exactly the models filed as chat,
