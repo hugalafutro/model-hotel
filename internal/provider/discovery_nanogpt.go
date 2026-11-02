@@ -109,6 +109,15 @@ func (d *DiscoveryService) discoverNanoGPT(ctx context.Context, provider *Provid
 		models = append(models, imageModels...)
 	}
 
+	// Embedding models have their own catalog too, and the same best-effort
+	// rule: a catalog failure never drops the chat models.
+	embeddingModels, embErr := d.discoverNanoGPTEmbeddingModels(ctx, provider, apiKey)
+	if embErr != nil {
+		debuglog.Warn("discovery: nanogpt embedding-model discovery failed", "provider", provider.Name, "provider_id", provider.ID, "error", embErr)
+	} else {
+		models = append(models, embeddingModels...)
+	}
+
 	// NanoGPT reports pricing and context straight from its live /models
 	// payload, so mark those fields live: genuine provider changes overwrite on
 	// upsert and surface in the discovery diff (id-only providers stay fill-only).
@@ -206,10 +215,98 @@ func (d *DiscoveryService) discoverNanoGPTImageModels(ctx context.Context, provi
 	return models, nil
 }
 
+// discoverNanoGPTEmbeddingModels fetches the embedding-model catalog and files
+// each entry under the embedding class with its per-token input price, context
+// and vector size. The subscription rule is the image catalog's: on the
+// subscription base only models the catalog marks included_in_subscription
+// are registered (an absent flag is not an inclusion), a pay-as-you-go base
+// registers every model.
+func (d *DiscoveryService) discoverNanoGPTEmbeddingModels(ctx context.Context, provider *Provider, apiKey string) ([]*model.Model, error) {
+	catalogURL, err := nanoGPTCatalogURL(provider.BaseURL, "/api/v1/embedding-models")
+	if err != nil {
+		return nil, fmt.Errorf("nanogpt: bad base URL for embedding catalog: %w", err)
+	}
+
+	bodyBytes, err := d.fetchURL(ctx, "GET", catalogURL, bearerJSONHeader(apiKey))
+	if err != nil {
+		return nil, fmt.Errorf("nanogpt: failed to fetch embedding catalog: %w", err)
+	}
+
+	var resp NanoGPTEmbeddingModelsResponse
+	if err := json.Unmarshal(bodyBytes, &resp); err != nil {
+		return nil, fmt.Errorf("nanogpt: failed to decode embedding catalog: %s", jsonfault.Describe(err, len(bodyBytes)))
+	}
+
+	subscriptionOnly := strings.Contains(provider.BaseURL, "/subscription")
+
+	models := make([]*model.Model, 0, len(resp.Data))
+	for _, em := range resp.Data {
+		// The catalog shares the OpenAI list shape with the chat listing, so a
+		// host that answers every path with its chat models would otherwise
+		// file each of them as an embedding model too. A real catalog row
+		// carries a vector size or a per-token price.
+		if em.ID == "" || (em.Dimensions == nil && em.Pricing.PerMillionTokens == nil) {
+			continue
+		}
+		included := em.IncludedInSubscription != nil && *em.IncludedInSubscription
+		if subscriptionOnly && !included {
+			continue
+		}
+
+		inputMods := em.InputModalities
+		if len(inputMods) == 0 {
+			inputMods = []string{"text"}
+		}
+		inputModJSON, _ := json.Marshal(inputMods)
+		outputModJSON, _ := json.Marshal([]string{"embedding"})
+
+		paramsMap := map[string]any{"subscription_included": included}
+		if em.Dimensions != nil {
+			paramsMap["dimensions"] = *em.Dimensions
+		}
+		paramsJSON, _ := json.Marshal(paramsMap)
+
+		displayName := em.Name
+		if displayName == "" {
+			displayName = em.ID
+		}
+
+		// Embeddings bill input tokens only; the output price stays nil so a
+		// client reading /v1/models sees no synthetic 0 for a side that is
+		// never billed.
+		models = append(models, &model.Model{
+			ID:                   uuid.New(),
+			ProviderID:           provider.ID,
+			ModelID:              em.ID,
+			Name:                 em.Name,
+			Description:          em.Description,
+			DisplayName:          displayName,
+			Capabilities:         "{}",
+			Params:               string(paramsJSON),
+			Modality:             "embedding",
+			InputModalities:      string(inputModJSON),
+			OutputModalities:     string(outputModJSON),
+			ContextLength:        em.MaxTokens,
+			InputPricePerMillion: model.PriceOrNil(em.Pricing.PerMillionTokens),
+			OwnedBy:              em.OwnedBy,
+			Enabled:              true,
+		})
+	}
+
+	debuglog.Info("discovery: nanogpt discovered embedding models", "models", len(models), "subscription_only", subscriptionOnly, "provider", provider.Name, "provider_id", provider.ID)
+	return models, nil
+}
+
 // nanoGPTImageCatalogURL derives the image-model catalog URL (/api/models/image)
 // from the provider base URL, which may be the subscription base, a bare host,
 // or a custom NanoGPT-compatible base.
 func nanoGPTImageCatalogURL(baseURL string) (string, error) {
+	return nanoGPTCatalogURL(baseURL, "/api/models/image")
+}
+
+// nanoGPTCatalogURL puts a host-rooted catalog path on the provider's host:
+// the catalogs live beside, not under, whichever /v1 base the provider uses.
+func nanoGPTCatalogURL(baseURL, path string) (string, error) {
 	u, err := url.Parse(util.SanitizeBaseURL(baseURL))
 	if err != nil {
 		return "", util.URLParseReason(err)
@@ -217,7 +314,7 @@ func nanoGPTImageCatalogURL(baseURL string) (string, error) {
 	if u.Scheme == "" || u.Host == "" {
 		return "", fmt.Errorf("missing scheme or host in %q", baseURL)
 	}
-	return u.Scheme + "://" + u.Host + "/api/models/image", nil
+	return u.Scheme + "://" + u.Host + path, nil
 }
 
 // nanoGPTImageAcceptsImageInput reports whether an image model's iconLabel marks

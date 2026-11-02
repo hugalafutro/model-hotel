@@ -821,3 +821,107 @@ func TestDiscoverNanoGPT_NegativePriceStaysNil(t *testing.T) {
 		t.Errorf("the sane completion price must survive, got %v", models[0].OutputPricePerMillion)
 	}
 }
+
+// Three embedding models (one marked included in the subscription, one
+// explicitly not, one with no flag at all, the catalog's shape for most
+// entries) and a chat-shaped row with neither vector size nor per-token
+// price, which must be ignored.
+const nanoGPTEmbeddingCatalogBody = `{"object":"list","data":[
+  {"id":"BAAI/bge-m3","name":"BGE M3","description":"Multilingual.","owned_by":"baai","dimensions":1024,"max_tokens":8192,"included_in_subscription":true,"pricing":{"per_million_tokens":0.01}},
+  {"id":"nvidia/Nemotron-3.5-Embed-1B-BF16","name":"Nemotron 3.5 Embed 1B","owned_by":"nanogpt","dimensions":2048,"max_tokens":32768,"input_modalities":["text","image"],"included_in_subscription":false,"pricing":{"per_million_tokens":0.015,"per_million_image_tokens":0.035}},
+  {"id":"text-embedding-3-small","name":"text-embedding-3-small","owned_by":"openai","dimensions":1536,"max_tokens":8191,"included_in_subscription":null,"pricing":{"per_million_tokens":0.02}},
+  {"id":"gpt-4o","name":"GPT-4o","owned_by":"openai","pricing":{"prompt":2.5}}
+]}`
+
+func newNanoGPTEmbeddingCatalogServer(t *testing.T) *httptest.Server {
+	t.Helper()
+	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/api/v1/embedding-models" || r.Method != http.MethodGet {
+			http.Error(w, "not found", http.StatusNotFound)
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(nanoGPTEmbeddingCatalogBody))
+	}))
+}
+
+func TestDiscoverNanoGPTEmbeddingModels_SubscriptionBaseKeepsOnlyIncluded(t *testing.T) {
+	server := newNanoGPTEmbeddingCatalogServer(t)
+	defer server.Close()
+
+	service := &DiscoveryService{httpClient: server.Client()}
+	provider := &Provider{ID: uuid.New(), Name: "nanogpt-test", BaseURL: server.URL + "/api/subscription/v1"}
+
+	models, err := service.discoverNanoGPTEmbeddingModels(context.Background(), provider, "test-api-key")
+	if err != nil {
+		t.Fatalf("discoverNanoGPTEmbeddingModels failed: %v", err)
+	}
+	if len(models) != 1 || models[0].ModelID != "BAAI/bge-m3" {
+		t.Fatalf("expected only the included model, got %d: %+v", len(models), models)
+	}
+	NormalizeModels(models)
+	m := models[0]
+	if m.Modality != "embedding" || m.OutputModalities != `["embedding"]` || m.InputModalities != `["text"]` {
+		t.Errorf("bge-m3 filed as %s in=%s out=%s, want embedding / text / embedding", m.Modality, m.InputModalities, m.OutputModalities)
+	}
+	if m.InputPricePerMillion == nil || *m.InputPricePerMillion != 0.01 || m.OutputPricePerMillion != nil {
+		t.Errorf("bge-m3 prices in=%v out=%v, want 0.01 and nil", m.InputPricePerMillion, m.OutputPricePerMillion)
+	}
+	if m.ContextLength == nil || *m.ContextLength != 8192 {
+		t.Errorf("bge-m3 context = %v, want 8192", m.ContextLength)
+	}
+	if !strings.Contains(m.Params, `"dimensions":1024`) || !strings.Contains(m.Params, `"subscription_included":true`) {
+		t.Errorf("bge-m3 params = %s, want dimensions and subscription_included", m.Params)
+	}
+	var caps model.Capability
+	if err := json.Unmarshal([]byte(m.Capabilities), &caps); err != nil {
+		t.Fatalf("capabilities: %v", err)
+	}
+	if caps.Streaming || caps.StructuredOutput || caps.ToolCalling {
+		t.Errorf("embedding model carries chat flags: %s", m.Capabilities)
+	}
+}
+
+func TestDiscoverNanoGPTEmbeddingModels_PayAsYouGoBaseRegistersAll(t *testing.T) {
+	server := newNanoGPTEmbeddingCatalogServer(t)
+	defer server.Close()
+
+	service := &DiscoveryService{httpClient: server.Client()}
+	provider := &Provider{ID: uuid.New(), Name: "nanogpt-test", BaseURL: server.URL + "/api/v1"}
+
+	models, err := service.discoverNanoGPTEmbeddingModels(context.Background(), provider, "test-api-key")
+	if err != nil {
+		t.Fatalf("discoverNanoGPTEmbeddingModels failed: %v", err)
+	}
+	if len(models) != 3 || findModelByID(models, "gpt-4o") != nil {
+		t.Fatalf("expected the 3 embedding models on a pay-as-you-go base and no chat-shaped row, got %d", len(models))
+	}
+	nemotron := findModelByID(models, "nvidia/Nemotron-3.5-Embed-1B-BF16")
+	if nemotron == nil || nemotron.InputModalities != `["text","image"]` {
+		t.Errorf("nemotron input modalities = %v, want text and image", nemotron)
+	}
+	if !strings.Contains(nemotron.Params, `"subscription_included":false`) {
+		t.Errorf("nemotron params = %s, want subscription_included false", nemotron.Params)
+	}
+}
+
+func TestNanoGPTCatalogURL(t *testing.T) {
+	for _, tt := range []struct{ name, baseURL, path, want string }{
+		{"embedding catalog from subscription base", "https://nano-gpt.com/api/subscription/v1", "/api/v1/embedding-models", "https://nano-gpt.com/api/v1/embedding-models"},
+		{"embedding catalog from api host", "https://api.nano-gpt.com/api/v1/", "/api/v1/embedding-models", "https://api.nano-gpt.com/api/v1/embedding-models"},
+		{"image catalog", "https://nano-gpt.com/api/subscription/v1", "/api/models/image", "https://nano-gpt.com/api/models/image"},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := nanoGPTCatalogURL(tt.baseURL, tt.path)
+			if err != nil {
+				t.Fatalf("nanoGPTCatalogURL(%q, %q) error: %v", tt.baseURL, tt.path, err)
+			}
+			if got != tt.want {
+				t.Errorf("nanoGPTCatalogURL(%q, %q) = %q, want %q", tt.baseURL, tt.path, got, tt.want)
+			}
+		})
+	}
+	if _, err := nanoGPTCatalogURL("nano-gpt.com/api/v1", "/api/v1/embedding-models"); err == nil {
+		t.Error("expected an error for a base without a scheme")
+	}
+}

@@ -469,7 +469,7 @@ Both routes accept the resource API key as a **bearer token** (the legacy `api-k
 
 **Source files:** `discovery_nanogpt.go`
 
-**Method:** Calls `GET /models?detailed=true&output_modalities=text,decisions` - a single request returns complete model metadata, decision models included (NanoGPT hides them from the plain listing; they answer through the `response_format` type `questions` shim on chat completions, which the proxy forwards unchanged, and are filed under the `decision` class). **No dedicated catalog is used.** The API provides all information directly.
+**Method:** Calls `GET /models?detailed=true&output_modalities=text,decisions` - a single request returns complete model metadata, decision models included. Two host-rooted catalogs are read beside it, each best-effort (a catalog failure never drops the chat models): `/api/models/image` for image generation and `/api/v1/embedding-models` for embeddings (filed under the `embedding` class with their per-token input price, `max_tokens` as context and `dimensions` in params). On the subscription base only entries the catalog marks included are registered (`subscription.included` for images, `included_in_subscription` for embeddings; an absent flag is not an inclusion); a pay-as-you-go base registers every entry (NanoGPT hides them from the plain listing; they answer through the `response_format` type `questions` shim on chat completions, which the proxy forwards unchanged, and are filed under the `decision` class). **No dedicated catalog is used.** The API provides all information directly.
 
 **All fields from API:**
 

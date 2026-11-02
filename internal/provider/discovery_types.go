@@ -172,6 +172,30 @@ type NanoGPTImageModelsResponse struct {
 	} `json:"models"`
 }
 
+// NanoGPTEmbeddingModel is an entry from the NanoGPT embedding-model catalog
+// (GET /api/v1/embedding-models), which the chat listing does not carry. It
+// bills per input token (per_million_tokens); Nemotron's image documents bill
+// at a separate image-token rate the gateway does not meter.
+type NanoGPTEmbeddingModel struct {
+	ID                     string   `json:"id"`
+	Name                   string   `json:"name"`
+	Description            string   `json:"description"`
+	OwnedBy                string   `json:"owned_by"`
+	Dimensions             *int     `json:"dimensions"`
+	MaxTokens              *int     `json:"max_tokens"`
+	InputModalities        []string `json:"input_modalities"`
+	IncludedInSubscription *bool    `json:"included_in_subscription"`
+	Pricing                struct {
+		PerMillionTokens *float64 `json:"per_million_tokens"`
+	} `json:"pricing"`
+}
+
+// NanoGPTEmbeddingModelsResponse is the embedding-model catalog payload: an
+// OpenAI-style list under data.
+type NanoGPTEmbeddingModelsResponse struct {
+	Data []NanoGPTEmbeddingModel `json:"data"`
+}
+
 // NanoGPTUsageLimits describes usage limits for a NanoGPT account.
 type NanoGPTUsageLimits struct {
 	WeeklyInputTokens *int64 `json:"weeklyInputTokens"`
