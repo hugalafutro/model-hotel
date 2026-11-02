@@ -764,8 +764,8 @@ func TestLoadModelsDev_ContextCancelled(t *testing.T) {
 	}
 }
 
-// ReportUnpricedModels names a per-token model (chat, embedding, rerank) that
-// nothing priced, and only those: a speech or image model has no per-token
+// ReportUnpricedModels names a per-token model (chat, embedding, rerank,
+// decision) that nothing priced, and only those: a speech or image model has no per-token
 // price to miss, a free tier is a known zero, and a disabled model meters
 // nothing.
 func TestReportUnpricedModels_NamesOnlyPerTokenModels(t *testing.T) {
@@ -782,6 +782,7 @@ func TestReportUnpricedModels_NamesOnlyPerTokenModels(t *testing.T) {
 		{ModelID: "text-embedding-x", Modality: "embedding", Enabled: true},
 		{ModelID: "rerank-x", Modality: "rerank", Enabled: true},
 		{ModelID: "rerank-priced", Modality: "rerank", Enabled: true, SearchPricePerThousand: &zero},
+		{ModelID: "jev-latest", Modality: "decision", Enabled: true},
 		{ModelID: "whisper-1", Modality: "stt", Enabled: true},
 		{ModelID: "tts-1", Modality: "tts", Enabled: true},
 		{ModelID: "gpt-image-2.5", Modality: "image", Enabled: true},
@@ -795,8 +796,8 @@ func TestReportUnpricedModels_NamesOnlyPerTokenModels(t *testing.T) {
 	if !strings.Contains(got, "level=WARN") {
 		t.Fatalf("expected a warning, got: %s", got)
 	}
-	if !strings.Contains(got, "count=3") || !strings.Contains(got, "models=gpt-5-search-api,rerank-x,text-embedding-x") {
-		t.Errorf("expected exactly the three per-token models named, got: %s", got)
+	if !strings.Contains(got, "count=4") || !strings.Contains(got, "models=gpt-5-search-api,jev-latest,rerank-x,text-embedding-x") {
+		t.Errorf("expected exactly the four per-token models named, got: %s", got)
 	}
 
 	logged.Reset()

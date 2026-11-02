@@ -1114,7 +1114,8 @@
 			"video": "動画出力",
 			"pdf": "PDF出力",
 			"embedding": "埋め込み",
-			"rerank": "リランク"
+			"rerank": "リランク",
+			"decisions": "判断出力"
 		},
 		"scope_active": "有効なプロバイダー",
 		"scope_disabled": "無効なプロバイダー",

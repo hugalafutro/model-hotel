@@ -1202,7 +1202,8 @@
 			"video": "Wyjście wideo",
 			"pdf": "Wyjście PDF",
 			"embedding": "Embedding",
-			"rerank": "Rerank"
+			"rerank": "Rerank",
+			"decisions": "Wyjście decyzji"
 		},
 		"scope_active": "Aktywni dostawcy",
 		"scope_disabled": "Wyłączeni dostawcy",

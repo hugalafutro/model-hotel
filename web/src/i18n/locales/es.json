@@ -1158,7 +1158,8 @@
 			"video": "Salida de vídeo",
 			"pdf": "Salida PDF",
 			"embedding": "Embedding",
-			"rerank": "Rerank"
+			"rerank": "Rerank",
+			"decisions": "Salida de decisiones"
 		},
 		"scope_active": "Proveedores activos",
 		"scope_disabled": "Proveedores desactivados",

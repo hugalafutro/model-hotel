@@ -1158,7 +1158,8 @@
 			"video": "Ieșire video",
 			"pdf": "Ieșire PDF",
 			"embedding": "Embedding",
-			"rerank": "Rerank"
+			"rerank": "Rerank",
+			"decisions": "Ieșire decizii"
 		},
 		"scope_active": "Furnizori activi",
 		"scope_disabled": "Furnizori dezactivați",

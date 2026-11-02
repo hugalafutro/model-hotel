@@ -1114,7 +1114,8 @@
 			"video": "视频输出",
 			"pdf": "PDF 输出",
 			"embedding": "嵌入",
-			"rerank": "重排序"
+			"rerank": "重排序",
+			"decisions": "决策输出"
 		},
 		"scope_active": "已启用的提供商",
 		"scope_disabled": "已禁用的提供商",

@@ -1114,7 +1114,8 @@
 			"video": "Video-uitvoer",
 			"pdf": "PDF-uitvoer",
 			"embedding": "Embedding",
-			"rerank": "Rerank"
+			"rerank": "Rerank",
+			"decisions": "Beslissingsuitvoer"
 		},
 		"scope_active": "Actieve providers",
 		"scope_disabled": "Uitgeschakelde providers",

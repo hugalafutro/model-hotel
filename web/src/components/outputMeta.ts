@@ -3,6 +3,7 @@ import {
 	FileText,
 	Hash,
 	Image,
+	ListChecks,
 	ListOrdered,
 	TextAa,
 	VideoCamera,
@@ -87,5 +88,16 @@ export const OUTPUT_META: OutputMeta[] = [
 			"bg-lime-900/40 text-lime-300 border-lime-700/50 shadow-[0_0_6px_1px_rgba(132,204,22,0.35)]",
 		muted:
 			"bg-lime-900/15 text-lime-500/60 border-lime-700/25 hover:bg-lime-900/25 hover:text-lime-400",
+	},
+	{
+		// NanoGPT decision models: choice / score / yes-no answers with
+		// probabilities, never free text (class "decision").
+		key: "decisions",
+		icon: ListChecks,
+		labelKey: "models.outputPills.decisions",
+		style:
+			"bg-amber-900/40 text-amber-300 border-amber-700/50 shadow-[0_0_6px_1px_rgba(245,158,11,0.35)]",
+		muted:
+			"bg-amber-900/15 text-amber-500/60 border-amber-700/25 hover:bg-amber-900/25 hover:text-amber-400",
 	},
 ];

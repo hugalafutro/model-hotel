@@ -620,8 +620,11 @@ func ReportUnpricedModels(providerName string, models []*model.Model) {
 		if m == nil || !m.Enabled {
 			continue
 		}
+		// Decision models are reached per token through the chat route (the
+		// response_format "questions" shim), so an unpriced one meters at zero
+		// exactly like an unpriced chat model.
 		switch m.Modality {
-		case "chat", "embedding", "rerank":
+		case "chat", "embedding", "rerank", "decision":
 		default:
 			continue
 		}

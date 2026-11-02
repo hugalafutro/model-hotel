@@ -23,6 +23,8 @@ func TestDeriveModelClass(t *testing.T) {
 		{"image gen by output", []string{"text"}, []string{"image"}, "grok-2-image", "image"},
 		{"video gen by output", []string{"text", "image"}, []string{"video"}, "sora-like", "video"},
 		{"tts by output", []string{"text"}, []string{"audio"}, "some-voice", "tts"},
+		{"decisions by output", []string{"text"}, []string{"decisions"}, "typesafe/jev-latest", "decision"},
+		{"decisions beside text stays chat", []string{"text"}, []string{"text", "decisions"}, "some-router", "chat"},
 		{"text plus image output stays chat", []string{"text"}, []string{"text", "image"}, "gemini-image", "chat"},
 		// models.dev lists the gpt-image family as text and image out; the
 		// name says images endpoint only, so it must not sit in the chat pickers.
@@ -511,7 +513,8 @@ func TestDeriveModelClass_TextOutputYieldsToAnEmbeddingOrRerankName(t *testing.T
 
 // An embedding or rerank model carries no chat-only capability, whatever set
 // it (a discovery stub's streaming default, a flag merged in by name), on the
-// derived path and the explicit one alike. Speech keeps streaming.
+// derived path and the explicit one alike, and so does a decision model. Speech
+// keeps streaming.
 func TestNormalizeModelClassification_ClearsChatCapsOnEmbeddingAndRerank(t *testing.T) {
 	chatCaps := `{"streaming":true,"structured_output":true,"tool_calling":true,"parallel_tool_calls":true,"reasoning":true}`
 	for _, tc := range []struct {
@@ -523,6 +526,7 @@ func TestNormalizeModelClassification_ClearsChatCapsOnEmbeddingAndRerank(t *test
 		{"explicit rerank", &model.Model{ModelID: "rerank-v3.5", Modality: "rerank", Capabilities: chatCaps}, false},
 		{"chat keeps them", &model.Model{ModelID: "gpt-4o", Capabilities: chatCaps}, true},
 		{"speech keeps streaming", &model.Model{ModelID: "tts-1", Modality: "tts", Capabilities: `{"streaming":true}`}, true},
+		{"derived decision", &model.Model{ModelID: "typesafe/jev-latest", Modality: "text->decisions", OutputModalities: `["decisions"]`, Capabilities: chatCaps}, false},
 	} {
 		NormalizeModelClassification(tc.m)
 		var c model.Capability

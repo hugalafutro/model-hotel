@@ -1114,7 +1114,8 @@
 			"video": "Video out",
 			"pdf": "PDF out",
 			"embedding": "Embedding",
-			"rerank": "Rerank"
+			"rerank": "Rerank",
+			"decisions": "Decisions out"
 		},
 		"scope_active": "Active providers",
 		"scope_disabled": "Disabled providers",

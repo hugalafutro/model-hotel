@@ -22,6 +22,11 @@ describe("OutputBadges", () => {
 		expect(screen.getByText("Video out")).toBeInTheDocument();
 	});
 
+	it("renders the decisions pill", () => {
+		render(<OutputBadges outputModalities='["decisions"]' />);
+		expect(screen.getByText("Decisions out")).toBeInTheDocument();
+	});
+
 	it("renders nothing for text-only, empty, or malformed outputs", () => {
 		for (const raw of ['["text"]', "", "not-json", "[]"]) {
 			const { container } = render(<OutputBadges outputModalities={raw} />);

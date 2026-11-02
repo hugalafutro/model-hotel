@@ -669,6 +669,22 @@ func buildTestModelRequest(m *model.Model, prov *provider.Provider) (baseBody []
 		},
 		"max_tokens": 10,
 	}
+	if m.Modality == "decision" {
+		// A decision model refuses a plain chat request and answers only a
+		// questions response_format (NanoGPT's shim on chat completions), so
+		// the probe asks the smallest question the route accepts: one yes/no.
+		// Its answer is typed JSON, never a token stream, so no output cap.
+		body = map[string]any{
+			"model":    m.ModelID,
+			"messages": []map[string]string{{"role": "user", "content": "Model Hotel probe."}},
+			"response_format": map[string]any{
+				"type": "questions",
+				"questions": map[string]any{
+					"ready": map[string]any{"type": "noul", "instructions": "Is this service answering?"},
+				},
+			},
+		}
+	}
 	baseBody, _ = json.Marshal(body)
 
 	targetURL = util.BuildProviderTargetURL(prov.BaseURL, providerType, "/chat/completions")

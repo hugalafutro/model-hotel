@@ -1114,7 +1114,8 @@
 			"video": "Videoutdata",
 			"pdf": "PDF-utdata",
 			"embedding": "Embedding",
-			"rerank": "Rerank"
+			"rerank": "Rerank",
+			"decisions": "Beslutningsutdata"
 		},
 		"scope_active": "Aktive leverandører",
 		"scope_disabled": "Deaktiverte leverandører",

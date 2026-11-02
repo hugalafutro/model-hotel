@@ -129,18 +129,6 @@ describe("parseCapabilities", () => {
 		expect(parseCapabilities('{"unclosed": "string"')).toEqual({});
 	});
 
-	it("returns empty object for invalid JSON", () => {
-		expect(parseCapabilities("not json")).toEqual({});
-		expect(parseCapabilities("{invalid: json}")).toEqual({});
-		expect(parseCapabilities('{"unclosed": "string"')).toEqual({});
-	});
-
-	it("returns empty object for invalid JSON syntax", () => {
-		expect(parseCapabilities("not json")).toEqual({});
-		expect(parseCapabilities("{invalid: json}")).toEqual({});
-		expect(parseCapabilities('{"unclosed": "string"')).toEqual({});
-	});
-
 	it("returns parsed value for valid JSON primitives (not objects)", () => {
 		// These are valid JSON, so they parse successfully but aren't objects
 		expect(parseCapabilities("null")).toBe(null);
@@ -303,6 +291,7 @@ describe("isChatModel", () => {
 			"tts",
 			"stt",
 			"music",
+			"decision",
 		]) {
 			expect(isChatModel({ modality })).toBe(false);
 		}
