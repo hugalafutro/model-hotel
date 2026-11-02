@@ -3,6 +3,7 @@ package provider
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -830,7 +831,8 @@ const nanoGPTEmbeddingCatalogBody = `{"object":"list","data":[
   {"id":"BAAI/bge-m3","name":"BGE M3","description":"Multilingual.","owned_by":"baai","dimensions":1024,"max_tokens":8192,"included_in_subscription":true,"pricing":{"per_million_tokens":0.01}},
   {"id":"nvidia/Nemotron-3.5-Embed-1B-BF16","name":"Nemotron 3.5 Embed 1B","owned_by":"nanogpt","dimensions":2048,"max_tokens":32768,"input_modalities":["text","image"],"included_in_subscription":false,"pricing":{"per_million_tokens":0.015,"per_million_image_tokens":0.035}},
   {"id":"text-embedding-3-small","name":"text-embedding-3-small","owned_by":"openai","dimensions":1536,"max_tokens":8191,"included_in_subscription":null,"pricing":{"per_million_tokens":0.02}},
-  {"id":"gpt-4o","name":"GPT-4o","owned_by":"openai","pricing":{"prompt":2.5}}
+  {"id":"gpt-4o","name":"GPT-4o","owned_by":"openai","pricing":{"prompt":2.5}},
+  {"id":"hostile-embed","name":"Hostile","owned_by":"test","pricing":{"per_million_tokens":-1}}
 ]}`
 
 func newNanoGPTEmbeddingCatalogServer(t *testing.T) *httptest.Server {
@@ -893,12 +895,15 @@ func TestDiscoverNanoGPTEmbeddingModels_PayAsYouGoBaseRegistersAll(t *testing.T)
 	if err != nil {
 		t.Fatalf("discoverNanoGPTEmbeddingModels failed: %v", err)
 	}
-	if len(models) != 3 || findModelByID(models, "gpt-4o") != nil {
-		t.Fatalf("expected the 3 embedding models on a pay-as-you-go base and no chat-shaped row, got %d", len(models))
+	if len(models) != 3 || findModelByID(models, "gpt-4o") != nil || findModelByID(models, "hostile-embed") != nil {
+		t.Fatalf("expected the 3 embedding models on a pay-as-you-go base, no chat-shaped row and no negative-price row, got %d", len(models))
 	}
 	nemotron := findModelByID(models, "nvidia/Nemotron-3.5-Embed-1B-BF16")
-	if nemotron == nil || nemotron.InputModalities != `["text","image"]` {
-		t.Errorf("nemotron input modalities = %v, want text and image", nemotron)
+	if nemotron == nil {
+		t.Fatal("expected nemotron to be registered")
+	}
+	if nemotron.InputModalities != `["text","image"]` {
+		t.Errorf("nemotron input modalities = %s, want text and image", nemotron.InputModalities)
 	}
 	if !strings.Contains(nemotron.Params, `"subscription_included":false`) {
 		t.Errorf("nemotron params = %s, want subscription_included false", nemotron.Params)
@@ -923,5 +928,45 @@ func TestNanoGPTCatalogURL(t *testing.T) {
 	}
 	if _, err := nanoGPTCatalogURL("nano-gpt.com/api/v1", "/api/v1/embedding-models"); err == nil {
 		t.Error("expected an error for a base without a scheme")
+	}
+}
+
+// A side catalog the host does not serve (404) leaves the scan a complete
+// listing; a side catalog that fails any other way keeps the chat models and
+// returns ErrCatalogFallback, so a transient outage cannot retire the models
+// that catalog would have listed.
+func TestDiscoverNanoGPT_SideCatalogOutageIsAFallback(t *testing.T) {
+	for _, tc := range []struct {
+		name         string
+		embStatus    int
+		wantFallback bool
+	}{
+		{"embedding catalog absent", http.StatusNotFound, false},
+		{"embedding catalog failing", http.StatusBadGateway, true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				switch r.URL.Path {
+				case "/api/v1/models":
+					w.Header().Set("Content-Type", "application/json")
+					_ = json.NewEncoder(w).Encode(NanoGPTDetailedResponse{Object: "list", Data: []NanoGPTModel{{ID: "gpt-4o", Name: "GPT-4o", Architecture: NanoGPTArchitecture{Modality: "text", InputModalities: []string{"text"}, OutputModalities: []string{"text"}}}}})
+				case "/api/v1/embedding-models":
+					http.Error(w, "catalog", tc.embStatus)
+				default:
+					http.NotFound(w, r)
+				}
+			}))
+			defer server.Close()
+			service := &DiscoveryService{httpClient: server.Client()}
+			provider := &Provider{ID: uuid.New(), Name: "nanogpt-test", BaseURL: server.URL + "/api/v1"}
+
+			models, err := service.discoverNanoGPT(context.Background(), provider, "test-api-key")
+			if len(models) != 1 || models[0].ModelID != "gpt-4o" {
+				t.Fatalf("chat models must survive a catalog failure, got %d models (err %v)", len(models), err)
+			}
+			if errors.Is(err, ErrCatalogFallback) != tc.wantFallback || (err != nil && !errors.Is(err, ErrCatalogFallback)) {
+				t.Errorf("err = %v, want fallback %v", err, tc.wantFallback)
+			}
+		})
 	}
 }

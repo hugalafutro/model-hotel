@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"maps"
+	"net/http"
 	"net/url"
 	"slices"
 	"strings"
@@ -99,23 +100,34 @@ func (d *DiscoveryService) discoverNanoGPT(ctx context.Context, provider *Provid
 		})
 	}
 
-	// Image-generation models live on a separate catalog endpoint and are not
-	// part of the chat /models payload. Discovery of image models is best-effort:
-	// a failure here must not drop the chat models we already have.
+	// Image-generation and embedding models live on their own catalog
+	// endpoints, not in the chat /models payload. Both are best-effort: a
+	// catalog failure never drops the chat models already in hand. A catalog
+	// that answers 404 is one the host does not serve (a NanoGPT-compatible
+	// base without it), so the scan stays a complete listing; any other
+	// failure is an outage, and the listing comes back with
+	// ErrCatalogFallback so a transient miss cannot retire the models that
+	// catalog would have listed.
+	partial := false
 	imageModels, imgErr := d.discoverNanoGPTImageModels(ctx, provider, apiKey)
-	if imgErr != nil {
-		debuglog.Warn("discovery: nanogpt image-model discovery failed", "provider", provider.Name, "provider_id", provider.ID, "error", imgErr)
-	} else {
+	switch {
+	case imgErr == nil:
 		models = append(models, imageModels...)
+	case nanoGPTCatalogAbsent(imgErr):
+		debuglog.Debug("discovery: nanogpt image catalog not served", "provider", provider.Name, "provider_id", provider.ID)
+	default:
+		partial = true
+		debuglog.Warn("discovery: nanogpt image-model discovery failed", "provider", provider.Name, "provider_id", provider.ID, "error", imgErr)
 	}
-
-	// Embedding models have their own catalog too, and the same best-effort
-	// rule: a catalog failure never drops the chat models.
 	embeddingModels, embErr := d.discoverNanoGPTEmbeddingModels(ctx, provider, apiKey)
-	if embErr != nil {
-		debuglog.Warn("discovery: nanogpt embedding-model discovery failed", "provider", provider.Name, "provider_id", provider.ID, "error", embErr)
-	} else {
+	switch {
+	case embErr == nil:
 		models = append(models, embeddingModels...)
+	case nanoGPTCatalogAbsent(embErr):
+		debuglog.Debug("discovery: nanogpt embedding catalog not served", "provider", provider.Name, "provider_id", provider.ID)
+	default:
+		partial = true
+		debuglog.Warn("discovery: nanogpt embedding-model discovery failed", "provider", provider.Name, "provider_id", provider.ID, "error", embErr)
 	}
 
 	// NanoGPT reports pricing and context straight from its live /models
@@ -123,8 +135,18 @@ func (d *DiscoveryService) discoverNanoGPT(ctx context.Context, provider *Provid
 	// upsert and surface in the discovery diff (id-only providers stay fill-only).
 	markLiveMeta(models)
 
-	debuglog.Info("discovery: nanogpt discovered models", "models", len(models), "provider", provider.Name, "provider_id", provider.ID)
+	debuglog.Info("discovery: nanogpt discovered models", "models", len(models), "partial", partial, "provider", provider.Name, "provider_id", provider.ID)
+	if partial {
+		return models, ErrCatalogFallback
+	}
 	return models, nil
+}
+
+// nanoGPTCatalogAbsent reports a side catalog the host does not serve at all
+// (HTTP 404), as opposed to one that failed.
+func nanoGPTCatalogAbsent(err error) bool {
+	he := httpErrorFrom(err)
+	return he != nil && he.StatusCode == http.StatusNotFound
 }
 
 // discoverNanoGPTImageModels fetches the NanoGPT image-model catalog and maps it
@@ -244,8 +266,10 @@ func (d *DiscoveryService) discoverNanoGPTEmbeddingModels(ctx context.Context, p
 		// The catalog shares the OpenAI list shape with the chat listing, so a
 		// host that answers every path with its chat models would otherwise
 		// file each of them as an embedding model too. A real catalog row
-		// carries a vector size or a per-token price.
-		if em.ID == "" || (em.Dimensions == nil && em.Pricing.PerMillionTokens == nil) {
+		// carries a vector size or a usable per-token price (a negative or
+		// non-finite figure is no price, the same rule PriceOrNil applies).
+		price := model.PriceOrNil(em.Pricing.PerMillionTokens)
+		if em.ID == "" || (em.Dimensions == nil && price == nil) {
 			continue
 		}
 		included := em.IncludedInSubscription != nil && *em.IncludedInSubscription
@@ -287,7 +311,7 @@ func (d *DiscoveryService) discoverNanoGPTEmbeddingModels(ctx context.Context, p
 			InputModalities:      string(inputModJSON),
 			OutputModalities:     string(outputModJSON),
 			ContextLength:        em.MaxTokens,
-			InputPricePerMillion: model.PriceOrNil(em.Pricing.PerMillionTokens),
+			InputPricePerMillion: price,
 			OwnedBy:              em.OwnedBy,
 			Enabled:              true,
 		})
