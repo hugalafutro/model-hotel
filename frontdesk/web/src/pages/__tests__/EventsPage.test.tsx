@@ -343,6 +343,11 @@ describe("EventsPage filters and rows", () => {
 		);
 		renderPage();
 		await screen.findByText("event 0");
+		// The wheel listener attaches in a passive effect of the commit that
+		// rendered the first page (useWheelPaging enables on total > PAGE_SIZE),
+		// and findByText resolves on the DOM mutation, before React has flushed
+		// that effect; flush it so the wheel event cannot land on a bare table.
+		await act(async () => {});
 		const scroller = screen.getByRole("table").parentElement as HTMLElement;
 		fireEvent.wheel(scroller, { deltaX: 120, deltaY: 0 });
 		expect(await screen.findByText("event 25")).toBeInTheDocument();
