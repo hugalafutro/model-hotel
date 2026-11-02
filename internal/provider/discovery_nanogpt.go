@@ -295,25 +295,28 @@ func (d *DiscoveryService) discoverNanoGPTEmbeddingModels(ctx context.Context, p
 			displayName = em.ID
 		}
 
-		// Embeddings bill input tokens only; the output price stays nil so a
-		// client reading /v1/models sees no synthetic 0 for a side that is
-		// never billed.
+		// Embeddings bill input tokens only. The output side is stated as a
+		// real 0, not left unknown: CostUSD prices a request only when both
+		// sides are known, so a nil output price would meter every embedding
+		// call at zero.
+		zero := 0.0
 		models = append(models, &model.Model{
-			ID:                   uuid.New(),
-			ProviderID:           provider.ID,
-			ModelID:              em.ID,
-			Name:                 em.Name,
-			Description:          em.Description,
-			DisplayName:          displayName,
-			Capabilities:         "{}",
-			Params:               string(paramsJSON),
-			Modality:             "embedding",
-			InputModalities:      string(inputModJSON),
-			OutputModalities:     string(outputModJSON),
-			ContextLength:        em.MaxTokens,
-			InputPricePerMillion: price,
-			OwnedBy:              em.OwnedBy,
-			Enabled:              true,
+			ID:                    uuid.New(),
+			ProviderID:            provider.ID,
+			ModelID:               em.ID,
+			Name:                  em.Name,
+			Description:           em.Description,
+			DisplayName:           displayName,
+			Capabilities:          "{}",
+			Params:                string(paramsJSON),
+			Modality:              "embedding",
+			InputModalities:       string(inputModJSON),
+			OutputModalities:      string(outputModJSON),
+			ContextLength:         em.MaxTokens,
+			InputPricePerMillion:  price,
+			OutputPricePerMillion: &zero,
+			OwnedBy:               em.OwnedBy,
+			Enabled:               true,
 		})
 	}
 

@@ -832,7 +832,8 @@ const nanoGPTEmbeddingCatalogBody = `{"object":"list","data":[
   {"id":"nvidia/Nemotron-3.5-Embed-1B-BF16","name":"Nemotron 3.5 Embed 1B","owned_by":"nanogpt","dimensions":2048,"max_tokens":32768,"input_modalities":["text","image"],"included_in_subscription":false,"pricing":{"per_million_tokens":0.015,"per_million_image_tokens":0.035}},
   {"id":"text-embedding-3-small","name":"text-embedding-3-small","owned_by":"openai","dimensions":1536,"max_tokens":8191,"included_in_subscription":null,"pricing":{"per_million_tokens":0.02}},
   {"id":"gpt-4o","name":"GPT-4o","owned_by":"openai","pricing":{"prompt":2.5}},
-  {"id":"hostile-embed","name":"Hostile","owned_by":"test","pricing":{"per_million_tokens":-1}}
+  {"id":"hostile-embed","name":"Hostile","owned_by":"test","pricing":{"per_million_tokens":-1}},
+  {"id":"unnamed/embed","owned_by":"test","dimensions":768,"pricing":{"per_million_tokens":0.004}}
 ]}`
 
 func newNanoGPTEmbeddingCatalogServer(t *testing.T) *httptest.Server {
@@ -866,8 +867,12 @@ func TestDiscoverNanoGPTEmbeddingModels_SubscriptionBaseKeepsOnlyIncluded(t *tes
 	if m.Modality != "embedding" || m.OutputModalities != `["embedding"]` || m.InputModalities != `["text"]` {
 		t.Errorf("bge-m3 filed as %s in=%s out=%s, want embedding / text / embedding", m.Modality, m.InputModalities, m.OutputModalities)
 	}
-	if m.InputPricePerMillion == nil || *m.InputPricePerMillion != 0.01 || m.OutputPricePerMillion != nil {
-		t.Errorf("bge-m3 prices in=%v out=%v, want 0.01 and nil", m.InputPricePerMillion, m.OutputPricePerMillion)
+	if m.InputPricePerMillion == nil || *m.InputPricePerMillion != 0.01 || m.OutputPricePerMillion == nil || *m.OutputPricePerMillion != 0 {
+		t.Errorf("bge-m3 prices in=%v out=%v, want 0.01 and an explicit 0", m.InputPricePerMillion, m.OutputPricePerMillion)
+	}
+	// Both sides known, so a 1000-token embedding request is priced.
+	if cost, ok := m.CostUSD(model.Usage{Prompt: 1000}); !ok || cost < 0.00001-1e-12 || cost > 0.00001+1e-12 {
+		t.Errorf("bge-m3 cost for 1000 prompt tokens = %v ok=%v, want 0.00001", cost, ok)
 	}
 	if m.ContextLength == nil || *m.ContextLength != 8192 {
 		t.Errorf("bge-m3 context = %v, want 8192", m.ContextLength)
@@ -895,8 +900,11 @@ func TestDiscoverNanoGPTEmbeddingModels_PayAsYouGoBaseRegistersAll(t *testing.T)
 	if err != nil {
 		t.Fatalf("discoverNanoGPTEmbeddingModels failed: %v", err)
 	}
-	if len(models) != 3 || findModelByID(models, "gpt-4o") != nil || findModelByID(models, "hostile-embed") != nil {
-		t.Fatalf("expected the 3 embedding models on a pay-as-you-go base, no chat-shaped row and no negative-price row, got %d", len(models))
+	if len(models) != 4 || findModelByID(models, "gpt-4o") != nil || findModelByID(models, "hostile-embed") != nil {
+		t.Fatalf("expected the 4 embedding models on a pay-as-you-go base, no chat-shaped row and no negative-price row, got %d", len(models))
+	}
+	if unnamed := findModelByID(models, "unnamed/embed"); unnamed == nil || unnamed.DisplayName != "unnamed/embed" {
+		t.Errorf("a row without a name must display its id, got %+v", unnamed)
 	}
 	nemotron := findModelByID(models, "nvidia/Nemotron-3.5-Embed-1B-BF16")
 	if nemotron == nil {
@@ -938,11 +946,15 @@ func TestNanoGPTCatalogURL(t *testing.T) {
 func TestDiscoverNanoGPT_SideCatalogOutageIsAFallback(t *testing.T) {
 	for _, tc := range []struct {
 		name         string
+		imgStatus    int
 		embStatus    int
+		embBody      string
 		wantFallback bool
 	}{
-		{"embedding catalog absent", http.StatusNotFound, false},
-		{"embedding catalog failing", http.StatusBadGateway, true},
+		{"both catalogs absent", http.StatusNotFound, http.StatusNotFound, "", false},
+		{"embedding catalog failing", http.StatusNotFound, http.StatusBadGateway, "", true},
+		{"image catalog failing", http.StatusInternalServerError, http.StatusNotFound, "", true},
+		{"embedding catalog garbled", http.StatusNotFound, http.StatusOK, "{not json", true},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -950,7 +962,14 @@ func TestDiscoverNanoGPT_SideCatalogOutageIsAFallback(t *testing.T) {
 				case "/api/v1/models":
 					w.Header().Set("Content-Type", "application/json")
 					_ = json.NewEncoder(w).Encode(NanoGPTDetailedResponse{Object: "list", Data: []NanoGPTModel{{ID: "gpt-4o", Name: "GPT-4o", Architecture: NanoGPTArchitecture{Modality: "text", InputModalities: []string{"text"}, OutputModalities: []string{"text"}}}}})
+				case "/api/models/image":
+					http.Error(w, "catalog", tc.imgStatus)
 				case "/api/v1/embedding-models":
+					if tc.embBody != "" {
+						w.WriteHeader(tc.embStatus)
+						_, _ = w.Write([]byte(tc.embBody))
+						return
+					}
 					http.Error(w, "catalog", tc.embStatus)
 				default:
 					http.NotFound(w, r)
@@ -968,5 +987,15 @@ func TestDiscoverNanoGPT_SideCatalogOutageIsAFallback(t *testing.T) {
 				t.Errorf("err = %v, want fallback %v", err, tc.wantFallback)
 			}
 		})
+	}
+}
+
+// A base URL the catalog helper cannot place on a host is an error, not a
+// silent empty catalog.
+func TestDiscoverNanoGPTEmbeddingModels_BadBaseURL(t *testing.T) {
+	service := &DiscoveryService{httpClient: http.DefaultClient}
+	provider := &Provider{ID: uuid.New(), Name: "nanogpt-test", BaseURL: "nano-gpt.com/api/v1"}
+	if _, err := service.discoverNanoGPTEmbeddingModels(context.Background(), provider, "test-api-key"); err == nil {
+		t.Error("expected an error for a base without a scheme")
 	}
 }
