@@ -1788,3 +1788,77 @@ func TestUpdateModel_CapabilitiesEditableTypesOnly(t *testing.T) {
 		t.Fatalf("after unpin: got %d pinned=%v, want 200 unpinned", rec.Code, resp.CapabilitiesCustomized)
 	}
 }
+
+// TestTestModel_DecisionRowProbesTheQuestionsShim: a decision model refuses a
+// plain chat request, so its Test button sends one yes/no question through
+// the response_format "questions" shim on chat completions and reports the
+// typed answer as the response.
+func TestTestModel_DecisionRowProbesTheQuestionsShim(t *testing.T) {
+	h, r := newTestHandlerWithRouter(t)
+
+	var gotBody map[string]any
+	mockServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/chat/completions" && r.Method == http.MethodPost {
+			_ = json.NewDecoder(r.Body).Decode(&gotBody)
+			if rf, _ := gotBody["response_format"].(map[string]any); rf["type"] != "questions" {
+				w.WriteHeader(http.StatusBadRequest)
+				_, _ = w.Write([]byte(`{"error":{"message":"decision models reject plain chat requests"}}`))
+				return
+			}
+			w.Header().Set("Content-Type", "application/json")
+			_, _ = w.Write([]byte(`{"choices":[{"message":{"role":"assistant","content":"{\"ready\":{\"type\":\"noul\",\"noul\":0.97}}"}}],"usage":{"prompt_tokens":40,"completion_tokens":0}}`))
+			return
+		}
+		w.WriteHeader(http.StatusNotFound)
+	}))
+	defer mockServer.Close()
+
+	providerData := fmt.Sprintf(`{"name": "test-provider-%s", "base_url": "%s", "api_key": "test-key"}`, uuid.New().String()[:8], mockServer.URL)
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodPost, "/providers", strings.NewReader(providerData))
+	req.Header.Set("Authorization", "Bearer test-admin-token")
+	req.Header.Set("Content-Type", "application/json")
+	r.ServeHTTP(rec, req)
+	if rec.Code != http.StatusCreated {
+		t.Fatalf("Failed to create provider: %d: %s", rec.Code, rec.Body.String())
+	}
+	var providerResp struct {
+		ID string `json:"id"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &providerResp); err != nil {
+		t.Fatalf("Failed to parse provider response: %v", err)
+	}
+
+	modelID := uuid.New().String()
+	_, err := h.Pool().Pool().Exec(context.Background(),
+		`INSERT INTO models (id, provider_id, model_id, name, enabled, modality, output_modalities) VALUES ($1, $2, $3, $4, true, 'decision', '["decisions"]')`,
+		modelID, providerResp.ID, "typesafe/jev-latest", "Jev")
+	if err != nil {
+		t.Fatalf("Failed to insert model: %v", err)
+	}
+
+	rec = httptest.NewRecorder()
+	req = httptest.NewRequest(http.MethodPost, "/models/"+modelID+"/test", http.NoBody)
+	req.Header.Set("Authorization", "Bearer test-admin-token")
+	r.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("Expected 200, got %d: %s", rec.Code, rec.Body.String())
+	}
+	var testResp struct {
+		Success  bool   `json:"success"`
+		Response string `json:"response"`
+		Error    string `json:"error"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &testResp); err != nil {
+		t.Fatalf("Failed to parse test response: %v", err)
+	}
+	if !testResp.Success {
+		t.Fatalf("decision probe failed: %s", testResp.Error)
+	}
+	if !strings.Contains(testResp.Response, `"noul":0.97`) {
+		t.Errorf("response = %q, want the typed answer", testResp.Response)
+	}
+	if gotBody["model"] != "typesafe/jev-latest" || gotBody["messages"] == nil || gotBody["max_tokens"] != nil {
+		t.Errorf("probe body = %v, want the model, a user message and no output cap", gotBody)
+	}
+}

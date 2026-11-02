@@ -316,6 +316,7 @@ func TestListModelsCursor_OutputsFilter(t *testing.T) {
 		{"gemini-image", `["text","image"]`},
 		{"coder", `["code"]`},
 		{"pdf-maker", `["text","pdf"]`},
+		{"jev", `["decisions"]`},
 	}
 	for i, m := range models {
 		_, err := pool.Exec(context.Background(),
@@ -373,6 +374,13 @@ func TestListModelsCursor_OutputsFilter(t *testing.T) {
 		t.Errorf("outputs=text: expected 4 entries, got %d (%v)", len(gotText), gotText)
 	}
 
+	// A decision model (NanoGPT's jev/decider/subq family) is the only match
+	// for its own output and, producing no text, never a text match.
+	gotDecisions := fetch("outputs=decisions&provider_id=" + providerResp.ID)
+	if len(gotDecisions) != 1 || gotDecisions[0] != "jev" {
+		t.Errorf("outputs=decisions: expected [jev], got %v", gotDecisions)
+	}
+
 	gotPDF := fetch("outputs=pdf&provider_id=" + providerResp.ID)
 	if len(gotPDF) != 1 || gotPDF[0] != "pdf-maker" {
 		t.Errorf("outputs=pdf: expected [pdf-maker], got %v", gotPDF)
@@ -380,8 +388,8 @@ func TestListModelsCursor_OutputsFilter(t *testing.T) {
 
 	// Unknown output values are ignored rather than matching nothing.
 	gotUnknown := fetch("outputs=hologram&provider_id=" + providerResp.ID)
-	if len(gotUnknown) != 6 {
-		t.Errorf("outputs=hologram: expected all 6 entries, got %d (%v)", len(gotUnknown), gotUnknown)
+	if len(gotUnknown) != 7 {
+		t.Errorf("outputs=hologram: expected all 7 entries, got %d (%v)", len(gotUnknown), gotUnknown)
 	}
 }
 
