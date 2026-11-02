@@ -155,6 +155,18 @@ func NormalizeModelClassification(m *model.Model) {
 	// An explicit chat model also takes the input modalities its capability
 	// flags imply, as the derived path does, so enrichment's vision flag and
 	// the stored input array cannot contradict each other.
+	//
+	// "chat" is the one explicit word a listing can carry as a description
+	// rather than an endpoint statement (OpenRouter and NanoGPT copy their
+	// architecture.modality through as it came). A chat model answers in
+	// text, so an output array that names only non-text outputs (a decision
+	// model's ["decisions"]) outranks the word: the class is derived from the
+	// outputs like any other model, and its chat-only flags are cleared with
+	// it. Empty outputs, or any text or code among them, keep the explicit
+	// chat class.
+	if legacy == "chat" && len(output) > 0 && !slices.Contains(output, "text") && !slices.Contains(output, "code") {
+		legacy = ""
+	}
 	if explicitClasses[legacy] {
 		defIn, defOut := classDefaultArrays(legacy)
 		if len(input) == 0 {
