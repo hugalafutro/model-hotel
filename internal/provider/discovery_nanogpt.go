@@ -295,11 +295,17 @@ func (d *DiscoveryService) discoverNanoGPTEmbeddingModels(ctx context.Context, p
 			displayName = em.ID
 		}
 
-		// Embeddings bill input tokens only. The output side is stated as a
-		// real 0, not left unknown: CostUSD prices a request only when both
-		// sides are known, so a nil output price would meter every embedding
-		// call at zero.
-		zero := 0.0
+		// Embeddings bill input tokens only. When the catalog priced the input
+		// side the output side is stated as a real 0, not left unknown: CostUSD
+		// prices a request only when both sides are known, so a nil output
+		// price would meter every embedding call at zero. A row the catalog
+		// left unpriced keeps both sides nil, so ReportUnpricedModels still
+		// names it.
+		var outPrice *float64
+		if price != nil {
+			zero := 0.0
+			outPrice = &zero
+		}
 		models = append(models, &model.Model{
 			ID:                    uuid.New(),
 			ProviderID:            provider.ID,
@@ -314,7 +320,7 @@ func (d *DiscoveryService) discoverNanoGPTEmbeddingModels(ctx context.Context, p
 			OutputModalities:      string(outputModJSON),
 			ContextLength:         em.MaxTokens,
 			InputPricePerMillion:  price,
-			OutputPricePerMillion: &zero,
+			OutputPricePerMillion: outPrice,
 			OwnedBy:               em.OwnedBy,
 			Enabled:               true,
 		})

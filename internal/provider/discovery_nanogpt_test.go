@@ -833,7 +833,8 @@ const nanoGPTEmbeddingCatalogBody = `{"object":"list","data":[
   {"id":"text-embedding-3-small","name":"text-embedding-3-small","owned_by":"openai","dimensions":1536,"max_tokens":8191,"included_in_subscription":null,"pricing":{"per_million_tokens":0.02}},
   {"id":"gpt-4o","name":"GPT-4o","owned_by":"openai","pricing":{"prompt":2.5}},
   {"id":"hostile-embed","name":"Hostile","owned_by":"test","pricing":{"per_million_tokens":-1}},
-  {"id":"unnamed/embed","owned_by":"test","dimensions":768,"pricing":{"per_million_tokens":0.004}}
+  {"id":"unnamed/embed","owned_by":"test","dimensions":768,"pricing":{"per_million_tokens":0.004}},
+  {"id":"unpriced/embed","name":"Unpriced","owned_by":"test","dimensions":512}
 ]}`
 
 func newNanoGPTEmbeddingCatalogServer(t *testing.T) *httptest.Server {
@@ -900,8 +901,13 @@ func TestDiscoverNanoGPTEmbeddingModels_PayAsYouGoBaseRegistersAll(t *testing.T)
 	if err != nil {
 		t.Fatalf("discoverNanoGPTEmbeddingModels failed: %v", err)
 	}
-	if len(models) != 4 || findModelByID(models, "gpt-4o") != nil || findModelByID(models, "hostile-embed") != nil {
-		t.Fatalf("expected the 4 embedding models on a pay-as-you-go base, no chat-shaped row and no negative-price row, got %d", len(models))
+	if len(models) != 5 || findModelByID(models, "gpt-4o") != nil || findModelByID(models, "hostile-embed") != nil {
+		t.Fatalf("expected the 5 embedding models on a pay-as-you-go base, no chat-shaped row and no negative-price row, got %d", len(models))
+	}
+	// A row the catalog left unpriced keeps both sides unknown, so the
+	// unpriced-model warning still names it instead of a silent zero meter.
+	if unpriced := findModelByID(models, "unpriced/embed"); unpriced == nil || unpriced.InputPricePerMillion != nil || unpriced.OutputPricePerMillion != nil {
+		t.Errorf("an unpriced row must keep both prices nil, got %+v", unpriced)
 	}
 	if unnamed := findModelByID(models, "unnamed/embed"); unnamed == nil || unnamed.DisplayName != "unnamed/embed" {
 		t.Errorf("a row without a name must display its id, got %+v", unnamed)
