@@ -248,7 +248,8 @@ func TestGetNanoGPTUsage_ContextCancellation(t *testing.T) {
 
 func TestDiscoverNanoGPT_Success(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path != "/models" || r.URL.Query().Get("detailed") != "true" || r.Method != "GET" {
+		// NanoGPT hides decision models unless the listing asks for them.
+		if r.URL.Path != "/models" || r.URL.Query().Get("detailed") != "true" || r.URL.Query().Get("output_modalities") != "text,decisions" || r.Method != "GET" {
 			http.NotFound(w, r)
 			return
 		}
@@ -260,6 +261,16 @@ func TestDiscoverNanoGPT_Success(t *testing.T) {
 		response := NanoGPTDetailedResponse{
 			Object: "list",
 			Data: []NanoGPTModel{
+				{
+					ID:   "typesafe/jev-latest",
+					Name: "Jev",
+					Architecture: NanoGPTArchitecture{
+						Modality:         "text->decisions",
+						InputModalities:  []string{"text"},
+						OutputModalities: []string{"decisions"},
+					},
+					Pricing: NanoGPTPricing{Prompt: new(0.042), Completion: new(0.0)},
+				},
 				{
 					ID:              "gpt-4o",
 					Name:            "GPT-4o",
@@ -304,8 +315,16 @@ func TestDiscoverNanoGPT_Success(t *testing.T) {
 	if err != nil {
 		t.Fatalf("discoverNanoGPT failed: %v", err)
 	}
-	if len(models) != 1 {
-		t.Fatalf("Expected 1 model, got %d", len(models))
+	if len(models) != 2 {
+		t.Fatalf("Expected 2 models, got %d", len(models))
+	}
+	NormalizeModels(models)
+	if models[0].ModelID != "typesafe/jev-latest" || models[0].Modality != "decision" || models[0].OutputModalities != `["decisions"]` {
+		t.Errorf("Expected the decision model filed as class decision with output [\"decisions\"], got %q / %q / %s", models[0].ModelID, models[0].Modality, models[0].OutputModalities)
+	}
+	models = models[1:]
+	if models[0].Modality != "chat" {
+		t.Errorf("Expected gpt-4o filed as chat, got %q", models[0].Modality)
 	}
 	if models[0].ModelID != "gpt-4o" {
 		t.Errorf("Expected ModelID 'gpt-4o', got '%s'", models[0].ModelID)

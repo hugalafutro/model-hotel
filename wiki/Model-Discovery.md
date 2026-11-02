@@ -469,7 +469,7 @@ Both routes accept the resource API key as a **bearer token** (the legacy `api-k
 
 **Source files:** `discovery_nanogpt.go`
 
-**Method:** Calls `GET /models?detailed=true` - a single request returns complete model metadata. **No dedicated catalog is used.** The API provides all information directly.
+**Method:** Calls `GET /models?detailed=true&output_modalities=text,decisions` - a single request returns complete model metadata, decision models included (NanoGPT hides them from the plain listing; they answer through the `response_format` type `questions` shim on chat completions, which the proxy forwards unchanged, and are filed under the `decision` class). **No dedicated catalog is used.** The API provides all information directly.
 
 **All fields from API:**
 

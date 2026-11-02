@@ -245,10 +245,11 @@ var chatOnlyCapFlags = []string{"streaming", "structured_output", "tool_calling"
 // models.dev enrichment merges flags in by name, so without this an
 // embeddings model on a listing that carries no type (OpenAI's own
 // text-embedding-*, a llama.cpp or other self-hosted server) shows chat pills
-// and /v1/models advertises them. Other classes keep theirs: speech and image
-// generation can stream.
+// and /v1/models advertises them. A decision model is the same case: its
+// questions shim is non-streaming and takes no tools, schema or reasoning.
+// Other classes keep theirs: speech and image generation can stream.
 func clearChatOnlyCaps(class, raw string, caps map[string]any) string {
-	if class != "embedding" && class != "rerank" {
+	if class != "embedding" && class != "rerank" && class != "decision" {
 		return raw
 	}
 	changed := false

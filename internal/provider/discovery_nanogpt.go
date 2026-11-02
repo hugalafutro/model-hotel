@@ -23,7 +23,12 @@ func (d *DiscoveryService) discoverNanoGPT(ctx context.Context, provider *Provid
 
 	headers := bearerJSONHeader(apiKey)
 
-	bodyBytes, err := d.fetchURL(ctx, "GET", baseURL+"/models?detailed=true", headers)
+	// NanoGPT hides its decision models (output_modalities ["decisions"],
+	// served through the response_format "questions" shim on chat
+	// completions, which the proxy forwards unchanged) from the plain listing;
+	// asking for text and decisions keeps them discovered beside the chat
+	// models instead of retiring them as missing.
+	bodyBytes, err := d.fetchURL(ctx, "GET", baseURL+"/models?detailed=true&output_modalities=text,decisions", headers)
 	if err != nil {
 		debuglog.Error("discovery: nanogpt http request failed", "provider", provider.Name, "provider_id", provider.ID, "error", err)
 		return nil, fmt.Errorf("nanogpt: failed to fetch models for provider %s: %w", provider.Name, err)
