@@ -556,9 +556,10 @@ Two of the six rows are not price overrides but the only source of the model at 
 | Tool calling | `"tools"` in capabilities array |
 | Reasoning | `"thinking"` in capabilities array |
 | Vision | `"vision"` in capabilities array |
-| Input modalities | Vision → `["text","image"]`, else `["text"]` |
-| Output modalities | As discovered: `"embedding"` with no `"completion"` → `["embedding"]`, otherwise `["text"]`. What is stored follows the class the model is filed under, so a model listing both whose name reads as an embedder is stored as `["embedding"]` |
-| Endpoint class | `"completion"` with no `"embedding"` beside it is stated as an explicit `chat` class, so the central name heuristics cannot reclassify a chat model whose name merely contains "embed". A listing naming both, or neither (older Ollama), leaves the class to be derived. |
+| Audio input | `"audio"` in capabilities array (Ollama 0.40.11+, lfm3-audio, lfm3-omni): the model takes `input_audio` chat parts and answers `/v1/audio/transcriptions` |
+| Input modalities | `["text"]`, plus `"image"` for `"vision"` and `"audio"` for `"audio"` |
+| Output modalities | As discovered: `"embedding"` with no `"completion"` → `["embedding"]`, otherwise `["text"]` when `"completion"` is listed (else empty), plus `"audio"` for `"speech"` (the model answers `/v1/audio/speech`), so lfm3-audio stores `["text","audio"]` and phonon `["audio"]`. What is stored follows the class the model is filed under, so a model listing both whose name reads as an embedder is stored as `["embedding"]` |
+| Endpoint class | `"completion"` with no `"embedding"` beside it is stated as an explicit `chat` class, so the central name heuristics cannot reclassify a chat model whose name merely contains "embed". A listing naming both, or neither (older Ollama), leaves the class to be derived: a speech-only model (phonon) has audio as its only output and derives to `tts`; one that also completes (lfm3-audio) stays `chat` and serves the speech and transcription routes beside it. |
 | Streaming, structured output | Set on exactly the models filed as chat (the class above, or the one derived from the same arrays and the name), since a local Ollama streams and constrains decoding to a `response_format` JSON schema on every chat model. An embeddings model carries neither. A model Ollama's cloud answers (a cloud-tagged local model such as `gpt-oss:120b-cloud`, and every Ollama Cloud model) keeps streaming but not structured output: see Ollama Cloud below. |
 
 Ollama reports capabilities authoritatively, so an embedding-only model is kept out of the chat pickers rather than guessed at.
