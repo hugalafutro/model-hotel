@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"maps"
+	"net/http"
 	"net/url"
 	"slices"
 	"strings"
@@ -99,14 +100,34 @@ func (d *DiscoveryService) discoverNanoGPT(ctx context.Context, provider *Provid
 		})
 	}
 
-	// Image-generation models live on a separate catalog endpoint and are not
-	// part of the chat /models payload. Discovery of image models is best-effort:
-	// a failure here must not drop the chat models we already have.
+	// Image-generation and embedding models live on their own catalog
+	// endpoints, not in the chat /models payload. Both are best-effort: a
+	// catalog failure never drops the chat models already in hand. A catalog
+	// that answers 404 is one the host does not serve (a NanoGPT-compatible
+	// base without it), so the scan stays a complete listing; any other
+	// failure is an outage, and the listing comes back with
+	// ErrCatalogFallback so a transient miss cannot retire the models that
+	// catalog would have listed.
+	partial := false
 	imageModels, imgErr := d.discoverNanoGPTImageModels(ctx, provider, apiKey)
-	if imgErr != nil {
-		debuglog.Warn("discovery: nanogpt image-model discovery failed", "provider", provider.Name, "provider_id", provider.ID, "error", imgErr)
-	} else {
+	switch {
+	case imgErr == nil:
 		models = append(models, imageModels...)
+	case nanoGPTCatalogAbsent(imgErr):
+		debuglog.Debug("discovery: nanogpt image catalog not served", "provider", provider.Name, "provider_id", provider.ID)
+	default:
+		partial = true
+		debuglog.Warn("discovery: nanogpt image-model discovery failed", "provider", provider.Name, "provider_id", provider.ID, "error", imgErr)
+	}
+	embeddingModels, embErr := d.discoverNanoGPTEmbeddingModels(ctx, provider, apiKey)
+	switch {
+	case embErr == nil:
+		models = append(models, embeddingModels...)
+	case nanoGPTCatalogAbsent(embErr):
+		debuglog.Debug("discovery: nanogpt embedding catalog not served", "provider", provider.Name, "provider_id", provider.ID)
+	default:
+		partial = true
+		debuglog.Warn("discovery: nanogpt embedding-model discovery failed", "provider", provider.Name, "provider_id", provider.ID, "error", embErr)
 	}
 
 	// NanoGPT reports pricing and context straight from its live /models
@@ -114,8 +135,18 @@ func (d *DiscoveryService) discoverNanoGPT(ctx context.Context, provider *Provid
 	// upsert and surface in the discovery diff (id-only providers stay fill-only).
 	markLiveMeta(models)
 
-	debuglog.Info("discovery: nanogpt discovered models", "models", len(models), "provider", provider.Name, "provider_id", provider.ID)
+	debuglog.Info("discovery: nanogpt discovered models", "models", len(models), "partial", partial, "provider", provider.Name, "provider_id", provider.ID)
+	if partial {
+		return models, ErrCatalogFallback
+	}
 	return models, nil
+}
+
+// nanoGPTCatalogAbsent reports a side catalog the host does not serve at all
+// (HTTP 404), as opposed to one that failed.
+func nanoGPTCatalogAbsent(err error) bool {
+	he := httpErrorFrom(err)
+	return he != nil && he.StatusCode == http.StatusNotFound
 }
 
 // discoverNanoGPTImageModels fetches the NanoGPT image-model catalog and maps it
@@ -206,10 +237,109 @@ func (d *DiscoveryService) discoverNanoGPTImageModels(ctx context.Context, provi
 	return models, nil
 }
 
+// discoverNanoGPTEmbeddingModels fetches the embedding-model catalog and files
+// each entry under the embedding class with its per-token input price, context
+// and vector size. The subscription rule is the image catalog's: on the
+// subscription base only models the catalog marks included_in_subscription
+// are registered (an absent flag is not an inclusion), a pay-as-you-go base
+// registers every model.
+func (d *DiscoveryService) discoverNanoGPTEmbeddingModels(ctx context.Context, provider *Provider, apiKey string) ([]*model.Model, error) {
+	catalogURL, err := nanoGPTCatalogURL(provider.BaseURL, "/api/v1/embedding-models")
+	if err != nil {
+		return nil, fmt.Errorf("nanogpt: bad base URL for embedding catalog: %w", err)
+	}
+
+	bodyBytes, err := d.fetchURL(ctx, "GET", catalogURL, bearerJSONHeader(apiKey))
+	if err != nil {
+		return nil, fmt.Errorf("nanogpt: failed to fetch embedding catalog: %w", err)
+	}
+
+	var resp NanoGPTEmbeddingModelsResponse
+	if err := json.Unmarshal(bodyBytes, &resp); err != nil {
+		return nil, fmt.Errorf("nanogpt: failed to decode embedding catalog: %s", jsonfault.Describe(err, len(bodyBytes)))
+	}
+
+	subscriptionOnly := strings.Contains(provider.BaseURL, "/subscription")
+
+	models := make([]*model.Model, 0, len(resp.Data))
+	for _, em := range resp.Data {
+		// The catalog shares the OpenAI list shape with the chat listing, so a
+		// host that answers every path with its chat models would otherwise
+		// file each of them as an embedding model too. A real catalog row
+		// carries a vector size or a usable per-token price (a negative or
+		// non-finite figure is no price, the same rule PriceOrNil applies).
+		price := model.PriceOrNil(em.Pricing.PerMillionTokens)
+		if em.ID == "" || (em.Dimensions == nil && price == nil) {
+			continue
+		}
+		included := em.IncludedInSubscription != nil && *em.IncludedInSubscription
+		if subscriptionOnly && !included {
+			continue
+		}
+
+		inputMods := em.InputModalities
+		if len(inputMods) == 0 {
+			inputMods = []string{"text"}
+		}
+		inputModJSON, _ := json.Marshal(inputMods)
+		outputModJSON, _ := json.Marshal([]string{"embedding"})
+
+		paramsMap := map[string]any{"subscription_included": included}
+		if em.Dimensions != nil {
+			paramsMap["dimensions"] = *em.Dimensions
+		}
+		paramsJSON, _ := json.Marshal(paramsMap)
+
+		displayName := em.Name
+		if displayName == "" {
+			displayName = em.ID
+		}
+
+		// Embeddings bill input tokens only. When the catalog priced the input
+		// side the output side is stated as a real 0, not left unknown: CostUSD
+		// prices a request only when both sides are known, so a nil output
+		// price would meter every embedding call at zero. A row the catalog
+		// left unpriced keeps both sides nil, so ReportUnpricedModels still
+		// names it.
+		var outPrice *float64
+		if price != nil {
+			zero := 0.0
+			outPrice = &zero
+		}
+		models = append(models, &model.Model{
+			ID:                    uuid.New(),
+			ProviderID:            provider.ID,
+			ModelID:               em.ID,
+			Name:                  em.Name,
+			Description:           em.Description,
+			DisplayName:           displayName,
+			Capabilities:          "{}",
+			Params:                string(paramsJSON),
+			Modality:              "embedding",
+			InputModalities:       string(inputModJSON),
+			OutputModalities:      string(outputModJSON),
+			ContextLength:         em.MaxTokens,
+			InputPricePerMillion:  price,
+			OutputPricePerMillion: outPrice,
+			OwnedBy:               em.OwnedBy,
+			Enabled:               true,
+		})
+	}
+
+	debuglog.Info("discovery: nanogpt discovered embedding models", "models", len(models), "subscription_only", subscriptionOnly, "provider", provider.Name, "provider_id", provider.ID)
+	return models, nil
+}
+
 // nanoGPTImageCatalogURL derives the image-model catalog URL (/api/models/image)
 // from the provider base URL, which may be the subscription base, a bare host,
 // or a custom NanoGPT-compatible base.
 func nanoGPTImageCatalogURL(baseURL string) (string, error) {
+	return nanoGPTCatalogURL(baseURL, "/api/models/image")
+}
+
+// nanoGPTCatalogURL puts a host-rooted catalog path on the provider's host:
+// the catalogs live beside, not under, whichever /v1 base the provider uses.
+func nanoGPTCatalogURL(baseURL, path string) (string, error) {
 	u, err := url.Parse(util.SanitizeBaseURL(baseURL))
 	if err != nil {
 		return "", util.URLParseReason(err)
@@ -217,7 +347,7 @@ func nanoGPTImageCatalogURL(baseURL string) (string, error) {
 	if u.Scheme == "" || u.Host == "" {
 		return "", fmt.Errorf("missing scheme or host in %q", baseURL)
 	}
-	return u.Scheme + "://" + u.Host + "/api/models/image", nil
+	return u.Scheme + "://" + u.Host + path, nil
 }
 
 // nanoGPTImageAcceptsImageInput reports whether an image model's iconLabel marks
