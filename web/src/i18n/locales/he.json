@@ -1158,7 +1158,8 @@
 			"video": "פלט וידאו",
 			"pdf": "פלט PDF",
 			"embedding": "הטמעה",
-			"rerank": "דירוג מחדש"
+			"rerank": "דירוג מחדש",
+			"decisions": "פלט החלטות"
 		},
 		"scope_active": "ספקים פעילים",
 		"scope_disabled": "ספקים מושבתים",

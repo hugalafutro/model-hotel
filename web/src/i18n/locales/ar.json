@@ -1278,7 +1278,8 @@
 			"video": "إخراج فيديو",
 			"pdf": "إخراج PDF",
 			"embedding": "تضمين",
-			"rerank": "إعادة ترتيب"
+			"rerank": "إعادة ترتيب",
+			"decisions": "إخراج قرارات"
 		},
 		"page_title_zero": "النماذج",
 		"page_title_one": "النموذج",

@@ -11,7 +11,7 @@ import (
 
 // The models.modality column is a *derived endpoint class* with a closed
 // vocabulary: "chat", "embedding", "rerank", "image", "video", "tts", "stt",
-// "music".
+// "music", "decision".
 // Discovery code must never hand-write it; input_modalities/output_modalities
 // are the source of truth and NormalizeModelClassification derives the class
 // from them once, after enrichment and before upsert.
@@ -46,7 +46,7 @@ var explicitClasses = map[string]bool{
 // first-seen order (default-allow: never dropped).
 var canonicalModalityRank = map[string]int{
 	"text": 0, "code": 1, "image": 2, "audio": 3, "video": 4, "pdf": 5,
-	"embedding": 6, "rerank": 7,
+	"embedding": 6, "rerank": 7, "decisions": 8,
 }
 
 // DeriveModelClass computes the endpoint class from the modality arrays, with
@@ -110,6 +110,11 @@ func DeriveModelClass(input, output []string, modelID string) string {
 			return "image"
 		case slices.Contains(output, "audio"):
 			return "tts"
+		case slices.Contains(output, "decisions"):
+			// NanoGPT's decision models (jev, decider, subq, clef) answer
+			// choice / score / yes-no questions with probabilities and refuse
+			// a plain chat request, so they must stay out of the chat pickers.
+			return "decision"
 		}
 		// Non-empty output of only unknown modalities: default-allow.
 		return "chat"

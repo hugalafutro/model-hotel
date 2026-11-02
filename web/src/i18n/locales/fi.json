@@ -1114,7 +1114,8 @@
 			"video": "Videoulostulo",
 			"pdf": "PDF-tuloste",
 			"embedding": "Embedding",
-			"rerank": "Rerank"
+			"rerank": "Rerank",
+			"decisions": "Päätösulostulo"
 		},
 		"scope_active": "Aktiiviset palveluntarjoajat",
 		"scope_disabled": "Poistetut palveluntarjoajat",

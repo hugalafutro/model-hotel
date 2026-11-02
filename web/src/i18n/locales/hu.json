@@ -1114,7 +1114,8 @@
 			"video": "Videókimenet",
 			"pdf": "PDF-kimenet",
 			"embedding": "Embedding",
-			"rerank": "Rerank"
+			"rerank": "Rerank",
+			"decisions": "Döntéskimenet"
 		},
 		"scope_active": "Aktív szolgáltatók",
 		"scope_disabled": "Letiltott szolgáltatók",

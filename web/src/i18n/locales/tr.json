@@ -1114,7 +1114,8 @@
 			"video": "Video çıkışı",
 			"pdf": "PDF çıktısı",
 			"embedding": "Gömme",
-			"rerank": "Yeniden sıralama"
+			"rerank": "Yeniden sıralama",
+			"decisions": "Karar çıkışı"
 		},
 		"scope_active": "Etkin sağlayıcılar",
 		"scope_disabled": "Devre dışı sağlayıcılar",

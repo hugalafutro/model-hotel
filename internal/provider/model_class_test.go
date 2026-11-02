@@ -23,6 +23,8 @@ func TestDeriveModelClass(t *testing.T) {
 		{"image gen by output", []string{"text"}, []string{"image"}, "grok-2-image", "image"},
 		{"video gen by output", []string{"text", "image"}, []string{"video"}, "sora-like", "video"},
 		{"tts by output", []string{"text"}, []string{"audio"}, "some-voice", "tts"},
+		{"decisions by output", []string{"text"}, []string{"decisions"}, "typesafe/jev-latest", "decision"},
+		{"decisions beside text stays chat", []string{"text"}, []string{"text", "decisions"}, "some-router", "chat"},
 		{"text plus image output stays chat", []string{"text"}, []string{"text", "image"}, "gemini-image", "chat"},
 		// models.dev lists the gpt-image family as text and image out; the
 		// name says images endpoint only, so it must not sit in the chat pickers.

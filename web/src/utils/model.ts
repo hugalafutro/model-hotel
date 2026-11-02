@@ -54,6 +54,7 @@ export const NON_CHAT_MODALITIES = new Set([
 	"tts",
 	"stt",
 	"music",
+	"decision",
 ]);
 
 /** Parse a modalities field (a JSON array string) to a lowercased list. */

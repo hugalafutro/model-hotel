@@ -1114,7 +1114,8 @@
 			"video": "Xuất video",
 			"pdf": "Đầu ra PDF",
 			"embedding": "Nhúng",
-			"rerank": "Xếp hạng lại"
+			"rerank": "Xếp hạng lại",
+			"decisions": "Xuất quyết định"
 		},
 		"scope_active": "Nhà cung cấp đang hoạt động",
 		"scope_disabled": "Nhà cung cấp đã tắt",
