@@ -527,11 +527,18 @@ func TestNormalizeModelClassification_ClearsChatCapsOnEmbeddingAndRerank(t *test
 		{"chat keeps them", &model.Model{ModelID: "gpt-4o", Capabilities: chatCaps}, true},
 		{"speech keeps streaming", &model.Model{ModelID: "tts-1", Modality: "tts", Capabilities: `{"streaming":true}`}, true},
 		{"derived decision", &model.Model{ModelID: "typesafe/jev-latest", Modality: "text->decisions", OutputModalities: `["decisions"]`, Capabilities: chatCaps}, false},
+		// A listing that writes the word "chat" beside a decisions-only output
+		// is describing, not stating an endpoint: the outputs decide.
+		{"explicit chat word with decisions-only output", &model.Model{ModelID: "typesafe/jev-latest", Modality: "chat", OutputModalities: `["decisions"]`, Capabilities: chatCaps}, false},
+		{"explicit chat with text and image output keeps them", &model.Model{ModelID: "gemini-image", Modality: "chat", OutputModalities: `["text","image"]`, Capabilities: chatCaps}, true},
 	} {
 		NormalizeModelClassification(tc.m)
 		var c model.Capability
 		if err := json.Unmarshal([]byte(tc.m.Capabilities), &c); err != nil {
 			t.Fatalf("%s: %v", tc.name, err)
+		}
+		if tc.name == "explicit chat word with decisions-only output" && tc.m.Modality != "decision" {
+			t.Errorf("%s: class %s, want decision", tc.name, tc.m.Modality)
 		}
 		if c.Streaming != tc.wantChat || (tc.m.Modality != "tts" && (c.StructuredOutput != tc.wantChat || c.ToolCalling != tc.wantChat || c.Reasoning != tc.wantChat || c.ParallelToolCalls != tc.wantChat)) {
 			t.Errorf("%s (class %s): capabilities %s, want chat capabilities %v", tc.name, tc.m.Modality, tc.m.Capabilities, tc.wantChat)
