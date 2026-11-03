@@ -27,6 +27,8 @@ blockExoticSubdeps: true
 # dependency requires the patched range on its own.
 overrides:
   "@babel/core": "^7.29.6"
+  # GHSA-g3hv-75wg-m249 via eslint > @eslint/config-array; see web/pnpm-workspace.yaml.
+  "minimatch@<11": "^11.0.4"
 
 # Do not let pnpm self-switch to the packageManager version or record it in the
 # lockfile. pnpm 12 otherwise writes a two-document pnpm-lock.yaml (its own
