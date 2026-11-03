@@ -42,7 +42,7 @@ A single OpenAI-compatible endpoint in front of all your LLM providers, cloud or
  <img src="docs/screenshots/dashboard_themes.webp" alt="Dashboard cycling through the Clean SaaS, Cyber Terminal, and Glassmorphism UI styles" width="802">
 </p>
 
-### <img src="docs/icons/quickstart.svg" width="24" height="24" style="vertical-align:middle;margin-right:6px;" alt=""> · [Quick Start](#--quick-start)
+### <img src="docs/icons/quickstart.svg" width="24" height="24" alt=""> · [Quick Start](#--quick-start)
 
 - [Deploy with Git](https://github.com/hugalafutro/model-hotel/wiki/Home#quick-start): clone, build, and log in for the first time; stop, update, or remove the stack
 - [Deploy without Git](https://github.com/hugalafutro/model-hotel/wiki/Deploy-without-Git): run the published image from two files, no clone, no build
@@ -50,7 +50,7 @@ A single OpenAI-compatible endpoint in front of all your LLM providers, cloud or
 
 <div align="center"><hr width="50%"></div>
 
-### <img src="docs/icons/providers.svg" width="24" height="24" style="vertical-align:middle;margin-right:6px;" alt=""> · [One Endpoint, Many Providers](#--one-endpoint-many-providers)
+### <img src="docs/icons/providers.svg" width="24" height="24" alt=""> · [One Endpoint, Many Providers](#--one-endpoint-many-providers)
 **Hosted:** [Anthropic](https://www.anthropic.com), [AWS Bedrock](https://aws.amazon.com/bedrock/), [Azure AI Foundry](https://ai.azure.com/), [Cohere](https://cohere.com/), [DeepSeek](https://www.deepseek.com), [Google AI Studio](https://aistudio.google.com/), [Kimi Code](https://www.kimi.com/), [MiniMax](https://www.minimax.io/), [NanoGPT](https://nano-gpt.com), [NeuralWatt](https://neuralwatt.com/), [Ollama Cloud](https://ollama.com), [OpenAI](https://openai.com/), [OpenCode Go](https://opencode.ai), [OpenCode Zen](https://opencode.ai), [OpenRouter](https://openrouter.ai/), [Vertex AI](https://cloud.google.com/vertex-ai) (express keys), [xAI](https://x.ai/), [Z.AI](https://z.ai/). All but Anthropic and AWS Bedrock speak the OpenAI API; those two are native families, and a hand-entered endpoint that speaks Anthropic's native `/v1/messages` has its own type (`anthropic-messages`). Any other OpenAI-compatible API, hosted or local, can be added as a custom endpoint.
 
 **Self-hosted:** [Ollama](https://github.com/ollama/ollama), [LM Studio](https://lmstudio.ai), [KoboldCPP](https://github.com/LostRuins/koboldcpp), [LocalAI](https://github.com/mudler/LocalAI), [SGLang](https://github.com/sgl-project/sglang) and [TabbyAPI](https://github.com/theroyallab/tabbyAPI) each have their own provider type: pick it, enter the address and port, done. Some providers need no API key at all (a local Ollama, or OpenCode Zen free models).
@@ -63,7 +63,7 @@ All of them are called through the same `/v1/chat/completions` endpoint; the pro
 
 <div align="center"><hr width="50%"></div>
 
-### <img src="docs/icons/failover.svg" width="24" height="24" style="vertical-align:middle;margin-right:6px;" alt=""> · [Transparent Failover](#--transparent-failover)
+### <img src="docs/icons/failover.svg" width="24" height="24" alt=""> · [Transparent Failover](#--transparent-failover)
 Requests that fail (server errors, rate limits, auth issues, request timeouts) are automatically retried on the next available provider, with exponential backoff and jitter between attempts so a failing provider is not hammered. Streaming requests get three extra guards: a [TTFT probe](https://github.com/hugalafutro/model-hotel/wiki/Failover-and-Hotel-Routing#ttft-probe-time-to-first-token) waits for the first token before committing the stream to your client, so a provider that never answers fails over instead of leaving the client hanging; a [stall watchdog](https://github.com/hugalafutro/model-hotel/wiki/Failover-and-Hotel-Routing#stall-watchdog) terminates a stream that goes silent mid-answer and counts it as a failure; and optional [hedging](https://github.com/hugalafutro/model-hotel/wiki/Failover-and-Hotel-Routing#request-hedging) (off by default) launches the next provider in parallel when the first one is slow to its first token, at the cost of duplicate upstream load. Both timeouts are set in **Settings → Proxy** and hedging under **Settings → Circuit Breaker & Failover**; the [Failover and Hotel Routing wiki](https://github.com/hugalafutro/model-hotel/wiki/Failover-and-Hotel-Routing#transparent-failover) has the full detail.
 
 <p align="center">
@@ -72,12 +72,12 @@ Requests that fail (server errors, rate limits, auth issues, request timeouts) a
 
 <div align="center"><hr width="50%"></div>
 
-### <img src="docs/icons/hotel.svg" width="24" height="24" style="vertical-align:middle;margin-right:6px;" alt=""> · [Hotel Routing](#--hotel-routing)
+### <img src="docs/icons/hotel.svg" width="24" height="24" alt=""> · [Hotel Routing](#--hotel-routing)
 Prefix any model name with `hotel/` and you get the whole fleet behind it. `hotel/glm-4.6` reaches every provider that offers `glm-4.6`, in the order you set: a [failover group](https://github.com/hugalafutro/model-hotel/wiki/Failover-and-Hotel-Routing#failover-groups) forms on its own the moment two providers share a model name, follows discovery as models and providers come and go, and the request lands on the first healthy provider with no change on the client side. Behind it a per-model [circuit breaker](https://github.com/hugalafutro/model-hotel/wiki/Failover-and-Hotel-Routing#circuit-breaker) keeps track of who is failing: a provider that keeps erroring on one model is skipped for that model only, probed again after a cooldown that grows while it stays broken, and a provider that has run out of quota is [parked until its window resets](https://github.com/hugalafutro/model-hotel/wiki/Failover-and-Hotel-Routing#quota-pinned-cooldowns) and rejoins by itself. You set priorities and switch entries on or off from the dashboard; everything else is automatic. How groups are built, synced and ranked is in the [Failover and Hotel Routing wiki](https://github.com/hugalafutro/model-hotel/wiki/Failover-and-Hotel-Routing#hotel-routing).
 
 <div align="center"><hr width="50%"></div>
 
-### <img src="docs/icons/privacy.svg" width="24" height="24" style="vertical-align:middle;margin-right:6px;" alt=""> · [No Prompts Logged](#--no-prompts-logged)
+### <img src="docs/icons/privacy.svg" width="24" height="24" alt=""> · [No Prompts Logged](#--no-prompts-logged)
 > [!NOTE]
 > **User prompts and request content are never captured, logged, or inspected.**
 > The proxy forwards requests to the provider exactly as received, without reading or modifying message contents.
@@ -94,7 +94,7 @@ History data never leaves your browser. It can be cleared at any time from the S
 
 <div align="center"><hr width="50%"></div>
 
-### <img src="docs/icons/virtualkeys.svg" width="24" height="24" style="vertical-align:middle;margin-right:6px;" alt=""> · [Per-Client Virtual Keys](#--per-client-virtual-keys)
+### <img src="docs/icons/virtualkeys.svg" width="24" height="24" alt=""> · [Per-Client Virtual Keys](#--per-client-virtual-keys)
 Issue separate API keys for different users or services. Each key is SHA-256 hashed before storage, so raw keys are never persisted. Track token usage per key, set per-key rate limits (requests/sec and burst) plus an optional tokens-per-minute (TPM) cap, give a key a dollar budget per day, week or month (requests are refused with `429` once the period's spend reaches it, and the key shows how much of it is used), restrict which providers a key may reach, delete a key to immediately cut off access, and never expose your real provider credentials. Keys can be created and deleted from the dashboard or the admin API.
 
 <p align="center">
@@ -103,7 +103,7 @@ Issue separate API keys for different users or services. Each key is SHA-256 has
 
 <div align="center"><hr width="50%"></div>
 
-### <img src="docs/icons/logging.svg" width="24" height="24" style="vertical-align:middle;margin-right:6px;" alt=""> · [Request Logging with Overhead Breakdown](#--request-logging-with-overhead-breakdown)
+### <img src="docs/icons/logging.svg" width="24" height="24" alt=""> · [Request Logging with Overhead Breakdown](#--request-logging-with-overhead-breakdown)
 Every request is logged with full latency decomposition:
 - **TTFT** (time to first token, measured by the streaming probe)
 - **Total duration** (end-to-end wall time)
@@ -125,7 +125,7 @@ The Dashboard reads the same per-token prices as the Cost column: its header tog
 
 <div align="center"><hr width="50%"></div>
 
-### <img src="docs/icons/discovery.svg" width="24" height="24" style="vertical-align:middle;margin-right:6px;" alt=""> · [Built-In Model Discovery](#--built-in-model-discovery)
+### <img src="docs/icons/discovery.svg" width="24" height="24" alt=""> · [Built-In Model Discovery](#--built-in-model-discovery)
 Add a provider and the service pulls the model list automatically via the provider's own API. Models are kept in sync on a schedule you control (default every 6 hours, configurable). Models that disappear from a provider's listing are disabled (never deleted) and come back automatically if the provider lists them again; manual disables are always respected. After a manual scan, a summary modal shows exactly what changed: models added, re-enabled, or disabled, any live pricing or context-length changes on existing models, plus any failover groups that were updated or deleted as a result. Changes detected by scheduled/startup background discovery instead surface as a count badge on the Models nav item; clicking the badge opens a summary of those changes and clears it. Discovery-disabled models carry a "not listed by the provider since…" tooltip on the Models page so they're easy to tell apart from manual disables. The following providers get enriched metadata beyond what the generic OpenAI-compatible endpoint returns:
 
 <table>
@@ -158,7 +158,7 @@ Every hosted model is then enriched from [models.dev](https://models.dev/), an o
 
 <div align="center"><hr width="50%"></div>
 
-### <img src="docs/icons/health.svg" width="24" height="24" style="vertical-align:middle;margin-right:6px;" alt=""> · [Model Health at a Glance](#--model-health-at-a-glance)
+### <img src="docs/icons/health.svg" width="24" height="24" alt=""> · [Model Health at a Glance](#--model-health-at-a-glance)
 Test any model from the Models page with a single click. The test sends a minimal chat completion directly to the provider and reports total duration and the actual model response, so you know the provider is alive and responsive. DeepSeek providers show live account balance and OpenRouter providers show credit balance; Ollama Cloud providers show plan status; NanoGPT, Z.AI, Kimi Code, MiniMax and OpenCode Go providers show quota and usage data; NeuralWatt providers show energy quota and credit balance (Standard plan or higher). All of these are fetched from their respective APIs and shown on both the provider cards and the sidebar quota panel.
 
 <p align="center">
@@ -167,7 +167,7 @@ Test any model from the Models page with a single click. The test sends a minima
 
 <div align="center"><hr width="50%"></div>
 
-### <img src="docs/icons/health.svg" width="24" height="24" style="vertical-align:middle;margin-right:6px;" alt=""> · [Provider Quotas & Usage](#--provider-quotas--usage)
+### <img src="docs/icons/health.svg" width="24" height="24" alt=""> · [Provider Quotas & Usage](#--provider-quotas--usage)
 For providers that expose it, click a provider's quota badge (on its card or in the sidebar panel) to open a live usage breakdown - no need to leave the dashboard for the provider's billing page. **OpenRouter** shows credit balance and per-key spend; **Z.ai Coding Plan** shows its 5-hour, weekly, and MCP token quotas; **Kimi Code** shows its 5-hour and weekly quotas plus parallel-request limit and membership tier; **MiniMax** shows its 5-hour and weekly Token Plan quotas by model class; **NanoGPT** shows weekly token and daily image quotas with subscription details; **OpenCode Go** shows its rolling 5-hour, weekly and monthly plan quotas with their reset times; **NeuralWatt** shows energy-based quota with subscription and lifetime usage. Each modal toggles between **quota used** and **quota remaining**, and refreshes on demand. Some providers surface usage without a dedicated modal - **DeepSeek** shows account balance and **Ollama Cloud** shows plan status on their cards and sidebar badges.
 
 <p align="center">
@@ -178,7 +178,7 @@ For providers that expose it, click a provider's quota badge (on its card or in 
 
 <div align="center"><hr width="50%"></div>
 
-### <img src="docs/icons/settings.svg" width="24" height="24" style="vertical-align:middle;margin-right:6px;" alt=""> · [Themeable UI](#--themeable-ui)
+### <img src="docs/icons/settings.svg" width="24" height="24" alt=""> · [Themeable UI](#--themeable-ui)
 Make the dashboard your own from the Appearance settings. Pick one of three **UI styles**: **Clean SaaS** (refined and minimal, the default), **Cyber Terminal** (high-contrast, developer-centric), or **Glassmorphism** (slick translucent surfaces). Then toggle **dark / light** mode, and choose an **accent color** (each style ships a tasteful default, or pick your own). Everything persists locally in the browser.
 
 <p align="center">
@@ -191,7 +191,7 @@ Make the dashboard your own from the Appearance settings. Pick one of three **UI
 
 <div align="center"><hr width="50%"></div>
 
-### <img src="docs/icons/api.svg" width="24" height="24" style="vertical-align:middle;margin-right:6px;" alt=""> · [Interactive Chat & Arena](#--interactive-chat--arena)
+### <img src="docs/icons/api.svg" width="24" height="24" alt=""> · [Interactive Chat & Arena](#--interactive-chat--arena)
 The dashboard includes a built-in **Chat** interface for testing models interactively, with support for system personas (presets or custom prompts), generation parameters (temperature, top_p, max_tokens, min_p, top_k, frequency/presence penalties), and streaming responses with collapsible thinking-block rendering. Vision-capable models show an image upload button: attach a photo for the model to describe or analyze. Audio-capable models show an audio upload button for sending audio input. Attachments are sent as OpenAI-compatible multimodal content parts (`image_url`, `input_audio`). Switch to **Conversation** mode to watch two models talk to each other: enter a starter prompt, set the number of rounds and optional delay between turns, and observe the back-and-forth with per-message metrics (duration, tokens, chars/sec).
 
 <p align="center">
@@ -206,7 +206,7 @@ The dashboard includes a built-in **Chat** interface for testing models interact
 
 <div align="center"><hr width="50%"></div>
 
-### <img src="docs/icons/settings.svg" width="24" height="24" style="vertical-align:middle;margin-right:6px;" alt=""> · [Real-Time Events & System Status](#--real-time-events--system-status)
+### <img src="docs/icons/settings.svg" width="24" height="24" alt=""> · [Real-Time Events & System Status](#--real-time-events--system-status)
 A live SSE event bus delivers toast notifications for discovery outcomes, model disabling events, token counting errors, circuit breaker state transitions, and stale-request alerts straight to the dashboard. Failover retries during proxying are logged but **not** pushed as SSE events. The sidebar polls system stats every 10 seconds, showing CPU, memory, disk I/O, and network throughput with color-coded warnings (orange at 75%, red at 90%). When running under Docker Compose, stats are aggregated across containers; otherwise, cgroup metrics are used. Goroutine count, database health (size, connections, cache hit ratio), API uptime, and process count are also displayed.
 
 <p align="center">
@@ -215,7 +215,7 @@ A live SSE event bus delivers toast notifications for discovery outcomes, model 
 
 <div align="center"><hr width="50%"></div>
 
-### <img src="docs/icons/security.svg" width="24" height="24" style="vertical-align:middle;margin-right:6px;" alt=""> · [Security & Privacy](#--security--privacy)
+### <img src="docs/icons/security.svg" width="24" height="24" alt=""> · [Security & Privacy](#--security--privacy)
 Secrets never sit in the clear: provider keys and SSO client secrets are [encrypted at rest](https://github.com/hugalafutro/model-hotel/wiki/Security#encryption-at-rest) with AES-256-GCM under a `MASTER_KEY` strengthened by Argon2id, and virtual keys, the admin token and every session token are stored only as [SHA-256 hashes](https://github.com/hugalafutro/model-hotel/wiki/Security#hashing). Outbound calls to providers go through [SSRF protection](https://github.com/hugalafutro/model-hotel/wiki/Security#provider-url-validation-ssrf-prevention) that resolves each hostname, refuses private and cloud-metadata addresses and dials by IP, and every response carries the usual [security headers](https://github.com/hugalafutro/model-hotel/wiki/Security#security-headers). For the dashboard you pick how to log in: the admin token, a [passkey](https://github.com/hugalafutro/model-hotel/wiki/Security#webauthnfido2-passkey-authentication) (Touch ID, Windows Hello, YubiKey), the token plus an [authenticator app](https://github.com/hugalafutro/model-hotel/wiki/Security#totp--authenticator-app-two-factor-2fa) as a second factor, [single sign-on](https://github.com/hugalafutro/model-hotel/wiki/Security#single-sign-on-openid-connect) through any OpenID Connect provider, or [GitHub](https://github.com/hugalafutro/model-hotel/wiki/Security#github-sign-in). All of them mint the same short-lived session, SSO and GitHub are gated by an email allowlist, and local login always keeps working, so a misconfigured provider cannot lock you out. Repeated login failures and rate-limit abuse can be handed to [CrowdSec](https://github.com/hugalafutro/model-hotel/wiki/CrowdSec) at the edge. Everything from key derivation to session lifetimes is in the [Security wiki](https://github.com/hugalafutro/model-hotel/wiki/Security).
 
 <p align="center">
@@ -228,7 +228,7 @@ Secrets never sit in the clear: provider keys and SSO client secrets are [encryp
 
 <div align="center"><hr width="50%"></div>
 
-### <img src="docs/icons/users.svg" width="24" height="24" style="vertical-align:middle;margin-right:6px;" alt=""> · [Multi-User Access](#--multi-user-access)
+### <img src="docs/icons/users.svg" width="24" height="24" alt=""> · [Multi-User Access](#--multi-user-access)
 Beyond the shared admin token, you can provision named dashboard accounts that sign in with a username and password (plus their own optional TOTP second factor) on the same login screen. Two roles: **admin** sees and does everything, while **user** accounts are scoped by granular grants (Chat/Arena, Usage dashboards, Request Logs, Models, Virtual Keys) so a teammate gets exactly the access they need and nothing more. Virtual keys belong to a user, and per-account rate limits (RPS/burst/TPM) and a per-account dollar budget aggregate across the keys that user owns.
 
 <p align="center">
@@ -239,14 +239,14 @@ Manage accounts from the Users page (admin only): create a user, assign grants, 
 
 <div align="center"><hr width="50%"></div>
 
-### <img src="docs/icons/health.svg" width="24" height="24" style="vertical-align:middle;margin-right:6px;" alt=""> · [High Availability & Companion App](#--high-availability--companion-app)
+### <img src="docs/icons/health.svg" width="24" height="24" alt=""> · [High Availability & Companion App](#--high-availability--companion-app)
 Optionally run several instances behind one client endpoint, with no client-side change. A small **Front Desk** control plane manages the fleet and replicates config to every member, while **Traefik** load-balances them with health checks and automatic failover.
 
 <p align="center">
  <a href="docs/screenshots/frontdesk_members.png"><img src="docs/screenshots/frontdesk_members.png" alt="Front Desk Members tab: quota badge strip above a seven-member fleet with health, Traefik status, open circuits, config-sync stamps and drain controls" width="802"></a>
 </p>
 
-**Bellhop**, the Android companion app for Front Desk, puts fleet health, traffic, provider quota badges and operator controls on your phone and home screen. It talks only to Front Desk and holds no provider credentials.
+**Bellhop**, the Android companion app for Front Desk, puts fleet health, traffic and provider quota badges on your phone and home screen, with drain, activate and config-sync controls on operator-paired devices. It talks only to Front Desk and holds no provider credentials.
 
 > [!NOTE]
 > Setup and screenshots in the [High Availability](https://github.com/hugalafutro/model-hotel/wiki/High-Availability) and [Bellhop](https://github.com/hugalafutro/model-hotel/wiki/Bellhop) wiki pages; app source under [`android/`](android/README.md).<br>
@@ -254,12 +254,12 @@ Optionally run several instances behind one client endpoint, with no client-side
 
 <div align="center"><hr width="50%"></div>
 
-### <img src="docs/icons/api.svg" width="24" height="24" style="vertical-align:middle;margin-right:6px;" alt=""> · [API Endpoints](#--api-endpoints)
+### <img src="docs/icons/api.svg" width="24" height="24" alt=""> · [API Endpoints](#--api-endpoints)
 One base URL, one virtual key, every endpoint. The core is the OpenAI-compatible [`/v1/chat/completions`](https://github.com/hugalafutro/model-hotel/wiki/API-Reference#post-v1chatcompletions) and [`/v1/models`](https://github.com/hugalafutro/model-hotel/wiki/API-Reference#get-v1models), and the same routing (`hotel/<model>` for failover, `<provider>/<model>` for a direct hit) carries [embeddings, rerank, image generation and edits, text-to-speech, speech-to-text and music generation](https://github.com/hugalafutro/model-hotel/wiki/API-Reference#multimodal-endpoints) as transparent pass-through. Two more client dialects are translated on the way in and out: the [Anthropic Messages API](https://github.com/hugalafutro/model-hotel/wiki/API-Reference#post-v1messages), so Claude Code and the Anthropic SDKs fail over across every provider in a group and are forwarded natively when the candidate is Anthropic itself, and the [OpenAI Responses API](https://github.com/hugalafutro/model-hotel/wiki/API-Reference#post-v1responses), so Codex CLI and other Responses-only clients do the same and are forwarded verbatim when the candidate is OpenAI. Models that OpenAI serves only over Responses are [re-routed there on the fly](https://github.com/hugalafutro/model-hotel/wiki/API-Reference#post-v1chatcompletions) while the client keeps speaking Chat Completions. Request and response bodies are never logged. Parameters, streaming formats and curl examples for every endpoint are in the [API Reference](https://github.com/hugalafutro/model-hotel/wiki/API-Reference).
 
 <div align="center"><hr width="50%"></div>
 
-### <img src="docs/icons/logging.svg" width="24" height="24" style="vertical-align:middle;margin-right:6px;" alt=""> · [Metrics & Log Shipping](#--metrics--log-shipping)
+### <img src="docs/icons/logging.svg" width="24" height="24" alt=""> · [Metrics & Log Shipping](#--metrics--log-shipping)
 
 A Prometheus endpoint is exposed at `/metrics` (request rates by provider/model/status,
 latency and TTFT histograms, token counters, a dollar spend counter per provider and model, failover attempts per provider, upstream 429s by
@@ -300,7 +300,7 @@ event summary is sent, never request content. See the [Alerting wiki](https://gi
 
 <div align="center"><hr width="50%"></div>
 
-### <img src="docs/icons/backup.svg" width="24" height="24" style="vertical-align:middle;margin-right:6px;" alt=""> · [Backup & Restore](#--backup--restore)
+### <img src="docs/icons/backup.svg" width="24" height="24" alt=""> · [Backup & Restore](#--backup--restore)
 Backups are created via the Settings page or the admin API (`POST /api/backups`) using an unfiltered `pg_dump --format=custom` with zstd compression (level 12 on request, level 19 for scheduled backups). The resulting `.dump` files therefore contain *every* database table, not just the configuration ones: providers (encrypted keys), models, virtual key hashes, failover groups, and settings, but also request logs, app logs, the audit log, discovery history, quota snapshots, dashboard user accounts, TOTP secrets and recovery-code hashes, and WebAuthn credentials and sessions. Treat a `.dump` as sensitive and store it accordingly.
 
 <h3 align="center">Restoring a backup</h3>
@@ -331,7 +331,7 @@ docker exec -i postgres-container pg_restore --clean --if-exists -U user -d dbna
 
 <div align="center"><hr width="50%"></div>
 
-### <img src="docs/icons/license.svg" width="24" height="24" style="vertical-align:middle;margin-right:6px;" alt=""> · [License](#--license)
+### <img src="docs/icons/license.svg" width="24" height="24" alt=""> · [License](#--license)
 
 [MIT](LICENSE). See [CONTRIBUTING.md](CONTRIBUTING.md) for the contributor license agreement.
 
