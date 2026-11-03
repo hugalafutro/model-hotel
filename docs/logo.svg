@@ -15,7 +15,7 @@
     <rect x="9.2" y="45.333" width="45.6" height="5.333" rx="1.333" fill="#e0823f" opacity="0.5"/>
     <circle cx="32" cy="16" r="2.667" fill="#0b0c0f"/>
     <!-- Text -->
-    <text x="86" y="46" font-size="38" fill="#c9d1d9">Model</text>
+    <text x="86" y="46" font-size="38" fill="#8b949e">Model</text>
     <text x="205" y="46" font-size="38" fill="#e0823f">Hotel</text>
   </g>
 </svg>

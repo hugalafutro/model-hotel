@@ -8,7 +8,7 @@ control-plane app where you manage membership in a browser.
 Front Desk is **never in the request path**. If it stops, Traefik keeps serving
 with the last config it fetched; only membership changes pause until it returns.
 
-<p align="center"><a href="screenshots/frontdesk_members.png"><img src="screenshots/frontdesk_members.png" width="800" alt="Front Desk Members tab with four healthy members"></a></p>
+<p align="center"><a href="screenshots/frontdesk_members.png"><img src="screenshots/frontdesk_members.png" width="800" alt="Front Desk Members tab with a seven-member fleet, one of them drained"></a></p>
 
 ## Table of Contents
 
