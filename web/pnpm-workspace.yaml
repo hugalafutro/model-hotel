@@ -51,6 +51,13 @@ overrides:
   # the Dependabot advisory for prototype pollution in katex < 0.18.2. Remove
   # once rehype-katex requires >=0.18.2 on its own.
   katex: "^0.19.0"
+  # Force the transitive minimatch that @eslint/config-array 0.23.5 (via eslint,
+  # lint-time only) still declares as ^10.2.4 onto 11.x. config-array only uses
+  # `new Minimatch(pattern, { dot: true }).match(path)`, which 11 keeps (the
+  # removed makeRe/AST surface is unused). Fixes Dependabot advisory
+  # GHSA-g3hv-75wg-m249 (globparts DoS, patched in 11.0.1). Remove once
+  # @eslint/config-array requires >=11.0.1 on its own.
+  "minimatch@<11": "^11.0.4"
 
 # Do not let pnpm self-switch to the packageManager version or record it in the
 # lockfile. pnpm 12 otherwise writes a two-document pnpm-lock.yaml (its own
