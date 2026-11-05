@@ -644,8 +644,8 @@ func (h *Handler) decryptTestModelKey(w http.ResponseWriter, prov *provider.Prov
 //
 // max_tokens is kept small: the test only confirms the model responds. A
 // reasoning model may spend the whole budget on reasoning and return empty
-// content — that still counts as success, and the UI omits the response text
-// when it's empty rather than paying for a full reasoning generation. For
+// content — that still counts as success, and parseTestModelResponse shows
+// the reasoning text in its place rather than paying for a full generation. For
 // OpenAI gpt-5/o-series models that reject max_tokens, the shared self-heal
 // renames it to max_completion_tokens and retries, so the probe succeeds.
 func buildTestModelRequest(m *model.Model, prov *provider.Provider) (baseBody []byte, providerType, targetURL, reqHash string) {

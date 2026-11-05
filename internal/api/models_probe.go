@@ -2,6 +2,7 @@ package api
 
 import (
 	"bytes"
+	"cmp"
 	"context"
 	"encoding/json"
 	"net/http"
@@ -99,12 +100,18 @@ func probeCost(m *model.Model, searchUnits, promptTokens, completionTokens int) 
 
 // parseTestModelResponse extracts the assistant content and computes
 // tokens-per-second from a successful test response body. A parse failure is
-// logged and yields empty content / zero usage.
+// logged and yields empty content / zero usage. A reasoning model that spent
+// the probe's whole output budget thinking answers with empty content and the
+// thought so far in reasoning_content (DeepSeek, the egress adapters) or
+// reasoning (OpenRouter; Ollama sends both): that text is the proof the model
+// answered, so it stands in for the content.
 func parseTestModelResponse(respBody []byte, duration int64) (content string, tps float64, promptTokens, completionTokens int) {
 	var chatResp struct {
 		Choices []struct {
 			Message struct {
-				Content string `json:"content"`
+				Content          string `json:"content"`
+				ReasoningContent string `json:"reasoning_content"`
+				Reasoning        string `json:"reasoning"`
 			} `json:"message"`
 		} `json:"choices"`
 		Usage struct {
@@ -122,7 +129,8 @@ func parseTestModelResponse(respBody []byte, duration int64) (content string, tp
 	}
 
 	if len(chatResp.Choices) > 0 {
-		content = chatResp.Choices[0].Message.Content
+		msg := chatResp.Choices[0].Message
+		content = cmp.Or(msg.Content, msg.ReasoningContent, msg.Reasoning)
 	}
 
 	// The same bound the proxy holds every provider figure to: these two land

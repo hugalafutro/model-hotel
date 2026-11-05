@@ -439,6 +439,25 @@ func TestParseTestModelResponse_InvalidJSON(t *testing.T) {
 	}
 }
 
+// A reasoning model that spent the probe budget thinking answers with empty
+// content; the thought it did produce proves it answered, so it stands in.
+// Content wins when present, reasoning_content outranks reasoning.
+func TestParseTestModelResponse_ReasoningStandsInForEmptyContent(t *testing.T) {
+	for _, tc := range []struct{ name, body, want string }{
+		{"reasoning_content", `{"choices":[{"message":{"content":"","reasoning_content":"Kimi needs"}}]}`, "Kimi needs"},
+		{"reasoning", `{"choices":[{"message":{"content":"","reasoning":"Need to say Hi"}}]}`, "Need to say Hi"},
+		{"both, reasoning_content first", `{"choices":[{"message":{"content":"","reasoning_content":"A","reasoning":"B"}}]}`, "A"},
+		{"content wins", `{"choices":[{"message":{"content":"Hi","reasoning_content":"thinking"}}]}`, "Hi"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			content, _, _, _ := parseTestModelResponse([]byte(tc.body), 1000)
+			if content != tc.want {
+				t.Errorf("content: got %q, want %q", content, tc.want)
+			}
+		})
+	}
+}
+
 func TestParseTestModelResponse_EmptyChoices(t *testing.T) {
 	body := []byte(`{"choices":[],"usage":{"prompt_tokens":5,"completion_tokens":0}}`)
 	content, tps, promptTokens, _ := parseTestModelResponse(body, 1000)
