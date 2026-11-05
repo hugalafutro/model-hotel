@@ -6,6 +6,7 @@ import (
 	"context"
 	"encoding/json"
 	"net/http"
+	"strings"
 
 	"github.com/hugalafutro/model-hotel/internal/debuglog"
 	"github.com/hugalafutro/model-hotel/internal/endpointtype"
@@ -102,9 +103,12 @@ func probeCost(m *model.Model, searchUnits, promptTokens, completionTokens int) 
 // tokens-per-second from a successful test response body. A parse failure is
 // logged and yields empty content / zero usage. A reasoning model that spent
 // the probe's whole output budget thinking answers with empty content and the
-// thought so far in reasoning_content (DeepSeek, the egress adapters) or
-// reasoning (OpenRouter; Ollama sends both): that text is the proof the model
-// answered, so it stands in for the content.
+// thought so far in reasoning_content (DeepSeek, the Anthropic egress
+// adapter), reasoning (Ollama, OpenRouter) or the reasoning_details text
+// entries (OpenRouter, MiniMax): that text is the proof the model answered, so
+// it stands in for the content. The same three shapes the proxy normalises on
+// live traffic; the probe bypasses that normaliser. The Gemini egress adapter
+// drops thought parts in translation, so such a model still shows nothing.
 func parseTestModelResponse(respBody []byte, duration int64) (content string, tps float64, promptTokens, completionTokens int) {
 	var chatResp struct {
 		Choices []struct {
@@ -112,6 +116,10 @@ func parseTestModelResponse(respBody []byte, duration int64) (content string, tp
 				Content          string `json:"content"`
 				ReasoningContent string `json:"reasoning_content"`
 				Reasoning        string `json:"reasoning"`
+				ReasoningDetails []struct {
+					Type string `json:"type"`
+					Text string `json:"text"`
+				} `json:"reasoning_details"`
 			} `json:"message"`
 		} `json:"choices"`
 		Usage struct {
@@ -130,7 +138,13 @@ func parseTestModelResponse(respBody []byte, duration int64) (content string, tp
 
 	if len(chatResp.Choices) > 0 {
 		msg := chatResp.Choices[0].Message
-		content = cmp.Or(msg.Content, msg.ReasoningContent, msg.Reasoning)
+		var details strings.Builder
+		for _, rd := range msg.ReasoningDetails {
+			if rd.Type == "reasoning.text" {
+				details.WriteString(rd.Text)
+			}
+		}
+		content = cmp.Or(msg.Content, msg.ReasoningContent, msg.Reasoning, details.String())
 	}
 
 	// The same bound the proxy holds every provider figure to: these two land
