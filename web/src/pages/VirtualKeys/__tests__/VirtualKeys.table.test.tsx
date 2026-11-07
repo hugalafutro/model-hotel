@@ -212,7 +212,7 @@ describe("VirtualKeys", () => {
 			});
 		});
 
-		it("sorts by created date", async () => {
+		it("sorts by created date descending after two header clicks", async () => {
 			const keys = [
 				{
 					...mockVirtualKey,
@@ -393,7 +393,7 @@ describe("VirtualKeys", () => {
 			expect(rows[1].querySelector("td")?.textContent).toBe("Alpha Key");
 		});
 
-		it("sorts by created date", async () => {
+		it("sorts by created date ascending", async () => {
 			const keys = [
 				{
 					...mockVirtualKey,

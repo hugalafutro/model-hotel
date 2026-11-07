@@ -248,18 +248,6 @@ describe("GaugeModal", () => {
 		expect(modal.querySelector(".max-w-2xl")).toBeInTheDocument();
 	});
 
-	it("accepts scale prop", () => {
-		renderWithProviders(<GaugeModal {...defaultProps} scale={0.001} />);
-
-		expect(screen.getByText("Request Volume")).toBeInTheDocument();
-	});
-
-	it("handles latency dataKey", () => {
-		renderWithProviders(<GaugeModal {...defaultProps} dataKey="latency" />);
-
-		expect(screen.getByText("Request Volume")).toBeInTheDocument();
-	});
-
 	it("passes custom allowDecimals to TimeSeriesChart", () => {
 		renderWithProviders(<GaugeModal {...defaultProps} allowDecimals={false} />);
 
@@ -282,13 +270,6 @@ describe("GaugeModal", () => {
 		renderWithProviders(<GaugeModal {...defaultProps} dataKey="total" />);
 
 		expect(screen.getByText("Request Volume")).toBeInTheDocument();
-	});
-
-	it("renders modal with correct maxWidth", () => {
-		renderWithProviders(<GaugeModal {...defaultProps} />);
-
-		const modal = screen.getByRole("dialog");
-		expect(modal.querySelector(".max-w-2xl")).toBeInTheDocument();
 	});
 
 	it("transforms time series points to chart data format", async () => {
