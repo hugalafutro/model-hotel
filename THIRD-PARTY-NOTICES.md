@@ -24,7 +24,7 @@ The web UI embeds the JetBrains Mono, Onest, and Schibsted Grotesk typefaces, an
 | [github.com/dustin/go-humanize](https://github.com/dustin/go-humanize) | v1.1.0 | Go | MIT |
 | [github.com/fxamacker/cbor/v2](https://github.com/fxamacker/cbor/v2) | v2.10.0 | Go | MIT |
 | [github.com/go-chi/chi/v5](https://github.com/go-chi/chi/v5) | v5.5.0 | Go | MIT |
-| [github.com/go-jose/go-jose/v4](https://github.com/go-jose/go-jose/v4) | v4.1.7 | Go | Apache-2.0 |
+| [github.com/go-jose/go-jose/v4](https://github.com/go-jose/go-jose/v4) | v4.1.9 | Go | Apache-2.0 |
 | [github.com/go-logr/logr](https://github.com/go-logr/logr) | v1.4.4 | Go | Apache-2.0 |
 | [github.com/go-logr/stdr](https://github.com/go-logr/stdr) | v1.2.2 | Go | Apache-2.0 |
 | [github.com/go-viper/mapstructure/v2](https://github.com/go-viper/mapstructure/v2) | v2.5.0 | Go | MIT |
@@ -62,8 +62,8 @@ The web UI embeds the JetBrains Mono, Onest, and Schibsted Grotesk typefaces, an
 | [go.opentelemetry.io/proto/otlp](https://go.opentelemetry.io/proto/otlp) | v1.11.0 | Go | Apache-2.0 |
 | [golang.org/x/crypto](https://golang.org/x/crypto) | v0.58.0 | Go | BSD-3-Clause |
 | [golang.org/x/net](https://golang.org/x/net) | v0.62.0 | Go | BSD-3-Clause |
-| [golang.org/x/oauth2](https://golang.org/x/oauth2) | v0.37.0 | Go | BSD-3-Clause |
-| [golang.org/x/sync](https://golang.org/x/sync) | v0.24.0 | Go | BSD-3-Clause |
+| [golang.org/x/oauth2](https://golang.org/x/oauth2) | v0.38.0 | Go | BSD-3-Clause |
+| [golang.org/x/sync](https://golang.org/x/sync) | v0.25.0 | Go | BSD-3-Clause |
 | [golang.org/x/sys](https://golang.org/x/sys) | v0.49.0 | Go | BSD-3-Clause |
 | [golang.org/x/text](https://golang.org/x/text) | v0.43.0 | Go | BSD-3-Clause |
 | [golang.org/x/time](https://golang.org/x/time) | v0.16.0 | Go | BSD-3-Clause |
@@ -74,7 +74,7 @@ The web UI embeds the JetBrains Mono, Onest, and Schibsted Grotesk typefaces, an
 | [modernc.org/libc](https://modernc.org/libc) | v1.79.0 | Go | BSD-3-Clause |
 | [modernc.org/mathutil](https://modernc.org/mathutil) | v1.7.1 | Go | BSD-3-Clause |
 | [modernc.org/memory](https://modernc.org/memory) | v1.12.1 | Go | BSD-3-Clause |
-| [modernc.org/sqlite](https://modernc.org/sqlite) | v1.61.0 | Go | Apache-2.0 |
+| [modernc.org/sqlite](https://modernc.org/sqlite) | v1.61.1 | Go | Apache-2.0 |
 | [@babel/runtime](https://babel.dev/docs/en/next/babel-runtime) | 7.29.10 | npm | MIT |
 | [@dnd-kit/accessibility](https://github.com/clauderic/dnd-kit#readme) | 3.1.1 | npm | MIT |
 | [@dnd-kit/core](https://github.com/clauderic/dnd-kit#readme) | 6.3.1 | npm | MIT |
@@ -86,21 +86,21 @@ The web UI embeds the JetBrains Mono, Onest, and Schibsted Grotesk typefaces, an
 | [@phosphor-icons/react](https://phosphoricons.com) | 2.1.10 | npm | MIT |
 | [@reduxjs/toolkit](https://redux-toolkit.js.org) | 2.12.0 | npm | MIT |
 | [@remix-run/route-pattern](https://github.com/remix-run/remix/tree/main/packages/route-pattern#readme) | 0.22.1 | npm | MIT |
-| [@shikijs/core](https://github.com/shikijs/shiki#readme) | 4.5.0 | npm | MIT |
-| [@shikijs/engine-javascript](https://github.com/shikijs/shiki#readme) | 4.5.0 | npm | MIT |
-| [@shikijs/engine-oniguruma](https://github.com/shikijs/shiki#readme) | 4.5.0 | npm | MIT |
-| [@shikijs/langs](https://github.com/shikijs/shiki#readme) | 4.5.0 | npm | MIT |
-| [@shikijs/primitive](https://github.com/shikijs/shiki#readme) | 4.5.0 | npm | MIT |
-| [@shikijs/themes](https://github.com/shikijs/shiki#readme) | 4.5.0 | npm | MIT |
-| [@shikijs/types](https://github.com/shikijs/shiki#readme) | 4.5.0 | npm | MIT |
-| [@shikijs/vscode-textmate](https://github.com/shikijs/vscode-textmate#readme) | 10.0.2 | npm | MIT |
+| [@shikijs/core](https://github.com/shikijs/shiki#readme) | 4.6.0 | npm | MIT |
+| [@shikijs/engine-javascript](https://github.com/shikijs/shiki#readme) | 4.6.0 | npm | MIT |
+| [@shikijs/engine-oniguruma](https://github.com/shikijs/shiki#readme) | 4.6.0 | npm | MIT |
+| [@shikijs/langs](https://github.com/shikijs/shiki#readme) | 4.6.0 | npm | MIT |
+| [@shikijs/primitive](https://github.com/shikijs/shiki#readme) | 4.6.0 | npm | MIT |
+| [@shikijs/themes](https://github.com/shikijs/shiki#readme) | 4.6.0 | npm | MIT |
+| [@shikijs/types](https://github.com/shikijs/shiki#readme) | 4.6.0 | npm | MIT |
+| [@shikijs/vscode-textmate](https://github.com/shikijs/vscode-textmate#readme) | 10.1.0 | npm | MIT |
 | [@simplewebauthn/browser](https://github.com/MasterKale/SimpleWebAuthn/tree/master/packages/browser#readme) | 14.0.0 | npm | MIT |
 | [@standard-schema/spec](https://standardschema.dev) | 1.1.0 | npm | MIT |
 | [@standard-schema/utils](https://github.com/standard-schema/standard-schema#readme) | 0.3.0 | npm | MIT |
-| [@tanstack/query-core](https://tanstack.com/query) | 5.105.0 | npm | MIT |
-| [@tanstack/react-query](https://tanstack.com/query) | 5.105.0 | npm | MIT |
-| [@tanstack/react-virtual](https://tanstack.com/virtual) | 3.14.24 | npm | MIT |
-| [@tanstack/virtual-core](https://tanstack.com/virtual) | 3.19.9 | npm | MIT |
+| [@tanstack/query-core](https://tanstack.com/query) | 5.107.1 | npm | MIT |
+| [@tanstack/react-query](https://tanstack.com/query) | 5.107.1 | npm | MIT |
+| [@tanstack/react-virtual](https://tanstack.com/virtual) | 3.14.26 | npm | MIT |
+| [@tanstack/virtual-core](https://tanstack.com/virtual) | 3.19.11 | npm | MIT |
 | [@types/d3-array](https://github.com/DefinitelyTyped/DefinitelyTyped/tree/master/types/d3-array) | 3.2.2 | npm | MIT |
 | [@types/d3-color](https://github.com/DefinitelyTyped/DefinitelyTyped/tree/master/types/d3-color) | 3.1.3 | npm | MIT |
 | [@types/d3-ease](https://github.com/DefinitelyTyped/DefinitelyTyped/tree/master/types/d3-ease) | 3.0.2 | npm | MIT |
@@ -172,7 +172,7 @@ The web UI embeds the JetBrains Mono, Onest, and Schibsted Grotesk typefaces, an
 | [hast-util-from-parse5](https://github.com/syntax-tree/hast-util-from-parse5#readme) | 8.0.3 | npm | MIT |
 | [hast-util-is-element](https://github.com/syntax-tree/hast-util-is-element#readme) | 3.0.0 | npm | MIT |
 | [hast-util-parse-selector](https://github.com/syntax-tree/hast-util-parse-selector#readme) | 4.0.0 | npm | MIT |
-| [hast-util-to-html](https://github.com/syntax-tree/hast-util-to-html#readme) | 9.0.5 | npm | MIT |
+| [hast-util-to-html](https://github.com/syntax-tree/hast-util-to-html#readme) | 9.0.6 | npm | MIT |
 | [hast-util-to-jsx-runtime](https://github.com/syntax-tree/hast-util-to-jsx-runtime#readme) | 2.3.6 | npm | MIT |
 | [hast-util-to-text](https://github.com/syntax-tree/hast-util-to-text#readme) | 4.0.2 | npm | MIT |
 | [hast-util-whitespace](https://github.com/syntax-tree/hast-util-whitespace#readme) | 3.0.0 | npm | MIT |
@@ -180,8 +180,8 @@ The web UI embeds the JetBrains Mono, Onest, and Schibsted Grotesk typefaces, an
 | [html-parse-stringify](https://github.com/i18next/html-parse-stringify) | 4.0.1 | npm | MIT |
 | [html-url-attributes](https://github.com/rehypejs/rehype-minify/tree/main#readme) | 3.0.1 | npm | MIT |
 | [html-void-elements](https://github.com/wooorm/html-void-elements#readme) | 3.0.0 | npm | MIT |
-| [i18next](https://www.i18next.com) | 26.5.12 | npm | MIT |
-| [i18next-browser-languagedetector](https://github.com/i18next/i18next-browser-languageDetector) | 8.2.4 | npm | MIT |
+| [i18next](https://www.i18next.com) | 26.7.2 | npm | MIT |
+| [i18next-browser-languagedetector](https://github.com/i18next/i18next-browser-languageDetector) | 8.3.0 | npm | MIT |
 | [immer](https://github.com/immerjs/immer#readme) | 11.1.15 | npm | MIT |
 | [immer](https://github.com/immerjs/immer#readme) | 11.2.9 | npm | MIT |
 | [inline-style-parser](https://github.com/remarkablemark/inline-style-parser#readme) | 0.2.7 | npm | MIT |
@@ -256,7 +256,7 @@ The web UI embeds the JetBrains Mono, Onest, and Schibsted Grotesk typefaces, an
 | [react](https://react.dev/) | 19.3.1 | npm | MIT |
 | [react-colorful](https://omgovich.github.io/react-colorful) | 5.8.1 | npm | MIT |
 | [react-dom](https://react.dev/) | 19.3.1 | npm | MIT |
-| [react-i18next](https://github.com/i18next/react-i18next) | 17.1.9 | npm | MIT |
+| [react-i18next](https://github.com/i18next/react-i18next) | 17.1.13 | npm | MIT |
 | [react-is](https://react.dev/) | 19.2.6 | npm | MIT |
 | [react-is](https://react.dev/) | 19.2.7 | npm | MIT |
 | [react-markdown](https://github.com/remarkjs/react-markdown#readme) | 10.1.0 | npm | MIT |
@@ -279,7 +279,7 @@ The web UI embeds the JetBrains Mono, Onest, and Schibsted Grotesk typefaces, an
 | [reselect](https://github.com/reduxjs/reselect#readme) | 5.2.0 | npm | MIT |
 | [scheduler](https://react.dev/) | 0.28.0 | npm | MIT |
 | [set-blocking](https://github.com/yargs/set-blocking#readme) | 2.0.0 | npm | ISC |
-| [shiki](https://github.com/shikijs/shiki#readme) | 4.5.0 | npm | MIT |
+| [shiki](https://github.com/shikijs/shiki#readme) | 4.6.0 | npm | MIT |
 | [space-separated-tokens](https://github.com/wooorm/space-separated-tokens#readme) | 2.0.2 | npm | MIT |
 | [string-width](https://github.com/sindresorhus/string-width#readme) | 4.2.3 | npm | MIT |
 | [stringify-entities](https://github.com/wooorm/stringify-entities#readme) | 4.0.4 | npm | MIT |
@@ -319,7 +319,7 @@ Packages that ship an identical license file are grouped under a single copy.
 
 Copyright (c) Titus Wormer <tituswormer@gmail.com>
 
-Applies to: `decode-named-character-reference@1.3.0`, `hast-util-from-parse5@8.0.3`, `hast-util-to-html@9.0.5`, `hast-util-to-jsx-runtime@2.3.6`, `hastscript@9.0.1`, `markdown-table@3.0.4`, `mdast-util-find-and-replace@3.0.2`, `mdast-util-from-markdown@2.0.3`, `mdast-util-gfm@3.1.0`, `mdast-util-gfm-footnote@2.1.0`, `mdast-util-to-markdown@2.1.2`, `micromark@4.0.2`, `micromark-core-commonmark@2.0.3`, `micromark-extension-gfm-table@2.1.1`, `micromark-factory-destination@2.0.1`, `micromark-factory-label@2.0.1`, `micromark-factory-space@2.0.1`, `micromark-factory-title@2.0.1`, `micromark-factory-whitespace@2.0.1`, `micromark-util-character@2.1.1`, `micromark-util-chunked@2.0.1`, `micromark-util-classify-character@2.0.1`, `micromark-util-combine-extensions@2.0.1`, `micromark-util-decode-numeric-character-reference@2.0.2`, `micromark-util-decode-string@2.0.1`, `micromark-util-encode@2.0.1`, `micromark-util-html-tag-name@2.0.1`, `micromark-util-normalize-identifier@2.0.1`, `micromark-util-resolve-all@2.0.1`, `micromark-util-sanitize-uri@2.0.1`, `micromark-util-subtokenize@2.1.0`, `micromark-util-symbol@2.0.1`, `micromark-util-types@2.0.2`, `remark-gfm@4.0.1`, `remark-rehype@11.1.2`, `vfile-message@4.0.3`
+Applies to: `decode-named-character-reference@1.3.0`, `hast-util-from-parse5@8.0.3`, `hast-util-to-html@9.0.6`, `hast-util-to-jsx-runtime@2.3.6`, `hastscript@9.0.1`, `markdown-table@3.0.4`, `mdast-util-find-and-replace@3.0.2`, `mdast-util-from-markdown@2.0.3`, `mdast-util-gfm@3.1.0`, `mdast-util-gfm-footnote@2.1.0`, `mdast-util-to-markdown@2.1.2`, `micromark@4.0.2`, `micromark-core-commonmark@2.0.3`, `micromark-extension-gfm-table@2.1.1`, `micromark-factory-destination@2.0.1`, `micromark-factory-label@2.0.1`, `micromark-factory-space@2.0.1`, `micromark-factory-title@2.0.1`, `micromark-factory-whitespace@2.0.1`, `micromark-util-character@2.1.1`, `micromark-util-chunked@2.0.1`, `micromark-util-classify-character@2.0.1`, `micromark-util-combine-extensions@2.0.1`, `micromark-util-decode-numeric-character-reference@2.0.2`, `micromark-util-decode-string@2.0.1`, `micromark-util-encode@2.0.1`, `micromark-util-html-tag-name@2.0.1`, `micromark-util-normalize-identifier@2.0.1`, `micromark-util-resolve-all@2.0.1`, `micromark-util-sanitize-uri@2.0.1`, `micromark-util-subtokenize@2.1.0`, `micromark-util-symbol@2.0.1`, `micromark-util-types@2.0.2`, `remark-gfm@4.0.1`, `remark-rehype@11.1.2`, `vfile-message@4.0.3`
 
 ```
 (The MIT License)
@@ -731,7 +731,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 Copyright (c) 2021 Pine Wu
 
-Applies to: `@shikijs/core@4.5.0`, `@shikijs/engine-javascript@4.5.0`, `@shikijs/engine-oniguruma@4.5.0`, `@shikijs/langs@4.5.0`, `@shikijs/primitive@4.5.0`, `@shikijs/themes@4.5.0`, `@shikijs/types@4.5.0`, `shiki@4.5.0`
+Applies to: `@shikijs/core@4.6.0`, `@shikijs/engine-javascript@4.6.0`, `@shikijs/engine-oniguruma@4.6.0`, `@shikijs/langs@4.6.0`, `@shikijs/primitive@4.6.0`, `@shikijs/themes@4.6.0`, `@shikijs/types@4.6.0`, `shiki@4.6.0`
 
 ```
 MIT License
@@ -762,7 +762,7 @@ SOFTWARE.
 
 copyright notice that is included in or attached to the work
 
-Applies to: `github.com/go-jose/go-jose/v4@v4.1.7`, `github.com/go-logr/stdr@v1.2.2`, `github.com/google/go-tpm@v0.9.8`, `go.opentelemetry.io/auto/sdk@v1.2.1`, `go.opentelemetry.io/proto/otlp@v1.11.0`, `google.golang.org/genproto/googleapis/api@v0.0.0-20260928230214-8a89bd6388cc`, `google.golang.org/genproto/googleapis/rpc@v0.0.0-20260928230214-8a89bd6388cc`
+Applies to: `github.com/go-jose/go-jose/v4@v4.1.9`, `github.com/go-logr/stdr@v1.2.2`, `github.com/google/go-tpm@v0.9.8`, `go.opentelemetry.io/auto/sdk@v1.2.1`, `go.opentelemetry.io/proto/otlp@v1.11.0`, `google.golang.org/genproto/googleapis/api@v0.0.0-20260928230214-8a89bd6388cc`, `google.golang.org/genproto/googleapis/rpc@v0.0.0-20260928230214-8a89bd6388cc`
 
 ```
 Apache License
@@ -972,7 +972,7 @@ Apache License
 
 Copyright 2009 The Go Authors.
 
-Applies to: `golang.org/x/crypto@v0.58.0`, `golang.org/x/net@v0.62.0`, `golang.org/x/oauth2@v0.37.0`, `golang.org/x/sync@v0.24.0`, `golang.org/x/sys@v0.49.0`, `golang.org/x/text@v0.43.0`, `golang.org/x/time@v0.16.0`
+Applies to: `golang.org/x/crypto@v0.58.0`, `golang.org/x/net@v0.62.0`, `golang.org/x/oauth2@v0.38.0`, `golang.org/x/sync@v0.25.0`, `golang.org/x/sys@v0.49.0`, `golang.org/x/text@v0.43.0`, `golang.org/x/time@v0.16.0`
 
 ```
 Copyright 2009 The Go Authors.
@@ -1068,7 +1068,7 @@ SOFTWARE.
 
 Copyright (c) 2021-present Tanner Linsley
 
-Applies to: `@tanstack/query-core@5.105.0`, `@tanstack/react-query@5.105.0`, `@tanstack/react-virtual@3.14.24`, `@tanstack/virtual-core@3.19.9`
+Applies to: `@tanstack/query-core@5.107.1`, `@tanstack/react-query@5.107.1`, `@tanstack/react-virtual@3.14.26`, `@tanstack/virtual-core@3.19.11`
 
 ```
 MIT License
@@ -1214,7 +1214,7 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
 
 Copyright (c) 2015-present i18next
 
-Applies to: `i18next-browser-languagedetector@8.2.4`, `react-i18next@17.1.9`
+Applies to: `i18next-browser-languagedetector@8.3.0`, `react-i18next@17.1.13`
 
 ```
 The MIT License (MIT)
@@ -4383,7 +4383,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 Copyright (c) 2017 The Sqlite Authors. All rights reserved.
 
-Applies to: `modernc.org/sqlite@v1.61.0`
+Applies to: `modernc.org/sqlite@v1.61.1`
 
 ```
 Copyright (c) 2017 The Sqlite Authors. All rights reserved.
@@ -6514,7 +6514,7 @@ SOFTWARE.
 
 Copyright (c) Microsoft Corporation
 
-Applies to: `@shikijs/vscode-textmate@10.0.2`
+Applies to: `@shikijs/vscode-textmate@10.1.0`
 
 ```
 The MIT License (MIT)
@@ -7452,7 +7452,7 @@ THE SOFTWARE.
 
 Copyright (c) 2011-present i18next
 
-Applies to: `i18next@26.5.12`
+Applies to: `i18next@26.7.2`
 
 ```
 The MIT License (MIT)

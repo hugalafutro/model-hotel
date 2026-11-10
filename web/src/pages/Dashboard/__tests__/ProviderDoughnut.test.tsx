@@ -68,9 +68,12 @@ describe("ProviderDoughnut", () => {
 
 		const grid = container.querySelector("[role='img']");
 		const cells = grid?.querySelectorAll(".animate-waffle-pop") ?? [];
-		expect(cells[0]).toHaveStyle({ animationDelay: "0ms" });
-		expect(cells[1]).toHaveStyle({ animationDelay: "6ms" });
-		expect(cells[10]).toHaveStyle({ animationDelay: "60ms" });
+		// A zero delay serializes as "0s", so compare the number.
+		expect(
+			Number.parseFloat((cells[0] as HTMLElement).style.animationDelay),
+		).toBe(0);
+		expect((cells[1] as HTMLElement).style.animationDelay).toBe("6ms");
+		expect((cells[10] as HTMLElement).style.animationDelay).toBe("60ms");
 	});
 
 	it("dims other providers on legend hover", async () => {

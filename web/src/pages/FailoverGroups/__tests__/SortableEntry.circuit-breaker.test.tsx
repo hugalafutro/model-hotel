@@ -187,7 +187,7 @@ describe("SortableEntry - Circuit Breaker Fuse Outline", () => {
 
 			// Static outline div should render with amber color
 			const outlineDiv = getByTestId("fuse-outline-static");
-			expect(outlineDiv.getAttribute("style")).toContain("#fde68a");
+			expect(outlineDiv.getAttribute("style")).toContain("rgb(253, 230, 138)");
 
 			// Entry should have overflow: hidden
 			const wrapperDiv = getWrapperDiv(container);
@@ -337,7 +337,7 @@ describe("SortableEntry - Circuit Breaker Fuse Outline", () => {
 			expect(queryByTestId("fuse-outline-animated")).not.toBeInTheDocument();
 			expect(
 				getByTestId("fuse-outline-static").getAttribute("style"),
-			).toContain("#fca5a5");
+			).toContain("rgb(252, 165, 165)");
 		});
 
 		it("still animates the fuse for a short ordinary cooldown", () => {
@@ -363,7 +363,7 @@ describe("SortableEntry - Circuit Breaker Fuse Outline", () => {
 			expect(queryByTestId("fuse-outline-animated")).not.toBeInTheDocument();
 			expect(
 				getByTestId("fuse-outline-static").getAttribute("style"),
-			).toContain("#fca5a5");
+			).toContain("rgb(252, 165, 165)");
 		});
 
 		it("renders one colour for both cooldown-over paths", () => {
@@ -390,8 +390,8 @@ describe("SortableEntry - Circuit Breaker Fuse Outline", () => {
 			expect(halfOpenStyle).toEqual(elapsedStyle);
 			// ...and identically *amber*, so both regressing to the open-circuit red
 			// would fail rather than silently agree.
-			expect(halfOpenStyle).toContain("#fde68a");
-			expect(halfOpenStyle).not.toContain("#fca5a5");
+			expect(halfOpenStyle).toContain("rgb(253, 230, 138)");
+			expect(halfOpenStyle).not.toContain("rgb(252, 165, 165)");
 		});
 
 		it("starts animating once the countdown crosses the threshold while mounted", async () => {
