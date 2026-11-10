@@ -151,8 +151,11 @@ jobs:
           path: coverage.out
           retention-days: 1
 
-  # The race detector, over every package, split across three runners. Nothing
-  # is excluded for cost. Run as one `go test -race ./...` the tree took as long
+  # The race detector, over every package, split across three runners. The only
+  # tests left out are those in `//go:build !race` files: single-goroutine tests
+  # whose instrumented run dwarfs a shard (internal/proxy/*_norace_test.go); Go
+  # Test runs them.
+  # Run as one `go test -race ./...` the tree took as long
   # as internal/proxy did on its own (~9.5 min), the job's whole wall clock;
   # scripts/ci/go-race-shard.sh gives each shard a third of every large
   # package's tests plus a share of the small packages whole, reading test names
