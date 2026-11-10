@@ -355,7 +355,16 @@ describe("Modal", () => {
 	});
 
 	it("keeps a dialog whose close request is refused visible, and closes it once allowed", () => {
-		vi.useFakeTimers();
+		// The fade-in runs on requestAnimationFrame, so fake it too: the
+		// dialog is then fully visible before the refused close is asserted.
+		vi.useFakeTimers({
+			toFake: [
+				"setTimeout",
+				"clearTimeout",
+				"requestAnimationFrame",
+				"cancelAnimationFrame",
+			],
+		});
 		try {
 			let allow = false;
 			const onCloseRequest = vi.fn(() => allow);
@@ -377,7 +386,7 @@ describe("Modal", () => {
 			});
 			expect(onCloseRequest).toHaveBeenCalledTimes(1);
 			expect(onClose).not.toHaveBeenCalled();
-			expect(dialog.style.opacity).not.toBe("0");
+			expect(dialog.style.opacity).toBe("1");
 
 			// Escape asks the same question and is refused the same way.
 			act(() => {

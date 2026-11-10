@@ -31,7 +31,8 @@ describe("FuseOutline", () => {
 		);
 
 		const rect = getRect(container);
-		expect(rect?.style.animation).toContain("fuse 10000ms linear forwards");
+		expect(rect?.style.animationName).toBe("fuse");
+		expect(rect?.style.animationDuration).toBe("10000ms");
 		expect(rect?.style.animationDelay).toBe("");
 	});
 
@@ -55,7 +56,8 @@ describe("FuseOutline", () => {
 		rerender(<FuseOutline color="#fca5a5" durationMs={10000} />);
 
 		const rect = getRect(container);
-		expect(rect?.style.animation).toContain("fuse 10000ms linear forwards");
+		expect(rect?.style.animationName).toBe("fuse");
+		expect(rect?.style.animationDuration).toBe("10000ms");
 		expect(rect?.style.animationDelay).toBe("-4000ms");
 	});
 
@@ -117,7 +119,8 @@ describe("FuseOutline", () => {
 		rerender(<FuseOutline color="#fca5a5" durationMs={30000} />);
 
 		const rect = getRect(container);
-		expect(rect?.style.animation).toContain("fuse 30000ms linear forwards");
+		expect(rect?.style.animationName).toBe("fuse");
+		expect(rect?.style.animationDuration).toBe("30000ms");
 		expect(rect?.style.animationDelay).toBe("");
 	});
 

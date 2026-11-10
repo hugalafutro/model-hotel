@@ -225,7 +225,7 @@ describe("TokenSplitBar", () => {
 			"[data-tile-type='cache_hit']",
 		);
 		cacheHitTiles.forEach((tile) => {
-			expect(tile).toHaveStyle({ backgroundColor: "var(--accent)" });
+			expect((tile as HTMLElement).style.backgroundColor).toBe("var(--accent)");
 		});
 	});
 
