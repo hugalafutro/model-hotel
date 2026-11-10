@@ -33,6 +33,8 @@ describe("FuseOutline", () => {
 		const rect = getRect(container);
 		expect(rect?.style.animationName).toBe("fuse");
 		expect(rect?.style.animationDuration).toBe("10000ms");
+		expect(rect?.style.animationTimingFunction).toBe("linear");
+		expect(rect?.style.animationFillMode).toBe("forwards");
 		expect(rect?.style.animationDelay).toBe("");
 	});
 
@@ -58,6 +60,8 @@ describe("FuseOutline", () => {
 		const rect = getRect(container);
 		expect(rect?.style.animationName).toBe("fuse");
 		expect(rect?.style.animationDuration).toBe("10000ms");
+		expect(rect?.style.animationTimingFunction).toBe("linear");
+		expect(rect?.style.animationFillMode).toBe("forwards");
 		expect(rect?.style.animationDelay).toBe("-4000ms");
 	});
 
@@ -121,6 +125,8 @@ describe("FuseOutline", () => {
 		const rect = getRect(container);
 		expect(rect?.style.animationName).toBe("fuse");
 		expect(rect?.style.animationDuration).toBe("30000ms");
+		expect(rect?.style.animationTimingFunction).toBe("linear");
+		expect(rect?.style.animationFillMode).toBe("forwards");
 		expect(rect?.style.animationDelay).toBe("");
 	});
 
