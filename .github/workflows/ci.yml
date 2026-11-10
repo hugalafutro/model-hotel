@@ -153,8 +153,8 @@ jobs:
 
   # The race detector, over every package, split across three runners. The only
   # tests left out are those in `//go:build !race` files: single-goroutine tests
-  # whose instrumented run dwarfs a shard (see
-  # internal/proxy/proxy_nonstreaming_atcap_norace_test.go); Go Test runs them.
+  # whose instrumented run dwarfs a shard (internal/proxy/*_norace_test.go); Go
+  # Test runs them.
   # Run as one `go test -race ./...` the tree took as long
   # as internal/proxy did on its own (~9.5 min), the job's whole wall clock;
   # scripts/ci/go-race-shard.sh gives each shard a third of every large
