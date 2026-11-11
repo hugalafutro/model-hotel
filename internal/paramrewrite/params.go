@@ -357,12 +357,22 @@ func paramIsQuoted(msg, param string) bool {
 // models answer with: "invalid temperature: only 1 is allowed for this model".
 // The model then takes only its default, so the param is learned as a strip,
 // as with OpenAI's quoted "'temperature' does not support 0 with this model".
-// The whole "invalid <param>: only " lead-in is the anchor: a bare param name
-// is too common in prose, and an "invalid <param>:" followed by a range is the
-// caller's value, not the model refusing the param.
+// The whole sentence is the anchor, down to the single number and "is
+// allowed": a bare param name is too common in prose, and anything else after
+// "invalid <param>:" ("only values in the range [0, 2] are allowed", "must be
+// in [0, 2]") is about the caller's value, not the model refusing the param.
 func allowsOnlyOneValue(lowerMsg, param string) bool {
-	return strings.Contains(lowerMsg, "invalid "+param+": only ")
+	for _, m := range onlyOneValue.FindAllStringSubmatch(lowerMsg, -1) {
+		if m[1] == param {
+			return true
+		}
+	}
+	return false
 }
+
+// onlyOneValue is the Kimi sentence allowsOnlyOneValue reads, capturing the
+// param name.
+var onlyOneValue = regexp.MustCompile(`invalid ([a-z_]+): only -?\d+(?:\.\d+)? is allowed`)
 
 // MessageNameKey is the pseudo-param the learned caches carry for a model
 // whose upstream refuses the optional "name" on a message. OpenCode's
@@ -372,10 +382,36 @@ func allowsOnlyOneValue(lowerMsg, param string) bool {
 // only labels a participant, so dropping it keeps the conversation intact.
 const MessageNameKey = "messages[].name"
 
-// messageNamePath matches the JSON path a 400 points at when it refuses a
-// message's name. The trailing \b keeps "messages[0].name_prefix" or similar
-// from matching.
+// messageNamePath matches the JSON path a 400 points at about a message's
+// name. The trailing \b keeps "messages[0].name_prefix" from matching.
 var messageNamePath = regexp.MustCompile(`messages\[\d+\]\.name\b`)
+
+// messageNameRefusals are how a 400 refuses the field itself, as opposed to
+// this caller's value for it ("must be a string", "is too long"), which goes
+// back to the caller and teaches nothing.
+var messageNameRefusals = []string{
+	"cannot preserve named", "not supported", "unsupported", "not permitted",
+	"not allowed", "unknown field", "unrecognized", "extra inputs",
+}
+
+// refusesMessageName reports whether msg refuses a message's name: the path
+// names it, and the text after the path, up to the next joined error, is a
+// refusal of the field.
+func refusesMessageName(msg string) bool {
+	lower := strings.ToLower(msg)
+	for _, at := range messageNamePath.FindAllStringIndex(lower, -1) {
+		rest := lower[at[1]:]
+		if end := strings.IndexAny(rest, ";\n"); end >= 0 {
+			rest = rest[:end]
+		}
+		for _, phrase := range messageNameRefusals {
+			if strings.Contains(rest, phrase) {
+				return true
+			}
+		}
+	}
+	return false
+}
 
 // quotedParams are the sampling/optional params providers commonly reject,
 // learned when a 400 names one wrapped in backticks or quotes (paramIsQuoted)
@@ -420,7 +456,7 @@ func ParseProviderParamError(body []byte) map[string]bool {
 			rejected[p] = true
 		}
 	}
-	if messageNamePath.MatchString(msg) {
+	if refusesMessageName(msg) {
 		rejected[MessageNameKey] = true
 	}
 	// One refused enum value is the caller's choice, not the model's verdict on

@@ -164,6 +164,13 @@ func TestParseProviderParamError_ValueRangeComplaintTeachesNothing(t *testing.T)
 		// A path into a message that is not its name, and a longer field.
 		`messages[1].content: must not be empty`,
 		`messages[1].name_suffix: unknown field`,
+		// Review round 1 (PR #1339): "only" followed by a range, and a
+		// message name refused for this caller's value.
+		`invalid temperature: only values in the range [0, 2] are allowed`,
+		`invalid top_p: only 0 to 1 is allowed`,
+		`messages[0].name: must be a string`,
+		`messages[0].name: string is too long (max 64)`,
+		`messages[3].name: input should be a valid string; messages[3].content: not supported`,
 	} {
 		body := []byte(`{"error":{"message":` + fmt.Sprintf("%q", msg) + `,"type":"invalid_request_error"}}`)
 		if rejected := ParseProviderParamError(body); len(rejected) != 0 {
@@ -284,6 +291,8 @@ func TestParseProviderParamError_ParamRefusalStillLearned(t *testing.T) {
 		// Gemini 4 Argon on OpenCode Go: a message's name, any role.
 		{`messages[2].name: google cannot preserve named conversation participants`, []string{MessageNameKey}},
 		{`messages[0].name: google cannot preserve named conversation participants`, []string{MessageNameKey}},
+		{`messages[0].name: Extra inputs are not permitted`, []string{MessageNameKey}},
+		{`Upstream: invalid temperature: only -0.5 is allowed`, []string{"temperature"}},
 	} {
 		body := []byte(`{"error":{"message":` + fmt.Sprintf("%q", tc.msg) + `}}`)
 		got := slices.Sorted(maps.Keys(ParseProviderParamError(body)))
