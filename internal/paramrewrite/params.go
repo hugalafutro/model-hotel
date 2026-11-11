@@ -371,9 +371,14 @@ func allowsOnlyOneValue(lowerMsg, param string) bool {
 }
 
 // onlyOneValue is the Kimi sentence allowsOnlyOneValue reads, capturing the
-// param name. It has to end where the sentence does: "only 1 is allowed when
-// response_format is set; otherwise 0 to 2" is a condition, not a refusal.
-var onlyOneValue = regexp.MustCompile(`invalid ([a-z_]+): only -?\d+(?:\.\d+)? is allowed(?: for this model)?(?:[.;\n]|$)`)
+// param name. It has to be a whole sentence of its own: start the message,
+// or follow a sentence end, a newline, a wrapper's colon ("Upstream request
+// failed: invalid ...") or a bracketed error type ("[invalid_request_error]
+// invalid ..."), and end at a full stop, a newline or the end of the message.
+// "only 1 is allowed when response_format is set" or "when response_format is
+// set, invalid temperature: only 1 is allowed; otherwise 0 to 2" is a
+// condition, not a refusal.
+var onlyOneValue = regexp.MustCompile(`(?:^|\. |\n|: |\] )invalid ([a-z_]+): only -?\d+(?:\.\d+)? is allowed(?: for this model)?(?:\.|\n|$)`)
 
 // MessageNameKey is the pseudo-param the learned caches carry for a model
 // whose upstream refuses the optional "name" on a message. OpenCode's
@@ -384,8 +389,9 @@ var onlyOneValue = regexp.MustCompile(`invalid ([a-z_]+): only -?\d+(?:\.\d+)? i
 const MessageNameKey = "messages[].name"
 
 // messageNamePath matches the JSON path a 400 points at about a message's
-// name. The trailing \b keeps "messages[0].name_prefix" from matching.
-var messageNamePath = regexp.MustCompile(`messages\[\d+\]\.name\b`)
+// name. The path has to end at the name ("messages[0].name:"), so a deeper or
+// longer field ("name_prefix", "name-x", "name.foo", "name[0]") never counts.
+var messageNamePath = regexp.MustCompile(`messages\[\d+\]\.name(?:[\s:]|$)`)
 
 // messageNameRefusals are how a 400 refuses the field itself, as opposed to
 // this caller's value for it ("must be a string", "is too long", "spaces are

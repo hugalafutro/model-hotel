@@ -178,6 +178,13 @@ func TestParseProviderParamError_ValueRangeComplaintTeachesNothing(t *testing.T)
 		`messages[3].name: must be a string. messages[3].content: unknown field`,
 		`messages[3].name: must be a string messages[4].role: unknown field`,
 		`invalid temperature: only 1 is allowed when response_format is set; otherwise 0 to 2 are allowed`,
+		// Review round 3: a condition before the sentence or after a
+		// semicolon, and longer or deeper paths under name.
+		`when response_format is set, invalid temperature: only 1 is allowed; otherwise 0 to 2 are allowed`,
+		`invalid temperature: only 1 is allowed; otherwise 0 to 2 are allowed`,
+		`messages[0].name-prefix: unknown field`,
+		`messages[0].name.foo: unknown field`,
+		`messages[0].name[0]: unknown field`,
 	} {
 		body := []byte(`{"error":{"message":` + fmt.Sprintf("%q", msg) + `,"type":"invalid_request_error"}}`)
 		if rejected := ParseProviderParamError(body); len(rejected) != 0 {
