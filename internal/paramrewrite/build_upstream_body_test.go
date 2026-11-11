@@ -407,6 +407,18 @@ func TestBuildUpstreamBody_StripsMessageNamesOnceLearned(t *testing.T) {
 			t.Errorf("%s: tool call function name lost: %s", tc.name, result)
 		}
 	}
+
+	// A body without a messages array, or with a non-object entry, passes
+	// through the learned strip untouched instead of failing the rebuild.
+	for _, body := range []string{
+		`{"model":"gemini-4-argon","prompt":"hi"}`,
+		`{"model":"gemini-4-argon","messages":["hi",{"role":"user","name":"bob","content":"x"}]}`,
+	} {
+		result := BuildUpstreamBody([]byte(body), "opencode-go", "gemini-4-argon", "gemini-4-argon", false, learned(), &sync.Map{}, nil, "prov")
+		if !json.Valid(result) || strings.Contains(string(result), `"name":"bob"`) {
+			t.Errorf("%s: rebuilt as %s", body, result)
+		}
+	}
 }
 
 // TabbyAPI renders its chat template from messages dumped without their null
