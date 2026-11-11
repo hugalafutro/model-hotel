@@ -371,8 +371,9 @@ func allowsOnlyOneValue(lowerMsg, param string) bool {
 }
 
 // onlyOneValue is the Kimi sentence allowsOnlyOneValue reads, capturing the
-// param name.
-var onlyOneValue = regexp.MustCompile(`invalid ([a-z_]+): only -?\d+(?:\.\d+)? is allowed`)
+// param name. It has to end where the sentence does: "only 1 is allowed when
+// response_format is set; otherwise 0 to 2" is a condition, not a refusal.
+var onlyOneValue = regexp.MustCompile(`invalid ([a-z_]+): only -?\d+(?:\.\d+)? is allowed(?: for this model)?(?:[.;\n]|$)`)
 
 // MessageNameKey is the pseudo-param the learned caches carry for a model
 // whose upstream refuses the optional "name" on a message. OpenCode's
@@ -387,22 +388,31 @@ const MessageNameKey = "messages[].name"
 var messageNamePath = regexp.MustCompile(`messages\[\d+\]\.name\b`)
 
 // messageNameRefusals are how a 400 refuses the field itself, as opposed to
-// this caller's value for it ("must be a string", "is too long"), which goes
-// back to the caller and teaches nothing.
+// this caller's value for it ("must be a string", "is too long", "spaces are
+// not allowed"), which goes back to the caller and teaches nothing. Each
+// phrase is about the field, never its content: OpenCode's Google
+// translation, pydantic's extra-field error, and the unknown-field forms.
 var messageNameRefusals = []string{
-	"cannot preserve named", "not supported", "unsupported", "not permitted",
-	"not allowed", "unknown field", "unrecognized", "extra inputs",
+	"cannot preserve named", "extra inputs are not permitted",
+	"unknown field", "unrecognized field", "unsupported field",
+	"field is not supported",
 }
 
+// messageNameClauseEnds are where the clause about one path stops: a joined
+// error, a new sentence, or the next message path.
+var messageNameClauseEnds = []string{";", "\n", ". ", "messages["}
+
 // refusesMessageName reports whether msg refuses a message's name: the path
-// names it, and the text after the path, up to the next joined error, is a
-// refusal of the field.
+// names it, and its own clause, the text after it up to the next joined error
+// or sentence, refuses the field.
 func refusesMessageName(msg string) bool {
 	lower := strings.ToLower(msg)
 	for _, at := range messageNamePath.FindAllStringIndex(lower, -1) {
 		rest := lower[at[1]:]
-		if end := strings.IndexAny(rest, ";\n"); end >= 0 {
-			rest = rest[:end]
+		for _, sep := range messageNameClauseEnds {
+			if end := strings.Index(rest, sep); end >= 0 {
+				rest = rest[:end]
+			}
 		}
 		for _, phrase := range messageNameRefusals {
 			if strings.Contains(rest, phrase) {

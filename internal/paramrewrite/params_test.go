@@ -171,6 +171,13 @@ func TestParseProviderParamError_ValueRangeComplaintTeachesNothing(t *testing.T)
 		`messages[0].name: must be a string`,
 		`messages[0].name: string is too long (max 64)`,
 		`messages[3].name: input should be a valid string; messages[3].content: not supported`,
+		// Review round 2: a value rule worded as "not allowed", a refusal
+		// that belongs to the next sentence or path, and a condition after
+		// the Kimi sentence.
+		`messages[0].name: spaces are not allowed`,
+		`messages[3].name: must be a string. messages[3].content: unknown field`,
+		`messages[3].name: must be a string messages[4].role: unknown field`,
+		`invalid temperature: only 1 is allowed when response_format is set; otherwise 0 to 2 are allowed`,
 	} {
 		body := []byte(`{"error":{"message":` + fmt.Sprintf("%q", msg) + `,"type":"invalid_request_error"}}`)
 		if rejected := ParseProviderParamError(body); len(rejected) != 0 {
@@ -293,6 +300,8 @@ func TestParseProviderParamError_ParamRefusalStillLearned(t *testing.T) {
 		{`messages[0].name: google cannot preserve named conversation participants`, []string{MessageNameKey}},
 		{`messages[0].name: Extra inputs are not permitted`, []string{MessageNameKey}},
 		{`Upstream: invalid temperature: only -0.5 is allowed`, []string{"temperature"}},
+		{`invalid top_p: only 1 is allowed. Remove it.`, []string{"top_p"}},
+		{`messages[1].name: unknown field`, []string{MessageNameKey}},
 	} {
 		body := []byte(`{"error":{"message":` + fmt.Sprintf("%q", tc.msg) + `}}`)
 		got := slices.Sorted(maps.Keys(ParseProviderParamError(body)))
