@@ -364,6 +364,63 @@ func TestBuildUpstreamBody_StripsEmptyToolCalls(t *testing.T) {
 	}
 }
 
+// A learned MessageNameKey drops every message's name, from the cache or from
+// a retry's extra strip, and keeps the tool call's function name; without it
+// the names travel untouched.
+func TestBuildUpstreamBody_StripsMessageNamesOnceLearned(t *testing.T) {
+	t.Parallel()
+
+	inputBody := `{"model":"gemini-4-argon","messages":[` +
+		`{"role":"user","name":"bob","content":"temp?"},` +
+		`{"role":"assistant","content":null,"tool_calls":[{"id":"c1","type":"function","function":{"name":"get_temperature","arguments":"{}"}}]},` +
+		`{"role":"tool","tool_call_id":"c1","name":"get_temperature","content":"-7"}]}`
+	learned := func() *sync.Map {
+		var dep sync.Map
+		MergeLearnedParamCache(&dep, LearnedCacheKey("prov", "gemini-4-argon"), map[string]bool{MessageNameKey: true})
+		return &dep
+	}
+
+	for _, tc := range []struct {
+		name      string
+		dep       *sync.Map
+		extra     map[string]bool
+		wantNames bool
+	}{
+		{"nothing learned", &sync.Map{}, nil, true},
+		{"learned in cache", learned(), nil, false},
+		{"extra strip on retry", &sync.Map{}, map[string]bool{MessageNameKey: true}, false},
+	} {
+		result := BuildUpstreamBody([]byte(inputBody), "opencode-go", "gemini-4-argon", "gemini-4-argon", false, tc.dep, &sync.Map{}, tc.extra, "prov")
+		var raw struct {
+			Messages []map[string]any `json:"messages"`
+		}
+		if err := json.Unmarshal(result, &raw); err != nil || len(raw.Messages) != 3 {
+			t.Fatalf("%s: messages = %s (err %v)", tc.name, result, err)
+		}
+		for i, msg := range raw.Messages {
+			if _, has := msg["name"]; has != (tc.wantNames && i != 1) {
+				t.Errorf("%s: messages[%d] name present = %v", tc.name, i, has)
+			}
+		}
+		calls, _ := raw.Messages[1]["tool_calls"].([]any)
+		if len(calls) != 1 || calls[0].(map[string]any)["function"].(map[string]any)["name"] != "get_temperature" {
+			t.Errorf("%s: tool call function name lost: %s", tc.name, result)
+		}
+	}
+
+	// A body without a messages array, or with a non-object entry, passes
+	// through the learned strip untouched instead of failing the rebuild.
+	for _, body := range []string{
+		`{"model":"gemini-4-argon","prompt":"hi"}`,
+		`{"model":"gemini-4-argon","messages":["hi",{"role":"user","name":"bob","content":"x"}]}`,
+	} {
+		result := BuildUpstreamBody([]byte(body), "opencode-go", "gemini-4-argon", "gemini-4-argon", false, learned(), &sync.Map{}, nil, "prov")
+		if !json.Valid(result) || strings.Contains(string(result), `"name":"bob"`) {
+			t.Errorf("%s: rebuilt as %s", body, result)
+		}
+	}
+}
+
 // TabbyAPI renders its chat template from messages dumped without their null
 // members, so an assistant turn's null or missing content has to travel as ""
 // there and only there.

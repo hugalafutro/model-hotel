@@ -9,6 +9,7 @@
 package paramrewrite
 
 import (
+	"regexp"
 	"slices"
 	"strings"
 	"sync"
@@ -195,7 +196,7 @@ var valueComplaintPhrases = []string{
 // the lead-in of "Invalid type for 'temperature'" in the sibling's window.
 func isValueComplaint(msg, param string) bool {
 	for _, window := range paramWindows(strings.ToLower(msg), param) {
-		for _, sentence := range strings.Split(window, ". ") {
+		for sentence := range strings.SplitSeq(window, ". ") {
 			if !paramIsQuoted(sentence, param) {
 				continue
 			}
@@ -351,6 +352,83 @@ func paramIsQuoted(msg, param string) bool {
 	return false
 }
 
+// allowsOnlyOneValue reports whether lowerMsg, a lowercased error message,
+// refuses every value of param but one, in the unquoted form Moonshot's Kimi
+// models answer with: "invalid temperature: only 1 is allowed for this model".
+// The model then takes only its default, so the param is learned as a strip,
+// as with OpenAI's quoted "'temperature' does not support 0 with this model".
+// The whole sentence is the anchor, down to the single number and "is
+// allowed": a bare param name is too common in prose, and anything else after
+// "invalid <param>:" ("only values in the range [0, 2] are allowed", "must be
+// in [0, 2]") is about the caller's value, not the model refusing the param.
+func allowsOnlyOneValue(lowerMsg, param string) bool {
+	for _, m := range onlyOneValue.FindAllStringSubmatch(lowerMsg, -1) {
+		if m[1] == param {
+			return true
+		}
+	}
+	return false
+}
+
+// onlyOneValue is the Kimi sentence allowsOnlyOneValue reads, capturing the
+// param name. It has to be a whole sentence of its own: start the message,
+// or follow a sentence end, a newline, a wrapper's colon ("Upstream request
+// failed: invalid ...") or a bracketed error type ("[invalid_request_error]
+// invalid ..."), and end at a full stop, a newline or the end of the message.
+// "only 1 is allowed when response_format is set" or "when response_format is
+// set, invalid temperature: only 1 is allowed; otherwise 0 to 2" is a
+// condition, not a refusal.
+var onlyOneValue = regexp.MustCompile(`(?:^|\. |\n|: |\] )invalid ([a-z_]+): only -?\d+(?:\.\d+)? is allowed(?: for this model)?(?:\.|\n|$)`)
+
+// MessageNameKey is the pseudo-param the learned caches carry for a model
+// whose upstream refuses the optional "name" on a message. OpenCode's
+// translation to Google models answers "messages[2].name: google cannot
+// preserve named conversation participants" whatever the role, and clients
+// such as LangChain put the function's name on every tool result. The name
+// only labels a participant, so dropping it keeps the conversation intact.
+const MessageNameKey = "messages[].name"
+
+// messageNamePath matches the JSON path a 400 points at about a message's
+// name. The path has to end at the name ("messages[0].name:"), so a deeper or
+// longer field ("name_prefix", "name-x", "name.foo", "name[0]") never counts.
+var messageNamePath = regexp.MustCompile(`messages\[\d+\]\.name(?:[\s:]|$)`)
+
+// messageNameRefusals are how a 400 refuses the field itself, as opposed to
+// this caller's value for it ("must be a string", "is too long", "spaces are
+// not allowed"), which goes back to the caller and teaches nothing. Each
+// phrase is about the field, never its content: OpenCode's Google
+// translation, pydantic's extra-field error, and the unknown-field forms.
+var messageNameRefusals = []string{
+	"cannot preserve named", "extra inputs are not permitted",
+	"unknown field", "unrecognized field", "unsupported field",
+	"field is not supported",
+}
+
+// messageNameClauseEnds are where the clause about one path stops: a joined
+// error, a new sentence, or the next message path.
+var messageNameClauseEnds = []string{";", "\n", ". ", "messages["}
+
+// refusesMessageName reports whether msg refuses a message's name: the path
+// names it, and its own clause, the text after it up to the next joined error
+// or sentence, refuses the field.
+func refusesMessageName(msg string) bool {
+	lower := strings.ToLower(msg)
+	for _, at := range messageNamePath.FindAllStringIndex(lower, -1) {
+		rest := lower[at[1]:]
+		for _, sep := range messageNameClauseEnds {
+			if end := strings.Index(rest, sep); end >= 0 {
+				rest = rest[:end]
+			}
+		}
+		for _, phrase := range messageNameRefusals {
+			if strings.Contains(rest, phrase) {
+				return true
+			}
+		}
+	}
+	return false
+}
+
 // quotedParams are the sampling/optional params providers commonly reject,
 // learned when a 400 names one wrapped in backticks or quotes (paramIsQuoted)
 // to avoid false positives from substring matching. Short/common words like
@@ -388,10 +466,14 @@ func ParseProviderParamError(body []byte) map[string]bool {
 	if strings.Contains(msg, "cannot both be specified") {
 		rejected["top_p"] = true
 	}
+	lowerMsg := strings.ToLower(msg)
 	for _, p := range quotedParams {
-		if paramIsQuoted(msg, p) {
+		if paramIsQuoted(msg, p) || allowsOnlyOneValue(lowerMsg, p) {
 			rejected[p] = true
 		}
+	}
+	if refusesMessageName(msg) {
+		rejected[MessageNameKey] = true
 	}
 	// One refused enum value is the caller's choice, not the model's verdict on
 	// the param: learning it as a strip would turn every later low/medium/high
