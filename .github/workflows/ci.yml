@@ -75,7 +75,11 @@ jobs:
     if: >-
       needs.changes.outputs.go != 'false'
       || needs.changes.outputs.all_coverage != 'false'
-    runs-on: ubuntu-latest
+    # Pinned, not ubuntu-latest: the backup tests need the PostgreSQL 16 client
+    # tools that ubuntu-24.04 ships, matching the postgres:16 service and the
+    # postgresql16-client in the app image. ubuntu-26.04 ships 18, whose dumps
+    # carry "SET transaction_timeout" and fail pg_restore against a 16 server.
+    runs-on: ubuntu-24.04
     env:
       POSTGRES_PASSWORD: changeme
     services:
@@ -113,8 +117,11 @@ jobs:
         # The dumps are zstd-compressed, so the trial dump also proves the
         # client is built against libzstd, not only that it exists. A real
         # file, not /dev/null: pg_dump fsyncs its output and a device fails that.
+        # The major version is asserted too, so a runner image that moves the
+        # client off 16 names itself here (see runs-on above).
         run: |
           pg_dump --version && pg_restore --version
+          pg_dump --version | grep -q ' 16\.' && pg_restore --version | grep -q ' 16\.'
           pg_dump --format=custom --compress=zstd:1 --schema-only --file="$RUNNER_TEMP/zstd-probe.dump" "postgres://modelhotel:${{ env.POSTGRES_PASSWORD }}@localhost:5433/testdb?sslmode=disable"
           rm -f "$RUNNER_TEMP/zstd-probe.dump"
 
@@ -173,7 +180,8 @@ jobs:
     name: Go Race
     needs: changes
     if: needs.changes.outputs.go != 'false' || needs.changes.outputs.gorace != 'false'
-    runs-on: ubuntu-latest
+    # Pinned for the PostgreSQL 16 client tools; see the Go Test job.
+    runs-on: ubuntu-24.04
     strategy:
       fail-fast: false
       matrix:
@@ -206,7 +214,9 @@ jobs:
       # runner image already ships them (see the Go Test job for why nothing
       # is installed here).
       - name: Check pg_dump / pg_restore are present for backup tests
-        run: pg_dump --version && pg_restore --version
+        run: |
+          pg_dump --version && pg_restore --version
+          pg_dump --version | grep -q ' 16\.' && pg_restore --version | grep -q ' 16\.'
 
       # Cheap and source-only: proves every test lands on exactly one shard
       # before the shard trusts its plan.
