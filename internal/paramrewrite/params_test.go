@@ -157,6 +157,13 @@ func TestParseProviderParamError_ValueRangeComplaintTeachesNothing(t *testing.T)
 		"Input validation error: `frequency_penalty` must be >= -2.0 and <= 2.0",
 		// vLLM
 		`'max_tokens' or 'max_completion_tokens' is too large: 32000. This model's maximum context length is 8192 tokens and your request has 20 input tokens (32000 > 8192 - 20).`,
+		// The unquoted "invalid <param>:" form counts only with "only": a
+		// range after it is the caller's value.
+		`invalid temperature: must be in [0, 2]`,
+		`invalid temperature: 3 is out of range`,
+		// A path into a message that is not its name, and a longer field.
+		`messages[1].content: must not be empty`,
+		`messages[1].name_suffix: unknown field`,
 	} {
 		body := []byte(`{"error":{"message":` + fmt.Sprintf("%q", msg) + `,"type":"invalid_request_error"}}`)
 		if rejected := ParseProviderParamError(body); len(rejected) != 0 {
@@ -270,6 +277,13 @@ func TestParseProviderParamError_ParamRefusalStillLearned(t *testing.T) {
 		{`temperature and top_p cannot both be specified for this model.`, []string{"top_p"}},
 		// The injected chat_template_args, refused without quotes.
 		{`Extra inputs are not permitted, field: chat_template_args`, []string{"chat_template_args"}},
+		// Kimi K3.1 Pro on OpenCode Go (2026-11-11): one allowed value, the
+		// param unquoted, behind OpenCode's wrapper text.
+		{`Upstream request failed: [invalid_request_error] invalid temperature: only 1 is allowed for this model`, []string{"temperature"}},
+		{`invalid top_p: only 0.95 is allowed for this model`, []string{"top_p"}},
+		// Gemini 4 Argon on OpenCode Go: a message's name, any role.
+		{`messages[2].name: google cannot preserve named conversation participants`, []string{MessageNameKey}},
+		{`messages[0].name: google cannot preserve named conversation participants`, []string{MessageNameKey}},
 	} {
 		body := []byte(`{"error":{"message":` + fmt.Sprintf("%q", tc.msg) + `}}`)
 		got := slices.Sorted(maps.Keys(ParseProviderParamError(body)))

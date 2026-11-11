@@ -63,7 +63,8 @@ func NeedsRewrite(providerType, modelID string) bool {
 //  7. Extra param stripping (additional rejected params, e.g. from 400 auto-retry)
 //     and, for the chat-completions builder only, the json_schema fallback for
 //     a provider that only serves JSON mode
-//  8. Message sanitization (drop empty tool_calls arrays; for TabbyAPI, an
+//  8. Message sanitization (drop empty tool_calls arrays; drop every message's
+//     name once a 400 has refused one (MessageNameKey); for TabbyAPI, an
 //     assistant turn's null or missing content becomes "")
 //
 // Injection (step 3) runs before all stripping (steps 5-7) so that a param a
@@ -202,6 +203,9 @@ func buildUpstreamBody(
 
 	// 8. Message sanitization
 	stripEmptyToolCalls(raw)
+	if cached[MessageNameKey] || extraStrip[MessageNameKey] {
+		stripMessageNames(raw)
+	}
 	if providerType == "tabbyapi" {
 		fillNullAssistantContent(raw)
 	}
@@ -255,6 +259,21 @@ func stripEmptyToolCalls(raw map[string]any) {
 		}
 		if tc, ok := msg["tool_calls"].([]any); ok && len(tc) == 0 {
 			delete(msg, "tool_calls")
+		}
+	}
+}
+
+// stripMessageNames removes the optional "name" from every message, for an
+// upstream that has refused one (see MessageNameKey). Only messages are
+// touched: a tool call's function name lives under tool_calls and is kept.
+func stripMessageNames(raw map[string]any) {
+	msgs, ok := raw["messages"].([]any)
+	if !ok {
+		return
+	}
+	for _, m := range msgs {
+		if msg, ok := m.(map[string]any); ok {
+			delete(msg, "name")
 		}
 	}
 }

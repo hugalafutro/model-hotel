@@ -9,6 +9,7 @@
 package paramrewrite
 
 import (
+	"regexp"
 	"slices"
 	"strings"
 	"sync"
@@ -195,7 +196,7 @@ var valueComplaintPhrases = []string{
 // the lead-in of "Invalid type for 'temperature'" in the sibling's window.
 func isValueComplaint(msg, param string) bool {
 	for _, window := range paramWindows(strings.ToLower(msg), param) {
-		for _, sentence := range strings.Split(window, ". ") {
+		for sentence := range strings.SplitSeq(window, ". ") {
 			if !paramIsQuoted(sentence, param) {
 				continue
 			}
@@ -351,6 +352,31 @@ func paramIsQuoted(msg, param string) bool {
 	return false
 }
 
+// allowsOnlyOneValue reports whether lowerMsg, a lowercased error message,
+// refuses every value of param but one, in the unquoted form Moonshot's Kimi
+// models answer with: "invalid temperature: only 1 is allowed for this model".
+// The model then takes only its default, so the param is learned as a strip,
+// as with OpenAI's quoted "'temperature' does not support 0 with this model".
+// The whole "invalid <param>: only " lead-in is the anchor: a bare param name
+// is too common in prose, and an "invalid <param>:" followed by a range is the
+// caller's value, not the model refusing the param.
+func allowsOnlyOneValue(lowerMsg, param string) bool {
+	return strings.Contains(lowerMsg, "invalid "+param+": only ")
+}
+
+// MessageNameKey is the pseudo-param the learned caches carry for a model
+// whose upstream refuses the optional "name" on a message. OpenCode's
+// translation to Google models answers "messages[2].name: google cannot
+// preserve named conversation participants" whatever the role, and clients
+// such as LangChain put the function's name on every tool result. The name
+// only labels a participant, so dropping it keeps the conversation intact.
+const MessageNameKey = "messages[].name"
+
+// messageNamePath matches the JSON path a 400 points at when it refuses a
+// message's name. The trailing \b keeps "messages[0].name_prefix" or similar
+// from matching.
+var messageNamePath = regexp.MustCompile(`messages\[\d+\]\.name\b`)
+
 // quotedParams are the sampling/optional params providers commonly reject,
 // learned when a 400 names one wrapped in backticks or quotes (paramIsQuoted)
 // to avoid false positives from substring matching. Short/common words like
@@ -388,10 +414,14 @@ func ParseProviderParamError(body []byte) map[string]bool {
 	if strings.Contains(msg, "cannot both be specified") {
 		rejected["top_p"] = true
 	}
+	lowerMsg := strings.ToLower(msg)
 	for _, p := range quotedParams {
-		if paramIsQuoted(msg, p) {
+		if paramIsQuoted(msg, p) || allowsOnlyOneValue(lowerMsg, p) {
 			rejected[p] = true
 		}
+	}
+	if messageNamePath.MatchString(msg) {
+		rejected[MessageNameKey] = true
 	}
 	// One refused enum value is the caller's choice, not the model's verdict on
 	// the param: learning it as a strip would turn every later low/medium/high
