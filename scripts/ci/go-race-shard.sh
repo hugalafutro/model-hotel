@@ -60,6 +60,19 @@ tests_in() {
 		sed -E 's/^func //; s/\($//' | { grep -vx 'TestMain' || [ $? -eq 1 ]; } | sort -u
 }
 
+# has GREP-ARGS... is `grep -q` for a condition: true on a match, false on none,
+# and the end of the run when grep itself fails. Inside an `if`, a bare grep
+# that cannot read its file is indistinguishable from one that found nothing.
+has() {
+	local rc=0
+	grep -q "$@" || rc=$?
+	if [ "$rc" -gt 1 ]; then
+		echo "FAIL: grep $* exited $rc" >&2
+		exit 1
+	fi
+	return "$rc"
+}
+
 # plan SHARD TOTAL prints "heavy DIR NAME" and "light DIR" lines for the shard.
 plan() {
 	local shard=$1 total=$2 i=0 dir n pkgs
@@ -90,20 +103,20 @@ check() {
 	pkgs=$(packages)
 	while read -r dir; do
 		want=$(tests_in "$dir" | wc -l)
-		if grep -qx "light $dir" "$tmp/all"; then
+		if has -x "light $dir" "$tmp/all"; then
 			got=$(grep -cx "light $dir" "$tmp/all")
 			if [ "$got" -ne 1 ]; then
 				echo "FAIL: $dir runs whole on $got shards" >&2
 				failed=1
 			fi
-			if grep -q "^heavy $dir " "$tmp/all"; then
+			if has "^heavy $dir " "$tmp/all"; then
 				echo "FAIL: $dir is both whole and split" >&2
 				failed=1
 			fi
 		else
-			got=$(grep "^heavy $dir " "$tmp/all" | awk '{print $3}' | sort | uniq | wc -l)
+			got=$(awk -v d="$dir" '$1 == "heavy" && $2 == d { print $3 }' "$tmp/all" | sort | uniq | wc -l)
 			local dup
-			dup=$(grep "^heavy $dir " "$tmp/all" | awk '{print $3}' | sort | uniq -d | wc -l)
+			dup=$(awk -v d="$dir" '$1 == "heavy" && $2 == d { print $3 }' "$tmp/all" | sort | uniq -d | wc -l)
 			if [ "$got" -ne "$want" ] || [ "$dup" -ne 0 ]; then
 				echo "FAIL: $dir split covers $got of $want tests, $dup twice" >&2
 				failed=1
@@ -154,7 +167,7 @@ run() {
 	done
 	for dir in $heavy_dirs; do
 		# go's own summary line, so a test that prints the phrase cannot match.
-		if grep -qE '^ok[[:space:]].*\[no tests to run\]$' "$tmp/$dir/out"; then
+		if has -E '^ok[[:space:]].*\[no tests to run\]$' "$tmp/$dir/out"; then
 			echo "FAIL: ./$dir ran no tests on shard $shard/$total: its -run pattern matched nothing" >&2
 			status=1
 		fi

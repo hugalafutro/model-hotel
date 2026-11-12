@@ -3,9 +3,12 @@
 package paramrewrite
 
 import (
+	"encoding/json"
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/hugalafutro/model-hotel/internal/util"
 )
 
 // This file is left out of race builds: the test is one goroutine timing pure
@@ -22,7 +25,14 @@ import (
 // linear, sixteen when quadratic.
 func TestParseProviderParamError_CostGrowsLinearly(t *testing.T) {
 	parse := func(unit string, size int) time.Duration {
-		body := []byte(`{"error":{"message":"` + strings.Repeat(unit, size/len(unit)) + `"}}`)
+		msg, err := json.Marshal(strings.Repeat(unit, size/len(unit)))
+		if err != nil {
+			t.Fatal(err)
+		}
+		body := []byte(`{"error":{"message":` + string(msg) + `}}`)
+		if util.ErrorEnvelopeMessage(body) == "" {
+			t.Fatalf("%q: the body carries no error message, so no rule would run", unit)
+		}
 		best := time.Duration(1<<63 - 1)
 		for range 3 {
 			start := time.Now()
