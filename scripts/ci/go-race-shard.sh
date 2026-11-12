@@ -23,6 +23,10 @@
 #   scripts/ci/go-race-shard.sh --plan SHARD TOTAL print what the shard runs
 #   scripts/ci/go-race-shard.sh --check TOTAL      prove the split is a partition
 set -euo pipefail
+# Command substitutions drop errexit unless told to keep it, and every caller
+# reads tests_in and plan through one: without this a failure inside them is
+# an empty result.
+shopt -s inherit_errexit
 
 cd "$(dirname "${BASH_SOURCE[0]}")/../.."
 
@@ -42,7 +46,12 @@ packages() {
 # //go:build linux one kept) and reads sources only, never running a TestMain.
 tests_in() {
 	local files
-	files=$(go list -race -f '{{range .TestGoFiles}}{{$.Dir}}/{{.}} {{end}}{{range .XTestGoFiles}}{{$.Dir}}/{{.}} {{end}}' "./$1")
+	# A package go list cannot load is a failure, not a package without tests:
+	# read as empty, it would let --check prove a partition of zero tests.
+	if ! files=$(go list -race -f '{{range .TestGoFiles}}{{$.Dir}}/{{.}} {{end}}{{range .XTestGoFiles}}{{$.Dir}}/{{.}} {{end}}' "./$1"); then
+		echo "FAIL: go list -race could not load ./$1" >&2
+		return 1
+	fi
 	[ -n "$files" ] || return 0
 	# shellcheck disable=SC2086 # one argument per file; paths hold no spaces
 	grep -hoE '^func (Test|Example|Fuzz)[A-Za-z0-9_]*\(' $files |
