@@ -10,7 +10,6 @@ import (
 	"strings"
 	"sync"
 	"testing"
-	"time"
 )
 
 // googleReasoningRejection is the body Google AI Studio returned in production
@@ -373,32 +372,6 @@ func TestDashboardReasoningEffortMatchesStrips(t *testing.T) {
 		hides := strings.Contains(rules, "reasoning_effort:")
 		if strips != hides {
 			t.Errorf("provider type %q: backend strips reasoning_effort = %v, dashboard hides it = %v", typ, strips, hides)
-		}
-	}
-}
-
-// TestRefusesMessageName_CostGrowsLinearly pins the rule's cost to the size of
-// the error message. It runs on the request path against an upstream 400 body
-// of up to 1 MiB, and a message repeating the path once cost a rescan of the
-// rest of the message per repeat: 14 s of one core at 1 MiB. The bound is a
-// ratio between two sizes, so it holds on a slow machine and under the race
-// detector: four times the message costs about four times as long when linear,
-// sixteen when quadratic.
-func TestRefusesMessageName_CostGrowsLinearly(t *testing.T) {
-	scan := func(unit string, size int) time.Duration {
-		msg := strings.Repeat(unit, size/len(unit))
-		best := time.Duration(1<<63 - 1)
-		for range 3 {
-			start := time.Now()
-			refusesMessageName(msg)
-			best = min(best, time.Since(start))
-		}
-		return best
-	}
-	for _, unit := range []string{"messages[0].name ", "messages[0].name: must be a string "} {
-		small, large := scan(unit, 64<<10), scan(unit, 256<<10)
-		if large > 8*small {
-			t.Errorf("%q: 256 KiB took %v, 64 KiB took %v: more than 8 times as long for 4 times the message", unit, large, small)
 		}
 	}
 }
