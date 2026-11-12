@@ -352,8 +352,8 @@ func paramIsQuoted(msg, param string) bool {
 	return false
 }
 
-// allowsOnlyOneValue reports whether lowerMsg, a lowercased error message,
-// refuses every value of param but one, in the unquoted form Moonshot's Kimi
+// onlyOneValueParams returns the params lowerMsg, a lowercased error message,
+// refuses every value of but one, in the unquoted form Moonshot's Kimi
 // models answer with: "invalid temperature: only 1 is allowed for this model".
 // The model then takes only its default, so the param is learned as a strip,
 // as with OpenAI's quoted "'temperature' does not support 0 with this model".
@@ -361,16 +361,22 @@ func paramIsQuoted(msg, param string) bool {
 // allowed": a bare param name is too common in prose, and anything else after
 // "invalid <param>:" ("only values in the range [0, 2] are allowed", "must be
 // in [0, 2]") is about the caller's value, not the model refusing the param.
-func allowsOnlyOneValue(lowerMsg, param string) bool {
+//
+// The result is every param the message refuses that way, read in one pass
+// over the message: the parser runs on the request path against a body of up
+// to 1 MiB, so the scan is not repeated per candidate param.
+func onlyOneValueParams(lowerMsg string) map[string]bool {
+	var params map[string]bool
 	for _, m := range onlyOneValue.FindAllStringSubmatch(lowerMsg, -1) {
-		if m[1] == param {
-			return true
+		if params == nil {
+			params = make(map[string]bool)
 		}
+		params[m[1]] = true
 	}
-	return false
+	return params
 }
 
-// onlyOneValue is the Kimi sentence allowsOnlyOneValue reads, capturing the
+// onlyOneValue is the Kimi sentence onlyOneValueParams reads, capturing the
 // param name. It has to be a whole sentence of its own: start the message,
 // or follow a sentence end, a newline, a wrapper's colon ("Upstream request
 // failed: invalid ...") or a bracketed error type ("[invalid_request_error]
@@ -404,9 +410,14 @@ var messageNameRefusals = []string{
 	"field is not supported",
 }
 
-// messageNameClauseEnds are where the clause about one path stops: a joined
-// error, a new sentence, or the next message path.
-var messageNameClauseEnds = []string{";", "\n", ". ", "messages["}
+// messageNameClauseEnds are where the clause about one path stops: the next
+// message path, a joined error, or a new sentence. The next message path comes
+// first on purpose: every later match of messageNamePath starts with it, so
+// cutting there first bounds each clause by the next match and the searches
+// for the other ends stay inside that clause. In any other order a message
+// repeating the path with no other end in it is scanned to its end once per
+// match, quadratic in a body of up to 1 MiB on the request path.
+var messageNameClauseEnds = []string{"messages[", ";", "\n", ". "}
 
 // refusesMessageName reports whether msg refuses a message's name: the path
 // names it, and its own clause, the text after it up to the next joined error
@@ -466,9 +477,9 @@ func ParseProviderParamError(body []byte) map[string]bool {
 	if strings.Contains(msg, "cannot both be specified") {
 		rejected["top_p"] = true
 	}
-	lowerMsg := strings.ToLower(msg)
+	onlyOne := onlyOneValueParams(strings.ToLower(msg))
 	for _, p := range quotedParams {
-		if paramIsQuoted(msg, p) || allowsOnlyOneValue(lowerMsg, p) {
+		if paramIsQuoted(msg, p) || onlyOne[p] {
 			rejected[p] = true
 		}
 	}

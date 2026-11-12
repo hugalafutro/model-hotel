@@ -23,6 +23,10 @@
 #   scripts/ci/go-race-shard.sh --plan SHARD TOTAL print what the shard runs
 #   scripts/ci/go-race-shard.sh --check TOTAL      prove the split is a partition
 set -euo pipefail
+# Command substitutions drop errexit unless told to keep it, and every caller
+# reads tests_in and plan through one: without this a failure inside them is
+# an empty result.
+shopt -s inherit_errexit
 
 cd "$(dirname "${BASH_SOURCE[0]}")/../.."
 
@@ -42,16 +46,39 @@ packages() {
 # //go:build linux one kept) and reads sources only, never running a TestMain.
 tests_in() {
 	local files
-	files=$(go list -race -f '{{range .TestGoFiles}}{{$.Dir}}/{{.}} {{end}}{{range .XTestGoFiles}}{{$.Dir}}/{{.}} {{end}}' "./$1")
+	# A package go list cannot load is a failure, not a package without tests:
+	# read as empty, it would let --check prove a partition of zero tests.
+	if ! files=$(go list -race -f '{{range .TestGoFiles}}{{$.Dir}}/{{.}} {{end}}{{range .XTestGoFiles}}{{$.Dir}}/{{.}} {{end}}' "./$1"); then
+		echo "FAIL: go list -race could not load ./$1" >&2
+		return 1
+	fi
 	[ -n "$files" ] || return 0
 	# shellcheck disable=SC2086 # one argument per file; paths hold no spaces
-	grep -hoE '^func (Test|Example|Fuzz)[A-Za-z0-9_]*\(' $files |
-		sed -E 's/^func //; s/\($//' | grep -vx 'TestMain' | sort -u || true
+	# grep exits 1 when nothing matches, which is a package whose test files
+	# hold only helpers, or only a TestMain. Anything else is a real failure.
+	{ grep -hoE '^func (Test|Example|Fuzz)[A-Za-z0-9_]*\(' $files || [ $? -eq 1 ]; } |
+		sed -E 's/^func //; s/\($//' | { grep -vx 'TestMain' || [ $? -eq 1 ]; } | sort -u
+}
+
+# has GREP-ARGS... is `grep -q` for a condition: true on a match, false on none,
+# and the end of the run when grep itself fails. Inside an `if`, a bare grep
+# that cannot read its file is indistinguishable from one that found nothing.
+has() {
+	local rc=0
+	grep -q "$@" || rc=$?
+	if [ "$rc" -gt 1 ]; then
+		echo "FAIL: grep $* exited $rc" >&2
+		exit 1
+	fi
+	return "$rc"
 }
 
 # plan SHARD TOTAL prints "heavy DIR NAME" and "light DIR" lines for the shard.
 plan() {
-	local shard=$1 total=$2 i=0 dir n
+	local shard=$1 total=$2 i=0 dir n pkgs
+	# Listed into a variable first: a loop reading a process substitution would
+	# not see packages fail and would plan whatever part of the list it got.
+	pkgs=$(packages)
 	while read -r dir; do
 		n=$(tests_in "$dir" | wc -l)
 		if [ "$n" -gt "$HEAVY_MIN" ]; then
@@ -63,7 +90,7 @@ plan() {
 			fi
 			i=$((i + 1))
 		fi
-	done < <(packages)
+	done <<<"$pkgs"
 }
 
 check() {
@@ -72,30 +99,31 @@ check() {
 	tmp=$(mktemp -d)
 	trap 'rm -rf "$tmp"' RETURN
 	for shard in $(seq 1 "$total"); do plan "$shard" "$total"; done >"$tmp/all"
-	local failed=0
+	local failed=0 pkgs
+	pkgs=$(packages)
 	while read -r dir; do
 		want=$(tests_in "$dir" | wc -l)
-		if grep -qx "light $dir" "$tmp/all"; then
+		if has -x "light $dir" "$tmp/all"; then
 			got=$(grep -cx "light $dir" "$tmp/all")
 			if [ "$got" -ne 1 ]; then
 				echo "FAIL: $dir runs whole on $got shards" >&2
 				failed=1
 			fi
-			if grep -q "^heavy $dir " "$tmp/all"; then
+			if has "^heavy $dir " "$tmp/all"; then
 				echo "FAIL: $dir is both whole and split" >&2
 				failed=1
 			fi
 		else
-			got=$(grep "^heavy $dir " "$tmp/all" | awk '{print $3}' | sort | uniq | wc -l)
+			got=$(awk -v d="$dir" '$1 == "heavy" && $2 == d { print $3 }' "$tmp/all" | sort | uniq | wc -l)
 			local dup
-			dup=$(grep "^heavy $dir " "$tmp/all" | awk '{print $3}' | sort | uniq -d | wc -l)
+			dup=$(awk -v d="$dir" '$1 == "heavy" && $2 == d { print $3 }' "$tmp/all" | sort | uniq -d | wc -l)
 			if [ "$got" -ne "$want" ] || [ "$dup" -ne 0 ]; then
 				echo "FAIL: $dir split covers $got of $want tests, $dup twice" >&2
 				failed=1
 			fi
 		fi
-	done < <(packages)
-	[ "$failed" -eq 0 ] && echo "ok: $(packages | wc -l) packages, split $total ways, every test exactly once"
+	done <<<"$pkgs"
+	[ "$failed" -eq 0 ] && echo "ok: $(wc -l <<<"$pkgs") packages, split $total ways, every test exactly once"
 	return "$failed"
 }
 
@@ -139,7 +167,7 @@ run() {
 	done
 	for dir in $heavy_dirs; do
 		# go's own summary line, so a test that prints the phrase cannot match.
-		if grep -qE '^ok[[:space:]].*\[no tests to run\]$' "$tmp/$dir/out"; then
+		if has -E '^ok[[:space:]].*\[no tests to run\]$' "$tmp/$dir/out"; then
 			echo "FAIL: ./$dir ran no tests on shard $shard/$total: its -run pattern matched nothing" >&2
 			status=1
 		fi
