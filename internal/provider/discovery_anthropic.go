@@ -47,11 +47,14 @@ func (d *DiscoveryService) discoverAnthropic(ctx context.Context, provider *Prov
 
 		allModels = append(allModels, pageResp.Data...)
 
-		if !pageResp.HasMore || len(pageResp.Data) == 0 {
+		// has_more alone ends the walk. An empty page that still reports more
+		// goes through the cursor check like any other, so it cannot pass for
+		// the end of the listing.
+		if !pageResp.HasMore {
 			break
 		}
 		if err := cursors.advance(pageResp.LastID); err != nil {
-			debuglog.Error("discovery: anthropic pagination failed", "provider", provider.Name, "provider_id", provider.ID, "pages", len(cursors)+1, "error", err)
+			debuglog.Error("discovery: anthropic pagination failed", "provider", provider.Name, "provider_id", provider.ID, "pages", len(cursors)+1, "cursor", cursorForLog(pageResp.LastID), "error", err)
 			return nil, fmt.Errorf("failed to page models: %w", err)
 		}
 		afterID = pageResp.LastID

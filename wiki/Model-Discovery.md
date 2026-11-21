@@ -361,7 +361,7 @@ For a `custom` provider (any other OpenAI-compatible server, as the dashboard st
 
 **Source files:** `discovery_anthropic.go`
 
-**Method:** Calls `GET /v1/models?limit=100` with pagination (using an `after_id` cursor) to list all models. The walk stops with an error, and the scan fails, if the listing reports more pages without a cursor, repeats a cursor, or runs past 100 pages: a partial listing would disable the models on the pages never read. The Anthropic API returns rich capability metadata per model but no prices; those come from models.dev's canonical `anthropic` entry at enrichment, which matches a date-suffixed id (e.g. `claude-sonnet-4-5-20250514`) to its undated family row. There is no Anthropic price catalog.
+**Method:** Calls `GET /v1/models?limit=100` with pagination (using an `after_id` cursor) to list all models. The walk stops with an error, and the scan fails, if the listing reports more pages without a cursor, repeats a cursor, or runs past 100 pages: a partial listing would count the models on the unread pages as missing, and repeated scans disable a missing model. An empty page that still reports more pages is checked the same way. The Anthropic API returns rich capability metadata per model but no prices; those come from models.dev's canonical `anthropic` entry at enrichment, which matches a date-suffixed id (e.g. `claude-sonnet-4-5-20250514`) to its undated family row. There is no Anthropic price catalog.
 
 **API-provided fields:**
 
@@ -809,7 +809,7 @@ Prices (input, cache-hit, output) come from models.dev enrichment (see **Pricing
 
 **Source files:** `discovery_cohere.go`, `cohere_catalog.go`
 
-**Method:** Calls Cohere's native `/v1/models` with pagination (`?endpoint=chat`, then `?endpoint=rerank`, 100 per page), and skips models the API marks `is_deprecated: true`. A repeated page token or a listing longer than 100 pages fails that fetch instead of looping. Rerank models are listed so the Models page can show them and the proxy's `/v1/rerank` passthrough can route them; a rerank fetch that fails leaves the chat models in place rather than failing the scan. The listing carries no prices. The built-in `cohere.json` catalog is a pricing override channel: 2 per-token rows (`c4ai-aya-expanse-32b`, `c4ai-aya-vision-32b`) and the 5 rerank models, which models.dev does not price, at their per-search price; every other model takes its price from models.dev enrichment.
+**Method:** Calls Cohere's native `/v1/models` with pagination (`?endpoint=chat`, then `?endpoint=rerank`, 100 per page), and skips models the API marks `is_deprecated: true`. A repeated page token or a listing longer than 100 pages fails the scan instead of looping, for the rerank listing too. Rerank models are listed so the Models page can show them and the proxy's `/v1/rerank` passthrough can route them; a rerank fetch that fails for any other reason leaves the chat models in place rather than failing the scan. The listing carries no prices. The built-in `cohere.json` catalog is a pricing override channel: 2 per-token rows (`c4ai-aya-expanse-32b`, `c4ai-aya-vision-32b`) and the 5 rerank models, which models.dev does not price, at their per-search price; every other model takes its price from models.dev enrichment.
 
 **API-provided fields:**
 

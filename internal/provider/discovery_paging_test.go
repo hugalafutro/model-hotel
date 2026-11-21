@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"sync/atomic"
 	"testing"
 
@@ -229,5 +230,80 @@ func TestDiscoverCohere_EscapesPageToken(t *testing.T) {
 	}
 	if second != token {
 		t.Errorf("expected the second request to carry page_token %q, got %q", token, second)
+	}
+}
+
+func TestCursorForLog(t *testing.T) {
+	t.Parallel()
+
+	if got := cursorForLog("a\nb"); got != `"a\nb"` {
+		t.Errorf("control character not quoted: %s", got)
+	}
+	long := strings.Repeat("x", 200)
+	if got, want := cursorForLog(long), `"`+long[:64]+`"`; got != want {
+		t.Errorf("got %d characters, want the first 64 quoted", len(got))
+	}
+}
+
+// An empty page that still reports more pages is not the end of the listing:
+// taken as one, it would return the pages read so far as the whole catalogue.
+func TestAnthropicDiscovery_EmptyPageWithMore(t *testing.T) {
+	t.Parallel()
+
+	var calls atomic.Int32
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		if calls.Add(1) == 1 {
+			_ = json.NewEncoder(w).Encode(map[string]any{
+				"data":     []map[string]any{{"id": "model-1", "type": "model"}},
+				"has_more": true,
+				"last_id":  "model-1",
+			})
+			return
+		}
+		_ = json.NewEncoder(w).Encode(map[string]any{"data": []map[string]any{}, "has_more": true})
+	}))
+	defer server.Close()
+
+	svc := NewDiscoveryService(nil, nil)
+	models, err := svc.discoverAnthropic(context.Background(), &Provider{ID: uuid.New(), BaseURL: server.URL}, "test-key")
+	if !errors.Is(err, errPageCursorMissing) {
+		t.Fatalf("got error %v, want errPageCursorMissing", err)
+	}
+	if models != nil {
+		t.Errorf("expected no models, got %d", len(models))
+	}
+	if got := calls.Load(); got != 2 {
+		t.Errorf("expected 2 requests, got %d", got)
+	}
+}
+
+// A rerank fetch that fails keeps the chat models, but a rerank listing whose
+// paging cannot be followed fails the scan.
+func TestDiscoverCohere_RerankRepeatedPageToken(t *testing.T) {
+	t.Parallel()
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		if r.URL.Query().Get("endpoint") == "chat" {
+			_ = json.NewEncoder(w).Encode(CohereModelsResponse{
+				Models: []CohereNativeModel{{Name: "command-r", Endpoints: []string{"chat"}}},
+			})
+			return
+		}
+		_ = json.NewEncoder(w).Encode(CohereModelsResponse{
+			Models:        []CohereNativeModel{{Name: "rerank-v4", Endpoints: []string{"rerank"}}},
+			NextPageToken: "same",
+		})
+	}))
+	defer server.Close()
+
+	service := &DiscoveryService{httpClient: server.Client()}
+	models, err := service.discoverCohere(context.Background(), &Provider{ID: uuid.New(), BaseURL: server.URL}, "test-api-key")
+	if !errors.Is(err, errPageCursorRepeated) {
+		t.Fatalf("got error %v, want errPageCursorRepeated", err)
+	}
+	if models != nil {
+		t.Errorf("expected no models on a rerank paging fault, got %d", len(models))
 	}
 }
