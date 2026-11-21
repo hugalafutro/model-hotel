@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"net/url"
 	"slices"
 
 	"github.com/google/uuid"
@@ -53,13 +54,14 @@ func (d *DiscoveryService) fetchCohereModels(ctx context.Context, provider *Prov
 
 	// Paginate through all model pages
 	pageToken := ""
+	cursors := pageCursors{}
 	for {
-		url := fmt.Sprintf("%s/v1/models?endpoint=%s&page_size=100", nativeBaseURL, endpoint)
+		pageURL := fmt.Sprintf("%s/v1/models?endpoint=%s&page_size=100", nativeBaseURL, endpoint)
 		if pageToken != "" {
-			url += "&page_token=" + pageToken
+			pageURL += "&page_token=" + url.QueryEscape(pageToken)
 		}
 
-		bodyBytes, err := d.fetchURL(ctx, "GET", url, headers)
+		bodyBytes, err := d.fetchURL(ctx, "GET", pageURL, headers)
 		if err != nil {
 			debuglog.Error("discovery: cohere http request failed", "provider", provider.Name, "provider_id", provider.ID, "endpoint", endpoint, "error", err)
 			return nil, fmt.Errorf("failed to fetch models: %w", err)
@@ -83,6 +85,10 @@ func (d *DiscoveryService) fetchCohereModels(ctx context.Context, provider *Prov
 		// Check for next page
 		if cohereResp.NextPageToken == "" {
 			break
+		}
+		if err := cursors.advance(cohereResp.NextPageToken); err != nil {
+			debuglog.Error("discovery: cohere pagination failed", "provider", provider.Name, "provider_id", provider.ID, "endpoint", endpoint, "pages", len(cursors)+1, "error", err)
+			return nil, fmt.Errorf("failed to page models: %w", err)
 		}
 		pageToken = cohereResp.NextPageToken
 	}

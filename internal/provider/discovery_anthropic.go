@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"net/url"
 
 	"github.com/google/uuid"
 
@@ -24,14 +25,15 @@ func (d *DiscoveryService) discoverAnthropic(ctx context.Context, provider *Prov
 
 	var allModels []AnthropicModelInfo
 	afterID := ""
+	cursors := pageCursors{}
 
 	for {
-		url := baseURL + "/v1/models?limit=100"
+		pageURL := baseURL + "/v1/models?limit=100"
 		if afterID != "" {
-			url += "&after_id=" + afterID
+			pageURL += "&after_id=" + url.QueryEscape(afterID)
 		}
 
-		bodyBytes, err := d.fetchURL(ctx, "GET", url, headers)
+		bodyBytes, err := d.fetchURL(ctx, "GET", pageURL, headers)
 		if err != nil {
 			debuglog.Error("discovery: anthropic fetch models failed", "provider", provider.Name, "provider_id", provider.ID, "error", err)
 			return nil, fmt.Errorf("failed to fetch models: %w", err)
@@ -47,6 +49,10 @@ func (d *DiscoveryService) discoverAnthropic(ctx context.Context, provider *Prov
 
 		if !pageResp.HasMore || len(pageResp.Data) == 0 {
 			break
+		}
+		if err := cursors.advance(pageResp.LastID); err != nil {
+			debuglog.Error("discovery: anthropic pagination failed", "provider", provider.Name, "provider_id", provider.ID, "pages", len(cursors)+1, "error", err)
+			return nil, fmt.Errorf("failed to page models: %w", err)
 		}
 		afterID = pageResp.LastID
 	}
