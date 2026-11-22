@@ -39,13 +39,6 @@ var officialHomepages = map[string]string{
 	"vertex-express":     "https://cloud.google.com/vertex-ai",
 }
 
-// listedEndpointHomepages pins the hosted services README.md lists that have
-// no provider type, and so no dashboard card: each is entered by hand as an
-// OpenAI or Anthropic Messages endpoint.
-var listedEndpointHomepages = map[string]string{
-	"a2agent": "https://a2agent.me",
-}
-
 // The dashboard's provider cards link exactly the pinned addresses, one per
 // type, with nothing extra and nothing missing.
 func TestDashboardHomepagesAreTheOfficialAddresses(t *testing.T) {
@@ -95,9 +88,6 @@ func TestReadmeProviderLinksAreTheOfficialAddresses(t *testing.T) {
 	}
 	official := map[string]bool{}
 	for _, u := range officialHomepages {
-		official[u] = true
-	}
-	for _, u := range listedEndpointHomepages {
 		official[u] = true
 	}
 	for u := range listed {
