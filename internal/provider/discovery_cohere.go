@@ -3,7 +3,9 @@ package provider
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
+	"net/url"
 	"slices"
 
 	"github.com/google/uuid"
@@ -33,7 +35,14 @@ func (d *DiscoveryService) discoverCohere(ctx context.Context, provider *Provide
 	// Rerank models live behind the same models API under a separate endpoint
 	// filter and are served by the proxy's /v1/rerank passthrough. A failure
 	// here degrades gracefully: chat discovery already succeeded, so keep it.
+	// A paging fault is the exception: the listing answered and cannot be
+	// followed, which no later scan repairs, so the scan fails rather than
+	// counting every rerank model as missing.
 	rerankModels, err := d.fetchCohereModels(ctx, provider, apiKey, nativeBaseURL, "rerank", pricingCatalog)
+	var fault pagingError
+	if errors.As(err, &fault) {
+		return nil, err
+	}
 	if err != nil {
 		debuglog.Warn("discovery: cohere rerank model fetch failed, keeping chat models", "provider", provider.Name, "provider_id", provider.ID, "error", err)
 	} else {
@@ -53,13 +62,14 @@ func (d *DiscoveryService) fetchCohereModels(ctx context.Context, provider *Prov
 
 	// Paginate through all model pages
 	pageToken := ""
+	cursors := pageCursors{}
 	for {
-		url := fmt.Sprintf("%s/v1/models?endpoint=%s&page_size=100", nativeBaseURL, endpoint)
+		pageURL := fmt.Sprintf("%s/v1/models?endpoint=%s&page_size=100", nativeBaseURL, endpoint)
 		if pageToken != "" {
-			url += "&page_token=" + pageToken
+			pageURL += "&page_token=" + url.QueryEscape(pageToken)
 		}
 
-		bodyBytes, err := d.fetchURL(ctx, "GET", url, headers)
+		bodyBytes, err := d.fetchURL(ctx, "GET", pageURL, headers)
 		if err != nil {
 			debuglog.Error("discovery: cohere http request failed", "provider", provider.Name, "provider_id", provider.ID, "endpoint", endpoint, "error", err)
 			return nil, fmt.Errorf("failed to fetch models: %w", err)
@@ -83,6 +93,10 @@ func (d *DiscoveryService) fetchCohereModels(ctx context.Context, provider *Prov
 		// Check for next page
 		if cohereResp.NextPageToken == "" {
 			break
+		}
+		if err := cursors.advance(cohereResp.NextPageToken); err != nil {
+			debuglog.Error("discovery: cohere pagination failed", "provider", provider.Name, "provider_id", provider.ID, "endpoint", endpoint, "pages", len(cursors)+1, "cursor", cursorForLog(cohereResp.NextPageToken), "error", err)
+			return nil, fmt.Errorf("failed to page models: %w", err)
 		}
 		pageToken = cohereResp.NextPageToken
 	}
