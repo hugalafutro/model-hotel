@@ -4,7 +4,7 @@ import { budgetText } from "../budget";
 // A fake translator that renders the key with its values, so the assertion
 // is about which key and which values, not about English copy.
 const t = ((key: string, opts?: Record<string, unknown>) =>
-	opts ? `${key} ${JSON.stringify(opts)}` : key) as Parameters<
+	opts ? `${key} ${JSON.stringify(opts)}` : key) as unknown as Parameters<
 	typeof budgetText
 >[0];
 

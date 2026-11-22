@@ -344,7 +344,7 @@ describe("quota modal translation contract", () => {
 						kit={{
 							t: (key, opts) => {
 								asked.push([key, opts]);
-								return i18next.t(`quota.modal.${key}`, opts);
+								return Body.asTranslate(i18next.t)(`quota.modal.${key}`, opts);
 							},
 							time: { absolute: (iso) => iso ?? "-", relative: () => "" },
 							shell: ({ title, children }) => (

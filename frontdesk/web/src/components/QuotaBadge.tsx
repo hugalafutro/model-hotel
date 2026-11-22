@@ -1,5 +1,5 @@
 import { deepseekUsd, isQuotaPayloadSpent, windowPct } from "@web-shared/quota";
-import type { Translate } from "@web-shared/quota/modals";
+import { asTranslate, type Translate } from "@web-shared/quota/modals";
 import type { CSSProperties } from "react";
 import { useTranslation } from "react-i18next";
 import type {
@@ -213,7 +213,7 @@ export interface QuotaBadgeProps {
  */
 export function QuotaBadge({ model, barMode, onClick }: QuotaBadgeProps) {
 	const { t } = useTranslation();
-	const { label, title } = contentFor(model, barMode, t);
+	const { label, title } = contentFor(model, barMode, asTranslate(t));
 	// A degraded badge deliberately gets NO inline custom property: an inline
 	// declaration outranks any author rule, custom properties included, so
 	// emitting one here would make `.fd-quota-pill-degraded { --quota-brand: ... }`

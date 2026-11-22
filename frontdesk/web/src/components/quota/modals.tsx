@@ -29,7 +29,7 @@ function bind<P>(QuotaBody: ComponentType<Body.QuotaBodyProps<P>>) {
 				barMode={barMode}
 				fetchedAt={fetchedAt}
 				kit={{
-					t,
+					t: Body.asTranslate(t),
 					time: TIME,
 					shell: (head) => (
 						<QuotaModalShell

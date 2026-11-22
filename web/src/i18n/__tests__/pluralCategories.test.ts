@@ -124,11 +124,12 @@ describe("plural categories in the shipped catalogs", () => {
 });
 
 describe("what a missing plural category does at runtime", () => {
-	it("falls through to English when the locale has no form for the selected category", async () => {
+	it("uses the locale's own _other form when it has none for the selected category", async () => {
 		// The reason both the catalogs above and the i18n-check plural rule
-		// exist. Russian count=3 asks for _few, and en cannot supply one
-		// because English has no such category, so the operator reading the
-		// dashboard in Russian gets the English sentence instead.
+		// exist. Russian count=3 asks for _few; with none in the catalog,
+		// i18next answers with the Russian _other form, which is the wrong
+		// grammatical form for 3. It stays in the locale and does not fall
+		// through to English.
 		const i18n = createInstance();
 		await i18n.init({
 			lng: "ru",
@@ -147,6 +148,6 @@ describe("what a missing plural category does at runtime", () => {
 			},
 		});
 		expect(i18n.t("k", { count: 1 })).toBe("1 элемент");
-		expect(i18n.t("k", { count: 3 })).toBe("3 items");
+		expect(i18n.t("k", { count: 3 })).toBe("3 элемента");
 	});
 });

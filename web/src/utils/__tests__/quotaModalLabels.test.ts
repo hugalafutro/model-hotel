@@ -1,5 +1,6 @@
 import { barTone } from "@web-shared/quota";
 import {
+	asTranslate,
 	quotaRightText,
 	resetSublabel,
 	resetSublabelFromEpoch,
@@ -117,5 +118,20 @@ describe("resetSublabelFromEpoch", () => {
 		expect(resetSublabelFromEpoch(Date.parse(iso), stubT, time)).toBe(
 			`resets at ${iso}\nin ${iso}`,
 		);
+	});
+});
+
+describe("asTranslate", () => {
+	// i18next types an options argument as required once one is passed, so the
+	// adapter must call with the key alone when there are none.
+	it("passes options only when it was given some", () => {
+		const calls: unknown[][] = [];
+		const t = asTranslate((...args: [string, Record<string, unknown>?]) => {
+			calls.push(args);
+			return args[0];
+		});
+		expect(t("used")).toBe("used");
+		expect(t("resets", { when: "soon" })).toBe("resets");
+		expect(calls).toEqual([["used"], ["resets", { when: "soon" }]]);
 	});
 });

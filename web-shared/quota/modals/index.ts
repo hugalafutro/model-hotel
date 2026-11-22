@@ -4,6 +4,7 @@
 
 export { KimiCodeQuotaModal } from "./KimiCodeQuotaModal";
 export {
+	asTranslate,
 	type QuotaBodyProps,
 	type QuotaModalKit,
 	quotaRightText,
