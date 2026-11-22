@@ -264,8 +264,14 @@ describe("useArenaRunner abort", () => {
 			act(() => {
 				result.current.abortMapRef.current.get("0:0:A")?.abort();
 			});
-			feed?.enqueue(delta("late"));
-			feed?.close();
+			// The abort cancels the mocked body, so its controller may already be
+			// closed; a late delta then has nowhere to go, which is the point.
+			try {
+				feed?.enqueue(delta("late"));
+				feed?.close();
+			} catch {
+				// Stream already closed by the abort.
+			}
 			await waitFor(() =>
 				expect(result.current.abortMapRef.current.has("0:0:A")).toBe(false),
 			);

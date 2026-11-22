@@ -11,6 +11,21 @@ import { type QuotaBarMode, windowPct } from "../display";
  */
 export type Translate = (key: string, opts?: Record<string, unknown>) => string;
 
+/** A translator in i18next's shape: called with a key, or a key and options. */
+interface KeyedTranslator {
+	(key: string): string;
+	(key: string, opts: Record<string, unknown>): string;
+}
+
+/**
+ * asTranslate adapts i18next's `t` to a Translate. i18next types the options
+ * argument as required whenever one is passed, so its `t` does not fit the
+ * optional-options shape as is; this calls it with or without them.
+ */
+export function asTranslate(t: KeyedTranslator): Translate {
+	return (key, opts) => (opts ? t(key, opts) : t(key));
+}
+
 /** The app's own date formatting for an ISO instant. */
 export interface TimeFormat {
 	/** Date and time of day. */

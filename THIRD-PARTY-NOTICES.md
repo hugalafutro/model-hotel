@@ -36,7 +36,7 @@ The web UI embeds the JetBrains Mono, Onest, and Schibsted Grotesk typefaces, an
 | [github.com/grpc-ecosystem/grpc-gateway/v2](https://github.com/grpc-ecosystem/grpc-gateway/v2) | v2.30.0 | Go | BSD-3-Clause |
 | [github.com/jackc/pgpassfile](https://github.com/jackc/pgpassfile) | v1.0.0 | Go | MIT |
 | [github.com/jackc/pgservicefile](https://github.com/jackc/pgservicefile) | v0.0.0-20240606120523-5a60cdf6a761 | Go | MIT |
-| [github.com/jackc/pgx/v5](https://github.com/jackc/pgx/v5) | v5.12.0 | Go | MIT |
+| [github.com/jackc/pgx/v5](https://github.com/jackc/pgx/v5) | v5.13.0 | Go | MIT |
 | [github.com/jackc/puddle/v2](https://github.com/jackc/puddle/v2) | v2.2.3 | Go | MIT |
 | [github.com/joho/godotenv](https://github.com/joho/godotenv) | v1.5.1 | Go | MIT |
 | [github.com/munnerz/goautoneg](https://github.com/munnerz/goautoneg) | v0.0.0-20191010083416-a7dc8b61c822 | Go | BSD-3-Clause |
@@ -60,21 +60,21 @@ The web UI embeds the JetBrains Mono, Onest, and Schibsted Grotesk typefaces, an
 | [go.opentelemetry.io/otel/sdk/log](https://go.opentelemetry.io/otel/sdk/log) | v1.47.0 | Go | Apache-2.0 |
 | [go.opentelemetry.io/otel/trace](https://go.opentelemetry.io/otel/trace) | v1.47.0 | Go | Apache-2.0 |
 | [go.opentelemetry.io/proto/otlp](https://go.opentelemetry.io/proto/otlp) | v1.11.0 | Go | Apache-2.0 |
-| [golang.org/x/crypto](https://golang.org/x/crypto) | v0.58.0 | Go | BSD-3-Clause |
+| [golang.org/x/crypto](https://golang.org/x/crypto) | v0.59.0 | Go | BSD-3-Clause |
 | [golang.org/x/net](https://golang.org/x/net) | v0.62.0 | Go | BSD-3-Clause |
 | [golang.org/x/oauth2](https://golang.org/x/oauth2) | v0.38.0 | Go | BSD-3-Clause |
 | [golang.org/x/sync](https://golang.org/x/sync) | v0.25.0 | Go | BSD-3-Clause |
-| [golang.org/x/sys](https://golang.org/x/sys) | v0.49.0 | Go | BSD-3-Clause |
-| [golang.org/x/text](https://golang.org/x/text) | v0.43.0 | Go | BSD-3-Clause |
+| [golang.org/x/sys](https://golang.org/x/sys) | v0.50.0 | Go | BSD-3-Clause |
+| [golang.org/x/text](https://golang.org/x/text) | v0.44.0 | Go | BSD-3-Clause |
 | [golang.org/x/time](https://golang.org/x/time) | v0.16.0 | Go | BSD-3-Clause |
 | [google.golang.org/genproto/googleapis/api](https://google.golang.org/genproto/googleapis/api) | v0.0.0-20260928230214-8a89bd6388cc | Go | Apache-2.0 |
 | [google.golang.org/genproto/googleapis/rpc](https://google.golang.org/genproto/googleapis/rpc) | v0.0.0-20260928230214-8a89bd6388cc | Go | Apache-2.0 |
 | [google.golang.org/grpc](https://google.golang.org/grpc) | v1.83.2 | Go | Apache-2.0 |
 | [google.golang.org/protobuf](https://google.golang.org/protobuf) | v1.36.12 | Go | BSD-3-Clause |
-| [modernc.org/libc](https://modernc.org/libc) | v1.79.0 | Go | BSD-3-Clause |
+| [modernc.org/libc](https://modernc.org/libc) | v1.80.1 | Go | BSD-3-Clause |
 | [modernc.org/mathutil](https://modernc.org/mathutil) | v1.7.1 | Go | BSD-3-Clause |
 | [modernc.org/memory](https://modernc.org/memory) | v1.12.1 | Go | BSD-3-Clause |
-| [modernc.org/sqlite](https://modernc.org/sqlite) | v1.61.1 | Go | Apache-2.0 |
+| [modernc.org/sqlite](https://modernc.org/sqlite) | v1.62.0 | Go | Apache-2.0 |
 | [@babel/runtime](https://babel.dev/docs/en/next/babel-runtime) | 7.29.10 | npm | MIT |
 | [@dnd-kit/accessibility](https://github.com/clauderic/dnd-kit#readme) | 3.1.1 | npm | MIT |
 | [@dnd-kit/core](https://github.com/clauderic/dnd-kit#readme) | 6.3.1 | npm | MIT |
@@ -180,10 +180,10 @@ The web UI embeds the JetBrains Mono, Onest, and Schibsted Grotesk typefaces, an
 | [html-parse-stringify](https://github.com/i18next/html-parse-stringify) | 4.0.1 | npm | MIT |
 | [html-url-attributes](https://github.com/rehypejs/rehype-minify/tree/main#readme) | 3.0.1 | npm | MIT |
 | [html-void-elements](https://github.com/wooorm/html-void-elements#readme) | 3.0.0 | npm | MIT |
-| [i18next](https://www.i18next.com) | 26.7.2 | npm | MIT |
+| [i18next](https://www.i18next.com) | 27.1.1 | npm | MIT |
 | [i18next-browser-languagedetector](https://github.com/i18next/i18next-browser-languageDetector) | 8.3.0 | npm | MIT |
 | [immer](https://github.com/immerjs/immer#readme) | 11.1.15 | npm | MIT |
-| [immer](https://github.com/immerjs/immer#readme) | 11.2.9 | npm | MIT |
+| [immer](https://github.com/immerjs/immer#readme) | 11.2.10 | npm | MIT |
 | [inline-style-parser](https://github.com/remarkablemark/inline-style-parser#readme) | 0.2.7 | npm | MIT |
 | [internmap](https://github.com/mbostock/internmap/) | 2.0.3 | npm | ISC |
 | [is-alphabetical](https://github.com/wooorm/is-alphabetical#readme) | 2.0.1 | npm | MIT |
@@ -256,7 +256,7 @@ The web UI embeds the JetBrains Mono, Onest, and Schibsted Grotesk typefaces, an
 | [react](https://react.dev/) | 19.3.1 | npm | MIT |
 | [react-colorful](https://omgovich.github.io/react-colorful) | 5.8.1 | npm | MIT |
 | [react-dom](https://react.dev/) | 19.3.1 | npm | MIT |
-| [react-i18next](https://github.com/i18next/react-i18next) | 17.1.13 | npm | MIT |
+| [react-i18next](https://github.com/i18next/react-i18next) | 18.0.1 | npm | MIT |
 | [react-is](https://react.dev/) | 19.2.6 | npm | MIT |
 | [react-is](https://react.dev/) | 19.2.7 | npm | MIT |
 | [react-markdown](https://github.com/remarkjs/react-markdown#readme) | 10.1.0 | npm | MIT |
@@ -972,7 +972,7 @@ Apache License
 
 Copyright 2009 The Go Authors.
 
-Applies to: `golang.org/x/crypto@v0.58.0`, `golang.org/x/net@v0.62.0`, `golang.org/x/oauth2@v0.38.0`, `golang.org/x/sync@v0.25.0`, `golang.org/x/sys@v0.49.0`, `golang.org/x/text@v0.43.0`, `golang.org/x/time@v0.16.0`
+Applies to: `golang.org/x/crypto@v0.59.0`, `golang.org/x/net@v0.62.0`, `golang.org/x/oauth2@v0.38.0`, `golang.org/x/sync@v0.25.0`, `golang.org/x/sys@v0.50.0`, `golang.org/x/text@v0.44.0`, `golang.org/x/time@v0.16.0`
 
 ```
 Copyright 2009 The Go Authors.
@@ -1214,7 +1214,7 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
 
 Copyright (c) 2015-present i18next
 
-Applies to: `i18next-browser-languagedetector@8.3.0`, `react-i18next@17.1.13`
+Applies to: `i18next-browser-languagedetector@8.3.0`, `react-i18next@18.0.1`
 
 ```
 The MIT License (MIT)
@@ -1244,7 +1244,7 @@ SOFTWARE.
 
 Copyright (c) 2017 Michel Weststrate
 
-Applies to: `immer@11.1.15`, `immer@11.2.9`
+Applies to: `immer@11.1.15`, `immer@11.2.10`
 
 ```
 MIT License
@@ -2307,7 +2307,7 @@ WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 Copyright (c) 2013-2021 Jack Christensen
 
-Applies to: `github.com/jackc/pgx/v5@v5.12.0`
+Applies to: `github.com/jackc/pgx/v5@v5.13.0`
 
 ```
 Copyright (c) 2013-2021 Jack Christensen
@@ -3906,7 +3906,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 Copyright (c) 2017 The Libc Authors. All rights reserved.
 
-Applies to: `modernc.org/libc@v1.79.0`
+Applies to: `modernc.org/libc@v1.80.1`
 
 ```
 Copyright (c) 2017 The Libc Authors. All rights reserved.
@@ -4383,7 +4383,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 Copyright (c) 2017 The Sqlite Authors. All rights reserved.
 
-Applies to: `modernc.org/sqlite@v1.61.1`
+Applies to: `modernc.org/sqlite@v1.62.0`
 
 ```
 Copyright (c) 2017 The Sqlite Authors. All rights reserved.
@@ -4460,7 +4460,7 @@ and license texts it points at are the ones you have to carry with you.
 | [Go](https://github.com/golang/go) | -- | BSD-3-Clause | modernc.org/libc | [N1](#N1) |
 | [go-netdb](https://github.com/dominikh/go-netdb) | -- | MIT | modernc.org/libc | [N1](#N1) |
 | [golang.org/x/sys](https://pkg.go.dev/golang.org/x/sys) | v0.49.0 | BSD-3-Clause | github.com/google/pprof, github.com/mattn/go-isatty, modernc.org/libc, modernc.org/memory, `go.mod` | [L3](#L3) |
-| [modernc.org/libc](https://pkg.go.dev/modernc.org/libc) | v1.79.0 | BSD-3-Clause | `go.mod` | [L4](#L4) |
+| [modernc.org/libc](https://pkg.go.dev/modernc.org/libc) | v1.80.1 | BSD-3-Clause | `go.mod` | [L4](#L4) |
 | [modernc.org/mathutil](https://pkg.go.dev/modernc.org/mathutil) | v1.7.1 | BSD-3-Clause | modernc.org/fileutil, modernc.org/libc, modernc.org/memory, `go.mod` | [L4](#L4) |
 | [modernc.org/memory](https://pkg.go.dev/modernc.org/memory) | v1.12.1 | BSD-3-Clause, attribution reference | modernc.org/libc, `go.mod` | [L4](#L4), [L2](#L2), [L5](#L5), [L6](#L6) |
 | [musl libc](https://musl.libc.org/) | -- | MIT | modernc.org/libc | [N1](#N1) |
@@ -4505,8 +4505,8 @@ this one.
 | [golang.org/x/mod](https://pkg.go.dev/golang.org/x/mod) | v0.42.0 | BSD-3-Clause | modernc.org/libc | [L3](#L3) |
 | [golang.org/x/sync](https://pkg.go.dev/golang.org/x/sync) | v0.24.0 | BSD-3-Clause | modernc.org/libc | [L3](#L3) |
 | [golang.org/x/tools](https://pkg.go.dev/golang.org/x/tools) | v0.52.0 | BSD-3-Clause | modernc.org/libc | [L3](#L3) |
-| [modernc.org/cc/v4](https://pkg.go.dev/modernc.org/cc/v4) | v4.30.3 | BSD-3-Clause | modernc.org/libc | [L4](#L4) |
-| [modernc.org/ccgo/v4](https://pkg.go.dev/modernc.org/ccgo/v4) | v4.37.0 | BSD-3-Clause | modernc.org/libc | [L4](#L4) |
+| [modernc.org/cc/v4](https://pkg.go.dev/modernc.org/cc/v4) | v4.30.6-0.20261101114202-1b9d1a076f6b | BSD-3-Clause | modernc.org/libc | [L4](#L4) |
+| [modernc.org/ccgo/v4](https://pkg.go.dev/modernc.org/ccgo/v4) | v4.38.1 | BSD-3-Clause | modernc.org/libc | [L4](#L4) |
 | [modernc.org/gc/v2](https://pkg.go.dev/modernc.org/gc/v2) | v2.6.5 | BSD-3-Clause | modernc.org/libc | [L16](#L16) |
 | [modernc.org/gc/v3](https://pkg.go.dev/modernc.org/gc/v3) | v3.2.0 | BSD-3-Clause | modernc.org/libc | [L16](#L16) |
 | [modernc.org/goabi0](https://pkg.go.dev/modernc.org/goabi0) | v0.2.0 | BSD-3-Clause | modernc.org/libc | [L17](#L17) |
@@ -7452,7 +7452,7 @@ THE SOFTWARE.
 
 Copyright (c) 2011-present i18next
 
-Applies to: `i18next@26.7.2`
+Applies to: `i18next@27.1.1`
 
 ```
 The MIT License (MIT)

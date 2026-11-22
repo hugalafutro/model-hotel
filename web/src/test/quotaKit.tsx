@@ -1,4 +1,4 @@
-import type { QuotaModalKit } from "@web-shared/quota/modals";
+import { asTranslate, type QuotaModalKit } from "@web-shared/quota/modals";
 import i18n from "../i18n";
 
 /**
@@ -8,7 +8,8 @@ import i18n from "../i18n";
  * test can assert WHICH instant a label was built from, in any locale.
  */
 export const testQuotaKit: QuotaModalKit = {
-	t: (key, opts) => i18n.t(`components.providerModals.${key}`, opts),
+	t: (key, opts) =>
+		asTranslate(i18n.t)(`components.providerModals.${key}`, opts),
 	time: {
 		absolute: (iso) => (iso ? `at ${iso}` : "-"),
 		relative: (iso) => (iso ? `in ${iso}` : "-"),

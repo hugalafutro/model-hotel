@@ -1,4 +1,5 @@
 import { screen, waitFor } from "@testing-library/react";
+import { asTranslate } from "@web-shared/quota/modals";
 import type {
 	MiniMaxQuotaResponse,
 	NanoGPTUsage,
@@ -20,7 +21,7 @@ import {
 // suites.
 
 const k = (key: string, opts?: Record<string, unknown>) =>
-	i18n.t(`components.providerModals.${key}`, opts);
+	asTranslate(i18n.t)(`components.providerModals.${key}`, opts);
 
 const ocg: OpenCodeGoUsageResponse = {
 	usage: { rolling: { status: "ok", percent: 20 } },

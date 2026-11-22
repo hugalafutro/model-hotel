@@ -67,7 +67,7 @@ function bind<P>(QuotaBody: ComponentType<Body.QuotaBodyProps<P>>) {
 					fetchedAt ?? new Date(lastRefreshed ?? Date.now()).toISOString()
 				}
 				kit={{
-					t,
+					t: Body.asTranslate(t),
 					time: TIME,
 					shell: ({ title, subtitle, children }) => (
 						<Modal

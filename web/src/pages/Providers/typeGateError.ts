@@ -18,6 +18,16 @@ function typeLabel(type: string, t: (key: string) => string): string {
 }
 
 /**
+ * The `t` the gate messages need: a key, or a key with values. Written as two
+ * call shapes because that is how i18next types its own `t`, which passes an
+ * options argument only as a required one.
+ */
+interface GateTranslator {
+	(key: string): string;
+	(key: string, opts: Record<string, string>): string;
+}
+
+/**
  * Phrases a coded refusal of a provider save in the operator's language: a
  * failed type check (naming the server that actually answered), a refused or
  * duplicate address, or a name the proxy could never route to. Returns null for
@@ -25,7 +35,7 @@ function typeLabel(type: string, t: (key: string) => string): string {
  */
 export function providerTypeGateMessage(
 	err: unknown,
-	t: (key: string, opts?: Record<string, string>) => string,
+	t: GateTranslator,
 ): string | null {
 	if (!(err instanceof ApiError) || !err.code) return null;
 	const expected = typeLabel(stringField(err.details, "expected"), t);
