@@ -727,6 +727,20 @@ func TestBuildProviderTargetURL(t *testing.T) {
 			expected:     "https://relay.example/opencode/v1/embeddings",
 		},
 		{
+			name:         "OpenCode Go embeddings keep a query on the base after the endpoint",
+			baseURL:      "https://opencode.ai/zen/go/v1?tenant=a",
+			providerType: "opencode-go",
+			endpoint:     "/embeddings",
+			expected:     "https://opencode.ai/inference/go/openai/v1/embeddings?tenant=a",
+		},
+		{
+			name:         "OpenCode Go embeddings do not read an encoded slash as a separator",
+			baseURL:      "https://relay.example/zen%2Fgo/v1",
+			providerType: "opencode-go",
+			endpoint:     "/embeddings",
+			expected:     "https://relay.example/zen%2Fgo/v1/embeddings",
+		},
+		{
 			name:         "OpenCode Go chat stays on the configured base",
 			baseURL:      "https://opencode.ai/zen/go/v1",
 			providerType: "opencode-go",

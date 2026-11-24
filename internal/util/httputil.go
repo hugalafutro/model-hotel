@@ -225,7 +225,9 @@ func BuildProviderTargetURL(baseURL, providerType, endpoint string) string {
 		return strings.Replace(sanitized, "/subscription", "", 1) + endpoint
 	}
 	if providerType == "opencode-go" && endpoint == "/embeddings" {
-		return openCodeGoEmbeddingsBase(sanitized) + endpoint
+		if target, ok := openCodeGoEmbeddingsURL(baseURL); ok {
+			return target
+		}
 	}
 	switch providerType {
 	case "azure":
@@ -269,24 +271,25 @@ func BuildProviderTargetURL(baseURL, providerType, endpoint string) string {
 	}
 }
 
-// openCodeGoEmbeddingsBase maps an OpenCode Go base URL onto the one base that
-// serves embeddings. The Go catalogue publishes its embedding models at
+// openCodeGoEmbeddingsURL builds the embeddings URL for an OpenCode Go base
+// URL. The Go catalogue publishes its embedding models at
 // {host}/inference/go/openai/v1, and neither subscription base an operator
 // configures (/zen/go/v1 or its /inference/go/v1 alias) has an /embeddings
 // route: both answer 404. The /inference/go prefix keeps the request on the
-// subscription. A base of any other shape is returned unchanged.
-func openCodeGoEmbeddingsBase(sanitized string) string {
-	u, err := url.Parse(sanitized)
+// subscription. The path is matched as written, so an encoded slash does not
+// count as a separator, and a query on the base stays after the endpoint. A
+// base of any other shape reports false and is built as configured.
+func openCodeGoEmbeddingsURL(baseURL string) (string, bool) {
+	u, err := url.Parse(baseURL)
 	if err != nil {
-		return sanitized
+		return "", false
 	}
-	switch strings.ToLower(strings.TrimRight(u.Path, "/")) {
+	switch strings.ToLower(strings.TrimRight(u.EscapedPath(), "/")) {
 	case "/zen/go/v1", "/inference/go/v1":
-		u.Path = "/inference/go/openai/v1"
-		u.RawPath = ""
-		return u.String()
+		u.Path, u.RawPath = "/inference/go/openai/v1", ""
+		return appendPath(u.String(), "/embeddings"), true
 	}
-	return sanitized
+	return "", false
 }
 
 // isCohereRerankBase reports whether a /rerank request must be redirected to
