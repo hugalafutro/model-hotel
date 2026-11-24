@@ -97,8 +97,8 @@ The web UI embeds the JetBrains Mono, Onest, and Schibsted Grotesk typefaces, an
 | [@simplewebauthn/browser](https://github.com/MasterKale/SimpleWebAuthn/tree/master/packages/browser#readme) | 14.0.0 | npm | MIT |
 | [@standard-schema/spec](https://standardschema.dev) | 1.1.0 | npm | MIT |
 | [@standard-schema/utils](https://github.com/standard-schema/standard-schema#readme) | 0.3.0 | npm | MIT |
-| [@tanstack/query-core](https://tanstack.com/query) | 5.107.1 | npm | MIT |
-| [@tanstack/react-query](https://tanstack.com/query) | 5.107.1 | npm | MIT |
+| [@tanstack/query-core](https://tanstack.com/query) | 5.108.2 | npm | MIT |
+| [@tanstack/react-query](https://tanstack.com/query) | 5.108.2 | npm | MIT |
 | [@tanstack/react-virtual](https://tanstack.com/virtual) | 3.14.26 | npm | MIT |
 | [@tanstack/virtual-core](https://tanstack.com/virtual) | 3.19.11 | npm | MIT |
 | [@types/d3-array](https://github.com/DefinitelyTyped/DefinitelyTyped/tree/master/types/d3-array) | 3.2.2 | npm | MIT |
@@ -180,8 +180,8 @@ The web UI embeds the JetBrains Mono, Onest, and Schibsted Grotesk typefaces, an
 | [html-parse-stringify](https://github.com/i18next/html-parse-stringify) | 4.0.1 | npm | MIT |
 | [html-url-attributes](https://github.com/rehypejs/rehype-minify/tree/main#readme) | 3.0.1 | npm | MIT |
 | [html-void-elements](https://github.com/wooorm/html-void-elements#readme) | 3.0.0 | npm | MIT |
-| [i18next](https://www.i18next.com) | 27.1.1 | npm | MIT |
-| [i18next-browser-languagedetector](https://github.com/i18next/i18next-browser-languageDetector) | 8.3.0 | npm | MIT |
+| [i18next](https://www.i18next.com) | 27.2.2 | npm | MIT |
+| [i18next-browser-languagedetector](https://github.com/i18next/i18next-browser-languageDetector) | 8.3.1 | npm | MIT |
 | [immer](https://github.com/immerjs/immer#readme) | 11.1.15 | npm | MIT |
 | [immer](https://github.com/immerjs/immer#readme) | 11.2.10 | npm | MIT |
 | [inline-style-parser](https://github.com/remarkablemark/inline-style-parser#readme) | 0.2.7 | npm | MIT |
@@ -256,13 +256,13 @@ The web UI embeds the JetBrains Mono, Onest, and Schibsted Grotesk typefaces, an
 | [react](https://react.dev/) | 19.3.1 | npm | MIT |
 | [react-colorful](https://omgovich.github.io/react-colorful) | 5.8.1 | npm | MIT |
 | [react-dom](https://react.dev/) | 19.3.1 | npm | MIT |
-| [react-i18next](https://github.com/i18next/react-i18next) | 18.0.1 | npm | MIT |
+| [react-i18next](https://github.com/i18next/react-i18next) | 18.0.3 | npm | MIT |
 | [react-is](https://react.dev/) | 19.2.6 | npm | MIT |
 | [react-is](https://react.dev/) | 19.2.7 | npm | MIT |
 | [react-markdown](https://github.com/remarkjs/react-markdown#readme) | 10.1.0 | npm | MIT |
 | [react-redux](https://github.com/reduxjs/react-redux) | 9.3.0 | npm | MIT |
-| [react-router](https://github.com/remix-run/react-router#readme) | 8.5.1 | npm | MIT |
-| [recharts](https://github.com/recharts/recharts) | 3.10.1 | npm | MIT |
+| [react-router](https://github.com/remix-run/react-router#readme) | 8.5.2 | npm | MIT |
+| [recharts](https://github.com/recharts/recharts) | 3.11.0 | npm | MIT |
 | [redux](http://redux.js.org) | 5.0.1 | npm | MIT |
 | [redux-thunk](https://github.com/reduxjs/redux-thunk) | 3.1.0 | npm | MIT |
 | [regex](https://github.com/slevithan/regex#readme) | 6.1.0 | npm | MIT |
@@ -1068,7 +1068,7 @@ SOFTWARE.
 
 Copyright (c) 2021-present Tanner Linsley
 
-Applies to: `@tanstack/query-core@5.107.1`, `@tanstack/react-query@5.107.1`, `@tanstack/react-virtual@3.14.26`, `@tanstack/virtual-core@3.19.11`
+Applies to: `@tanstack/query-core@5.108.2`, `@tanstack/react-query@5.108.2`, `@tanstack/react-virtual@3.14.26`, `@tanstack/virtual-core@3.19.11`
 
 ```
 MIT License
@@ -1214,7 +1214,7 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
 
 Copyright (c) 2015-present i18next
 
-Applies to: `i18next-browser-languagedetector@8.3.0`, `react-i18next@18.0.1`
+Applies to: `i18next-browser-languagedetector@8.3.1`, `react-i18next@18.0.3`
 
 ```
 The MIT License (MIT)
@@ -7452,7 +7452,7 @@ THE SOFTWARE.
 
 Copyright (c) 2011-present i18next
 
-Applies to: `i18next@27.1.1`
+Applies to: `i18next@27.2.2`
 
 ```
 The MIT License (MIT)
@@ -7838,7 +7838,7 @@ SOFTWARE.
 
 Copyright (c) React Training LLC 2015-2019
 
-Applies to: `react-router@8.5.1`
+Applies to: `react-router@8.5.2`
 
 ```
 MIT License
@@ -7870,7 +7870,7 @@ SOFTWARE.
 
 Copyright (c) 2015-present recharts
 
-Applies to: `recharts@3.10.1`
+Applies to: `recharts@3.11.0`
 
 ```
 The MIT License (MIT)
