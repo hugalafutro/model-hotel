@@ -224,6 +224,9 @@ func BuildProviderTargetURL(baseURL, providerType, endpoint string) string {
 		// (e.g. .../api/v1) contain no /subscription and are left unchanged.
 		return strings.Replace(sanitized, "/subscription", "", 1) + endpoint
 	}
+	if providerType == "opencode-go" && endpoint == "/embeddings" {
+		return openCodeGoEmbeddingsURL(baseURL)
+	}
 	switch providerType {
 	case "azure":
 		// Azure AI resources serve their OpenAI-compatible surface only under
@@ -264,6 +267,25 @@ func BuildProviderTargetURL(baseURL, providerType, endpoint string) string {
 		// Custom providers must be configured with the full path by the user.
 		return sanitized + endpoint
 	}
+}
+
+// openCodeGoEmbeddingsURL builds the embeddings URL for an OpenCode Go base
+// URL. The Go catalogue publishes its embedding models at
+// {host}/inference/go/openai/v1, and neither subscription base an operator
+// configures (/zen/go/v1 or its /inference/go/v1 alias) has an /embeddings
+// route: both answer 404. The /inference/go prefix keeps the request on the
+// subscription. The path is matched as written, so an encoded slash does not
+// count as a separator. A base of any other shape keeps its path. Either way
+// the endpoint joins the path, so a query on the base stays after it.
+func openCodeGoEmbeddingsURL(baseURL string) string {
+	if u, err := url.Parse(baseURL); err == nil {
+		switch strings.ToLower(strings.TrimRight(u.EscapedPath(), "/")) {
+		case "/zen/go/v1", "/inference/go/v1":
+			u.Path, u.RawPath = "/inference/go/openai/v1", ""
+			baseURL = u.String()
+		}
+	}
+	return appendPath(baseURL, "/embeddings")
 }
 
 // isCohereRerankBase reports whether a /rerank request must be redirected to
