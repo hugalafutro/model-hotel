@@ -225,9 +225,7 @@ func BuildProviderTargetURL(baseURL, providerType, endpoint string) string {
 		return strings.Replace(sanitized, "/subscription", "", 1) + endpoint
 	}
 	if providerType == "opencode-go" && endpoint == "/embeddings" {
-		if target, ok := openCodeGoEmbeddingsURL(baseURL); ok {
-			return target
-		}
+		return openCodeGoEmbeddingsURL(baseURL)
 	}
 	switch providerType {
 	case "azure":
@@ -277,19 +275,17 @@ func BuildProviderTargetURL(baseURL, providerType, endpoint string) string {
 // configures (/zen/go/v1 or its /inference/go/v1 alias) has an /embeddings
 // route: both answer 404. The /inference/go prefix keeps the request on the
 // subscription. The path is matched as written, so an encoded slash does not
-// count as a separator, and a query on the base stays after the endpoint. A
-// base of any other shape reports false and is built as configured.
-func openCodeGoEmbeddingsURL(baseURL string) (string, bool) {
-	u, err := url.Parse(baseURL)
-	if err != nil {
-		return "", false
+// count as a separator. A base of any other shape keeps its path. Either way
+// the endpoint joins the path, so a query on the base stays after it.
+func openCodeGoEmbeddingsURL(baseURL string) string {
+	if u, err := url.Parse(baseURL); err == nil {
+		switch strings.ToLower(strings.TrimRight(u.EscapedPath(), "/")) {
+		case "/zen/go/v1", "/inference/go/v1":
+			u.Path, u.RawPath = "/inference/go/openai/v1", ""
+			baseURL = u.String()
+		}
 	}
-	switch strings.ToLower(strings.TrimRight(u.EscapedPath(), "/")) {
-	case "/zen/go/v1", "/inference/go/v1":
-		u.Path, u.RawPath = "/inference/go/openai/v1", ""
-		return appendPath(u.String(), "/embeddings"), true
-	}
-	return "", false
+	return appendPath(baseURL, "/embeddings")
 }
 
 // isCohereRerankBase reports whether a /rerank request must be redirected to
