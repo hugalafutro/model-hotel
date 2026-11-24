@@ -682,6 +682,8 @@ Known models: `MiniMax-M3`, `MiniMax-M2.7` (+ `MiniMax-M2.7-highspeed`), `MiniMa
 
 **Catalog rows, when present, are overrides:** a row wins over models.dev for every field it sets. The price fields are optional: a row that omits them leaves the model unpriced for models.dev to fill, so a row can fix a context length or a modality list without pinning a price. A row states a price only where models.dev has none or has it wrong, because a duplicated price freezes at the day it was written.
 
+**Embeddings route:** Go's embedding models (`text-embedding-3-small`, `qwen3-embedding-8b`, `gemini-embedding-2`) are served at `{host}/inference/go/openai/v1/embeddings` alone; the configured subscription base (`/zen/go/v1` or `/inference/go/v1`) answers `404` on `/embeddings`. This is proxy behaviour rather than discovery: `util.BuildProviderTargetURL` sends an `opencode-go` embeddings request to that base, which stays on the subscription, and leaves every other endpoint and any custom base path as configured. OpenCode Zen needs no such step, its `/zen/v1/embeddings` route exists.
+
 ### OpenCode Zen
 
 **Source files:** `discovery_opencode_zen.go`, `opencode_zen_catalog.go`, `opencode_catalog_types.go`, `catalog_merge.go`

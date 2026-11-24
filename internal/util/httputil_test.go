@@ -692,6 +692,54 @@ func TestBuildProviderTargetURL(t *testing.T) {
 		expected     string
 	}{
 		{
+			name:         "OpenCode Go embeddings leave the legacy base for the one that serves them",
+			baseURL:      "https://opencode.ai/zen/go/v1",
+			providerType: "opencode-go",
+			endpoint:     "/embeddings",
+			expected:     "https://opencode.ai/inference/go/openai/v1/embeddings",
+		},
+		{
+			name:         "OpenCode Go embeddings from the inference alias, mixed case and trailing slash",
+			baseURL:      "https://opencode.ai/Inference/Go/v1/",
+			providerType: "opencode-go",
+			endpoint:     "/embeddings",
+			expected:     "https://opencode.ai/inference/go/openai/v1/embeddings",
+		},
+		{
+			name:         "OpenCode Go embeddings on a base already at the serving path stay put",
+			baseURL:      "https://opencode.ai/inference/go/openai/v1",
+			providerType: "opencode-go",
+			endpoint:     "/embeddings",
+			expected:     "https://opencode.ai/inference/go/openai/v1/embeddings",
+		},
+		{
+			name:         "OpenCode Go embeddings on an unparseable base are left as configured",
+			baseURL:      "https://[opencode.ai/zen/go/v1",
+			providerType: "opencode-go",
+			endpoint:     "/embeddings",
+			expected:     "https://[opencode.ai/zen/go/v1/embeddings",
+		},
+		{
+			name:         "OpenCode Go embeddings on a custom path are left as configured",
+			baseURL:      "https://relay.example/opencode/v1",
+			providerType: "opencode-go",
+			endpoint:     "/embeddings",
+			expected:     "https://relay.example/opencode/v1/embeddings",
+		},
+		{
+			name:         "OpenCode Go chat stays on the configured base",
+			baseURL:      "https://opencode.ai/zen/go/v1",
+			providerType: "opencode-go",
+			expected:     "https://opencode.ai/zen/go/v1/chat/completions",
+		},
+		{
+			name:         "OpenCode Zen embeddings stay on the wallet base, which serves them",
+			baseURL:      "https://opencode.ai/zen/v1",
+			providerType: "opencode-zen",
+			endpoint:     "/embeddings",
+			expected:     "https://opencode.ai/zen/v1/embeddings",
+		},
+		{
 			name:         "OpenAI type with /v1 in base URL",
 			baseURL:      "https://api.openai.com/v1",
 			providerType: "openai",

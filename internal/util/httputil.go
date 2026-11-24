@@ -224,6 +224,9 @@ func BuildProviderTargetURL(baseURL, providerType, endpoint string) string {
 		// (e.g. .../api/v1) contain no /subscription and are left unchanged.
 		return strings.Replace(sanitized, "/subscription", "", 1) + endpoint
 	}
+	if providerType == "opencode-go" && endpoint == "/embeddings" {
+		return openCodeGoEmbeddingsBase(sanitized) + endpoint
+	}
 	switch providerType {
 	case "azure":
 		// Azure AI resources serve their OpenAI-compatible surface only under
@@ -264,6 +267,26 @@ func BuildProviderTargetURL(baseURL, providerType, endpoint string) string {
 		// Custom providers must be configured with the full path by the user.
 		return sanitized + endpoint
 	}
+}
+
+// openCodeGoEmbeddingsBase maps an OpenCode Go base URL onto the one base that
+// serves embeddings. The Go catalogue publishes its embedding models at
+// {host}/inference/go/openai/v1, and neither subscription base an operator
+// configures (/zen/go/v1 or its /inference/go/v1 alias) has an /embeddings
+// route: both answer 404. The /inference/go prefix keeps the request on the
+// subscription. A base of any other shape is returned unchanged.
+func openCodeGoEmbeddingsBase(sanitized string) string {
+	u, err := url.Parse(sanitized)
+	if err != nil {
+		return sanitized
+	}
+	switch strings.ToLower(strings.TrimRight(u.Path, "/")) {
+	case "/zen/go/v1", "/inference/go/v1":
+		u.Path = "/inference/go/openai/v1"
+		u.RawPath = ""
+		return u.String()
+	}
+	return sanitized
 }
 
 // isCohereRerankBase reports whether a /rerank request must be redirected to
