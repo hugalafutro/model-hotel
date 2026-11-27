@@ -98,24 +98,30 @@ func TestListAnswerDelivered(t *testing.T) {
 	}
 }
 
-// DecisionsAnswerDelivered needs one of the contract's three members to be an
-// object with an entry, and the first of them the body holds decides.
+// DecisionsAnswerDelivered needs one of the contract's three members to hold
+// an entry that is an object with a member, and the first of the three the
+// body holds decides.
 func TestDecisionsAnswerDelivered(t *testing.T) {
 	for body, want := range map[string]bool{
-		`{"answers":{"a":{"type":"noul","noul":0.4}}}`:   true,
-		`{"answers":{"a":{"error":"invalid_question"}}}`: true,
-		`{"responses":{"r":{}}}`:                         true,
-		`{"states":{"s":{}}}`:                            true,
-		`{"answers":{}}`:                                 false,
-		`{"answers": { } }`:                              false,
-		`{"answers":null}`:                               false,
-		`{"answers":{},"responses":{"r":{}}}`:            false,
-		`{"model":"m","usage":{"input_tokens":3}}`:       false,
-		`{"answers":[{"type":"noul"}]}`:                  false,
-		`{"answers":"yes"}`:                              false,
-		`{nope`:                                          false,
-		`null`:                                           false,
-		`[]`:                                             false,
+		`{"answers":{"a":{"type":"noul","noul":0.4}}}`:                   true,
+		`{"answers":{"a":{"type":"span","error":"invalid_question"}}}`:   true,
+		`{"answers":{"a":null,"b":{"type":"noul","noul":0.1}}}`:          true,
+		`{"responses":{"r":{"answers":{}}}}`:                             true,
+		`{"states":{"s":{"model":"m","answers":{"a":{"type":"noul"}}}}}`: true,
+		`{"answers":{}}`:         false,
+		`{"answers": { } }`:      false,
+		`{"answers":null}`:       false,
+		`{"answers":{"a":null}}`: false,
+		`{"answers":{"a":{}}}`:   false,
+		`{"answers":{"a":0.4}}`:  false,
+		`{"states":{"job":{}}}`:  false,
+		`{"answers":{},"responses":{"r":{"answers":{"a":{"type":"x"}}}}}`: false,
+		`{"model":"m","usage":{"input_tokens":3}}`:                        false,
+		`{"answers":[{"type":"noul"}]}`:                                   false,
+		`{"answers":"yes"}`:                                               false,
+		`{nope`:                                                           false,
+		`null`:                                                            false,
+		`[]`:                                                              false,
 	} {
 		if got := util.DecisionsAnswerDelivered([]byte(body)); got != want {
 			t.Errorf("DecisionsAnswerDelivered(%s) = %v, want %v", body, got, want)

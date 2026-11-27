@@ -276,7 +276,7 @@ curl -X POST http://localhost:8081/v1/systemone \
 }
 ```
 
-The two routes differ in how a question the model cannot answer is reported. `/v1/systemone` fails the whole request with a 4xx naming the question and the reason, which is forwarded to the caller as it came. `/v1/decisions` answers it in place, with an `error` on that one answer inside a 200, so a caller of that route checks each answer. Neither route streams. Metering reads `usage.input_tokens`; a decision model produces no output tokens. Failover works as on every other non-streaming route (`hotel/<model>` when two providers list the same model). The request and the answer are never logged.
+The two routes differ in how a question the model cannot answer is reported. `/v1/systemone` fails the whole request with a 4xx naming the question and the reason, which is forwarded to the caller as it came. `/v1/decisions` answers it in place, with an `error` on that one answer inside a 200, so a caller of that route checks each answer. Neither route streams, and both run under the ordinary non-streaming budget (the `request_timeout` setting, one minute by default): a decision is a sub-second judgement, so a stalled server is passed over as quickly as on `/v1/embeddings`. A deployment that sends long inputs with a longer `options.deadline_ms` raises `request_timeout` to match. Metering reads `usage.input_tokens`; a decision model produces no output tokens. Failover works as on every other non-streaming route (`hotel/<model>` when two providers list the same model). The request and the answer are never logged.
 
 #### POST `/v1/images/generations`
 

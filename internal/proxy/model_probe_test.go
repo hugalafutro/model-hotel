@@ -536,6 +536,8 @@ func TestProbeDeliveredContent(t *testing.T) {
 		{"no decision answers", endpointTypeDecisions, `{"model":"m","answers":{}}`, false},
 		{"null decision answers", endpointTypeDecisions, `{"answers":null}`, false},
 		{"decision batch responses", endpointTypeDecisions, `{"responses":{"r1":{"answers":{}}}}`, true},
+		{"decision answer that is null", endpointTypeDecisions, `{"answers":{"a":null}}`, false},
+		{"decision batch entry with nothing in it", endpointTypeDecisions, `{"states":{"job":{}},"usage":{"input_tokens":40}}`, false},
 		{"empty decision batch", endpointTypeDecisions, `{"states": {} }`, false},
 		{"decision answer without the contract's members", endpointTypeDecisions, `{"model":"m","usage":{"input_tokens":12}}`, false},
 		{"decision answers in the wrong shape", endpointTypeDecisions, `{"answers":[{"type":"noul"}]}`, false},
