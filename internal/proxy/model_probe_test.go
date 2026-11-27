@@ -537,7 +537,8 @@ func TestProbeDeliveredContent(t *testing.T) {
 		{"null decision answers", endpointTypeDecisions, `{"answers":null}`, false},
 		{"decision batch responses", endpointTypeDecisions, `{"responses":{"r1":{"answers":{}}}}`, true},
 		{"empty decision batch", endpointTypeDecisions, `{"states": {} }`, false},
-		{"decision dialect not understood", endpointTypeDecisions, `{"verdicts":[]}`, true},
+		{"decision answer without the contract's members", endpointTypeDecisions, `{"model":"m","usage":{"input_tokens":12}}`, false},
+		{"decision answers in the wrong shape", endpointTypeDecisions, `{"answers":[{"type":"noul"}]}`, false},
 		{"unparseable decisions", endpointTypeDecisions, `<html>502 Bad Gateway</html>`, false},
 		// Rerank and image generation answer in JSON too, so an empty answer
 		// there is as visible as an empty vector: a rerank that ranked nothing

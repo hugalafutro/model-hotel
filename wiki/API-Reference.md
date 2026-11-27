@@ -263,7 +263,7 @@ curl -X POST http://localhost:8081/v1/systemone \
   -d '{"model": "System One/vela3-lite", "state": {"request": "Our export button fails with a 500 since this morning."}, "questions": {"team": {"type": "choice", "instructions": "Which team should handle this request?", "criteria": {"billing": "Payments, invoices and refunds", "engineering": "Outages, errors and bugs", "other": "Anything else"}}, "urgent": {"type": "noul", "instructions": "Does the user report a problem that blocks their work?"}}}'
 ```
 
-[System One](https://vllm-sr.ai/docs/system-one/overview) is the decision API of vLLM Semantic Router: a decision model reads a `state` and answers typed `questions` about it (`choice`, `noul` for yes/no, `score`, `set`, `span`; which ones depends on the model) with probabilities and character offsets, never generated text. The body is forwarded verbatim with only `model` rewritten, to a provider of type `systemone` (a `vllm-srun` model runtime worker, or a Router or Engine frontend). `model` is required here even though the upstream accepts a request without one, because the gateway routes on it.
+[System One](https://vllm-sr.ai/docs/system-one/overview) is the decision API of vLLM Semantic Router: a decision model reads a `state` and answers typed `questions` about it (`choice`, `noul` for yes/no, `score`, `span` and others; a model's listing names the types it answers) with probabilities and character offsets, never generated text. The body is forwarded verbatim with only `model` rewritten, to a provider of type `systemone` (a `vllm-srun` model runtime worker, or a Router or Engine frontend). `model` is required here even though the upstream accepts a request without one, because the gateway routes on it.
 
 ```json
 {

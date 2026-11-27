@@ -98,8 +98,8 @@ func TestListAnswerDelivered(t *testing.T) {
 	}
 }
 
-// DecisionsAnswerDelivered calls only a recognised shape empty, and the first
-// of the three members the body holds decides.
+// DecisionsAnswerDelivered needs one of the contract's three members to be an
+// object with an entry, and the first of them the body holds decides.
 func TestDecisionsAnswerDelivered(t *testing.T) {
 	for body, want := range map[string]bool{
 		`{"answers":{"a":{"type":"noul","noul":0.4}}}`:   true,
@@ -110,10 +110,12 @@ func TestDecisionsAnswerDelivered(t *testing.T) {
 		`{"answers": { } }`:                              false,
 		`{"answers":null}`:                               false,
 		`{"answers":{},"responses":{"r":{}}}`:            false,
-		`{"model":"m","usage":{"input_tokens":3}}`:       true,
-		`{nope`: false,
-		`null`:  false,
-		`[]`:    false,
+		`{"model":"m","usage":{"input_tokens":3}}`:       false,
+		`{"answers":[{"type":"noul"}]}`:                  false,
+		`{"answers":"yes"}`:                              false,
+		`{nope`:                                          false,
+		`null`:                                           false,
+		`[]`:                                             false,
 	} {
 		if got := util.DecisionsAnswerDelivered([]byte(body)); got != want {
 			t.Errorf("DecisionsAnswerDelivered(%s) = %v, want %v", body, got, want)
