@@ -329,3 +329,29 @@ func TestDiscoverSystemOne_EmptyFrontendListing(t *testing.T) {
 		t.Fatalf("got %+v, %v; want an empty listing accepted", models, err)
 	}
 }
+
+// A base URL carrying a query keeps it behind the listing route, on both
+// reads, and a bare host gets the /v1 mount.
+func TestDiscoverSystemOne_BaseURLWithQueryAndWithoutMount(t *testing.T) {
+	for _, base := range []string{"/v1?tenant=blue", "?tenant=blue"} {
+		var got []string
+		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			got = append(got, r.URL.Path+"?"+r.URL.RawQuery)
+			if r.URL.Path != "/v1/models" {
+				w.WriteHeader(http.StatusNotFound)
+				return
+			}
+			_, _ = w.Write([]byte(systemOneWorkerListingBody))
+		}))
+
+		svc := &DiscoveryService{httpClient: srv.Client()}
+		models, err := svc.discoverSystemOne(context.Background(), &Provider{ID: uuid.New(), BaseURL: srv.URL + base}, "")
+		srv.Close()
+		if err != nil || len(models) != 1 {
+			t.Fatalf("base %q: got %+v, %v; want the worker's model", base, models, err)
+		}
+		if !slices.Equal(got, []string{"/v1/systemone/models?tenant=blue", "/v1/models?tenant=blue"}) {
+			t.Errorf("base %q asked %v, want both routes under /v1 with the query kept", base, got)
+		}
+	}
+}

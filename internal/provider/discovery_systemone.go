@@ -49,12 +49,14 @@ type SystemOneListing struct {
 // fails the scan rather than falling through to a listing of something else,
 // and so does a listing that is not a System One server's (isSystemOneListing).
 func (d *DiscoveryService) discoverSystemOne(ctx context.Context, provider *Provider, apiKey string) ([]*model.Model, error) {
-	baseURL := util.SanitizeBaseURL(provider.BaseURL)
+	// The routes are joined onto the base URL's path by the rule the proxy
+	// forwards with, so a query on the base (a tenant or key parameter a
+	// gateway in front wants) stays whole behind the route.
 	source := "frontend"
-	body, err := d.fetchURL(ctx, "GET", baseURL+"/systemone/models", bearerHeader(apiKey))
+	body, err := d.fetchURL(ctx, "GET", util.BuildProviderTargetURL(provider.BaseURL, "systemone", "/systemone/models"), bearerHeader(apiKey))
 	if he := httpErrorFrom(err); he != nil && he.StatusCode == http.StatusNotFound {
 		source = "worker"
-		body, err = d.fetchURL(ctx, "GET", baseURL+"/models", bearerHeader(apiKey))
+		body, err = d.fetchURL(ctx, "GET", util.BuildProviderTargetURL(provider.BaseURL, "systemone", "/models"), bearerHeader(apiKey))
 	}
 	if err != nil {
 		debuglog.Error("discovery: systemone fetch models failed", "provider", provider.Name, "provider_id", provider.ID, "listing", source, "error", err)
