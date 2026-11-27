@@ -70,6 +70,9 @@ func TestDiscoverSystemOne_Worker(t *testing.T) {
 	if !strings.Contains(m.Description, "choice, noul, score, span") {
 		t.Errorf("description = %q, want the question types the model answers", m.Description)
 	}
+	if m.Params != `{"question_types":["choice","noul","score","span"]}` {
+		t.Errorf("params = %s, want the question types for the Test probe", m.Params)
+	}
 	if m.OwnedBy != "systemone" {
 		t.Errorf("owned_by = %q, want the family", m.OwnedBy)
 	}
@@ -108,8 +111,8 @@ func TestDiscoverSystemOne_Frontend(t *testing.T) {
 		}
 	}
 	// The forwarded model's row says only that it is a System One model.
-	if got := models[1].Description; got != "System One decision model" {
-		t.Errorf("forwarded model description = %q, want no question types claimed", got)
+	if got := models[1]; got.Description != "System One decision model" || got.Params != "{}" {
+		t.Errorf("forwarded model description = %q params = %s, want no question types claimed", got.Description, got.Params)
 	}
 }
 

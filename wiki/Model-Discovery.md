@@ -964,12 +964,12 @@ Structured output is on for the loaded model: TabbyAPI constrains generation to 
 
 | Row member | Effect |
 |------------|--------|
-| `question_types`, `surfaces` containing `decisions`, or `api: "systemone"` | class `decision`: `decisions` out, the question types named in the description |
+| `question_types`, `surfaces` containing `decisions`, or `api: "systemone"` | class `decision`: `decisions` out, the question types named in the description and kept as `params.question_types` |
 | `modalities` | the input modalities (`text` when absent), so a model that reads images shows vision |
 | `surfaces` containing `embeddings` or `rerank` | class `embedding` or `rerank` (a worker can hold such a model instead) |
 | `limits.max_input_tokens` | context length, marked live |
 
-A decision model is served on `/v1/systemone` and `/v1/decisions`, and its Test button asks one yes/no question on `/v1/systemone`. A key is optional: a worker has no authentication, a frontend takes its listener's API key as a bearer token.
+A decision model is served on `/v1/systemone` and `/v1/decisions`, and its Test button asks one question on `/v1/systemone`, of a type the model lists (yes/no when it answers it or lists none). A key is optional: a worker has no authentication, a frontend takes its listener's API key as a bearer token.
 
 **Detection:** Chosen by the operator, confirmed by probing `/v1/models` (a worker stamps the listing with `api_version`) and `/v1/systemone/models` (a frontend's rows are marked `api: "systemone"`) when the provider is added or its URL changed.
 

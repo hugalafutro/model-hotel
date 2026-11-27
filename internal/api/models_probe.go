@@ -6,6 +6,7 @@ import (
 	"context"
 	"encoding/json"
 	"net/http"
+	"slices"
 	"strings"
 
 	"github.com/hugalafutro/model-hotel/internal/debuglog"
@@ -24,7 +25,7 @@ import (
 // smallest body its own route accepts.
 func buildPlainProbeRequest(m *model.Model, baseURL, providerType string) (body []byte, targetURL string) {
 	if nativeDecisionProbe(m) {
-		return buildTestDecisionRequest(m.ModelID, baseURL, providerType)
+		return buildTestDecisionRequest(m, baseURL, providerType)
 	}
 	return buildTestRerankRequest(m.ModelID, baseURL, providerType)
 }
@@ -59,17 +60,44 @@ func plainProbe(m *model.Model) bool {
 }
 
 // buildTestDecisionRequest is the System One probe: the smallest request the
-// route accepts, one yes/no question about a fixed state, against the route
-// the proxy's /v1/systemone forwards to.
-func buildTestDecisionRequest(modelID, baseURL, providerType string) (body []byte, targetURL string) {
+// route accepts, one question about a fixed state, against the route the
+// proxy's /v1/systemone forwards to.
+func buildTestDecisionRequest(m *model.Model, baseURL, providerType string) (body []byte, targetURL string) {
 	body, _ = json.Marshal(map[string]any{
-		"model": modelID,
-		"state": "Model Hotel probe.",
-		"questions": map[string]any{
-			"ready": map[string]any{"type": "noul", "instructions": "Is this service answering?"},
-		},
+		"model":     m.ModelID,
+		"state":     "Model Hotel probe.",
+		"questions": map[string]any{"ready": decisionProbeQuestion(m.Params)},
 	})
 	return body, util.BuildProviderTargetURL(baseURL, providerType, "/systemone")
+}
+
+// decisionProbeQuestion is the probe's one question, of a type the model
+// answers: discovery stores the types its listing names as
+// params.question_types, and a model asked a type it lacks refuses the whole
+// request with a 422, which would read as a broken model. Yes/no is the
+// smallest and is asked when the model answers it or the row names no types
+// (a frontend's forwarded model); otherwise the first of choice, score and
+// span the model names, each in the smallest form the vllm-sr/5.0 schema
+// accepts. A row naming only types outside those is asked yes/no as well.
+func decisionProbeQuestion(params string) map[string]any {
+	var p struct {
+		QuestionTypes []string `json:"question_types"`
+	}
+	_ = json.Unmarshal([]byte(params), &p)
+	const instructions = "Is this service answering?"
+	switch {
+	case len(p.QuestionTypes) == 0 || slices.Contains(p.QuestionTypes, "noul"):
+	case slices.Contains(p.QuestionTypes, "choice"):
+		return map[string]any{"type": "choice", "instructions": instructions,
+			"criteria": map[string]string{"yes": "It is answering", "no": "It is not answering"}}
+	case slices.Contains(p.QuestionTypes, "score"):
+		return map[string]any{"type": "score", "instructions": instructions,
+			"criteria": []string{"Not answering", "Answering"}}
+	case slices.Contains(p.QuestionTypes, "span"):
+		return map[string]any{"type": "span", "instructions": "Find the product name.",
+			"criteria": map[string]string{"product": "A product name"}}
+	}
+	return map[string]any{"type": "noul", "instructions": instructions}
 }
 
 // parseTestDecisionResponse reads a System One probe answer, which is not a
@@ -270,12 +298,13 @@ func (h *Handler) logTestModelHTTPError(ctx context.Context, m *model.Model, req
 }
 
 // logTestModelEmptyAnswer records a 200 that carried no answer (a rerank
-// probe with no ranked results) as a "failed" row, the verdict the live path
-// reaches for the same body. The provider billed it all the same, so the
-// units and their cost are kept.
-func (h *Handler) logTestModelEmptyAnswer(ctx context.Context, m *model.Model, reqHash string, durationMs, proxyOverheadMs, keyDecryptMs float64, errMsg, clientIP string, searchUnits int, cost any) {
+// probe with no ranked results, a decision probe with no answers) as a
+// "failed" row, the verdict the live path reaches for the same body. The
+// provider billed it all the same, so the tokens it counted, the units and
+// their cost are kept.
+func (h *Handler) logTestModelEmptyAnswer(ctx context.Context, m *model.Model, reqHash string, durationMs, proxyOverheadMs, keyDecryptMs float64, errMsg, clientIP string, promptTokens, completionTokens, searchUnits int, cost any) {
 	h.insertTestModelLog(ctx, m, reqHash, http.StatusOK, durationMs, durationMs, proxyOverheadMs, keyDecryptMs,
-		errMsg, 0, 0, 0, "failed", clientIP, searchUnits, cost)
+		errMsg, 0, promptTokens, completionTokens, "failed", clientIP, searchUnits, cost)
 }
 
 // logTestModelCompleted records a successful (HTTP 200) test request as a

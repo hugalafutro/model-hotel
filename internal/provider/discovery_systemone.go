@@ -82,7 +82,8 @@ func (d *DiscoveryService) discoverSystemOne(ctx context.Context, provider *Prov
 // A row that answers questions, serves the decisions surface or is marked as a
 // System One model is a decision model: it reads a state and answers typed
 // questions with probabilities, never text, so its output is "decisions" and
-// the class derives from that. A worker can also hold an embedding or a
+// the class derives from that; the question types it names go into the
+// description and, as params.question_types, onto the row. A worker can also hold an embedding or a
 // reranking model, named by its surfaces. A row that says none of it is left
 // to the name heuristics, as custom would be.
 func buildSystemOneModel(provider *Provider, entry SystemOneModel) *model.Model {
@@ -94,6 +95,10 @@ func buildSystemOneModel(provider *Provider, entry SystemOneModel) *model.Model 
 		m.Description = "System One decision model"
 		if len(questionTypes) > 0 {
 			m.Description += " (" + strings.Join(questionTypes, ", ") + ")"
+			// Kept on the row as well: the Test button asks a question of a
+			// type the model answers, and reads the list from here.
+			params, _ := json.Marshal(map[string]any{"question_types": questionTypes})
+			m.Params = string(params)
 		}
 		input := listingStrings(entry.Modalities)
 		if len(input) == 0 {

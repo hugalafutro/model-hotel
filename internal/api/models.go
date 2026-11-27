@@ -571,7 +571,7 @@ func (h *Handler) TestModel(w http.ResponseWriter, r *http.Request) {
 		// A 200 with nothing ranked or answered is what the live path rejects
 		// as an empty answer; reporting it as healthy would route traffic to a
 		// model that returns nothing.
-		h.logTestModelEmptyAnswer(r.Context(), m, reqHash, float64(duration), proxyOverheadMs, keyDecryptMs, emptyAnswer, clientip.From(r), searchUnits, cost)
+		h.logTestModelEmptyAnswer(r.Context(), m, reqHash, float64(duration), proxyOverheadMs, keyDecryptMs, emptyAnswer, clientip.From(r), promptTokens, completionTokens, searchUnits, cost)
 		writeJSON(w, TestModelResponse{DurationMs: duration, Error: emptyAnswer})
 		return
 	}
