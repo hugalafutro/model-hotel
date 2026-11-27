@@ -87,6 +87,8 @@ export const PROVIDER_PARAM_INCOMPATIBILITY: Record<
 	sglang: {},
 	// TabbyAPI takes the OpenAI chat parameters and its own sampler extras.
 	tabbyapi: {},
+	// A System One server answers decisions, not chat: no chat parameter reaches it.
+	systemone: {},
 	// The backend forwards reasoning_effort to a custom endpoint untouched.
 	custom: {},
 };
@@ -140,6 +142,7 @@ export function normalizeToProviderType(providerName: string): string {
 		localai: ["localai", "local-ai"],
 		sglang: ["sglang", "sgl-project"],
 		tabbyapi: ["tabbyapi", "tabby-api", "exllama"],
+		systemone: ["systemone", "system one", "system-one", "vllm-sr"],
 		"opencode-zen": ["opencode-zen", "opencode zen"],
 		"opencode-go": ["opencode-go", "opencode go"],
 	};

@@ -111,8 +111,9 @@ func (h *Handler) attemptPassthroughCandidate(w http.ResponseWriter, r *http.Req
 // model answering: what clears its gone-strike streak, credits its circuit,
 // and lets the metering floor charge for it.
 //
-// The families that answer in JSON (embeddings, rerank, image generation) are
-// judged on content, since a 200 carrying `{"data":[]}` or `{"results":[]}` is
+// The families that answer in JSON (embeddings, rerank, decisions, image
+// generation) are judged on content, since a 200 carrying `{"data":[]}`,
+// `{"results":[]}` or `{"answers":{}}` is
 // the provider answering with nothing: crediting it would let a provider that
 // always answers so keep its circuit closed, and reset an embeddings model's
 // gone-strike count on every empty answer. Audio is judged on bytes, because a
@@ -136,7 +137,7 @@ func passthroughAnswered(endpointType string, body []byte) bool {
 		return true
 	}
 	switch endpointType {
-	case endpointTypeEmbeddings, endpointTypeRerank, endpointTypeImage:
+	case endpointTypeEmbeddings, endpointTypeRerank, endpointTypeDecisions, endpointTypeImage:
 		return probeDeliveredContent(endpointType, body)
 	}
 	return true

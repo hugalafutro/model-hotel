@@ -626,7 +626,7 @@ func TestDiscoverModels_UnknownProviderType(t *testing.T) {
 
 // The local-server types dispatch to their own discovery, which reads a route
 // the OpenAI fallback never asks for: LocalAI's capability listing, SGLang's
-// model info, TabbyAPI's loaded-model card.
+// model info, TabbyAPI's loaded-model card, System One's native listing.
 func TestDiscoverModels_DispatchesLocalServerTypes(t *testing.T) {
 	var localAIPaths []string
 	localAI := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -639,6 +639,8 @@ func TestDiscoverModels_DispatchesLocalServerTypes(t *testing.T) {
 	defer sglang.Close()
 	tabby, tabbyPaths := tabbyAPIServer(t, tabbyAPIListingBody, tabbyAPIModelCardBody, "")
 	defer tabby.Close()
+	systemOne, systemOnePaths := systemOneServer(t, false)
+	defer systemOne.Close()
 
 	for _, tc := range []struct {
 		typ       string
@@ -650,6 +652,7 @@ func TestDiscoverModels_DispatchesLocalServerTypes(t *testing.T) {
 		{"localai", localAI, &localAIPaths, "/v1/models/capabilities", "qwen3-1.7b"},
 		{"sglang", sglang, sglangPaths, "/get_model_info", "qwen3-0.6b"},
 		{"tabbyapi", tabby, tabbyPaths, "/v1/model", "Qwen3-4B-exl3-4bpw"},
+		{"systemone", systemOne, systemOnePaths, "/v1/systemone/models", "vela3-lite"},
 	} {
 		t.Run(tc.typ, func(t *testing.T) {
 			svc := &DiscoveryService{httpClient: tc.srv.Client()}

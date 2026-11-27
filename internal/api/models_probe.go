@@ -20,6 +20,15 @@ import (
 // had reached the size ceiling; the probe's own bookkeeping is a self-contained
 // concern and the CRUD handlers do not read it.
 
+// buildPlainProbeRequest is the probe for a model plainProbe names: the
+// smallest body its own route accepts.
+func buildPlainProbeRequest(m *model.Model, baseURL, providerType string) (body []byte, targetURL string) {
+	if nativeDecisionProbe(m) {
+		return buildTestDecisionRequest(m.ModelID, baseURL, providerType)
+	}
+	return buildTestRerankRequest(m.ModelID, baseURL, providerType)
+}
+
 // buildTestRerankRequest is the rerank probe: the Cohere-style body every
 // rerank provider accepts, against the route the proxy's /v1/rerank forwards
 // to (a Cohere base is redirected to its native /v2/rerank by
@@ -34,10 +43,62 @@ func buildTestRerankRequest(modelID, baseURL, providerType string) (body []byte,
 	return body, util.BuildProviderTargetURL(baseURL, providerType, "/rerank")
 }
 
-// doTestRerankRequest sends the rerank probe as a plain POST. The chat
-// self-heal executor is not used: its 400 retry rewrites chat parameters the
-// rerank body does not carry.
-func (h *Handler) doTestRerankRequest(ctx context.Context, providerType, targetURL, apiKey string, body []byte) (*http.Response, error) {
+// nativeDecisionProbe reports a decision model that answers only on the System
+// One API: one on a systemone provider, which serves no chat completions. Any
+// other provider's decision model (NanoGPT's) is probed through the questions
+// response_format on chat completions instead. The type is the stored one the
+// model row carries: systemone is only ever chosen, never derived from a URL.
+func nativeDecisionProbe(m *model.Model) bool {
+	return m.Modality == "decision" && m.ProviderType == "systemone"
+}
+
+// plainProbe reports a model the probe reaches with a plain POST on the route
+// it serves, rather than a chat completion.
+func plainProbe(m *model.Model) bool {
+	return m.Modality == "rerank" || nativeDecisionProbe(m)
+}
+
+// buildTestDecisionRequest is the System One probe: the smallest request the
+// route accepts, one yes/no question about a fixed state, against the route
+// the proxy's /v1/systemone forwards to.
+func buildTestDecisionRequest(modelID, baseURL, providerType string) (body []byte, targetURL string) {
+	body, _ = json.Marshal(map[string]any{
+		"model": modelID,
+		"state": "Model Hotel probe.",
+		"questions": map[string]any{
+			"ready": map[string]any{"type": "noul", "instructions": "Is this service answering?"},
+		},
+	})
+	return body, util.BuildProviderTargetURL(baseURL, providerType, "/systemone")
+}
+
+// parseTestDecisionResponse reads a System One probe answer, which is not a
+// chat completion: the answers object, shown as the probe's response (it
+// answers this gateway's own fixed question, so it carries nothing of a
+// caller's), the input tokens the upstream counted, and whether anything was
+// answered, by the rule the proxy applies to live answers. A decision model
+// generates nothing, so there is no completion count.
+func parseTestDecisionResponse(respBody []byte) (content string, promptTokens int, delivered bool) {
+	var out struct {
+		Answers json.RawMessage `json:"answers"`
+		Usage   struct {
+			InputTokens int `json:"input_tokens"`
+		} `json:"usage"`
+	}
+	if err := util.DecodeCounts(respBody, &out); err != nil {
+		debuglog.Debug("admin: failed to parse test model decision response", "error", jsonfault.Describe(err, len(respBody)))
+	}
+	var compact bytes.Buffer
+	if json.Compact(&compact, out.Answers) == nil {
+		content = compact.String()
+	}
+	return content, util.ClampTokenCount(out.Usage.InputTokens), util.DecisionsAnswerDelivered(respBody)
+}
+
+// doTestPlainRequest sends a rerank or System One probe as a plain POST. The
+// chat self-heal executor is not used: its 400 retry rewrites chat parameters
+// these bodies do not carry.
+func (h *Handler) doTestPlainRequest(ctx context.Context, providerType, targetURL, apiKey string, body []byte) (*http.Response, error) {
 	client := h.testModelClient()
 	// #nosec G704 -- provider URL is admin-configured, not arbitrary user input
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, targetURL, bytes.NewReader(body))
@@ -76,8 +137,11 @@ func countRankedResults(respBody []byte) int {
 // probeEndpointType is the request_logs.endpoint_type a probe row carries:
 // the family the probe was sent on.
 func probeEndpointType(m *model.Model) string {
-	if m.Modality == "rerank" {
+	switch {
+	case m.Modality == "rerank":
 		return endpointtype.Rerank
+	case nativeDecisionProbe(m):
+		return endpointtype.Decisions
 	}
 	return endpointtype.Chat
 }

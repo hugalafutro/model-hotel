@@ -1021,7 +1021,8 @@
 		"type_anthropic_messages": "Anthropic (Messages API)",
 		"card_website": "プロバイダーのウェブサイトを開く",
 		"card_tokens_tooltip": "{{date}}以降にこのプロバイダー経由で送られたトークン数、プロンプトと応答の合計",
-		"quota_reserve_card_tooltip": "{{window}}クォータ枠の {{percent}}% を予備として確保中"
+		"quota_reserve_card_tooltip": "{{window}}クォータ枠の {{percent}}% を予備として確保中",
+		"type_systemone": "System One"
 	},
 	"models": {
 		"page_title_one": "モデル",
@@ -1399,7 +1400,8 @@
 			"stt": "STT",
 			"messages": "メッセージ",
 			"responses": "レスポンス",
-			"music": "音楽"
+			"music": "音楽",
+			"decisions": "判断"
 		},
 		"table": {
 			"timeDate": "時刻/日付",

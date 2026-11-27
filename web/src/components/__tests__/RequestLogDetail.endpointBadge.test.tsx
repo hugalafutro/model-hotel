@@ -46,6 +46,7 @@ describe("RequestLogDetail endpoint badge", () => {
 	it.each([
 		["embeddings", "Embeddings"],
 		["rerank", "Rerank"],
+		["decisions", "Decisions"],
 		["image", "Image"],
 		["tts", "TTS"],
 		["stt", "STT"],

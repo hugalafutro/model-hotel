@@ -197,7 +197,7 @@ func (h *Handler) servePassthroughResponse(w http.ResponseWriter, r *http.Reques
 	// itself is echoed to the client as sent.
 	ct := strings.ToLower(contentType)
 	isSSE := strings.HasPrefix(ct, "text/event-stream")
-	// An embeddings, rerank or image-generation answer is JSON by definition,
+	// An embeddings, rerank, decisions or image-generation answer is JSON by definition,
 	// so it takes the buffered branch whatever an aggregator or CDN in front of
 	// the provider labelled it. Letting the content type decide sends an
 	// unlabelled one to the streamed twin, which commits on the first byte and
@@ -210,7 +210,7 @@ func (h *Handler) servePassthroughResponse(w http.ResponseWriter, r *http.Reques
 	// forcing exists for.
 	judged := false
 	switch st.logData.endpointType {
-	case endpointTypeEmbeddings, endpointTypeRerank, endpointTypeImage:
+	case endpointTypeEmbeddings, endpointTypeRerank, endpointTypeDecisions, endpointTypeImage:
 		judged = bodyMayCarryJSON(declared)
 	}
 	isJSON := !isSSE && (strings.Contains(ct, "json") || judged)

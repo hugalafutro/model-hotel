@@ -20,6 +20,7 @@ export type ProviderBrand =
 	| "localai"
 	| "sglang"
 	| "tabbyapi"
+	| "systemone"
 	| "opencode"
 	| "opencode-go"
 	| "neuralwatt"
@@ -55,6 +56,7 @@ export const PROVIDER_BRAND_COLORS: Record<ProviderBrand, string> = {
 	localai: "#1D4ED8",
 	sglang: "#7C3AED",
 	tabbyapi: "#F97316",
+	systemone: "#0D9488",
 	opencode: "#2D2D2D",
 	"opencode-go": "#2D2D2D",
 	neuralwatt: "#ac4324",
@@ -79,6 +81,7 @@ export const PROVIDER_PREFIXES: Record<ProviderBrand, string> = {
 	localai: "LAI",
 	sglang: "SGL",
 	tabbyapi: "TAB",
+	systemone: "S1",
 	opencode: "OC",
 	bedrock: "AWS",
 	azure: "AZ",

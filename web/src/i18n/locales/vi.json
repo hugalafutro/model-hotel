@@ -1021,7 +1021,8 @@
 		"type_anthropic_messages": "Anthropic (Messages API)",
 		"card_website": "Mở trang web của nhà cung cấp",
 		"card_tokens_tooltip": "Token được định tuyến qua nhà cung cấp này kể từ {{date}}, gồm cả prompt và phản hồi",
-		"quota_reserve_card_tooltip": "Đang giữ {{percent}}% của cửa sổ hạn mức {{window}} làm dự trữ"
+		"quota_reserve_card_tooltip": "Đang giữ {{percent}}% của cửa sổ hạn mức {{window}} làm dự trữ",
+		"type_systemone": "System One"
 	},
 	"models": {
 		"page_title_one": "Mô hình",
@@ -1399,7 +1400,8 @@
 			"stt": "STT",
 			"messages": "Tin nhắn",
 			"responses": "Phản hồi",
-			"music": "Âm nhạc"
+			"music": "Âm nhạc",
+			"decisions": "Quyết định"
 		},
 		"table": {
 			"timeDate": "Thời gian/Ngày",

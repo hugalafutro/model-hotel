@@ -26,6 +26,8 @@ The `x-api-key` header (what the Anthropic SDKs send) carries the virtual key ju
 | `/v1/responses` | POST | Virtual Key | OpenAI Responses API (translation + native passthrough to OpenAI) |
 | `/v1/embeddings` | POST | Virtual Key | Embeddings (JSON pass-through) |
 | `/v1/rerank` | POST | Virtual Key | Document rerank (JSON pass-through, Cohere-style body) |
+| `/v1/systemone` | POST | Virtual Key | System One decisions: typed questions about a state, answered with probabilities (JSON pass-through) |
+| `/v1/decisions` | POST | Virtual Key | The same API in its native form (a failed question is answered in place) |
 | `/v1/images/generations` | POST | Virtual Key | Image generation (JSON; SSE streaming via `partial_images`) |
 | `/v1/images/edits` | POST | Virtual Key | Image edits (multipart upload) |
 | `/v1/images/variations` | POST | Virtual Key | Image variations (multipart upload) |
@@ -252,6 +254,30 @@ Cohere-style rerank body (`query`, `documents`, `top_n`), the de-facto standard 
 
 Metering follows the provider's billing unit. Cohere bills per **search unit** (one query against up to 100 documents; a document over 500 tokens counts as several) and reports it as `meta.billed_units.search_units`: the proxy reads that figure, stores it on the request log row (`search_units`) and prices the row at the model's `search_price_per_thousand` (USD per 1,000 searches, from the built-in Cohere catalog or set by hand on the model), so rerank spend reaches the dashboard spend views and dollar budgets. Providers reporting `usage.total_tokens` (Jina, Voyage) are metered and priced per token as before. The virtual key's token limits are charged an estimate from the query and documents in either case, since a rerank answer carries no token usage.
 
+#### POST `/v1/systemone` and `/v1/decisions`
+
+```bash
+curl -X POST http://localhost:8081/v1/systemone \
+  -H "Authorization: Bearer $PROXY_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"model": "System One/vela3-lite", "state": {"request": "Our export button fails with a 500 since this morning."}, "questions": {"team": {"type": "choice", "instructions": "Which team should handle this request?", "criteria": {"billing": "Payments, invoices and refunds", "engineering": "Outages, errors and bugs", "other": "Anything else"}}, "urgent": {"type": "noul", "instructions": "Does the user report a problem that blocks their work?"}}}'
+```
+
+[System One](https://vllm-sr.ai/docs/system-one/overview) is the decision API of vLLM Semantic Router: a decision model reads a `state` and answers typed `questions` about it (`choice`, `noul` for yes/no, `score`, `set`, `span`; which ones depends on the model) with probabilities and character offsets, never generated text. The body is forwarded verbatim with only `model` rewritten, to a provider of type `systemone` (a `vllm-srun` model runtime worker, or a Router or Engine frontend). `model` is required here even though the upstream accepts a request without one, because the gateway routes on it.
+
+```json
+{
+  "model": "vela3-lite",
+  "answers": {
+    "team": {"type": "choice", "choice": "engineering", "probabilities": {"billing": 0.001, "engineering": 0.988, "other": 0.011}, "confidence": 0.982},
+    "urgent": {"type": "noul", "noul": 0.986}
+  },
+  "usage": {"input_tokens": 248, "output_tokens": 0}
+}
+```
+
+The two routes differ in how a question the model cannot answer is reported. `/v1/systemone` fails the whole request with a 4xx naming the question and the reason, which is forwarded to the caller as it came. `/v1/decisions` answers it in place, with an `error` on that one answer inside a 200, so a caller of that route checks each answer. Neither route streams. Metering reads `usage.input_tokens`; a decision model produces no output tokens. Failover works as on every other non-streaming route (`hotel/<model>` when two providers list the same model). The request and the answer are never logged.
+
 #### POST `/v1/images/generations`
 
 ```bash
@@ -426,7 +452,7 @@ The plaintext API key is never returned; `masked_key` is a display-only preview.
 | `name` | string | Yes | 1-100 characters, unique in the routing form (see below), no `/`, and not `hotel` |
 | `base_url` | string | Yes | 1-500 characters, must use HTTPS unless `ALLOW_HTTP_PROVIDERS=true` |
 | `provider_type` | string | No | One of the known types (see [Model Discovery](Model-Discovery#provider-type)). Omitted, it is derived from the vendor hostname |
-| `api_key` | string | No | 1-500 characters (required for most providers, optional for Ollama, KoboldCPP, LMStudio, LocalAI, SGLang, TabbyAPI, OpenCode Zen, custom) |
+| `api_key` | string | No | 1-500 characters (required for most providers, optional for Ollama, KoboldCPP, LMStudio, LocalAI, SGLang, TabbyAPI, System One, OpenCode Zen, custom) |
 
 **Names must be routable.** A request names a model as `<provider>/<model>` and
 the proxy splits it at the first `/`, so a name containing `/` could never be
@@ -453,7 +479,7 @@ again. Restoring a backup taken before the rule is the usual way to reach this.
 from the hostname only, so `http://box:11434` becomes a generic OpenAI-compatible
 provider rather than an Ollama one: no native discovery, no keyless waiver.
 Scripts that used to rely on the old port detection (11434 / 5001 / 1234) need
-`"provider_type": "ollama" | "koboldcpp" | "lmstudio" | "localai" | "sglang" | "tabbyapi"` added. When a self-hosted
+`"provider_type": "ollama" | "koboldcpp" | "lmstudio" | "localai" | "sglang" | "tabbyapi" | "systemone"` added. When a self-hosted
 type is named, the address is probed before the provider is saved and the
 request fails with `provider_type_mismatch`, `provider_type_unconfirmed` or
 `provider_unreachable` if the server does not answer as that type, so the server
@@ -790,7 +816,7 @@ Cursor (keyset) pagination walks the list by passing the previous response's `ne
 
 #### POST `/api/models/{id}/test`
 
-Tests a model by sending a minimal prompt and measuring response. A rerank model is probed on its own route instead (one document, `top_n: 1`), and the answer reports `ranked_results` in place of `response`; a 200 that ranks nothing is reported as a failure, the verdict the proxy reaches for the same body. Every probe writes one request log row under `virtual_key_name: internal`, with the family it was sent on in `endpoint_type`, and priced like live traffic (`cost_usd`; a rerank probe also records its `search_units`).
+Tests a model by sending a minimal prompt and measuring response. A rerank model is probed on its own route instead (one document, `top_n: 1`), and the answer reports `ranked_results` in place of `response`; a 200 that ranks nothing is reported as a failure, the verdict the proxy reaches for the same body. Every probe writes one request log row under `virtual_key_name: internal`, with the family it was sent on in `endpoint_type`, and priced like live traffic (`cost_usd`; a rerank probe also records its `search_units`). A decision model on a `systemone` provider is probed on `/v1/systemone` with one yes/no question, and `response` carries its `answers` object; a 200 with no answers is a failure.
 
 **Response:**
 ```json
@@ -1193,7 +1219,7 @@ This endpoint is **deliberately API only: there is no UI control for it, by deci
 | `client_ip` | string | - | Filter by the resolved client address |
 | `owner_user_id` | UUID | - | Filter by the account that owns the key (admins only; a non-admin caller is scoped to their own rows regardless) |
 | `status_code` | string | - | Filter by status code (`4xx`, `5xx`, or exact integer; `0` = no response) |
-| `endpoint_type` | string | - | Filter by endpoint family: `chat`, `messages`, `responses`, `embeddings`, `rerank`, `image`, `tts`, `stt` (unknown values are ignored) |
+| `endpoint_type` | string | - | Filter by endpoint family: `chat`, `messages`, `responses`, `embeddings`, `rerank`, `decisions`, `image`, `tts`, `stt`, `music` (unknown values are ignored) |
 | `from` | RFC3339 | - | Start timestamp |
 | `to` | RFC3339 | - | End timestamp |
 | `attempt_provider_id` | UUID | - | Select requests whose per-attempt trail names this provider on ANY attempt, whoever served the request in the end ("every request in which Neuralwatt answered") |

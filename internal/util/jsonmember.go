@@ -93,6 +93,28 @@ func ListAnswerDelivered(body []byte, keys ...string) bool {
 	return true
 }
 
+// DecisionsAnswerDelivered reports whether a System One answer carries
+// anything: its entries sit in an object under "answers", or under "responses"
+// or "states" when the request was a batch. The first of those the body holds
+// decides, and an object with no entries is the model answering nothing. As
+// with ListAnswerDelivered, only a shape it recognises is ever called empty,
+// and a body that will not parse is not an answer. The proxy judges live
+// answers and the dashboard's model test judges its probe through this one
+// rule.
+func DecisionsAnswerDelivered(body []byte) bool {
+	var out map[string]json.RawMessage
+	if json.Unmarshal(body, &out) != nil || out == nil {
+		return false
+	}
+	for _, key := range []string{"answers", "responses", "states"} {
+		if raw, ok := out[key]; ok {
+			var entries map[string]json.RawMessage
+			return !JSONValueIsEmpty(raw) && (json.Unmarshal(raw, &entries) != nil || len(entries) > 0)
+		}
+	}
+	return true
+}
+
 // JSONValueIsEmpty reports whether a raw JSON value carries nothing: absent,
 // null, an array with no elements, or a string with no characters.
 //

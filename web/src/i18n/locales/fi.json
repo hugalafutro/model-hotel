@@ -1021,7 +1021,8 @@
 		"type_anthropic_messages": "Anthropic (Messages API)",
 		"card_website": "Avaa palveluntarjoajan verkkosivusto",
 		"card_tokens_tooltip": "Tämän palveluntarjoajan kautta reititetyt tokenit {{date}} alkaen, kehote ja vastaus yhteensä",
-		"quota_reserve_card_tooltip": "{{percent}}% {{window}} kiintiöikkunasta pidetään varannossa"
+		"quota_reserve_card_tooltip": "{{percent}}% {{window}} kiintiöikkunasta pidetään varannossa",
+		"type_systemone": "System One"
 	},
 	"models": {
 		"page_title_one": "Malli",
@@ -1399,7 +1400,8 @@
 			"stt": "STT",
 			"messages": "Viestit",
 			"responses": "Vastaukset",
-			"music": "Musiikki"
+			"music": "Musiikki",
+			"decisions": "Päätökset"
 		},
 		"table": {
 			"timeDate": "Aika/Päivämäärä",

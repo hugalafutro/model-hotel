@@ -2,6 +2,7 @@ import type { LucideIcon } from "@/lib/icons";
 import {
 	Braces,
 	Image,
+	ListChecks,
 	ListOrdered,
 	MessageSquare,
 	Mic,
@@ -19,6 +20,7 @@ export const ENDPOINT_LABEL_KEYS: Record<string, string> = {
 	responses: "logs.endpoint.responses",
 	embeddings: "logs.endpoint.embeddings",
 	rerank: "logs.endpoint.rerank",
+	decisions: "logs.endpoint.decisions",
 	image: "logs.endpoint.image",
 	tts: "logs.endpoint.tts",
 	stt: "logs.endpoint.stt",
@@ -30,6 +32,7 @@ export const ENDPOINT_ICONS: Record<string, LucideIcon> = {
 	responses: Terminal,
 	embeddings: Braces,
 	rerank: ListOrdered,
+	decisions: ListChecks,
 	image: Image,
 	tts: Volume2,
 	stt: Mic,

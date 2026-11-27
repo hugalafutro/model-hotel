@@ -501,8 +501,8 @@ func (h *Handler) TestModel(w http.ResponseWriter, r *http.Request) {
 	startRequest := time.Now()
 	var resp *http.Response
 	var err error
-	if m.Modality == "rerank" {
-		resp, err = h.doTestRerankRequest(r.Context(), providerType, targetURL, apiKey, baseBody)
+	if plainProbe(m) {
+		resp, err = h.doTestPlainRequest(r.Context(), providerType, targetURL, apiKey, baseBody)
 	} else {
 		resp, err = h.doTestModelRequest(r.Context(), providerType, targetURL, m.ModelID, apiKey, baseBody)
 	}
@@ -550,6 +550,11 @@ func (h *Handler) TestModel(w http.ResponseWriter, r *http.Request) {
 	var ranked *int
 	var searchUnits int
 	delivered := true
+	emptyAnswer := "upstream returned no ranked results"
+	if nativeDecisionProbe(m) {
+		content, promptTokens, delivered = parseTestDecisionResponse(respBody)
+		tps, completionTokens, emptyAnswer = 0, 0, "upstream returned no answers"
+	}
 	if m.Modality == "rerank" {
 		// Judged by the rule the proxy applies to live rerank answers: an
 		// explicit empty list fails, a shape it does not recognise passes,
@@ -563,12 +568,11 @@ func (h *Handler) TestModel(w http.ResponseWriter, r *http.Request) {
 	}
 	cost := probeCost(m, searchUnits, promptTokens, completionTokens)
 	if !delivered {
-		// A 200 with nothing ranked is what the live path rejects as an empty
-		// answer; reporting it as healthy would route traffic to a model that
-		// returns no rankings.
-		const errMsg = "upstream returned no ranked results"
-		h.logTestModelEmptyAnswer(r.Context(), m, reqHash, float64(duration), proxyOverheadMs, keyDecryptMs, errMsg, clientip.From(r), searchUnits, cost)
-		writeJSON(w, TestModelResponse{DurationMs: duration, Error: errMsg})
+		// A 200 with nothing ranked or answered is what the live path rejects
+		// as an empty answer; reporting it as healthy would route traffic to a
+		// model that returns nothing.
+		h.logTestModelEmptyAnswer(r.Context(), m, reqHash, float64(duration), proxyOverheadMs, keyDecryptMs, emptyAnswer, clientip.From(r), searchUnits, cost)
+		writeJSON(w, TestModelResponse{DurationMs: duration, Error: emptyAnswer})
 		return
 	}
 	h.logTestModelCompleted(r.Context(), m, reqHash, resp.StatusCode, float64(duration), proxyOverheadMs, keyDecryptMs, tps, promptTokens, completionTokens, clientip.From(r), searchUnits, cost)
@@ -635,8 +639,9 @@ func (h *Handler) decryptTestModelKey(w http.ResponseWriter, prov *provider.Prov
 // buildTestModelRequest constructs the OpenAI-shaped chat-completions probe
 // body (a short "Respond only with `Hi`" prompt) and resolves the provider type
 // and target URL, returning them alongside a fresh random request hash for
-// logging. A rerank model gets the rerank probe instead (buildTestRerankRequest),
-// which doTestRerankRequest sends as a plain POST with none of the rewrites
+// logging. A rerank model gets the rerank probe instead (buildTestRerankRequest)
+// and a System One decision model the decision probe (buildTestDecisionRequest);
+// doTestPlainRequest sends either as a plain POST with none of the rewrites
 // below. The body is left un-rewritten here: doTestModelRequest sends it
 // through paramrewrite.BuildUpstreamBody so the probe applies the exact same
 // provider rewrites (param injection/stripping, learned renames) as live proxy
@@ -654,11 +659,10 @@ func buildTestModelRequest(m *model.Model, prov *provider.Provider) (baseBody []
 	reqHash = hex.EncodeToString(reqHashBytes)
 	providerType = provider.TypeOf(prov)
 
-	// A rerank model has no chat surface, so a chat probe would only prove the
-	// provider refuses chat on it. It is probed on the route it serves, with
-	// the smallest body that route accepts (one document, one result).
-	if m.Modality == "rerank" {
-		baseBody, targetURL = buildTestRerankRequest(m.ModelID, prov.BaseURL, providerType)
+	// A model with no chat surface is probed on the route it serves: a chat
+	// probe would only prove the provider refuses chat on it.
+	if plainProbe(m) {
+		baseBody, targetURL = buildPlainProbeRequest(m, prov.BaseURL, providerType)
 		return baseBody, providerType, targetURL, reqHash
 	}
 

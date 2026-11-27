@@ -1021,7 +1021,8 @@
 		"type_anthropic_messages": "Anthropic (Messages API)",
 		"card_website": "Open die verskaffer se webwerf",
 		"card_tokens_tooltip": "Tokens wat sedert {{date}} deur hierdie verskaffer gestuur is, prompt en voltooiing saam",
-		"quota_reserve_card_tooltip": "Hou {{percent}}% van die {{window}} kwotavenster in reserwe"
+		"quota_reserve_card_tooltip": "Hou {{percent}}% van die {{window}} kwotavenster in reserwe",
+		"type_systemone": "System One"
 	},
 	"models": {
 		"page_title_one": "Model",
@@ -1399,7 +1400,8 @@
 			"stt": "STT",
 			"messages": "Boodskappe",
 			"responses": "Antwoorde",
-			"music": "Musiek"
+			"music": "Musiek",
+			"decisions": "Besluite"
 		},
 		"table": {
 			"timeDate": "Tyd/Datum",

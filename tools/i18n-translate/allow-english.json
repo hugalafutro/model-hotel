@@ -2957,6 +2957,9 @@
 		"ro",
 		"sk"
 	],
+	"logs.endpoint.decisions": [
+		"ca"
+	],
 	"logs.endpoint.embeddings": [
 		"ca",
 		"cs",
@@ -6179,6 +6182,36 @@
 		"zh"
 	],
 	"providers.type_sglang": [
+		"af",
+		"ar",
+		"ca",
+		"cs",
+		"da",
+		"de",
+		"el",
+		"es",
+		"fi",
+		"fr",
+		"he",
+		"hu",
+		"it",
+		"ja",
+		"ko",
+		"nl",
+		"no",
+		"pl",
+		"pt",
+		"ro",
+		"ru",
+		"sk",
+		"sr",
+		"sv",
+		"tr",
+		"uk",
+		"vi",
+		"zh"
+	],
+	"providers.type_systemone": [
 		"af",
 		"ar",
 		"ca",

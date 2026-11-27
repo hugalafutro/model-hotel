@@ -49,6 +49,7 @@ var KnownTypes = []string{
 	"localai",
 	"sglang",
 	"tabbyapi",
+	"systemone",
 }
 
 // IsKnownType reports whether t is part of the provider-type vocabulary.
@@ -60,7 +61,7 @@ func IsKnownType(t string) bool {
 // the operator chooses. They are the only types Model Hotel verifies by
 // probing, because they are the only ones whose address says nothing about
 // what is listening on it.
-var LocalServerTypes = []string{"ollama", "lmstudio", "koboldcpp", "localai", "sglang", "tabbyapi"}
+var LocalServerTypes = []string{"ollama", "lmstudio", "koboldcpp", "localai", "sglang", "tabbyapi", "systemone"}
 
 // IsLocalServerType reports whether t is a self-hosted server family.
 func IsLocalServerType(t string) bool {
@@ -79,10 +80,10 @@ func OperatorServedType(t string) bool {
 // NormalizeLocalBaseURL puts a self-hosted server's base URL in the form the
 // rest of the code expects: the OpenAI-compatible mount, ending in /v1.
 // Ollama, LM Studio, KoboldCPP, LocalAI, SGLang and TabbyAPI all serve
-// /v1/chat/completions and all serve their native endpoints at the root, so
-// storing the /v1 form loses nothing and
-// spares the operator from having to know which half to type. Other types are
-// returned unchanged.
+// /v1/chat/completions and all serve their native endpoints at the root, and
+// a System One server mounts its whole API under /v1, so storing the /v1 form
+// loses nothing and spares the operator from having to know which half to
+// type. Other types are returned unchanged.
 func NormalizeLocalBaseURL(providerType, baseURL string) string {
 	if !IsLocalServerType(providerType) {
 		return baseURL

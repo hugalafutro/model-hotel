@@ -1050,6 +1050,20 @@ func TestBuildProviderTargetURL(t *testing.T) {
 			expected:     "http://localhost:1234/v1/chat/completions",
 		},
 		{
+			name:         "System One bare host gets /v1",
+			baseURL:      "http://localhost:8100",
+			providerType: "systemone",
+			endpoint:     "/systemone",
+			expected:     "http://localhost:8100/v1/systemone",
+		},
+		{
+			name:         "System One with /v1 not doubled",
+			baseURL:      "http://localhost:8100/v1",
+			providerType: "systemone",
+			endpoint:     "/decisions",
+			expected:     "http://localhost:8100/v1/decisions",
+		},
+		{
 			name:         "KoboldCPP bare host gets /v1",
 			baseURL:      "http://localhost:5001",
 			providerType: "koboldcpp",

@@ -1105,7 +1105,8 @@
 		"type_anthropic_messages": "Anthropic (Messages API)",
 		"card_website": "Открыть сайт провайдера",
 		"card_tokens_tooltip": "Токены, прошедшие через этого провайдера с {{date}}, промпт и ответ вместе",
-		"quota_reserve_card_tooltip": "В резерве остаётся {{percent}}% {{window}} окна квоты"
+		"quota_reserve_card_tooltip": "В резерве остаётся {{percent}}% {{window}} окна квоты",
+		"type_systemone": "System One"
 	},
 	"models": {
 		"page_title_one": "Модель",
@@ -1509,7 +1510,8 @@
 			"stt": "STT",
 			"messages": "Сообщения",
 			"responses": "Ответы",
-			"music": "Музыка"
+			"music": "Музыка",
+			"decisions": "Решения"
 		},
 		"table": {
 			"timeDate": "Время/Дата",

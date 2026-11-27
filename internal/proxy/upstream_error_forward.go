@@ -123,13 +123,14 @@ func (h *Handler) forwardUpstreamError(w http.ResponseWriter, st *requestState, 
 	// the caller is entitled to the detail, whether or not this was the last
 	// candidate.
 	switch {
-	case carriesErrorObject(body) && !oversized:
+	case (carriesErrorObject(body) || carriesDecisionRefusal(logData.endpointType, body)) && !oversized:
 		// Forward the upstream response so clients can react to semantic errors
 		// (e.g. context_length_exceeded). The upstream's own error object
 		// carries detail this gateway cannot reconstruct (code, type, param,
 		// provider-specific fields), so it is passed through byte for byte
 		// apart from masking key-shaped tokens, since even a payload error is
-		// provider-authored free text.
+		// provider-authored free text. A System One refusal is the same thing
+		// in its own shape (carriesDecisionRefusal).
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(resp.StatusCode)
 		// #nosec G705 -- provider JSON error body, not HTML; Content-Type is application/json

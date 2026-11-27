@@ -90,8 +90,8 @@ export const OUTPUT_META: OutputMeta[] = [
 			"bg-lime-900/15 text-lime-500/60 border-lime-700/25 hover:bg-lime-900/25 hover:text-lime-400",
 	},
 	{
-		// NanoGPT decision models: choice / score / yes-no answers with
-		// probabilities, never free text (class "decision").
+		// Decision models (NanoGPT's, a System One server's): choice / score /
+		// yes-no answers with probabilities, never free text (class "decision").
 		key: "decisions",
 		icon: ListChecks,
 		labelKey: "models.outputPills.decisions",

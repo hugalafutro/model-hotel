@@ -311,6 +311,8 @@ func (h *Handler) Register(r chi.Router, afterAuth ...func(http.Handler) http.Ha
 	r.Post("/responses", h.Responses) // OpenAI Responses API surface
 	r.Post("/embeddings", h.Embeddings)
 	r.Post("/rerank", h.Rerank)
+	r.Post("/systemone", h.SystemOne) // System One decision API
+	r.Post("/decisions", h.Decisions) // its native form
 	r.Post("/images/generations", h.ImageGenerations)
 	r.Post("/images/edits", h.ImageEdits)
 	r.Post("/images/variations", h.ImageVariations)

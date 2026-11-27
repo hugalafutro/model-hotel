@@ -513,6 +513,8 @@ func (d *DiscoveryService) DiscoverModels(ctx context.Context, provider *Provide
 			return d.discoverSGLang(ctx, provider, apiKey)
 		case "tabbyapi":
 			return d.discoverTabbyAPI(ctx, provider, apiKey)
+		case "systemone":
+			return d.discoverSystemOne(ctx, provider, apiKey)
 		default:
 			return d.discoverOpenAI(ctx, provider, apiKey)
 		}
