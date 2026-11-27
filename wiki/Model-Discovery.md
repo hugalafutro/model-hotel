@@ -960,7 +960,7 @@ Structured output is on for the loaded model: TabbyAPI constrains generation to 
 
 **Source files:** `discovery_systemone.go`
 
-**Method:** System One is the decision API of [vLLM Semantic Router](https://vllm-sr.ai): its models read a state and answer typed questions with probabilities, and serve no chat completions. Two servers speak it, and one provider type covers both. Discovery asks `GET /v1/systemone/models` first, the native listing a Router or Engine frontend serves (a Router answers `/v1/models` with its chat models, which this type does not serve, and an Engine frontend has no `/v1/models`). A model runtime worker (`vllm-srun`) answers that route with 404, and its own `GET /v1/models` is read instead. Any other failure of the first read fails the scan.
+**Method:** System One is the decision API of [vLLM Semantic Router](https://vllm-sr.ai): its models read a state and answer typed questions with probabilities, and serve no chat completions. Two servers speak it, and one provider type covers both. Discovery asks `GET /v1/systemone/models` first, the native listing a Router or Engine frontend serves (a Router answers `/v1/models` with its chat models, which this type does not serve, and an Engine frontend has no `/v1/models`). A model runtime worker (`vllm-srun`) answers that route with 404, and its own `GET /v1/models` is read instead. Any other failure of the first read fails the scan, and so does a listing that is not a System One server's (a worker's without `api_version`, a frontend's with a row not marked `api: "systemone"`): an address that now answers as an OpenAI-compatible server must not have its chat models filed here.
 
 | Row member | Effect |
 |------------|--------|

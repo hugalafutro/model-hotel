@@ -46,7 +46,8 @@ type SystemOneListing struct {
 // which are not what this provider type serves, and an Engine frontend has no
 // /v1/models at all. A worker has no native listing route (it answers 404), so
 // its own /v1/models is read instead. Any other failure of the first read
-// fails the scan rather than falling through to a listing of something else.
+// fails the scan rather than falling through to a listing of something else,
+// and so does a listing that is not a System One server's (isSystemOneListing).
 func (d *DiscoveryService) discoverSystemOne(ctx context.Context, provider *Provider, apiKey string) ([]*model.Model, error) {
 	baseURL := util.SanitizeBaseURL(provider.BaseURL)
 	source := "frontend"
@@ -56,15 +57,26 @@ func (d *DiscoveryService) discoverSystemOne(ctx context.Context, provider *Prov
 		body, err = d.fetchURL(ctx, "GET", baseURL+"/models", bearerHeader(apiKey))
 	}
 	if err != nil {
-		debuglog.Error("discovery: systemone fetch models failed", "provider", provider.Name, "provider_id", provider.ID, "source", source, "error", err)
+		debuglog.Error("discovery: systemone fetch models failed", "provider", provider.Name, "provider_id", provider.ID, "listing", source, "error", err)
 		return nil, fmt.Errorf("systemone: failed to fetch models for provider %s: %w", provider.Name, err)
 	}
 
 	var listing SystemOneListing
 	if err := json.Unmarshal(body, &listing); err != nil {
 		desc := jsonfault.Describe(err, len(body))
-		debuglog.Error("discovery: systemone json decode failed", "provider", provider.Name, "provider_id", provider.ID, "source", source, "error", desc)
+		debuglog.Error("discovery: systemone json decode failed", "provider", provider.Name, "provider_id", provider.ID, "listing", source, "error", desc)
 		return nil, fmt.Errorf("systemone: failed to decode response for provider %s: %s", provider.Name, desc)
+	}
+
+	// The listing has to be the one its route serves on a System One server.
+	// An address repointed at, or proxied to, an OpenAI-compatible server
+	// answers the same paths with its chat models (404 on the native route,
+	// then its own /v1/models), and filing those would replace the decision
+	// models with rows this type cannot serve and retire the real ones as
+	// missing.
+	if !isSystemOneListing(source, body, listing) {
+		debuglog.Error("discovery: systemone listing is not a System One server's", "provider", provider.Name, "provider_id", provider.ID, "listing", source, "bytes", len(body))
+		return nil, fmt.Errorf("systemone: the %s listing for provider %s is not a System One server's (%d bytes)", source, provider.Name, len(body))
 	}
 
 	models := make([]*model.Model, 0, len(listing.Data))
@@ -74,7 +86,7 @@ func (d *DiscoveryService) discoverSystemOne(ctx context.Context, provider *Prov
 		}
 		models = append(models, buildSystemOneModel(provider, entry))
 	}
-	debuglog.Info("discovery: systemone discovered models", "models", len(models), "provider", provider.Name, "provider_id", provider.ID, "source", source)
+	debuglog.Info("discovery: systemone discovered models", "models", len(models), "provider", provider.Name, "provider_id", provider.ID, "listing", source)
 	return models, nil
 }
 
@@ -123,6 +135,21 @@ func buildSystemOneModel(provider *Provider, entry SystemOneModel) *model.Model 
 		}
 	}
 	return m
+}
+
+// isSystemOneListing reports whether a decoded discovery listing is the one
+// its source serves: a worker's carries the API contract version (the add
+// dialog's fingerprint, isSystemOneWorkerListing), a frontend's is a list
+// whose every row is marked api "systemone". A frontend that publishes no
+// model answers an empty list, which is a complete listing of nothing.
+func isSystemOneListing(source string, body []byte, listing SystemOneListing) bool {
+	if source == "worker" {
+		_, ok := isSystemOneWorkerListing(body)
+		return ok
+	}
+	return listing.Object == "list" && !slices.ContainsFunc(listing.Data, func(m SystemOneModel) bool {
+		return listingString(m.API) != "systemone"
+	})
 }
 
 // listingStrings reads a raw member as a list of strings, keeping the entries

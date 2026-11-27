@@ -271,3 +271,61 @@ func TestSystemOneFingerprintsFailClosed(t *testing.T) {
 		}
 	}
 }
+
+// A saved address that now answers as an OpenAI-compatible server (repointed,
+// or a proxy in front) must fail the scan: its chat models are not System One
+// models, and importing them would retire the real ones as missing.
+func TestDiscoverSystemOne_RefusesAListingThatIsNotSystemOnes(t *testing.T) {
+	for name, tc := range map[string]struct {
+		native     string // "" answers the native route with 404
+		models     string
+		wantSource string
+	}{
+		"openai server behind a worker address": {
+			models:     `{"object":"list","data":[{"id":"gpt-4o","object":"model","owned_by":"openai"}]}`,
+			wantSource: "worker",
+		},
+		"catch-all proxy answering the native route with chat models": {
+			native:     `{"object":"list","data":[{"id":"gpt-4o","object":"model"}]}`,
+			wantSource: "frontend",
+		},
+		"native route answering something that is not a list": {
+			native:     `{"data":[{"id":"a","api":"systemone"}]}`,
+			wantSource: "frontend",
+		},
+	} {
+		t.Run(name, func(t *testing.T) {
+			srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				switch {
+				case r.URL.Path == "/v1/systemone/models" && tc.native != "":
+					_, _ = w.Write([]byte(tc.native))
+				case r.URL.Path == "/v1/models":
+					_, _ = w.Write([]byte(tc.models))
+				default:
+					w.WriteHeader(http.StatusNotFound)
+				}
+			}))
+			defer srv.Close()
+
+			svc := &DiscoveryService{httpClient: srv.Client()}
+			models, err := svc.discoverSystemOne(context.Background(), &Provider{ID: uuid.New(), Name: "s1", BaseURL: srv.URL + "/v1"}, "")
+			if err == nil || models != nil || !strings.Contains(err.Error(), "the "+tc.wantSource+" listing") {
+				t.Fatalf("got %v, %v; want no models and the %s listing refused", models, err, tc.wantSource)
+			}
+		})
+	}
+}
+
+// A frontend that publishes nothing yet lists nothing, and that is an answer.
+func TestDiscoverSystemOne_EmptyFrontendListing(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		_, _ = w.Write([]byte(`{"object":"list","data":[]}`))
+	}))
+	defer srv.Close()
+
+	svc := &DiscoveryService{httpClient: srv.Client()}
+	models, err := svc.discoverSystemOne(context.Background(), &Provider{ID: uuid.New(), BaseURL: srv.URL + "/v1"}, "")
+	if err != nil || len(models) != 0 {
+		t.Fatalf("got %+v, %v; want an empty listing accepted", models, err)
+	}
+}
