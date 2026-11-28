@@ -1063,7 +1063,8 @@
 		"type_anthropic_messages": "Anthropic (Messages API)",
 		"card_website": "Deschide site-ul furnizorului",
 		"card_tokens_tooltip": "Tokeni rutați prin acest furnizor din {{date}}, prompt și răspuns împreună",
-		"quota_reserve_card_tooltip": "Se păstrează {{percent}}% din fereastra de cotă {{window}} în rezervă"
+		"quota_reserve_card_tooltip": "Se păstrează {{percent}}% din fereastra de cotă {{window}} în rezervă",
+		"type_systemone": "System One"
 	},
 	"models": {
 		"page_title_one": "Model",
@@ -1454,7 +1455,8 @@
 			"stt": "STT",
 			"messages": "Mesaje",
 			"responses": "Răspunsuri",
-			"music": "Muzică"
+			"music": "Muzică",
+			"decisions": "Decizii"
 		},
 		"table": {
 			"timeDate": "Ora/Dată",

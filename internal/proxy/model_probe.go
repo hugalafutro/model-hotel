@@ -519,6 +519,14 @@ func probeDeliveredContent(endpointType string, body []byte) bool {
 		// Cohere, Jina and the local rerankers answer under "results", Voyage
 		// under "data", and text-embeddings-inference with the bare list.
 		return util.ListAnswerDelivered(body, "results", "data")
+	case endpointTypeDecisions:
+		// A System One answer carries one entry per question under "answers",
+		// or per named request under "responses" (a batch) or "states" (the
+		// native form's batch). One of them has to be there with an entry: the
+		// API is a single contract, so a body without them answered nothing.
+		// The entries are not read: a question answered with an error in
+		// place is still the model answering.
+		return util.DecisionsAnswerDelivered(body)
 	case endpointTypeImage:
 		// The OpenAI shape every /v1/images provider this gateway fronts
 		// answers in: the images under "data", each carrying its picture as

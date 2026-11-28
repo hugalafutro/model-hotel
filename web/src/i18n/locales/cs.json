@@ -1105,7 +1105,8 @@
 		"type_anthropic_messages": "Anthropic (Messages API)",
 		"card_website": "Otevřít web poskytovatele",
 		"card_tokens_tooltip": "Tokeny směrované přes tohoto poskytovatele od {{date}}, prompt a dokončení dohromady",
-		"quota_reserve_card_tooltip": "V rezervě zůstává {{percent}}% {{window}} okna kvóty"
+		"quota_reserve_card_tooltip": "V rezervě zůstává {{percent}}% {{window}} okna kvóty",
+		"type_systemone": "System One"
 	},
 	"models": {
 		"page_title_one": "Model",
@@ -1509,7 +1510,8 @@
 			"stt": "STT",
 			"messages": "Zprávy",
 			"responses": "Odpovědi",
-			"music": "Hudba"
+			"music": "Hudba",
+			"decisions": "Rozhodnutí"
 		},
 		"table": {
 			"timeDate": "Čas/Datum",

@@ -1063,7 +1063,8 @@
 		"type_anthropic_messages": "Anthropic (Messages API)",
 		"card_website": "Obre el lloc web del proveïdor",
 		"card_tokens_tooltip": "Tokens encaminats a través d'aquest proveïdor des de {{date}}, prompt i compleció combinats",
-		"quota_reserve_card_tooltip": "Es reserva el {{percent}}% de la finestra de quota {{window}}"
+		"quota_reserve_card_tooltip": "Es reserva el {{percent}}% de la finestra de quota {{window}}",
+		"type_systemone": "System One"
 	},
 	"models": {
 		"page_title_one": "Model",
@@ -1454,7 +1455,8 @@
 			"stt": "STT",
 			"messages": "Missatges",
 			"responses": "Respostes",
-			"music": "Música"
+			"music": "Música",
+			"decisions": "Decisions"
 		},
 		"table": {
 			"timeDate": "Hora/Data",

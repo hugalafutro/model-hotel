@@ -63,6 +63,18 @@ func TestPassthroughPromptTextBytes_SizesRealBodies(t *testing.T) {
 			want:         8,
 		},
 		{
+			name:         "decisions state and questions, assets left out",
+			endpointType: endpointTypeDecisions,
+			body:         `{"model":"vela3-lite","state":"abc","questions":{"q":1},"assets":{"img":"AAAAAAAAAAAAAAAA"}}`,
+			want:         12,
+		},
+		{
+			name:         "unparseable decisions body sizes as zero",
+			endpointType: endpointTypeDecisions,
+			body:         `not json`,
+			want:         0,
+		},
+		{
 			name:         "image prompt",
 			endpointType: endpointTypeImage,
 			body:         `{"model":"dall-e-3","prompt":"a red cube"}`,
@@ -711,6 +723,7 @@ func TestPassthroughFloor_StaysBehindTheDeliveryGate(t *testing.T) {
 	}{
 		{endpointTypeEmbeddings, "/v1/embeddings", `{"data":[]}`},
 		{endpointTypeRerank, "/v1/rerank", `{"results":[]}`},
+		{endpointTypeDecisions, "/v1/systemone", `{"model":"m","answers":{}}`},
 		{endpointTypeImage, "/v1/images/generations", `{"created":1,"data":[]}`},
 	} {
 		t.Run(tc.endpoint, func(t *testing.T) {

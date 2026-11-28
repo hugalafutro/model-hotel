@@ -1021,7 +1021,8 @@
 		"type_anthropic_messages": "Anthropic (Messages API)",
 		"card_website": "Άνοιγμα ιστότοπου του παρόχου",
 		"card_tokens_tooltip": "Tokens που δρομολογήθηκαν μέσω αυτού του παρόχου από {{date}}, prompt και απάντηση μαζί",
-		"quota_reserve_card_tooltip": "Κρατείται το {{percent}}% του {{window}} παραθύρου ορίου ως αποθεματικό"
+		"quota_reserve_card_tooltip": "Κρατείται το {{percent}}% του {{window}} παραθύρου ορίου ως αποθεματικό",
+		"type_systemone": "System One"
 	},
 	"models": {
 		"page_title_one": "Μοντέλο",
@@ -1399,7 +1400,8 @@
 			"stt": "STT",
 			"messages": "Μηνύματα",
 			"responses": "Απαντήσεις",
-			"music": "Μουσική"
+			"music": "Μουσική",
+			"decisions": "Αποφάσεις"
 		},
 		"table": {
 			"timeDate": "Ώρα/Ημερομηνία",

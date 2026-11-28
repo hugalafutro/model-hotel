@@ -11,6 +11,7 @@ const (
 	Responses  = "responses"
 	Embeddings = "embeddings"
 	Rerank     = "rerank"
+	Decisions  = "decisions"
 	Image      = "image"
 	TTS        = "tts"
 	STT        = "stt"
@@ -23,5 +24,5 @@ const (
 // every row: TestAllCoversEveryConstant keeps the two in step. Each call
 // returns a fresh slice, so no caller can edit the list another one reads.
 func All() []string {
-	return []string{Chat, Messages, Responses, Embeddings, Rerank, Image, TTS, STT, Music}
+	return []string{Chat, Messages, Responses, Embeddings, Rerank, Decisions, Image, TTS, STT, Music}
 }

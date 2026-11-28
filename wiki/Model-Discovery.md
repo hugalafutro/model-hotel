@@ -246,7 +246,7 @@ Providers on the merge (union): **Z.AI**, **xAI**, **DeepSeek**, **OpenCode Go**
 A provider's type is chosen by the operator in the add dialog and stored on the
 row (`providers.provider_type`); nothing re-derives it from the URL afterwards.
 
-For the six self-hosted server families (Ollama, LM Studio, KoboldCPP, LocalAI, SGLang, TabbyAPI) the
+For the seven self-hosted server families (Ollama, LM Studio, KoboldCPP, LocalAI, SGLang, TabbyAPI, System One) the
 address says nothing about what is listening on it, so the choice is
 **verified** before the provider is saved: Model Hotel probes the identifying
 endpoint of the chosen family and refuses the save if another server answers,
@@ -285,7 +285,7 @@ Hostname rules (`detectByHost`, exact and suffix matching):
 | Any other host | - | `openai` (fallback) |
 
 Self-hosted servers have no entry here: `ollama`, `lmstudio`, `koboldcpp`,
-`localai`, `sglang` and `tabbyapi` are chosen, not matched, and run on whatever address and port the operator gave.
+`localai`, `sglang`, `tabbyapi` and `systemone` are chosen, not matched, and run on whatever address and port the operator gave.
 `anthropic-messages` has none either, and for the same reason: it names a wire
 format rather than a vendor, so no host implies it. `api.anthropic.com` resolves
 to `anthropic` as it always has.
@@ -300,6 +300,8 @@ to `anthropic` as it always has.
 | `localai` | `GET {origin}/v1/models/capabilities` | a `data` array whose entries carry a `capabilities` member |
 | `sglang` | `GET {origin}/get_model_info` | a `model_path` string beside an `is_generation` boolean |
 | `ollama` | `GET {origin}/api/tags` | a `models` array |
+| `systemone` | `GET {origin}/v1/models` | a `list` stamped with `api_version` (a model runtime worker; the version is shown in the add dialog) |
+| `systemone` | `GET {origin}/v1/systemone/models` | a `list` with a row marked `api: "systemone"` (a Router or Engine frontend) |
 
 The match is on the body, never on the status: LM Studio answers routes it does
 not serve with HTTP 200 and an `{"error": ...}` body, so a status-only check
@@ -312,7 +314,10 @@ discovered as a lesser Ollama. TabbyAPI's sits ahead of KoboldCPP's for the
 same reason: TabbyAPI answers `/api/extra/version` as `KoboldCpp` for Kobold
 clients, so a TabbyAPI added as `koboldcpp` gets the serviceinfo check and is
 refused naming `tabbyapi` (a real KoboldCPP serves its own serviceinfo, which
-names KoboldCpp and passes).
+names KoboldCpp and passes). System One's two sit last: `/v1/models` is a
+route every OpenAI-compatible server answers, so the families with a route of
+their own are settled first, and only a listing carrying the API contract
+version passes for a worker.
 
 The chosen type's endpoint is asked first, so a server added as the type it
 really is sees only its own endpoint (LM Studio logs every route it does not
@@ -950,6 +955,30 @@ Structured output is on for the loaded model: TabbyAPI constrains generation to 
 | Pricing | None (self-hosted) |
 | Capabilities | Loaded chat model: streaming and structured output always, the rest from the card as above. Unloaded entries: streaming only. Embedding model: none. models.dev does not enrich a self-hosted server's models |
 | Modalities | Chat models: text plus `image` when `use_vision`, text out. Embedding model: derived centrally from the class |
+
+### System One
+
+**Source files:** `discovery_systemone.go`
+
+**Method:** System One is the decision API of [vLLM Semantic Router](https://vllm-sr.ai): its models read a state and answer typed questions with probabilities, and serve no chat completions. Two servers speak it, and one provider type covers both. Discovery asks `GET /v1/systemone/models` first, the native listing a Router or Engine frontend serves (a Router answers `/v1/models` with its chat models, which this type does not serve, and an Engine frontend has no `/v1/models`). A model runtime worker (`vllm-srun`) answers that route with 404, and its own `GET /v1/models` is read instead. Any other failure of the first read fails the scan, and so does a listing that is not a System One server's (a worker's without `api_version`, a frontend's with a row not marked `api: "systemone"`): an address that now answers as an OpenAI-compatible server must not have its chat models filed here.
+
+| Row member | Effect |
+|------------|--------|
+| `question_types`, `surfaces` containing `decisions`, or `api: "systemone"` | class `decision`: `decisions` out, the question types named in the description and kept as `params.question_types` |
+| `modalities` | the input modalities (`text` when absent), so a model that reads images shows vision |
+| `surfaces` containing `embeddings` or `rerank` | class `embedding` or `rerank` (a worker can hold such a model instead) |
+| `limits.max_input_tokens` | context length, marked live |
+
+A decision model is served on `/v1/systemone` and `/v1/decisions`, and its Test button asks one question on `/v1/systemone`, of a type the model lists (yes/no when it answers it or lists none). A key is optional: a worker has no authentication, a frontend takes its listener's API key as a bearer token.
+
+**Detection:** Chosen by the operator, confirmed by probing `/v1/models` (a worker stamps the listing with `api_version`) and `/v1/systemone/models` (a frontend's rows are marked `api: "systemone"`) when the provider is added or its URL changed.
+
+**Hardcoded / missing:**
+
+| Field | Value |
+|-------|-------|
+| Pricing | none: the server reports no prices, the operator sets them |
+| Capabilities | none beyond input modalities: a decision model has no streaming, tools or structured output |
 
 ### KoboldCPP
 

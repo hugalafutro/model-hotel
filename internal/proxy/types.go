@@ -98,6 +98,7 @@ const (
 	endpointTypeResponses  = endpointtype.Responses
 	endpointTypeEmbeddings = endpointtype.Embeddings
 	endpointTypeRerank     = endpointtype.Rerank
+	endpointTypeDecisions  = endpointtype.Decisions
 	endpointTypeImage      = endpointtype.Image
 	endpointTypeTTS        = endpointtype.TTS
 	endpointTypeSTT        = endpointtype.STT

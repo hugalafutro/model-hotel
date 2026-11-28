@@ -61,7 +61,7 @@ The only information recorded per proxied request is strictly necessary for rout
 | Failover attempt | `failover_attempt` | Which provider candidate was used (0-indexed; for retry analysis) |
 | Attempt trail | `attempts` | One JSON entry per failover attempt: provider, model, status, error kind, timings, circuit-breaker verdict, and at most 160 characters of that attempt's error text (credential-masked and content-fenced like `error_message`). `NULL` on rows predating migration 078 |
 | Request state | `state` | Lifecycle status: `pending` → `streaming` → `completed` / `failed` |
-| Endpoint family | `endpoint_type` | Which endpoint the request came through: `chat`, `messages`, `embeddings`, `rerank`, `image`, `tts`, `stt` |
+| Endpoint family | `endpoint_type` | Which endpoint the request came through: `chat`, `messages`, `responses`, `embeddings`, `rerank`, `decisions`, `image`, `tts`, `stt`, `music` |
 | Request hash | `request_hash` | Random 16-character hex request identifier (see below) |
 | Client IP | `client_ip` | Source-address attribution of key usage (trusted-proxy resolved, see [IP Address Handling](#ip-address-handling); `NULL` on rows predating migration 073) |
 

@@ -118,7 +118,7 @@ Failover groups are automatically created during model discovery sync (`SyncAllM
 
 In the dashboard an auto-created group carries an "auto" badge. Each entry shows its *effective* state: an entry whose model or provider is disabled is greyed out with a badge, since the router skips it regardless of the entry toggle.
 
-Groups are modality-agnostic: an embedding, rerank, image or audio model forms a group by the same rule and is reached through the same `hotel/<name>` on its own endpoint (`hotel/rerank-v3.5` on `/v1/rerank`). A model only one provider lists gets no group, whatever its modality; that request is `404 model not found: hotel/<name>` until a second provider lists the same id.
+Groups are modality-agnostic: an embedding, rerank, decision, image or audio model forms a group by the same rule and is reached through the same `hotel/<name>` on its own endpoint (`hotel/rerank-v3.5` on `/v1/rerank`, `hotel/vela3-lite` on `/v1/systemone`). A model only one provider lists gets no group, whatever its modality; that request is `404 model not found: hotel/<name>` until a second provider lists the same id.
 
 ```go
 // internal/failover/sync.go:SyncAllModels

@@ -22,7 +22,10 @@ import (
 // Each message repeats something one of the rules looks for, so every rule is
 // fed its worst density. The bound is a ratio between two sizes, so it holds on
 // a slow machine: four times the message costs about four times as long when
-// linear, sixteen when quadratic.
+// linear, sixteen when quadratic. The line is drawn at ten, and each size is
+// the best of five runs, because the machine is also a shared one: a CI runner
+// once timed the larger size at 8.5 times the smaller on three runs each, with
+// the parser linear as ever.
 func TestParseProviderParamError_CostGrowsLinearly(t *testing.T) {
 	parse := func(unit string, size int) time.Duration {
 		msg, err := json.Marshal(strings.Repeat(unit, size/len(unit)))
@@ -34,7 +37,7 @@ func TestParseProviderParamError_CostGrowsLinearly(t *testing.T) {
 			t.Fatalf("%q: the body carries no error message, so no rule would run", unit)
 		}
 		best := time.Duration(1<<63 - 1)
-		for range 3 {
+		for range 5 {
 			start := time.Now()
 			ParseProviderParamError(body)
 			best = min(best, time.Since(start))
@@ -53,8 +56,8 @@ func TestParseProviderParamError_CostGrowsLinearly(t *testing.T) {
 		";",
 	} {
 		small, large := parse(unit, 64<<10), parse(unit, 256<<10)
-		if large > 8*small {
-			t.Errorf("%q: 256 KiB took %v, 64 KiB took %v: more than 8 times as long for 4 times the message", unit, large, small)
+		if large > 10*small {
+			t.Errorf("%q: 256 KiB took %v, 64 KiB took %v: more than 10 times as long for 4 times the message", unit, large, small)
 		}
 	}
 }

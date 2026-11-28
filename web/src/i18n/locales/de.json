@@ -1021,7 +1021,8 @@
 		"type_anthropic_messages": "Anthropic (Messages API)",
 		"card_website": "Website des Providers öffnen",
 		"card_tokens_tooltip": "Seit {{date}} über diesen Provider geleitete Tokens, Prompt und Antwort zusammen",
-		"quota_reserve_card_tooltip": "{{percent}}% des {{window}} Kontingentfensters werden als Reserve gehalten"
+		"quota_reserve_card_tooltip": "{{percent}}% des {{window}} Kontingentfensters werden als Reserve gehalten",
+		"type_systemone": "System One"
 	},
 	"models": {
 		"page_title_one": "Modell",
@@ -1399,7 +1400,8 @@
 			"stt": "STT",
 			"messages": "Nachrichten",
 			"responses": "Antworten",
-			"music": "Musik"
+			"music": "Musik",
+			"decisions": "Entscheidungen"
 		},
 		"table": {
 			"timeDate": "Zeit/Datum",

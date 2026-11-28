@@ -181,6 +181,15 @@ func localServerProbes() []localServerProbe {
 		{"ollama", "/api/tags", func(body []byte) (string, bool) {
 			return "", isOllamaTagListing(body)
 		}},
+		// System One, in its two forms. A model runtime worker stamps its
+		// /v1/models listing with the API contract version; a Router or Engine
+		// frontend serves the native listing, which a worker does not. Asked
+		// last: /v1/models is a route every OpenAI-compatible server answers,
+		// so the families with a route of their own are settled first.
+		{"systemone", "/v1/models", isSystemOneWorkerListing},
+		{"systemone", "/v1/systemone/models", func(body []byte) (string, bool) {
+			return "", isSystemOneFrontendListing(body)
+		}},
 	}
 }
 

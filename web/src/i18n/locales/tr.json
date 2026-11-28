@@ -1021,7 +1021,8 @@
 		"type_anthropic_messages": "Anthropic (Messages API)",
 		"card_website": "Sağlayıcının web sitesini aç",
 		"card_tokens_tooltip": "{{date}} tarihinden bu yana bu sağlayıcı üzerinden yönlendirilen tokenlar, istem ve yanıt toplamı",
-		"quota_reserve_card_tooltip": "{{window}} kota penceresinin {{percent}}%'i rezervde tutuluyor"
+		"quota_reserve_card_tooltip": "{{window}} kota penceresinin {{percent}}%'i rezervde tutuluyor",
+		"type_systemone": "System One"
 	},
 	"models": {
 		"page_title_one": "Model",
@@ -1399,7 +1400,8 @@
 			"stt": "STT",
 			"messages": "Mesajlar",
 			"responses": "Yanıtlar",
-			"music": "Müzik"
+			"music": "Müzik",
+			"decisions": "Kararlar"
 		},
 		"table": {
 			"timeDate": "Saat/Tarih",

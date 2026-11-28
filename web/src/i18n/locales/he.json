@@ -1063,7 +1063,8 @@
 		"type_anthropic_messages": "Anthropic (Messages API)",
 		"card_website": "פתח את אתר הספק",
 		"card_tokens_tooltip": "טוקנים שנותבו דרך ספק זה מאז {{date}}, פרומפט והשלמה יחד",
-		"quota_reserve_card_tooltip": "{{percent}}% מחלון המכסה {{window}} נשמרים ברזרבה"
+		"quota_reserve_card_tooltip": "{{percent}}% מחלון המכסה {{window}} נשמרים ברזרבה",
+		"type_systemone": "System One"
 	},
 	"models": {
 		"page_title_one": "מודל",
@@ -1454,7 +1455,8 @@
 			"stt": "STT",
 			"messages": "הודעות",
 			"responses": "תגובות",
-			"music": "מוזיקה"
+			"music": "מוזיקה",
+			"decisions": "החלטות"
 		},
 		"table": {
 			"timeDate": "שעה/תאריך",

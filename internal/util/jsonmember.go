@@ -93,6 +93,45 @@ func ListAnswerDelivered(body []byte, keys ...string) bool {
 	return true
 }
 
+// DecisionsAnswerDelivered reports whether a System One answer carries
+// anything: its entries sit in an object under "answers", or under "responses"
+// or "states" when the request was a batch. The first of those the body holds
+// decides, and it has to be an object with at least one entry that is itself
+// an object with a member: an answer carries at least its type, also when it
+// reports an error in place, so `{"q":null}` and `{"job":{}}` answer nothing.
+// A batch entry is not opened further.
+//
+// Stricter than ListAnswerDelivered, which lets a shape it does not recognise
+// pass: rerank is answered in several vendors' dialects, while System One is
+// one contract that every server speaking it answers in. A 200 carrying none
+// of the three members is therefore not an answer in a dialect this gateway
+// cannot read; it is a server that answered nothing, and counting it as
+// delivered would stop failover, credit the circuit and charge the caller for
+// it. The proxy judges live answers and the dashboard's model test judges its
+// probe through this one rule.
+func DecisionsAnswerDelivered(body []byte) bool {
+	var out map[string]json.RawMessage
+	if json.Unmarshal(body, &out) != nil {
+		return false
+	}
+	for _, key := range []string{"answers", "responses", "states"} {
+		if raw, ok := out[key]; ok {
+			var entries map[string]json.RawMessage
+			if json.Unmarshal(raw, &entries) != nil {
+				return false
+			}
+			for _, entry := range entries {
+				var members map[string]json.RawMessage
+				if json.Unmarshal(entry, &members) == nil && len(members) > 0 {
+					return true
+				}
+			}
+			return false
+		}
+	}
+	return false
+}
+
 // JSONValueIsEmpty reports whether a raw JSON value carries nothing: absent,
 // null, an array with no elements, or a string with no characters.
 //

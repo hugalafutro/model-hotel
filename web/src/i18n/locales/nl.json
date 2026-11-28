@@ -1021,7 +1021,8 @@
 		"type_anthropic_messages": "Anthropic (Messages API)",
 		"card_website": "Website van de provider openen",
 		"card_tokens_tooltip": "Tokens via deze provider gerouteerd sinds {{date}}, prompt en antwoord samen",
-		"quota_reserve_card_tooltip": "{{percent}}% van het {{window}} quotavenster wordt in reserve gehouden"
+		"quota_reserve_card_tooltip": "{{percent}}% van het {{window}} quotavenster wordt in reserve gehouden",
+		"type_systemone": "System One"
 	},
 	"models": {
 		"page_title_one": "Model",
@@ -1399,7 +1400,8 @@
 			"stt": "STT",
 			"messages": "Berichten",
 			"responses": "Antwoorden",
-			"music": "Muziek"
+			"music": "Muziek",
+			"decisions": "Beslissingen"
 		},
 		"table": {
 			"timeDate": "Tijd/Datum",

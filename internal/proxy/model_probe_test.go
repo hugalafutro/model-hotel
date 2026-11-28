@@ -363,6 +363,7 @@ func TestProbeEndpointForFamily(t *testing.T) {
 		{endpointTypeMessages, "/chat/completions", true},
 		{endpointTypeEmbeddings, "/embeddings", true},
 		{endpointTypeRerank, "", false},
+		{endpointTypeDecisions, "", false},
 		{endpointTypeImage, "", false},
 		{endpointTypeTTS, "", false},
 		{endpointTypeSTT, "", false},
@@ -527,6 +528,20 @@ func TestProbeDeliveredContent(t *testing.T) {
 		{"embedding key absent", endpointTypeEmbeddings, `{"data":[{}]}`, false},
 		{"no embedding data", endpointTypeEmbeddings, `{"data":[]}`, false},
 		{"unparseable embeddings", endpointTypeEmbeddings, `<html>502 Bad Gateway</html>`, false},
+		// A System One answer carries its entries in an object, under
+		// "answers" or, for a batch, "responses" or "states". An answer that
+		// carries an error in place is still the model answering.
+		{"decision answers", endpointTypeDecisions, `{"model":"m","answers":{"a":{"type":"noul","noul":0.9}},"usage":{"input_tokens":3}}`, true},
+		{"decision answered in place with an error", endpointTypeDecisions, `{"answers":{"a":{"type":"span","error":"invalid_question"}}}`, true},
+		{"no decision answers", endpointTypeDecisions, `{"model":"m","answers":{}}`, false},
+		{"null decision answers", endpointTypeDecisions, `{"answers":null}`, false},
+		{"decision batch responses", endpointTypeDecisions, `{"responses":{"r1":{"answers":{}}}}`, true},
+		{"decision answer that is null", endpointTypeDecisions, `{"answers":{"a":null}}`, false},
+		{"decision batch entry with nothing in it", endpointTypeDecisions, `{"states":{"job":{}},"usage":{"input_tokens":40}}`, false},
+		{"empty decision batch", endpointTypeDecisions, `{"states": {} }`, false},
+		{"decision answer without the contract's members", endpointTypeDecisions, `{"model":"m","usage":{"input_tokens":12}}`, false},
+		{"decision answers in the wrong shape", endpointTypeDecisions, `{"answers":[{"type":"noul"}]}`, false},
+		{"unparseable decisions", endpointTypeDecisions, `<html>502 Bad Gateway</html>`, false},
 		// Rerank and image generation answer in JSON too, so an empty answer
 		// there is as visible as an empty vector: a rerank that ranked nothing
 		// and an image call that produced no image are the provider answering

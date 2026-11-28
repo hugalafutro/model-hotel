@@ -165,6 +165,11 @@ describe("normalizeToProviderType - substring heuristic", () => {
 		expect(normalizeToProviderType("TabbyAPI g15")).toBe("tabbyapi");
 	});
 
+	it("matches System One g15 and vllm-sr worker to systemone", () => {
+		expect(normalizeToProviderType("System One g15")).toBe("systemone");
+		expect(normalizeToProviderType("vllm-sr worker")).toBe("systemone");
+	});
+
 	it("matches z.ai Coding Pro to zai-coding", () => {
 		expect(normalizeToProviderType("z.ai Coding Pro")).toBe("zai-coding");
 	});

@@ -1021,7 +1021,8 @@
 		"type_anthropic_messages": "Anthropic (Messages API)",
 		"card_website": "Öppna leverantörens webbplats",
 		"card_tokens_tooltip": "Tokens som skickats via denna leverantör sedan {{date}}, prompt och svar sammanlagt",
-		"quota_reserve_card_tooltip": "Håller {{percent}}% av det {{window}} kvotfönstret i reserv"
+		"quota_reserve_card_tooltip": "Håller {{percent}}% av det {{window}} kvotfönstret i reserv",
+		"type_systemone": "System One"
 	},
 	"models": {
 		"page_title_one": "Modell",
@@ -1399,7 +1400,8 @@
 			"stt": "STT",
 			"messages": "Meddelanden",
 			"responses": "Svar",
-			"music": "Musik"
+			"music": "Musik",
+			"decisions": "Beslut"
 		},
 		"table": {
 			"timeDate": "Tid/datum",

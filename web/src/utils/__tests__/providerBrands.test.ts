@@ -59,6 +59,7 @@ describe("PROVIDER_PREFIXES", () => {
 			"localai",
 			"sglang",
 			"tabbyapi",
+			"systemone",
 			"opencode",
 		];
 
@@ -85,6 +86,7 @@ describe("PROVIDER_PREFIXES", () => {
 			"localai",
 			"sglang",
 			"tabbyapi",
+			"systemone",
 			"opencode",
 		];
 

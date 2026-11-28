@@ -103,15 +103,20 @@ describe("localProviderPlaceholders", () => {
 	// These are placeholders, never values: a self-hosted server's address is
 	// the operator's to supply, and a containerised Model Hotel cannot reach
 	// its own localhost.
-	it.each(["ollama", "koboldcpp", "lmstudio", "localai", "sglang", "tabbyapi"])(
-		"offers a routable example address for %s",
-		(type) => {
-			const example = localProviderPlaceholders[type];
-			expect(example).toBeDefined();
-			expect(example).not.toContain("localhost");
-			expect(example).not.toContain("127.0.0.1");
-		},
-	);
+	it.each([
+		"ollama",
+		"koboldcpp",
+		"lmstudio",
+		"localai",
+		"sglang",
+		"tabbyapi",
+		"systemone",
+	])("offers a routable example address for %s", (type) => {
+		const example = localProviderPlaceholders[type];
+		expect(example).toBeDefined();
+		expect(example).not.toContain("localhost");
+		expect(example).not.toContain("127.0.0.1");
+	});
 });
 
 describe("isLocalProviderType", () => {
@@ -156,6 +161,7 @@ describe("hasEditableBaseUrl", () => {
 		"localai",
 		"sglang",
 		"tabbyapi",
+		"systemone",
 	])("leaves the base URL editable for %s", (type) => {
 		expect(hasEditableBaseUrl(type)).toBe(true);
 	});
@@ -308,6 +314,12 @@ describe("providerTypeTranslationKeys", () => {
 		);
 	});
 
+	it("has translation key for systemone", () => {
+		expect(providerTypeTranslationKeys.systemone).toBe(
+			"providers.type_systemone",
+		);
+	});
+
 	it("has translation key for nanogpt", () => {
 		expect(providerTypeTranslationKeys.nanogpt).toBe("providers.type_nanogpt");
 	});
@@ -372,6 +384,11 @@ describe("providerTypeAllowsEmptyKey", () => {
 
 	it("returns true for tabbyapi", () => {
 		expect(providerTypeAllowsEmptyKey("tabbyapi")).toBe(true);
+	});
+
+	// A model runtime worker has no authentication at all.
+	it("returns true for systemone", () => {
+		expect(providerTypeAllowsEmptyKey("systemone")).toBe(true);
 	});
 
 	it("returns false for openai", () => {

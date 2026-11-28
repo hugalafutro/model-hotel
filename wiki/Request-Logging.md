@@ -26,7 +26,7 @@ All fields are written to the `request_logs` PostgreSQL table.
 | `failover_attempt` | INT | Which attempt this was - `0` for the first try, incrementing with each failover |
 | `resolved_model_id` | TEXT | The actual upstream model ID used (e.g. `z-ai/glm-4.6`). Written only for `hotel/` requests, where it differs from the requested `model_id` (e.g. `hotel/glm-4.6`); empty for direct provider requests. |
 | `state` | TEXT | Request lifecycle state: `pending` → `streaming` → `completed` or `failed` |
-| `endpoint_type` | TEXT | Endpoint family the request came through: `chat` (default), `messages`, `embeddings`, `rerank`, `image`, `tts`, or `stt`. Written at INSERT time; exposed in the Logs API, filterable via `?endpoint_type=`, and shown as a badge in the dashboard Logs page for non-chat requests. |
+| `endpoint_type` | TEXT | Endpoint family the request came through: `chat` (default), `messages`, `responses`, `embeddings`, `rerank`, `decisions`, `image`, `tts`, `stt` or `music`. Written at INSERT time; exposed in the Logs API, filterable via `?endpoint_type=`, and shown as a badge in the dashboard Logs page for non-chat requests. |
 | `attempts` | JSONB | Per-attempt trail: one element per failover attempt, hedged probe and pre-request skip. NULL for rows predating migration `078` and for requests that never committed to a provider. See [Per-attempt trail](#per-attempt-trail). |
 | `duration_ms` | REAL | End-to-end wall time (request start to response end) |
 | `latency_ms` | REAL | Provider response time only (`duration_ms - proxy_overhead_ms`) |
@@ -330,7 +330,7 @@ emitted; there is nothing to enable. The list above is the whole of what
 | `client_ip` | Filter by exact client address |
 | `owner_user_id` | Admin only: restrict to one dashboard user's traffic. Ignored for non-admins, whose own scope is already forced. |
 | `status_code` | Filter by HTTP status. Accepts exact codes, `4xx`, `5xx`, or `0` for in-progress/never-responded |
-| `endpoint_type` | Filter by endpoint family: `chat`, `messages`, `embeddings`, `rerank`, `image`, `tts`, `stt` (unknown values are ignored) |
+| `endpoint_type` | Filter by endpoint family: `chat`, `messages`, `responses`, `embeddings`, `rerank`, `decisions`, `image`, `tts`, `stt`, `music` (unknown values are ignored) |
 | `attempt_provider_id` | Filter on the attempt trail: requests in which this provider was tried at all, whoever served them in the end |
 | `attempt_status` | Filter on the attempt trail: requests in which some attempt reached this upstream status |
 | `from` | Start timestamp (RFC3339) |

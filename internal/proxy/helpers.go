@@ -552,6 +552,18 @@ func passthroughPromptTextBytes(body []byte, endpointType string) int {
 			n += len(d)
 		}
 		return n
+	case endpointTypeDecisions:
+		// A decisions request's text is the state it asks about and the
+		// questions asked of it, sized as written: both are objects of text.
+		// Images and videos travel under "assets" and are not counted.
+		var req struct {
+			State     json.RawMessage `json:"state"`
+			Questions json.RawMessage `json:"questions"`
+		}
+		if json.Unmarshal(body, &req) != nil {
+			return 0
+		}
+		return len(req.State) + len(req.Questions)
 	case endpointTypeImage, endpointTypeTTS:
 		// Image generation prompts and text-to-speech input are both a single
 		// text field; TTS uses "input", images use "prompt".
